@@ -3,8 +3,8 @@
 Hand-written. Code: `packages/providers/`. User-facing versions: [user/en/providers.md](user/en/providers.md),
 [user/de/providers.md](user/de/providers.md). The provider matrix is [provider-matrix.md](provider-matrix.md).
 
-One provider layer: adapters (OpenAI-compatible `chat_completions`, Gemini, Ollama and LM Studio through the same
-OpenAI-compatible wire), one error taxonomy, one router that turns the config's `modelProfiles` into ordered fallback
+One provider layer: adapters (OpenAI-compatible `chat_completions`, Gemini, `anthropic_messages`, `codex_responses`
+(OpenAI Responses API), Ollama and LM Studio through the same OpenAI-compatible wire), one error taxonomy, one router that turns the config's `modelProfiles` into ordered fallback
 chains.
 
 ## Adapters at a glance
@@ -18,16 +18,26 @@ chains.
 | System prompt | `system`/`developer` messages | hoisted into `systemInstruction` | as chat_completions |
 | Tool schema | passed through | reduced or refused (see below) | passed through |
 
+| | anthropic_messages | codex_responses |
+|---|---|---|
+| Factory | `createAnthropicAdapter` | `createResponsesAdapter` |
+| Wire | `POST {base}/messages` (SSE), default base `https://api.anthropic.com/v1` | `POST {base}/responses` (SSE), default base `https://api.openai.com/v1` |
+| Credentials | API key (`credentials.apiKey`), header `x-api-key` only, plus `anthropic-version`; API-key route only (ADR-005 D12) | `Authorization` value supplied by the caller; `profile: "chatgpt_plan"` is a switch only, no OAuth |
+| Usage fields | `input_tokens` + cache creation + cache read → `inputTokens`; cache read → `cachedInputTokens`; `cacheCreationInputTokens` extra; no reasoning count | `input_tokens`, `cached_tokens`, `reasoning_tokens`, `total_tokens` |
+| System prompt | hoisted into top-level `system` blocks | `instructions` |
+| Tool calls | `tool_use` / `tool_result` blocks, ids sanitised | `function_call` / `function_call_output` items by `call_id` |
+| Provider options | `providerOptions.anthropic.cache` (and adapter `cache`) | `providerOptions.responses` (`reasoningEffort`, `reasoningSummary`, `store`) |
+
 Every adapter returns the same `ChatResult` and `ChatStreamEvent`s, and throws only `ProviderError`.
 
 ## Error classes
 
 | `kind` | Meaning | HTTP / provider codes | Retry | Fallback |
 |---|---|---|---|---|
-| `auth` | credentials missing, rejected or unusable | 401, 402, 403, `API_KEY_INVALID`, `UNAUTHENTICATED` | no | **no** |
-| `rate_limit` | too many requests / quota (`retryAfterMs` when given) | 429, `RESOURCE_EXHAUSTED` | yes, honouring Retry-After (quota-exhausted: no) | yes |
-| `overloaded` | provider cannot serve right now | any 5xx incl. 529, `UNAVAILABLE`, `overloaded_error` | yes | yes |
-| `context_length` | prompt does not fit | `context_length_exceeded`, Gemini token-count 400 | no | **no** |
+| `auth` | credentials missing, rejected or unusable | 401, 402, 403, `API_KEY_INVALID`, `UNAUTHENTICATED`, `authentication_error`, `invalid_api_key`, an empty Anthropic credit balance | no | **no** |
+| `rate_limit` | too many requests / quota (`retryAfterMs` when given) | 429, `RESOURCE_EXHAUSTED`, `rate_limit_error`, `rate_limit_exceeded`, `usage_limit_reached` | yes, honouring Retry-After (quota-exhausted and plan usage limit: no) | yes |
+| `overloaded` | provider cannot serve right now | any 5xx incl. 529, `UNAVAILABLE`, `overloaded_error`, `server_is_overloaded` | yes | yes |
+| `context_length` | prompt does not fit | `context_length_exceeded`, Gemini token-count 400, Anthropic "prompt is too long" | no | **no** |
 | `invalid_request` | malformed, unknown or blocked | other 4xx, content filters (`contentFiltered: true`), Gemini safety blocks, refused tool schemas | no | **no** |
 | `network` | no connection / connection broke | transport errors | yes (a dead local endpoint: no) | yes |
 | `timeout` | client bound elapsed (`timeoutPhase`) or HTTP 408 | 408 | yes | yes |
@@ -36,7 +46,7 @@ Every adapter returns the same `ChatResult` and `ChatStreamEvent`s, and throws o
 
 The raw provider error is never exposed: `code`, `providerType` and `providerMessage` are kept for diagnostics, after
 redaction. API keys (and the values of caller-supplied headers) never appear in messages, the `cause` chain, logs or
-snapshots; `test/secrets.test.ts` scans every reachable error path for key patterns.
+snapshots; `test/secrets.test.ts` and `test/secrets-wires.test.ts` scan every reachable error path for key patterns.
 
 ## Router and fallback rules
 
@@ -104,6 +114,35 @@ const registry = new Map([
 const { router, resolved } = createRouterFromProfiles(config.modelProfiles, registry, { onEvent });
 ```
 
+Mixed wires are ordinary candidates; the registry maps each provider id to the adapter that speaks its wire:
+
+```json
+{
+  "modelProfiles": {
+    "default": {
+      "candidates": [
+        { "model": "openai/gpt-4.1" },
+        { "model": "anthropic/claude-sonnet-4-5" },
+        { "model": "codex/gpt-5-codex" }
+      ]
+    }
+  }
+}
+```
+
+```ts
+const registry = new Map([
+  ["openai", { adapter: createChatCompletionsAdapter({ credentials: openaiAuth }), defaultModel: "gpt-4.1" }],
+  ["anthropic", { adapter: createAnthropicAdapter({ credentials: { apiKey: () => secrets.get("anthropic:main") } }) }],
+  ["codex", { adapter: createResponsesAdapter({ credentials: codexAuth, reasoningEffort: "medium" }) }],
+]);
+```
+
+An overloaded or rate-limited provider falls through to the next wire; `auth`, `invalid_request` and `context_length`
+from any of them end the call (`test/router/mixed-wires.test.ts`). `params.maxTokens` becomes `max_tokens` on the
+Anthropic wire and `max_output_tokens` on Responses; Anthropic needs a value, so its adapter falls back to
+`defaultMaxTokens` (4096).
+
 ## Local models (Ollama, LM Studio)
 
 - `discoverLocalEndpoints()` probes `127.0.0.1:11434` (Ollama) and `127.0.0.1:1234` (LM Studio) with a short per-request
@@ -129,9 +168,56 @@ const { router, resolved } = createRouterFromProfiles(config.modelProfiles, regi
   the tool name and schema path.
 - **System prompt.** `system` and `developer` messages are hoisted in order into `systemInstruction`; empty ones are dropped.
 
+## Anthropic Messages specifics
+
+- **Route.** API key only (ADR-005 D12). The key is read per call, sent only as `x-api-key`, refused over plain `http:`
+  to a non-loopback host, and scrubbed from every stored provider text. The Claude Code / Agent SDK route is not part of
+  this package.
+- **Request mapping.** System/developer messages → top-level `system` blocks; same-role neighbours merged; a user turn
+  lists `tool_result` blocks first; tool call ids rewritten to Anthropic's alphabet (collisions refused); images as base64
+  data URLs or http(s) URLs. `toolChoice` `auto`/`required`/`{name}`/`none` → `auto`/`any`/`tool`/`none`,
+  `parallelToolCalls: false` → `disable_parallel_tool_use`. Refused before any I/O: `temperature` above 1,
+  `responseFormat` other than `text`, an unpaired tool call or result, a conversation that does not start with a user turn.
+- **Prompt caching.** `cache: { tools, system, messages, ttl: "5m" | "1h" }` on the adapter, overridable per request via
+  `providerOptions.anthropic.cache`, places `cache_control: {type: "ephemeral"}` markers. Core types are untouched.
+- **Stream.** Content blocks are tracked by index; tool input is assembled from `input_json_delta`; thinking text is a
+  `reasoning_delta` (signatures and `redacted_thinking` are never shown or replayed); `finish` comes at `message_stop`.
+- **Stop reasons.** `end_turn`, `stop_sequence` → `stop`; `max_tokens`, `model_context_window_exceeded` → `length`;
+  `tool_use` → `tool_calls`; `refusal` → `content_filter` (a result); `pause_turn` and unknown → `other` (raw kept).
+- **Usage.** `inputTokens` = `input_tokens` + cache creation + cache read (the whole prompt, as for chat_completions);
+  `cachedInputTokens` = cache read; `cacheCreationInputTokens` is an extra key of `AnthropicUsage`.
+
+## Responses (codex_responses) specifics
+
+- **Request mapping.** System/developer → `instructions`; `input` items `message` / `function_call` /
+  `function_call_output` joined by `call_id` (over 64 characters: replaced by a stable hash); `store` defaults to
+  **false**; `reasoning.effort` and `reasoning.summary` from `providerOptions.responses` or the adapter defaults. `stop`
+  sequences are refused.
+- **`chatgpt_plan` profile.** A switch for the later ChatGPT-plan profile: forces `store:false` and `stream:true`
+  (`complete()` streams on the wire and collects), requires `instructions`, refuses `maxTokens`, `temperature`, `topP`
+  and `store:true`. No OAuth, no account logic; the caller passes the token and account headers.
+- **Stream.** `response.created` → `output_item.added/done` → `output_text.delta` / `function_call_arguments.delta` /
+  reasoning summary deltas → `response.completed` (or `incomplete`); `response.failed` and `error` are thrown. Reasoning
+  is never text; a refusal is text with finish `content_filter`; a stream without a terminal event is a `protocol` error.
+- **Rate-limit headers.** On a 429 without `retry-after`, the reset of the exhausted limit (`x-ratelimit-reset-requests`
+  / `-tokens`, Go-style durations, capped at 24 h) becomes `retryAfterMs`. `insufficient_quota` and `usage_limit_reached`
+  are `rate_limit` with `retryable: false`.
+
+## Limits and follow-ups (anthropic_messages, codex_responses)
+
+- Anthropic thinking-block signatures are not replayed (no field in `ChatMessage`): extended thinking across tool turns
+  is not supported yet. `cacheCreationInputTokens` is an adapter-level `Usage` extension (core types untouched).
+- Anthropic has no `responseFormat` other than `text`; Responses has no `stop`.
+- The `chatgpt_plan` refusal list is from documented behaviour, not verified against the live backend; the auth engine is
+  a separate component.
+- `src/anthropic/tool-args.ts` (shared with Responses) should move to `src/` and be shared with the other adapters.
+- Fixtures are synthetic reconstructions (`packages/providers/test/contract/fixtures/README.md`); recorded captures
+  replace them later. The end-to-end tool-call run through `plur1bus chat` (M2 acceptance 3) is a follow-up; the provider
+  half is `test/roundtrip.test.ts`.
+
 ## Usage accounting
 
-`Usage` has `inputTokens`, `outputTokens`, `totalTokens`, `cachedInputTokens`, `reasoningTokens`, all optional. **A count
+`Usage` has `inputTokens, `outputTokens`, `totalTokens`, `cachedInputTokens`, `reasoningTokens`, all optional. **A count
 the provider did not report is `undefined`, never 0.** Consumers must handle `undefined` (the core budget types still
 expect numbers; bridging them is a follow-up).
 
@@ -143,5 +229,5 @@ every adapter against recorded, **synthetic** wire fixtures with no network.
 
 ## Public exports
 
-`src/index.ts` is the whole public surface and is grouped: errors, neutral types, chat_completions, Gemini, router,
-profiles, local models. Everything else is internal.
+`src/index.ts` is the whole public surface and is grouped: errors, neutral types, chat_completions, Gemini, Anthropic
+Messages, OpenAI Responses, router, profiles, local models. Everything else is internal.
