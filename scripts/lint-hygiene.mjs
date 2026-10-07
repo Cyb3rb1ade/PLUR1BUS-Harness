@@ -16,10 +16,10 @@ const ROOTS = ["packages", "crates", "tests", "scripts", "apps", "clients", "hos
 const SKIP_DIRS = new Set(["node_modules", "dist", "target", "generated", ".git", "__pycache__", ".venv", "venv"]);
 const EXT = new Set([".ts", ".mjs", ".js", ".rs", ".json", ".md", ".toml", ".yaml", ".yml", ".py"]);
 const PATTERNS = [
-  { re: /openclaw/i, why: "no OpenClaw idiom in the harness (spec D9)" },
-  { re: /OPENCLAW_/, why: "no host env names" },
-  { re: /["'`]\/(state|forget)["'`]/, why: "no slash-command emulation" },
-  { re: /adapter\/openclaw|host-services\.js|plugin-runtime/, why: "no adapter or host-services import" },
+  { id: "HYG-001", re: /openclaw/i, why: "no OpenClaw idiom in the harness (spec D9)" },
+  { id: "HYG-002", re: /OPENCLAW_/, why: "no host env names" },
+  { id: "HYG-003", re: /["'`]\/(state|forget)["'`]/, why: "no slash-command emulation" },
+  { id: "HYG-004", re: /adapter\/openclaw|host-services\.js|plugin-runtime/, why: "no adapter or host-services import" },
 ];
 // The ext files the supervisor can reach (X1-R2) and the ones that only the worker process runs. Every file under
 // crates/plur1bus/src/ext/ must be in exactly one list, so a new file cannot slip past the rule unclassified.
@@ -32,8 +32,8 @@ const SCOPED = [
     // (`crate::install::{fetch,archive}`, reached from setup/update/repair), never to the supervisor.
     prefix: "crates/plur1bus/src/supervisor/",
     patterns: [
-      { re: /\b(ureq|flate2|tar::|zip::|minisign_verify|install::fetch|install::archive)\b/, why: "supervisor dependency budget (spec §4)" },
-      { re: /\b(tar|zip)::[{*]/, why: "supervisor dependency budget (spec §4)" },
+      { id: "HYG-005", re: /\b(ureq|flate2|tar::|zip::|minisign_verify|install::fetch|install::archive)\b/, why: "supervisor dependency budget (spec §4)" },
+      { id: "HYG-006", re: /\b(tar|zip)::[{*]/, why: "supervisor dependency budget (spec §4)" },
     ],
   },
   {
@@ -45,17 +45,20 @@ const SCOPED = [
     files: EXT_SAFE.map((n) => `crates/plur1bus/src/ext/${n}.rs`),
     patterns: [
       {
+        id: "HYG-007",
         re: /\b(plur1bus_ext::(zipaudit|verify|pack|normalise)|install::archive|zip::|flate2|minisign_verify)\b/,
         why: "supervisor must not parse package bytes (X1-R2)",
       },
       // `zip::` ends in a non-word character, so `\b` after it does not match before `{` or `*`.
-      { re: /\bzip::[{*]/, why: "supervisor must not parse package bytes (X1-R2)" },
+      { id: "HYG-008", re: /\bzip::[{*]/, why: "supervisor must not parse package bytes (X1-R2)" },
       {
+        id: "HYG-009",
         multi: true,
         re: /\bplur1bus_ext::\{[^;]*?\b(zipaudit|verify|pack|normalise)\b/,
         why: "supervisor must not parse package bytes (X1-R2)",
       },
       {
+        id: "HYG-010",
         multi: true,
         re: /\binstall::\{[^;]*?\barchive\b/,
         why: "supervisor must not parse package bytes (X1-R2)",
@@ -108,7 +111,7 @@ for (const entry of tracked.stdout.split("\0").filter(Boolean)) {
   const [metadata, ...parts] = entry.split("\t");
   const path = parts.join("\t");
   if (/\.(p12|p8|pfx|key|pem|keystore|oci\.tar)$/i.test(path)) {
-    console.error(`${path}: forbidden tracked file`);
+    console.error(`[HYG-012] ${path}: forbidden tracked file`);
     bad += 1;
   }
   const [mode, hash] = metadata.split(" ");
@@ -125,7 +128,7 @@ for (const entry of tracked.stdout.split("\0").filter(Boolean)) {
     ? blob.stdout.replaceAll("`untrusted comment: " + "minisign secret key`", "[documented header]")
     : blob.stdout;
   if (/-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----|untrusted comment: minisign (?:encrypted )?secret key/i.test(text)) {
-    console.error(`${path}: private key header`);
+    console.error(`[HYG-013] ${path}: private key header`);
     bad += 1;
   }
 }
@@ -145,20 +148,20 @@ function walk(dir) {
     const allow = ALLOW.get(rel) ?? [];
     const patterns = [...PATTERNS, ...SCOPED.filter((s) => (s.files ? s.files.includes(rel) : rel.startsWith(s.prefix))).flatMap((s) => s.patterns)];
     const text = readFileSync(p, "utf8");
-    for (const { re, why, multi } of patterns) {
+    for (const { id, re, why, multi } of patterns) {
       const m = multi ? re.exec(text) : null;
       if (m) {
         const at = text.slice(0, m.index).split(/\r?\n/).length;
-        console.error(`${rel}:${at}: ${why}: ${m[0].replace(/\s+/g, " ").slice(0, 120)}`);
+        console.error(`[${id}] ${rel}:${at}: ${why}: ${m[0].replace(/\s+/g, " ").slice(0, 120)}`);
         bad += 1;
       }
     }
     text
       .split(/\r?\n/) // a Windows checkout (core.autocrlf) has CRLF; anchored allow-list regexes must still match
       .forEach((line, i) => {
-        for (const { re, why, multi } of patterns) {
+        for (const { id, re, why, multi } of patterns) {
           if (!multi && re.test(line) && !allow.some((a) => a.test(line))) {
-            console.error(`${rel}:${i + 1}: ${why}: ${line.trim().slice(0, 120)}`);
+            console.error(`[${id}] ${rel}:${i + 1}: ${why}: ${line.trim().slice(0, 120)}`);
             bad += 1;
           }
         }
@@ -170,7 +173,7 @@ try {
   for (const name of readdirSync(EXT_DIR)) {
     const stem = name.replace(/\.rs$/, "");
     if (name.endsWith(".rs") && !EXT_SAFE.includes(stem) && !EXT_WORKER.includes(stem)) {
-      console.error(`${EXT_DIR}/${name}:1: ext file is in neither EXT_SAFE nor EXT_WORKER (scripts/lint-hygiene.mjs, X1-R2)`);
+      console.error(`[HYG-011] ${EXT_DIR}/${name}:1: ext file is in neither EXT_SAFE nor EXT_WORKER (scripts/lint-hygiene.mjs, X1-R2)`);
       bad += 1;
     }
   }
