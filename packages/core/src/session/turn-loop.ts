@@ -6,6 +6,7 @@ import type { Compactor } from "./compaction.ts";
 import { estimateTokens } from "./compaction.ts";
 import type { TurnMemory } from "./memory-port.ts";
 import type { ChatProvider } from "./provider.ts";
+import type { DispatchContext, ToolDispatcher } from "../tools/dispatcher.ts";
 import type { SessionStore } from "./store.ts";
 import { SessionError, type EventRecord, type SessionRecord } from "./types.ts";
 
@@ -18,6 +19,8 @@ export interface TurnRunnerDeps {
   /** Every persisted event, as it is persisted, with its session (the core relays it as `session.event`). */
   notify?: (e: EventRecord, session: SessionRecord) => void;
   logger?: TurnLoopLogger;
+  /** B1: when set, a provider `tool.call` is executed through the dispatcher (policy gate, limits, provenance). Absent: nothing executes. */
+  toolCalls?: { dispatcher: ToolDispatcher; context: (a: { session: SessionRecord; caller: CallerIdentity }) => Omit<DispatchContext, "signal"> };
   /** The core's shutdown signal: aborts running turns, which then end `failed` (reason `aborted`). */
   signal?: AbortSignal;
 }
@@ -88,11 +91,22 @@ export class TurnRunner {
       for await (const chunk of provider.stream({
         sessionId: session.id, agentId: session.agentId, summaries: view.summaries.map((s) => s.text), memory: recalled.text,
         messages: view.messages.map((m) => ({ role: m.role, text: m.text })), signal,
+        ...(this.#d.toolCalls ? { tools: this.#d.toolCalls.dispatcher.describe() } : {}),
       })) {
         signal.throwIfAborted();
         if (chunk.type === "delta") { reply += chunk.text; this.#event(turnId, "delta", { index: index++, text: chunk.text }, session); }
-        else if (chunk.type === "tool.call") this.#event(turnId, "tool.call", { id: chunk.id, name: chunk.name, ...(chunk.args !== undefined ? { args: chunk.args } : {}) }, session);
-        else if (chunk.type === "tool.result") this.#event(turnId, "tool.result", { id: chunk.id, output: chunk.output }, session);
+        else if (chunk.type === "tool.call") {
+          this.#event(turnId, "tool.call", { id: chunk.id, name: chunk.name, ...(chunk.args !== undefined ? { args: chunk.args } : {}) }, session);
+          const tc = this.#d.toolCalls;
+          if (tc) {
+            // The dispatcher never throws; its error envelopes are results like any other. Only an abort ends the turn.
+            const res = await tc.dispatcher.call({ id: chunk.id, name: chunk.name, args: chunk.args }, { ...tc.context({ session, caller }), signal });
+            signal.throwIfAborted();
+            this.#event(turnId, "tool.result", { id: chunk.id, output: JSON.stringify(res), isError: res.isError }, session);
+          }
+        }
+        // RULING: with a dispatcher the harness executes; a result the provider reports itself is ignored (it could forge provenance).
+        else if (chunk.type === "tool.result") { if (!this.#d.toolCalls) this.#event(turnId, "tool.result", { id: chunk.id, output: chunk.output }, session); }
         else usage = { inputTokens: chunk.inputTokens, outputTokens: chunk.outputTokens };
       }
 

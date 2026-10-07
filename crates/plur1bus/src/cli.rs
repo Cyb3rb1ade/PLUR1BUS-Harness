@@ -66,7 +66,7 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: AcpCmd,
     },
-    /// Dreaming jobs: status, run, log
+    /// Dreaming: phase schedules, status, run, log
     Dreams {
         #[command(subcommand)]
         sub: DreamsCmd,
@@ -535,26 +535,94 @@ pub enum ProposalsCmd {
 }
 #[derive(Subcommand, Debug)]
 pub enum DreamsCmd {
-    /// [experimental] Dreaming job status and breaker state
+    /// [experimental] Dreaming status: the three phase schedules, last runs, breaker and importance, plus the engine jobs
     Status {
         #[arg(long)]
         agent: Option<String>,
     },
-    /// [experimental] Run a dreaming job now
+    /// [experimental] Run a dreaming phase (light, rem or deep) now under every guard but the cron gate; an engine job name still runs that job
     Run {
-        job: String,
+        /// light, rem or deep (a phase), or an engine job name such as gc-run
+        target: String,
         #[arg(long)]
         agent: String,
+        /// evaluate the guards and print what would happen, without a ledger row or an engine call (phases only)
+        #[arg(long)]
+        dry_run: bool,
     },
-    /// [experimental] Dreaming job run history
+    /// [experimental] Dreaming run history; with --run, one run and its log
     Log {
-        #[arg(long)]
-        agent: String,
-        #[arg(long)]
+        #[arg(long, required_unless_present = "run")]
+        agent: Option<String>,
+        #[arg(long, conflicts_with = "phase")]
         job: Option<String>,
+        /// show the phase ledger (light, rem or deep) instead of the engine job history
+        #[arg(long, value_enum)]
+        phase: Option<PhaseArg>,
+        /// one phase run by id, with its per-run log
+        #[arg(long, conflicts_with_all = ["job", "phase"])]
+        run: Option<String>,
         #[arg(long, default_value_t = 20)]
         limit: u32,
     },
+    /// [experimental] Phase schedules: get, set
+    Schedule {
+        #[command(subcommand)]
+        sub: DreamsScheduleCmd,
+    },
+    /// [experimental] Enable one phase's schedule
+    Enable {
+        #[arg(value_enum)]
+        phase: PhaseArg,
+        #[arg(long)]
+        agent: String,
+    },
+    /// [experimental] Disable one phase's schedule (run now still works)
+    Disable {
+        #[arg(value_enum)]
+        phase: PhaseArg,
+        #[arg(long)]
+        agent: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DreamsScheduleCmd {
+    /// [experimental] The three phase schedules of an agent
+    Get {
+        #[arg(long)]
+        agent: String,
+    },
+    /// [experimental] Change one phase's cron (5 fields), IANA timezone or enabled switch
+    Set {
+        #[arg(value_enum)]
+        phase: PhaseArg,
+        #[arg(long)]
+        agent: String,
+        #[arg(long)]
+        cron: Option<String>,
+        #[arg(long)]
+        timezone: Option<String>,
+        #[arg(long)]
+        enabled: Option<bool>,
+    },
+}
+
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PhaseArg {
+    Light,
+    Rem,
+    Deep,
+}
+
+impl PhaseArg {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            PhaseArg::Light => "light",
+            PhaseArg::Rem => "rem",
+            PhaseArg::Deep => "deep",
+        }
+    }
 }
 #[derive(Subcommand, Debug)]
 pub enum ConfigCmd {

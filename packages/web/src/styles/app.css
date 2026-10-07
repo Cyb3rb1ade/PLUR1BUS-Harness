@@ -29,6 +29,7 @@ select { width: auto; min-width: 120px; }
 .password-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
 .form-error:empty { display: none; }
 .form-error { margin: 0 0 16px; padding: 10px 12px; border-radius: 10px; background: var(--err-bg); color: var(--err-ink); border: 1px solid var(--err-border); font-size: 13.5px; }
+.form-notice { margin: 0 0 16px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border, currentColor); font-size: 13.5px; }
 input[aria-invalid="true"] { border-color: var(--err-ink); }
 .inline-field { display: inline-flex; align-items: center; gap: 8px; }
 

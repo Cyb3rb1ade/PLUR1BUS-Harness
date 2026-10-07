@@ -144,6 +144,7 @@ pub(crate) fn kind_name(k: Kind) -> &'static str {
         Kind::Module => "module",
         Kind::Channel => "channel",
         Kind::McpServer => "mcp-server",
+        Kind::Provider => "provider",
         Kind::Bundle => "bundle",
     }
 }

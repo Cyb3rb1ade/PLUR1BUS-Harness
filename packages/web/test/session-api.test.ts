@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
 import { HttpSessionApi } from "../src/session.ts";
-import { cookieFetch, MockHarnessServer } from "./mock-server.ts";
+import { cookieFetch, MockHarnessServer, OWNER_TOKEN } from "./mock-server.ts";
 
 let dist = "";
 before(async () => { dist = await mkdtemp(join(tmpdir(), "p1web-api-")); });
@@ -16,23 +16,24 @@ async function withServer(run: (s: MockHarnessServer, base: string) => Promise<v
   try { await run(s, base); } finally { await s.stop(); }
 }
 
-const good = { username: "alice", password: "correct horse battery" };
+const owner = { id: "owner", role: "owner" };
 
-test("login succeeds, whoami then returns the same user, and the password never appears in a URL", async () => {
+test("login posts the token to /api/v1/session, whoami then answers the principal, the token is in no URL", async () => {
   await withServer(async (s, base) => {
     const api = new HttpSessionApi(base, cookieFetch());
     assert.equal(await api.whoami(), null);
-    const r = await api.login(good);
-    assert.deepEqual(r, { ok: true, user: { userId: "alice", displayName: "Alice", role: "owner" } });
-    assert.deepEqual(await api.whoami(), { userId: "alice", displayName: "Alice", role: "owner" });
-    for (const q of s.requests) assert.ok(!q.url.includes("correct"), q.url);
+    assert.deepEqual(await api.login({ token: OWNER_TOKEN }), { ok: true, user: owner });
+    assert.deepEqual(await api.whoami(), owner);
+    const login = s.requests.find((q) => q.method === "POST" && q.url === "/api/v1/session");
+    assert.deepEqual(JSON.parse(login!.body), { token: OWNER_TOKEN });
+    for (const q of s.requests) assert.ok(!q.url.includes(OWNER_TOKEN), q.url);
   });
 });
 
-test("wrong credentials are reported as invalid-credentials and create no session", async () => {
+test("a wrong token is invalid-token and creates no session", async () => {
   await withServer(async (s, base) => {
     const api = new HttpSessionApi(base, cookieFetch());
-    assert.deepEqual(await api.login({ username: "alice", password: "nope" }), { ok: false, failure: { kind: "invalid-credentials" } });
+    assert.deepEqual(await api.login({ token: "x".repeat(40) }), { ok: false, failure: { kind: "invalid-token" } });
     assert.equal(s.sessions.size, 0);
   });
 });
@@ -40,43 +41,88 @@ test("wrong credentials are reported as invalid-credentials and create no sessio
 test("429 carries Retry-After into the failure", async () => {
   await withServer(async (_s, base) => {
     const api = new HttpSessionApi(base, cookieFetch());
-    for (let i = 0; i < 2; i++) await api.login({ username: "alice", password: "nope" });
-    assert.deepEqual(await api.login(good), { ok: false, failure: { kind: "rate-limited", retryAfterSeconds: 30 } });
+    for (let i = 0; i < 2; i++) await api.login({ token: "x".repeat(40) });
+    assert.deepEqual(await api.login({ token: OWNER_TOKEN }), { ok: false, failure: { kind: "rate-limited", retryAfterSeconds: 30 } });
   }, { maxFailures: 2 });
 });
 
 test("network failure, server error and malformed success are distinct failures", async () => {
   const down = new HttpSessionApi("http://127.0.0.1:1", fetch);
-  assert.deepEqual(await down.login(good), { ok: false, failure: { kind: "network" } });
+  assert.deepEqual(await down.login({ token: OWNER_TOKEN }), { ok: false, failure: { kind: "network" } });
   await withServer(async (s, base) => {
     s.forceStatus = 503;
-    assert.deepEqual(await new HttpSessionApi(base, cookieFetch()).login(good), { ok: false, failure: { kind: "server", status: 503 } });
+    assert.deepEqual(await new HttpSessionApi(base, cookieFetch()).login({ token: OWNER_TOKEN }), { ok: false, failure: { kind: "server", status: 503 } });
     await assert.rejects(new HttpSessionApi(base, cookieFetch()).whoami());
   });
-  const garbage: typeof fetch = async () => new Response("{\"userId\":1}", { status: 200, headers: { "content-type": "application/json" } });
-  assert.deepEqual(await new HttpSessionApi("", garbage).login(good), { ok: false, failure: { kind: "server", status: 200 } });
+  const garbage: typeof fetch = async () => new Response("{\"principal\":1}", { status: 200, headers: { "content-type": "application/json" } });
+  assert.deepEqual(await new HttpSessionApi("", garbage).login({ token: OWNER_TOKEN }), { ok: false, failure: { kind: "server", status: 200 } });
 });
 
-test("logout sends the CSRF token, ends the session server-side and never throws", async () => {
+test("logout fetches a one-time CSRF token, sends it on DELETE /api/v1/session and ends the session", async () => {
   await withServer(async (s, base) => {
     const api = new HttpSessionApi(base, cookieFetch());
-    await api.login(good);
-    const csrf = [...s.sessions.values()][0]!.csrf;
+    await api.login({ token: OWNER_TOKEN });
     await api.logout();
-    const post = s.requests.filter((q) => q.url === "/api/v1/auth/logout").at(-1);
-    assert.equal(post?.csrf, csrf);
+    const reqs = s.requests.map((q) => `${q.method} ${q.url}`);
+    assert.deepEqual(reqs.slice(-2), ["GET /api/v1/csrf", "DELETE /api/v1/session"]);
+    assert.ok(s.requests.at(-1)!.csrf, "the DELETE carries X-CSRF-Token");
     assert.equal(s.sessions.size, 0);
     assert.equal(await api.whoami(), null);
   });
-  await new HttpSessionApi("http://127.0.0.1:1", fetch).logout();
+  await new HttpSessionApi("http://127.0.0.1:1", fetch).logout(); // never throws
 });
 
-test("logout without the CSRF token is refused by the mock (so the client must send it)", async () => {
+test("every mutating request gets a fresh CSRF token (they are one-time)", async () => {
   await withServer(async (s, base) => {
-    const f = cookieFetch();
-    await new HttpSessionApi(base, f).login(good);
-    const res = await f(base + "/api/v1/auth/logout", { method: "POST" });
-    assert.equal(res.status, 403);
-    assert.equal(s.sessions.size, 1);
+    const api = new HttpSessionApi(base, cookieFetch());
+    await api.login({ token: OWNER_TOKEN });
+    const a = await api.write("DELETE", "/api/v1/session");
+    assert.deepEqual(a, { ok: true, status: 200, body: { schema: "session.delete/1", ok: true } });
+    await api.login({ token: OWNER_TOKEN });
+    await api.write("DELETE", "/api/v1/session");
+    const tokens = s.requests.filter((q) => q.method === "DELETE").map((q) => q.csrf);
+    assert.equal(tokens.length, 2);
+    assert.notEqual(tokens[0], tokens[1]);
   });
+});
+
+test("a refused CSRF token is retried once with a fresh one; a second refusal is a csrf failure", async () => {
+  await withServer(async (s, base) => {
+    const api = new HttpSessionApi(base, cookieFetch());
+    await api.login({ token: OWNER_TOKEN });
+    s.rejectCsrf = 1;
+    assert.equal((await api.write("DELETE", "/api/v1/session")).ok, true);
+    await api.login({ token: OWNER_TOKEN });
+    s.rejectCsrf = 2;
+    assert.deepEqual(await api.write("DELETE", "/api/v1/session"), { ok: false, failure: { kind: "csrf" } });
+    assert.equal(s.sessions.size, 1, "the session survives a refused write");
+  });
+});
+
+test("an expired session surfaces as session-expired, on whoami as null and on a write as a failure", async () => {
+  await withServer(async (s, base) => {
+    const api = new HttpSessionApi(base, cookieFetch());
+    await api.login({ token: OWNER_TOKEN });
+    s.expireAll();
+    assert.deepEqual(await api.write("DELETE", "/api/v1/session"), { ok: false, failure: { kind: "session-expired" } });
+    assert.equal(await api.whoami(), null);
+  });
+});
+
+test("the token is never kept in storage, logged or put in a header other than the login body", async () => {
+  const seen: string[] = [];
+  const spy: typeof fetch = async (input, init) => {
+    seen.push(String(input), JSON.stringify(init?.headers ?? {}));
+    return new Response("{}", { status: 401 });
+  };
+  const logged: string[] = [];
+  const orig = { log: console.log, warn: console.warn, error: console.error, info: console.info, debug: console.debug };
+  for (const k of Object.keys(orig) as (keyof typeof orig)[]) console[k] = (...a: unknown[]) => { logged.push(a.map(String).join(" ")); };
+  try {
+    const api = new HttpSessionApi("", spy);
+    await api.login({ token: OWNER_TOKEN });
+    await api.whoami();
+    await api.logout();
+  } finally { Object.assign(console, orig); }
+  for (const x of [...seen, ...logged]) assert.ok(!x.includes(OWNER_TOKEN), x);
 });
