@@ -31,9 +31,8 @@ function euidOf(o: TrustOptions): number | undefined {
   return o.euid ?? (typeof process.geteuid === "function" ? process.geteuid() : undefined);
 }
 
-/** `dir` must be a real directory of the current user that group and others cannot write to. A missing directory is
- *  `{ ok: true }`: that is "core absent", which the connect reports as it always did. */
-/** Checks that a POSIX run directory is a real, current-user-owned directory not writable by others. */
+/** Checks that a POSIX run directory is a real, current-user-owned directory not writable by others.
+ *  A missing directory returns `{ ok: true }`, representing "core absent". */
 export function checkRunDir(dir: string, o: TrustOptions = {}): TrustVerdict {
   if ((o.platform ?? process.platform) === "win32") return { ok: true };
   const euid = euidOf(o);
