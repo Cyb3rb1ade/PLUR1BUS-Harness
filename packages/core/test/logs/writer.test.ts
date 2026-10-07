@@ -46,12 +46,12 @@ it("live precedence, trace admission and one expiry without config mutation", ()
 it("redaction before byte truncation, secret encodings and SHA preservation", () => {
   const dir = logsDir(); const w = createWriter({ dir, role: "core", source, timers: false, redactPii: true });
   const canary = "fixture canary secret"; w.registerSecret(canary);
-  const values = [canary, Buffer.from(canary).toString("base64"), encodeURIComponent(canary), "ek_" + "Q".repeat(20), "sk-proj-" + "Q".repeat(24), "ghp_" + "Q".repeat(36), "github_pat_" + "Q".repeat(24), "xoxb-" + "Q".repeat(15), "AKIA" + "Q".repeat(16), "AIza" + "Q".repeat(35), "eyJabc.eyJabc.abcdef", "PLUR1BUS_TEST=fixture-env", "-----BEGIN " + "PRIVATE KEY-----fixture-pem-----END " + "PRIVATE KEY-----", "Bearer fixture-bearer", "Basic Zml4dHVyZTpwYXNz", "Authorization: fixture-header", "password=fixture-pass", "https://fixture:pass@example.test/?code=fixture-code#fixture-fragment", "/fixture/.ssh/id_ed25519", "person@example.test"];
+  const values = [canary, Buffer.from(canary).toString("base64"), encodeURIComponent(canary), "ek_" + "Q".repeat(20), "sk-proj-" + "Q".repeat(24), "ghp_" + "Q".repeat(36), "github_pat_" + "Q".repeat(24), "xoxb-" + "Q".repeat(15), "AKIA" + "Q".repeat(16), "AIza" + "Q".repeat(35), "eyJabc.eyJabc.abcdef", "PLUR1BUS_TEST=fixture-env", "-----BEGIN " + "PRIVATE KEY-----fixture-pem-----END " + "PRIVATE KEY-----", "Bearer fixture-bearer", "Basic Zml4dHVyZTpwYXNz", "Authorization: fixture-header", "password=fixture-pass", "https://fixture:pass@example.test/?code=fixture-code#fixture-fragment", "/fixture/.ssh/id_ed25519", "/fixture/Library/Application Support/Google/Chrome/Default/Cookies", "/fixture/Library/Group Containers/2BUA8C4S2C.com.1password/data", "person@example.test"];
   for (const text of values) w.write("process.output.line", { text, untrusted: true }, { stream: "stdout" });
   w.write("process.output.line", { text: "a".repeat(64), untrusted: true }, { stream: "stdout" });
   w.write("process.output.line", { text: "😀".repeat(5000) + canary, untrusted: true }, { stream: "stdout" }); w.close();
   const text = readFileSync(path.join(dir, "core.log"), "utf8");
-  for (const secret of [canary, ...values.slice(1, 10), "fixture-header", "fixture-pass", "fixture-code", "fixture-fragment", "fixture-pem", "fixture-env", "person@example.test"]) assert.ok(!text.includes(secret), secret);
+  for (const secret of [canary, ...values.slice(1, 10), "fixture-header", "fixture-pass", "fixture-code", "fixture-fragment", "fixture-pem", "fixture-env", "Application Support/Google/Chrome", "Group Containers/2BUA8C4S2C.com.1password", "person@example.test"]) assert.ok(!text.includes(secret), secret);
   assert.ok(text.includes("a".repeat(64)));
   for (const r of records(dir)) { assert.ok(Buffer.byteLength(JSON.stringify(r)) <= 4096); assert.equal(validateRecord(r).ok, true, JSON.stringify(validateRecord(r))); }
 });
@@ -150,7 +150,7 @@ it("live level updates report changes and truncate large required arrays", () =>
 });
 it("writer redacts whole Authorization/Cookie headers before shortening text", () => {
   const dir = logsDir(); const w = createWriter({ dir, role: "core", source, timers: false });
-  for (const text of ["Authorization: Bearer fixture-short-auth", "Cookie: session=fixture-cookie-one; other=fixture-cookie-two", "request authorization=Bearer fixture-inline-auth"]) w.write("process.output.line", { text, untrusted: true }, { stream: "stderr" });
+  for (const text of ["Authorization: Bearer fixture-short-auth", "Cookie: session=fixture-cookie-one; other=fixture-cookie-two", "request authorization=Bearer fixture-inline-auth", "request authorization=bearer fixture-lower-auth", "header Cookie: sid=fixture-inline-cookie-one; other=fixture-inline-cookie-two"]) w.write("process.output.line", { text, untrusted: true }, { stream: "stderr" });
   w.close(); const written = readFileSync(path.join(dir, "core.log"), "utf8");
-  for (const s of ["fixture-short-auth", "fixture-cookie-one", "fixture-cookie-two", "fixture-inline-auth"]) assert.ok(!written.includes(s));
+  for (const s of ["fixture-short-auth", "fixture-cookie-one", "fixture-cookie-two", "fixture-inline-auth", "fixture-lower-auth", "fixture-inline-cookie-one", "fixture-inline-cookie-two"]) assert.ok(!written.includes(s));
 });
