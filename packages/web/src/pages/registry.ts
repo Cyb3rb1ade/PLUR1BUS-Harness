@@ -1,5 +1,6 @@
 import { GALLERY_ITEM, type NavItem } from "../nav.ts";
 import type { View } from "../view.ts";
+import { ChatPage } from "./chat/page.ts";
 import { DoctorPage } from "./doctor/page.ts";
 import { GalleryPage } from "./gallery.ts";
 import { ModelsPage } from "./models/page.ts";
@@ -13,7 +14,7 @@ export type PageComponent = (props: PageProps) => View | null;
  *   import { MemoriesPage } from "./memories.ts";   ...   memories: MemoriesPage,
  * Pages render inside the shell's <main> and an ErrorBoundary; they own their <h1> (use `Page` from components/page.ts). */
 export const PAGES: Readonly<Record<string, PageComponent>> = {
-  chat: PlaceholderPage,
+  chat: ChatPage,
   projects: PlaceholderPage,
   agents: PlaceholderPage,
   inbox: PlaceholderPage,

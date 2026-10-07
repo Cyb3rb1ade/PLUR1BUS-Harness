@@ -17,7 +17,7 @@ describe("fromResume", () => {
     assert.deepEqual(texts(tr), ["user:hello", "assistant:hi"]);
     assert.equal(tr.lastSeq, 7);
     assert.equal(tr.runningTurnId, null);
-    assert.equal(tr.entries[1]?.state, "completed");
+    assert.equal(tr.entries[1]?.state, undefined, "history entries are finished, they carry no live state");
   });
 
   test("a running turn restarts event replay at 0 and keeps completed turns out of the replay", () => {

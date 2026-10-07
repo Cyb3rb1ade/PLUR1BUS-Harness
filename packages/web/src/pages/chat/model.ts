@@ -7,7 +7,7 @@ export type Entry = {
   role: "user" | "assistant" | "system" | "tool";
   text: string;
   turnId: string | null;
-  /** Assistant entries of a turn only. */
+  /** Assistant entries of a turn seen live only (history entries carry no state: they are simply finished). */
   state?: TurnState;
   error?: string;
 };
@@ -32,7 +32,7 @@ export function fromResume(r: { messages: readonly SessionMessage[]; runningTurn
   const entries: Entry[] = sorted.map((m) => {
     const turnId = m.turnId ?? null;
     if (m.role === "assistant" && turnId !== null) done.add(turnId);
-    return { id: m.id, role: m.role, text: m.text, turnId, ...(m.role === "assistant" ? { state: "completed" as const } : {}) };
+    return { id: m.id, role: m.role, text: m.text, turnId };
   });
   return { entries, lastSeq: r.runningTurnId === null ? r.lastEventSeq : 0, runningTurnId: r.runningTurnId, done };
 }
