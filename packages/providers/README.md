@@ -84,3 +84,11 @@ cd packages/providers && pnpm test      # or: node ../../scripts/test-package.mj
 
 Only hand-made fixtures (`test/fixtures/`, synthetic ids, no keys) and a local stub HTTP server on `127.0.0.1`;
 no live call, no network beyond loopback. Every test has a hard timeout.
+
+## Router (`src/router/`)
+
+`ProviderRouter` maps a profile name to an ordered candidate list (`provider`, `model`, adapter) and adds retry with
+jittered backoff, a circuit breaker per provider+model (closed / open / half-open) and fallback. Fallback happens only
+before the first streamed event and always emits `provider.fallback` through `onEvent`; a `BudgetGuard` port is asked
+before every attempt so a fallback cannot bypass a cost limit. Content-filter, context-length and bad-request errors
+are never retried nor routed to another vendor. Time and randomness are injected (`Clock`, `random`).

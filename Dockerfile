@@ -55,13 +55,15 @@ RUN --mount=type=secret,id=engine_token,required=false \
       GIT_CONFIG_KEY_0="url.${base}.insteadOf" GIT_CONFIG_VALUE_0="https://github.com/" \
       GIT_CONFIG_KEY_1="url.${base}.insteadOf" GIT_CONFIG_VALUE_1="git@github.com:" \
       GIT_CONFIG_KEY_2="url.${base}.insteadOf" GIT_CONFIG_VALUE_2="ssh://git@github.com/"; \
-    pnpm --filter @plur1bus/core deploy --legacy --prod --config.node-linker=hoisted /out/core \
+    pnpm --filter @plur1bus/core deploy --legacy --prod /out/core \
     && test -f /out/core/dist/core.js \
     && test -f /out/core/dist/import.js \
     && cd /out/core \
     && node --input-type=module -e "for (const m of ['@plur1bus/module-api','@plur1bus/rpc-schema','@plur1bus/config-schema']) await import(m)" \
     && rm -rf /out/core/src /out/core/test \
     # pnpm stamps these with the install time: they would make two builds of one commit differ
+    # (The default isolated layout is deliberate: the hoisted linker picks which of two versions of typical/array-back
+    # (command-line-args, via apache-arrow) lands at the top of node_modules differently from run to run, #149.)
     && find /out/core -maxdepth 2 \( -name .modules.yaml -o -name '.pnpm-workspace-state*' \) -delete
 
 # ---- 3. runtime ------------------------------------------------------------------------------------------------------

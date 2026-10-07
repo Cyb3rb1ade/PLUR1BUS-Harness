@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
-import { browserSkip, PASSWORD, setup, signIn, teardown, USER, withApp } from "./harness.ts";
+import { browserSkip, setup, signIn, teardown, TOKEN, WRONG_TOKEN, withApp } from "./harness.ts";
 
 before(setup);
 after(teardown);
@@ -9,32 +9,32 @@ const opts = { skip: browserSkip };
 const GROUPS = ["Workspace", "Build", "Control"];
 
 describe("sign-in", opts, () => {
-  test("an anonymous visit is redirected to the sign-in page with the username focused", opts, async () => {
+  test("an anonymous visit is redirected to the sign-in page with the token field focused", opts, async () => {
     await withApp({}, async ({ page }) => {
       await page.getByRole("heading", { name: "Sign in", level: 1 }).waitFor();
       assert.match(page.url(), /#\/login$/);
-      assert.equal(await page.evaluate(() => document.activeElement?.id), "login-username");
+      assert.equal(await page.evaluate(() => document.activeElement?.id), "login-token");
     });
   });
 
-  test("wrong password: alert, stays on sign-in, password cleared and focused; no password in any URL", async () => {
+  test("wrong token: alert, stays on sign-in, field cleared and focused; no token in any URL or log line", async () => {
     await withApp({}, async ({ page, server, problems }) => {
-      await signIn(page, USER, "wrong-password-xyz");
-      await page.getByRole("alert").filter({ hasText: "not correct" }).waitFor();
+      await signIn(page, WRONG_TOKEN);
+      await page.getByRole("alert").filter({ hasText: "token is not correct" }).waitFor();
       assert.match(page.url(), /#\/login$/);
-      assert.equal(await page.getByLabel("Password", { exact: true }).inputValue(), "");
-      assert.equal(await page.evaluate(() => document.activeElement?.id), "login-password");
-      assert.equal(await page.getByLabel("Username").getAttribute("aria-invalid"), "true");
-      assert.ok(server.requests.every((q) => !q.url.includes("wrong-password")));
+      assert.equal(await page.getByLabel("Owner token", { exact: true }).inputValue(), "");
+      assert.equal(await page.evaluate(() => document.activeElement?.id), "login-token");
+      assert.equal(await page.getByLabel("Owner token", { exact: true }).getAttribute("aria-invalid"), "true");
+      assert.ok(server.requests.every((q) => !q.url.includes(WRONG_TOKEN)));
       assert.deepEqual(problems, []);
     });
   });
 
-  test("empty submit shows the required message and focuses the first empty field", async () => {
+  test("empty submit shows the required message and focuses the token field", async () => {
     await withApp({}, async ({ page }) => {
       await page.getByRole("button", { name: "Sign in" }).click();
-      await page.getByRole("alert").filter({ hasText: "Enter your username and password" }).waitFor();
-      assert.equal(await page.evaluate(() => document.activeElement?.id), "login-username");
+      await page.getByRole("alert").filter({ hasText: "Enter the owner token" }).waitFor();
+      assert.equal(await page.evaluate(() => document.activeElement?.id), "login-token");
     });
   });
 
@@ -43,11 +43,11 @@ describe("sign-in", opts, () => {
       await signIn(page);
       await page.getByRole("heading", { name: "Chat", level: 1 }).waitFor();
       assert.match(page.url(), /#\/chat$/);
-      await page.getByText("Signed in as Alice").waitFor();
-      assert.ok(!(await page.evaluate(() => document.cookie)).includes("p1_session"));
-      const cookie = (await context.cookies()).find((c) => c.name === "p1_session");
+      await page.getByText("Signed in as owner").waitFor();
+      assert.ok(!(await page.evaluate(() => document.cookie)).includes("plur1bus_session"));
+      const cookie = (await context.cookies()).find((c) => c.name === "plur1bus_session");
       assert.equal(cookie?.httpOnly, true);
-      assert.equal(cookie?.sameSite, "Lax");
+      assert.equal(cookie?.sameSite, "Strict");
       await page.reload();
       await page.getByRole("heading", { name: "Chat", level: 1 }).waitFor();
       assert.deepEqual(problems, []);
@@ -65,7 +65,7 @@ describe("sign-in", opts, () => {
 
   test("too many attempts shows the retry hint", async () => {
     await withApp({ server: { maxFailures: 2, retryAfterSeconds: 42 } }, async ({ page }) => {
-      for (let i = 0; i < 2; i++) { await signIn(page, USER, "bad"); await page.getByRole("alert").filter({ hasText: "not correct" }).waitFor(); }
+      for (let i = 0; i < 2; i++) { await signIn(page, WRONG_TOKEN); await page.getByRole("alert").filter({ hasText: "token is not correct" }).waitFor(); }
       await signIn(page);
       await page.getByRole("alert").filter({ hasText: "Too many attempts. Try again in 42 s." }).waitFor();
     });
@@ -73,19 +73,19 @@ describe("sign-in", opts, () => {
 
   test("an unreachable harness shows the network message", async () => {
     await withApp({}, async ({ page, context }) => {
-      await context.route("**/api/v1/auth/login", (r) => r.abort());
+      await context.route("**/api/v1/session", (r) => r.abort());
       await signIn(page);
       await page.getByRole("alert").filter({ hasText: "cannot be reached" }).waitFor();
     });
   });
 
-  test("password reveal toggles the field type", async () => {
+  test("token reveal toggles the field type", async () => {
     await withApp({}, async ({ page }) => {
-      const field = page.getByLabel("Password", { exact: true });
+      const field = page.getByLabel("Owner token", { exact: true });
       assert.equal(await field.getAttribute("type"), "password");
-      await page.getByRole("button", { name: "Show password" }).click();
+      await page.getByRole("button", { name: "Show token" }).click();
       assert.equal(await field.getAttribute("type"), "text");
-      await page.getByRole("button", { name: "Hide password" }).click();
+      await page.getByRole("button", { name: "Hide token" }).click();
       assert.equal(await field.getAttribute("type"), "password");
     });
   });
@@ -96,10 +96,26 @@ describe("sign-in", opts, () => {
       await page.getByRole("button", { name: "Sign out" }).click();
       await page.getByRole("heading", { name: "Sign in", level: 1 }).waitFor();
       assert.equal(server.sessions.size, 0);
-      const post = server.requests.filter((q) => q.method === "POST" && q.url.endsWith("/logout")).at(-1);
+      const post = server.requests.filter((q) => q.method === "DELETE" && q.url === "/api/v1/session").at(-1);
       assert.ok(post?.csrf);
       await page.goto(page.url().split("#")[0] + "#/chat");
       await page.getByRole("heading", { name: "Sign in", level: 1 }).waitFor();
+    });
+  });
+
+  test("the token reaches the server only in the login body: not in a URL, storage, the DOM after sign-in or any console line", async () => {
+    await withApp({}, async ({ page, server }) => {
+      const lines: string[] = [];
+      page.on("console", (m) => lines.push(m.text()));
+      await signIn(page);
+      await page.getByRole("heading", { name: "Chat", level: 1 }).waitFor();
+      for (const q of server.requests) {
+        assert.ok(!q.url.includes(TOKEN), q.url);
+        if (!(q.method === "POST" && q.url === "/api/v1/session")) assert.ok(!q.body.includes(TOKEN));
+      }
+      const leaked = await page.evaluate((t) => JSON.stringify([localStorage, sessionStorage]).includes(t) || document.documentElement.outerHTML.includes(t) || location.href.includes(t), TOKEN);
+      assert.equal(leaked, false);
+      assert.ok(lines.every((l) => !l.includes(TOKEN)));
     });
   });
 
@@ -147,6 +163,7 @@ describe("shell", opts, () => {
   test("an unknown route shows Page not found with a way back", async () => {
     await withApp({}, async ({ page }) => {
       await signIn(page);
+      await page.getByRole("heading", { name: "Chat", level: 1 }).waitFor(); // the sign-in must land before the hash is changed
       await page.evaluate(() => { location.hash = "#/does-not-exist"; });
       await page.getByRole("heading", { name: "Page not found", level: 1 }).waitFor();
       await page.getByRole("link", { name: "Back to Chat" }).click();
@@ -211,9 +228,7 @@ describe("language", opts, () => {
 
   test("the shell is translated: German navigation and labels", async () => {
     await withApp({ locale: "de-DE" }, async ({ page }) => {
-      await page.getByLabel("Benutzername").fill(USER);
-      await page.getByLabel("Passwort", { exact: true }).fill(PASSWORD);
-      await page.getByRole("button", { name: "Anmelden" }).click();
+      await signIn(page, TOKEN, "de");
       await page.getByRole("navigation", { name: "Hauptnavigation" }).waitFor();
       const labels = await page.locator(".group-label").allTextContents();
       assert.deepEqual(labels.map((s) => s.trim()), ["Arbeitsbereich", "Aufbau", "Kontrolle"]);

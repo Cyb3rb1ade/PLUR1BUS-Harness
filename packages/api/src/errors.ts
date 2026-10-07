@@ -43,6 +43,13 @@ export function errorBody(e: ApiError): { schema: "error/1"; error: ErrorCode; m
   return { schema: "error/1", error: e.error, message: e.message, ...(e.reason ? { reason: e.reason } : {}) };
 }
 
+const REASON_SHAPE = /^[a-z0-9][a-z0-9._-]{0,63}$/;
+const CORE_MESSAGES: Partial<Record<ErrorCode, string>> = {
+  E_AGENT_UNKNOWN: "unknown agent", E_MODULE_UNKNOWN: "unknown module", E_NOT_FOUND: "not found", E_INVALID_PARAMS: "invalid parameters",
+  E_CONFIG_INVALID: "the configuration is invalid", E_CONFLICT: "conflict", E_LOCKED: "locked", E_DENIED: "denied", E_APPROVAL_REQUIRED: "approval required",
+  E_CORE_UNAVAILABLE: "the core is not reachable", E_NOT_AVAILABLE: "not available",
+};
+
 /** Maps what a core RPC call threw (a `RpcCallError` from module-api, or a connection failure) to an `ApiError`. */
 export function fromCoreError(e: unknown): ApiError {
   if (e instanceof ApiError) return e;
@@ -52,9 +59,10 @@ export function fromCoreError(e: unknown): ApiError {
     if (c === "E_INTERNAL" || c === "E_STORAGE") return new ApiError(502, "E_CORE_UNAVAILABLE", "the core failed to answer", { reason: "core-error" });
     // A core that refuses *our* credentials is a bad gateway, not the caller's 401.
     if (c === "E_UNAUTHORIZED" || c === "E_RPC_VERSION") return new ApiError(502, "E_CORE_UNAVAILABLE", "the core refused the API's connection", { reason: "core-handshake" });
-    const message = typeof (e as { message?: unknown }).message === "string" ? (e as Error).message : "the core refused the request";
+    // The core's free text can name host paths or internals (review F2): the caller gets a fixed message per code and only a
+    // short machine-style reason; the full text stays in the core's own log.
     const reason = (e as { reason?: unknown }).reason;
-    return new ApiError(statusOfCode(c), c, message, typeof reason === "string" ? { reason } : {});
+    return new ApiError(statusOfCode(c), c, CORE_MESSAGES[c] ?? "the core refused the request", typeof reason === "string" && REASON_SHAPE.test(reason) ? { reason } : {});
   }
   return new ApiError(503, "E_CORE_UNAVAILABLE", "the core is not reachable", { reason: "core-unreachable" });
 }

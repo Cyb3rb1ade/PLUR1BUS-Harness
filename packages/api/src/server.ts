@@ -124,6 +124,13 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       const target = req.url ?? "";
       if (!target.startsWith("/")) throw errors.badRequest("target", "the request target must be an origin-form path");
       const path = target.split("?", 1)[0]!;
+      // Cross-origin browsers: an Origin we did not issue, or a fetch that is not same-origin, is refused (ruling R6). This runs
+      // before the rate limiter: a hostile page shares the browser's loopback IP, and its refused requests must not drain the
+      // owner's login and read buckets (review F1).
+      const origin = req.headers.origin;
+      if (origin !== undefined && !allowedOrigins.has(origin.toLowerCase())) throw errors.forbidden("origin");
+      const site = req.headers["sec-fetch-site"];
+      if (site !== undefined && site !== "same-origin" && site !== "none") throw errors.forbidden("cross-site");
       const methods = byPath.get(path); const route = methods?.get(req.method ?? "");
       const cls = route?.spec.rate ?? "read";
       const ipVerdict = limiter.take(cls, `ip:${ip}`);
@@ -131,12 +138,6 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       if (!methods) throw errors.notFound();
       if (!route) throw errors.methodNotAllowed([...methods.keys()]);
       const { spec, handler } = route; routeId = spec.id;
-
-      // Cross-origin browsers: an Origin we did not issue, or a fetch that is not same-origin, is refused (ruling R6).
-      const origin = req.headers.origin;
-      if (origin !== undefined && !allowedOrigins.has(origin.toLowerCase())) throw errors.forbidden("origin");
-      const site = req.headers["sec-fetch-site"];
-      if (site !== undefined && site !== "same-origin" && site !== "none") throw errors.forbidden("cross-site");
 
       const declared = req.headers["content-length"];
       if (declared !== undefined) {

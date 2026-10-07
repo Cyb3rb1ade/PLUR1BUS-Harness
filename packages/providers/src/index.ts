@@ -7,3 +7,4 @@ export { ProviderError, classifyHttpError, parseRetryAfter } from "./errors.ts";
 export type { ProviderErrorKind, ProviderErrorInit } from "./errors.ts";
 export type * from "./types.ts";
 export * from "./gemini/index.ts";
+export * from "./router/index.ts";

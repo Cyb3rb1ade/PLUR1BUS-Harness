@@ -4,11 +4,11 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { PreferenceControls } from "../components/controls.ts";
 import { t } from "../i18n.ts";
 import { icon } from "../icons.ts";
-import { signIn, type LoginFailure } from "../session.ts";
+import { sessionNotice, signIn, type LoginFailure } from "../session.ts";
 
 function failureText(f: LoginFailure): string {
   switch (f.kind) {
-    case "invalid-credentials": return t("login.error.invalid");
+    case "invalid-token": return t("login.error.invalid");
     case "rate-limited": return f.retryAfterSeconds === null ? t("login.error.rateUnknown") : t("login.error.rate", { seconds: f.retryAfterSeconds });
     case "network": return t("login.error.network");
     case "server": return t("login.error.server", { status: f.status });
@@ -18,31 +18,29 @@ function failureText(f: LoginFailure): string {
 type Err = { kind: "required" } | { kind: "failure"; failure: LoginFailure };
 
 export function LoginPage(): View {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [token, setToken] = useState("");
   const [reveal, setReveal] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<Err | null>(null);
-  const userRef = useRef<HTMLInputElement>(null);
-  const passRef = useRef<HTMLInputElement>(null);
-  useEffect(() => { userRef.current?.focus(); }, []);
+  const tokenRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { tokenRef.current?.focus(); }, []);
 
   const onSubmit = async (e: Event): Promise<void> => {
     e.preventDefault();
     if (pending) return;
-    if (username.trim() === "" || password === "") {
+    if (token.trim() === "") {
       setError({ kind: "required" });
-      (username.trim() === "" ? userRef : passRef).current?.focus();
+      tokenRef.current?.focus();
       return;
     }
     setError(null);
     setPending(true);
-    const result = await signIn(username.trim(), password);
+    const result = await signIn(token.trim());
     setPending(false);
+    setToken(""); // the token lives in this field only until it has been sent
     if (!result.ok) {
       setError({ kind: "failure", failure: result.failure });
-      setPassword("");
-      passRef.current?.focus();
+      tokenRef.current?.focus();
     }
   };
 
@@ -56,21 +54,15 @@ export function LoginPage(): View {
       h("p", { class: "wordmark big", "aria-hidden": "true" }, "PLUR", h("span", { class: "one" }, "1"), "BUS"),
       h("h1", { tabIndex: -1 }, t("login.title")),
       h("p", { class: "lead" }, t("login.lead")),
+      sessionNotice.value === "expired" ? h("p", { class: "form-notice", role: "status" }, t("login.notice.expired")) : null,
       h("form", { noValidate: true, onSubmit },
         h("div", { class: "field" },
-          h("label", { for: "login-username" }, t("login.username")),
-          h("input", {
-            id: "login-username", name: "username", type: "text", ref: userRef, value: username, autoComplete: "username",
-            autoCapitalize: "none", spellcheck: false, required: true, "aria-invalid": invalid, "aria-describedby": describedBy,
-            onInput: (e: Event) => setUsername((e.target as HTMLInputElement).value),
-          })),
-        h("div", { class: "field" },
-          h("label", { for: "login-password" }, t("login.password")),
+          h("label", { for: "login-token" }, t("login.token")),
           h("div", { class: "password-row" },
             h("input", {
-              id: "login-password", name: "password", type: reveal ? "text" : "password", ref: passRef, value: password,
-              autoComplete: "current-password", required: true, "aria-invalid": invalid, "aria-describedby": describedBy,
-              onInput: (e: Event) => setPassword((e.target as HTMLInputElement).value),
+              id: "login-token", name: "token", type: reveal ? "text" : "password", ref: tokenRef, value: token,
+              autoComplete: "off", autoCapitalize: "none", spellcheck: false, required: true, "aria-invalid": invalid, "aria-describedby": describedBy,
+              onInput: (e: Event) => setToken((e.target as HTMLInputElement).value),
             }),
             h("button", { type: "button", class: "icon-btn", onClick: () => setReveal(!reveal) },
               icon(reveal ? "eyeOff" : "eye"), h("span", { class: "sr-only" }, reveal ? t("login.hide") : t("login.show"))))),

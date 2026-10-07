@@ -1,5 +1,5 @@
 // A mock Harness API for the web UI tests: the built static files under the strict CSP of ADR-004, plus the provisional
-// /api/v1/auth routes of src/session.ts. Local only (127.0.0.1, ephemeral port); never reaches a real harness.
+// /api/v1 session routes of src/session.ts. Local only (127.0.0.1, ephemeral port); never reaches a real harness.
 import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
@@ -7,34 +7,34 @@ import { join } from "node:path";
 
 export const STRICT_CSP = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
 
-export type MockUser = { password: string; displayName: string; role: string };
+export const OWNER_TOKEN = "t0ken-0123456789abcdef0123456789abcdef-owner";
+export const COOKIE = "plur1bus_session";
 export type MockOptions = {
   distDir: string;
-  users?: Record<string, MockUser>;
+  /** The owner token the mock accepts (the real one is `run/api-owner.token`; this one is a fixture). */
+  token?: string;
   /** Consecutive failed logins before the mock answers 429. */
   maxFailures?: number;
   retryAfterSeconds?: number;
 };
-export type LoggedRequest = { method: string; url: string; csrf: string | null; hasCookie: boolean };
+export type LoggedRequest = { method: string; url: string; csrf: string | null; hasCookie: boolean; body: string };
 
 const MIME: Record<string, string> = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css" };
 
 export class MockHarnessServer {
   readonly requests: LoggedRequest[] = [];
-  readonly sessions = new Map<string, { userId: string; csrf: string }>();
+  /** Live sessions by cookie value; `csrf` holds the one-time tokens issued and not yet used. */
+  readonly sessions = new Map<string, { csrf: Set<string> }>();
   failures = 0;
   /** When set, every /api/v1 route answers with this status (e.g. 503). */
   forceStatus: number | null = null;
+  /** When true, the next write refuses its CSRF token (even a fresh one) once more; counts down per refusal. */
+  rejectCsrf = 0;
   #server: Server | undefined;
   readonly #opts: Required<MockOptions>;
 
   constructor(opts: MockOptions) {
-    this.#opts = {
-      users: { alice: { password: "correct horse battery", displayName: "Alice", role: "owner" } },
-      maxFailures: 5,
-      retryAfterSeconds: 30,
-      ...opts,
-    };
+    this.#opts = { token: OWNER_TOKEN, maxFailures: 5, retryAfterSeconds: 30, ...opts };
   }
 
   async start(): Promise<string> {
@@ -50,11 +50,11 @@ export class MockHarnessServer {
     await new Promise<void>((resolve) => this.#server?.close(() => resolve()) ?? resolve());
   }
 
-  #sessionOf(req: IncomingMessage): { id: string; userId: string; csrf: string } | null {
-    const m = /(?:^|;\s*)p1_session=([A-Za-z0-9_-]+)/.exec(req.headers.cookie ?? "");
+  #sessionOf(req: IncomingMessage): { id: string; csrf: Set<string> } | null {
+    const m = new RegExp(`(?:^|;\\s*)${COOKIE}=([A-Za-z0-9_-]+)`).exec(req.headers.cookie ?? "");
     const id = m?.[1];
     const s = id ? this.sessions.get(id) : undefined;
-    return id && s ? { id, ...s } : null;
+    return id && s ? { id, csrf: s.csrf } : null;
   }
 
   #json(res: ServerResponse, status: number, body: unknown, extra: Record<string, string> = {}): void {
@@ -62,70 +62,75 @@ export class MockHarnessServer {
     res.end(JSON.stringify(body));
   }
 
+  #error(res: ServerResponse, status: number, error: string, reason: string, extra: Record<string, string> = {}): void {
+    this.#json(res, status, { schema: "error/1", error, message: reason, reason }, extra);
+  }
+
   async #handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const url = (req.url ?? "/").split("?")[0] ?? "/";
+    const body = url.startsWith("/api/v1/") ? await this.#readBody(req) : "";
     const csrfHeader = req.headers["x-csrf-token"];
-    this.requests.push({ method: req.method ?? "GET", url: req.url ?? "/", csrf: typeof csrfHeader === "string" ? csrfHeader : null, hasCookie: !!req.headers.cookie });
+    this.requests.push({ method: req.method ?? "GET", url: req.url ?? "/", csrf: typeof csrfHeader === "string" ? csrfHeader : null, hasCookie: !!req.headers.cookie, body });
     res.setHeader("content-security-policy", STRICT_CSP);
     res.setHeader("x-content-type-options", "nosniff");
 
     if (url.startsWith("/api/v1/")) {
-      if (this.forceStatus !== null) return this.#json(res, this.forceStatus, { error: { code: "E_UNAVAILABLE" } });
-      return this.#api(req, res, url);
+      if (this.forceStatus !== null) return this.#error(res, this.forceStatus, "E_CORE_UNAVAILABLE", "unavailable");
+      return this.#api(req, res, url, body);
     }
     const name = url === "/" ? "index.html" : url.slice(1);
     if (!/^[a-zA-Z0-9_.-]+$/.test(name)) { res.writeHead(404).end(); return; }
     try {
-      const body = await readFile(join(this.#opts.distDir, name));
+      const file = await readFile(join(this.#opts.distDir, name));
       const ext = name.slice(name.lastIndexOf("."));
       res.writeHead(200, { "content-type": MIME[ext] ?? "application/octet-stream", "cache-control": "no-store" });
-      res.end(body);
+      res.end(file);
     } catch { res.writeHead(404).end(); }
   }
 
-  async #readBody(req: IncomingMessage): Promise<unknown> {
+  async #readBody(req: IncomingMessage): Promise<string> {
     const chunks: Buffer[] = [];
     for await (const c of req) chunks.push(c as Buffer);
-    try { return JSON.parse(Buffer.concat(chunks).toString("utf8")); } catch { return null; }
+    return Buffer.concat(chunks).toString("utf8");
   }
 
-  async #api(req: IncomingMessage, res: ServerResponse, url: string): Promise<void> {
-    if (url === "/api/v1/auth/whoami" && req.method === "GET") {
-      const s = this.#sessionOf(req);
-      if (!s) return this.#json(res, 401, { error: { code: "E_AUTH", reason: "no-session" } });
-      const u = this.#opts.users[s.userId];
-      return this.#json(res, 200, { userId: s.userId, displayName: u?.displayName ?? s.userId, role: u?.role ?? "member", csrf: s.csrf });
-    }
-    if (url === "/api/v1/auth/login" && req.method === "POST") {
-      if (this.failures >= this.#opts.maxFailures) {
-        return this.#json(res, 429, { error: { code: "E_RATE" } }, { "retry-after": String(this.#opts.retryAfterSeconds) });
-      }
-      const body = (await this.#readBody(req)) as { username?: unknown; password?: unknown } | null;
-      const u = typeof body?.username === "string" ? this.#opts.users[body.username] : undefined;
-      if (!u || body?.password !== u.password) {
-        this.failures += 1;
-        return this.#json(res, 401, { error: { code: "E_AUTH", reason: "invalid-credentials" } });
-      }
+  #api(req: IncomingMessage, res: ServerResponse, url: string, raw: string): void {
+    const principal = { kind: "owner", id: "owner", role: "owner" };
+    const times = { createdAt: "2026-01-01T00:00:00.000Z", expiresAt: "2026-01-01T12:00:00.000Z", idleExpiresAt: "2026-01-01T00:30:00.000Z" };
+    if (url === "/api/v1/session" && req.method === "POST") {
+      if (this.failures >= this.#opts.maxFailures) return this.#error(res, 429, "E_DENIED", "rate-limited", { "retry-after": String(this.#opts.retryAfterSeconds) });
+      let parsed: { token?: unknown } | null = null;
+      try { parsed = JSON.parse(raw) as { token?: unknown }; } catch { /* handled below */ }
+      if (!parsed || typeof parsed.token !== "string") return this.#error(res, 400, "E_INVALID_PARAMS", "body");
+      if (parsed.token !== this.#opts.token) { this.failures += 1; return this.#error(res, 401, "E_UNAUTHORIZED", "invalid-token"); }
       this.failures = 0;
       const id = randomBytes(24).toString("base64url");
-      const csrf = randomBytes(16).toString("base64url");
-      this.sessions.set(id, { userId: body!.username as string, csrf });
-      return this.#json(res, 200, { userId: body!.username, displayName: u.displayName, role: u.role, csrf },
-        { "set-cookie": `p1_session=${id}; HttpOnly; SameSite=Lax; Path=/` });
+      this.sessions.set(id, { csrf: new Set() });
+      return this.#json(res, 200, { schema: "session.create/1", principal, ...times },
+        { "set-cookie": `${COOKIE}=${id}; Path=/; HttpOnly; SameSite=Strict; Max-Age=43200` });
     }
-    if (url === "/api/v1/auth/logout" && req.method === "POST") {
-      const s = this.#sessionOf(req);
-      if (!s) return this.#json(res, 401, { error: { code: "E_AUTH", reason: "no-session" } });
-      if (req.headers["x-csrf-token"] !== s.csrf) return this.#json(res, 403, { error: { code: "E_CSRF" } });
+    const s = this.#sessionOf(req);
+    if (!s) return this.#error(res, 401, "E_UNAUTHORIZED", "no-session");
+    if (url === "/api/v1/whoami" && req.method === "GET") return this.#json(res, 200, { schema: "whoami/1", principal, session: times });
+    if (url === "/api/v1/csrf" && req.method === "GET") {
+      const token = randomBytes(16).toString("base64url");
+      s.csrf.add(token);
+      return this.#json(res, 200, { schema: "csrf/1", token, expiresAt: times.expiresAt });
+    }
+    if (url === "/api/v1/session" && req.method === "DELETE") {
+      const t = req.headers["x-csrf-token"];
+      const ok = typeof t === "string" && s.csrf.delete(t) && this.rejectCsrf === 0;
+      if (this.rejectCsrf > 0) this.rejectCsrf -= 1;
+      if (!ok) return this.#error(res, 403, "E_DENIED", "csrf");
       this.sessions.delete(s.id);
-      res.writeHead(204, { "set-cookie": "p1_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0" });
-      res.end();
-      return;
+      return this.#json(res, 200, { schema: "session.delete/1", ok: true }, { "set-cookie": `${COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0` });
     }
-    this.#json(res, 404, { error: { code: "E_NOT_FOUND" } });
+    this.#error(res, 404, "E_NOT_FOUND", "route");
   }
-}
 
+  /** Test hook: forget every session server-side, as an idle or absolute expiry would. */
+  expireAll(): void { this.sessions.clear(); }
+}
 /** A fetch that keeps cookies (Node's fetch has no jar), so the HTTP client can be tested without a browser. */
 export function cookieFetch(): typeof fetch {
   const jar = new Map<string, string>();
