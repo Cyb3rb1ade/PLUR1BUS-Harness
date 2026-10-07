@@ -1431,6 +1431,7 @@
   "events": [
     {
       "event": "log.level.changed",
+      "note": "Log level changed.",
       "kinds": [
         "harness",
         "extension",
@@ -1478,6 +1479,7 @@
     },
     {
       "event": "log.level.expired",
+      "note": "Log level expired.",
       "kinds": [
         "harness",
         "extension",
@@ -1525,6 +1527,7 @@
     },
     {
       "event": "log.suppressed",
+      "note": "Log records suppressed.",
       "kinds": [
         "harness",
         "extension",
@@ -1570,6 +1573,7 @@
     },
     {
       "event": "log.unregistered",
+      "note": "Unregistered log event.",
       "kinds": [
         "harness",
         "extension",
@@ -1637,7 +1641,7 @@
       "activity": false,
       "since": "D111",
       "stability": "stable",
-      "note": "written by the reader, not by the emitting process",
+      "note": "A log line does not match its file; written by the reader, not the emitting process.",
       "examples": [
         {
           "ts": "2026-10-01T09:14:03.218Z",
@@ -1659,6 +1663,7 @@
     },
     {
       "event": "log.retention.pruned",
+      "note": "Old log files pruned.",
       "kinds": [
         "harness",
         "extension",
@@ -1706,6 +1711,7 @@
     },
     {
       "event": "log.redaction.failed",
+      "note": "Log record dropped, redaction failed.",
       "kinds": [
         "harness",
         "extension",
@@ -1775,7 +1781,7 @@
       "activity": false,
       "since": "D111",
       "stability": "stable",
-      "note": "emitted by the harness wrapper on a child's behalf; the level is never taken from the text",
+      "note": "A line of child-process output; emitted by the harness wrapper on its behalf, with the level never taken from the text.",
       "examples": [
         {
           "ts": "2026-10-01T09:14:03.218Z",
@@ -1797,6 +1803,7 @@
     },
     {
       "event": "process.output.suppressed",
+      "note": "Process output suppressed.",
       "kinds": [
         "harness",
         "extension",
@@ -1844,6 +1851,7 @@
     },
     {
       "event": "supervisor.process.started",
+      "note": "Supervisor started.",
       "kinds": [
         "harness"
       ],
@@ -1882,6 +1890,7 @@
     },
     {
       "event": "supervisor.process.stopping",
+      "note": "Supervisor stopping.",
       "kinds": [
         "harness"
       ],
@@ -1938,7 +1947,7 @@
       "activity": false,
       "since": "D111",
       "stability": "stable",
-      "note": "replaces the F9 message match that `1staid repair` used for service.silent-exit",
+      "note": "The supervisor process is exiting; replaces the F9 message match that `1staid repair` used for service.silent-exit.",
       "examples": [
         {
           "ts": "2026-10-01T09:14:03.218Z",
@@ -1962,6 +1971,7 @@
     },
     {
       "event": "supervisor.child.spawned",
+      "note": "Child process spawned.",
       "kinds": [
         "harness"
       ],
@@ -2000,6 +2010,7 @@
     },
     {
       "event": "supervisor.child.exited",
+      "note": "Child process exited.",
       "kinds": [
         "harness"
       ],
@@ -2043,6 +2054,7 @@
     },
     {
       "event": "supervisor.child.restarting",
+      "note": "Child process restarting.",
       "kinds": [
         "harness"
       ],
@@ -2084,6 +2096,7 @@
     },
     {
       "event": "supervisor.child.given_up",
+      "note": "Child restarts given up.",
       "kinds": [
         "harness"
       ],
@@ -2128,6 +2141,7 @@
     },
     {
       "event": "supervisor.health.failed",
+      "note": "Child health check failed.",
       "kinds": [
         "harness"
       ],
@@ -2165,6 +2179,7 @@
     },
     {
       "event": "supervisor.health.hung",
+      "note": "Child process hung.",
       "kinds": [
         "harness"
       ],
@@ -2203,6 +2218,7 @@
     },
     {
       "event": "supervisor.adoption.completed",
+      "note": "Running child adopted.",
       "kinds": [
         "harness"
       ],
@@ -2240,6 +2256,7 @@
     },
     {
       "event": "supervisor.config.applied",
+      "note": "Configuration applied.",
       "kinds": [
         "harness"
       ],
@@ -2279,6 +2296,7 @@
     },
     {
       "event": "supervisor.config.rejected",
+      "note": "Configuration rejected.",
       "kinds": [
         "harness"
       ],
@@ -2319,6 +2337,7 @@
     },
     {
       "event": "supervisor.subscriber.dropped",
+      "note": "Watch subscriber dropped.",
       "kinds": [
         "harness"
       ],
@@ -2357,6 +2376,7 @@
     },
     {
       "event": "core.process.started",
+      "note": "Core started.",
       "kinds": [
         "harness"
       ],
@@ -2394,6 +2414,7 @@
     },
     {
       "event": "core.process.ready",
+      "note": "Core ready.",
       "kinds": [
         "harness"
       ],
@@ -2432,6 +2453,7 @@
     },
     {
       "event": "core.process.stopping",
+      "note": "Core stopping.",
       "kinds": [
         "harness"
       ],
@@ -2467,6 +2489,7 @@
     },
     {
       "event": "core.config.applied",
+      "note": "Configuration applied.",
       "kinds": [
         "harness"
       ],
@@ -2506,6 +2529,7 @@
     },
     {
       "event": "core.config.fallback",
+      "note": "Reading config.json without a supervisor.",
       "kinds": [
         "harness"
       ],
@@ -2546,6 +2570,7 @@
     },
     {
       "event": "core.watch.lost",
+      "note": "Config watch lost.",
       "kinds": [
         "harness"
       ],
@@ -2586,6 +2611,7 @@
     },
     {
       "event": "core.orphan.detected",
+      "note": "Supervisor gone, core orphaned.",
       "kinds": [
         "harness"
       ],
@@ -2623,6 +2649,7 @@
     },
     {
       "event": "core.rpc.failed",
+      "note": "RPC call failed.",
       "kinds": [
         "harness"
       ],
@@ -2667,6 +2694,7 @@
     },
     {
       "event": "engine.status.degraded",
+      "note": "Engine degraded.",
       "kinds": [
         "harness"
       ],
@@ -2705,6 +2733,7 @@
     },
     {
       "event": "engine.status.failed",
+      "note": "Engine failed.",
       "kinds": [
         "harness"
       ],
@@ -2743,6 +2772,7 @@
     },
     {
       "event": "engine.recall.completed",
+      "note": "Recall completed.",
       "kinds": [
         "harness"
       ],
@@ -2783,6 +2813,7 @@
     },
     {
       "event": "engine.recall.budget_exceeded",
+      "note": "Recall budget exceeded.",
       "kinds": [
         "harness"
       ],
@@ -2823,6 +2854,7 @@
     },
     {
       "event": "engine.capture.failed",
+      "note": "Capture failed.",
       "kinds": [
         "harness"
       ],
@@ -2878,7 +2910,7 @@
       "activity": false,
       "since": "D111",
       "stability": "stable",
-      "note": "diagnostic, not audit (R11)",
+      "note": "An engine operation was denied by ACL; diagnostic, not audit (R11).",
       "examples": [
         {
           "ts": "2026-10-01T09:14:03.218Z",
@@ -2899,6 +2931,7 @@
     },
     {
       "event": "engine.model.loading",
+      "note": "Engine model loading.",
       "kinds": [
         "harness"
       ],
@@ -2935,6 +2968,7 @@
     },
     {
       "event": "engine.model.ready",
+      "note": "Engine model ready.",
       "kinds": [
         "harness"
       ],
@@ -2972,6 +3006,7 @@
     },
     {
       "event": "scheduler.run.started",
+      "note": "Scheduler run started.",
       "kinds": [
         "harness"
       ],
@@ -3027,7 +3062,7 @@
       "activity": false,
       "since": "D111",
       "stability": "stable",
-      "note": "never below info (ADR-009): a skip that changes a user-visible outcome is always logged with a reason code",
+      "note": "A scheduler run was skipped; never below info (ADR-009), and a skip that changes a user-visible outcome is always logged with a reason code.",
       "examples": [
         {
           "ts": "2026-10-01T09:14:03.218Z",
@@ -3049,6 +3084,7 @@
     },
     {
       "event": "scheduler.run.completed",
+      "note": "Scheduler run completed.",
       "kinds": [
         "harness"
       ],
@@ -3087,6 +3123,7 @@
     },
     {
       "event": "scheduler.run.failed",
+      "note": "Scheduler run failed.",
       "kinds": [
         "harness"
       ],
@@ -3126,6 +3163,7 @@
     },
     {
       "event": "api.request.completed",
+      "note": "API request completed.",
       "kinds": [
         "harness"
       ],
@@ -3168,6 +3206,7 @@
     },
     {
       "event": "api.auth.failed",
+      "note": "API authentication failed.",
       "kinds": [
         "harness"
       ],
@@ -3206,6 +3245,7 @@
     },
     {
       "event": "api.rate.limited",
+      "note": "API request rate limited.",
       "kinds": [
         "harness"
       ],
@@ -3244,6 +3284,7 @@
     },
     {
       "event": "api.stream.dropped",
+      "note": "API stream dropped.",
       "kinds": [
         "harness"
       ],
@@ -3283,6 +3324,7 @@
     },
     {
       "event": "module.process.started",
+      "note": "Module started.",
       "kinds": [
         "harness"
       ],
@@ -3322,6 +3364,7 @@
     },
     {
       "event": "module.config.invalid",
+      "note": "Module configuration invalid.",
       "kinds": [
         "harness"
       ],
@@ -3362,6 +3405,7 @@
     },
     {
       "event": "module.core.connected",
+      "note": "Module connected to core.",
       "kinds": [
         "harness"
       ],
@@ -3401,6 +3445,7 @@
     },
     {
       "event": "module.core.lost",
+      "note": "Module lost its connection to core.",
       "kinds": [
         "harness"
       ],
@@ -3440,6 +3485,7 @@
     },
     {
       "event": "ext.load.failed",
+      "note": "Extension failed to load.",
       "kinds": [
         "extension"
       ],
@@ -3477,6 +3523,7 @@
     },
     {
       "event": "mcp.server.started",
+      "note": "MCP server started.",
       "kinds": [
         "extension"
       ],
@@ -3514,6 +3561,7 @@
     },
     {
       "event": "mcp.server.exited",
+      "note": "MCP server exited.",
       "kinds": [
         "extension"
       ],
@@ -3555,6 +3603,7 @@
     },
     {
       "event": "mcp.server.timeout",
+      "note": "MCP server timed out.",
       "kinds": [
         "extension"
       ],
@@ -3594,6 +3643,7 @@
     },
     {
       "event": "mcp.call.completed",
+      "note": "MCP call completed.",
       "kinds": [
         "extension"
       ],
@@ -3635,6 +3685,7 @@
     },
     {
       "event": "mcp.call.failed",
+      "note": "MCP call failed.",
       "kinds": [
         "extension"
       ],
@@ -3678,6 +3729,7 @@
     },
     {
       "event": "skill.script.exited",
+      "note": "Skill script exited.",
       "kinds": [
         "extension"
       ],
@@ -3720,6 +3772,7 @@
     },
     {
       "event": "provider.request.completed",
+      "note": "Provider request completed.",
       "kinds": [
         "provider"
       ],
@@ -3764,6 +3817,7 @@
     },
     {
       "event": "provider.request.retrying",
+      "note": "Provider request retrying.",
       "kinds": [
         "provider"
       ],
@@ -3809,6 +3863,7 @@
     },
     {
       "event": "provider.request.failed",
+      "note": "Provider request failed.",
       "kinds": [
         "provider"
       ],
@@ -3861,6 +3916,7 @@
     },
     {
       "event": "provider.rate.limited",
+      "note": "Provider rate limit.",
       "kinds": [
         "provider"
       ],
@@ -3903,6 +3959,7 @@
     },
     {
       "event": "provider.oauth.refreshed",
+      "note": "Provider token refreshed.",
       "kinds": [
         "provider"
       ],
@@ -3939,6 +3996,7 @@
     },
     {
       "event": "provider.oauth.refresh_failed",
+      "note": "Provider token refresh failed.",
       "kinds": [
         "provider"
       ],
@@ -3983,6 +4041,7 @@
     },
     {
       "event": "provider.auth.expiring",
+      "note": "Provider credential expiring.",
       "kinds": [
         "provider"
       ],
@@ -4037,7 +4096,7 @@
       "activity": false,
       "since": "D111",
       "stability": "experimental",
-      "note": "payload stream only; the content is in logs/payload.log",
+      "note": "A provider payload was captured; payload stream only, with content in logs/payload.log.",
       "examples": [
         {
           "ts": "2026-10-01T09:14:03.218Z",
@@ -4059,6 +4118,7 @@
     },
     {
       "event": "model.load.started",
+      "note": "Model load started.",
       "kinds": [
         "model"
       ],
@@ -4095,6 +4155,7 @@
     },
     {
       "event": "model.load.completed",
+      "note": "Model load completed.",
       "kinds": [
         "model"
       ],
@@ -4132,6 +4193,7 @@
     },
     {
       "event": "model.load.failed",
+      "note": "Model load failed.",
       "kinds": [
         "model"
       ],
@@ -4176,6 +4238,7 @@
     },
     {
       "event": "model.process.exited",
+      "note": "Model process exited.",
       "kinds": [
         "model"
       ],
@@ -4216,6 +4279,7 @@
     },
     {
       "event": "model.memory.pressure",
+      "note": "Model memory pressure.",
       "kinds": [
         "model"
       ],
@@ -4254,6 +4318,7 @@
     },
     {
       "event": "model.unloaded",
+      "note": "Model unloaded.",
       "kinds": [
         "model"
       ],
@@ -4290,6 +4355,7 @@
     },
     {
       "event": "cli.session.started",
+      "note": "CLI agent session started.",
       "kinds": [
         "cli"
       ],
@@ -4327,6 +4393,7 @@
     },
     {
       "event": "cli.session.exited",
+      "note": "CLI agent session exited.",
       "kinds": [
         "cli"
       ],
@@ -4367,6 +4434,7 @@
     },
     {
       "event": "cli.acp.failed",
+      "note": "CLI agent protocol error.",
       "kinds": [
         "cli"
       ],
@@ -4412,6 +4480,7 @@
     },
     {
       "event": "cli.login.required",
+      "note": "CLI agent login required.",
       "kinds": [
         "cli"
       ],
@@ -4449,6 +4518,7 @@
     },
     {
       "event": "channel.connection.lost",
+      "note": "Channel connection lost.",
       "kinds": [
         "channel"
       ],
@@ -4486,6 +4556,7 @@
     },
     {
       "event": "channel.connection.restored",
+      "note": "Channel connection restored.",
       "kinds": [
         "channel"
       ],
@@ -4539,7 +4610,7 @@
       "activity": false,
       "since": "D111",
       "stability": "experimental",
-      "note": "no content",
+      "note": "A channel message was received; message content is not logged.",
       "examples": [
         {
           "ts": "2026-10-01T09:14:03.218Z",
@@ -4579,7 +4650,7 @@
       "activity": false,
       "since": "D111",
       "stability": "experimental",
-      "note": "no content",
+      "note": "A channel message was sent; message content is not logged.",
       "examples": [
         {
           "ts": "2026-10-01T09:14:03.218Z",
@@ -4603,6 +4674,7 @@
     },
     {
       "event": "channel.delivery.failed",
+      "note": "Channel delivery failed.",
       "kinds": [
         "channel"
       ],
@@ -4649,6 +4721,7 @@
     },
     {
       "event": "channel.rate.limited",
+      "note": "Channel rate limited.",
       "kinds": [
         "channel"
       ],
@@ -4686,6 +4759,7 @@
     },
     {
       "event": "host.helper.connected",
+      "note": "Host helper connected.",
       "kinds": [
         "host"
       ],
@@ -4722,6 +4796,7 @@
     },
     {
       "event": "host.helper.lost",
+      "note": "Host helper lost.",
       "kinds": [
         "host"
       ],
@@ -4758,6 +4833,7 @@
     },
     {
       "event": "host.call.denied",
+      "note": "Host call denied.",
       "kinds": [
         "host"
       ],
@@ -4795,6 +4871,7 @@
     },
     {
       "event": "host.signature.invalid",
+      "note": "Host helper signature invalid.",
       "kinds": [
         "host"
       ],
@@ -4837,6 +4914,7 @@
     },
     {
       "event": "host.bridge.failed",
+      "note": "Host bridge failed.",
       "kinds": [
         "host"
       ],
@@ -4880,6 +4958,7 @@
     },
     {
       "event": "desktop.app.started",
+      "note": "Desktop app started.",
       "kinds": [
         "desktop"
       ],
@@ -4933,7 +5012,7 @@
       "activity": false,
       "since": "D111",
       "stability": "experimental",
-      "note": "written at the next start from the crash file",
+      "note": "The desktop app crashed; crash details are written at the next start from the crash file.",
       "examples": [
         {
           "ts": "2026-10-01T09:14:03.218Z",
@@ -4961,6 +5040,7 @@
     },
     {
       "event": "desktop.connection.lost",
+      "note": "Desktop lost its connection.",
       "kinds": [
         "desktop"
       ],
@@ -4997,6 +5077,7 @@
     },
     {
       "event": "desktop.webview.failed",
+      "note": "Desktop webview failed.",
       "kinds": [
         "desktop"
       ],
@@ -5040,6 +5121,7 @@
     },
     {
       "event": "desktop.update.failed",
+      "note": "Desktop update failed.",
       "kinds": [
         "desktop"
       ],
@@ -5099,7 +5181,7 @@
       "activity": false,
       "since": "D111",
       "stability": "experimental",
-      "note": "no arguments are logged",
+      "note": "A desktop deep link was ignored; its arguments are not logged.",
       "examples": [
         {
           "ts": "2026-10-01T09:14:03.218Z",
@@ -5120,6 +5202,7 @@
     },
     {
       "event": "os.service.installed",
+      "note": "OS service installed.",
       "kinds": [
         "os"
       ],
@@ -5157,6 +5240,7 @@
     },
     {
       "event": "os.service.restarted",
+      "note": "OS service restarted by the service manager.",
       "kinds": [
         "os"
       ],
@@ -5194,6 +5278,7 @@
     },
     {
       "event": "os.service.failed",
+      "note": "OS service failed.",
       "kinds": [
         "os"
       ],
@@ -5238,6 +5323,7 @@
     },
     {
       "event": "os.power.resumed",
+      "note": "System resumed from sleep.",
       "kinds": [
         "os"
       ],
@@ -5286,7 +5372,7 @@
       "activity": false,
       "since": "D111",
       "stability": "stable",
-      "note": "pre-D111 HB12 action, unchanged",
+      "note": "Records acceptance of the non-commercial licence for embedding use; pre-D111 HB12 action, unchanged.",
       "examples": [
         {
           "at": 1790846043218,
@@ -5315,7 +5401,7 @@
       "activity": false,
       "since": "D111",
       "stability": "stable",
-      "note": "pre-D111 HB12 action, unchanged",
+      "note": "Records successful completion of setup and the selected installation; pre-D111 HB12 action, unchanged.",
       "examples": [
         {
           "at": 1790846043218,
@@ -5349,7 +5435,7 @@
       "activity": false,
       "since": "D111",
       "stability": "stable",
-      "note": "pre-D111 HB12 `repair.<step>` family: any name under `repair.` that satisfies the name rule",
+      "note": "Records the outcome of an applied repair step; pre-D111 HB12 `repair.<step>` family: any name under `repair.` that satisfies the name rule.",
       "examples": [
         {
           "at": 1790846043218,
@@ -5383,7 +5469,7 @@
       "activity": true,
       "since": "D111",
       "stability": "stable",
-      "note": "pre-D111 HB12 action, unchanged",
+      "note": "Records installation of an extension; pre-D111 HB12 action, unchanged.",
       "examples": [
         {
           "at": 1790846043218,
@@ -5418,7 +5504,7 @@
       "activity": true,
       "since": "D111",
       "stability": "stable",
-      "note": "pre-D111 HB12 action, unchanged",
+      "note": "Records enabling an extension; pre-D111 HB12 action, unchanged.",
       "examples": [
         {
           "at": 1790846043218,
@@ -5448,7 +5534,7 @@
       "activity": true,
       "since": "D111",
       "stability": "stable",
-      "note": "pre-D111 HB12 action, unchanged",
+      "note": "Records disabling an extension; pre-D111 HB12 action, unchanged.",
       "examples": [
         {
           "at": 1790846043218,
@@ -5478,7 +5564,7 @@
       "activity": true,
       "since": "D111",
       "stability": "stable",
-      "note": "pre-D111 HB12 action, unchanged",
+      "note": "Records removal of an extension; pre-D111 HB12 action, unchanged.",
       "examples": [
         {
           "at": 1790846043218,
@@ -5510,7 +5596,7 @@
       "activity": false,
       "since": "D111",
       "stability": "stable",
-      "note": "pre-D111 HB12 action, unchanged",
+      "note": "Records permanent deletion of an uninstalled extension; pre-D111 HB12 action, unchanged.",
       "examples": [
         {
           "at": 1790846043218,
@@ -5542,7 +5628,7 @@
       "activity": false,
       "since": "D111",
       "stability": "stable",
-      "note": "pre-D111 HB12 action, unchanged",
+      "note": "Records restoration of an uninstalled extension; pre-D111 HB12 action, unchanged.",
       "examples": [
         {
           "at": 1790846043218,
@@ -5565,6 +5651,7 @@
     },
     {
       "event": "config.set",
+      "note": "Records a configuration change.",
       "kinds": [
         "harness"
       ],
@@ -5597,6 +5684,7 @@
     },
     {
       "event": "module.install",
+      "note": "Records installation of a module.",
       "kinds": [
         "harness"
       ],
@@ -5627,6 +5715,7 @@
     },
     {
       "event": "module.uninstall",
+      "note": "Records removal of a module.",
       "kinds": [
         "harness"
       ],
@@ -5657,6 +5746,7 @@
     },
     {
       "event": "secret.create",
+      "note": "Records creation of a stored secret.",
       "kinds": [
         "harness"
       ],
@@ -5686,6 +5776,7 @@
     },
     {
       "event": "secret.rotate",
+      "note": "Records rotation of a stored secret.",
       "kinds": [
         "harness"
       ],
@@ -5715,6 +5806,7 @@
     },
     {
       "event": "secret.delete",
+      "note": "Records deletion of a stored secret.",
       "kinds": [
         "harness"
       ],
@@ -5744,6 +5836,7 @@
     },
     {
       "event": "auth.login",
+      "note": "Records a successful user login.",
       "kinds": [
         "harness"
       ],
@@ -5773,6 +5866,7 @@
     },
     {
       "event": "auth.logout",
+      "note": "Records a user logout.",
       "kinds": [
         "harness"
       ],
@@ -5802,6 +5896,7 @@
     },
     {
       "event": "log.payload_capture.enabled",
+      "note": "Records enabling temporary log payload capture.",
       "kinds": [
         "harness"
       ],
@@ -5834,6 +5929,7 @@
     },
     {
       "event": "log.payload_capture.disabled",
+      "note": "Records disabling temporary log payload capture.",
       "kinds": [
         "harness"
       ],
@@ -5865,6 +5961,7 @@
     },
     {
       "event": "logs.otlp.enabled",
+      "note": "Records enabling the OTLP log exporter.",
       "kinds": [
         "harness"
       ],
@@ -5897,6 +5994,7 @@
     },
     {
       "event": "logs.otlp.disabled",
+      "note": "Records disabling the OTLP log exporter.",
       "kinds": [
         "harness"
       ],
@@ -5927,6 +6025,7 @@
     },
     {
       "event": "logs.retention.changed",
+      "note": "Records a change to log retention settings.",
       "kinds": [
         "harness"
       ],
@@ -5959,6 +6058,7 @@
     },
     {
       "event": "approval.requested",
+      "note": "Records a request for approval of an operation.",
       "kinds": [
         "harness"
       ],
@@ -5992,6 +6092,7 @@
     },
     {
       "event": "approval.decided",
+      "note": "Records an approval decision.",
       "kinds": [
         "harness"
       ],
@@ -6025,6 +6126,7 @@
     },
     {
       "event": "grant.created",
+      "note": "Records creation of a permission grant.",
       "kinds": [
         "harness"
       ],
@@ -6057,6 +6159,7 @@
     },
     {
       "event": "grant.revoked",
+      "note": "Records revocation of a permission grant.",
       "kinds": [
         "harness"
       ],
@@ -6088,6 +6191,7 @@
     },
     {
       "event": "grant.expired",
+      "note": "Records expiration of a permission grant.",
       "kinds": [
         "harness"
       ],
@@ -6119,6 +6223,7 @@
     },
     {
       "event": "policy.denied",
+      "note": "Records an operation denied by policy.",
       "kinds": [
         "harness"
       ],
@@ -6151,6 +6256,7 @@
     },
     {
       "event": "approvals.integrity_failed",
+      "note": "Records an approval-integrity verification failure.",
       "kinds": [
         "harness"
       ],
@@ -6181,6 +6287,7 @@
     },
     {
       "event": "device.paired",
+      "note": "Records pairing of a device.",
       "kinds": [
         "harness"
       ],
@@ -6210,6 +6317,7 @@
     },
     {
       "event": "device.revoked",
+      "note": "Records revocation of a paired device.",
       "kinds": [
         "harness"
       ],
@@ -6239,6 +6347,7 @@
     },
     {
       "event": "user.break_glass",
+      "note": "Records use of break-glass access.",
       "kinds": [
         "harness"
       ],
