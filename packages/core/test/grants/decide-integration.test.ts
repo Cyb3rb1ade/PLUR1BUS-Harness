@@ -11,7 +11,8 @@ import { alwaysCap, call, ctx, decideWith, open } from "./helpers.ts";
 const T = { timeout: 20_000 };
 
 function world() {
-  const base = realpathSync(tempDir("p1b-grants-"));
+  // .native expands 8.3 short names (RUNNER~1 on the Windows runner); the canonicaliser refuses a short-name spelling.
+  const base = realpathSync.native(tempDir("p1b-grants-"));
   const ws = join(base, "ws");
   const shared = join(base, "shared");
   const secret = join(base, "secrets");
