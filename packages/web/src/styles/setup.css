@@ -1,1 +1,20 @@
-/* setup page styles. */
+/* setup page styles (first-run wizard). */
+.setup-progress { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; counter-reset: none; }
+.setup-progress li { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; font-size: 13px; color: var(--ink-2); }
+.setup-progress li[aria-current="step"] { color: var(--ink); font-weight: 700; border-color: var(--ink); }
+.setup-progress li[data-state="past"] { color: var(--ink); }
+.setup-num { font-variant-numeric: tabular-nums; font-weight: 700; }
+.setup-count { margin: 0 0 4px; font-size: 13px; color: var(--ink-2); }
+.setup-step h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
+.setup-step h2:focus-visible { outline: 2px solid var(--focus, currentColor); outline-offset: 2px; }
+.setup-nav { display: flex; flex-wrap: wrap; gap: var(--gap); margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--line); }
+.setup-opts { border: 0; margin: 0 0 16px; padding: 0; min-width: 0; }
+.setup-opts legend { padding: 0; font-size: 13px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }
+.setup-opt { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; padding: 4px 0; }
+.setup-opt label { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.setup-opt .field-hint { grid-column: 2; margin: 0; }
+.setup-cmd { margin: 8px 0; padding: 10px 12px; overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+.setup-summary li { padding: 8px 0; border-top: 1px solid var(--line); }
+@media (max-width: 640px) {
+  .setup-progress li:not([aria-current="step"]) .setup-name { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
