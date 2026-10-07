@@ -1,3 +1,4 @@
+import { inspect } from "node:util";
 import { AuthError } from "./errors.ts";
 
 /** The only way the engine persists or reads a secret. Task 2 supplies the keychain/encrypted-file implementation;
@@ -37,7 +38,15 @@ export interface OAuthRecord {
   reauthRequired?: boolean;
 }
 
-export function encodeRecord(r: OAuthRecord): string { return JSON.stringify(r); }
+/** Only this explicit persistence boundary serializes token values. */
+export function encodeRecord(r: OAuthRecord): string {
+  return JSON.stringify({ v: r.v, accessToken: r.accessToken, refreshToken: r.refreshToken, expiresAt: r.expiresAt, refreshExpiresAt: r.refreshExpiresAt, generation: r.generation, reauthRequired: r.reauthRequired });
+}
+export function protectRecord(r: OAuthRecord): OAuthRecord {
+  Object.defineProperty(r, "toJSON", { value: () => ({ v: r.v, generation: r.generation, expiresAt: r.expiresAt, reauthRequired: r.reauthRequired, token: "[redacted]" }), configurable: true });
+  Object.defineProperty(r, inspect.custom, { value: () => ({ v: r.v, generation: r.generation, token: "[redacted]" }), configurable: true });
+  return r;
+}
 
 export function decodeRecord(raw: string, profileId: string): OAuthRecord {
   let o: unknown;
@@ -46,9 +55,27 @@ export function decodeRecord(raw: string, profileId: string): OAuthRecord {
   if (!r || typeof r !== "object" || r.v !== 1 || typeof r.accessToken !== "string" || typeof r.generation !== "number") throw invalid(profileId);
   for (const k of ["refreshToken"] as const) if (r[k] !== undefined && typeof r[k] !== "string") throw invalid(profileId);
   for (const k of ["expiresAt", "refreshExpiresAt"] as const) if (r[k] !== undefined && typeof r[k] !== "number") throw invalid(profileId);
-  return r as OAuthRecord;
+  return protectRecord(r as OAuthRecord);
 }
 
 function invalid(profileId: string) {
   return new AuthError("invalid_secret_record", "The stored credential is unreadable; sign in again.", { profileId, action: `plur1bus login ${profileId}` });
+}
+
+/** Bridge to the existing audited secrets service. Reads use a short core lease and immediately revoke it;
+ *  mutations use the existing owner API, after the caller has authorized an in-process login. */
+export function createAuthSecretStore(service: import("../secrets/store.ts").SecretStore): SecretStore {
+  return {
+    async get(ref) {
+      try {
+        const lease = await service.lease({ kind: "core" }, ref, { purpose: "auth", profileId: "auth" });
+        try { return lease.value; } finally { service.revokeLease({ kind: "core" }, lease.leaseId); }
+      } catch (e) {
+        if (e && typeof e === "object" && "code" in e && e.code === "not-found") return undefined;
+        throw new AuthError("invalid_secret_record", "Stored credential could not be read.");
+      }
+    },
+    async set(ref, value) { try { await service.set({ kind: "owner" }, ref, value); } catch { throw new AuthError("persist_failed", "Credential could not be saved."); } },
+    async delete(ref) { try { await service.delete({ kind: "owner" }, ref); } catch (e) { if (!(e && typeof e === "object" && "code" in e && e.code === "not-found")) throw new AuthError("persist_failed", "Credential could not be removed."); } },
+  };
 }

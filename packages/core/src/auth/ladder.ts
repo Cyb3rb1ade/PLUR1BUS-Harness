@@ -1,5 +1,5 @@
 import { canOpenGraphicalBrowser, type EnvSnapshot } from "./env.ts";
-import type { AuthProfile } from "./profile.ts";
+import { deviceUrl, type AuthProfile } from "./profile.ts";
 
 export type LoginMethod =
   | "enter_key"        // api_key: the person pastes a key (or a user-obtained token)
@@ -29,14 +29,14 @@ export interface PlanOptions { pasteCallback?: boolean | undefined }
 export function planLogin(profile: AuthProfile, snap: EnvSnapshot, opts: PlanOptions = {}): LoginPlan {
   const graphical = canOpenGraphicalBrowser(snap);
   const headless = !graphical; // a remote session never counts as graphical (see env.ts)
-  const hint = (port: number) => `ssh -L ${port}:localhost:${port} <this-host>`;
+  const hint = (port: number) => `ssh -L ${port}:127.0.0.1:${port} <this-host>`;
   switch (profile.kind) {
     case "api_key": return { method: "enter_key", fallbacks: [], headless };
     case "adc": return { method: "adc", fallbacks: [], headless };
     case "external_cli": return { method: "delegated_cli", fallbacks: [], headless };
     case "device_code": return { method: "device_code", fallbacks: [], headless };
     case "oauth_pkce": {
-      const hasDevice = Boolean(profile.device_authorization_endpoint);
+      const hasDevice = Boolean(deviceUrl(profile));
       if (opts.pasteCallback) return { method: "paste_callback", fallbacks: [], headless };
       if (!headless) return { method: "loopback_pkce", fallbacks: [...(hasDevice ? ["device_code" as const] : []), "paste_callback"], headless };
       if (hasDevice) return { method: "device_code", fallbacks: ["loopback_ssh", "paste_callback"], sshHint: hint, headless };

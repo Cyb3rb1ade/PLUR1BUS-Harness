@@ -93,6 +93,7 @@ describe("refresh owner", () => {
     clock.advance(120_000);
     await assert.rejects(owner.fresh(profile, REF, "c1"), (e: any) => e.code === "refresh_failed" && e.retryable);
     v.fail(undefined);
+    clock.advance(60_000); // honor the transient refresh backoff before trying again
     assert.equal((await owner.fresh(profile, REF, "c1")).record.generation, 1); // recovered; never marked reauth
   });
 
@@ -108,8 +109,7 @@ describe("refresh owner", () => {
     await seed(store, clock);
     store.failSets = 1;
     const owner = new RefreshOwner({ store, clock, refresher: v });
-    const r = await owner.fresh(profile, REF, "c1");
-    assert.equal(r.record.generation, 1);
+    await assert.rejects(owner.fresh(profile, REF, "c1"), (e: any) => e.code === "persist_failed");
     assert.equal(decodeRecord((await store.get(REF))!, "p").generation, 0); // not stored yet
     await owner.fresh(profile, REF, "c1");
     assert.equal(decodeRecord((await store.get(REF))!, "p").generation, 1); // persisted by the retry
