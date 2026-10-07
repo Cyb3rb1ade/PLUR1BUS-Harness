@@ -150,7 +150,7 @@ export interface PlanEnv {
   readonly tailscale?: { readonly loggedIn: boolean; readonly dnsName?: string | undefined } | undefined;
   /** A usable server certificate and key are present (generated or imported and validated). */
   readonly tlsReady?: boolean | undefined;
-  /** The recorded confirmation of the security notice. */
+  /** The recorded confirmation of the *current* security notice (security.ts `noticeNeeded`); callers pass an outdated one as absent. */
   readonly noticeAck?: NoticeAck | undefined;
 }
 

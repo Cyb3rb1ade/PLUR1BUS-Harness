@@ -32,10 +32,27 @@ export interface Pki {
   leafPem: string;
   leafKey: KeyObject;
   leafKeyPem: string;
+  keyType: KeyType;
+  /** The issuing CA's key, for issuing more leaves (renewal) under the same CA. */
+  interKey: KeyObject;
   /** A second leaf under the same intermediate, with its own key (for "right chain, wrong key" cases). */
   otherLeafKey: KeyObject;
   /** A CA that has nothing to do with this PKI, same subject names (for "wrong issuer signature" cases). */
   strangerInterKey: KeyObject;
+}
+
+const ROOT_NAME = { cn: "Corp Root CA", o: "Corp" };
+const INTER_NAME = { cn: "Corp Issuing CA", o: "Corp" };
+
+/** A fresh leaf (new key) under the same issuing CA: what a certificate renewal by the company CA looks like. */
+export function issueLeaf(pki: Pki, o: { dns?: string[]; ips?: string[]; from?: number; to?: number } = {}): { leafPem: string; leafKeyPem: string } {
+  const leaf = newKey(pki.keyType);
+  const cert = buildCertificate({
+    subject: { cn: "harness.corp.example" }, issuer: INTER_NAME, publicKey: leaf.publicKey, signingKey: pki.interKey,
+    notBefore: at(o.from ?? -1), notAfter: at(o.to ?? 365),
+    dns: o.dns ?? ["harness.corp.example"], ips: o.ips ?? ["192.168.1.20"],
+  });
+  return { leafPem: cert.pem, leafKeyPem: keyPem(leaf.privateKey) };
 }
 
 export function makePki(o: PkiOptions = {}): Pki {
@@ -45,8 +62,8 @@ export function makePki(o: PkiOptions = {}): Pki {
   const leaf = newKey(type);
   const other = newKey(type);
   const stranger = newKey(type);
-  const rootName = { cn: "Corp Root CA", o: "Corp" };
-  const interName = { cn: "Corp Issuing CA", o: "Corp" };
+  const rootName = ROOT_NAME;
+  const interName = INTER_NAME;
   const rootCert = buildCertificate({
     subject: rootName, publicKey: root.publicKey, signingKey: root.privateKey,
     notBefore: at(o.rootFrom ?? -3000), notAfter: at(o.rootTo ?? 3000), isCa: true,
@@ -62,7 +79,7 @@ export function makePki(o: PkiOptions = {}): Pki {
   });
   return {
     rootPem: rootCert.pem, interPem: interCert.pem, leafPem: leafCert.pem,
-    leafKey: leaf.privateKey, leafKeyPem: keyPem(leaf.privateKey),
+    leafKey: leaf.privateKey, leafKeyPem: keyPem(leaf.privateKey), keyType: type, interKey: inter.privateKey,
     otherLeafKey: other.privateKey, strangerInterKey: stranger.privateKey,
   };
 }

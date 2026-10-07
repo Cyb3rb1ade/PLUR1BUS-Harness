@@ -7,7 +7,7 @@
 import { createHash, createPublicKey, randomBytes, sign } from "node:crypto";
 import type { KeyObject } from "node:crypto";
 import { bitString, bool, children, ctx, ctxPrimitive, integerFromBytes, integerFromNumber, nul, octets, oid, readTlv, seq, set, time, utf8 } from "./der.ts";
-import { formatIp, parseIp } from "./net-address.ts";
+import { parseIp } from "./net-address.ts";
 
 export interface Name { readonly cn: string; readonly o?: string }
 
@@ -113,10 +113,3 @@ export function buildCertificate(spec: CertificateSpec): { der: Buffer; pem: str
   const der = seq(tbs, alg.id, bitString(signature, 0));
   return { der, pem: pemEncode("CERTIFICATE", der) };
 }
-
-/** Canonical IP text for a SAN entry (also used to de-duplicate). */
-export function canonicalIp(address: string): string | undefined {
-  const ip = parseIp(address);
-  return ip ? formatIp(ip) : undefined;
-}
-

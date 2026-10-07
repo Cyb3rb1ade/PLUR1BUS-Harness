@@ -46,6 +46,13 @@ export function compileAllowlist(rules: readonly string[]): { ok: true; list: Al
   };
 }
 
+/** Gate for a listener's raw `connection` event (before the TLS handshake): an empty list admits everyone, otherwise the
+ *  socket needs a parseable remote address that is on the list. In container mode the address is only meaningful where
+ *  the runtime preserves it (spec §6.2 caveat); the app refuses a non-empty list elsewhere instead of matching a gateway. */
+export function admitSocket(list: Allowlist, socket: { readonly remoteAddress?: string | undefined }): boolean {
+  return list.isEmpty || (socket.remoteAddress !== undefined && list.allows(socket.remoteAddress));
+}
+
 // --- security notice -----------------------------------------------------------------------------------------------
 
 /** Raised when the notice text changes in substance, so an old confirmation stops counting. */
