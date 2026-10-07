@@ -23,6 +23,8 @@ const params: Record<string, unknown> = {
   "admin.migrate": {}, "admin.obsidian.detect": {}, "admin.obsidian.prepare": {}, "admin.obsidian.confirm": {},
   "admin.embedding.probe": {}, "admin.embedding.serve": {},
   "admin.reembed.plan": {}, "admin.reembed.run": {}, "admin.reembed.status": {}, "admin.reembed.abort": {}, "admin.backup.snapshot": {}, "audit.verify": {}, "logs.query": {}, "logs.tail": {}, "identity.list": {}, "identity.human.create": {}, "identity.link": {}, "identity.unlink": {}, "identity.pair.start": {}, "identity.pair.claim": {}, "identity.pair.confirm": {}, "dreams.run": {}, "dreams.schedule.set": {}, "dreams.enable": {}, "dreams.disable": {},
+  "grant.list": {}, "grant.create": { capability: "fs.write", agent: "bernd", scope: "always" }, "grant.revoke": { id: "grt_1" },
+  "approval.list": {}, "approval.get": { id: "apr_1" }, "approval.decide": { id: "apr_1", decision: "approve" }, "approval.cancel": { id: "apr_1" }, "approval.verify": {},
 };
 
 /** Stub handlers for every guarded method; they record that they ran. */
@@ -33,7 +35,7 @@ function stubs(): { handlers: Record<string, Handler>; ran: string[] } {
   return { handlers, ran };
 }
 
-const asRole = (role: Role, extra: Partial<Principal> = {}): PrincipalResolver => () => ({ userId: "u-1", role, ...extra });
+const asRole = (role: Role, extra: Partial<Principal> = {}): PrincipalResolver => () => ({ userId: "u-1", role, kind: "person", ...extra });
 // `...p`: an explicit `undefined` argument must reach the handler as undefined, not become the default params.
 async function call(h: Record<string, Handler>, m: string, ...p: unknown[]): Promise<unknown> { return await h[m]!(p.length ? p[0] : params[m], ctx); }
 async function code(h: Record<string, Handler>, m: string, ...p: unknown[]): Promise<{ error?: string; reason?: string }> {
@@ -53,9 +55,9 @@ describe("rpc guard: rules", () => {
       assert.ok(actions.has(rule.action), `${method} -> unknown action ${rule.action}`);
     }
   });
-  it("secures eleven families: audit.verify, memory.forget, agent.status, jobs.run, egress.status, models.* writes, the admin.* family, identity.*, logs.* and the dreams.* writes", () => {
+  it("secures these families: audit.verify, memory.forget, agent.status, jobs.run, egress.status, models.* writes, the admin.* family, identity.*, logs.* and the dreams.* writes, and grant.* and approval.*", () => {
     const families = new Set(Object.keys(RPC_RULES).map((m) => m.split(".").slice(0, m.startsWith("admin.") || m.startsWith("identity.") || m.startsWith("logs.") ? 1 : 2).join(".")));
-    assert.deepEqual([...families].sort(), ["admin", "agent.status", "audit.verify", "dreams.disable", "dreams.enable", "dreams.run", "dreams.schedule", "egress.status", "identity", "jobs.run", "logs", "memory.forget", "models.removeManual", "models.setOverride"].sort());
+    assert.deepEqual([...families].sort(), ["admin", "agent.status", "approval.cancel", "approval.decide", "approval.get", "approval.list", "approval.verify", "audit.verify", "dreams.disable", "dreams.enable", "dreams.run", "dreams.schedule", "egress.status", "grant.create", "grant.list", "grant.revoke", "identity", "jobs.run", "logs", "memory.forget", "models.removeManual", "models.setOverride"].sort());
   });
   it("every admin.* method in the schema is guarded (an `admin.*` is never left open)", () => {
     const admin = Object.keys(findMethods(SCHEMA)).filter((m) => m.startsWith("admin."));

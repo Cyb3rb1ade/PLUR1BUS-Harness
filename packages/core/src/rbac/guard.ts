@@ -1,6 +1,6 @@
 // The integration point for core RPC methods: wraps the handlers named in `RPC_RULES` with principal resolution and
 // `authorize`. Methods without a rule pass through untouched. Only a representative set is secured so far
-// (docs/rbac.md lists the rest): memory.forget, agent.status, jobs.run, the models.* writes and the admin.* family.
+// (docs/rbac.md lists the rest): grant.* and approval.* (human-only), memory.forget, agent.status, jobs.run, the models.* writes and the admin.* family.
 import { RpcError } from "../rpc/errors.ts";
 import type { CallContext, Handler } from "../rpc/server.ts";
 import type { AuditSink } from "./audit.ts";
@@ -9,7 +9,7 @@ import type { Principal, Resource } from "./types.ts";
 
 /** RULING R8: until the Harness API supplies sessions and tokens, a connection that passed the core's own token
  *  handshake (a 0600 file in the home, ADR-012) is the installation owner. */
-export const LOCAL_OWNER: Principal = Object.freeze({ userId: "local-owner", role: "owner" });
+export const LOCAL_OWNER: Principal = Object.freeze({ userId: "local-owner", role: "owner", kind: "person" });
 
 export type PrincipalResolver = (ctx: CallContext, method: string, params: unknown) => Principal | null | undefined | Promise<Principal | null | undefined>;
 
@@ -63,6 +63,15 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "identity.pair.start": rule("users.manage", system),
   "identity.pair.claim": rule("users.manage", system),
   "identity.pair.confirm": rule("users.manage", system),
+  // D109 grants and approvals (spec 2026-09-28 §4): human-only actions, so an agent principal is refused in every state.
+  "grant.list": rule("grant.read", system),
+  "grant.create": rule("grant.write", system),
+  "grant.revoke": rule("grant.write", system),
+  "approval.list": rule("approval.read", system),
+  "approval.get": rule("approval.read", system),
+  "approval.verify": rule("approval.read", system),
+  "approval.decide": rule("approval.decide", system),
+  "approval.cancel": rule("approval.decide", system),
 });
 
 export interface GuardOptions {

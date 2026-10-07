@@ -31,9 +31,9 @@ function resourceFor(action: string, own: boolean): Resource {
   }
 }
 
-const bare = (role: Role): Principal => ({ userId: SELF, role });
+const bare = (role: Role): Principal => ({ userId: SELF, role, kind: "person" });
 const withRights = (role: Role, a: "use" | "manage" | "member" | "lead"): Principal => ({
-  userId: SELF, role,
+  userId: SELF, role, kind: "person",
   agentRights: { [AGENT]: a === "manage" ? "manage" : "use" },
   projectRights: { [PROJECT]: a === "lead" ? "lead" : "member" },
 });
@@ -42,7 +42,7 @@ const grant = (target: string, over: Partial<BreakGlassGrant> = {}): BreakGlassG
 });
 /** Everything a principal could be given at once, except that it never changes the role. */
 const maxed = (role: Role): Principal => ({
-  userId: SELF, role, agentRights: { [AGENT]: "manage" }, projectRights: { [PROJECT]: "lead" }, breakGlass: [grant(OTHER)],
+  userId: SELF, role, kind: "person", agentRights: { [AGENT]: "manage" }, projectRights: { [PROJECT]: "lead" }, breakGlass: [grant(OTHER)],
 });
 
 describe("rbac matrix (ADR-004 visibility table x ADR-007 roles)", () => {
@@ -90,7 +90,7 @@ describe("rbac matrix (ADR-004 visibility table x ADR-007 roles)", () => {
           assert.equal(authorize(bare(role), e.action, resourceFor(e.action, false), { now: NOW }).effect, "deny", "bare principal on someone else's/unshared resource");
           assert.equal(gated(want).effect, "allow", "gate met");
           if (want === "OB") {
-            const d = authorize({ userId: SELF, role, breakGlass: [grant(OTHER)] }, e.action, resourceFor(e.action, false), { now: NOW });
+            const d = authorize({ userId: SELF, role, kind: "person", breakGlass: [grant(OTHER)] }, e.action, resourceFor(e.action, false), { now: NOW });
             assert.deepEqual(d, { effect: "allow", reason: "break-glass", breakGlassId: "bg-1" });
           }
         });

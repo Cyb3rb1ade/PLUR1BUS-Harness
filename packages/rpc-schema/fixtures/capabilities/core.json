@@ -299,6 +299,38 @@
     "session.cancel": {
       "stability": "experimental",
       "since": "1.5.0"
+    },
+    "grant.list": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "grant.create": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "grant.revoke": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "approval.list": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "approval.get": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "approval.decide": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "approval.cancel": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "approval.verify": {
+      "stability": "experimental",
+      "since": "1.5.0"
     }
   },
   "notifications": {
@@ -360,6 +392,18 @@
       "since": "1.5.0"
     },
     "session.event": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "approval.requested": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "approval.resolved": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "grant.changed": {
       "stability": "experimental",
       "since": "1.5.0"
     }

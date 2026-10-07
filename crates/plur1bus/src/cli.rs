@@ -140,6 +140,18 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: SecretCmd,
     },
+    /// [experimental] Standing permissions: list, add and revoke grants (D109)
+    ///
+    /// A grant lets an agent use a capability without asking each time. Only a person creates one.
+    Grant {
+        #[command(subcommand)]
+        sub: GrantCmd,
+    },
+    /// [experimental] Approval requests: the pending queue, approve, deny and verify the chain (D109)
+    Approval {
+        #[command(subcommand)]
+        sub: ApprovalCmd,
+    },
     /// Provider login (API keys, OAuth) — M2
     Login(StubArgs),
     /// Channels — M4
@@ -953,6 +965,205 @@ pub enum ModelCmd {
         #[arg(long)]
         remove: bool,
     },
+}
+
+/// How long a grant added with `grant add` lasts (`once` exists only as an answer to a request).
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GrantScopeArg {
+    Task,
+    Session,
+    Always,
+}
+
+impl GrantScopeArg {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Task => "task",
+            Self::Session => "session",
+            Self::Always => "always",
+        }
+    }
+}
+
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GrantAccessArg {
+    Read,
+    Write,
+}
+
+impl GrantAccessArg {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Read => "read",
+            Self::Write => "write",
+        }
+    }
+}
+
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GrantStateArg {
+    Active,
+    Revoked,
+    Consumed,
+    Suspended,
+}
+
+impl GrantStateArg {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Active => "active",
+            Self::Revoked => "revoked",
+            Self::Consumed => "consumed",
+            Self::Suspended => "suspended",
+        }
+    }
+}
+
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ApprovalStatusArg {
+    Pending,
+    Approved,
+    Denied,
+    Used,
+    Expired,
+    Cancelled,
+}
+
+impl ApprovalStatusArg {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Approved => "approved",
+            Self::Denied => "denied",
+            Self::Used => "used",
+            Self::Expired => "expired",
+            Self::Cancelled => "cancelled",
+        }
+    }
+}
+
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DecideScopeArg {
+    Once,
+    Task,
+    Session,
+    Always,
+}
+
+impl DecideScopeArg {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Once => "once",
+            Self::Task => "task",
+            Self::Session => "session",
+            Self::Always => "always",
+        }
+    }
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct GrantAddArgs {
+    /// the capability to grant, e.g. `fs.write` (some capabilities can never be granted)
+    pub capability: String,
+    /// the agent that receives the grant
+    #[arg(long)]
+    pub agent: String,
+    /// how long it lasts: the task, the session, or until revoked (auto-expires after 90 days unused)
+    #[arg(long, value_enum)]
+    pub scope: GrantScopeArg,
+    /// the task the grant is bound to (required for `--scope task`)
+    #[arg(long, value_name = "ID")]
+    pub task_id: Option<String>,
+    /// the session the grant is bound to (required for `--scope session`)
+    #[arg(long, value_name = "ID")]
+    pub session_id: Option<String>,
+    /// limit the grant to this path (default: the whole capability)
+    #[arg(long, value_name = "PATH")]
+    pub path: Option<String>,
+    /// read or write access on `--path` (write implies read)
+    #[arg(long, value_enum, requires = "path")]
+    pub access: Option<GrantAccessArg>,
+    /// the path grant covers everything below `--path`, not only its direct children
+    #[arg(long, requires = "path")]
+    pub recursive: bool,
+    /// end the grant at a time: `30m`, `12h`, `7d`, or an RFC 3339 UTC time such as 2026-12-31T23:59:59Z
+    #[arg(long, value_name = "WHEN")]
+    pub expires: Option<String>,
+    /// let the agent pass this grant on to the helpers it starts
+    #[arg(long)]
+    pub delegable: bool,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum GrantCmd {
+    /// [experimental] List grants, newest first (owner/admin only)
+    List {
+        /// only this agent's grants
+        #[arg(long)]
+        agent: Option<String>,
+        /// only this capability
+        #[arg(long)]
+        capability: Option<String>,
+        /// only grants in this state
+        #[arg(long, value_enum)]
+        state: Option<GrantStateArg>,
+        /// at most this many (1-500, default 100)
+        #[arg(long)]
+        limit: Option<u32>,
+    },
+    /// [experimental] Give an agent a standing permission (scope task, session or always)
+    ///
+    /// `once` grants exist only as the answer to a request: use `plur1bus approval approve`.
+    Add(GrantAddArgs),
+    /// [experimental] Revoke a grant now; revoking a revoked grant changes nothing
+    Revoke {
+        /// the grant id (grt_...)
+        id: String,
+        /// a note shown in this command's output; `grant.revoke` takes only an id, so the core never receives it
+        #[arg(long)]
+        reason: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ApprovalCmd {
+    /// [experimental] List approval requests, newest first
+    List {
+        #[arg(long, value_enum)]
+        status: Option<ApprovalStatusArg>,
+        /// only this agent's requests
+        #[arg(long)]
+        agent: Option<String>,
+        /// at most this many (1-500, default 100)
+        #[arg(long)]
+        limit: Option<u32>,
+    },
+    /// [experimental] The pending queue: requests waiting for a person (approval list --status pending)
+    Pending,
+    /// [experimental] Approve a pending request after showing exactly what it asks for
+    ///
+    /// The request (command line or diff summary, targets, risk) is printed first. In a terminal you confirm with
+    /// `y`; outside a terminal `--yes` is required, so nothing is approved silently.
+    Approve {
+        /// the request id (apr_...)
+        id: String,
+        /// how long the permission lasts; default: the narrowest option the request offers
+        #[arg(long, value_enum)]
+        scope: Option<DecideScopeArg>,
+        /// let the agent pass the permission on to the helpers it starts
+        #[arg(long)]
+        delegable: bool,
+        /// do not ask for confirmation (required outside a terminal); the request is still printed
+        #[arg(long)]
+        yes: bool,
+    },
+    /// [experimental] Deny a pending request
+    Deny {
+        /// the request id (apr_...)
+        id: String,
+    },
+    /// [experimental] Verify the HMAC chain of the approval store; exit 1 and the first broken position if it breaks
+    Verify,
 }
 
 #[derive(Subcommand, Debug)]

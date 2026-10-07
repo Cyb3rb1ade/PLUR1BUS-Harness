@@ -169,6 +169,14 @@ fn method_fixture(name: &str, f: &Value) {
         "secret.set" => pair::<SecretSetParams, SecretMeta>(name, f),
         "secret.get" => pair::<SecretGetParams, SecretGetResult>(name, f),
         "secret.delete" => pair::<SecretDeleteParams, SecretDeleteResult>(name, f),
+        "grant.list" => pair::<GrantListParams, GrantListResult>(name, f),
+        "grant.create" => pair::<GrantCreateParams, GrantRecord>(name, f),
+        "grant.revoke" => pair::<GrantRevokeParams, GrantRecord>(name, f),
+        "approval.list" => pair::<ApprovalListParams, ApprovalListResult>(name, f),
+        "approval.get" => pair::<ApprovalGetParams, ApprovalRecord>(name, f),
+        "approval.decide" => pair::<ApprovalDecideParams, ApprovalDecideResult>(name, f),
+        "approval.cancel" => pair::<ApprovalCancelParams, ApprovalRecord>(name, f),
+        "approval.verify" => pair::<ApprovalVerifyParams, ApprovalVerifyResult>(name, f),
         other => panic!("fixtures/methods/{other}.json has no Rust type mapping in this test"),
     }
 }
@@ -316,6 +324,9 @@ fn every_notification_fixture_round_trips() {
             "ext.changed" => round_trip::<types::ExtChangedNotification>(v, name),
             "models.changed" => round_trip::<types::ModelsChangedNotification>(v, name),
             "session.event" => round_trip::<types::SessionEventNotification>(v, name),
+            "approval.requested" => round_trip::<types::ApprovalRequestedNotification>(v, name),
+            "approval.resolved" => round_trip::<types::ApprovalResolvedNotification>(v, name),
+            "grant.changed" => round_trip::<types::GrantChangedNotification>(v, name),
             other => panic!("fixtures/notifications/{other}.json has no Rust type mapping"),
         }
     }

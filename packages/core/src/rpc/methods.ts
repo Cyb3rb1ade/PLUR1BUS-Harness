@@ -23,6 +23,7 @@ import type { Egress } from "../egress/index.ts";
 import { CatalogError } from "../discovery/overrides.ts";
 import { CatalogWriteError } from "../discovery/catalog-store.ts";
 import { buildSecretMethods } from "../secrets/rpc.ts";
+import { buildApprovalMethods, type ApprovalMethodDeps } from "../approvals/rpc.ts";
 import { RpcError } from "./errors.ts";
 import type { Handler } from "./server.ts";
 
@@ -81,6 +82,8 @@ export interface MethodDeps {
   egress?: Egress;
   /** M2: the secret store and who a connection is. Absent, the `secret.*` methods are not served. */
   secrets?: import("../secrets/rpc.ts").SecretMethodDeps;
+  /** D109: `grant.*` and `approval.*`. Absent, they are not served. */
+  permissions?: ApprovalMethodDeps;
 }
 
 function identity(d: MethodDeps, caller: CallerIdentity, agentId: string): { principal: Principal; degraded: Degraded | null } {
@@ -205,6 +208,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
     ...buildMemoryOpMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping }),
     ...buildDreamsMethods({ dreams: () => d.dreams?.() ?? null, agents: d.agents, ...(d.dreamsError ? { unavailableBecause: d.dreamsError } : {}) }),
     ...(d.secrets ? buildSecretMethods(d.secrets) : {}),
+    ...(d.permissions ? buildApprovalMethods(d.permissions) : {}),
     ...buildAdminMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping, onMigrated: d.onMigrated, signal: d.captureSignal }),
     ...(d.reembed ?? {}),
 

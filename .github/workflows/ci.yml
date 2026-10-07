@@ -74,7 +74,7 @@ jobs:
       - run: pnpm build
       - run: pnpm lint
       - run: pnpm test
-        timeout-minutes: 15
+        timeout-minutes: 25 # the Windows runner needs ~15 min for the full suite; the job ceiling above is 45
       # The vacuous-run guard must trip on every OS (a filter that matches nothing is what hid the Windows TS tests).
       - name: test guard trips on an empty filter
         shell: bash

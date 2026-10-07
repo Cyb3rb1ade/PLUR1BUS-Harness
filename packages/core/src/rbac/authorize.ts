@@ -1,10 +1,11 @@
 // `authorize(principal, action, resource)`: pure and side-effect free (no clock, no I/O, no logging). Deny by default.
 import { policyFor } from "./policy.ts";
 import type { ActionSpec, AgentRight, AuthorizeContext, BreakGlassGrant, Decision, DenyReason, Grant, Principal, ProjectRight, Resource, Role } from "./types.ts";
-import { ROLES } from "./types.ts";
+import { PRINCIPAL_KINDS, ROLES } from "./types.ts";
 
 const deny = (reason: DenyReason): Decision => ({ effect: "deny", reason });
 const ROLE_SET: ReadonlySet<string> = new Set(ROLES);
+const KIND_SET: ReadonlySet<string> = new Set(PRINCIPAL_KINDS);
 const AGENT_RANK: Readonly<Record<string, number>> = { use: 1, manage: 2 };
 const PROJECT_RANK: Readonly<Record<string, number>> = { member: 1, lead: 2 };
 
@@ -64,8 +65,11 @@ function evaluate(g: Grant, p: Principal, spec: ActionSpec, r: Resource, id: str
 export function authorize(principal: Principal | null | undefined, action: string, resource: Resource, ctx: AuthorizeContext = {}): Decision {
   if (principal === null || principal === undefined) return deny("unauthenticated");
   if (typeof principal !== "object" || typeof principal.userId !== "string" || principal.userId === "" || !ROLE_SET.has(principal.role)) return deny("invalid-principal");
+  if (principal.kind !== undefined && !KIND_SET.has(principal.kind)) return deny("invalid-principal");
   const spec = policyFor(action);
   if (!spec) return deny("unknown-action");
+  // D109 D6, before anything else can say yes: a human-only action needs a principal that is explicitly a person.
+  if (spec.humanOnly === true && principal.kind !== "person") return deny("agent-principal");
   if (typeof resource !== "object" || resource === null || shapeOf(resource) !== spec.resource) return deny("resource-mismatch");
   const id = idOf(resource);
   if (typeof id !== "string" || (resource.kind !== "system" && id === "")) return deny("resource-mismatch");

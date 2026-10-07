@@ -20,12 +20,46 @@ authorize({ userId: "u1", role: "member", agentRights: { bernd: "use" } }, "agen
 * **Deny by default.** Unknown action, malformed principal, a resource of the wrong shape or with an empty id, a role
   with no entry in the table: all `deny`, with a reason code (`unknown-action`, `invalid-principal`,
   `resource-mismatch`, `role-denied`, `not-owner`, `object-right-required`, `break-glass-required`, `token-scope`,
-  `unauthenticated`, `audit-failed`).
+  `unauthenticated`, `audit-failed`, `agent-principal`).
 * **Grants** (per role, per action, in `policy.ts`): `allow` (the role holds it), `own` (the resource is the principal's
   own), `object` (an object right on that agent/project: `use` < `manage`, `member` < `lead`; multiplicative with the
   role, so a Viewer holding `manage` is still denied), `break-glass` (a live grant for the target user).
 * **Token scopes** (`principal.tokenScopes`, exact action or `prefix.*`) can only narrow: effective = role ∩ scopes.
 * `canSee(principal, action, resources)` filters a list (for example `agent.list`) to what the principal may see.
+
+## Principal kind and human-only actions (D109 D6)
+
+`Principal.kind` is `"person"` or `"agent"`. Only the resolver that authenticated a person sets `"person"` (`LOCAL_OWNER` does).
+An action marked `humanOnly` in `POLICY` is checked **first** in `authorize`: a principal that is not explicitly a person
+is denied with `agent-principal`, whatever its role, object rights, token scopes or break-glass grants (a missing kind
+counts as not-a-person, an unknown kind is `invalid-principal`). No role entry can open a human-only action to an agent,
+and `canSee`/`authorize` are otherwise unchanged. The four human-only actions are the ones behind the D109 grant and
+approval methods (spec 2026-09-28 §4): `grant.read`, `grant.write`, `approval.read`, `approval.decide`. There is no
+password or login route for an agent: no RPC method takes a password, and `rbac/` handles none.
+
+| RPC method | Action | Roles (person) |
+|---|---|---|
+| `grant.list` | `grant.read` | Owner, Admin |
+| `grant.create`, `grant.revoke` | `grant.write` | Owner, Admin |
+| `approval.list`, `approval.get`, `approval.verify` | `approval.read` | Owner, Admin, Operator |
+| `approval.decide`, `approval.cancel` | `approval.decide` | Owner, Admin |
+
+`approval.list` with `status=pending` is the pending queue (there is no `approval.pending`). RBAC is the coarse gate: the
+handler still checks that the surface level (`surfaceTrust`, below) meets the request's `requiredSurface`. Whether a Member
+may decide requests of their own agents is open (today only Owner/Admin). The methods are also absent from every agent tool
+catalogue and the D103 index, refused as WebMCP tools (`admin.*` rule, B15) and never on the harness MCP server.
+
+### Surface trust (`surface.ts`, spec §5)
+
+`surfaceTrust(facts)` is a pure function of facts the core established itself (never of client or model claims); anything
+unlisted or malformed is T0. `surfaceSatisfies(have, required)`: T0 satisfies nothing; `required: null` (a capability that never asks) is never satisfied.
+
+| Level | Facts |
+|---|---|
+| T3 | `desktop-app`; `cli` with a TTY of the owning OS user; `web` with a step-up within `STEP_UP_WINDOW_MS` (5 min) |
+| T2 | `web` session without (or with a stale) step-up; `channel` with a private chat, a linked identity, a valid one-time nonce and a first-party module (a third-party module only if the person opted it in) |
+| T1 | `acp-editor` that started the session |
+| T0 | group chats, unlinked identities, MCP clients, A2A peers, agents, model output, tool results, a CLI without TTY, everything else |
 
 ## Privacy (ADR-007 §Privacy)
 
@@ -68,6 +102,8 @@ The M1b-3 `dreams.*` methods follow the nearest existing pattern: `dreams.run` �
 The M3 `identity.*` methods are secured by the nearest existing pattern: `identity.list` → `users.read`, and `identity.human.create`, `identity.link`, `identity.unlink`, `identity.pair.start|claim|confirm` → `users.manage` (system resource, Owner and Admin). Their descriptions say "Owner only"; today every connection is the owner, so nothing changes, and whether these should be Owner-only is for the roles ruling (R4/R5 open).
 
 `audit.verify` (B5, the hash-chained audit file, docs/audit-chain.md) → `audit.read` on the system resource: Owner and Admin, the same pair that may read the audit trail. It is read-only on the log and its findings carry file names and line numbers, never record content.
+
+`grant.*` and `approval.*` (D109, the eight methods in the table above) are secured by human-only actions; an agent principal is refused with `E_DENIED reason=agent-principal` in every state. The handlers are registered in the core (`approvals/rpc.ts`, `grants/rpc.ts`) and run behind the same guard.
 
 **Not yet secured** (they stay owner-equivalent for the local connection): `core.*`, `memory.recall|capture|checkpoint|
 list|show|correct|share|state|propose|proposals.*|proposal`, `agent.open|close|list|activity`, `jobs.list|history`,
@@ -137,6 +173,10 @@ needed, `bg` = a live break-glass grant, `–` = denied). The matrix test compar
 | `settings.read` | system | ✔ | ✔ | – | – | – |
 | `settings.write` | system | ✔ | ✔ | – | – | – |
 | `egress.read` | system | ✔ | ✔ | – | – | – |
+| `grant.read` (human-only) | system | ✔ | ✔ | – | – | – |
+| `grant.write` (human-only) | system | ✔ | ✔ | – | – | – |
+| `approval.read` (human-only) | system | ✔ | ✔ | ✔ | – | – |
+| `approval.decide` (human-only) | system | ✔ | ✔ | – | – | – |
 | `secrets.list` | system | ✔ | ✔ | – | – | – |
 | `secrets.reveal` | system | ✔ | – | – | – | – |
 | `secrets.write` | system | ✔ | – | – | – | – |

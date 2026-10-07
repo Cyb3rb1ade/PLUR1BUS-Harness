@@ -1,6 +1,7 @@
 pub mod acp;
 pub mod admin;
 pub mod agent;
+pub mod approval;
 pub mod audit;
 pub mod backup;
 pub mod budget;
@@ -13,6 +14,7 @@ pub mod firstaid;
 pub(crate) mod firstaid_bundle;
 pub(crate) mod firstaid_ext;
 pub(crate) mod firstaid_install;
+pub mod grant;
 pub mod import;
 pub mod memory;
 pub mod memory_ops;
