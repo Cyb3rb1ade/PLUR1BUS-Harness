@@ -91,15 +91,15 @@ export function parseCoreStatus(body: unknown): CoreStatus | null {
     degraded = { reason, capability, ...(detail === undefined ? {} : { detail }) };
   }
   const reason = str(body.process.reason);
-  const out: CoreStatus = { process: { state: body.process.state, ...(reason === undefined ? {} : { reason }) }, engine: { ready: e.ready, degraded } };
+  const out: CoreStatus = { process: { state: body.process.state, ...(reason === undefined ? {} : { reason }) }, engine: { ready: body.engine.ready, degraded } };
   if (isObj(e.models)) {
     const embedder = parseModel(e.models.embedder), reranker = parseModel(e.models.reranker);
     if (embedder && reranker) out.engine.models = { embedder, reranker };
   }
-  if (isObj(e.sharedMemory) && typeof e.sharedMemory.supported === "boolean" && typeof e.sharedMemory.mode === "string") out.engine.sharedMemory = { supported: e.sharedMemory.supported, mode: e.sharedMemory.mode };
-  if (isObj(e.storeSchema) && typeof e.storeSchema.expected === "string" && (e.storeSchema.current === null || typeof e.storeSchema.current === "string")) {
-    out.engine.storeSchema = { current: e.storeSchema.current, expected: e.storeSchema.expected };
-  }
+  const sm = e.sharedMemory;
+  if (isObj(sm) && typeof sm.supported === "boolean" && typeof sm.mode === "string") out.engine.sharedMemory = { supported: sm.supported, mode: sm.mode };
+  const ss = e.storeSchema;
+  if (isObj(ss) && typeof ss.expected === "string" && (ss.current === null || typeof ss.current === "string")) out.engine.storeSchema = { current: ss.current, expected: ss.expected };
   return out;
 }
 

@@ -1,5 +1,6 @@
 import { GALLERY_ITEM, type NavItem } from "../nav.ts";
 import type { View } from "../view.ts";
+import { DoctorPage } from "./doctor/page.ts";
 import { GalleryPage } from "./gallery.ts";
 import { ModelsPage } from "./models/page.ts";
 import { PlaceholderPage } from "./placeholder.ts";
@@ -25,7 +26,7 @@ export const PAGES: Readonly<Record<string, PageComponent>> = {
   recurring: PlaceholderPage,
   approvals: PlaceholderPage,
   usage: PlaceholderPage,
-  doctor: PlaceholderPage,
+  doctor: DoctorPage,
   logs: PlaceholderPage,
   settings: PlaceholderPage,
   help: PlaceholderPage,
