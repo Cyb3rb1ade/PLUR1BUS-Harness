@@ -1,0 +1,7 @@
+{
+  "description": "synthetic MTPLX 400 for dimensions beyond the native width (FastAPI detail body)",
+  "status": 400,
+  "body": {
+    "detail": "dimensions must be between 1 and 4096 for m (native width 4096), got 8192"
+  }
+}

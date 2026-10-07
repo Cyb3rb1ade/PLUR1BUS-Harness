@@ -47,7 +47,9 @@ export class FakePort implements ProcessPort {
 }
 
 export function tmpRoot(): { root: string; sub: string } {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), "p1b-exec-")));
+  // `.native` matters on Windows: the plain realpath keeps 8.3 short names (`RUNNER~1`) that the path policy refuses
+  // (`short-name`); the native one returns the long, canonical spelling. On POSIX both are identical.
+  const root = realpathSync.native(mkdtempSync(join(tmpdir(), "p1b-exec-")));
   const sub = join(root, "work");
   mkdirSync(sub);
   return { root, sub };
@@ -65,7 +67,9 @@ export function mk(over: Partial<ExecConfig> & { root: string }, extra: Partial<
     process: port, timers, audit,
     policy: { grants: new MemoryGrants(grants), clock: new FakeClock() },
     baseEnv: { PATH: "/usr/bin", HOME: "/home/x", API_TOKEN: "t0ps3cret", AWS_SECRET_ACCESS_KEY: "k" },
-    policyContext: ctx(), approvals, platform: "linux", ...extra,
+    // The cwd and roots are real paths of the host running the test, so the path rules must be the host's own:
+    // a hardcoded "linux" refused every Windows path (`backslash`). Tests of a foreign platform pass `platform` in `extra`.
+    policyContext: ctx(), approvals, platform: process.platform, ...extra,
   };
   return { deps, audit, timers, port, asked };
 }

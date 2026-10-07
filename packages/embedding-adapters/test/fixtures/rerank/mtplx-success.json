@@ -1,0 +1,25 @@
+{
+  "description": "synthetic, shaped like MTPLX /v1/rerank: sorted results with relevance_score, id and usage",
+  "status": 200,
+  "body": {
+    "id": "rerank-1760000000000",
+    "model": "Qwen3-Reranker-4B-4bit-MLX",
+    "results": [
+      {
+        "index": 2,
+        "relevance_score": 0.91
+      },
+      {
+        "index": 0,
+        "relevance_score": 0.42
+      },
+      {
+        "index": 1,
+        "relevance_score": 0.05
+      }
+    ],
+    "usage": {
+      "total_tokens": 31
+    }
+  }
+}

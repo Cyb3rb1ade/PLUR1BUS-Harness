@@ -1,0 +1,14 @@
+{
+  "description": "synthetic 2-input success, dimension 4",
+  "status": 200,
+  "body": {
+    "embedding": {
+      "values": [
+        3,
+        4,
+        0,
+        0
+      ]
+    }
+  }
+}

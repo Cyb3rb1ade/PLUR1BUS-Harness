@@ -99,6 +99,8 @@ importers:
         specifier: 2.1.0
         version: 2.1.0
 
+  packages/embedding-adapters: {}
+
   packages/log-schema:
     dependencies:
       ajv:

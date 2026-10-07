@@ -114,16 +114,21 @@ describe(`control server under hostile lines (seed ${SEED})`, () => {
   before(async () => { server = createControlServer({ address, token: TOKEN, hello, authIdleMs: 2000, handlers: { "module.status": async () => ({}) } }); await server.listen(); });
   after(async () => { await server.close(); });
 
-  /** Sends bytes, collects every reply until the socket closes or goes quiet; returns replies and whether it closed. */
-  function exchange(bytes: Buffer, quietMs = 150): Promise<{ replies: any[]; unparsed: number }> {
+  /**
+   * Sends bytes, collects every reply until the socket closes or goes quiet; returns replies and whether it closed.
+   * "Quiet" is measured from the moment our own write has been flushed, never from `connect`: a 4 MiB write takes
+   * ~120 ms even on a developer Mac and longer on a loaded CI runner, so a timer armed at connect fired before the
+   * server could answer (macOS CI: reply missing after exactly 152 ms). With `untilClose` there is no quiet timer at
+   * all: the exchange ends when the server closes the connection (the 20 s guard below still bounds it).
+   */
+  function exchange(bytes: Buffer, o: { untilClose?: boolean } = {}): Promise<{ replies: any[]; unparsed: number; closed: boolean }> {
     return new Promise((resolve, reject) => {
-      const sock: Socket = createConnection(address); const dec = new LineDecoder(); const replies: any[] = []; let unparsed = 0;
-      let quiet: NodeJS.Timeout; const done = () => { clearTimeout(quiet); sock.destroy(); resolve({ replies, unparsed }); };
-      const arm = () => { clearTimeout(quiet); quiet = setTimeout(done, quietMs); };
+      const sock: Socket = createConnection(address); const dec = new LineDecoder(); const replies: any[] = []; let unparsed = 0; let closed = false;
+      let quiet: NodeJS.Timeout; const done = () => { clearTimeout(quiet); sock.destroy(); resolve({ replies, unparsed, closed }); };
+      const arm = () => { if (o.untilClose) return; clearTimeout(quiet); quiet = setTimeout(done, 150); };
       sock.on("data", (c) => { const x = dec.decode(c); replies.push(...x.values); unparsed += x.bad.length; arm(); });
-      sock.on("end", done);
-      sock.on("close", done); sock.on("error", () => done());
-      sock.once("connect", () => { sock.write(bytes); arm(); });
+      sock.on("close", () => { closed = true; done(); }); sock.on("error", () => done());
+      sock.once("connect", () => { sock.write(bytes, () => arm()); });
       setTimeout(() => reject(new Error("exchange timeout")), 20_000).unref();
     });
   }
@@ -157,7 +162,8 @@ describe(`control server under hostile lines (seed ${SEED})`, () => {
   });
 
   it("an over-long unterminated line is refused with line-too-long and the connection closes", { timeout: 60_000 }, async () => {
-    const { replies } = await exchange(Buffer.alloc(MAX_LINE_BYTES + 1, 0x61), 5000);
+    const { replies, closed } = await exchange(Buffer.alloc(MAX_LINE_BYTES + 1, 0x61), { untilClose: true });
     assert.equal(replies[0]?.error?.data?.reason, "line-too-long");
+    assert.equal(closed, true, "the server closes the connection after the refusal");
   });
 });
