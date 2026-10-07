@@ -69,7 +69,6 @@ jobs:
       PLUR1BUS_DESKTOP_ALLOW_PLACEHOLDER_KEY: "1"
       PLUR1BUS_DESKTOP_COOKIE_GUARD: ${{ matrix.cookie_guard }}
       PLUR1BUS_CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      PLUR1BUS_LIFECYCLE_REPORT: ${{ runner.temp }}/lifecycle-report.json
       # Process-scoped transport rewrite; no git config files are changed.
       GIT_CONFIG_COUNT: "1"
       GIT_CONFIG_KEY_0: url.https://github.com/.insteadOf
@@ -93,6 +92,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Isolate UI test browser storage
         run: echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/plur1bus-playwright" >> "$GITHUB_ENV"
+      - name: Lifecycle report path (runner.temp is not available in job-level env)
+        run: echo "PLUR1BUS_LIFECYCLE_REPORT=$RUNNER_TEMP/lifecycle-report.json" >> "$GITHUB_ENV"
       - name: Install UI test browser (Linux)
         if: runner.os == 'Linux'
         run: pnpm --filter @plur1bus/desktop-ui exec playwright install --with-deps chromium --only-shell
