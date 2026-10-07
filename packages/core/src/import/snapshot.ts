@@ -9,21 +9,24 @@ import {
   closeSync,
   existsSync,
   mkdirSync,
+  mkdtempSync,
   openSync,
   readdirSync,
   readFileSync,
   realpathSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync,
   writeSync,
 } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { DatabaseSync, backup } from "node:sqlite";
 import { type Flavour, locateSource, type Origin } from "./paths.ts";
 import {
   copyFileBounded,
   envKeyNames,
+  isSecretFileName,
   SQLITE_COPY_ATTEMPTS,
 } from "./readonly.ts";
 import { ImportError, type SourceType } from "./types.ts";
@@ -63,6 +66,8 @@ export interface SnapshotMetadata {
   sqlite: Record<string, SnapshotSqliteInfo>;
   lancedb?: Record<string, SnapshotLanceInfo> | undefined;
   skippedLinks?: string[] | undefined;
+  skippedFiles?: Array<{ path: string; reason: string }>;
+  omittedCredentials?: string[];
   envKeys: Record<string, string[]>;
   liveCopy?: boolean | undefined;
   tarWarnings?: number | undefined;
@@ -470,7 +475,8 @@ function readNullTerminatedAscii(buf: Buffer, start: number, len: number): strin
   const slice = buf.subarray(start, start + len);
   const nul = slice.indexOf(0);
   const end = nul === -1 ? slice.length : nul;
-  return slice.subarray(0, end).toString("utf8");
+  try { return new TextDecoder("utf-8", { fatal: true }).decode(slice.subarray(0, end)); }
+  catch { throw new ImportError("E_TAR_SECURITY", "invalid-filename-encoding", "Tar header contains invalid UTF-8", 3); }
 }
 
 function parsePaxRecords(buf: Buffer): Record<string, string> {
@@ -485,7 +491,7 @@ function parsePaxRecords(buf: Buffer): Record<string, string> {
     const recordBuf = buf.subarray(spaceIdx + 1, offset + len);
     const newlineOffset = recordBuf.indexOf(10); // newline
     const effectiveBuf = newlineOffset >= 0 ? recordBuf.subarray(0, newlineOffset) : recordBuf;
-    const line = effectiveBuf.toString("utf8");
+    const line = readNullTerminatedAscii(effectiveBuf, 0, effectiveBuf.length);
     const eq = line.indexOf("=");
     if (eq > 0) {
       out[line.slice(0, eq).trim()] = line.slice(eq + 1);
@@ -797,15 +803,30 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
   const sqliteStatuses: Record<string, SnapshotSqliteInfo> = {};
   const lanceStatuses: Record<string, SnapshotLanceInfo> = {};
   let skippedLinks: string[] = [];
+  const skippedFiles: Array<{ path: string; reason: string }> = [];
   let tarWarnings = 0;
 
+  // Refuse overlap before creating anything; cleanup must never own an existing directory.
+  if (!isWsl) {
+    const src = realpathSync(resolve(rawSource));
+    const parent = resolve(dirname(stagingDir));
+    let existing = parent;
+    while (!existsSync(existing)) existing = dirname(existing);
+    const dest = resolve(realpathSync(existing), relative(existing, resolve(stagingDir)));
+    const inside = (a: string, b: string) => a === b || a.startsWith(b + sep);
+    if (inside(dest, src) || inside(src, dest)) {
+      throw new ImportError("E_INVALID_PARAMS", "snapshot-overlap", "Snapshot and source directories must not overlap");
+    }
+  }
   try {
     try {
-      mkdirSync(stagingDir, { recursive: true, mode: 0o700 });
+      mkdirSync(dirname(stagingDir), { recursive: true, mode: 0o700 });
+      mkdirSync(stagingDir, { mode: 0o700 });
       stagingCreated = true;
     } catch (err) {
       if (err instanceof ImportError) throw err;
       const e = err as NodeJS.ErrnoException;
+      if (e.code === "EEXIST") throw new ImportError("E_INVALID_PARAMS", "snapshot-exists", "Snapshot destination already exists");
       throw new ImportError("E_IMPORT_FAILED", e.code ? `fs-${e.code.toLowerCase()}` : "fs-error", `Failed to create staging directory: ${e.message}`, 3);
     }
 
@@ -915,12 +936,12 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
       }
 
       // Staged SQLite verification for WSL (F4)
-      function scanSqlite(dir: string) {
+      async function scanSqlite(dir: string): Promise<void> {
         const entries = readdirSync(dir, { withFileTypes: true });
         for (const e of entries) {
           const full = join(dir, e.name);
           if (e.isDirectory()) {
-            scanSqlite(full);
+            await scanSqlite(full);
           } else if (e.isFile() && (e.name.endsWith(".db") || e.name.endsWith(".sqlite"))) {
             const rel = relative(stagingDir, full).replace(/\\/g, "/");
             let ok = false;
@@ -929,6 +950,8 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
               db = new DatabaseSync(full, { readOnly: true });
               const check = db.prepare("PRAGMA quick_check").all() as Record<string, unknown>[];
               if (check.length === 1 && Object.values(check[0]!)[0] === "ok") {
+                await consolidateSqlite(db, full);
+                db = null;
                 ok = true;
               }
             } catch {
@@ -949,7 +972,7 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
           }
         }
       }
-      scanSqlite(stagingDir);
+      await scanSqlite(stagingDir);
     } else {
       // Native copier
       const absSrc = resolve(rawSource);
@@ -959,7 +982,18 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
       }
 
       const nativeSkipped: string[] = [];
-      copyNativeTree(absSrc, stagingDir, stagingDir, {
+      const copiedSizes = new Map<string, number>();
+      let copiedBytes = 0;
+      const trackedCopy = (src: string, dst: string, limit: number): void => {
+        const size = statSync(src).size;
+        const total = copiedBytes - (copiedSizes.get(dst) ?? 0) + size;
+        if (!copiedSizes.has(dst) && copiedSizes.size >= maxFiles) throw new ImportError("E_LIMIT_EXCEEDED", "too-many-files", "Snapshot exceeds file count limit", 3);
+        if (total > maxBytes) throw new ImportError("E_LIMIT_EXCEEDED", "too-many-bytes", "Snapshot exceeds byte limit", 3);
+        copiedSizes.set(dst, size);
+        copiedBytes = total;
+        (opts.copyFile ?? copyFileBounded)(src, dst, limit);
+      };
+      await copyNativeTree(absSrc, stagingDir, stagingDir, {
         allowLiveCopy: opts.allowLiveCopy,
         maxBytes,
         sqliteStatuses,
@@ -967,7 +1001,8 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
         skippedLinks: nativeSkipped,
         sourceRoot: absSrc,
         afterCopy: opts.afterCopy,
-        copyFile: opts.copyFile,
+        copyFile: trackedCopy,
+        skippedFiles,
       });
       skippedLinks = nativeSkipped;
     }
@@ -983,11 +1018,14 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
       sqliteStatuses,
       lanceStatuses,
       skippedLinks,
+      skippedFiles,
       liveCopy: opts.allowLiveCopy ? true : undefined,
       tarWarnings: tarWarnings > 0 ? tarWarnings : undefined,
     });
 
-    writeFileSync(join(stagingDir, "snapshot.json"), JSON.stringify(metadata, null, 2) + "\n", "utf8");
+    if (metadata.files.length > maxFiles) throw new ImportError("E_LIMIT_EXCEEDED", "too-many-files", "Snapshot exceeds file count limit", 3);
+    if (metadata.files.reduce((sum, file) => sum + file.size, 0) > maxBytes) throw new ImportError("E_LIMIT_EXCEEDED", "too-many-bytes", "Snapshot exceeds byte limit", 3);
+    writeFileSync(join(stagingDir, "snapshot.json"), JSON.stringify(metadata, null, 2) + "\n", { encoding: "utf8", mode: 0o600 });
     return { stagingDir, metadata };
   } catch (err) {
     if (stagingCreated) {
@@ -999,7 +1037,7 @@ export async function createSnapshot(opts: CreateSnapshotOptions): Promise<Snaps
   }
 }
 
-function copyNativeTree(
+async function copyNativeTree(
   srcDir: string,
   dstDir: string,
   stagingRoot: string,
@@ -1012,14 +1050,29 @@ function copyNativeTree(
     sourceRoot: string;
     afterCopy?: ((attempt: number, copy: string) => void) | undefined;
     copyFile?: ((src: string, dst: string, limit: number) => void) | undefined;
+    skippedFiles: Array<{ path: string; reason: string }>;
+  },
+  ancestors: ReadonlySet<string> = new Set(),
+): Promise<void> {
+  const realDir = realpathSync(srcDir);
+  if (ancestors.has(realDir)) {
+    opts.skippedLinks.push(relative(stagingRoot, dstDir).split(sep).join("/"));
+    return;
   }
-): void {
+  const nextAncestors = new Set([...ancestors, realDir]);
   mkdirSync(dstDir, { recursive: true });
-  const entries = readdirSync(srcDir, { withFileTypes: true });
+  const entries = readdirSync(srcDir, { withFileTypes: true, encoding: "buffer" });
 
   for (const e of entries) {
-    const srcPath = join(srcDir, e.name);
-    const dstPath = join(dstDir, e.name);
+    let name: string;
+    try { name = new TextDecoder("utf-8", { fatal: true }).decode(e.name); }
+    catch {
+      const prefix = relative(opts.sourceRoot, srcDir).split(sep).join("/");
+      opts.skippedFiles.push({ path: `${prefix ? prefix + "/" : ""}hex:${e.name.toString("hex")}`, reason: "invalid-filename-encoding" });
+      continue;
+    }
+    const srcPath = join(srcDir, name);
+    const dstPath = join(dstDir, name);
 
     if (e.isSymbolicLink()) {
       try {
@@ -1028,7 +1081,7 @@ function copyNativeTree(
         if (target.startsWith(normSrc + sep) || target === normSrc) {
           const st = statSync(target);
           if (st.isDirectory()) {
-            copyNativeTree(target, dstPath, stagingRoot, opts);
+            await copyNativeTree(target, dstPath, stagingRoot, opts, nextAncestors);
           } else if (st.isFile()) {
             const doCopy = opts.copyFile ?? copyFileBounded;
             doCopy(target, dstPath, opts.maxBytes);
@@ -1037,12 +1090,13 @@ function copyNativeTree(
           const rel = relative(opts.sourceRoot, srcPath).replace(/\\/g, "/");
           opts.skippedLinks.push(rel);
         }
-      } catch {
+      } catch (error) {
+        if (error instanceof ImportError) throw error;
         const rel = relative(opts.sourceRoot, srcPath).replace(/\\/g, "/");
         opts.skippedLinks.push(rel);
       }
     } else if (e.isDirectory()) {
-      if (e.name === "_versions" || existsSync(join(srcPath, "_versions"))) {
+      if (name === "_versions" || existsSync(join(srcPath, "_versions"))) {
         // LanceDB table directory
         const res = copyLanceTableWithManifest(srcPath, dstPath, {
           allowLiveCopy: opts.allowLiveCopy,
@@ -1057,17 +1111,17 @@ function copyNativeTree(
           };
         }
       } else {
-        copyNativeTree(srcPath, dstPath, stagingRoot, opts);
+        await copyNativeTree(srcPath, dstPath, stagingRoot, opts, nextAncestors);
       }
     } else if (e.isFile()) {
-      if (e.name.endsWith("-wal") || e.name.endsWith("-shm")) {
+      if (name.endsWith("-wal") || name.endsWith("-shm")) {
         // WAL and SHM files are copied alongside their parent database in copySqliteFile
         continue;
       }
-      const isSqlite = e.name.endsWith(".sqlite") || e.name.endsWith(".db");
+      const isSqlite = name.endsWith(".sqlite") || name.endsWith(".db");
       if (isSqlite) {
         const rel = relative(stagingRoot, dstPath).replace(/\\/g, "/");
-        copySqliteFile(srcPath, dstPath, rel, opts);
+        await copySqliteFile(srcPath, dstPath, rel, opts);
       } else {
         const doCopy = opts.copyFile ?? copyFileBounded;
         doCopy(srcPath, dstPath, opts.maxBytes);
@@ -1076,7 +1130,25 @@ function copyNativeTree(
   }
 }
 
-function copySqliteFile(
+/** The input is always private staging data; never a live source connection. Closes it before rename (Windows). */
+async function consolidateSqlite(db: DatabaseSync, dst: string): Promise<void> {
+  const temporary = mkdtempSync(join(dirname(dst), ".sqlite-backup-"));
+  const image = join(temporary, "image.db");
+  try {
+    await backup(db, image);
+    const standalone = new DatabaseSync(image);
+    try { standalone.exec("PRAGMA journal_mode=DELETE"); } finally { standalone.close(); }
+    db.close();
+    rmSync(dst, { force: true });
+    rmSync(`${dst}-wal`, { force: true });
+    rmSync(`${dst}-shm`, { force: true });
+    renameSync(image, dst);
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
+}
+
+async function copySqliteFile(
   src: string,
   dst: string,
   relPath: string,
@@ -1087,7 +1159,7 @@ function copySqliteFile(
     afterCopy?: ((attempt: number, copy: string) => void) | undefined;
     copyFile?: ((src: string, dst: string, limit: number) => void) | undefined;
   }
-): void {
+): Promise<void> {
   const walSrc = `${src}-wal`;
   const walDst = `${dst}-wal`;
   const shmSrc = `${src}-shm`;
@@ -1127,6 +1199,10 @@ function copySqliteFile(
       db = new DatabaseSync(dst, { readOnly: true });
       const check = db.prepare("PRAGMA quick_check").all() as Record<string, unknown>[];
       if (check.length === 1 && Object.values(check[0]!)[0] === "ok") {
+        // Back up the verified private copy, never the live source: opening a source WAL
+        // reader can write read marks to its SHM. Publish only a standalone SQLite image.
+        await consolidateSqlite(db, dst);
+        db = null;
         success = true;
         break;
       }
@@ -1159,21 +1235,29 @@ function generateSnapshotMetadata(o: {
   sqliteStatuses: Record<string, SnapshotSqliteInfo>;
   lanceStatuses?: Record<string, SnapshotLanceInfo> | undefined;
   skippedLinks?: string[] | undefined;
+  skippedFiles?: Array<{ path: string; reason: string }>;
   liveCopy?: boolean | undefined;
   tarWarnings?: number | undefined;
 }): SnapshotMetadata {
   const files: SnapshotFileInfo[] = [];
   const envKeys: Record<string, string[]> = {};
+  const omittedCredentials: string[] = [];
 
-  function scan(dir: string) {
+  function scan(dir: string, credentials = false) {
     const entries = readdirSync(dir, { withFileTypes: true });
     for (const e of entries) {
       const full = join(dir, e.name);
       if (e.name === "snapshot.json" && dir === o.stagingDir) continue;
       if (e.isDirectory()) {
-        scan(full);
+        scan(full, credentials || e.name.toLowerCase() === "credentials");
       } else if (e.isFile()) {
         const rel = relative(o.stagingDir, full).replace(/\\/g, "/");
+        if (credentials || isSecretFileName(e.name)) {
+          if (e.name === ".env" || e.name.startsWith(".env.")) envKeys[rel] = envKeyNames(full);
+          omittedCredentials.push(rel);
+          rmSync(full, { force: true });
+          continue;
+        }
         const st = statSync(full);
         const hash = sha256File(full);
         files.push({ path: rel, size: st.size, sha256: hash, mtimeMs: st.mtimeMs });
@@ -1206,6 +1290,8 @@ function generateSnapshotMetadata(o: {
   if (o.skippedLinks && o.skippedLinks.length > 0) {
     meta.skippedLinks = o.skippedLinks;
   }
+  if (o.skippedFiles?.length) meta.skippedFiles = o.skippedFiles;
+  if (omittedCredentials.length) meta.omittedCredentials = omittedCredentials.sort();
   if (o.liveCopy) {
     meta.liveCopy = true;
   }

@@ -19,7 +19,7 @@ import {
   ImportLedger,
   type ConflictStrategy,
 } from "../ledger.ts";
-import { existsNoFollow, readSourceFileSafe } from "../fs-safe.ts";
+import { existsNoFollow, readSourceTextSafe } from "../fs-safe.ts";
 import { createTargetSnapshot } from "../snapshot-target.ts";
 import { detectOpenclaw } from "../sources/openclaw.ts";
 import { newRunId } from "../skills-import.ts";
@@ -261,11 +261,11 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
 
     // Read channels from openclaw.json
     let channelReports: ChannelAllowlistReport[] = [];
-    const errors: Array<{ sourceRef: string; reason: string }> = [];
+    const errors: Array<{ sourceRef: string; reason: string }> = [...(sourceReport.errors ?? [])];
     if (sourceReport.source.configPath && existsNoFollow(sourceReport.source.configPath)) {
       let cfgText: string | null = null;
       try {
-        cfgText = readSourceFileSafe(sourceReport.source.configPath, 16 * 1024 * 1024).toString("utf8");
+        cfgText = readSourceTextSafe(sourceReport.source.configPath, 16 * 1024 * 1024);
       } catch (error) {
         errors.push({
           sourceRef: "openclaw.json",

@@ -312,7 +312,7 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
         let totalCardsSkippedDuplicate = 0;
         let totalCardsRejected = 0;
         let totalUnresolvedUserScope = 0;
-        const errors: Array<{ sourceRef: string; reason: string }> = [];
+        const errors: Array<{ sourceRef: string; reason: string }> = [...(sourceReport.errors ?? [])];
 
         for (const agent of sourceReport.agents) {
           const normId = typeof agent.agentId === "string" ? agent.agentId.toLowerCase() : "";

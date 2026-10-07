@@ -7,7 +7,7 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { isDir } from "../readonly.ts";
 import { idFingerprints } from "../fingerprint.ts";
-import { existsNoFollow, readSourceFileSafe } from "../fs-safe.ts";
+import { existsNoFollow, readSourceTextSafe } from "../fs-safe.ts";
 import { ImportError } from "../types.ts";
 
 export interface HermesChannelAllowlistReport {
@@ -49,7 +49,7 @@ export function readHermesPairings(
 
         if (!existsNoFollow(fullPath)) continue;
         let content: string;
-        try { content = readSourceFileSafe(fullPath, 1024 * 1024).toString("utf8"); }
+        try { content = readSourceTextSafe(fullPath, 1024 * 1024); }
         catch (error) { refuse(error instanceof ImportError ? error.reason : "source-unreadable"); continue; }
 
         try {
@@ -67,7 +67,7 @@ export function readHermesPairings(
             }
           }
         } catch {
-          // Bad JSON ignored safely
+          refuse("json-unparseable");
         }
       } else if (ent.endsWith("-pending.json")) {
         const platform = ent.slice(0, ent.length - "-pending.json".length);
@@ -75,7 +75,7 @@ export function readHermesPairings(
 
         if (!existsNoFollow(fullPath)) continue;
         let content: string;
-        try { content = readSourceFileSafe(fullPath, 1024 * 1024).toString("utf8"); }
+        try { content = readSourceTextSafe(fullPath, 1024 * 1024); }
         catch (error) { refuse(error instanceof ImportError ? error.reason : "source-unreadable"); continue; }
 
         try {
@@ -89,7 +89,7 @@ export function readHermesPairings(
             record.pendingCount += Object.keys(data).length;
           }
         } catch {
-          // Ignored
+          refuse("json-unparseable");
         }
       }
     }

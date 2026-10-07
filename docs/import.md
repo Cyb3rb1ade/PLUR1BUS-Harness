@@ -662,3 +662,55 @@ Path-traversal and symlink refusal in rollback (`pipeline-batch4.test.ts`, B1 ti
 | Cron import | deliberately deferred | no harness cron scheduler yet (ADR-009); jobs are reported, never written (checklist 9 proves the report-only behaviour) |
 | Secret import (`--migrate-secrets`) | deliberately deferred | no M2 secret store; refused fail-closed (checklist 8) |
 | Sessions, desktop wizard | out of M7 | sessions are sensitive and not imported by default (§3); the wizard belongs to M3/D2 |
+
+## 12. Cross-platform source snapshots (D90/D91)
+
+### 12.1 Inventory against main (J1)
+
+Checked against `origin/main` at `ba22bdd8` on 2026-10-07, before implementation. Only identified gaps are changed. Source/test paths below are relative to `packages/core/src/import/` and `packages/core/test/import/`, unless qualified.
+
+| Spec requirement | Present on main? | File/test evidence; gap addressed here |
+|---|---|---|
+| HM3 / D90: per-OS roots and Windows/POSIX/UNC mapping | Yes, PR #40 | `paths.ts`, `sources/`; `roots.test.ts`, `paths.test.ts`, `layouts.test.ts`. Preserved |
+| HM3: case collisions, reserved names, text hashes, long/non-ASCII paths, rename retry | Yes, PR #40 | `skills-scan.ts`, `fs-retry.ts`; `skills-hazards.test.ts`, `layouts.test.ts`, `fs-retry.test.ts`. Preserved |
+| D90: injectable WSL listing, UTF-16LE decoding, both UNC aliases | Yes, PRs #85/#90; partial for multi-home discovery and spaced distro names | `wsl.ts`, `paths.ts`; `wsl.test.ts`, `paths.test.ts`. Added NUL-separated multi-home records and complete-name metadata matching |
+| C12: no boot of stopped distros without consent | Yes | `probeWslDistro`; `wsl.test.ts` covers both consent cases. Preserved |
+| D90/D91: native/mounted and WSL tar producer, manifest, path mapping | Yes, PRs #85/#90; partial for integrity and limits | `snapshot.ts`, `paths.ts`; `snapshot.test.ts`. Added verified manifests, snapshot-only path boundaries, destination ownership/overlap guards, native aggregate limits and cycle checks |
+| C7: running-source refusal and live-copy opt-in; SQLite/LanceDB consistency | Yes for stop rule and checked-copy retry; missing standalone SQLite backup | `snapshot.ts`, `readonly.ts`; `snapshot.test.ts`, `readonly.test.ts`. Added backup API on verified private copies, including WSL staging; no source checkpoint/live connection |
+| C8: WSL infrastructure job and three OS unit jobs | Yes | Existing `.github/workflows/ci.yml`: `unit` on Linux/macOS/Windows, `wsl` on Windows. No workflow edits; injected WSL unit tests run everywhere |
+| HM3: BOM/CRLF and robust formats | BOM/CRLF yes; UTF-16 and typed malformed optional-file errors missing | `json5.ts`, `yaml-lite.ts`; `parsers.test.ts`. Added strict BOM-aware decoding, JSON reason codes and per-profile YAML/encoding skips |
+| M7: stable IDs, dry-run, repeat apply | Yes, PRs #92/#93/#100/#115; snapshot round-trip proof missing | `ledger.ts`, `importers/`; `openclaw-import.test.ts`, `hermes-batch3.test.ts`, `pipeline-batch4.test.ts`. Added snapshot plan/apply/repeat tests for both importers |
+| M7: secret-free reports and credential deny-list | Yes for imports/reports, PRs #98/#104/#117; snapshot omission incomplete | `readonly.ts`, `sources/`, `render.ts`; leak tests. Added `auth-profiles.json` exclusion and credential omission from completed snapshots |
+| HM3 fixtures for both sources and OS layouts | Yes, PRs #40/#91; UTF-16, invalid-byte names and standalone-WAL cases missing | `test/import/{layouts,fixtures}.ts`; extended generated synthetic cases in `cross-platform-gaps.test.ts`. No real source data |
+| D91 / D2: host-to-container transport | No; host bridge follow-up | Requires CLI/RPC/host bridge work outside the allowed paths; not implemented here |
+
+### 12.2 Sources by OS and WSL discovery
+
+- Linux/macOS: OpenClaw state/home/profile overrides, `.openclaw` and legacy `.clawdbot`; Hermes `HERMES_HOME` or `~/.hermes`.
+- Native Windows: OpenClaw home precedence includes `HOME` and `USERPROFILE`; Hermes uses `%LOCALAPPDATA%\hermes`, falling back to `%USERPROFILE%\AppData\Local\hermes`.
+- WSL from Windows: `wsl.exe -l -q` lists names; `-l --running -q` supplies running state. UTF-16LE with/without BOM and UTF-8 are supported. Verbose metadata preserves names containing spaces. Listing never boots a distro. A running distro, or a stopped one with `--probe-wsl`, is probed through the injected runner/login shell. NUL-separated records cover the default home and other directories under `/home`; overrides apply to the default user's source. Access uses `\\wsl.localhost\<distro>\…`; the mapper also accepts `\\wsl$\…`.
+- Mounted/foreign trees: select the mounted directory with existing `--source`; live reads can use `--map`. Snapshot mappings cannot escape their snapshot directory.
+
+All new WSL logic has injected unit coverage on every OS; those tests require no real WSL installation.
+
+### 12.3 Snapshot API and format
+
+The existing library function `createSnapshot` in `snapshot.ts` produces native/mounted trees or streamed WSL tar into `<home>/import/<run>/snapshot/`, returning `{ stagingDir, metadata }`. This **source** snapshot differs from the target rollback snapshot in `<home>/imports/<run>/snapshot/`. Consumption requires the trusted `<home>/import/<run>/snapshot/` layout (a custom producer destination outside it is not an import trust anchor). Pass the returned directory to the importer's existing `source` option or CLI `--source <snapshot-directory>`. No new CLI command or RPC method is introduced. Production is explicit; dry-run against an existing snapshot stays read-only.
+
+The destination must be new and must not overlap the source. Defaults are 512 MiB and 10,000 files. Existing destinations are never reused/deleted on failure. In-root native directory aliases are cycle-checked; escapes are skipped. Invalid UTF-8 native filenames are skipped with `invalid-filename-encoding` and a `hex:<raw bytes>` component. Invalid UTF-8 tar headers fail closed instead of replacing filename bytes. The native fixture capability-skips on filesystems that reject such names; the tar regression runs everywhere.
+
+SQLite retains the no-source-writes rule: DB/WAL are copied to private staging, source stamps and `quick_check` verified, instability retried. The SQLite backup API then produces a standalone database from that verified **private** connection; staged journal mode becomes DELETE and WAL/SHM are removed. WSL staging uses the same consolidation after tar extraction/verification. No source checkpoint or live native source SQLite connection is used, avoiding SHM read-mark writes. Running sources still need explicit `allowLiveCopy`; this does not promise an atomic point-in-time snapshot of every file in a multi-file live source. LanceDB retains its manifest/retry rules.
+
+`snapshot.json` version 1 contains origin, source-side root/home/flavour, UTC `timestamp`, `files[] { path, size, sha256, mtimeMs }`, SQLite/LanceDB statuses and optional `skippedLinks`, `skippedFiles`, `omittedCredentials`, `liveCopy`, `tarWarnings`. File paths are relative POSIX paths. Traversal, absolute/drive paths, ambiguous backslashes, duplicates, symlink escapes, unlisted files, size/hash differences are rejected before detect or full import reads the snapshot. The manifest detects corruption; it is not a signature against an attacker who can replace both data and manifest. Keep completed snapshots immutable during import.
+
+Credential deny-list files (`.env*`, `auth.json`, `auth-profiles.json`, `credentials.json`, private key files and existing exclusions) and files in `credentials/` are omitted from completed snapshots. This covers Codex-style `auth.json` within a selected source without scanning ambient user directories. `omittedCredentials` lists paths as found, not imported; `.env` metadata carries key names only. Inline config credentials remain in private source files and never enter reports or parser diagnostics.
+
+### 12.4 Errors and follow-ups
+
+Malformed optional Hermes JSON adds `{ sourceRef, reason: "json-unparseable" }` without blocking healthy files. Broken Hermes profiles add typed errors/warnings and are skipped. Malformed YAML uses `yaml-unparseable`; unsupported YAML features retain existing warnings. Text accepts UTF-8, UTF-8 BOM, UTF-16LE BOM and UTF-16BE BOM; invalid sequences use `invalid-text-encoding`, without quoting input. Unusable root version metadata still refuses the source: its schema cannot safely be guessed. Snapshot integrity failures are fatal before import writes. Reports/logs never carry parser input or credential values.
+
+Follow-ups outside this change:
+
+- Explicit CLI snapshot production/transport and D2 host bridge RPC `host.importSnapshot` for remote host-to-container sources. Existing library production and `--source` consumption work; automatic CLI orchestration is not claimed.
+- Native Windows/WSL infrastructure acceptance stays separate from mocked unit coverage. A WSL infrastructure failure does not establish a Windows unit failure.
+- Unrelated M7 store takeover, guided re-embedding, identity back-fill and secret migration gaps in §11.3 remain separate work.

@@ -60,6 +60,7 @@ export interface SecretsReport {
 }
 
 export interface SourceReport {
+  errors?: Array<{ sourceRef: string; reason: string }>;
   sourceType: SourceType;
   source: { root: string; resolvedFrom: string; configPath: string | null; profile: string | null };
   version: { release: string | null; stateSchema: number | null; configVersion: number | null; sessionsSchema: number | null; supported: boolean; warnings: string[] };

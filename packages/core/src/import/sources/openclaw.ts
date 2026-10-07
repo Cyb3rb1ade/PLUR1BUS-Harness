@@ -4,12 +4,13 @@
 // (src/skills/loading/workspace-skill-sources.ts), plugin install dirs (src/plugins/install-paths.ts), the state DB
 // schema marker (src/state/openclaw-state-db-maintenance.ts). Read-only throughout.
 import { readdirSync } from "node:fs";
+import { verifySourceSnapshot } from "../snapshot-source.ts";
 import { join, resolve } from "node:path";
 import { envGet, expandTilde, locateSource, pathFor, portabilityOf, SourcePathMapper } from "../paths.ts";
 import { classifyReranker, compareReranker } from "../identity.ts";
 import { parseJson5 } from "../json5.ts";
 import { envKeyNames, isDir, isFile, openSqliteReadOnly, sqliteTables, sqliteWarning } from "../readonly.ts";
-import { existsNoFollow, readSourceFileSafe } from "../fs-safe.ts";
+import { existsNoFollow, readSourceTextSafe } from "../fs-safe.ts";
 import { scanStoreRoot, subdirs } from "../store-scan.ts";
 import { ImportError, secretConfigKeys, type AgentInfo, type SecretsReport, type SkillRoot, type SourceCtx, type SourceReport } from "../types.ts";
 
@@ -116,7 +117,7 @@ function pluginVersion(root: string, cfg: Record<string, any>): { version: strin
     const packagePath = join(dir, "package.json");
     if (!existsNoFollow(packagePath)) continue;
     let text: string;
-    try { text = readSourceFileSafe(packagePath, 1024 * 1024).toString("utf8"); }
+    try { text = readSourceTextSafe(packagePath, 1024 * 1024); }
     catch { continue; }
     try {
       const pkg = JSON.parse(text) as { name?: string; version?: string };
@@ -161,8 +162,10 @@ function countFiles(dir: string): number {
 }
 
 export async function detectOpenclaw(ctx: SourceCtx): Promise<SourceReport> {
-  const { root, resolvedFrom, configPath } = resolveOpenclawRoot({ source: ctx.source, env: ctx.env, homedir: ctx.homedir, platform: ctx.platform });
+  const { root, resolvedFrom, configPath: liveConfigPath } = resolveOpenclawRoot({ source: ctx.source, env: ctx.env, homedir: ctx.homedir, platform: ctx.platform });
   const warnings: string[] = [];
+  const snapshot = verifySourceSnapshot(root, ctx.home);
+  const configPath = snapshot ? join(root, "openclaw.json") : liveConfigPath;
   if (ctx.profile) throw new ImportError("E_INVALID_PARAMS", "profile-not-supported", "--profile applies to Hermes; select an OpenClaw profile with --source <state-dir> or OPENCLAW_PROFILE");
   if (!isDir(root)) throw new ImportError("E_SOURCE_NOT_FOUND", "source-missing", `no directory at ${root}`);
   const hasConfig = existsNoFollow(configPath);
@@ -172,12 +175,12 @@ export async function detectOpenclaw(ctx: SourceCtx): Promise<SourceReport> {
   let cfg: Record<string, any> = {};
   if (hasConfig) {
     let text: string;
-    try { text = readSourceFileSafe(configPath, 16 * 1024 * 1024).toString("utf8"); }
+    try { text = readSourceTextSafe(configPath, 16 * 1024 * 1024); }
     catch (error) {
       const reason = error instanceof ImportError ? error.reason : "source-unreadable";
       throw new ImportError("E_SOURCE_UNSUPPORTED", reason, `${configPath}: ${reason}`);
     }
-    try { cfg = obj(parseJson5(text)) ?? {}; } catch (e) { throw new ImportError("E_SOURCE_UNSUPPORTED", "config-unparseable", `${configPath}: ${(e as Error).message}`); }
+    try { cfg = obj(parseJson5(text)) ?? {}; } catch (e) { throw new ImportError("E_SOURCE_UNSUPPORTED", "config-unparseable", `${configPath}: config-unparseable`); }
     if (/["']?\$include["']?\s*:/.test(text)) warnings.push("openclaw.json uses $include; included files were not followed");
   }
   const release = typeof obj(cfg.meta)?.lastTouchedVersion === "string" ? cfg.meta.lastTouchedVersion as string : null;
@@ -219,7 +222,7 @@ export async function detectOpenclaw(ctx: SourceCtx): Promise<SourceReport> {
   if (Array.isArray(extra)) extra.forEach((d, i) => { const p = cfgPath(d, `skills.load.extraDirs[${i}]`); if (p) skillRoots.push({ dir: p, tier: "extra", agentId: null, precedence: 1 }); });
   // A host environment variable describes the host's OpenClaw, not one read over WSL or from a copy on another OS.
   const bundled = ctx.env.OPENCLAW_BUNDLED_SKILLS_DIR?.trim();
-  if (bundled && loc.origin === "native") skillRoots.push({ dir: resolve(expandTilde(bundled, ctx.homedir, process.platform)), tier: "bundled", agentId: null, precedence: 2 });
+  if (bundled && loc.origin === "native" && !loc.snapshot) skillRoots.push({ dir: resolve(expandTilde(bundled, ctx.homedir, process.platform)), tier: "bundled", agentId: null, precedence: 2 });
   for (const a of agentList) if (a.agentDir) skillRoots.push({ dir: join(a.agentDir, "workshop-skills"), tier: "workshop", agentId: a.agentId, precedence: 3 });
   skillRoots.push({ dir: join(root, "skills"), tier: "managed", agentId: null, precedence: 4 });
   // The personal root belongs to the source-side user: over WSL that is the distro user's home, not the harness user's.
@@ -246,8 +249,14 @@ export async function detectOpenclaw(ctx: SourceCtx): Promise<SourceReport> {
     cronJobs: state.cronJobs,
     note: "presence only; imported by M7",
   };
+  const errors = snapshot?.skippedFiles.map(file => ({ sourceRef: file.path, reason: file.reason })) ?? [];
+  if (snapshot) {
+    for (const path of snapshot.omittedCredentials) secrets.files.push({ path, kind: "found-not-imported", present: true });
+    for (const [file, keys] of Object.entries(snapshot.envKeys)) secrets.envKeys.push({ file, keys });
+  }
   return {
     sourceType: "openclaw",
+    ...(errors.length ? { errors } : {}),
     source: { root, resolvedFrom, configPath: hasConfig ? configPath : null, profile: null },
     version: { release, stateSchema: state.schema, configVersion: null, sessionsSchema: null, supported: versionWarnings.length === 0, warnings: versionWarnings },
     agents: agentList, plur1bus, rerankers, skillRoots, secrets, other, portability: portabilityOf(mapper, warnings), warnings,
