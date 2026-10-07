@@ -3,8 +3,8 @@ import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs"
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-/** The engine contract's `SecurePathResult` (types/engine.d.ts), restated here so module-api does not depend on it. */
-/** Result of applying the platform's owner-only permissions to a path. */
+/** Result of applying the platform's owner-only permissions to a path, restating the engine contract's
+ *  `SecurePathResult` so module-api does not depend on it. */
 export interface SecurePathResult {
   applied: boolean;
   reason?: "not-a-filesystem-path" | "missing" | "unsupported-platform" | "acl-tool-unavailable";
