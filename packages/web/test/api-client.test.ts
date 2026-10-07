@@ -32,15 +32,15 @@ test("the routes are one table", () => {
 
 test("rpc: success sends a JSON-RPC 2.0 request with the session cookie and a fresh CSRF token", async () => {
   await withApi(async ({ s, api }) => {
-    s.rpc.handle("dreams.status", (params) => ({ echo: params }));
-    assert.deepEqual(await api.rpc("dreams.status", { a: 1 }), { echo: { a: 1 } });
+    s.rpc.handle("test.echo", (params) => ({ echo: params }));
+    assert.deepEqual(await api.rpc("test.echo", { a: 1 }), { echo: { a: 1 } });
     const req = s.requests.find((q) => q.url === "/rpc")!;
     assert.equal(req.method, "POST");
     assert.ok(req.hasCookie);
     assert.ok(req.csrf);
     const wire = JSON.parse(req.body) as Record<string, unknown>;
     assert.equal(wire.jsonrpc, "2.0");
-    assert.equal(wire.method, "dreams.status");
+    assert.equal(wire.method, "test.echo");
     assert.deepEqual(wire.params, { a: 1 });
     assert.deepEqual(s.requests.slice(-2).map((q) => `${q.method} ${q.url}`), ["GET /api/v1/csrf", "POST /rpc"]);
   });
@@ -103,7 +103,7 @@ test("rpc: E_DENIED is forbidden, E_NOT_AVAILABLE and E_CORE_UNAVAILABLE are una
 
 test("an absent backend (404, 405, 501, 503, network failure) is unavailable and keeps its reason", async () => {
   await withApi(async ({ s, api }) => {
-    const e = await failureOf(api.rpc("dreams.status")); // /rpc is not enabled: 404
+    const e = await failureOf(api.rpc("test.echo")); // /rpc is not enabled: 404
     assert.equal(e.kind, "unavailable");
     if (e.kind === "unavailable") { assert.equal(e.status, 404); assert.equal(e.reason, "route"); }
     s.forceStatus = 503;

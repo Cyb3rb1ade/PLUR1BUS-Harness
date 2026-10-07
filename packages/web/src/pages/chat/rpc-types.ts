@@ -45,7 +45,7 @@ export type SessionEventNotification = { agentId: string; event: SessionEvent };
 /** `GET /api/v1/agents` (exists on origin/main). */
 export type AgentsAnswer = { schema?: string; agents: { agentId: string; open: boolean; activity?: unknown }[] };
 
-declare module "../../api/client.ts" {
+declare module "../../api/index.ts" {
   interface RpcMethods {
     "session.create": { params: { agentId: string; kind?: "direct"; title?: string; memoryMode?: MemoryMode }; result: { session: SessionRecord } };
     "session.list": { params: { kind?: SessionRecord["kind"]; agentId?: string; archived?: "exclude" | "only" | "any"; search?: string; limit?: number }; result: { sessions: SessionRecord[]; truncated: boolean } };
