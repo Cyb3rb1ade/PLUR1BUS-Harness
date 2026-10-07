@@ -7,6 +7,7 @@ import {
   checkHomePaths,
   compareLanguages,
   checkDocs,
+  makeSourceHas,
 } from "./check-docs-commands.mjs";
 
 // A miniature of the generated docs/cli.md: the same heading and option shapes, three levels deep, one stub.
@@ -164,4 +165,10 @@ test("the real docs/cli.md parses, and the stubs it names are the stubs", async 
   assert.match(checkCommand(real, "plur1bus backup restore --force x"), /unknown option --force/);
   const stubs = [...real.commands].filter(([, c]) => c.stub).map(([name]) => name).sort();
   assert.deepEqual(stubs, ["channel", "login", "project", "uninstall"]);
+});
+
+test("makeSourceHas knows the real home layout and refuses an invented directory", () => {
+  const has = makeSourceHas(new URL("..", import.meta.url).pathname);
+  for (const seg of ["logs", "run", "state", "config.json", "manifest.json", "backups", ".restore-"]) assert.equal(has(seg), true, seg);
+  assert.equal(has("vault-of-secrets"), false);
 });

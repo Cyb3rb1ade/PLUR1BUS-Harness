@@ -266,6 +266,8 @@ export function makeSourceHas(root) {
       }
       corpus = files.map((f) => readFileSync(f, "utf8")).join("\n");
     }
+    // A segment that ends in "-" is a name template (`.restore-<id>`): accept the quoted prefix.
+    if (seg.endsWith("-")) return corpus.includes(`"${seg}`) || corpus.includes(`/${seg}`);
     return corpus.includes(`"${seg}"`) || corpus.includes(`'${seg}'`) || corpus.includes(`/${seg}`) || corpus.includes(`\`${seg}\``);
   };
 }
