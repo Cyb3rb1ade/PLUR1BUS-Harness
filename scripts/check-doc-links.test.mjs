@@ -25,8 +25,9 @@ function tree(files, fn) {
 
 test("relative links and heading anchors pass; external links are not fetched", () => {
   tree({
-    "README.md": "# Readme\n[page](docs/page.md#hello-world) [same](#readme) [web](https://example.invalid/x)",
+    "README.md": "# Readme\n[page](docs/page.md#hello-world) [other](other/reference.md#remote-heading) [same](#readme) [web](https://example.invalid/x)",
     "docs/page.md": "# Hello, world!\n",
+    "other/reference.md": "# Remote heading\n",
   }, (root) => assert.deepEqual(checkDocLinks(root), []));
 });
 

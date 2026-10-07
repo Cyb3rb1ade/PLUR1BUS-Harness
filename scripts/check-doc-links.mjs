@@ -140,8 +140,13 @@ export function checkDocLinks(root) {
         problems.push(`${display} (target does not exist)`);
         continue;
       }
-      if (fragment && markdown.has(path) && !anchors.get(path).has(decoded(fragment))) {
-        problems.push(`${display} (heading anchor does not exist)`);
+      if (fragment && path.endsWith(".md")) {
+        let targetAnchors = anchors.get(path);
+        if (!targetAnchors) {
+          targetAnchors = headingAnchors(readFileSync(path, "utf8"));
+          anchors.set(path, targetAnchors);
+        }
+        if (!targetAnchors.has(decoded(fragment))) problems.push(`${display} (heading anchor does not exist)`);
       }
     }
   }
