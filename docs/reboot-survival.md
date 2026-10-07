@@ -21,7 +21,7 @@ recreated.
 
 ## Simulated, as integration tests (`crates/plur1bus/tests/reboot.rs`)
 
-The tests run the real `plur1bus` binary, the fake core (`tests/fixtures/fake-core.mjs`) and the built fixture module
+The tests run the real `plur1bus` binary, the fake core (`crates/plur1bus/tests/fixtures/fake-core.mjs`) and the built fixture module
 in a temp home. The service manager is the fake one (`PLUR1BUS_SERVICE_FAKE`, `PLUR1BUS_ALLOW_TEST_INTERNALS=1`), which
 only records the commands it is given: the test plays the operating system, sees the manager's `start` and launches the
 registered unit's `plur1bus supervise`. A "reboot" is `SIGSTOP` on the supervisor (so it cannot restart anything),
@@ -72,5 +72,5 @@ Record the result per target in the release checklist (§6.2 of `docs/milestones
   credentials, ADR-012 §10.7) decide that case; `reboot.rs` plants no such pid.
 - A reboot in the middle of an `update`, an `ext install` or a module install: recovery for those is
   `ext::recover` and `modules::install::recover`, tested in `ext_commit.rs` and `modules.rs`.
-- The OS service managers themselves: only the fake one runs in CI (`tests/service_real.rs` needs
+- The OS service managers themselves: only the fake one runs in CI (`crates/plur1bus/tests/service_real.rs` needs
   `PLUR1BUS_SERVICE_TEST=1` and a real manager).

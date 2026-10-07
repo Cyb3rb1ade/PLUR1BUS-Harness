@@ -14,6 +14,9 @@ pub mod inspect;
 pub mod lifecycle;
 pub mod list;
 pub mod overlays;
+#[allow(dead_code)]
+// first consumer: the task that runs MCP servers and reads providers (X2 follow-up)
+pub mod packages;
 pub mod paths;
 pub mod record;
 pub mod remove;

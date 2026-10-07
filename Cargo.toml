@@ -1,5 +1,5 @@
 [workspace]
-exclude = ["apps"]
+exclude = ["apps", "fuzz"]
 resolver = "2"
 members = ["crates/*"]
 

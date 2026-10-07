@@ -47,6 +47,11 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus dreams status`↴](#plur1bus-dreams-status)
 * [`plur1bus dreams run`↴](#plur1bus-dreams-run)
 * [`plur1bus dreams log`↴](#plur1bus-dreams-log)
+* [`plur1bus dreams schedule`↴](#plur1bus-dreams-schedule)
+* [`plur1bus dreams schedule get`↴](#plur1bus-dreams-schedule-get)
+* [`plur1bus dreams schedule set`↴](#plur1bus-dreams-schedule-set)
+* [`plur1bus dreams enable`↴](#plur1bus-dreams-enable)
+* [`plur1bus dreams disable`↴](#plur1bus-dreams-disable)
 * [`plur1bus config`↴](#plur1bus-config)
 * [`plur1bus config get`↴](#plur1bus-config-get)
 * [`plur1bus config set`↴](#plur1bus-config-set)
@@ -149,7 +154,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `memory` — Memory: add and recall through the core
 * `session` — Chat sessions: list, show, archive
 * `chat` — [experimental] Chat with an agent (one message, or a line-by-line conversation on stdin)
-* `dreams` — Dreaming jobs: status, run, log
+* `dreams` — Dreaming: phase schedules, status, run, log
 * `config` — Configuration: get, set, schema
 * `module` — Modules: list, graph, install, uninstall, start, stop, restart
 * `admin` — [experimental] Admin ops through the core: Obsidian vault setup, store migration, embedding probe and serve
@@ -668,21 +673,24 @@ Chat sessions: list, show, archive
 
 ## `plur1bus dreams`
 
-Dreaming jobs: status, run, log
+Dreaming: phase schedules, status, run, log
 
 **Usage:** `plur1bus dreams <COMMAND>`
 
 ###### **Subcommands:**
 
-* `status` — [experimental] Dreaming job status and breaker state
-* `run` — [experimental] Run a dreaming job now
-* `log` — [experimental] Dreaming job run history
+* `status` — [experimental] Dreaming status: the three phase schedules, last runs, breaker and importance, plus the engine jobs
+* `run` — [experimental] Run a dreaming phase (light, rem or deep) now under every guard but the cron gate; an engine job name still runs that job
+* `log` — [experimental] Dreaming run history; with --run, one run and its log
+* `schedule` — [experimental] Phase schedules: get, set
+* `enable` — [experimental] Enable one phase's schedule
+* `disable` — [experimental] Disable one phase's schedule (run now still works)
 
 
 
 ## `plur1bus dreams status`
 
-[experimental] Dreaming job status and breaker state
+[experimental] Dreaming status: the three phase schedules, last runs, breaker and importance, plus the engine jobs
 
 **Usage:** `plur1bus dreams status [OPTIONS]`
 
@@ -694,33 +702,127 @@ Dreaming jobs: status, run, log
 
 ## `plur1bus dreams run`
 
-[experimental] Run a dreaming job now
+[experimental] Run a dreaming phase (light, rem or deep) now under every guard but the cron gate; an engine job name still runs that job
 
-**Usage:** `plur1bus dreams run --agent <AGENT> <JOB>`
+**Usage:** `plur1bus dreams run [OPTIONS] --agent <AGENT> <TARGET>`
 
 ###### **Arguments:**
 
-* `<JOB>`
+* `<TARGET>` — light, rem or deep (a phase), or an engine job name such as gc-run
 
 ###### **Options:**
 
 * `--agent <AGENT>`
+* `--dry-run` — evaluate the guards and print what would happen, without a ledger row or an engine call (phases only)
 
 
 
 ## `plur1bus dreams log`
 
-[experimental] Dreaming job run history
+[experimental] Dreaming run history; with --run, one run and its log
 
-**Usage:** `plur1bus dreams log [OPTIONS] --agent <AGENT>`
+**Usage:** `plur1bus dreams log [OPTIONS]`
 
 ###### **Options:**
 
 * `--agent <AGENT>`
 * `--job <JOB>`
+* `--phase <PHASE>` — show the phase ledger (light, rem or deep) instead of the engine job history
+
+  Possible values: `light`, `rem`, `deep`
+
+* `--run <RUN>` — one phase run by id, with its per-run log
 * `--limit <LIMIT>`
 
   Default value: `20`
+
+
+
+## `plur1bus dreams schedule`
+
+[experimental] Phase schedules: get, set
+
+**Usage:** `plur1bus dreams schedule <COMMAND>`
+
+###### **Subcommands:**
+
+* `get` — [experimental] The three phase schedules of an agent
+* `set` — [experimental] Change one phase's cron (5 fields), IANA timezone or enabled switch
+
+
+
+## `plur1bus dreams schedule get`
+
+[experimental] The three phase schedules of an agent
+
+**Usage:** `plur1bus dreams schedule get --agent <AGENT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+
+
+## `plur1bus dreams schedule set`
+
+[experimental] Change one phase's cron (5 fields), IANA timezone or enabled switch
+
+**Usage:** `plur1bus dreams schedule set [OPTIONS] --agent <AGENT> <PHASE>`
+
+###### **Arguments:**
+
+* `<PHASE>`
+
+  Possible values: `light`, `rem`, `deep`
+
+
+###### **Options:**
+
+* `--agent <AGENT>`
+* `--cron <CRON>`
+* `--timezone <TIMEZONE>`
+* `--enabled <ENABLED>`
+
+  Possible values: `true`, `false`
+
+
+
+
+## `plur1bus dreams enable`
+
+[experimental] Enable one phase's schedule
+
+**Usage:** `plur1bus dreams enable --agent <AGENT> <PHASE>`
+
+###### **Arguments:**
+
+* `<PHASE>`
+
+  Possible values: `light`, `rem`, `deep`
+
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+
+
+## `plur1bus dreams disable`
+
+[experimental] Disable one phase's schedule (run now still works)
+
+**Usage:** `plur1bus dreams disable --agent <AGENT> <PHASE>`
+
+###### **Arguments:**
+
+* `<PHASE>`
+
+  Possible values: `light`, `rem`, `deep`
+
+
+###### **Options:**
+
+* `--agent <AGENT>`
 
 
 
