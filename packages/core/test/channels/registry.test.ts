@@ -158,16 +158,16 @@ test("backoff attempt counter resets after a stable run", async () => {
 
 test("stop(): a throwing or hanging stop is isolated and the channel ends up stopped", async () => {
   const { registry, clock } = setup();
-  const a = new Scripted("a"); a.stopPlan = ["throw"];
-  const b = new Scripted("b"); b.stopPlan = ["hang"];
-  registry.register({ manifest: manifest({ name: "a" }), factory: () => a });
-  registry.register({ manifest: manifest({ name: "b" }), factory: () => b });
+  const a = new Scripted("aa"); a.stopPlan = ["throw"];
+  const b = new Scripted("bb"); b.stopPlan = ["hang"];
+  registry.register({ manifest: manifest({ name: "aa" }), factory: () => a });
+  registry.register({ manifest: manifest({ name: "bb" }), factory: () => b });
   registry.startAll(); await clock.advance(0);
   const p = registry.stopAll();
   await clock.advance(10_000);
   await p;
-  assert.equal(registry.status("a")?.state, "stopped");
-  assert.equal(registry.status("b")?.state, "stopped");
+  assert.equal(registry.status("aa")?.state, "stopped");
+  assert.equal(registry.status("bb")?.state, "stopped");
 });
 
 test("stop() cancels pending start and backoff timers; nothing fires afterwards", async () => {
