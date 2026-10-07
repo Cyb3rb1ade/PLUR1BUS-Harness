@@ -1,0 +1,9 @@
+{ "params": { "stream": "audit", "component": "rbac", "limit": 20, "cursor": "eyJ2IjoxfQ", "waitMs": 5000 },
+  "result": {
+    "records": [
+      { "ts": "2026-10-07T09:15:00.000Z", "level": null, "component": "audit", "stream": "audit", "record": { "at": "2026-10-07T09:15:00.000Z", "actor": { "user": "u1", "host": "local" }, "action": "rbac.denied", "target": "jobs.run", "detail": { "reason": "role-denied" } } }
+    ],
+    "nextCursor": "eyJ2IjoxLCJ0cyI6IjIifQ",
+    "corrupt": 1,
+    "scanned": { "files": 1, "bytes": 512 },
+    "truncated": false } }
