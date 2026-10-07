@@ -2,9 +2,12 @@
 // and 1600 px (wide), against the mock server with filled fixtures. Not a test; run by hand and for PR screenshots:
 //   PLUR1BUS_WEB_SHOTS_DIR=<dir> pnpm --filter @plur1bus/web exec node --experimental-strip-types test/shots.ts
 // Files: <page>-<hell|dunkel>-<compact|wide>.png (hell = light, dunkel = dark). PLUR1BUS_WEB_SHOTS_ONLY=chat,doctor narrows the pages.
+// PLUR1BUS_WEB_SHOTS_CHECK=1 also reports, per shot, horizontal overflow, axe violations and interactive targets below 24 px
+// (44 px high in compact, < 1024 px); PLUR1BUS_WEB_SHOTS_WIDTHS=400,640,960,1440,2560 replaces the two widths (files: w<width>).
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page } from "playwright";
+import { axeViolations } from "./axe.ts";
 import { FakeChat, stubAgents, AGENTS } from "./chat-fixtures.ts";
 import { AGENTS as DOCTOR_AGENTS, CORE_OK, DoctorMock, HEALTH_DEGRADED } from "./doctor-fixtures.ts";
 import { browserSkip, getDistDir, openRoute, setup, signIn, teardown, withApp, type App } from "./harness.ts";
@@ -54,10 +57,35 @@ function seedChat(c: FakeChat): void {
 }
 
 type Shot = { name: string; run: (theme: "light" | "dark", width: number, file: string) => Promise<void> };
-const WIDTHS = { compact: 400, wide: 1600 } as const;
+const CUSTOM = process.env.PLUR1BUS_WEB_SHOTS_WIDTHS?.split(",").map(Number).filter((n) => n > 0);
+const WIDTHS: Record<string, number> = CUSTOM ? Object.fromEntries(CUSTOM.map((w) => [`w${w}`, w])) : { compact: 400, wide: 1600 };
+const CHECK = process.env.PLUR1BUS_WEB_SHOTS_CHECK === "1";
+const findings: string[] = [];
+
+async function check(page: Page, label: string): Promise<void> {
+  const width = page.viewportSize()?.width ?? 0;
+  const r = await page.evaluate((w) => {
+    const compact = w < 1024;
+    const doc = document.documentElement;
+    const small: string[] = [];
+    for (const el of document.querySelectorAll<HTMLElement>("a[href], button, input:not([type=hidden]), select, textarea, summary, [role=tab], [role=option]")) {
+      const b = el.getBoundingClientRect();
+      const cs = getComputedStyle(el);
+      if (b.width === 0 || b.height === 0 || cs.visibility === "hidden" || el.closest("[hidden]") || el.classList.contains("sr-only") || el.classList.contains("skip-link") || el.closest(".sidebar:not([data-open=true]) .wordmark")) continue; // skip link is shown on focus only; the rail wordmark is hidden text
+      if (el.tagName === "A" && el.closest("p, li, dd, .state-body") && el.className === "") continue; // inline text link (WCAG 2.5.8 exception)
+      const need = compact && !el.closest(".msg") ? 44 : 24;
+      if (b.height < need - 0.5 || b.width < 24 - 0.5) small.push(`${el.tagName.toLowerCase()}.${el.className.toString().split(" ")[0] ?? ""} ${Math.round(b.width)}x${Math.round(b.height)} "${(el.textContent ?? "").trim().slice(0, 24)}"`);
+    }
+    return { overflow: doc.scrollWidth - doc.clientWidth, small };
+  }, width);
+  if (r.overflow > 0) findings.push(`${label}: horizontal overflow ${r.overflow}px`);
+  for (const x of new Set(r.small)) findings.push(`${label}: small target ${x}`);
+  for (const v of await axeViolations(page)) findings.push(`${label}: axe ${v.id} (${v.impact}) ${v.nodes.slice(0, 2).map((n) => JSON.stringify(n.target)).join(" ")}`);
+}
 const SCHEME = { light: "hell", dark: "dunkel" } as const;
 
 async function settle(page: Page, file: string): Promise<void> {
+  if (CHECK) await check(page, file.split("/").pop()!);
   await page.evaluate(() => document.fonts.ready);
   // One viewport as tall as the page (capped), not fullPage: the sticky sidebar then fills the left edge instead of floating mid-page.
   const width = page.viewportSize()?.width ?? 1440;
@@ -181,4 +209,5 @@ try {
     }
   }
 } finally { await teardown(); }
+if (CHECK) console.log(findings.length === 0 ? "check: no findings" : `check: ${findings.length} findings\n${findings.join("\n")}`);
 process.exit(failed > 0 ? 1 : 0);

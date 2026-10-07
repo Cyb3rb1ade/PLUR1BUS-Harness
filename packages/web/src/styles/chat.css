@@ -14,6 +14,8 @@
 
 /* Conversation */
 .chat-pane { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+/* Beside the history the conversation starts at the column edge (no gap at 2560 px); alone it is centred by .transcript. */
+.ld-detail > .chat-pane.transcript { margin-inline: 0; }
 .chat-pane > h2 { margin: 0; font-size: 18px; line-height: 1.3; }
 .chat-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .chat-head h2 { margin: 0; font-size: 18px; line-height: 1.3; overflow-wrap: anywhere; }
