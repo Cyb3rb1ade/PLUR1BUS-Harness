@@ -78,6 +78,7 @@ jobs:
             .
           docker image inspect --format '{{.Id}}' "$IMAGE" | tee image-id.txt
           docker image inspect --format '{{range .RootFS.Layers}}{{println .}}{{end}}' "$IMAGE" > image-layers.txt
+          docker run --rm --entrypoint sh "$IMAGE" -c 'cd /opt/plur1bus/core && find . -print0 | LC_ALL=C sort -z | xargs -0 stat -c "%n %F %a %u:%g %Y %s" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum' > core-files.txt
       - name: smoke test
         run: scripts/container-smoke.sh "$IMAGE"
         timeout-minutes: 12
@@ -94,6 +95,7 @@ jobs:
           path: |
             image-id.txt
             image-layers.txt
+            core-files.txt
       - name: size
         run: |
           set -euo pipefail
@@ -139,6 +141,8 @@ jobs:
           if [ "$first" != "$second" ]; then
             docker image inspect --format '{{range .RootFS.Layers}}{{println .}}{{end}}' "$IMAGE" > second-layers.txt
             echo "layers that differ (first vs second):"; diff image-layers.txt second-layers.txt || true
+            docker run --rm --entrypoint sh "$IMAGE" -c 'cd /opt/plur1bus/core && find . -print0 | LC_ALL=C sort -z | xargs -0 stat -c "%n %F %a %u:%g %Y %s" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum' > second-core-files.txt
+            echo "files of /opt/plur1bus/core that differ (first vs second):"; diff core-files.txt second-core-files.txt | head -100 || true
             docker history --no-trunc --format '{{.Size}}\t{{.CreatedBy}}' "$IMAGE" | cut -c1-140
           fi
           [ "$first" = "$second" ] || { echo "::warning::the two builds differ (not bit-reproducible yet)"; exit 1; }
