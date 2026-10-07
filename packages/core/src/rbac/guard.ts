@@ -44,6 +44,11 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "admin.reembed.run": rule("admin.reembed.run", system),
   "admin.reembed.status": rule("admin.reembed.status", system),
   "admin.reembed.abort": rule("admin.reembed.abort", system),
+  // M1b-3 dreaming, classified by the nearest existing pattern: run-now like `jobs.run`, schedule edits like `settings.write`; the reads (status, log, schedule.get) stay open like `jobs.list|history`.
+  "dreams.run": rule("jobs.run", system),
+  "dreams.schedule.set": rule("settings.write", system),
+  "dreams.enable": rule("settings.write", system),
+  "dreams.disable": rule("settings.write", system),
   "admin.backup.snapshot": rule("admin.backup.snapshot", system),
   // M3 identity (humans, linked channel identities, pairing): classified by the nearest existing pattern, `users.*` on the system resource.
   "identity.list": rule("users.read", system),

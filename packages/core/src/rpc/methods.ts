@@ -10,6 +10,7 @@ import { buildAdminMethods } from "../admin-ops.ts";
 import { buildBackupMethods } from "../backup-ops.ts";
 import type { Layout } from "../paths.ts";
 import type { AgentRegistry } from "../agents.ts";
+import { buildDreamsMethods } from "../dreams/methods.ts";
 import { joinBlocks } from "../join.ts";
 import type { HarnessLogger } from "../logger.ts";
 import { buildMemoryOpMethods, requireAgent } from "../memory-ops.ts";
@@ -61,6 +62,10 @@ export interface MethodDeps {
   systemJobs?: import("../system-jobs/index.ts").SystemJobs;
   /** D112: model discovery service. */
   discovery?: import("../discovery/service.ts").DiscoveryService;
+  /** M1b-3: the dreaming scheduler (ADR-009); null while it is not running (`dreams.*` then answers E_NOT_AVAILABLE). */
+  dreams?: () => import("../dreams/scheduler.ts").DreamScheduler | null;
+  /** Why `dreams` is null when its store failed to open (shown as the refusal's detail). */
+  dreamsError?: () => string | undefined;
   /** M3: the identity service (humans, linked channel identities, pairing); `identity.*` is served only when present. */
   identity?: import("../identity/service.ts").IdentityService;
   /** M2: the `admin.reembed.*` handlers (embedding-migrate/rpc.ts), when the core built a migration driver. */
@@ -162,7 +167,11 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
         ...(p.sessionKey ? { sessionKey: p.sessionKey } : {}), ...(p.runId ? { runId: p.runId } : {}),
       });
       const settle = handle.done
-        .then((r) => { d.logger.info("capture done", { agentId: p.agentId, captureId: handle.id, stored: r.stored, skipped: r.skipped, reason: r.reason }); return r; })
+        .then((r) => {
+          d.logger.info("capture done", { agentId: p.agentId, captureId: handle.id, stored: r.stored, skipped: r.skipped, reason: r.reason });
+          if (r.stored > 0) d.dreams?.()?.recordCapture(p.agentId); // the importance signal of ADR-009's primary trigger
+          return r;
+        })
         .finally(() => d.activity.idle(p.agentId));
       settle.catch((e) => d.logger.warn("capture failed", { agentId: p.agentId, captureId: handle.id, err: e })); // never an unhandled rejection
       const pending: MemoryCaptureResult = { id: handle.id, acceptedAt: handle.acceptedAt, pending: true };
@@ -187,6 +196,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
     },
 
     ...buildMemoryOpMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping }),
+    ...buildDreamsMethods({ dreams: () => d.dreams?.() ?? null, agents: d.agents, ...(d.dreamsError ? { unavailableBecause: d.dreamsError } : {}) }),
     ...(d.secrets ? buildSecretMethods(d.secrets) : {}),
     ...buildAdminMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping, onMigrated: d.onMigrated, signal: d.captureSignal }),
     ...(d.reembed ?? {}),
