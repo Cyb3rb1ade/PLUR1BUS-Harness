@@ -1,0 +1,32 @@
+{
+  "description": "synthetic 2-input success, dimension 4",
+  "status": 200,
+  "body": {
+    "model": "m",
+    "data": [
+      {
+        "object": "embedding",
+        "index": 0,
+        "embedding": [
+          3,
+          4,
+          0,
+          0
+        ]
+      },
+      {
+        "object": "embedding",
+        "index": 1,
+        "embedding": [
+          0,
+          0,
+          5,
+          12
+        ]
+      }
+    ],
+    "usage": {
+      "total_tokens": 4
+    }
+  }
+}

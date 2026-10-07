@@ -1,0 +1,28 @@
+{
+  "description": "synthetic 2-input success, dimension 4",
+  "status": 200,
+  "body": {
+    "id": "x",
+    "embeddings": {
+      "float": [
+        [
+          3,
+          4,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          5,
+          12
+        ]
+      ]
+    },
+    "texts": [
+      "a",
+      "b"
+    ],
+    "response_type": "embeddings_by_type"
+  }
+}

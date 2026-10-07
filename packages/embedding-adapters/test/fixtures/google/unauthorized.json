@@ -1,0 +1,9 @@
+{
+  "description": "synthetic 401 whose body echoes a fake key",
+  "status": 401,
+  "body": {
+    "error": {
+      "message": "Incorrect API key provided: sk-FAKEFAKEFAKEFAKE1234"
+    }
+  }
+}
