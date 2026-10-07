@@ -6,11 +6,12 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { GROUPS, makeWorld, type E2ERow, type Verdict } from "./permission-eval-e2e.fixtures.ts";
 import { LIFECYCLE_ROWS, ROOT_ROWS } from "./permission-eval-e2e.rows-roots.ts";
+import { AUDIT_ROWS, REPLAY_ROWS, TIMEOUT_ROWS } from "./permission-eval-e2e.rows-store.ts";
 
-export const ROWS: E2ERow[] = [...ROOT_ROWS, ...LIFECYCLE_ROWS];
+export const ROWS: E2ERow[] = [...ROOT_ROWS, ...LIFECYCLE_ROWS, ...REPLAY_ROWS, ...TIMEOUT_ROWS, ...AUDIT_ROWS];
 
 /** The bar for the finished suite is 40 (task D10); each commit raises the floor to what it delivers. */
-const MIN_SCENARIOS = 20;
+const MIN_SCENARIOS = 40;
 const TIMEOUT = 20_000;
 const attacks = new Map<string, Verdict>();
 const benigns = new Map<string, Verdict>();
