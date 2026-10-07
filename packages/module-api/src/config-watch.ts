@@ -56,9 +56,9 @@ async function attempt(home: string, timeoutMs: number): Promise<ConfigWatch> {
   } finally { clearTimeout(timer); work.catch(() => {}); }
 }
 
-/** Subscribes to the supervisor's configuration (B7): `attempts` tries (default 3), each bounded by `connectTimeoutMs`
- *  (default 1000) and spaced so every attempt takes that long at least; rejects with the last error. */
-/** Connects to the supervisor and subscribes to configuration snapshots and changes. */
+/** Connects to the supervisor and subscribes to configuration snapshots and changes. Uses `attempts` tries (default 3),
+ *  each bounded by `connectTimeoutMs` (default 1000) and spaced so every attempt takes that long at least; rejects with
+ *  the last error. */
 export async function watchSupervisorConfig(o: { home: string; connectTimeoutMs?: number; attempts?: number }): Promise<ConfigWatch> {
   const timeoutMs = o.connectTimeoutMs ?? 1000;
   const attempts = Math.max(1, o.attempts ?? 3);
