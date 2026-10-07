@@ -21,10 +21,10 @@ const PATTERNS = [
   { re: /["'`]\/(state|forget)["'`]/, why: "no slash-command emulation" },
   { re: /adapter\/openclaw|host-services\.js|plugin-runtime/, why: "no adapter or host-services import" },
 ];
-// The ext files the supervisor can reach (X1-R2) and the two that only the worker process runs. Every file under
+// The ext files the supervisor can reach (X1-R2) and the ones that only the worker process runs. Every file under
 // crates/plur1bus/src/ext/ must be in exactly one list, so a new file cannot slip past the rule unclassified.
 const EXT_SAFE = ["mod", "paths", "state", "index", "overlays", "host", "worker", "commit", "lifecycle", "remove", "list", "record"];
-const EXT_WORKER = ["inspect", "stage"];
+const EXT_WORKER = ["inspect", "stage", "packages"];
 // Path prefix (or `files`) -> patterns checked only under it.
 const SCOPED = [
   {
