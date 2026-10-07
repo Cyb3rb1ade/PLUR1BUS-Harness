@@ -4,7 +4,7 @@ import { MediaError, validateRequest, failure } from './types.ts';
 import type { ImageAdapter, ImageRequest, ImageResult, GenerationContext, Capabilities, ReferenceImage } from './types.ts';
 export type HttpAdapterId = 'openrouter' | 'replicate' | 'fal' | 'together' | 'openai' | 'google' | 'xai' | 'draw-things';
 export interface HttpAdapterConfig { id: HttpAdapterId; model: string; baseUrl?: string; apiKey?: string; timeoutMs?: number; pollMs?: number; downloadHosts?: string[]; allowLan?: boolean }
-export const defaults: Record<HttpAdapterId, string> = { openrouter: 'https://openrouter.ai/api/v1', replicate: 'https://api.replicate.com/v1', fal: 'https://queue.fal.run', together: 'https://api.together.xyz/v1', openai: 'https://api.openai.com/v1', google: 'https://generativelanguage.googleapis.com/v1beta', xai: 'https://api.x.ai/v1', 'draw-things': 'http://127.0.0.1:7860' };
+export const defaults: Record<HttpAdapterId, string> = { openrouter: 'https://openrouter.ai/api/v1', replicate: 'https://api.replicate.com/v1', fal: 'https://queue.fal.run', together: 'https://api.together.ai/v1', openai: 'https://api.openai.com/v1', google: 'https://generativelanguage.googleapis.com/v1beta', xai: 'https://api.x.ai/v1', 'draw-things': 'http://127.0.0.1:7860' };
 const dataUrl = (i: ReferenceImage) => `data:image/${i.format};base64,${Buffer.from(i.bytes).toString('base64')}`;
 const omitUnsupported = (req: ImageRequest, fields: (keyof ImageRequest)[]) => { if (fields.some(f => req[f] !== undefined)) throw new MediaError('unsupported_parameter'); };
 /** Protocol references checked 2026-10-07:
@@ -12,6 +12,7 @@ const omitUnsupported = (req: ImageRequest, fields: (keyof ImageRequest)[]) => {
  * Replicate prediction lifecycle: https://replicate.com/docs/reference/http
  * fal queue: https://fal.ai/docs/documentation/model-apis/inference/queue (FLUX schnell input profile)
  * Together: https://github.com/togethercomputer/together-typescript/blob/main/src/resources/images.ts
+ * Base URL: https://github.com/togethercomputer/together-typescript/blob/main/src/client.ts
  * OpenAI: https://developers.openai.com/api/docs/guides/image-generation (GPT Image API)
  * Google: https://ai.google.dev/gemini-api/docs/generate-content/image-generation (Gemini)
  * xAI: https://docs.x.ai/developers/model-capabilities/images/generation

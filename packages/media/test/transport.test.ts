@@ -31,3 +31,7 @@ test('non-JSON service failures keep transport taxonomy and sanitized errors', a
   try { await assert.rejects(new HttpTransport(`http://127.0.0.1:${address.port}`, undefined).json('test', {}, new AbortController().signal), (e: unknown) => e instanceof MediaError && e.code === 'backend_unavailable' && !String(e).includes('secret')); }
   finally { s.closeAllConnections(); await new Promise<void>(r => s.close(() => r())); }
 });
+test('Together default egress matches the current official SDK endpoint', async () => {
+  const { egressHosts } = await import('../src/index.ts');
+  assert.deepEqual(egressHosts([{ id: 'together', model: 'stabilityai/stable-diffusion-xl-base-1.0' }]), ['api.together.ai']);
+});
