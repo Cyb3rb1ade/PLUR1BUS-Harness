@@ -104,10 +104,17 @@ plur1bus backup create                    # Standard: <home>/backups/plur1bus-ba
 plur1bus backup verify <Archiv>           # Manifest und jede SHA-256; Exit 1 bei einem Archiv, das ein Restore ablehnt
 ```
 
+SQLite-Datenbanken unter `state/` werden mit der Online-Backup-API von SQLite kopiert, während der Core weiterläuft: Die
+Kopie ist konsistent, enthält auch, was noch im Write-Ahead-Log steht, besteht vor dem Archivieren eine
+Integritätsprüfung und ist eine einzelne, in sich geschlossene Datei. `-wal`-, `-shm`- und `-journal`-Dateien gehören nie
+zu einem Archiv. Ein frisches Home funktioniert wie ein altes; vorher muss nichts gestoppt oder gecheckpointet werden.
+
 Zum Wiederherstellen: Daemon stoppen, dann `plur1bus backup restore <Archiv>` ausführen (`--dry-run` zeigt den Plan;
 ein Skript braucht `--yes`). Der Befehl prüft zuerst, tauscht jede Einheit per Umbenennen ein und behält Ersetztes in
-`<home>/backups/pre-restore-<id>/`; bei einem Fehler wird der alte Stand zurückgelegt. Danach den Daemon starten und
-`plur1bus 1staid check` ausführen. `--out <Datei>` wählt den Archivpfad; eine vorhandene Datei wird nie überschrieben.
+`<home>/backups/pre-restore-<id>/`; bei einem Fehler wird der alte Stand zurückgelegt. Ein übrig gebliebenes
+`-wal`/`-shm` neben einer ersetzten Datenbank wandert mit ihr beiseite und kann so nie auf die wiederhergestellte Datei
+angewendet werden. Danach den Daemon starten und `plur1bus 1staid check` ausführen. `--out <Datei>` wählt den
+Archivpfad; eine vorhandene Datei wird nie überschrieben.
 
 Automatisch geschieht eines: Ist `config.json` beschädigt, stellt `plur1bus 1staid repair` sie aus der laufenden
 Konfiguration oder der neuesten gültigen `config.json.bak-*` daneben wieder her.

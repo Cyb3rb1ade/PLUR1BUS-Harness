@@ -115,12 +115,13 @@ describe(`control server under hostile lines (seed ${SEED})`, () => {
   after(async () => { await server.close(); });
 
   /** Sends bytes, collects every reply until the socket closes or goes quiet; returns replies and whether it closed. */
-  function exchange(bytes: Buffer): Promise<{ replies: any[]; unparsed: number }> {
+  function exchange(bytes: Buffer, quietMs = 150): Promise<{ replies: any[]; unparsed: number }> {
     return new Promise((resolve, reject) => {
       const sock: Socket = createConnection(address); const dec = new LineDecoder(); const replies: any[] = []; let unparsed = 0;
       let quiet: NodeJS.Timeout; const done = () => { clearTimeout(quiet); sock.destroy(); resolve({ replies, unparsed }); };
-      const arm = () => { clearTimeout(quiet); quiet = setTimeout(done, 150); };
+      const arm = () => { clearTimeout(quiet); quiet = setTimeout(done, quietMs); };
       sock.on("data", (c) => { const x = dec.decode(c); replies.push(...x.values); unparsed += x.bad.length; arm(); });
+      sock.on("end", done);
       sock.on("close", done); sock.on("error", () => done());
       sock.once("connect", () => { sock.write(bytes); arm(); });
       setTimeout(() => reject(new Error("exchange timeout")), 20_000).unref();
@@ -156,7 +157,7 @@ describe(`control server under hostile lines (seed ${SEED})`, () => {
   });
 
   it("an over-long unterminated line is refused with line-too-long and the connection closes", { timeout: 60_000 }, async () => {
-    const { replies } = await exchange(Buffer.alloc(MAX_LINE_BYTES + 1, 0x61));
+    const { replies } = await exchange(Buffer.alloc(MAX_LINE_BYTES + 1, 0x61), 5000);
     assert.equal(replies[0]?.error?.data?.reason, "line-too-long");
   });
 });
