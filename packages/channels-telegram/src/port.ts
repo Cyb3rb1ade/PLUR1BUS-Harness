@@ -1,43 +1,66 @@
-// The narrow channel port this package implements. The A3 channel framework was not on main when A4 was built, so the
-// shapes live here; A3 adopts them or wraps them in an adapter. Nothing in this file is Telegram-specific.
+import type { InboundMessage as FrameworkInbound, OutboundMessage } from "../../core/src/channels/types.ts";
 
-export interface InboundMessage {
-  readonly channel: string;
-  /** Opaque, channel-scoped conversation id (a decimal string for Telegram, negative for groups). */
-  readonly chatId: string;
-  readonly messageId: string;
-  /** Opaque sender id when the channel provides one. */
-  readonly senderId?: string;
-  readonly text: string;
-  /** Milliseconds since the epoch, as reported by the channel. */
-  readonly sentAt: number;
+/** Transport metadata, not an authenticated harness Principal. Identity resolution belongs to the host. */
+export interface InboundMessage extends FrameworkInbound {
+  readonly sentAt?: number;
+  readonly threadId?: number;
+  readonly attachments?: readonly Attachment[];
+  readonly callback?: { id: string; data: string };
+  readonly command?: { name: string; argument: string };
 }
-
+export interface Attachment {
+  kind: "photo" | "document" | "voice" | "audio" | "video";
+  data: Uint8Array;
+  mimeType: string;
+  filename?: string;
+}
+export interface Button {
+  text: string;
+  data: string;
+  senderId?: string;
+  ttlMs?: number;
+}
+export interface TextEntity {
+  type: "bold" | "italic" | "underline" | "strikethrough" | "spoiler" | "code" | "pre";
+  offset: number;
+  length: number;
+  language?: string;
+}
+export interface OutboundTurn extends OutboundMessage {
+  /** UTF-16 offsets, as in the Bot API. Code/pre blocks reopen on every chunk. Mutually exclusive with parseMode. */
+  entities?: readonly TextEntity[];
+  attachments?: readonly Attachment[];
+  buttons?: readonly (readonly Button[])[];
+  /** Input is literal text. It is escaped before parse_mode is applied. */
+  parseMode?: "MarkdownV2" | "HTML";
+}
 export type InboundHandler = (message: InboundMessage) => void | Promise<void>;
-
+export interface SecretReader {
+  reveal(name: string): Promise<string | null>;
+}
+export type LogLevel = "debug" | "info" | "warn" | "error";
+export interface ChannelLogger {
+  log(level: LogLevel, event: string, attrs: Readonly<Record<string, string | number | boolean>>): void;
+}
+export interface OffsetStore {
+  load(): Promise<number | undefined>;
+  save(offset: number): Promise<void>;
+  /** Optional durable migration journal. FileOffsetStore implements both. */
+  loadMigrations?(): Promise<Readonly<Record<string, string>>>;
+  saveMigration?(from: string, to: string): Promise<void>;
+}
+export interface WebLinkProvider {
+  /** Must resolve a linked person and issue a single-use D93 link; never trust senderId as a Principal. */
+  createLink(message: InboundMessage): Promise<string>;
+}
+/** Future D109 binding must authenticate the principal and authorize the actual approval. */
+export interface ConfirmPrompt {
+  prompt(chatId: string, text: string, buttons: readonly (readonly Button[])[]): Promise<readonly string[]>;
+}
 export interface ChannelPort {
   readonly id: string;
   start(): Promise<void>;
   stop(): Promise<void>;
-  /** Returns an unsubscribe function. */
   onMessage(handler: InboundHandler): () => void;
-  /** Sends text to an allowed conversation; long text is split. Returns the channel's message ids in order. */
   send(chatId: string, text: string): Promise<readonly string[]>;
-}
-
-/** The one capability of the secret store (M2) this channel needs. Returns null when the name is absent. */
-export interface SecretReader {
-  reveal(name: string): Promise<string | null>;
-}
-
-export type LogLevel = "debug" | "info" | "warn" | "error";
-/** Attributes are redacted by the channel before they reach this logger; they never contain message text. */
-export interface ChannelLogger {
-  log(level: LogLevel, event: string, attrs: Readonly<Record<string, string | number | boolean>>): void;
-}
-
-export interface OffsetStore {
-  /** The next `offset` to request, or undefined when nothing was stored (or the stored state is unreadable). */
-  load(): Promise<number | undefined>;
-  save(offset: number): Promise<void>;
 }

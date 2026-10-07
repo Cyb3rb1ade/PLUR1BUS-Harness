@@ -27,3 +27,10 @@ function breakPoint(s: string, max: number): number {
   }
   return max;
 }
+
+/** Escape literal text; splitting happens before escaping so neither entities nor escape pairs can be torn. */
+export function escapeText(text: string, mode: "MarkdownV2" | "HTML"): string {
+  return mode === "HTML"
+    ? text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    : text.replace(/[_*\[\]()~`>#+\-=|{}.!\\]/g, "\\$&");
+}

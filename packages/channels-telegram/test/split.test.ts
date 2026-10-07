@@ -32,3 +32,9 @@ test("whitespace-only chunks are dropped, empty text yields nothing", () => {
   assert.deepEqual(splitMessage(""), []);
   assert.deepEqual(splitMessage("  \n "), []);
 });
+
+test("HTML and MarkdownV2 escaping covers every reserved character", async () => {
+  const { escapeText } = await import("../src/index.ts");
+  assert.equal(escapeText("<>&\"'", "HTML"), "&lt;&gt;&amp;\"'");
+  for (const c of "_*[]()~`>#+-=|{}.!\\") assert.equal(escapeText(c, "MarkdownV2"), `\\${c}`);
+});
