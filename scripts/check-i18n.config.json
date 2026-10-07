@@ -1,0 +1,14 @@
+{
+  "surfaces": [
+    { "name": "desktop-ui", "catalogueDir": "apps/desktop/ui/src/i18n", "sourceDirs": ["apps/desktop/ui/src"] }
+  ],
+  "ignore": ["scripts/fixtures/"],
+  "allow": [
+    { "kind": "hardcoded-text", "file": "apps/desktop/ui/src/views/crash-offer.ts", "reason": "bilingual inline ternaries (de/en both present); move into en.json/de.json when apps/desktop is next touched (E2 may not edit apps/desktop/**)" },
+    { "kind": "hardcoded-text", "file": "apps/desktop/ui/src/views/ticket-error.html", "reason": "static English fallback page; ticket-error.js swaps in German at runtime; served outside the SPA bundle" },
+    { "kind": "hardcoded-text", "file": "apps/desktop/ui/src/views/ticket-error.js", "reason": "inline bilingual ternary in the standalone error page, see ticket-error.html" },
+    { "kind": "dead-key", "key": "home.connectionBody", "reason": "currently unreferenced; removal is an apps/desktop change, left to the desktop owner" },
+    { "kind": "dead-key", "key": "progress.title", "reason": "progress-list component receives its labels from callers; key unused today, removal is an apps/desktop change" },
+    { "kind": "dead-key", "key": "progress.waiting", "reason": "see progress.title" }
+  ]
+}
