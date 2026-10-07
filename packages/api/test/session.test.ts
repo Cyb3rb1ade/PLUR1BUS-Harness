@@ -70,3 +70,36 @@ test("readCookie returns the first matching cookie only", () => {
   assert.equal(readCookie("plur1bus_session=one; plur1bus_session=two", "plur1bus_session"), "one");
   assert.equal(readCookie(undefined, "x"), undefined); assert.equal(readCookie("xplur1bus_session=1", "plur1bus_session"), undefined);
 });
+
+const ALICE = Object.freeze({ kind: "user", id: "u-alice", role: "member" } as const);
+
+test("rotate gives the session a new cookie value: the old one dies, the lifetime is not extended, pending CSRF tokens are dropped", () => {
+  const clock = new FakeClock(); const s = new SessionStore(clock, limits);
+  const { id, session } = s.create(ALICE, { authVersion: 3 });
+  const t = s.issueCsrf(id)!;
+  clock.advance(800);
+  const r = s.rotate(id)!;
+  assert.notEqual(r.id, id); assert.equal(s.get(id), undefined, "the old value is dead");
+  assert.equal(r.session.absoluteExpiresAt, session.absoluteExpiresAt, "no new lifetime");
+  assert.equal(r.session.authVersion, 3);
+  assert.equal(s.consumeCsrf(r.id, t.token), false, "a CSRF token does not move with the rotation");
+  assert.equal(s.rotate("unknown"), undefined); assert.equal(s.rotate(undefined), undefined);
+  assert.equal(s.size, 1);
+});
+
+test("markRotate flags only the principal's sessions; rotation clears the flag", () => {
+  const clock = new FakeClock(); const s = new SessionStore(clock, { ...limits, maxSessions: 8 });
+  const a1 = s.create(ALICE); const a2 = s.create(ALICE); const o = s.create(OWNER);
+  assert.equal(s.markRotate(ALICE.id), 2);
+  assert.equal(s.get(a1.id)!.mustRotate, true); assert.equal(s.get(a2.id)!.mustRotate, true); assert.equal(s.get(o.id)!.mustRotate, false);
+  const r = s.rotate(a1.id)!; assert.equal(r.session.mustRotate, false);
+});
+
+test("destroyAllFor ends every session of one principal and no other", () => {
+  const clock = new FakeClock(); const s = new SessionStore(clock, { ...limits, maxSessions: 8 });
+  const a1 = s.create(ALICE); const a2 = s.create(ALICE); const o = s.create(OWNER);
+  assert.equal(s.countFor(ALICE.id), 2);
+  assert.equal(s.destroyAllFor(ALICE.id), 2);
+  assert.equal(s.get(a1.id), undefined); assert.equal(s.get(a2.id), undefined); assert.ok(s.get(o.id));
+  assert.equal(s.destroyAllFor(ALICE.id), 0); assert.equal(s.countFor(ALICE.id), 0);
+});

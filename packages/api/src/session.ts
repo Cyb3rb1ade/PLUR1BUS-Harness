@@ -1,12 +1,23 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Clock } from "./clock.ts";
+import type { Role } from "./rbac-bridge.ts";
 
-export type Role = "owner";
-/** The one principal until the users store (ADR-007) lands (ruling R1). */
-export interface Principal { kind: "owner"; id: string; role: Role }
+export type { Role };
+/** Who a session belongs to. `owner` is the installation owner who logged in with the owner token (bootstrap, ruling R1);
+ *  `user` is a local account that logged in with a password. Rights are never stored here: they are read from the user
+ *  directory on every request, so a demotion takes effect at once. */
+export interface Principal { kind: "owner" | "user"; id: string; role: Role }
 export const OWNER: Principal = Object.freeze({ kind: "owner", id: "owner", role: "owner" });
 
-export interface Session { readonly principal: Principal; readonly createdAt: number; absoluteExpiresAt: number; idleExpiresAt: number }
+export interface Session {
+  readonly principal: Principal; readonly createdAt: number; absoluteExpiresAt: number; idleExpiresAt: number;
+  /** The user record's `version` when the session was made; a different one means rights changed since. */
+  readonly authVersion: number;
+  /** Set when rights changed: the next request gets a new cookie and the old value stops working. */
+  mustRotate: boolean;
+  /** Epoch ms of the last second-factor check (the T3 step-up window of ADR-007); undefined when none happened. */
+  stepUpAt?: number;
+}
 
 export interface SessionLimits { idleMs: number; absoluteMs: number; maxSessions: number; csrfTtlMs: number; maxCsrfPerSession: number }
 export const DEFAULT_SESSION_LIMITS: SessionLimits = { idleMs: 30 * 60_000, absoluteMs: 12 * 3_600_000, maxSessions: 64, csrfTtlMs: 10 * 60_000, maxCsrfPerSession: 16 };
@@ -24,12 +35,12 @@ export class SessionStore {
   constructor(clock: Clock, limits: SessionLimits = DEFAULT_SESSION_LIMITS) { this.#clock = clock; this.#limits = limits; }
 
   /** A new session; `id` is the cookie value and exists nowhere else. */
-  create(principal: Principal): { id: string; session: Session } {
+  create(principal: Principal, o: { authVersion?: number; stepUpAt?: number } = {}): { id: string; session: Session } {
     const now = this.#clock.now();
     this.#sweep(now);
     while (this.#byId.size >= this.#limits.maxSessions) { const first = this.#byId.keys().next(); if (first.done) break; this.#byId.delete(first.value); }
     const id = newSecret();
-    const e: Entry = { principal, createdAt: now, absoluteExpiresAt: now + this.#limits.absoluteMs, idleExpiresAt: now + this.#limits.idleMs, csrf: new Map() };
+    const e: Entry = { principal, createdAt: now, absoluteExpiresAt: now + this.#limits.absoluteMs, idleExpiresAt: now + this.#limits.idleMs, authVersion: o.authVersion ?? 0, mustRotate: false, csrf: new Map(), ...(o.stepUpAt !== undefined ? { stepUpAt: o.stepUpAt } : {}) };
     this.#byId.set(sha256(id), e);
     return { id, session: e };
   }
@@ -44,6 +55,38 @@ export class SessionStore {
   }
 
   destroy(id: string | undefined): boolean { return id !== undefined && this.#byId.delete(sha256(id)); }
+
+  /** "Log out everywhere": every session of one principal ends. Returns how many. */
+  destroyAllFor(principalId: string): number {
+    let n = 0;
+    for (const [h, e] of this.#byId) if (e.principal.id === principalId) { this.#byId.delete(h); n++; }
+    return n;
+  }
+
+  /** Marks every session of the principal for rotation at its next request (rights changed). Returns how many. */
+  markRotate(principalId: string): number {
+    let n = 0;
+    for (const e of this.#byId.values()) if (e.principal.id === principalId) { e.mustRotate = true; n++; }
+    return n;
+  }
+
+  /** Swaps the cookie value of a live session: the old one dies, the lifetime is *not* extended, pending CSRF tokens go. */
+  rotate(id: string | undefined): { id: string; session: Session } | undefined {
+    const e = this.#entry(id);
+    if (!e || id === undefined) return undefined;
+    this.#byId.delete(sha256(id));
+    const next = newSecret();
+    e.csrf.clear(); e.mustRotate = false;
+    this.#byId.set(sha256(next), e);
+    return { id: next, session: e };
+  }
+
+  /** How many live sessions a principal has. */
+  countFor(principalId: string): number {
+    this.#sweep(this.#clock.now());
+    let n = 0; for (const e of this.#byId.values()) if (e.principal.id === principalId) n++;
+    return n;
+  }
 
   /** A one-time CSRF token bound to this session (ruling R6). */
   issueCsrf(id: string): { token: string; expiresAt: number } | undefined {
