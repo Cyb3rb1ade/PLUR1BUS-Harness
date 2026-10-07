@@ -1,0 +1,12 @@
+{
+  "description": "synthetic 429 with Retry-After",
+  "status": 429,
+  "headers": {
+    "retry-after": "2"
+  },
+  "body": {
+    "error": {
+      "message": "Rate limit reached"
+    }
+  }
+}

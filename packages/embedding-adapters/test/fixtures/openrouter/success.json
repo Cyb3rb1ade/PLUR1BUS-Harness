@@ -1,0 +1,27 @@
+{
+  "description": "synthetic 2-input success, dimension 4",
+  "status": 200,
+  "body": {
+    "object": "list",
+    "data": [
+      {
+        "index": 0,
+        "embedding": [
+          3,
+          4,
+          0,
+          0
+        ]
+      },
+      {
+        "index": 1,
+        "embedding": [
+          0,
+          0,
+          5,
+          12
+        ]
+      }
+    ]
+  }
+}

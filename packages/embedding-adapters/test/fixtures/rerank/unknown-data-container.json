@@ -1,0 +1,20 @@
+{
+  "description": "wrapped in an unexpected container",
+  "status": 200,
+  "body": {
+    "data": [
+      {
+        "index": 2,
+        "relevance_score": 0.91
+      },
+      {
+        "index": 0,
+        "relevance_score": 0.42
+      },
+      {
+        "index": 1,
+        "relevance_score": 0.05
+      }
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "description": "fewer results than requested",
+  "status": 200,
+  "body": {
+    "results": [
+      {
+        "index": 0,
+        "relevance_score": 1
+      }
+    ]
+  }
+}

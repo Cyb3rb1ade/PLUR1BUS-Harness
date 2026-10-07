@@ -1,0 +1,23 @@
+{
+  "description": "synthetic llama.cpp shape (presumed)",
+  "status": 200,
+  "body": {
+    "model": "m",
+    "object": "list",
+    "usage": {},
+    "results": [
+      {
+        "index": 2,
+        "relevance_score": 0.91
+      },
+      {
+        "index": 0,
+        "relevance_score": 0.42
+      },
+      {
+        "index": 1,
+        "relevance_score": 0.05
+      }
+    ]
+  }
+}

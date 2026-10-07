@@ -1,0 +1,25 @@
+{
+  "description": "synthetic voyage shape",
+  "status": 200,
+  "body": {
+    "object": "list",
+    "results": [
+      {
+        "index": 2,
+        "relevance_score": 0.91,
+        "document": "d"
+      },
+      {
+        "index": 0,
+        "relevance_score": 0.42,
+        "document": "d"
+      },
+      {
+        "index": 1,
+        "relevance_score": 0.05,
+        "document": "d"
+      }
+    ],
+    "total_tokens": 9
+  }
+}
