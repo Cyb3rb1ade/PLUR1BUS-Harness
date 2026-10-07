@@ -66,6 +66,57 @@ No page sends a `caller`: a browser never asserts identity or trust (the `memory
 by its `event:` field or as a JSON-RPC notification object whose `method` is the name (memories, models); chat requires
 `event: session.event` with `data: { event: SessionEvent }`.
 
+## M3 part 2: inventory (K1)
+
+What the second web UI change builds fully and what it renders as `unavailable`, measured against `origin/main` @ `809f2d5`
+(`docs/rpc.md`, `packages/rpc-schema`, `packages/config-schema`, `packages/api/src/routes.ts`; nothing in `packages/api`, `core`,
+`providers`, `rpc-schema` or the RBAC tables is changed by this work).
+
+Two different questions decide a row:
+
+- **Schema** — does the method exist in `docs/rpc.md` / the config schema? If not, the function is built as an `unavailable`
+  state (text from the `PageState` pattern, no dead buttons that send something) and listed under Follow-ups. Nothing is added to the backend.
+- **Reach** — is it served over HTTP? **No RPC is.** `/api/v1` has the five routes above only; `/rpc` and `/events` are F1 and F2 of
+  the first change. So every "RPC exists" row is built against the assumed `/rpc` bridge, exactly like the pages of the first
+  change, and shows the `unavailable` state against the real backend until F1 lands. Tests use the mock `/rpc` of `test/mock-rpc.ts`.
+
+"Built" means: full flow with the five states (success, empty, error, forbidden, unavailable) in tests. "Partial" names what is missing.
+
+| M3 page / function | Needed RPC or route | In schema? | Built as |
+|---|---|---|---|
+| **First-run wizard** (`/setup`), progress, back/next, resume after reload, validation per step, 6/7-step variant | none (browser only; progress in `localStorage`, never a secret) | n/a | Built. Variant hint `?mode=bundled` (6 steps); no `core.status` field tells native from bundled (F30) |
+| Wizard: *Your account* (native/VPS) | `POST /api/v1/session` (owner token) | yes (real) | Partial: signs in with the owner token. A one-time *bootstrap* token and its route do not exist (F31) |
+| Wizard: *Name & persona* | `config.set` on `agents.<id>` (`displayName`, `createdAt`) | yes | Partial: name and id. Persona text (`SOUL.md`) has no RPC (F32) |
+| Wizard: *Main model* | `models.list`; `config.set` on `modelRoles.chat` | yes | Partial: model choice. Provider login has no RPC (`plur1bus login` is a stub; F33) |
+| Wizard: *Switchboard* | channel list and connect | **no** (no `channel.*` RPC) | `unavailable`, step can be skipped (F34) |
+| Wizard: *Memory* with licence gate | `config.set` on `embedding.useClass`, `embedding.acceptedNcLicence`, `embedding.acceptedNcLicenceAt`, `modelRoles.rerank` | yes | Partial: the NC confirmation shows who (`GET /api/v1/whoami`), when, licence and model + revision from the ADR-006 table; the schema stores only the flag and the time, so who, licence and revision are not persisted (F35) |
+| Wizard: *Backups* | `admin.backup.snapshot` | yes | Partial: "Create a backup now". Schedule and list have no RPC (F36) |
+| Wizard: optional *Import* | none (`plur1bus import` is CLI only) | **no** | `unavailable` with the CLI command to copy (F37) |
+| **Agents** list, detail | `GET /api/v1/agents` (real), `agent.list`, `agent.status`, `config.get` key `agents` | yes | Built |
+| Agents: create (multi-step, client idempotency key) | `config.set` with `ifRevision` on `agents.<id>` | yes | Partial: the client key is the reserved id plus `ifRevision`; there is no `agent.create` with a saga or key (F38) |
+| Agents: pause | no lifecycle RPC (`agent.close` closes the runtime, it is not a pause) | **no** | `unavailable` (F39) |
+| Agents: archive, delete (archive-first, export offer, typed name), export bundle without secrets | none | **no** | `unavailable`; the confirmation dialog is built and tested but sends nothing (F39) |
+| **Users & roles**: list, create | `identity.list`, `identity.human.create` | yes | Built |
+| Users: pairing codes, link, unlink | `identity.pair.start`, `.claim`, `.confirm`, `identity.link`, `identity.unlink` | yes | Built |
+| Users: invite | none | **no** | Pairing code is the closest; no invite (F40) |
+| Users: role presets, simple mode | none to assign; presets are static text from `docs/rbac.md` | **no** (assign) | Presets and simple mode built as display; assignment `unavailable` (F40) |
+| Users: object rights per agent (use/manage) | none | **no** | `unavailable` (F40) |
+| Users: Member sees only shared agents | `agent.list` (the server decides), `principal.role` from `whoami` | yes | Built: the UI hides what the role may not see and shows a server `E_DENIED` as forbidden |
+| Break-glass dialog (reason, window, notice) | `breakglass.request`, log read | **no** (library only, `docs/rbac.md`) | Dialog built (reason 10 to 500 characters, 1 to 60 min, "the person concerned is notified"); submit shows `unavailable` (F41) |
+| **Settings** routed sections, forms, restart class, diff before save | `config.get` (`key`, `tier`; returns `restartClass`, `revision`), `config.set` (`dryRun`, `ifRevision`) | yes | Built. Titles, help and enums come from the static index of the schema (no schema RPC; F17) |
+| **Secrets** list, create, rotate, delete | `secret.status`, `secret.list`, `secret.set`, `secret.delete` (`secret.get` is never called with `reveal`) | yes | Built |
+| **Sessions overview** | `session.list` | yes, own sessions only | Partial: metadata of the caller's own sessions (no owner, model or usage fields in `SessionRecord`). The all-users operator view and usage per session have no RPC (F42) |
+| Sessions: transcript via break-glass | `breakglass.request` | **no** | Same dialog, `unavailable` (F41) |
+| **Log viewer** query, filters, export | `logs.query` (`stream`, `minLevel`, `component`, `text`, `from`, `to`, `order`, `limit`, `cursor`) | yes | Built. `trace_id` has no parameter: it is matched with `text`; export is the loaded, filtered rows (F43) |
+| Log viewer live tail | `logs.tail` (long poll with `waitMs`) | yes | Built over `/rpc`; there is no log event on SSE (F2) |
+| **Activity feed** | `jobs.history`, `dreams.log`, `models.list`, `logs.query` with `stream: "audit"`, `audit.verify` | yes | Built |
+| Devices / pairing card | `config.get` key `remote.publish` | **no** (key is not in the config schema on main) | Card hidden at `local` and when the key is unknown; paired devices, QR or deep link, fingerprint and remove have no API (F44) |
+| **Command palette** entities | `GET /api/v1/agents`, `agent.list`, `session.list`, `logs.query`, static navigation, settings and actions | yes | Built as a client fan-out over those lists, capped and abortable (F14 is answered; a server endpoint stays a later option) |
+| Grants and approvals (D109, PR #190) | not built | n/a | The existing `approvals` navigation entry stays a placeholder |
+
+Where a page lives: `/agents`, `/agents/new`, `/agents/<id>`; `/settings/<section>` with `general`, `users`, `secrets`, `devices`;
+`/logs` with the tabs Logs (`/logs`), Activity (`/logs/activity`) and Sessions (`/logs/sessions`); `/setup` (not in the sidebar).
+
 ## API client (`src/api/**`)
 
 Pages depend on the `Api` interface (`rpc`, `get`, `post`, `put`, `patch`, `delete`, `events`), never on `fetch`.
