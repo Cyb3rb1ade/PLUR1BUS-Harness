@@ -1,4 +1,4 @@
-// Static build of the web UI: index.html + one JS bundle + one CSS bundle, no inline script or style (ADR-004 CSP).
+// Static build of the web UI: index.html + main.js + lazy page chunks + one CSS bundle, no inline script or style (ADR-004 CSP).
 import { copyFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
@@ -16,6 +16,10 @@ export async function buildWeb(outdir: string = here("./dist"), opts: BuildOptio
   await build({
     entryPoints: { main: here("./src/main.ts"), styles: here("./src/styles/app.css") },
     entryNames: "[name]",
+    // Pages are dynamic import() chunks next to main.js, shared code goes into shared chunks (same origin: `script-src 'self'` covers them, nothing inline).
+    splitting: true,
+    // Flat on purpose: the static server only has to know single-segment file names.
+    chunkNames: "[name]-[hash]",
     outdir,
     bundle: true,
     minify: true,

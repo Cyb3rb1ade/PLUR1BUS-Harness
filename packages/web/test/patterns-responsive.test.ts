@@ -102,6 +102,7 @@ describe("width tokens (rule 4)", opts, () => {
   test("a full-width page (list-detail) is not capped, the list column is 240-340 px", async () => {
     await withApp({ width: 2560, height: 900 }, async ({ page }) => {
       await openRoute(page, "#/gallery/list-detail/1");
+      await page.locator(".ld-list").waitFor(); // the gallery page is a lazy chunk: wait until it has rendered
       const w = await page.evaluate(() => ({ inner: document.querySelector(".page-inner")!.getBoundingClientRect().width, list: document.querySelector(".ld-list")!.getBoundingClientRect().width }));
       assert.ok(w.inner > 880);
       assert.ok(w.list >= 240 && w.list <= 340, `${w.list}`);

@@ -1,16 +1,18 @@
 import { GALLERY_ITEM, type NavItem } from "../nav.ts";
 import type { View } from "../view.ts";
-import { ChatPage } from "./chat/page.ts";
-import { DoctorPage } from "./doctor/page.ts";
-import { BudgetPage } from "./budget/page.ts";
-import { GalleryPage } from "./gallery.ts";
-import { MemoriesPage } from "./memory/index.ts";
-import { ModelsPage } from "./models/page.ts";
+import { lazyPage } from "./lazy.ts";
 import { PlaceholderPage } from "./placeholder.ts";
 
 /** What the router hands to a page: its nav item and the sub-route (`/memories/dreams` -> sub "dreams"), if any. */
 export type PageProps = { item: NavItem; sub?: string };
 export type PageComponent = (props: PageProps) => View | null;
+
+// Real pages are loaded on first use (dynamic import(), one chunk each; see lazy.ts). The placeholder is tiny and static.
+const ChatPage = lazyPage(() => import("./chat/page.ts").then((m) => m.ChatPage));
+const MemoriesPage = lazyPage(() => import("./memory/index.ts").then((m) => m.MemoriesPage));
+const ModelsPage = lazyPage(() => import("./models/page.ts").then((m) => m.ModelsPage));
+const BudgetPage = lazyPage(() => import("./budget/page.ts").then((m) => m.BudgetPage));
+const DoctorPage = lazyPage(() => import("./doctor/page.ts").then((m) => m.DoctorPage));
 
 /** Nav item id -> page. A page agent replaces exactly its own line (and adds its import above):
  *   import { MemoriesPage } from "./memories.ts";   ...   memories: MemoriesPage,
@@ -36,9 +38,10 @@ export const PAGES: Readonly<Record<string, PageComponent>> = {
 };
 
 declare const __GALLERY__: boolean | undefined;
+let galleryPage: PageComponent | undefined;
 
 export function pageFor(id: string): PageComponent {
   // Written inline so that the bundler folds the build-time constant and drops the gallery from the shipped bundle.
-  if (typeof __GALLERY__ !== "undefined" && __GALLERY__ && id === GALLERY_ITEM.id) return GalleryPage;
+  if (typeof __GALLERY__ !== "undefined" && __GALLERY__ && id === GALLERY_ITEM.id) return (galleryPage ??= lazyPage(() => import("./gallery.ts").then((m) => m.GalleryPage)));
   return PAGES[id] ?? PlaceholderPage;
 }
