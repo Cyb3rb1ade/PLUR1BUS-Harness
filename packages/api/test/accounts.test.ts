@@ -155,13 +155,13 @@ test("every route: unauthenticated is 401; a Viewer is refused on every route th
   const h = await setup();
   try {
     const { cookie } = await loginAs(h, "vera");
-    for (const r of ROUTES.filter((x) => x.auth === "session")) {
+    for (const r of ROUTES.filter((x) => x.auth !== "none")) {
       const anon = await raw(h, { method: r.method, path: r.path, headers: jsonHeaders() });
       assert.equal(anon.status, 401, `anon ${r.id}`);
       if (typeof r.authz !== "object") continue;
       const t = r.csrf ? await csrfToken(h, cookie) : undefined;
       const res = await raw(h, { method: r.method, path: r.path, headers: { cookie, ...(t ? { "x-csrf-token": t } : {}) } });
-      const viewerMayRead = r.method === "GET" && r.id === "agents.list";
+      const viewerMayRead = r.method === "GET" && ["agents.list", "tokens.list"].includes(r.id); // agent.list is open to all roles; my.read is "own" for all
       assert.equal(res.status, viewerMayRead ? 200 : 403, `viewer ${r.id}`);
     }
     assert.equal(h.core.calls.filter((c) => c.method !== "agent.list").length, 0, "a refused request never reaches the core");

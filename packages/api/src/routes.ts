@@ -4,6 +4,7 @@ import type { Clock } from "./clock.ts";
 import type { CoreRpc } from "./core-rpc.ts";
 import { ApiError, errors, fromCoreError } from "./errors.ts";
 import type { PasswordLogin } from "./login.ts";
+import type { PublicToken, TokenService } from "./tokens.ts";
 import type { RateClass } from "./rate-limit.ts";
 import { authorize, type RbacPrincipal } from "./rbac-bridge.ts";
 import type { Principal, Session, SessionStore } from "./session.ts";
@@ -28,8 +29,9 @@ export type Authz = "public" | "authenticated" | { action: string; resource?: "s
 
 export interface RouteSpec {
   id: string; method: Method; path: string; summary: string; tag: string;
-  /** `none` is public (login only, ruling R5); everything else needs a live session. */
-  auth: "none" | "session";
+  /** `none` is public (login only, ruling R5); `session` needs the session cookie; `any` takes the cookie or a personal
+   *  API token (`Authorization: Bearer plb_…`). Token management is `session` only, so a token cannot mint tokens. */
+  auth: "none" | "session" | "any";
   authz: Authz;
   /** A one-time CSRF token in `X-CSRF-Token` (ruling R6). */
   csrf: boolean;
@@ -44,6 +46,7 @@ export interface RouteSpec {
 const ref = (name: string): JsonSchema => ({ $ref: `#/components/schemas/${name}` });
 const obj = (properties: Record<string, JsonSchema>, required: string[] = Object.keys(properties)): JsonSchema => ({ type: "object", additionalProperties: false, required, properties });
 const schemaId = (id: string): JsonSchema => ({ const: id });
+const iso: JsonSchema = { type: "string", format: "date-time" };
 const ROLE_NAMES = ["owner", "admin", "operator", "member", "viewer"];
 
 /** Reusable schemas of the OpenAPI document (`components.schemas`). */
@@ -55,10 +58,10 @@ export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
     reason: { type: "string", description: "A short machine-readable cause, e.g. `no-session`, `csrf`, `rate-limited`, `locked`, `role-denied`, `body-too-large`." },
   }, ["schema", "error", "message"]),
   Principal: obj({ kind: { enum: ["owner", "user"] }, id: { type: "string" }, role: { enum: ROLE_NAMES } }),
+  Token: obj({ id: { type: "string" }, prefix: { type: "string" }, name: { type: "string" }, scopes: { type: "array", items: { type: "string" } }, createdAt: iso, expiresAt: iso, lastUsedAt: iso, revokedAt: iso }, ["id", "prefix", "name", "scopes", "createdAt", "expiresAt"]),
   Activity: obj({ state: { type: "string" }, since: { type: "integer" }, phase: { enum: ["light", "rem", "deep"] } }, ["state", "since"]),
 };
 
-const iso: JsonSchema = { type: "string", format: "date-time" };
 const SESSION_TIMES = { createdAt: iso, expiresAt: iso, idleExpiresAt: iso };
 
 export const ROUTES: readonly RouteSpec[] = [
@@ -91,7 +94,7 @@ export const ROUTES: readonly RouteSpec[] = [
   },
   {
     id: "health", method: "GET", path: `${API_PREFIX}/health`, tag: "status", summary: "API and core health",
-    auth: "session", authz: { action: "doctor.read" }, csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
+    auth: "any", authz: { action: "doctor.read" }, csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
     successStatus: 200,
     success: {
       description: "`ok`, or `degraded` while the engine is not ready or reports a degradation.",
@@ -103,15 +106,39 @@ export const ROUTES: readonly RouteSpec[] = [
     extra: { 503: { description: "The core is not reachable (`status: down`).", schema: ref("Health") } },
   },
   {
-    id: "whoami", method: "GET", path: `${API_PREFIX}/whoami`, tag: "status", summary: "The calling principal and its session",
-    auth: "session", authz: "authenticated", csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
-    successStatus: 200, success: { description: "The principal behind the session cookie, with the role as it is now.", schema: obj({ schema: schemaId("whoami/1"), principal: ref("Principal"), session: obj(SESSION_TIMES) }) },
+    id: "whoami", method: "GET", path: `${API_PREFIX}/whoami`, tag: "status", summary: "The calling principal and the session or token it came in with",
+    auth: "any", authz: "authenticated", csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
+    successStatus: 200, success: { description: "The principal behind the session cookie, with the role as it is now.", schema: obj({ schema: schemaId("whoami/1"), principal: ref("Principal"), via: { enum: ["session", "token"] }, session: obj(SESSION_TIMES), token: obj({ id: { type: "string" }, prefix: { type: "string" }, scopes: { type: "array", items: { type: "string" } }, expiresAt: iso }) }, ["schema", "principal", "via"]) },
   },
   {
     id: "agents.list", method: "GET", path: `${API_PREFIX}/agents`, tag: "agents", summary: "The agents the caller may see (core RPC `agent.list`, filtered by `agent.read`)",
-    auth: "session", authz: { action: "agent.list" }, csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
+    auth: "any", authz: { action: "agent.list" }, csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
     successStatus: 200,
     success: { description: "The core's `agent.list` result, with a schema id, reduced to the agents the caller holds `agent.read` on.", schema: obj({ schema: schemaId("agents.list/1"), agents: { type: "array", items: obj({ agentId: { type: "string" }, open: { type: "boolean" }, activity: ref("Activity") }) } }) },
+  },
+  {
+    id: "tokens.list", method: "GET", path: `${API_PREFIX}/tokens`, tag: "tokens", summary: "The caller's personal API tokens (never the secret, never the hash)",
+    auth: "session", authz: { action: "my.read", resource: "self" }, csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
+    successStatus: 200, success: { description: "Newest first; revoked and expired tokens stay listed.", schema: obj({ schema: schemaId("tokens.list/1"), tokens: { type: "array", items: ref("Token") } }) },
+  },
+  {
+    id: "tokens.create", method: "POST", path: `${API_PREFIX}/tokens`, tag: "tokens", summary: "Make a personal API token; the secret is shown once, in this answer",
+    auth: "session", authz: { action: "my.write", resource: "self" }, csrf: true, rate: "write", stability: "experimental", since: "1.0.0",
+    requestBody: obj({
+      name: { type: "string", minLength: 1, maxLength: 64 },
+      scopes: { type: "array", minItems: 1, maxItems: 20, items: { type: "string" }, description: "RBAC action names or `prefix.*` (e.g. `agent.*`). A token can only narrow what the caller's role allows, never widen it." },
+      ttlDays: { type: "integer", minimum: 1, maximum: 365, description: "Default 90." },
+    }, ["name", "scopes"]),
+    successStatus: 201,
+    success: { description: "`token` is the full string (`plb_<id>_<secret>`), shown here and nowhere else; only its hash is kept.", schema: obj({ schema: schemaId("tokens.create/1"), token: { type: "string" }, record: ref("Token") }) },
+    extra: { 409: { description: "The caller already holds the maximum number of live tokens (`reason`: `token-limit`).", schema: ref("Error") } },
+  },
+  {
+    id: "tokens.revoke", method: "POST", path: `${API_PREFIX}/tokens/revoke`, tag: "tokens", summary: "Revoke one of the caller's tokens; it stops working at once",
+    auth: "session", authz: { action: "my.write", resource: "self" }, csrf: true, rate: "write", stability: "experimental", since: "1.0.0",
+    requestBody: obj({ id: { type: "string", pattern: "^[0-9a-f]{12}$" } }),
+    successStatus: 200, success: { description: "Revoked.", schema: obj({ schema: schemaId("tokens.revoke/1"), revoked: { const: true } }) },
+    extra: { 404: { description: "No such live token of the caller's (`reason`: `token`).", schema: ref("Error") } },
   },
 ];
 // `Health` is the 200 schema of `health`, referenced by its 503.
@@ -124,6 +151,10 @@ export interface HandlerInput {
   /** The session cookie the request carried, if any, on routes that do not authenticate with it (login): it is ended. */
   presentedSessionId: string | undefined;
   ip: string;
+  /** How the caller authenticated: the session cookie or a personal API token. */
+  via: "session" | "token" | undefined;
+  /** Set when `via` is `token`: what whoami may show of it (never the hash, never the secret). */
+  token: { id: string; prefix: string; scopes: readonly string[]; expiresAt: number } | undefined;
 }
 export interface HandlerOutput { status?: number; body: Record<string, unknown>; headers?: Record<string, string> }
 export type Handler = (i: HandlerInput) => Promise<HandlerOutput> | HandlerOutput;
@@ -133,6 +164,7 @@ export interface HandlerDeps {
   principal: Principal; healthTimeoutMs: number; log: { info(msg: string, f?: Record<string, unknown>): void; warn(msg: string, f?: Record<string, unknown>): void };
   /** Password login; without it only the owner token logs in. */
   login?: PasswordLogin | undefined;
+  tokens?: TokenService | undefined;
   audit: AuditEmitter;
 }
 
@@ -157,6 +189,11 @@ function loginBody(b: unknown): LoginBody | undefined {
   if (keys.length === 1 && typeof o.token === "string") return { kind: "token", token: o.token };
   if (keys.length === 2 && typeof o.username === "string" && typeof o.password === "string") return { kind: "password", username: o.username, password: o.password };
   return undefined;
+}
+
+/** A token as the API shows it: times as ISO strings, nothing secret. */
+function tokenJson(t: PublicToken): Record<string, unknown> {
+  return { id: t.id, prefix: t.prefix, name: t.name, scopes: t.scopes, createdAt: iso8601(t.createdAt), expiresAt: iso8601(t.expiresAt), ...(t.lastUsedAt !== undefined ? { lastUsedAt: iso8601(t.lastUsedAt) } : {}), ...(t.revokedAt !== undefined ? { revokedAt: iso8601(t.revokedAt) } : {}) };
 }
 
 export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
@@ -218,8 +255,37 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
       }
     },
     "whoami": (i) => {
-      if (!i.session || !i.principal) throw errors.unauthenticated();
-      return { body: { schema: "whoami/1", principal: i.principal, session: { createdAt: iso8601(i.session.createdAt), expiresAt: iso8601(i.session.absoluteExpiresAt), idleExpiresAt: iso8601(i.session.idleExpiresAt) } } };
+      if (!i.principal) throw errors.unauthenticated();
+      if (i.via === "token" && i.token) return { body: { schema: "whoami/1", principal: i.principal, via: "token", token: { id: i.token.id, prefix: i.token.prefix, scopes: i.token.scopes, expiresAt: iso8601(i.token.expiresAt) } } };
+      if (!i.session) throw errors.unauthenticated();
+      return { body: { schema: "whoami/1", principal: i.principal, via: "session", session: { createdAt: iso8601(i.session.createdAt), expiresAt: iso8601(i.session.absoluteExpiresAt), idleExpiresAt: iso8601(i.session.idleExpiresAt) } } };
+    },
+    "tokens.list": async (i) => {
+      if (!i.principal || !d.tokens) throw errors.unauthenticated();
+      const tokens = (await d.tokens.list(i.principal.id)).map(tokenJson);
+      return { body: { schema: "tokens.list/1", tokens } };
+    },
+    "tokens.create": async (i) => {
+      if (!i.principal || !d.tokens) throw errors.unauthenticated();
+      const b = i.body as Record<string, unknown> | null;
+      const keys = b && typeof b === "object" && !Array.isArray(b) ? Object.keys(b) : [];
+      if (!b || !keys.includes("name") || !keys.includes("scopes") || keys.some((k) => !["name", "scopes", "ttlDays"].includes(k))) throw errors.badRequest("body", "body must be {\"name\": string, \"scopes\": string[], \"ttlDays\"?: integer}");
+      let ttlMs: number | undefined;
+      if (b.ttlDays !== undefined) {
+        if (typeof b.ttlDays !== "number" || !Number.isInteger(b.ttlDays) || b.ttlDays < 1 || b.ttlDays > 365) throw errors.badRequest("ttl", "ttlDays must be an integer between 1 and 365");
+        ttlMs = b.ttlDays * 86_400_000;
+      }
+      const made = await d.tokens.create(i.principal.id, { name: b.name, scopes: b.scopes, ...(ttlMs !== undefined ? { ttlMs } : {}) });
+      d.audit.emit("auth.token.created", i.principal.id, `token:${made.record.id}`, { name: made.record.name, scopes: made.record.scopes, expiresAt: made.record.expiresAt, ip: i.ip });
+      return { status: 201, body: { schema: "tokens.create/1", token: made.token, record: tokenJson(made.record) } };
+    },
+    "tokens.revoke": async (i) => {
+      if (!i.principal || !d.tokens) throw errors.unauthenticated();
+      const b = i.body as { id?: unknown } | null;
+      if (!b || typeof b !== "object" || Array.isArray(b) || typeof b.id !== "string" || Object.keys(b).length !== 1 || !/^[0-9a-f]{12}$/.test(b.id)) throw errors.badRequest("body", "body must be {\"id\": string}");
+      if (!(await d.tokens.revoke(i.principal.id, b.id))) throw new ApiError(404, "E_NOT_FOUND", "no such token", { reason: "token" });
+      d.audit.emit("auth.token.revoked", i.principal.id, `token:${b.id}`, { ip: i.ip });
+      return { body: { schema: "tokens.revoke/1", revoked: true } };
     },
     "agents.list": async (i) => {
       try {

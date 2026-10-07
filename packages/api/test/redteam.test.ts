@@ -157,12 +157,12 @@ test("OK-7: the route table is deny-by-default and its only core calls are core.
     for (const r of ROUTES) {
       for (const headers of [{}, { cookie: "plur1bus_session=forged" }] as Array<Record<string, string>>) {
         const res = await raw(h, { method: r.method, path: r.path, headers: { ...headers, ...(r.requestBody ? jsonHeaders() : {}) } });
-        if (r.auth === "session") assert.equal(res.status, 401, `${r.id} anonymous`); else assert.notEqual(res.status, 200);
+        if (r.auth !== "none") assert.equal(res.status, 401, `${r.id} anonymous`); else assert.notEqual(res.status, 200);
       }
     }
     assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id), ["session.create"]);
-    assert.ok(ROUTES.filter((r) => r.method !== "GET" && r.auth === "session").every((r) => r.csrf), "every authenticated write needs CSRF");
-    for (const r of ROUTES) if (r.auth === "session" && r.method === "GET") await raw(h, { path: r.path, headers: { cookie } });
+    assert.ok(ROUTES.filter((r) => r.method !== "GET" && r.auth !== "none").every((r) => r.csrf), "every authenticated write needs CSRF");
+    for (const r of ROUTES) if (r.auth !== "none" && r.method === "GET") await raw(h, { path: r.path, headers: { cookie } });
     const called = new Set(h.core.calls.map((c) => c.method));
     assert.deepEqual([...called].sort(), ["agent.list", "core.status"]);
     for (const p of ["/api/v1/admin/migrate", "/api/v1/admin.migrate", "/api/v1/rpc", "/api/v1/admin/reembed/run", "/api/v1/users", "/api/v1/identity", "/api/v1/secrets"]) {

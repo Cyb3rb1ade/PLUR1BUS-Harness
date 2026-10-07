@@ -4,7 +4,7 @@
 // chain, which serialises writers with an OS lock), so a relative import bundles them into the API without pulling the
 // core process in. Follow-up: a `@plur1bus/core/rbac` subpath export, then this file becomes a package import.
 export { authorize, canSee } from "../../core/src/rbac/authorize.ts";
-export { policyFor } from "../../core/src/rbac/policy.ts";
+export { POLICY, policyFor } from "../../core/src/rbac/policy.ts";
 export { createBreakGlass, BreakGlassError } from "../../core/src/rbac/break-glass.ts";
 export { createAuditChain } from "../../core/src/audit/chain.ts";
 export type { BreakGlass, BreakGlassNotice } from "../../core/src/rbac/break-glass.ts";

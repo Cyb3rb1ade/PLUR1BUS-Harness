@@ -8,11 +8,13 @@ import type { CoreRpc } from "./core-rpc.ts";
 import { ApiError, errorBody, errors } from "./errors.ts";
 import { securityHeaders } from "./headers.ts";
 import { PasswordLogin, type LockoutPolicy } from "./login.ts";
-import type { UserDirectory } from "./ports.ts";
+import { MemoryTokenStore } from "./memory-stores.ts";
+import type { TokenStore, UserDirectory } from "./ports.ts";
 import { DEFAULT_RATE_CLASSES, RateLimiter, type RateClasses } from "./rate-limit.ts";
 import { authorize, type AuditSink, type Decision, type RbacPrincipal, type Resource } from "./rbac-bridge.ts";
 import { redactFields } from "./redact.ts";
 import { buildHandlers, COOKIE_NAME, COOKIE_NAME_TLS, CSRF_HEADER, ROUTES, sessionCookie, type Handler, type RouteSpec } from "./routes.ts";
+import { TokenService } from "./tokens.ts";
 import { DEFAULT_SESSION_LIMITS, OWNER, ownerTokenVerifier, readCookie, SessionStore, type Principal, type Session, type SessionLimits } from "./session.ts";
 
 export interface ApiLimits {
@@ -33,6 +35,8 @@ export interface ApiServerOptions {
   ownerToken: string;
   /** Local accounts (password login). Without it only the owner token logs in. */
   users?: UserDirectory;
+  /** Where personal API tokens live. The in-memory default forgets them at a restart; the real store is a follow-up. */
+  tokens?: TokenStore;
   /** The hash-chained audit log of the core, or any sink with the same `append`. Without one nothing is audited. */
   audit?: AuditSink;
   /** Loopback only (ruling R7); anything else is refused. Default `127.0.0.1`. */
@@ -112,7 +116,8 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   const limiter = new RateLimiter(clock, o.rateClasses ?? DEFAULT_RATE_CLASSES);
   const audit = createAuditEmitter({ sink: o.audit, clock, log });
   const login = o.users ? new PasswordLogin({ users: o.users, clock, ...(o.lockout ? { policy: o.lockout } : {}) }) : undefined;
-  const handlers = buildHandlers({ core: o.core, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, audit });
+  const tokens = new TokenService({ store: o.tokens ?? new MemoryTokenStore(), clock });
+  const handlers = buildHandlers({ core: o.core, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, audit });
   const cookieName = tls ? COOKIE_NAME_TLS : COOKIE_NAME;
   const secHeaders = securityHeaders(tls);
   const byPath = new Map<string, Map<string, { spec: RouteSpec; handler: Handler }>>();
@@ -139,10 +144,11 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
 
   /** The principal of a session as it is *now*: owner from the bootstrap, users from the directory (so a demotion, a
    *  disabled account or a deleted one takes effect at the next request, whatever the session was made with). */
-  async function resolve(session: Session): Promise<Resolved | undefined> {
-    const p = session.principal;
-    if (p.kind === "owner") return { principal: p, rbac: { userId: p.id, role: "owner", kind: "person" }, version: 0 };
-    const u = await o.users?.findById(p.id);
+  async function resolve(session: Session): Promise<Resolved | undefined> { return resolveSubject(session.principal.kind, session.principal.id); }
+
+  async function resolveSubject(kind: Principal["kind"] | undefined, id: string): Promise<Resolved | undefined> {
+    if (kind === "owner" || (kind === undefined && id === OWNER.id)) return { principal: OWNER, rbac: { userId: OWNER.id, role: "owner", kind: "person" }, version: 0 };
+    const u = await o.users?.findById(id);
     if (!u || u.disabled === true) return undefined;
     return {
       principal: { kind: "user", id: u.id, role: u.role },
@@ -202,7 +208,32 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
 
       const presented = readCookie(req.headers.cookie, cookieName);
       let sessionId: string | undefined; let session: Session | undefined; let resolved: Resolved | undefined; let rotated: string | undefined;
-      if (spec.auth === "session") {
+      let via: "session" | "token" | undefined; let tokenInfo: { id: string; prefix: string; scopes: readonly string[]; expiresAt: number } | undefined; let rateKey: string | undefined;
+      const authHeader = req.headers.authorization;
+      const bearer = spec.auth === "any" && typeof authHeader === "string" && /^bearer(\s|$)/i.test(authHeader) ? authHeader.slice(6).trim() : undefined;
+      if (bearer !== undefined) {
+        // A personal API token. No cookie is consulted, so a bad token is a 401, never a fallback; no CSRF token is
+        // needed because a browser never attaches this header by itself. A token acts as an agent principal: it can
+        // never hold a human-only action, and its scopes only ever narrow the role it belongs to.
+        const r = await tokens.authenticate(bearer);
+        if (!r.ok) {
+          audit.emit("auth.token.used-denied", "anonymous", r.id ? `token:${r.id}` : "token:-", { reason: r.reason, ip });
+          throw errors.unauthenticated("invalid-token");
+        }
+        resolved = await resolveSubject(r.record.userId === OWNER.id ? "owner" : "user", r.record.userId);
+        if (!resolved) { audit.emit("auth.token.used-denied", "anonymous", `token:${r.record.id}`, { reason: "account", ip }); throw errors.unauthenticated("invalid-token"); }
+        resolved = { ...resolved, rbac: { ...resolved.rbac, kind: "agent", tokenScopes: r.record.scopes } };
+        via = "token"; tokenInfo = { id: r.record.id, prefix: `plb_${r.record.id}`, scopes: r.record.scopes, expiresAt: r.record.expiresAt };
+        principalId = resolved.principal.id; rateKey = `token:${r.record.id}`;
+        const tv = limiter.take(cls, rateKey);
+        if (!tv.ok) rateLimited(rateKey, cls, tv.retryAfterSec);
+        const d = decide(spec, resolved.rbac);
+        if (d.effect === "deny") {
+          if (req.method !== "GET") audit.emit("auth.denied", principalId, `route:${spec.id}`, { reason: d.reason, method: req.method, via: "token", token: tokenInfo.id, ip, ...(typeof spec.authz === "object" ? { action: spec.authz.action } : {}) });
+          throw errors.forbidden(d.reason);
+        }
+      } else if (spec.auth === "session" || spec.auth === "any") {
+        via = "session";
         sessionId = presented;
         session = sessions.get(sessionId);
         if (!session) throw errors.unauthenticated();
@@ -246,7 +277,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
 
       let timer: NodeJS.Timeout | undefined;
       const out = await Promise.race([
-        Promise.resolve(handler({ principal: resolved?.principal, session, sessionId, body, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined, ip })),
+        Promise.resolve(handler({ principal: resolved?.principal, session, sessionId, body, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined, ip, via, token: tokenInfo })),
         new Promise<never>((_, rej) => { timer = setTimeout(() => rej(errors.timeout()), limits.handlerTimeoutMs); }),
       ]).finally(() => clearTimeout(timer));
       status = out.status ?? spec.successStatus;

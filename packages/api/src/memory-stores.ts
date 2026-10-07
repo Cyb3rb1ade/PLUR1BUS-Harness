@@ -1,4 +1,17 @@
-import type { UserDirectory, UserRecord } from "./ports.ts";
+import type { TokenRecord, TokenStore, UserDirectory, UserRecord } from "./ports.ts";
+
+/** In-memory `TokenStore` for tests; records are copied in and out so a caller cannot mutate the stored one. */
+export class MemoryTokenStore implements TokenStore {
+  readonly #byId = new Map<string, TokenRecord>();
+  async put(rec: TokenRecord): Promise<void> { this.#byId.set(rec.id, Object.freeze({ ...rec })); }
+  async get(id: string): Promise<TokenRecord | undefined> { return this.#byId.get(id); }
+  async listByUser(userId: string): Promise<TokenRecord[]> { return [...this.#byId.values()].filter((t) => t.userId === userId).sort((a, b) => b.createdAt - a.createdAt); }
+  async update(id: string, patch: { lastUsedAt?: number; revokedAt?: number }): Promise<void> {
+    const cur = this.#byId.get(id); if (cur) this.#byId.set(id, Object.freeze({ ...cur, ...patch }));
+  }
+  /** What a heap or disk dump of the store would hold: for tests that check no secret is in it. */
+  dump(): string { return JSON.stringify([...this.#byId.values()]); }
+}
 
 export const normalizeUsername = (u: string): string => u.normalize("NFC").trim().toLowerCase();
 

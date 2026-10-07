@@ -15,6 +15,23 @@ export interface UserRecord {
   readonly version: number;
 }
 
+/** A personal API token as stored: the public `id` (part of the token string, shown in lists) and the SHA-256 of the
+ *  secret part only. The full token string exists nowhere after it was shown once. */
+export interface TokenRecord {
+  readonly id: string; readonly userId: string; readonly name: string;
+  /** Exact RBAC action names or `prefix.*`; they can only narrow what the user's role allows. */
+  readonly scopes: readonly string[];
+  readonly hash: string;
+  readonly createdAt: number; readonly expiresAt: number;
+  readonly lastUsedAt?: number; readonly revokedAt?: number;
+}
+export interface TokenStore {
+  put(rec: TokenRecord): Promise<void>;
+  get(id: string): Promise<TokenRecord | undefined>;
+  listByUser(userId: string): Promise<TokenRecord[]>;
+  update(id: string, patch: { lastUsedAt?: number; revokedAt?: number }): Promise<void>;
+}
+
 export interface UserDirectory {
   findByUsername(username: string): Promise<UserRecord | undefined>;
   findById(id: string): Promise<UserRecord | undefined>;

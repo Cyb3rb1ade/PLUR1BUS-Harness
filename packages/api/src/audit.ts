@@ -33,7 +33,7 @@ export interface AuditEmitterOptions {
   noisyWindowMs?: number;
 }
 
-const NOISY: ReadonlySet<AuditAction> = new Set(["auth.rate-limited", "auth.csrf-refused"]);
+const NOISY: ReadonlySet<AuditAction> = new Set(["auth.rate-limited", "auth.csrf-refused", "auth.token.used-denied"]);
 const MAX_NOISY_KEYS = 1000;
 
 export function createAuditEmitter(o: AuditEmitterOptions): AuditEmitter {
