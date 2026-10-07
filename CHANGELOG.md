@@ -38,7 +38,38 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
   changed. The engine gets short-lived, revocable leases (in-process; there is no RPC for them). `secret.*` is never
   offered as a WebMCP tool. RPC stays at 1.5.0: the new methods carry `x-since: 1.5.0`.
 
+- **#153:** The Harness API supports sign-in with the owner token.
+- **#155:** Added dependency licence/advisory audit tooling and its policy documentation.
+- **#157:** Added the Telegram channel adapter with long polling, allowlisting and secret-store token handling.
+- **#158:** Added local Ollama/LM Studio discovery and local model adapter support.
+- **#160:** Added provider fallback routing with retry and circuit-breaker controls.
+- **#161:** Added the core channel registry, manifest and lifecycle framework.
+- **#162:** Added the signed extension-catalogue index client and verified offline cache.
+- **#163:** Added the tool registry and policy-gated tool-call loop.
+- **#165:** Added `exec.run` with deny-by-default execution tiers.
+- **#166:** Added live `modelProfiles` configuration for fallback/MoA profiles.
+- **#167:** Added root-scoped `file.read|write|list|stat` tools.
+- **#168:** Added a fresh-home CLI → daemon → core end-to-end smoke test.
+- **#172:** Added inbound A2A Agent Card and task endpoints.
+- **#173:** Added deterministic fuzz/property tests for the line protocol and JSON-RPC parsers.
+- **#174:** Added the ACP agent adapter and `plur1bus acp serve`.
+- **#175:** Added fail-closed outbound egress policy and owner-visible status.
+- **#176:** Added Prometheus metrics and a Zabbix 7 template.
+- **#177:** Added X2 per-kind extension manifests and worker-side package storage for MCP-server/provider kinds.
+- **#178:** Added an automated German/English translation completeness check.
+- **#179:** Added a verifiable hash chain for the audit log.
+- **#180:** Added `logs.query` and `logs.tail` RPC methods.
+- **#181:** Added the Gemini `generateContent`/`streamGenerateContent` provider adapter.
+- **#189:** Added the M3 web UI skeleton with Chat, Memories/Dreams, Models, Usage and Doctor pages.
+- **#190:** Added D109 approval storage, grants, RPC/CLI and the dispatcher chokepoint.
+- **#191:** Added remote embedding and rerank adapters (not yet wired into the core/engine).
+- **#193:** Added cache-aware prompt layout metadata and cache-usage telemetry.
+
 ### Changed
+
+- **#156:** Reconciled milestone and repository status documentation with merged work.
+- **#170:** Added German and English user quickstart and operations handbooks.
+- **#186:** Unified provider errors, profile-driven routing and streaming contracts.
 
 - Memory engine re-pinned to **`6868b7b1`** (plugin `origin/main` after PR #237, previously `9bafa047`), contract
   **1.12.0**; top-level engine keys stay **57**. `CORE_CONTRACT` in `packages/core` and `crates/plur1bus` is
@@ -57,6 +88,17 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
   - Not included: plugin #233 (further leak-audit items) was still open at the 61025251 pin; not checked since.
 
 ### Fixed
+
+- **#151:** Fixed non-reproducible container core-layer builds.
+- **#152:** Removed a duplicate RPC schema definition and added duplicate-key detection.
+- **#154:** Fixed security findings from the local HTTP API red-team review.
+- **#159:** Avoided the macOS backup snapshot timeout caused by syncing the staged copy.
+- **#171:** Fixed Windows supervisor log ACL setup and restart failures.
+- **#182:** Made supervisor start-delay seam tests resilient to loaded runners.
+- **#183:** Hardened the Hermes installer-lock transcription test.
+- **#184:** Fixed desktop Windows audit and cold-start flakes.
+- **#185:** Made backup snapshots WAL-safe and fixed a macOS hang.
+- **#187:** Stabilized unit-test jobs across Windows, macOS and Ubuntu.
 
 - The skills lock `<home>/imports/.lock` (importer and `plur1bus ext`) now carries a nonce and is released only while
   it is still ours (rename aside, re-check, delete or put back). Before, release checked the pid and then deleted, and
