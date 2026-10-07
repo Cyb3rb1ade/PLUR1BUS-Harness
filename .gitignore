@@ -1,5 +1,7 @@
 # Logs
 logs
+!/packages/core/src/logs/
+!/packages/core/test/logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
