@@ -1,0 +1,15 @@
+{
+  "params": {},
+  "result": {
+    "ok": false,
+    "records": 3,
+    "files": 2,
+    "lastSeq": 3,
+    "lastHash": "1111111111111111111111111111111111111111111111111111111111111111",
+    "anchor": { "status": "ahead", "seq": 5 },
+    "findings": [
+      { "code": "truncated", "file": "audit-chain.jsonl", "line": null, "seq": 5 }
+    ],
+    "findingsTotal": 1
+  }
+}

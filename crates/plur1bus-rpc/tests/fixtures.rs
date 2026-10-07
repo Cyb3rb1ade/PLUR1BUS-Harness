@@ -113,6 +113,7 @@ fn method_fixture(name: &str, f: &Value) {
         "admin.backup.snapshot" => {
             pair::<AdminBackupSnapshotParams, AdminBackupSnapshotResult>(name, f)
         }
+        "audit.verify" => pair::<AuditVerifyParams, AuditVerifyResult>(name, f),
         "admin.embedding.probe" => {
             pair::<AdminEmbeddingProbeParams, AdminEmbeddingProbeResult>(name, f)
         }

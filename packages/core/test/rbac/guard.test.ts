@@ -21,7 +21,7 @@ const params: Record<string, unknown> = {
   "models.removeManual": { provider: "p", model: "m" },
   "admin.migrate": {}, "admin.obsidian.detect": {}, "admin.obsidian.prepare": {}, "admin.obsidian.confirm": {},
   "admin.embedding.probe": {}, "admin.embedding.serve": {},
-  "admin.reembed.plan": {}, "admin.reembed.run": {}, "admin.reembed.status": {}, "admin.reembed.abort": {}, "admin.backup.snapshot": {}, "logs.query": {}, "logs.tail": {}, "identity.list": {}, "identity.human.create": {}, "identity.link": {}, "identity.unlink": {}, "identity.pair.start": {}, "identity.pair.claim": {}, "identity.pair.confirm": {}, "dreams.run": {}, "dreams.schedule.set": {}, "dreams.enable": {}, "dreams.disable": {},
+  "admin.reembed.plan": {}, "admin.reembed.run": {}, "admin.reembed.status": {}, "admin.reembed.abort": {}, "admin.backup.snapshot": {}, "audit.verify": {}, "logs.query": {}, "logs.tail": {}, "identity.list": {}, "identity.human.create": {}, "identity.link": {}, "identity.unlink": {}, "identity.pair.start": {}, "identity.pair.claim": {}, "identity.pair.confirm": {}, "dreams.run": {}, "dreams.schedule.set": {}, "dreams.enable": {}, "dreams.disable": {},
 };
 
 /** Stub handlers for every guarded method; they record that they ran. */
@@ -52,9 +52,9 @@ describe("rpc guard: rules", () => {
       assert.ok(actions.has(rule.action), `${method} -> unknown action ${rule.action}`);
     }
   });
-  it("secures nine families: memory.forget, agent.status, jobs.run, models.* writes, the admin.* family, identity.*, logs.* and the dreams.* writes", () => {
+  it("secures ten families: audit.verify, memory.forget, agent.status, jobs.run, models.* writes, the admin.* family, identity.*, logs.* and the dreams.* writes", () => {
     const families = new Set(Object.keys(RPC_RULES).map((m) => m.split(".").slice(0, m.startsWith("admin.") || m.startsWith("identity.") || m.startsWith("logs.") ? 1 : 2).join(".")));
-    assert.deepEqual([...families].sort(), ["admin", "agent.status", "dreams.disable", "dreams.enable", "dreams.run", "dreams.schedule", "identity", "jobs.run", "logs", "memory.forget", "models.removeManual", "models.setOverride"].sort());
+    assert.deepEqual([...families].sort(), ["admin", "agent.status", "audit.verify", "dreams.disable", "dreams.enable", "dreams.run", "dreams.schedule", "identity", "jobs.run", "logs", "memory.forget", "models.removeManual", "models.setOverride"].sort());
   });
   it("every admin.* method in the schema is guarded (an `admin.*` is never left open)", () => {
     const admin = Object.keys(findMethods(SCHEMA)).filter((m) => m.startsWith("admin."));
