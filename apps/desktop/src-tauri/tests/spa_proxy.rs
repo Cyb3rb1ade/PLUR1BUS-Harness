@@ -1203,3 +1203,85 @@ async fn foreign_origin_and_upstream_cors_headers_cannot_grant_cors() {
     )
     .await;
 }
+
+#[tokio::test]
+async fn active_proxy_adopts_authenticated_rollover_without_changing_origin_or_cookie_jar() {
+    with_test_timeout("active_proxy_adopts_authenticated_rollover", async {
+        use plur1bus_mock_harness::{tls::Identity, MockHarness, MockOptions};
+        let harness = MockHarness::start_tls(MockOptions::default(), Identity::self_signed())
+            .await
+            .unwrap();
+        let code = harness.control.create_pair_code();
+        let mut pairing = HarnessClient::new(Origin::parse(&harness.origin).unwrap(), None)
+            .with_trusted_roots(vec![Identity::self_signed().leaf]);
+        pairing.establish_pairing_trust(&code).await.unwrap();
+        let credentials = pairing.redeem(&code, "Fixture").await.unwrap();
+        let mut row = Connection::new(
+            "Fixture".into(),
+            Kind::Remote,
+            Origin::parse(&harness.origin).unwrap(),
+            harness.installation_id.clone(),
+            credentials.device_id,
+            "fixture".into(),
+        );
+        pairing.apply_pairing_trust(&mut row);
+        let initial =
+            HarnessClient::from_connection_with_roots(&row, vec![Identity::self_signed().leaf])
+                .await
+                .unwrap();
+        let ticket = initial
+            .session_ticket(&row.installation_id, &credentials.token)
+            .await
+            .unwrap();
+        let proxy = SpaProxy::new(&row, initial.clone()).await.unwrap();
+        let origin = proxy.origin().clone();
+        let carrier = proxy.user_agent().to_owned();
+        let redeemed = test_client()
+            .post(format!("{}/api/v1/auth/ticket/redeem", origin.as_str()))
+            .header("user-agent", &carrier)
+            .header("origin", origin.as_str())
+            .json(&json!({"ticket":ticket.ticket.expose()}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(redeemed.status(), 200);
+        assert!(!proxy.session_jar_is_empty());
+        harness.control.stage_trust(Identity::self_signed());
+        initial
+            .refresh_trust(&mut row, &credentials.token)
+            .await
+            .unwrap();
+        initial.ack_trust(&row, &credentials.token).await.unwrap();
+        assert_eq!(harness.control.trust_ack_count(), 1);
+        let next =
+            HarnessClient::from_connection_with_roots(&row, vec![Identity::self_signed().leaf])
+                .await
+                .unwrap();
+        harness.control.switch_trust();
+        assert_eq!(
+            request(&proxy, "/events").send().await.unwrap().status(),
+            502
+        );
+        proxy.update_transport(next).unwrap();
+        assert_eq!(
+            request(&proxy, "/events").send().await.unwrap().status(),
+            200
+        );
+        assert_eq!(proxy.origin(), &origin);
+        assert_eq!(proxy.user_agent(), carrier);
+        assert!(!proxy.session_jar_is_empty());
+        assert_eq!(
+            proxy.update_transport(HarnessClient::new(
+                Origin::parse("http://127.0.0.1:9").unwrap(),
+                None
+            )),
+            Err(plur1bus_desktop::client::ClientError::Protocol)
+        );
+        assert_eq!(
+            request(&proxy, "/events").send().await.unwrap().status(),
+            200
+        );
+        proxy.retire();
+    })
+    .await;
+}

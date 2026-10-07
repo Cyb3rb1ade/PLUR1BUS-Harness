@@ -10,9 +10,9 @@ import { RpcCallError, connect } from "../src/client.ts";
 import { encodeLine } from "../src/framing.ts";
 import { silentLogger } from "../src/logger.ts";
 import { createRpcServer } from "../src/rpc-server.ts";
-import { coreAddress, coreTokenPath, moduleAddress, moduleRunFiles } from "../src/paths.ts";
+import { coreAddress, corePidPath, coreTokenPath, moduleAddress, moduleRunFiles } from "../src/paths.ts";
 import { startFakeSupervisor, type FakeSupervisor } from "./helpers/fake-supervisor.ts";
-import { buildFixture, connectModule, exitWithin, installFixture, killLeftovers, spawnModule, waitStatus } from "./helpers/module-process.ts";
+import { buildFixture, connectModule, pidOf, exitWithin, installFixture, killLeftovers, spawnModule, waitStatus } from "./helpers/module-process.ts";
 import { tempDir } from "./helpers/temp-dir.ts";
 
 const GRACE_MS = 1000;
@@ -160,6 +160,7 @@ describe("module runtime (runModule)", () => {
     const { home: h } = await home();
     const token = "a".repeat(64);
     writeFileSync(coreTokenPath(h), token);
+    writeFileSync(corePidPath(h), `${process.pid} fake-core\n`); // Windows: the module refuses a core pipe without the pid expected to serve it
     const core = createRpcServer({ server: "core", address: coreAddress(h), token, logger: silentLogger(), methods: {}, hello: () => ({ contract: "1.9.0", rpc: RPC_VERSION, instanceId: "fake-core", pid: process.pid }) });
     await core.listen();
     const p = spawnModule(h);
@@ -180,7 +181,7 @@ describe("module runtime (runModule)", () => {
     await new Promise<void>((r) => peer.once("connect", () => r()));
     peer.on("data", () => {}); peer.on("error", () => {});
     peer.write(encodeLine({ jsonrpc: "2.0", id: 1, method: "module.auth", params: { token: readFileSync(moduleRunFiles(h, "fixture").token, "utf8").trim() } }));
-    const c = await connect({ address: moduleAddress(h, "fixture"), token: readFileSync(moduleRunFiles(h, "fixture").token, "utf8").trim(), endpoint: "module" });
+    const c = await connect({ address: moduleAddress(h, "fixture"), token: readFileSync(moduleRunFiles(h, "fixture").token, "utf8").trim(), endpoint: "module", ...pidOf(moduleRunFiles(h, "fixture").pid) });
     const t0 = performance.now();
     await c.call("module.shutdown", { budgetMs: 200 });
     assert.equal(await exitWithin(p, 15_000), 0, p.stderr());

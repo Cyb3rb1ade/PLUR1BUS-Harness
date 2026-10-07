@@ -27,6 +27,8 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `core.shutdownBudgetMs` | integer | `30000` | live |  |
 | `supervisor.graceMs` | integer | `60000` | live |  |
 | `supervisor.healthIntervalMs` | integer | `5000` | live |  |
+| `metrics.enabled` | boolean | `false` | core |  |
+| `metrics.port` | integer | `9464` | core |  |
 | `logs.maxBytes` | integer | `20971520` | live |  |
 | `logs.keep` | integer | `5` | live |  |
 | `extensions.allowUnsigned` | boolean | `true` | live |  |
@@ -38,6 +40,11 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `engine` | object | `{}` | core | Pass-through to the engine's EngineConfig — [57 engine keys, all advanced and core](config-engine-keys.md). |
 | `oauth` | object | `{}` | live |  |
 | `decision` | object | `{}` | live |  |
+| `modelProfiles` | object | `{}` | live | Named model profiles (C4): an ordered candidate list with weights for fallback or mixture-of-agents (moa) use, plus sampling parameters and cache hints. Data only; selection is the router's job. List order is priority order. |
 | `models.scan.enabled` | boolean | `true` | live |  |
 | `models.scan.intervalHours` | integer | `24` | live |  |
+| `secrets.fileFallback.enabled` | boolean | `false` | live | Use the encrypted file store (AES-256-GCM, machine-bound key file next to it) when the OS keyring is unavailable. Off until the owner decides ADR-005 Q3. |
+| `egress.allowHosts` | array | `[]` | live | Exact names, `*.suffix` (subdomains of any depth, not the apex), `*` (any name, never an IP literal) or an exact canonical IP literal (IPv6 in brackets). |
+| `egress.allowPorts` | array | `[443]` | live |  |
+| `egress.allowLoopback` | boolean | `false` | live | Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused. |
 | `modules` | object | `{}` | live | Per-module settings, keyed by module name (B13). A change restarts only that module; `enabled: false` keeps it stopped. |

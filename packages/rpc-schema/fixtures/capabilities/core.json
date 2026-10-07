@@ -96,6 +96,34 @@
       "stability": "experimental",
       "since": "1.0.0"
     },
+    "dreams.status": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "dreams.log": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "dreams.run": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "dreams.schedule.get": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "dreams.schedule.set": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "dreams.enable": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "dreams.disable": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "admin.obsidian.detect": {
       "stability": "experimental",
       "since": "1.3.0"
@@ -112,6 +140,22 @@
       "stability": "experimental",
       "since": "1.3.0"
     },
+    "admin.backup.snapshot": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "logs.query": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "logs.tail": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "audit.verify": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "admin.embedding.probe": {
       "stability": "experimental",
       "since": "1.3.0"
@@ -119,6 +163,22 @@
     "admin.embedding.serve": {
       "stability": "experimental",
       "since": "1.3.0"
+    },
+    "admin.reembed.plan": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "admin.reembed.run": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "admin.reembed.status": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "admin.reembed.abort": {
+      "stability": "experimental",
+      "since": "1.5.0"
     },
     "events.subscribe": {
       "stability": "stable",
@@ -145,6 +205,98 @@
       "since": "1.5.0"
     },
     "models.acknowledge": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "budget.status": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "egress.status": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "budget.set": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "secret.status": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "secret.list": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "secret.set": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "secret.get": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "secret.delete": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "identity.list": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "identity.human.create": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "identity.link": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "identity.pair.start": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "identity.pair.claim": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "identity.pair.confirm": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "identity.unlink": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "session.create": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "session.list": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "session.get": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "session.resume": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "session.archive": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "session.submit": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "session.events": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "session.cancel": {
       "stability": "experimental",
       "since": "1.5.0"
     }
@@ -204,6 +356,10 @@
       "since": "1.1.0"
     },
     "models.changed": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "session.event": {
       "stability": "experimental",
       "since": "1.5.0"
     }

@@ -494,13 +494,18 @@ fn update_check_in_container_mode_is_container_managed() {
 }
 
 #[test]
-fn update_without_check_is_the_m8_stub_even_with_no_manifest() {
-    let h = Home::new(); // no install manifest: proves the M8 stub is checked first, before reading it
+fn update_without_check_needs_an_install_and_writes_nothing() {
+    // M8 made `update` real: with no install manifest it refuses (exit 1) and creates nothing, not even `update/`.
+    let h = Home::new();
     let mut c = Command::new(bin());
-    c.arg("--json").arg("--home").arg(&h.home).arg("update");
+    c.arg("--json")
+        .arg("--home")
+        .arg(&h.home)
+        .args(["update", "--yes"]);
     let (code, doc) = run(&mut c);
-    assert_eq!(code, 2, "{doc}");
-    assert_eq!(doc["milestone"], "M8");
+    assert_eq!(code, 1, "{doc}");
+    assert_eq!(doc["reason"], "not-installed");
+    assert!(!h.home.join("update").exists());
 }
 
 /// Review Focus 4: an unreachable source, a malformed manifest and an oversized one all fail cleanly, within the

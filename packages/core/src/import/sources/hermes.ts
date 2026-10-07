@@ -4,7 +4,8 @@
 // HERMES_OPTIONAL_SKILLS). Read-only throughout; each profile is its own agent (§3.3).
 import { join, resolve } from "node:path";
 import { envGet, expandTilde, expandUser, expandVars, locateSource, pathFor, portabilityOf, SourcePathMapper, userHome } from "../paths.ts";
-import { envKeyNames, isDir, isFile, openSqliteReadOnly, readBounded, sqliteTables, sqliteWarning } from "../readonly.ts";
+import { envKeyNames, isDir, isFile, openSqliteReadOnly, sqliteTables, sqliteWarning } from "../readonly.ts";
+import { existsNoFollow, readSourceFileSafe } from "../fs-safe.ts";
 import { caseCollisions, caseInsensitiveTarget, unportableName } from "../skills-scan.ts";
 import { subdirs } from "../store-scan.ts";
 import { readYaml } from "../yaml-lite.ts";
@@ -52,8 +53,15 @@ export function resolveHermesRoot(o: { source?: string | undefined; env: NodeJS.
 interface ProfileFacts { agentId: string; dir: string; config: Record<string, any>; configVersion: number | null; unsupported: string[] }
 
 function readProfile(agentId: string, dir: string): ProfileFacts {
-  const text = readBounded(join(dir, "config.yaml"), 4 * 1024 * 1024);
-  if (text === null) return { agentId, dir, config: {}, configVersion: null, unsupported: [] };
+  const configPath = join(dir, "config.yaml");
+  if (!existsNoFollow(configPath)) return { agentId, dir, config: {}, configVersion: null, unsupported: [] };
+  let text: string;
+  try {
+    text = readSourceFileSafe(configPath, 4 * 1024 * 1024).toString("utf8");
+  } catch (error) {
+    const reason = error instanceof ImportError ? error.reason : "source-unreadable";
+    throw new ImportError("E_SOURCE_UNSUPPORTED", reason, `${configPath}: ${reason}`);
+  }
   const { value, unsupported } = readYaml(text);
   const config = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, any>) : {};
   const v = config._config_version;

@@ -64,8 +64,9 @@ class ClientPosixTest(unittest.TestCase):
         os.chmod(os.path.join(self.home, "run"), 0o777)
         with self.assertRaises(RpcError) as cm:
             self.client().connect()
-        self.assertEqual(cm.exception.code, "E_SERVER_IDENTITY")
-        self.assertEqual(cm.exception.reason, "run-dir-writable-by-others")
+        self.assertEqual(cm.exception.code, "E_UNAUTHORIZED")
+        self.assertEqual(cm.exception.reason, "run-dir-untrusted")
+        self.assertEqual(cm.exception.data["legacy_code"], "E_SERVER_IDENTITY")
         self.assertEqual(core.connections, 0)
 
     def test_a_group_writable_run_dir_is_refused(self) -> None:
@@ -73,7 +74,7 @@ class ClientPosixTest(unittest.TestCase):
         os.chmod(os.path.join(self.home, "run"), 0o770)
         with self.assertRaises(RpcError) as cm:
             self.client().connect()
-        self.assertEqual(cm.exception.code, "E_SERVER_IDENTITY")
+        self.assertEqual((cm.exception.code, cm.exception.reason), ("E_UNAUTHORIZED", "run-dir-untrusted"))
 
     def test_a_symlinked_run_dir_is_refused(self) -> None:
         core = self.fake()
@@ -82,7 +83,9 @@ class ClientPosixTest(unittest.TestCase):
         os.symlink(real, core.run)
         with self.assertRaises(RpcError) as cm:
             self.client().connect()
-        self.assertEqual(cm.exception.reason, "run-dir-not-a-directory")
+        self.assertEqual((cm.exception.code, cm.exception.reason), ("E_UNAUTHORIZED", "run-dir-untrusted"))
+        self.assertIn("symlink", cm.exception.data["detail"])
+        self.assertEqual(core.connections, 0)
 
     # -- Review Focus 1: restarts ------------------------------------------------------------------------
 

@@ -1,0 +1,1 @@
+{"expect":{"kind":"rate_limit","status":429,"retryable":false,"code":"insufficient_quota"},"response":{"status":429,"headers":{},"body":{"error":{"message":"You exceeded your current quota.","type":"insufficient_quota","code":"insufficient_quota"}}}}

@@ -1,0 +1,24 @@
+[package]
+name = "plur1bus-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+plur1bus-rpc = { path = "../crates/plur1bus-rpc" }
+serde_json = "1"
+tempfile = "3"
+
+[[bin]]
+name = "client_response_line"
+path = "fuzz_targets/client_response_line.rs"
+test = false
+doc = false
+bench = false
+
+# Own workspace: never part of `cargo build --workspace` or CI.
+[workspace]

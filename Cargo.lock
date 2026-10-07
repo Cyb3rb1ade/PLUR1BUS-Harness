@@ -1111,6 +1111,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "plur1bus-log-schema"
+version = "0.1.0"
+dependencies = [
+ "jsonschema",
+ "regex",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "plur1bus-rpc"
 version = "0.1.0"
 dependencies = [

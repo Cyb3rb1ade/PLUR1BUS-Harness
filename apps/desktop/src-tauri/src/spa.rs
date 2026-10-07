@@ -56,6 +56,22 @@ fn cookie_guard_enabled() -> bool {
     }
 }
 impl SpaState {
+    /// Called under the native generation fence after authenticated metadata persistence.
+    pub fn update_trust_transport(
+        &self,
+        connection: &Connection,
+        client: HarnessClient,
+    ) -> Result<(), crate::client::ClientError> {
+        let mut current = self.current.lock().unwrap();
+        if let Some(active) = current.as_mut() {
+            if active.connection.id == connection.id {
+                active.proxy.update_transport(client)?;
+                active.connection = connection.clone();
+            }
+        }
+        Ok(())
+    }
+
     /// Install only after retirement has revoked the previous generation.
     fn install(&self, active: Active) {
         self.current.lock().unwrap().replace(active);

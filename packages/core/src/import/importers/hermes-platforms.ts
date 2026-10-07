@@ -7,7 +7,8 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { isDir } from "../readonly.ts";
 import { idFingerprints } from "../fingerprint.ts";
-import { readHermesSourceFileSafe } from "./hermes-fs-safe.ts";
+import { existsNoFollow, readSourceFileSafe } from "../fs-safe.ts";
+import { ImportError } from "../types.ts";
 
 export interface HermesChannelAllowlistReport {
   platform: string;
@@ -46,11 +47,13 @@ export function readHermesPairings(
         const platform = ent.slice(0, ent.length - "-approved.json".length);
         if (!platform) continue;
 
-        const readRes = readHermesSourceFileSafe(fullPath, 1024 * 1024);
-        if (!readRes.ok) { refuse(readRes.error); continue; }
+        if (!existsNoFollow(fullPath)) continue;
+        let content: string;
+        try { content = readSourceFileSafe(fullPath, 1024 * 1024).toString("utf8"); }
+        catch (error) { refuse(error instanceof ImportError ? error.reason : "source-unreadable"); continue; }
 
         try {
-          const data = JSON.parse(readRes.content);
+          const data = JSON.parse(content);
           if (data && typeof data === "object" && !Array.isArray(data)) {
             let record = reportsByPlatform.get(platform);
             if (!record) {
@@ -70,11 +73,13 @@ export function readHermesPairings(
         const platform = ent.slice(0, ent.length - "-pending.json".length);
         if (!platform) continue;
 
-        const readRes = readHermesSourceFileSafe(fullPath, 1024 * 1024);
-        if (!readRes.ok) { refuse(readRes.error); continue; }
+        if (!existsNoFollow(fullPath)) continue;
+        let content: string;
+        try { content = readSourceFileSafe(fullPath, 1024 * 1024).toString("utf8"); }
+        catch (error) { refuse(error instanceof ImportError ? error.reason : "source-unreadable"); continue; }
 
         try {
-          const data = JSON.parse(readRes.content);
+          const data = JSON.parse(content);
           if (data && typeof data === "object" && !Array.isArray(data)) {
             let record = reportsByPlatform.get(platform);
             if (!record) {

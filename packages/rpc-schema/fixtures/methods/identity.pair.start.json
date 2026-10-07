@@ -1,0 +1,17 @@
+{
+  "params": {
+    "caller": {
+      "channel": "cli",
+      "accountId": "macbooker",
+      "userId": "cyberblade"
+    },
+    "humanId": "0198a2c4-0000-7000-8000-000000000001",
+    "channel": "telegram"
+  },
+  "result": {
+    "pairingId": "0198a2c4-0000-7000-8000-000000000003",
+    "code": "K7M2QX9D",
+    "channel": "telegram",
+    "expiresAt": 1790000700000
+  }
+}

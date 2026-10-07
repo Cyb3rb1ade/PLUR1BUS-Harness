@@ -2,8 +2,18 @@
 pub mod client;
 pub mod commands;
 pub mod connections;
+pub mod controller;
+pub mod crash;
+pub mod diagnostics;
 pub mod discovery;
+pub mod events;
+#[cfg(unix)]
+pub mod gnome;
 pub mod ids;
+pub mod lifecycle;
+pub mod logging;
+pub mod native;
+pub mod notify;
 pub mod pair;
 pub mod policy;
 #[cfg(any(windows, test))]
@@ -13,6 +23,7 @@ pub mod settings;
 mod shell_commands;
 pub mod spa;
 pub mod spa_proxy;
+pub mod tray;
 pub mod windows_spa_profile;
 pub use plur1bus_desktop_contract as contract;
 
@@ -65,13 +76,38 @@ pub fn run() {
     #[cfg(windows)]
     use std::sync::Arc;
     #[cfg(windows)]
-    use tauri::Manager;
-    #[cfg(windows)]
     let exit_gate = Arc::new(ProfileExitGate::default());
+    #[allow(unused_mut)]
+    let mut context = tauri::generate_context!();
+    #[cfg(debug_assertions)]
+    if let Some(root) = std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR") {
+        context.config_mut().identifier =
+            lifecycle::fixture_identifier(ids::BUNDLE_ID, &root.to_string_lossy());
+    }
     tauri::Builder::default()
+        // The singleton plugin must run before other plugin/setup side effects.
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| native::focus(app)))
+        .plugin(controller::autostart::plugin())
+        .plugin(tauri_plugin_notification::init())
+        .manage(native::NativeState::default())
         .manage(commands::ConnectionState::default())
         .manage(spa::SpaState::default())
+        .on_window_event(native::close)
         .setup(|app| {
+            // Until Linux tray/background capability is confirmed, keep its dash entry reachable.
+            use tauri::Manager;
+            app.state::<native::NativeState>().background.store(!cfg!(target_os = "linux"), std::sync::atomic::Ordering::SeqCst);
+            #[cfg(debug_assertions)]
+            let fixture = std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR").is_some();
+            #[cfg(not(debug_assertions))]
+            let fixture = false;
+            if let Err(reason) = diagnostics::start(app.handle()) { eprintln!("{reason}"); }
+            if !fixture && native::build_tray(app.handle()).is_err() {
+                app.state::<native::NativeState>().tray_failed();
+                eprintln!("TRAY_SETUP_FAILED");
+            }
+            #[cfg(target_os = "linux")]
+            if !fixture { gnome::start(app.handle()); }
             #[cfg(windows)]
             {
                 setup_after_profile_sweep(|| windows_spa_profile::sweep(app.handle()), |result| match result {
@@ -111,19 +147,37 @@ pub fn run() {
             commands::pair_code,
             commands::pair_local,
             commands::open_connection,
+            commands::autostart_get,
+            commands::autostart_set,
+            commands::quit_request,
+            commands::quit_offer,
+            commands::background_hint,
+            commands::crash_offers,
+            commands::crash_handled,
+            commands::quit_response,
             commands::shell_info
         ])
         .on_page_load(|webview, payload| {
             if webview.label() == "shell"
                 && matches!(payload.event(), tauri::webview::PageLoadEvent::Finished)
-                && webview.window().show().is_err()
             {
-                eprintln!("SHELL_WINDOW_SHOW_FAILED");
+                use tauri::Manager;
+                let app = webview.app_handle();
+                let autostart = std::env::args_os().any(|arg| arg == "--autostart");
+                if autostart && app.state::<native::NativeState>().consume_autostart() {
+                    let background = app.state::<native::NativeState>().background.load(std::sync::atomic::Ordering::SeqCst);
+                    if let Err(reason) = controller::autostart::on_login(&native::Windows(app), background) { eprintln!("{}", reason.code()); }
+                } else if !autostart && webview.window().show().is_err() { eprintln!("SHELL_WINDOW_SHOW_FAILED"); }
             }
         })
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("could not build the desktop shell")
         .run(move |app, event| {
+            #[cfg(windows)]
+            use tauri::Manager;
+            if native::guard_exit(app, &event) { return; }
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event { native::focus(app); }
             #[cfg(windows)]
             if let tauri::RunEvent::ExitRequested { api, .. } = event {
                 match exit_gate.request() {

@@ -137,7 +137,7 @@ fn walk(base: &Path, dir: &Path, out: &mut Vec<(String, PathBuf)>) -> Result<(),
 }
 
 /// The staged tree against the manifest: the root layout, then the payload's file set, sizes, hashes and modes.
-fn check_tree(dest: &Path, m: &P1xManifest) -> Result<(), ExtError> {
+pub(crate) fn check_tree(dest: &Path, m: &P1xManifest) -> Result<(), ExtError> {
     for e in std::fs::read_dir(dest).map_err(|e| io_error("cannot read", dest, &e))? {
         let e = e.map_err(|e| io_error("cannot read", dest, &e))?;
         let name = e.file_name();
@@ -261,7 +261,7 @@ fn check_kind(payload: &Path, m: &P1xManifest) -> Result<(), ExtError> {
                 ));
             }
         }
-        Kind::McpServer | Kind::Bundle => {
+        Kind::McpServer | Kind::Provider | Kind::Bundle => {
             return Err(ExtError::new(
                 "E_NOT_AVAILABLE",
                 reason::KIND_UNSUPPORTED,

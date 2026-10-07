@@ -160,3 +160,13 @@ __pycache__/
 /apps/desktop/target/
 /apps/desktop/ui/dist/
 /apps/desktop/src-tauri/gen/
+
+# D4: the core's log-reader module and its tests are source, not log output
+!packages/core/src/logs/
+!packages/core/test/logs/
+
+# cargo-fuzz
+/fuzz/target/
+/fuzz/corpus/
+/fuzz/artifacts/
+/fuzz/Cargo.lock

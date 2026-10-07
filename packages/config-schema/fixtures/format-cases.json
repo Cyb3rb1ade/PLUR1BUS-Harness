@@ -20,6 +20,10 @@
         "graceMs": 60000,
         "healthIntervalMs": 5000
       },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
+      },
       "logs": {
         "maxBytes": 20971520,
         "keep": 5
@@ -46,11 +50,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -76,6 +93,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -103,11 +124,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -133,6 +167,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -160,11 +198,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -190,6 +241,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -217,11 +272,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -247,6 +315,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -274,11 +346,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -304,6 +389,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -331,11 +420,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -361,6 +463,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -388,11 +494,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -418,6 +537,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -445,11 +568,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -475,6 +611,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -502,11 +642,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -532,6 +685,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -559,11 +716,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -589,6 +759,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -616,11 +790,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -646,6 +833,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -673,11 +864,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -703,6 +907,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -730,11 +938,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -760,6 +981,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -787,11 +1012,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -817,6 +1055,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -844,11 +1086,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -874,6 +1129,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -901,11 +1160,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -931,6 +1203,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -958,11 +1234,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -988,6 +1277,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -1015,11 +1308,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1045,6 +1351,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -1072,11 +1382,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1102,6 +1425,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -1129,11 +1456,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1159,6 +1499,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -1186,11 +1530,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1216,6 +1573,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -1243,11 +1604,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1273,6 +1647,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -1300,11 +1678,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1330,6 +1721,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -1357,11 +1752,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1387,6 +1795,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -1414,11 +1826,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1444,6 +1869,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -1471,11 +1900,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1501,6 +1943,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -1528,11 +1974,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1558,6 +2017,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -1585,11 +2048,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1615,6 +2091,10 @@
       "supervisor": {
         "graceMs": 60000,
         "healthIntervalMs": 5000
+      },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
       },
       "logs": {
         "maxBytes": 20971520,
@@ -1642,11 +2122,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1673,6 +2166,10 @@
         "graceMs": 60000,
         "healthIntervalMs": 5000
       },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
+      },
       "logs": {
         "maxBytes": 20971520,
         "keep": 5
@@ -1696,11 +2193,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },
@@ -1727,6 +2237,10 @@
         "graceMs": 60000,
         "healthIntervalMs": 5000
       },
+      "metrics": {
+        "enabled": false,
+        "port": 9464
+      },
       "logs": {
         "maxBytes": 20971520,
         "keep": 5
@@ -1750,11 +2264,24 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
         }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
+        }
+      },
+      "egress": {
+        "allowHosts": [],
+        "allowPorts": [
+          443
+        ],
+        "allowLoopback": false
       },
       "modules": {}
     },

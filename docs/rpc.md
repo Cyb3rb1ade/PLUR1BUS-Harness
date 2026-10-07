@@ -12,7 +12,7 @@ JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $d
 
 ## Local endpoint trust
 
-The trust boundary is the current OS user. On POSIX that rests on `run/` (a `0700` directory of the user) holding the sockets, tokens and pid files. Before a client reads a token or connects, it checks `run/`: it must be a real directory (not a symlink), owned by the current uid, and not writable by group or others; the socket must be a socket of the current uid. The Rust CLI and clients additionally refuse a server whose peer uid (`SO_PEERCRED` on Linux, `getpeereid` on macOS) is not the current uid. The Rust client and the TypeScript client answer a refusal with `E_UNAUTHORIZED` (TypeScript: reason `run-dir-untrusted` or `socket-untrusted`; Rust additionally `peer-uid-mismatch`) and send nothing. The Python client applies the directory checks and raises `E_SERVER_IDENTITY` with its own reasons (`run-dir-owner`, `run-dir-writable-by-others`, `run-dir-not-a-directory`); it has no peer-uid check, and neither has Node.
+The trust boundary is the current OS user. On POSIX that rests on `run/` (a `0700` directory of the user) holding the sockets, tokens and pid files. Before a client reads a token or connects, it checks `run/`: it must be a real directory (not a symlink), owned by the current uid, and not writable by group or others; the socket must be a socket of the current uid. The Rust and Python clients additionally refuse a server whose peer uid (`SO_PEERCRED` on Linux; `getpeereid` in Rust and the equivalent `LOCAL_PEERCRED` in Python on macOS) is not the current uid, after connecting and before the token is sent; where the OS gives no answer the directory and socket checks are all there is. All three clients (Rust, TypeScript, Python) answer a refusal with `E_UNAUTHORIZED`, send nothing and read no token: reason `run-dir-untrusted` or `socket-untrusted` in all three, and `peer-uid-mismatch` in Rust and Python. **Limitation:** Node cannot ask the kernel for the peer uid of a unix socket, so the TypeScript client has the directory and socket checks only. The Python refusal also carries `data.legacy_code = "E_SERVER_IDENTITY"`, the code releases before this one raised for a bad `run/` (with the reasons `run-dir-owner`, `run-dir-writable-by-others`, `run-dir-not-a-directory`), so a host that classified the old code can still recognise it; `E_SERVER_IDENTITY` itself remains the code of the Python pid checks.
 
 Setups that are refused for this reason:
 
@@ -21,7 +21,7 @@ Setups that are refused for this reason:
 - A home on WSL under `/mnt/c` (DrvFs), where every entry shows as world-writable.
 - A group- or world-writable home or `run/` (for example a sloppy umask or a shared `PLUR1BUS_HOME`), and a `run/` that is a symlink.
 
-On Windows, `run/` is protected by a DACL and the client compares the pipe server's process id with `run/core.pid` (or `run/supervisor.pid`) before it sends the token; a missing pid file is a refusal (`server-pid-unknown`), not a skipped check. The Rust and Python clients ask the OS (`GetNamedPipeServerProcessId`). **Limitation:** the TypeScript client (`@plur1bus/module-api`) has no native lookup, so it can only compare `hello.pid` with the recorded pid after `core.auth` was sent: a process that squats the pipe name receives the token and can claim any pid. A host that supplies a native lookup (`serverPidOf`) gets the refusal before the token is sent. Closing this for good needs the server to prove it holds the token (an HMAC over a client nonce) before the client sends it; that is not implemented.
+On Windows, `run/` is protected by a DACL and the client compares the pipe server's process id with `run/core.pid` (or `run/supervisor.pid`) before it sends the token; a missing pid file is a refusal (`server-pid-unknown`), not a skipped check. The Rust and Python clients ask the OS (`GetNamedPipeServerProcessId`; the Python pid refusals stay `E_SERVER_IDENTITY`). **Limitation:** the TypeScript client (`@plur1bus/module-api`) has no native lookup, so it can only compare `hello.pid` with the recorded pid after `core.auth` was sent: a process that squats the pipe name receives the token and can claim any pid. A host that supplies a native lookup (`serverPidOf`) gets the refusal before the token is sent. Closing this for good needs the server to prove it holds the token (an HMAC over a client nonce) before the client sends it; that is not implemented.
 
 ## Error codes
 
@@ -1584,6 +1584,434 @@ Returns past job execution records. When agentId is omitted, returns system job 
 }
 ```
 
+### `dreams.status`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Dreaming status per agent and phase (ADR-009 Observability): schedule, next and last run from the ledger, breaker, importance accumulator, the diary file, and the scheduler counters. agentId omitted = every registered agent.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agents",
+    "counters",
+    "schemaVersion"
+  ],
+  "properties": {
+    "agents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "agentId",
+          "phases",
+          "diary"
+        ],
+        "properties": {
+          "agentId": {
+            "$ref": "#/$defs/AgentId"
+          },
+          "phases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/DreamPhaseStatus"
+            }
+          },
+          "diary": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "exists",
+                  "bytes"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "exists": {
+                    "type": "boolean"
+                  },
+                  "bytes": {
+                    "type": "integer"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs",
+        "skips",
+        "triggers",
+        "breakerTrips",
+        "reconciled"
+      ],
+      "properties": {
+        "runs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "skips": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "triggers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "breakerTrips": {
+          "type": "integer"
+        },
+        "reconciled": {
+          "type": "integer"
+        }
+      }
+    },
+    "schemaVersion": {
+      "type": "integer"
+    }
+  }
+}
+```
+
+### `dreams.log`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Dream run ledger rows, newest first. With runId: that one row plus the text of its per-run log.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "phase": {
+      "$ref": "#/$defs/DreamPhase"
+    },
+    "runId": {
+      "type": "string"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runs"
+  ],
+  "properties": {
+    "runs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DreamRun"
+      }
+    },
+    "log": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `dreams.run`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Runs a dreaming phase now, under every guard except the cron gate (a disabled phase still runs on demand). The result is the ledger row, skips included. dryRun evaluates the guards and answers a plan without a ledger row.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "phase"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "phase": {
+      "$ref": "#/$defs/DreamPhase"
+    },
+    "dryRun": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "oneOf": [
+    {
+      "$ref": "#/$defs/DreamRun"
+    },
+    {
+      "$ref": "#/$defs/DreamPlan"
+    }
+  ]
+}
+```
+
+### `dreams.schedule.get`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+The three phase schedules of an agent.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schedules"
+  ],
+  "properties": {
+    "schedules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DreamSchedule"
+      }
+    }
+  }
+}
+```
+
+### `dreams.schedule.set`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Edits one phase schedule: cron (5 fields), IANA timezone, enabled. An invalid cron or timezone is E_INVALID_PARAMS and nothing is written.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "phase"
+  ],
+  "minProperties": 3,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "phase": {
+      "$ref": "#/$defs/DreamPhase"
+    },
+    "cron": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "timezone": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "enabled": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schedule"
+  ],
+  "properties": {
+    "schedule": {
+      "$ref": "#/$defs/DreamSchedule"
+    }
+  }
+}
+```
+
+### `dreams.enable`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Enables one phase schedule (its enable switch is never coupled to another setting).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "phase"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "phase": {
+      "$ref": "#/$defs/DreamPhase"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schedule"
+  ],
+  "properties": {
+    "schedule": {
+      "$ref": "#/$defs/DreamSchedule"
+    }
+  }
+}
+```
+
+### `dreams.disable`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Disables one phase schedule; cron and importance triggers stop, run-now still works.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "phase"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "phase": {
+      "$ref": "#/$defs/DreamPhase"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schedule"
+  ],
+  "properties": {
+    "schedule": {
+      "$ref": "#/$defs/DreamSchedule"
+    }
+  }
+}
+```
+
 ### `admin.obsidian.detect`
 
 **Stability:** experimental · since 1.3.0
@@ -1855,6 +2283,380 @@ Store schema migration (engine AdminOps.migrate). from and to are decimal string
 }
 ```
 
+### `admin.backup.snapshot`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Stages the consistent, engine-owned part of a backup (plur1bus backup create): the engine's store snapshot (lib/snapshot/store-snapshot.js: store, memory/_archive, run-state, merge proposals) and every SQLite database under state/ copied with the SQLite backup API, into a new private directory <home>/state/backup-staging/<id> (staging, always inside the home). The caller packs the files and removes the directory; the core never deletes it. files carries a SHA-256 per file, recomputed after the copy. E_STORAGE reason=source-busy when the store kept changing for three tries, reason=insufficient-disk when the copy would not fit, reason=store-outside-home when the configured store lives outside the home.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40,
+      "description": "Free text folded into the snapshot id (ASCII, sanitised by the engine)."
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "dir",
+    "storeTarget",
+    "engine",
+    "files"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^plur1bus-[A-Za-z0-9._-]+$"
+    },
+    "dir": {
+      "type": "string",
+      "description": "Absolute staging directory; entries are relative to it: store/**, memory/**, sqlite/**."
+    },
+    "storeTarget": {
+      "type": "string",
+      "description": "The store's path relative to the home, e.g. state/lancedb."
+    },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract",
+        "storeSchema"
+      ],
+      "properties": {
+        "contract": {
+          "type": "string"
+        },
+        "storeSchema": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "bytes",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `logs.query`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Reads the protected log files under <home>/logs (rotated copies included) and returns matching records after redaction (D4, D111). Owner/Admin only (RBAC action logs.query). Files are streamed, never read whole; an unterminated last line is ignored and corrupt lines are counted in `corrupt`. Order defaults to newest first. from/to are inclusive RFC 3339 UTC bounds (E_INVALID_PARAMS reason=bad-timestamp | empty-range).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "stream": {
+      "$ref": "#/$defs/LogStream"
+    },
+    "minLevel": {
+      "$ref": "#/$defs/LogLevel",
+      "description": "Not valid with stream audit (E_INVALID_PARAMS reason=level-not-applicable)."
+    },
+    "component": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "A file role, a record's source.id or source.kind; on the audit stream the first segment of the action."
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Case-insensitive substring, matched against the redacted record (so a search cannot confirm a secret)."
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "From a previous result of the same call with the same filters (E_INVALID_PARAMS reason=bad-cursor | cursor-mismatch). Stable across appends and log rotation."
+    },
+    "from": {
+      "type": "string",
+      "maxLength": 40
+    },
+    "to": {
+      "type": "string",
+      "maxLength": 40
+    },
+    "order": {
+      "enum": [
+        "asc",
+        "desc"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/LogPage"
+}
+```
+
+### `logs.tail`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Follows the log: without a cursor the newest `limit` matches (oldest first) and a cursor anchored at the newest line; with a cursor the matches after it, in order. waitMs (default 0) makes the call wait for the first new match (a long poll, ended early by the connection closing or the core stopping). The cursor survives log rotation. Owner/Admin only (RBAC action logs.query). A push stream needs per-connection notifications the shared RPC server does not have yet; this call is the pull half.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "stream": {
+      "$ref": "#/$defs/LogStream"
+    },
+    "minLevel": {
+      "$ref": "#/$defs/LogLevel",
+      "description": "Not valid with stream audit (E_INVALID_PARAMS reason=level-not-applicable)."
+    },
+    "component": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "A file role, a record's source.id or source.kind; on the audit stream the first segment of the action."
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Case-insensitive substring, matched against the redacted record (so a search cannot confirm a secret)."
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "From a previous result of the same call with the same filters (E_INVALID_PARAMS reason=bad-cursor | cursor-mismatch). Stable across appends and log rotation."
+    },
+    "waitMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 30000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/LogPage"
+}
+```
+
+### `audit.verify`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its anchor. Read-only on the log: every line must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor (logs/audit-chain.anchor, a separate file) must match the newest line. Owner and Admin only (audit.read). A tampered, deleted or cut-off line is a finding, never an RPC error; findings name a file and a line, never record content. An unreadable log directory is E_STORAGE.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ok",
+    "records",
+    "files",
+    "lastSeq",
+    "lastHash",
+    "anchor",
+    "findings",
+    "findingsTotal"
+  ],
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "records": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "files": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "lastSeq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "lastHash": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 of the newest line; pin it outside the host to detect a rewrite of the whole chain."
+    },
+    "anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "seq"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "match",
+            "behind",
+            "absent",
+            "invalid",
+            "ahead",
+            "mismatch"
+          ],
+          "description": "behind: the anchor trails the newest line by a write that crashed before the anchor moved (not a finding); ahead: the chain is shorter than the anchor."
+        },
+        "seq": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "file",
+          "line",
+          "seq"
+        ],
+        "properties": {
+          "code": {
+            "enum": [
+              "line-malformed",
+              "hash-mismatch",
+              "seq-gap",
+              "prefix-missing",
+              "file-name-mismatch",
+              "torn-tail",
+              "anchor-missing",
+              "anchor-invalid",
+              "anchor-mismatch",
+              "truncated"
+            ]
+          },
+          "file": {
+            "type": "string"
+          },
+          "line": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "seq": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "findingsTotal": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "All findings; findings carries the first 50."
+    }
+  }
+}
+```
+
 ### `admin.embedding.probe`
 
 **Stability:** experimental · since 1.3.0
@@ -2003,6 +2805,243 @@ Starts the engine's scoped-embedding IPC server (engine EmbeddingService.serve):
           "type": "null"
         }
       ]
+    }
+  }
+}
+```
+
+### `admin.reembed.plan`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+M2 re-embedding migration, step 1 (per installation, not per agent). Builds the compatibility probe verdict for the active store against the target model (a pinned local-transformers model) and, when a migration is needed, the engine's plan: row, table, batch and provider-call counts, byte and free-disk estimates, the pause between batches. Nothing is copied. The confirmation token the engine issues stays in the core and is never returned. `plan` is null when the verdict is compatible or incompatible (with `reasons`). E_CONFLICT reason=migration-active while an earlier migration is unfinished; E_INVALID_PARAMS reason=plan-refused when the engine refuses the plan (e.g. not enough free disk).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model"
+  ],
+  "properties": {
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "dimensions": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65536
+    },
+    "queryPrefix": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "passagePrefix": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "throttleMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 60000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "probe",
+    "plan"
+  ],
+  "properties": {
+    "probe": {
+      "$ref": "#/$defs/ReembedProbe"
+    },
+    "plan": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ReembedPlanSummary"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
+```
+
+### `admin.reembed.run`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Starts (or continues, after an abort or a halt) the planned migration in the background and returns at once with the checkpoint; follow it with admin.reembed.status. Copies in throttled batches, validates, and (unless switch is false) switches: one config.set that makes the new generation active at the next core start; the old generation is kept. Recall is answered by the old generation until then. With phase ready-to-switch it performs only the switch. E_NOT_FOUND reason=no-migration, E_CONFLICT reason=migration-running|not-runnable, E_NOT_AVAILABLE reason=switch-unavailable.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "switch": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "checkpoint"
+  ],
+  "properties": {
+    "checkpoint": {
+      "$ref": "#/$defs/ReembedCheckpoint"
+    }
+  }
+}
+```
+
+### `admin.reembed.status`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+The migration's checkpoint (null when none), the engine's own state for it, whether a run is active in this core, and progress counters.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "checkpoint",
+    "engineState",
+    "running",
+    "progress"
+  ],
+  "properties": {
+    "checkpoint": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ReembedCheckpoint"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "engineState": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "running": {
+      "type": "boolean"
+    },
+    "progress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rows",
+        "rowsDone",
+        "batches",
+        "batchesDone",
+        "percent"
+      ],
+      "properties": {
+        "rows": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rowsDone": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "batches": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "batchesDone": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "percent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    }
+  }
+}
+```
+
+### `admin.reembed.abort`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Stops the migration at the next batch boundary (never mid-batch) and answers with the checkpoint, phase aborted. The copied generation stays and admin.reembed.run continues it. E_NOT_FOUND reason=no-migration, E_CONFLICT reason=not-abortable once it is switched or failed.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "checkpoint"
+  ],
+  "properties": {
+    "checkpoint": {
+      "$ref": "#/$defs/ReembedCheckpoint"
     }
   }
 }
@@ -3951,6 +4990,1546 @@ Acknowledges newly discovered models, clearing the new-models indicator (D112).
 }
 ```
 
+### `budget.status`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Usage per period (the current local day and month in the configured time zone) and per agent and model, plus every budget limit with its use and state (M2 L8, ADR-010 §4). Counts and ids only; never prompt content.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Only this agent's usage, and the global limits plus this agent's own"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "timeZone",
+    "priceVersion",
+    "now",
+    "periods",
+    "limits"
+  ],
+  "properties": {
+    "timeZone": {
+      "type": "string"
+    },
+    "priceVersion": {
+      "type": "string",
+      "description": "The price table in force now"
+    },
+    "now": {
+      "type": "string",
+      "description": "RFC 3339"
+    },
+    "periods": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "period",
+          "key",
+          "start",
+          "end",
+          "total",
+          "agents"
+        ],
+        "properties": {
+          "period": {
+            "enum": [
+              "day",
+              "month"
+            ]
+          },
+          "key": {
+            "type": "string",
+            "description": "YYYY-MM-DD or YYYY-MM, local"
+          },
+          "start": {
+            "type": "string"
+          },
+          "end": {
+            "type": "string"
+          },
+          "total": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "events",
+              "inputTokens",
+              "outputTokens",
+              "cacheReadTokens",
+              "cacheWriteTokens",
+              "costMicros",
+              "unpricedEvents"
+            ],
+            "properties": {
+              "events": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "inputTokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "outputTokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "cacheReadTokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "cacheWriteTokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "costMicros": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Micro-USD, summed over priced events only"
+              },
+              "unpricedEvents": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Events whose model had no price in the table in force; their tokens count, their cost does not"
+              }
+            }
+          },
+          "agents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "agentId",
+                "total",
+                "models"
+              ],
+              "properties": {
+                "agentId": {
+                  "type": "string"
+                },
+                "total": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "events",
+                    "inputTokens",
+                    "outputTokens",
+                    "cacheReadTokens",
+                    "cacheWriteTokens",
+                    "costMicros",
+                    "unpricedEvents"
+                  ],
+                  "properties": {
+                    "events": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "inputTokens": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "outputTokens": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "cacheReadTokens": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "cacheWriteTokens": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "costMicros": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Micro-USD, summed over priced events only"
+                    },
+                    "unpricedEvents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Events whose model had no price in the table in force; their tokens count, their cost does not"
+                    }
+                  }
+                },
+                "models": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "model",
+                      "events",
+                      "inputTokens",
+                      "outputTokens",
+                      "cacheReadTokens",
+                      "cacheWriteTokens",
+                      "costMicros",
+                      "unpricedEvents"
+                    ],
+                    "properties": {
+                      "model": {
+                        "type": "string"
+                      },
+                      "events": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "inputTokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "outputTokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "cacheReadTokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "cacheWriteTokens": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "costMicros": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "unpricedEvents": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "limits": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BudgetLimitState"
+      }
+    }
+  }
+}
+```
+
+### `egress.status`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+The outgoing-network policy in force (B4): normalised host allowlist, ports, loopback switch, configuration errors (a configuration with errors is deny-all) and counters of per-hop decisions by refusal reason. Read-only; never URLs or addresses.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "policy",
+    "decisions",
+    "since"
+  ],
+  "properties": {
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowHosts",
+        "allowPorts",
+        "allowLoopback",
+        "valid",
+        "errors"
+      ],
+      "properties": {
+        "allowHosts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowPorts": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          }
+        },
+        "allowLoopback": {
+          "type": "boolean"
+        },
+        "valid": {
+          "type": "boolean"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "decisions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed",
+        "denied",
+        "byReason"
+      ],
+      "properties": {
+        "allowed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "denied": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "byReason": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "since": {
+      "type": "string",
+      "description": "RFC 3339: when the counters started (core start)"
+    }
+  }
+}
+```
+
+### `budget.set`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Sets, changes or clears a budget limit and/or the time zone budget periods follow (M2 L8). A bound left out stays as it is; null clears it; a limit with no bound left is removed. Cost bounds are micro-USD, token bounds are input + output tokens.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "minProperties": 1,
+  "properties": {
+    "limit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "period",
+        "metric"
+      ],
+      "properties": {
+        "scope": {
+          "enum": [
+            "global",
+            "agent"
+          ]
+        },
+        "agentId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Required for scope agent, refused for global"
+        },
+        "period": {
+          "enum": [
+            "day",
+            "month"
+          ]
+        },
+        "metric": {
+          "enum": [
+            "cost",
+            "tokens"
+          ]
+        },
+        "soft": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "hard": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "timeZone": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "An IANA zone name"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "timeZone",
+    "limits"
+  ],
+  "properties": {
+    "timeZone": {
+      "type": "string"
+    },
+    "limit": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/BudgetLimit"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The limit as stored after the change; null when it was removed. Absent when only the time zone changed."
+    },
+    "limits": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BudgetLimit"
+      }
+    }
+  }
+}
+```
+
+### `secret.status`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Which secret backend is in use (OS keyring first, then the opt-in encrypted file), why, and how many secrets it holds. Owner only (M2, ADR-005).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/SecretStatus"
+}
+```
+
+### `secret.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Secret names and metadata, never values. Owner only (M2, ADR-005).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "secrets"
+  ],
+  "properties": {
+    "secrets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SecretMeta"
+      }
+    }
+  }
+}
+```
+
+### `secret.set`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Creates or replaces a secret; leases on the old value are revoked. The value is write-only: the result carries metadata only. Owner only; every call is audited (M2, ADR-005).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "value"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+    },
+    "value": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 65536
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/SecretMeta"
+}
+```
+
+### `secret.get`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+A secret's metadata; with `reveal: true` also its value, the only RPC that returns one. Owner only; the call is audited before the value is released (M2, ADR-005).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+    },
+    "reveal": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "secret"
+  ],
+  "properties": {
+    "secret": {
+      "$ref": "#/$defs/SecretMeta"
+    },
+    "value": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `secret.delete`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Deletes a secret from every available backend and revokes its leases. Owner only; audited (M2, ADR-005).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "removed"
+  ],
+  "properties": {
+    "removed": {
+      "const": true
+    }
+  }
+}
+```
+
+### `identity.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Experimental (1.5.0, M3). Lists humans with their active linked channel identities (revoked ones with includeRevoked) and the pairings that still wait. Owner only: the CLI caller. Never contains a pairing code.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "includeRevoked": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "humans",
+    "pairings"
+  ],
+  "properties": {
+    "humans": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/IdentityHumanEntry"
+      }
+    },
+    "pairings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/IdentityPairing"
+      }
+    }
+  }
+}
+```
+
+### `identity.human.create`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Experimental (1.5.0, M3). Creates a human principal (an opaque UUIDv7 id). Owner only. Audited.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "displayName"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/IdentityHuman"
+}
+```
+
+### `identity.link`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Experimental (1.5.0, M3). The owner links a channel identity to a human by hand (proof owner_manual); never inferred. E_CONFLICT when the identity is already linked (N:1: an identity belongs to at most one human). Owner only. Audited.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "humanId",
+    "identity"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "humanId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "identity": {
+      "$ref": "#/$defs/IdentityHandle"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/IdentityLink"
+}
+```
+
+### `identity.pair.start`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Experimental (1.5.0, M3). Mints a one-time pairing code for a human on a channel: 8 characters, valid 10 minutes, single use, at most 3 pending per human and channel. The code is in this result only, once; it is stored as a salted hash and never logged. Owner only. Audited.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "humanId",
+    "channel"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "humanId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "channel": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{0,31}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pairingId",
+    "code",
+    "channel",
+    "expiresAt"
+  ],
+  "properties": {
+    "pairingId": {
+      "type": "string"
+    },
+    "code": {
+      "type": "string"
+    },
+    "channel": {
+      "type": "string"
+    },
+    "expiresAt": {
+      "type": "integer"
+    }
+  }
+}
+```
+
+### `identity.pair.claim`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Experimental (1.5.0, M3). A channel adapter relays a code a person sent from a channel identity. A match consumes the code and parks the claim for the owner (links nothing). A wrong, expired, reused or wrong-channel code is E_DENIED reason invalid-code; failures are rate limited per identity and overall (E_DENIED reason rate-limited, detail retryAfterMs=N). E_CONFLICT when the identity is already linked.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "code",
+    "identity"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "identity": {
+      "$ref": "#/$defs/IdentityHandle"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pairingId",
+    "state",
+    "confirmBy"
+  ],
+  "properties": {
+    "pairingId": {
+      "type": "string"
+    },
+    "state": {
+      "const": "awaiting-confirmation"
+    },
+    "confirmBy": {
+      "type": "integer"
+    }
+  }
+}
+```
+
+### `identity.pair.confirm`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Experimental (1.5.0, M3). The owner approves or declines a claimed pairing. Approving links the identity (proof pairing_code). Owner only. Audited. E_DENIED reason expired when the claim was not confirmed in time; E_CONFLICT when the pairing is not waiting or the identity was linked meanwhile.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "pairingId",
+    "approve"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "pairingId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "approve": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pairingId",
+    "state"
+  ],
+  "properties": {
+    "pairingId": {
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/IdentityPairingState"
+    },
+    "link": {
+      "$ref": "#/$defs/IdentityLink"
+    }
+  }
+}
+```
+
+### `identity.unlink`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Experimental (1.5.0, M3). Revokes a link at once: the identity stops resolving to the human and leaves the union of linked principals. The record stays for the audit trail. Rows written under its v1 principal become unreadable to the human until it is linked again (ADR-007). Owner only. Audited.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "linkId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "linkId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/IdentityLink"
+}
+```
+
+### `session.create`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Opens a session for the caller (the owner is derived from the caller identity). Only direct and channel sessions are created here; card/project/acp sessions belong to their modules. A channel session needs chatKey and, per D21, at most one is active per chat: a second create is E_CONFLICT unless replaceActive archives the first (/new).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "kind": {
+      "enum": [
+        "direct",
+        "channel"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "memoryMode": {
+      "$ref": "#/$defs/MemoryMode"
+    },
+    "chatKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "replaceActive": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "session"
+  ],
+  "properties": {
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    }
+  }
+}
+```
+
+### `session.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+The caller's sessions: pinned first, then by last turn. Archived ones are excluded unless archived is only or any. search is a full-text query over titles and messages (every word must match).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "kind": {
+      "$ref": "#/$defs/SessionKind"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "archived": {
+      "enum": [
+        "exclude",
+        "only",
+        "any"
+      ]
+    },
+    "search": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessions",
+    "truncated"
+  ],
+  "properties": {
+    "sessions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionRecord"
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `session.get`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+One session of the caller's (archived ones included), with the id of its running turn (if any) and, when messages is given, the last that many messages. Another owner's session is E_NOT_FOUND.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "messages": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "session",
+    "runningTurnId"
+  ],
+  "properties": {
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    },
+    "runningTurnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionMessage"
+      }
+    }
+  }
+}
+```
+
+### `session.resume`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Get plus the transcript (the last `limit` messages, default 100) and the last event seq, so a client can continue from the next one. An archived session is E_CONFLICT.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "session",
+    "runningTurnId",
+    "messages",
+    "lastEventSeq"
+  ],
+  "properties": {
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    },
+    "runningTurnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionMessage"
+      }
+    },
+    "lastEventSeq": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `session.archive`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Archives a session (archive-first deletion: nothing is removed; there is no delete over RPC). Idempotent. A session with a running turn is E_CONFLICT.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "session"
+  ],
+  "properties": {
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    }
+  }
+}
+```
+
+### `session.submit`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Submits one user message and starts a turn. Returns at once with state running (events follow as session.event notifications and through session.events), or, with wait, after the turn ended with its state, reply and error. One running turn per session (else E_CONFLICT turn-in-progress); no configured provider is E_NOT_AVAILABLE reason no-provider. Recall and capture happen once per turn inside the core; memory mode is the session's, never a parameter.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId",
+    "text"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200000
+    },
+    "wait": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "turnId",
+    "messageId",
+    "state"
+  ],
+  "properties": {
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "turnId": {
+      "type": "string"
+    },
+    "messageId": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "running",
+        "completed",
+        "failed"
+      ]
+    },
+    "reply": {
+      "type": "string"
+    },
+    "error": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `session.events`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+The session's persisted events after afterSeq (default 0), oldest first: the same stream session.event delivers, for replay and catch-up. running tells whether a turn is still producing events.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "afterSeq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "events",
+    "lastSeq",
+    "running"
+  ],
+  "properties": {
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionEvent"
+      }
+    },
+    "lastSeq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "running": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `session.cancel`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Cancels the session's running turn: it ends failed with error cancelled (what was already streamed stays stored; nothing is captured). Idempotent: with no running turn nothing happens and cancelled is false.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "turnId",
+    "cancelled"
+  ],
+  "properties": {
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "turnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "cancelled": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
 ## Notifications
 
 Delivered on the same connection to clients that called `events.subscribe`.
@@ -4590,6 +7169,37 @@ Emitted when a scan alters available models in the catalog (D112).
     },
     "at": {
       "type": "string"
+    }
+  }
+}
+```
+
+### `session.event`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+One event of a session's stream (turn.started, delta, tool.call, tool.result, turn.completed, turn.failed), sent as it is persisted. Delivered only to subscriptions that name session.event in names (opt-in); an agentId filter on the subscription applies. The same events are replayable with session.events.
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "x-server": "core",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "One event of a session's stream (turn.started, delta, tool.call, tool.result, turn.completed, turn.failed), sent as it is persisted. Delivered only to subscriptions that name session.event in names (opt-in); an agentId filter on the subscription applies. The same events are replayable with session.events.",
+  "required": [
+    "agentId",
+    "event"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "event": {
+      "$ref": "#/$defs/SessionEvent"
     }
   }
 }
@@ -6030,6 +8640,406 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `DreamPhase`
+
+```json
+{
+  "enum": [
+    "light",
+    "rem",
+    "deep"
+  ]
+}
+```
+
+### `DreamOutcome`
+
+```json
+{
+  "enum": [
+    "completed",
+    "skipped",
+    "failed",
+    "aborted"
+  ]
+}
+```
+
+### `DreamTrigger`
+
+```json
+{
+  "enum": [
+    "cron",
+    "importance",
+    "manual",
+    "catchup"
+  ]
+}
+```
+
+### `DreamRun`
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "description": "One row of the dream run ledger (ADR-009 dream_run). outcome is null while the run is open; every outcome other than completed carries a reason.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "agentId",
+    "phase",
+    "jobId",
+    "idempotencyKey",
+    "claimed",
+    "trigger",
+    "startedAt",
+    "outcome",
+    "reason",
+    "counts"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "phase": {
+      "$ref": "#/$defs/DreamPhase"
+    },
+    "jobId": {
+      "type": "string"
+    },
+    "partition": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "idempotencyKey": {
+      "type": "string"
+    },
+    "claimed": {
+      "type": "boolean",
+      "description": "True when this run holds the key that makes a rerun over the same corpus and window an idempotent skip."
+    },
+    "trigger": {
+      "$ref": "#/$defs/DreamTrigger"
+    },
+    "scheduledFor": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "startedAt": {
+      "type": "integer"
+    },
+    "finishedAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "durationMs": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "outcome": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/DreamOutcome"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      }
+    },
+    "tokensIn": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "tokensOut": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "costMicros": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "description": "Null until a price table exists (measured in tokens first, ADR-009 B5/Q1)."
+    },
+    "logPath": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "error": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "message"
+          ],
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+### `DreamSchedule`
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "phase",
+    "cron",
+    "timezone",
+    "enabled",
+    "staggerOffsetS",
+    "nextRunAt"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "phase": {
+      "$ref": "#/$defs/DreamPhase"
+    },
+    "cron": {
+      "type": "string"
+    },
+    "timezone": {
+      "type": "string",
+      "description": "IANA zone, stored explicitly."
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "staggerOffsetS": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "nextRunAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+### `DreamPhaseStatus`
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "phase",
+    "enabled",
+    "cron",
+    "timezone",
+    "staggerOffsetS",
+    "nextRunAt",
+    "running",
+    "lastRun",
+    "breaker",
+    "importance"
+  ],
+  "properties": {
+    "phase": {
+      "$ref": "#/$defs/DreamPhase"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "cron": {
+      "type": "string"
+    },
+    "timezone": {
+      "type": "string"
+    },
+    "staggerOffsetS": {
+      "type": "integer"
+    },
+    "nextRunAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "running": {
+      "type": "boolean"
+    },
+    "lastRun": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/DreamRun"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "breaker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "until",
+        "reason",
+        "sessionsUsed",
+        "limit"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "closed",
+            "open"
+          ]
+        },
+        "until": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sessionsUsed": {
+          "type": "integer"
+        },
+        "limit": {
+          "type": "integer"
+        }
+      }
+    },
+    "importance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accumulated",
+        "threshold",
+        "capturesSinceRun",
+        "minCorpus"
+      ],
+      "properties": {
+        "accumulated": {
+          "type": "number"
+        },
+        "threshold": {
+          "type": "number"
+        },
+        "capturesSinceRun": {
+          "type": "integer"
+        },
+        "minCorpus": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}
+```
+
+### `DreamPlan`
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "description": "What dreams.run with dryRun answers: the guard chain evaluated without a ledger row or an engine call.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dryRun",
+    "wouldRun",
+    "reason",
+    "jobs",
+    "idempotencyKey",
+    "counts"
+  ],
+  "properties": {
+    "dryRun": {
+      "const": true
+    },
+    "wouldRun": {
+      "type": "boolean"
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "jobs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "idempotencyKey": {
+      "type": "string"
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      }
+    }
+  }
+}
+```
+
 ### `Stability`
 
 ```json
@@ -6580,6 +9590,706 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `BudgetLimit`
+
+```json
+{
+  "description": "Experimental (1.5.0). A budget limit. Cost bounds are micro-USD; token bounds count input + output tokens.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scope",
+    "period",
+    "metric",
+    "soft",
+    "hard"
+  ],
+  "properties": {
+    "scope": {
+      "enum": [
+        "global",
+        "agent"
+      ]
+    },
+    "agentId": {
+      "type": "string"
+    },
+    "period": {
+      "enum": [
+        "day",
+        "month"
+      ]
+    },
+    "metric": {
+      "enum": [
+        "cost",
+        "tokens"
+      ]
+    },
+    "soft": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "hard": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `BudgetLimitState`
+
+```json
+{
+  "description": "Experimental (1.5.0). A budget limit with its use in the current period and where that stands.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scope",
+    "period",
+    "metric",
+    "soft",
+    "hard",
+    "used",
+    "state"
+  ],
+  "properties": {
+    "scope": {
+      "enum": [
+        "global",
+        "agent"
+      ]
+    },
+    "agentId": {
+      "type": "string"
+    },
+    "period": {
+      "enum": [
+        "day",
+        "month"
+      ]
+    },
+    "metric": {
+      "enum": [
+        "cost",
+        "tokens"
+      ]
+    },
+    "soft": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "hard": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "used": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "state": {
+      "enum": [
+        "ok",
+        "soft",
+        "hard"
+      ]
+    }
+  }
+}
+```
+
+### `IdentityHandle`
+
+```json
+{
+  "description": "Experimental (1.5.0). A channel handle. displayName is a label for people and is never matched on.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "channel",
+    "accountId",
+    "userId"
+  ],
+  "properties": {
+    "channel": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9._-]{0,31}$"
+    },
+    "accountId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+### `IdentityHuman`
+
+```json
+{
+  "description": "Experimental (1.5.0). A human principal: an opaque UUIDv7 id, never reused.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "displayName",
+    "createdAt"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "integer",
+      "description": "ms since the epoch"
+    }
+  }
+}
+```
+
+### `IdentityLink`
+
+```json
+{
+  "description": "Experimental (1.5.0). A channel identity linked to a human, with how it was proved and whether it was revoked. v1Principal is the engine's v1 principal of the handle (the read side of the union recall).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "humanId",
+    "channel",
+    "accountId",
+    "userId",
+    "v1Principal",
+    "proofMethod",
+    "linkedAt",
+    "linkedBy",
+    "revokedAt",
+    "revokedBy"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "humanId": {
+      "type": "string"
+    },
+    "channel": {
+      "type": "string"
+    },
+    "accountId": {
+      "type": "string"
+    },
+    "userId": {
+      "type": "string"
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "v1Principal": {
+      "type": "string",
+      "pattern": "^user:v1:[a-f0-9]{64}$"
+    },
+    "proofMethod": {
+      "type": "string",
+      "enum": [
+        "pairing_code",
+        "owner_manual",
+        "signed_challenge"
+      ]
+    },
+    "linkedAt": {
+      "type": "integer"
+    },
+    "linkedBy": {
+      "type": "string"
+    },
+    "revokedAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "revokedBy": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+### `IdentityHumanEntry`
+
+```json
+{
+  "description": "Experimental (1.5.0). A human with its linked identities.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "displayName",
+    "createdAt",
+    "identities"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "integer"
+    },
+    "identities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/IdentityLink"
+      }
+    }
+  }
+}
+```
+
+### `IdentityPairingState`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "pending",
+    "claimed",
+    "confirmed",
+    "declined",
+    "expired"
+  ]
+}
+```
+
+### `LogLevel`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "trace",
+    "debug",
+    "info",
+    "warn",
+    "error",
+    "fatal"
+  ]
+}
+```
+
+### `LogStream`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "diagnostic",
+    "audit"
+  ],
+  "description": "diagnostic: logs/<role>.log (+ rotated copies); audit: logs/audit.log. payload.log is never served."
+}
+```
+
+### `LogRecord`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ts",
+    "level",
+    "component",
+    "stream",
+    "record"
+  ],
+  "properties": {
+    "ts": {
+      "type": "string",
+      "description": "Normalised RFC 3339 UTC, millisecond precision (a legacy `at` field is normalised the same way)."
+    },
+    "level": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/LogLevel"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "null on the audit stream."
+    },
+    "component": {
+      "type": "string",
+      "description": "The file's role (core, supervisor, ...; audit for the audit stream)."
+    },
+    "stream": {
+      "$ref": "#/$defs/LogStream"
+    },
+    "record": {
+      "type": "object",
+      "description": "The line as written, after reader-side redaction (D111 section 4): secret-looking keys and credential shapes are replaced by [REDACTED:<rule>]."
+    }
+  }
+}
+```
+
+### `LogPage`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "records",
+    "nextCursor",
+    "corrupt",
+    "scanned",
+    "truncated"
+  ],
+  "properties": {
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LogRecord"
+      }
+    },
+    "nextCursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Opaque; send it back with the same filters. logs.query: null when nothing more lies in that direction. logs.tail: always set after the first call."
+    },
+    "corrupt": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Lines looked at that were not a valid record (not JSON, no timestamp, bad level, over-long). Counted, never fatal; an unterminated last line is not counted, it is the writer's line in flight."
+    },
+    "scanned": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "files",
+        "bytes"
+      ],
+      "properties": {
+        "files": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "truncated": {
+      "type": "boolean",
+      "description": "The per-call scan budget ran out before the page was full; nextCursor continues from the last line looked at."
+    }
+  }
+}
+```
+
+### `IdentityPairing`
+
+```json
+{
+  "description": "Experimental (1.5.0). A pairing that still waits (a pending code, or a claim waiting for the owner). Never carries the code.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "humanId",
+    "channel",
+    "state",
+    "createdAt",
+    "expiresAt"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "humanId": {
+      "type": "string"
+    },
+    "channel": {
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/IdentityPairingState"
+    },
+    "createdAt": {
+      "type": "integer"
+    },
+    "expiresAt": {
+      "type": "integer"
+    },
+    "claimedBy": {
+      "$ref": "#/$defs/IdentityHandle"
+    },
+    "confirmBy": {
+      "type": "integer"
+    }
+  }
+}
+```
+
+### `SessionId`
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 128
+}
+```
+
+### `SessionKind`
+
+```json
+{
+  "enum": [
+    "direct",
+    "card",
+    "project",
+    "channel",
+    "acp"
+  ]
+}
+```
+
+### `MemoryMode`
+
+```json
+{
+  "enum": [
+    "remember",
+    "incognito"
+  ]
+}
+```
+
+### `SessionRecord`
+
+```json
+{
+  "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The owner principal is never sent: a caller sees only its own sessions.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "agentId",
+    "scope",
+    "chatKey",
+    "title",
+    "pinned",
+    "memoryMode",
+    "createdAt",
+    "updatedAt",
+    "lastTurnAt",
+    "archivedAt",
+    "turnCount"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "kind": {
+      "$ref": "#/$defs/SessionKind"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "scope": {
+      "type": "string"
+    },
+    "chatKey": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "title": {
+      "type": "string"
+    },
+    "pinned": {
+      "type": "boolean"
+    },
+    "memoryMode": {
+      "$ref": "#/$defs/MemoryMode"
+    },
+    "createdAt": {
+      "type": "integer"
+    },
+    "updatedAt": {
+      "type": "integer"
+    },
+    "lastTurnAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "archivedAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "turnCount": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `SessionMessage`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "seq",
+    "role",
+    "text",
+    "createdAt"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "seq": {
+      "type": "integer"
+    },
+    "turnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "role": {
+      "enum": [
+        "system",
+        "user",
+        "assistant",
+        "tool"
+      ]
+    },
+    "text": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "integer"
+    }
+  }
+}
+```
+
+### `SessionEventType`
+
+```json
+{
+  "enum": [
+    "turn.started",
+    "delta",
+    "tool.call",
+    "tool.result",
+    "turn.completed",
+    "turn.failed"
+  ]
+}
+```
+
+### `SessionEvent`
+
+```json
+{
+  "description": "One event of a session's ordered stream. seq is per session, starts at 1 and has no gaps; data's shape depends on type.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "seq",
+    "turnId",
+    "type",
+    "data",
+    "at"
+  ],
+  "properties": {
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "turnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "type": {
+      "$ref": "#/$defs/SessionEventType"
+    },
+    "data": {
+      "type": "object"
+    },
+    "at": {
+      "type": "integer"
+    }
+  }
+}
+```
+
 ### `RestartPlan`
 
 ```json
@@ -6677,6 +10387,288 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "dimensions": {
       "type": "integer",
       "minimum": 1
+    }
+  }
+}
+```
+
+### `ReembedProbe`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "verdict",
+    "reasons",
+    "changed",
+    "storedId",
+    "targetId",
+    "message"
+  ],
+  "properties": {
+    "verdict": {
+      "enum": [
+        "compatible",
+        "migration-needed",
+        "incompatible"
+      ]
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "changed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "storedId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "targetId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "message": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `ReembedPlanSummary`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "sourceGeneration",
+    "targetGeneration",
+    "rows",
+    "tables",
+    "batches",
+    "batchSize",
+    "providerCalls",
+    "sourceBytes",
+    "targetBytes",
+    "requiredFreeBytes",
+    "freeBytes",
+    "throttleMs",
+    "minDurationMs",
+    "probeStatus"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "sourceGeneration": {
+      "type": "string"
+    },
+    "targetGeneration": {
+      "type": "string"
+    },
+    "rows": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tables": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "batches": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "batchSize": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "providerCalls": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sourceBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "targetBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "requiredFreeBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "freeBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "throttleMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "minDurationMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "probeStatus": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `ReembedCheckpoint`
+
+```json
+{
+  "description": "The migration's Harness checkpoint without the engine's confirmation token. `aborted` is stopped and resumable (by request or after an engine error: see error); `validating` with error engine-validate-unavailable waits for an engine that can validate; `switched` and `failed` are final.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "v",
+    "id",
+    "planDigest",
+    "createdAt",
+    "updatedAt",
+    "phase",
+    "sourceGeneration",
+    "targetGeneration",
+    "target",
+    "counts",
+    "throttleMs",
+    "abortRequested",
+    "error"
+  ],
+  "properties": {
+    "v": {
+      "const": 1
+    },
+    "id": {
+      "type": "string"
+    },
+    "planDigest": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "updatedAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "phase": {
+      "enum": [
+        "planned",
+        "running",
+        "aborted",
+        "validating",
+        "ready-to-switch",
+        "switched",
+        "failed"
+      ]
+    },
+    "sourceGeneration": {
+      "type": "string"
+    },
+    "targetGeneration": {
+      "type": "string"
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "provider",
+        "model",
+        "dimensions"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "dimensions": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rows",
+        "tables",
+        "batches",
+        "rowsDone",
+        "batchesDone"
+      ],
+      "properties": {
+        "rows": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tables": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "batches": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rowsDone": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "batchesDone": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "throttleMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "abortRequested": {
+      "type": "boolean"
+    },
+    "error": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   }
 }
@@ -7229,6 +11221,137 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "error": {
       "$ref": "#/$defs/ModelScanErrorInfo"
+    }
+  }
+}
+```
+
+### `SecretBackend`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "keyring",
+    "file",
+    "memory"
+  ]
+}
+```
+
+### `SecretMeta`
+
+```json
+{
+  "description": "Experimental (1.5.0). A secret's name and timestamps; never its value (M2, ADR-005).",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "backend",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+    },
+    "backend": {
+      "$ref": "#/$defs/SecretBackend"
+    },
+    "createdAt": {
+      "type": "string"
+    },
+    "updatedAt": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `SecretStatus`
+
+```json
+{
+  "description": "Experimental (1.5.0). The secret store's state: `backend` is where values go now (`none` when neither the OS keyring nor the enabled encrypted file can serve), `degraded` is true whenever it is not the keyring (M2, ADR-005).",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "backend",
+    "degraded",
+    "keyring",
+    "file",
+    "count",
+    "activeLeases"
+  ],
+  "properties": {
+    "backend": {
+      "type": "string",
+      "enum": [
+        "keyring",
+        "file",
+        "memory",
+        "none"
+      ]
+    },
+    "degraded": {
+      "type": "boolean"
+    },
+    "keyring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available"
+      ],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "available"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "available": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "activeLeases": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "remedy": {
+      "type": "string"
     }
   }
 }

@@ -282,3 +282,34 @@ Owner answer to A5, verbatim: *"DailyNote_YYYY-MM-DD_HHMMSS.md (o.ä.), memories
 7. [ ] Add `dreams` to the CLI command list in ADR-001's layout and to §9's UI page list (Memory → Dreams), and add the dream ledger to §11's backup order after the stores.
 8. [ ] Implement the four D15 curated files (`DailyNote_YYYY-MM-DD_HHMMSS.md`, `memories.md`, `dreaming.md`, `knowledgepool.md`) as the harness-host promotion/diary/daily-note targets; keep the OpenClaw adapter writing `KNOWLEDGE.md`/`DREAMS.md` unchanged for OpenClaw hosts; treat the `memories.md`/`knowledgepool.md` content split as adjustable pending real dreaming output (proposal, not fixed).
 9. [ ] Add cost-per-phase-per-run to the `dream_run` ledger (`cost_micros` already in the schema) and surface it in `dreams status`/the UI so a spend cap can be set from measured data (B5, Q1) rather than a guess.
+
+## Implementation record — M1b-3 (2026-10-06)
+
+The harness-owned scheduler landed in `packages/core/src/dreams/` (operator guide: `docs/dreams.md`; plan:
+`docs/superpowers/plans/2026-10-06-m1b-3-dreaming-scheduler.md`). A1–A8, L15 and L16 are executable tests on a virtual clock
+(`packages/core/test/dreams-*.test.ts`). Where this ADR left something open, the recommended default was taken; each is marked
+`// RULING:` in the source:
+
+* **Q1** cost is measured (tokens per run), not capped; `cost_micros` stays NULL until a price table exists. **Q2** both triggers
+  ship: importance accumulation (a stored capture weighs 5; thresholds light 150, rem 300, deep 450; minimum gap 1 h / 6 h / 12 h)
+  with cron as the floor. **Q3/D15** the diary is `dreaming.md` (a constant; the pinned engine still writes `DREAMS.md`).
+  **Q4** a schedule's timezone is the host's IANA zone at creation, stored explicitly (UTC when unknown). **Q5** M1 dreams the
+  agent-private partition only. **Q6** `0 */4 * * *` plus the importance trigger; no extra post-session pass. **Q7** ledger rows 365
+  days, per-run logs 30 days, diary forever.
+* **Breaker:** counts rem and deep LLM sessions per agent per UTC day (as the engine's own breaker and the CLI do); the reason is
+  `breaker_sessions`, not A3's `breaker_cost`, because the cost cap is gone. Open until the next UTC midnight.
+* **Phase jobs:** one LLM job per phase plus the phase's model-free jobs; `classify-recent`, `afterthought`, `emotion-refine` and
+  `persona-evolve` would break the 3-session sweep budget and stay on the engine's own cadence.
+* **Idempotency:** a skipped row carries its key provisionally (`key#runId`), so `UNIQUE (idempotency_key)` blocks only the run that
+  claimed it; a failed, aborted or crashed run releases the key. The transcript digest is the agent's capture sequence until the
+  engine exposes a corpus digest (action 6).
+* **Schema:** `dream_schedule` gained `importance_acc`, `captures_acc`, `capture_seq`, `last_capture_at` (signal state that must
+  survive a restart) instead of a fourth table; `dream_candidate.partition` is `NOT NULL DEFAULT 'agent-private'` so the dedupe
+  UNIQUE cannot be defeated by a NULL.
+* **Candidates:** the guards (dedupe, 72 h expiry, utility gate with a decision record) are implemented and tested, but the pinned
+  engine has no candidate producer (C1, action 3), so they are inert until a `CandidateSource` is wired and a deep run does not
+  require candidates before then. A candidate that fails a gate stays `shortlisted` with the record.
+* **Diary:** an engine job that reports `diary.written = false` fails the run; `requireDiary` (off) would also demand one, because
+  the pinned engine's `consolidate-daily` reports none.
+* **Scope left open:** the REM-trends reader (C2), the doctor check, the diary CLI, the UI, `dreams` events as catalogued D111 log
+  events (a `TODO(D111)` marks the emit site), and journal-replayed captures as an importance signal.

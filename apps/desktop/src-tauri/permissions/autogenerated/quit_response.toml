@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-quit-response"
+description = "Enables the quit_response command without any pre-configured scope."
+commands.allow = ["quit_response"]
+
+[[permission]]
+identifier = "deny-quit-response"
+description = "Denies the quit_response command without any pre-configured scope."
+commands.deny = ["quit_response"]

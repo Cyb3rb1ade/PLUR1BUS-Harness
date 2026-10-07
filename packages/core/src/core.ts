@@ -7,6 +7,12 @@ import { checkAdoptionNonce, createOrphanWatch, type OrphanWatch, type SecurePat
 import { RPC_VERSION, SCHEMA, buildCapabilities, precompileMethods, type CoreStatusResult, type JobsStatus, type ProcessState } from "@plur1bus/rpc-schema";
 import { ActivityTracker } from "./activity.ts";
 import { ADMIN_METHODS } from "./admin-ops.ts";
+import { BACKUP_METHODS } from "./backup-ops.ts";
+import { createMigrationDriver, type MigrationDriver } from "./embedding-migrate/driver.ts";
+import { createEnginePort } from "./embedding-migrate/engine-port.ts";
+import { buildReembedMethods, REEMBED_METHODS } from "./embedding-migrate/rpc.ts";
+import { createStateStore } from "./embedding-migrate/state.ts";
+import { createConfigSwitchPort } from "./embedding-migrate/switch.ts";
 import { createAgentRegistry, type AgentRegistry } from "./agents.ts";
 import { CORE_FEATURES } from "./capabilities.ts";
 import { flattenPatch, openConfigSource, type ConfigSource } from "./config-source.ts";
@@ -23,22 +29,35 @@ import { callerToPrincipal } from "./principal.ts";
 import { startJournalReplay, type JournalReplay } from "./replay.ts";
 import { RpcError } from "./rpc/errors.ts";
 import { buildMethods } from "./rpc/methods.ts";
+import { engineTurnMemory } from "./session/memory-port.ts";
+import type { ChatProvider } from "./session/provider.ts";
+import { createLogsMethods } from "./logs/index.ts";
+import { openSessionService, type SessionService } from "./session/service.ts";
+import { LOCAL_OWNER, createJsonlAuditSink, guardMethods, type AuditSink, type PrincipalResolver } from "./rbac/index.ts";
 import { createRpcServer, type RpcServer } from "./rpc/server.ts";
 import { sharedMemoryStatus } from "./shared-memory.ts";
 import { projectModels, startWarmup, type Warmup } from "./warmup.ts";
 import path from "node:path";
+import { createEgress } from "./egress/index.ts";
+import { createBudgetService, PriceBook, SHIPPED_PRICE_TABLES, type BudgetService } from "./budget/index.ts";
+import { createCoreSecretStore } from "./secrets/runtime.ts";
 import { createCatalogStore, type CatalogStore } from "./discovery/catalog-store.ts";
 import { defaultDiscoveryAdapters, type DiscoveryAdapters } from "./discovery/defaults.ts";
 import { createModelsScanJob } from "./discovery/job.ts";
 import { loadMetadataTable, reenrichCatalog } from "./discovery/metadata.ts";
 import { createScanScheduler, type ScanScheduler } from "./discovery/scheduler.ts";
 import { createDiscoveryService, type DiscoveryService } from "./discovery/service.ts";
+import { createDreams, type Dreams } from "./dreams/index.ts";
 import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
+import { createMetrics, createMetricsServer, loadOrCreateMetricsToken, type Metrics, type MetricsServer } from "./metrics/index.ts";
+import { createAuditWriter } from "./identity/audit.ts";
+import { createAuditChain, teeAuditSinks, type AuditChain } from "./audit/chain.ts";
+import { createIdentityService, type IdentityService } from "./identity/service.ts";
 
 /** G17: the replies a stop waits for before it closes the sockets. `memory.capture` is among them, so a stored reply
  *  is never cut off (the client would journal the text and the next core would store it a second time); the admin ops
  *  too, so an applied migration or a consumed vault nonce is never left unanswered. */
-const DRAINED_METHODS = [...MEMORY_OP_METHODS, ...ADMIN_METHODS, "memory.capture"] as const;
+const DRAINED_METHODS = [...MEMORY_OP_METHODS, ...ADMIN_METHODS, ...BACKUP_METHODS, ...REEMBED_METHODS, "memory.capture"] as const;
 /** `core.status` is synchronous (B11 < 5 ms) and engine.status() is not. `engine.models` is read fresh on every call
  *  from the synchronous `engine.models.status()`. Only the async `EngineStatus` parts (`degraded`, from which
  *  `engine.ready` follows) are cached, stale-while-revalidate: a call finding the copy older than STATUS_CACHE_MS
@@ -58,6 +77,8 @@ export interface Core {
   readonly address: string; readonly token: string; readonly layout: Layout;
   /** The configuration the core runs now (B7); null before start() has read it. */
   currentConfig(): HarnessConfig | null;
+  /** D3: the metric sinks (`turn`, `providerError`); the session and provider code record into them. */
+  readonly metrics: Metrics;
 }
 type State = ProcessState & { since: number };
 
@@ -82,12 +103,22 @@ export interface CoreOptions {
   securePathOptions?: Omit<SecurePathOptions, "logger" | "runDir">;
   /** Test seam: sees the HostServices the engine is given. */
   inspectHost?: (host: HostServices) => void;
+  /** M1b-2c: the chat provider the turn loop uses; absent, `session.submit` answers E_NOT_AVAILABLE `no-provider` (the real adapters come with packages/providers). */
+  chatProvider?: ChatProvider;
+  /** M3 RBAC: who a call is made by, and where refusals are audited. Default: the token-authenticated local connection
+   *  is the installation owner (R8) and refusals go to `<home>/logs/audit.log`. */
+  rbac?: { resolve?: PrincipalResolver; audit?: AuditSink };
+  /** M2 L8: test seam for the budget service (a price book of its own). */
+  budget?: { prices?: PriceBook };
   /** D112: model discovery adapters and options. */
   discovery?: Partial<DiscoveryAdapters> & {
     scheduler?: boolean;
     /** Test seam: custom catalog store for testing boot failures. Must not be set in production. */
     store?: CatalogStore;
   };
+  /** M1b-3: the dreaming scheduler (ADR-009). `scheduler` forces it on or off; RULING: unset, it runs unless the core
+   *  runs with test internals, so the system and soak tests never meet an importance- or cron-triggered dream. */
+  dreams?: { scheduler?: boolean; clock?: import("./discovery/ports.ts").Clock; defaultTimezone?: string };
 }
 
 /** E4 `EngineStatus.jobs` onto the closed `$defs/JobsStatus` wire shape, flattened on purpose (ruling H3-R6): the
@@ -128,9 +159,17 @@ export function createCore(o: CoreOptions): Core {
   let storeSchema: { current: string | null; expected: string } | null = null;
   let orphans: OrphanWatch | null = null;
   let source: ConfigSource | null = null;
+  let reembed: MigrationDriver | null = null;
   let warmup: Warmup | null = null;
   let scanScheduler: ScanScheduler | null = null;
+  let dreams: Dreams | null = null;
+  let dreamsError: string | undefined;
+  let identity: IdentityService | null = null; // M3: humans, linked channel identities and pairing (`state/identity.sqlite`)
+  let budget: BudgetService | null = null;
+  let auditChain: AuditChain | null = null;
   let replay: JournalReplay | null = null;
+  let metricsHttp: MetricsServer | null = null;
+  let sessions: SessionService | null = null;
   let engineStatus: EngineStatus | null = null; let engineStatusAt = 0; // performance.now() of the cached copy
   let statusRefresh: Promise<void> | null = null; let warmingTimer: NodeJS.Timeout | null = null;
   // H3-R22/R23: true from the start of the warm-up until its recall-path pass ends; engine.ready waits for it.
@@ -141,6 +180,10 @@ export function createCore(o: CoreOptions): Core {
   // R19: the only signal a capture observes. Aborted at the start of stop(); never a client's disconnect or a wait timer.
   const shutdown = new AbortController();
   const capabilities = buildCapabilities(CORE_FEATURES, "core");
+  const metrics = createMetrics({
+    connections: () => server?.connectionCount() ?? 0,
+    health: () => { const s = status(); return { ready: s.engine.ready, journalBacklog: s.journalBacklog ?? 0, agents: s.agents.length, uptimeSeconds: s.uptimeMs / 1000 }; },
+  });
 
   const setState = (s: State) => { state = s; server?.notify("core.state", { process: s }); };
   /** The state behind an `orphaned`: orphaned is about the lifeline, not the engine's health. */
@@ -227,6 +270,9 @@ export function createCore(o: CoreOptions): Core {
     }
     platform.securePath(l.catalog, { mode: 0o700 });
     platform.securePath(l.systemJobs, { mode: 0o700 });
+    // M2: the secret store. Nothing is probed or opened here (the keychain is first touched by a `secret.*` call).
+    const egress = createEgress({ config: () => cs.current().egress, now: clock });
+    const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath, fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: log });
     orphans = createOrphanWatch({
       graceMs: config.supervisor.graceMs, clock,
       onOrphaned: (since) => {
@@ -340,6 +386,16 @@ export function createCore(o: CoreOptions): Core {
         }
       }
 
+      // M2 L8: the budget service. A store that cannot be opened (e.g. written by a newer core) must not take the
+      // memory core down: budget.* then answers E_INTERNAL and callers that need a check fail closed.
+      try {
+        budget = createBudgetService({
+          path: path.join(l.state, "budget.sqlite"), clock: { now: clock }, securePath: platform.securePath,
+          prices: o.budget?.prices ?? new PriceBook(SHIPPED_PRICE_TABLES),
+          events: (e) => logger?.warn(e.kind, { ...e }),
+        });
+      } catch (e) { logger.error("budget store unavailable", { err: e }); budget = null; }
+
       const discSettings = () => ({
         enabled: (cfg() as any).models?.scan?.enabled ?? true,
         intervalHours: (cfg() as any).models?.scan?.intervalHours ?? 24,
@@ -384,7 +440,32 @@ export function createCore(o: CoreOptions): Core {
         logger,
       });
 
-      const methods = buildMethods({
+      // M1b-2c: the session store and turn loop; their handlers are merged below, the notifications go through `server`.
+      sessions = openSessionService({
+        dbPath: path.join(l.state, "sessions.sqlite"), clock, logger, agents: registry, isStopping: () => state.state === "stopping" || state.state === "stopped",
+        memory: engineTurnMemory({ engine: eng, config: cfg, agents: registry, logger, captureSignal: shutdown.signal, isStopping: () => state.state === "stopping" || state.state === "stopped", onStoredCapture: (agentId) => dreams?.scheduler.recordCapture(agentId) }),
+        provider: () => o.chatProvider ?? null, notify: (method, params, opts) => server?.notify(method, params, opts), signal: shutdown.signal,
+      });
+      // B5: the hash-chained audit file (logs/audit-chain*.jsonl). The core's own writers tee into it besides audit.log.
+      auditChain = createAuditChain({ dir: l.logs, securePath: (p) => platform.securePath(p) });
+      const chain = auditChain;
+      const identityLog = createAuditWriter({ file: path.join(l.logs, "audit.log"), securePath: platform.securePath, clock });
+      identity = createIdentityService({
+        dbPath: path.join(l.state, "identity.sqlite"), clock,
+        audit: (e) => {
+          identityLog(e);
+          chain.append({ at: clock(), actor: e.actor ?? { user: "core", host: "core" }, action: e.action, target: e.target, detail: e.detail });
+        },
+      });
+
+      // M2: the re-embedding migration (plan/run/status/abort); its switch is one config.set on the supervisor.
+      const migration = createMigrationDriver({
+        engine: createEnginePort(eng), store: createStateStore(l.state), logger: log,
+        switchPort: createConfigSwitchPort({ layout: l, config: { current: () => cs.current(), set: (c) => cs.set(c) } }),
+      });
+      reembed = migration;
+      const methods = guardMethods({
+        ...buildMethods({
         engine: eng, config: cfg, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
         isStopping: () => state.state === "stopping" || state.state === "stopped",
         // Deferred so the core.shutdown reply is written before the server closes its connections.
@@ -400,10 +481,27 @@ export function createCore(o: CoreOptions): Core {
         },
         systemJobs,
         discovery,
-      });
+        dreams: () => dreams?.scheduler ?? null,
+        dreamsError: () => dreamsError,
+        identity,
+        backup: { layout: l, baseDbPath: String(engineConfig.baseDbPath) },
+        auditChain,
+        reembed: buildReembedMethods({ driver: migration, isStopping: () => state.state === "stopping" || state.state === "stopped", logger: log }),
+        ...(budget ? { budget } : {}),
+        egress,
+        // Every connection that passed `core.auth` holds `run/core.token`, which only this OS user can read: it is the
+        // owner. There is no weaker caller on this socket today; per-connection principals arrive with M3's users and
+        // D109's surface trust, and this is the one place they plug in. The store refuses anything but `owner`.
+        secrets: { store: secretStore, principalOf: () => ({ kind: "owner" }) },
+        }),
+        ...sessions.methods,
+        // D4: logs.query / logs.tail over <home>/logs; RBAC-guarded below (RPC_RULES).
+        ...createLogsMethods({ dir: l.logs, signal: shutdown.signal }),
+      }, { resolve: o.rbac?.resolve ?? (() => LOCAL_OWNER), audit: o.rbac?.audit ?? teeAuditSinks(createJsonlAuditSink(path.join(l.logs, "audit.log"), { securePath: (p) => platform.securePath(p) }), chain), now: clock });
       server = createRpcServer({
         address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
         onConnectionClosed: (id) => orphans?.connectionClosed(id),
+        onCall: (method, result) => metrics.rpcCall(method, result),
       });
 
       wroteRunFiles = true;
@@ -411,6 +509,13 @@ export function createCore(o: CoreOptions): Core {
       writeFileSync(l.corePid, `${process.pid} ${instanceId}\n`, { mode: 0o600 }); // S6
       platform.securePath(l.coreToken); platform.securePath(l.corePid);
       await server.listen();
+      if (config.metrics.enabled) {
+        // D3: a metrics endpoint that cannot start (port taken) never keeps the core from starting.
+        try {
+          const mh = createMetricsServer({ token: loadOrCreateMetricsToken(path.join(l.state, "metrics.token"), platform.securePath), port: config.metrics.port, render: () => metrics.render(), logger });
+          await mh.listen(); metricsHttp = mh;
+        } catch (err) { logger.warn("metrics endpoint unavailable", { err }); }
+      }
       // Test seam (Task 2 review M2), honoured only with PLUR1BUS_ALLOW_TEST_INTERNALS=1: holds the listening core in
       // `starting`, so the lifeline paths before ready (grace expired while starting, adoption before ready) stay testable.
       if (typeof startDelayMs === "number" && process.env.PLUR1BUS_ALLOW_TEST_INTERNALS === "1") await new Promise((r) => setTimeout(r, startDelayMs));
@@ -419,6 +524,14 @@ export function createCore(o: CoreOptions): Core {
       if (orphans.orphanedSince !== null) { beforeOrphan = ready; setState({ state: "orphaned", since: orphans.orphanedSince }); }
       else setState(ready);
       if (o.discovery?.scheduler !== false) scanScheduler.start();
+      // M1b-3: a dreams store that cannot open must not take the memory service down; `dreams.*` then answers not-available.
+      try {
+        dreams = createDreams({
+          engine: eng, layout: l, clock: o.dreams?.clock ?? discClock, logger, agents: registry, securePath: platform.securePath,
+          ...(o.dreams?.defaultTimezone ? { scheduler: { defaultTimezone: o.dreams.defaultTimezone } } : {}),
+        });
+        if (o.dreams?.scheduler ?? o.testInternals === undefined) void dreams.start().catch((err) => logger?.error("dreaming scheduler failed to start", { err }));
+      } catch (err) { dreams = null; dreamsError = String((err as Error)?.message ?? err).slice(0, 300); logger.error("dreaming scheduler unavailable", { err }); }
       logger.info("core ready", { instanceId, address, supervised: o.lifeline !== undefined });
       // Spec §6.3: the models load in the background, after `ready` (B8 measures the socket, not the models).
       recallWarmPending = true;
@@ -457,7 +570,11 @@ export function createCore(o: CoreOptions): Core {
       statusClosed = true; warmup?.abort(); if (warmingTimer) { clearTimeout(warmingTimer); warmingTimer = null; }
       orphans?.dispose();
       await step(log, "config watch", async () => { await source?.close(); });
+      await step(log, "sessions close", async () => { await sessions?.close(); }); sessions = null;
+      await step(log, "budget close", () => { budget?.close(); budget = null; });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
+      await step(log, "metrics close", async () => { await metricsHttp?.close(); }); metricsHttp = null;
+      await step(log, "identity close", () => { identity?.close(); identity = null; });
       await step(log, "server close", async () => { await server?.close({ graceMs: 1000 }); }); server = null;
       await step(log, "lock release", () => { lock?.release(); }); lock = null;
       await step(log, "run files", () => removeRunFiles());
@@ -502,6 +619,14 @@ export function createCore(o: CoreOptions): Core {
       setState({ state: "stopping", since: clock() });
       statusClosed = true;
       scanScheduler?.stop();
+      // Dreams stop before the engine closes under them; a run the engine cannot interrupt gets a bounded wait.
+      await step(logger, "dreams", async () => {
+        const d = dreams; dreams = null;
+        if (!d) return;
+        let timer: NodeJS.Timeout | null = null;
+        await Promise.race([d.stop(), new Promise<void>((res) => { timer = setTimeout(res, Math.min(5_000, budgetMs / 4)); })]);
+        if (timer) clearTimeout(timer);
+      });
       warmup?.abort(); // first: the warm-up's wait ends before the engine closes under it
       if (warmingTimer) { clearTimeout(warmingTimer); warmingTimer = null; }
       shutdown.abort(new Error("core stopping"));
@@ -521,12 +646,19 @@ export function createCore(o: CoreOptions): Core {
         if (!waited) logger?.warn("journal replay still running at stop; its file stays for the next start", { replayed: replay.status().replayed });
         replay.abandon(); // after a finished replay only detaches its logger
       }, errors);
+      // M1b-2c: the shutdown abort above ends running turns (failed, `aborted`); they finish their writes before the engine closes.
+      await step(logger, "sessions close", async () => { await sessions?.close(); sessions = null; }, errors);
+      // A re-embedding run in flight ends at its next batch boundary (aborted, resumable) before the engine closes under it.
+      await step(logger, "re-embedding run", async () => { await reembed?.stop(Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
+      await step(logger, "identity close", () => { identity?.close(); identity = null; }, errors);
+      await step(logger, "budget close", () => { budget?.close(); budget = null; }, errors);
       await step(logger, "rpc drain", async () => {
         if (!server) return;
         const r = await server.drain({ methods: DRAINED_METHODS, budgetMs: remaining() });
         if (!r.drained) logger?.warn("memory ops still pending at close", { pending: r.pending });
       }, errors);
+      await step(logger, "metrics close", async () => { await metricsHttp?.close(); metricsHttp = null; }, errors);
       await step(logger, "server close", async () => { await server?.close({ graceMs: 1000 }); }, errors);
       await step(logger, "lock release", () => { lock?.release(); lock = null; }, errors);
       await step(logger, "run files", () => removeRunFiles(), errors);
@@ -537,5 +669,5 @@ export function createCore(o: CoreOptions): Core {
     return stopping;
   }
 
-  return { start, stop, status, address, token, layout: l, currentConfig: () => source?.current() ?? null };
+  return { start, stop, status, address, token, layout: l, currentConfig: () => source?.current() ?? null, metrics };
 }

@@ -34,6 +34,14 @@
         "healthIntervalMs": { "type": "integer", "minimum": 1000, "default": 5000, "x-restart": "live", "x-tier": "advanced" }
       }
     },
+    "metrics": {
+      "description": "D3: the read-only Prometheus text endpoint `GET /metrics` on a loopback address, protected by a bearer token kept in `state/metrics.token`.",
+      "type": "object", "additionalProperties": false, "default": {},
+      "properties": {
+        "enabled": { "type": "boolean", "default": false, "x-restart": "core", "x-tier": "advanced" },
+        "port": { "type": "integer", "minimum": 1024, "maximum": 65535, "default": 9464, "x-restart": "core", "x-tier": "advanced" }
+      }
+    },
     "logs": {
       "type": "object", "additionalProperties": false, "default": {},
       "properties": {
@@ -100,6 +108,50 @@
       "propertyNames": { "enum": ["chat", "reasoning", "capture", "dream", "embedding", "rerank", "decision"] },
       "additionalProperties": { "type": "string" }
     },
+    "modelProfiles": {
+      "description": "Named model profiles (C4): an ordered candidate list with weights for fallback or mixture-of-agents (moa) use, plus sampling parameters and cache hints. Data only; selection is the router's job. List order is priority order.",
+      "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced",
+      "propertyNames": { "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$" },
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false, "required": ["candidates"],
+        "properties": {
+          "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "strategy": { "enum": ["fallback", "moa"], "default": "fallback" },
+          "candidates": {
+            "type": "array", "minItems": 1, "maxItems": 16,
+            "items": {
+              "type": "object", "additionalProperties": false, "required": ["model"],
+              "properties": {
+                "model": { "type": "string", "minLength": 1, "maxLength": 200 },
+                "weight": { "type": "number", "exclusiveMinimum": 0, "maximum": 100, "default": 1 }
+              }
+            }
+          },
+          "aggregator": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "params": {
+            "type": "object", "additionalProperties": false, "default": {},
+            "properties": {
+              "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
+              "topP": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+              "maxTokens": { "type": "integer", "minimum": 1, "maximum": 2000000 }
+            }
+          },
+          "cache": {
+            "type": "object", "additionalProperties": false, "default": {},
+            "properties": {
+              "hint": { "enum": ["auto", "none", "prefer"], "default": "auto" },
+              "ttlSeconds": { "type": "integer", "minimum": 0, "maximum": 86400 }
+            }
+          }
+        },
+        "allOf": [
+          { "if": { "required": ["strategy"], "properties": { "strategy": { "const": "moa" } } },
+            "then": { "properties": { "candidates": { "type": "array", "minItems": 2 } } } },
+          { "if": { "required": ["aggregator"], "properties": { "aggregator": {} } },
+            "then": { "required": ["strategy"], "properties": { "strategy": { "const": "moa" } } } }
+        ]
+      }
+    },
     "models": {
       "type": "object", "additionalProperties": false, "default": {},
       "properties": {
@@ -109,6 +161,42 @@
             "enabled": { "type": "boolean", "default": true, "x-restart": "live", "x-tier": "advanced" },
             "intervalHours": { "type": "integer", "minimum": 1, "maximum": 168, "default": 24, "x-restart": "live", "x-tier": "advanced" }
           }
+        }
+      }
+    },
+    "secrets": {
+      "description": "Secret store (M2, ADR-005). The OS keyring is always tried first.",
+      "type": "object", "additionalProperties": false, "default": {},
+      "properties": {
+        "fileFallback": {
+          "type": "object", "additionalProperties": false, "default": {},
+          "properties": {
+            "enabled": {
+              "description": "Use the encrypted file store (AES-256-GCM, machine-bound key file next to it) when the OS keyring is unavailable. Off until the owner decides ADR-005 Q3.",
+              "type": "boolean", "default": false, "x-restart": "live", "x-tier": "advanced"
+            }
+          }
+        }
+      }
+    },
+    "egress": {
+      "description": "Outgoing network policy (B4). Default deny: nothing is reachable until a host is listed. https only (plain http only to a listed loopback host when allowLoopback is on); private, link-local and metadata addresses are refused after name resolution whatever is listed.",
+      "type": "object", "additionalProperties": false, "default": {},
+      "properties": {
+        "allowHosts": {
+          "description": "Exact names, `*.suffix` (subdomains of any depth, not the apex), `*` (any name, never an IP literal) or an exact canonical IP literal (IPv6 in brackets).",
+          "type": "array", "maxItems": 256, "uniqueItems": true, "default": [],
+          "items": { "type": "string", "minLength": 1, "maxLength": 253 },
+          "x-restart": "live", "x-tier": "advanced"
+        },
+        "allowPorts": {
+          "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true, "default": [443],
+          "items": { "type": "integer", "minimum": 1, "maximum": 65535 },
+          "x-restart": "live", "x-tier": "advanced"
+        },
+        "allowLoopback": {
+          "description": "Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused.",
+          "type": "boolean", "default": false, "x-restart": "live", "x-tier": "advanced"
         }
       }
     },
