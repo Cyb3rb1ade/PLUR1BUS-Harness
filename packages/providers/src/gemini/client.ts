@@ -1,5 +1,5 @@
 import { DEFAULT_LIMITS, DEFAULT_TIMEOUTS, chunks, FORBIDDEN_HEADERS, LOOPBACK, readText, Run } from "../client.ts";
-import { isRecord, ProviderError } from "../errors.ts";
+import { isRecord, protocolError, ProviderError } from "../errors.ts";
 import { SseParser } from "../sse.ts";
 import type { CallOptions, ChatRequest, ChatResult, ChatStreamEvent, Limits, Timeouts } from "../types.ts";
 import { classifyGeminiHttp, classifyGeminiStreamError } from "./errors.ts";
@@ -70,7 +70,7 @@ export function createGeminiAdapter(config: GeminiConfig): GeminiAdapter {
       run.throwIfInterrupted();
       if (key === undefined) throw new ProviderError("auth", "no API key is stored for this profile");
       if (key === "" || /[\x00-\x20\x7f]/.test(key)) throw new ProviderError("auth", "the stored API key is unusable (empty, or contains whitespace or control characters)");
-      if (!insecureOk) throw new ProviderError("bad_request", "refusing to send the API key over plain http to a non-loopback host");
+      if (!insecureOk) throw new ProviderError("invalid_request", "refusing to send the API key over plain http to a non-loopback host");
       secret = key;
       const headers = new Headers({ "content-type": "application/json", accept: stream ? "text/event-stream" : "application/json" });
       for (const [k, v] of extra) headers.set(k, v);
@@ -93,7 +93,7 @@ export function createGeminiAdapter(config: GeminiConfig): GeminiAdapter {
   }
 
   async function parseJson(text: string): Promise<unknown> {
-    try { return JSON.parse(text); } catch (cause) { throw new ProviderError("protocol", "response body is not valid JSON", { cause }); }
+    try { return JSON.parse(text); } catch (cause) { throw protocolError("response body is not valid JSON", { cause }); }
   }
 
   return {
@@ -121,29 +121,29 @@ export function createGeminiAdapter(config: GeminiConfig): GeminiAdapter {
           const json = await parseJson(await readText(res.body, run, limits.maxBodyBytes));
           const first = Array.isArray(json) ? json[0] : json;
           if (isRecord(first) && first["error"] !== undefined && first["error"] !== null) throw classifyGeminiStreamError(first, redact);
-          throw new ProviderError("protocol", "expected text/event-stream, got a JSON body");
+          throw protocolError("expected text/event-stream, got a JSON body");
         }
-        if (!/^text\/event-stream\b/i.test(type)) throw new ProviderError("protocol", `expected text/event-stream, got "${type.slice(0, 80)}"`);
-        if (!res.body) throw new ProviderError("protocol", "response has no body");
+        if (!/^text\/event-stream\b/i.test(type)) throw protocolError(`expected text/event-stream, got "${type.slice(0, 80)}"`);
+        if (!res.body) throw protocolError("response has no body");
         const parser = new SseParser(limits.maxEventBytes);
         const handle = function* (events: ReturnType<SseParser["push"]>): Generator<ChatStreamEvent> {
           for (const ev of events) {
             if (ev.data === "") continue; // keep-alive
             let json: unknown;
-            try { json = JSON.parse(ev.data); } catch (cause) { throw new ProviderError("protocol", "SSE data is not valid JSON", { cause }); }
+            try { json = JSON.parse(ev.data); } catch (cause) { throw protocolError("SSE data is not valid JSON", { cause }); }
             yield* acc.push(json);
           }
         };
         for await (const c of chunks(res.body, run)) yield* handle(parser.push(c));
         yield* handle(parser.end());
         // RULING: Gemini ends a stream by closing it (there is no [DONE]); a stream without a finishReason is truncated, an error.
-        if (!acc.finished) throw new ProviderError("protocol", "stream ended without a finishReason");
+        if (!acc.finished) throw protocolError("stream ended without a finishReason");
         // The usage figure is cumulative in every chunk; one event with the final value, so a consumer that sums events does not double count.
         if (acc.usage) yield { type: "usage", usage: acc.usage };
         yield { type: "done", result: acc.finish() };
       } catch (e) {
         const err = run.normalise(e);
-        if (err.partial === undefined && err.kind !== "auth" && err.kind !== "bad_request") err.partial = acc.snapshot();
+        if (err.partial === undefined && err.kind !== "auth" && !(err.kind === "invalid_request" && !err.contentFiltered)) err.partial = acc.snapshot();
         throw err;
       } finally {
         run.dispose();

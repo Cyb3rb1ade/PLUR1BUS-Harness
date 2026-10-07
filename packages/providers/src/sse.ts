@@ -1,4 +1,4 @@
-import { ProviderError } from "./errors.ts";
+import { protocolError } from "./errors.ts";
 
 export interface SseEvent {
   event?: string;
@@ -29,7 +29,7 @@ export class SseParser {
   push(chunk: Uint8Array): SseEvent[] {
     let text: string;
     try { text = this.#decoder.decode(chunk, { stream: true }); }
-    catch (cause) { throw new ProviderError("protocol", "stream is not valid UTF-8", { cause }); }
+    catch (cause) { throw protocolError("stream is not valid UTF-8", { cause }); }
     this.#buf += text;
     return this.#drain(false);
   }
@@ -37,7 +37,7 @@ export class SseParser {
   /** End of input: flushes a trailing line; an unterminated event is dropped. */
   end(): SseEvent[] {
     try { this.#buf += this.#decoder.decode(); }
-    catch (cause) { throw new ProviderError("protocol", "stream is not valid UTF-8", { cause }); }
+    catch (cause) { throw protocolError("stream is not valid UTF-8", { cause }); }
     const out = this.#drain(true);
     this.#data = []; this.#dataBytes = 0; this.#event = undefined; this.#id = undefined;
     return out;
@@ -65,7 +65,7 @@ export class SseParser {
     }
     this.#buf = buf.slice(i);
     this.#scanFrom = j - i;
-    if (this.#buf.length > this.#maxEventBytes) throw new ProviderError("protocol", `SSE line exceeds ${this.#maxEventBytes} bytes`);
+    if (this.#buf.length > this.#maxEventBytes) throw protocolError(`SSE line exceeds ${this.#maxEventBytes} bytes`);
     return out;
   }
 
@@ -85,7 +85,7 @@ export class SseParser {
     if (value[0] === " ") value = value.slice(1);
     if (field === "data") {
       this.#dataBytes += value.length + 1;
-      if (this.#dataBytes > this.#maxEventBytes) throw new ProviderError("protocol", `SSE event exceeds ${this.#maxEventBytes} bytes`);
+      if (this.#dataBytes > this.#maxEventBytes) throw protocolError(`SSE event exceeds ${this.#maxEventBytes} bytes`);
       this.#data.push(value);
     } else if (field === "event") this.#event = value;
     else if (field === "id" && !value.includes("\0")) this.#id = value;

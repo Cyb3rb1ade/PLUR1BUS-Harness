@@ -5,7 +5,7 @@ import type { ChatRequest } from "../../src/index.ts";
 import { MODEL } from "./helpers.ts";
 
 const one = (messages: ChatRequest["messages"], extra: Partial<ChatRequest> = {}): ChatRequest => ({ model: MODEL, messages, ...extra });
-const refuses = (req: ChatRequest, re: RegExp) => assert.throws(() => buildGeminiBody(req), (e: unknown) => e instanceof ProviderError && e.kind === "bad_request" && re.test(e.message));
+const refuses = (req: ChatRequest, re: RegExp) => assert.throws(() => buildGeminiBody(req), (e: unknown) => e instanceof ProviderError && e.kind === "invalid_request" && re.test(e.message));
 
 test("system and developer messages are hoisted, in order, into one systemInstruction", () => {
   const b = buildGeminiBody(one([

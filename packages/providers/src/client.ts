@@ -1,5 +1,5 @@
 import { ChatAccumulator, parseCompletion } from "./accumulate.ts";
-import { classifyHttpError, classifyStreamError, isRecord, ProviderError } from "./errors.ts";
+import { classifyHttpError, classifyStreamError, isRecord, protocolError, ProviderError } from "./errors.ts";
 import { buildRequestBody } from "./request.ts";
 import { SseParser } from "./sse.ts";
 import type {
@@ -113,7 +113,7 @@ export async function readText(body: ReadableStream<Uint8Array> | null, run: Run
   let out = "", bytes = 0;
   for await (const c of chunks(body, run)) {
     bytes += c.byteLength;
-    if (bytes > max) throw new ProviderError("protocol", `response body exceeds ${max} bytes`);
+    if (bytes > max) throw protocolError(`response body exceeds ${max} bytes`);
     out += dec.decode(c, { stream: true });
   }
   return out + dec.decode();
@@ -154,7 +154,7 @@ export function createChatCompletionsAdapter(config: ChatCompletionsConfig): Cha
       for (const [k, v] of extra) headers.set(k, v);
       if (auth !== undefined) {
         if (auth === "" || /[\x00-\x1f\x7f]/.test(auth)) throw new ProviderError("auth", "credentials provider returned an unusable Authorization value");
-        if (!insecureOk) throw new ProviderError("bad_request", "refusing to send credentials over plain http to a non-loopback host");
+        if (!insecureOk) throw new ProviderError("invalid_request", "refusing to send credentials over plain http to a non-loopback host");
         secret = auth.includes(" ") ? auth.slice(auth.lastIndexOf(" ") + 1) : auth;
         headers.set("authorization", auth);
       }
@@ -181,7 +181,7 @@ export function createChatCompletionsAdapter(config: ChatCompletionsConfig): Cha
       try {
         const text = await readText(res.body, run, limits.maxBodyBytes);
         let json: unknown;
-        try { json = JSON.parse(text); } catch (cause) { throw new ProviderError("protocol", "response body is not valid JSON", { cause }); }
+        try { json = JSON.parse(text); } catch (cause) { throw protocolError("response body is not valid JSON", { cause }); }
         return await parseCompletion(json, redact, config.repair, req.tools, run.signal);
       } catch (e) {
         throw run.normalise(e);
@@ -199,12 +199,12 @@ export function createChatCompletionsAdapter(config: ChatCompletionsConfig): Cha
           // A 200 JSON body on a stream request: an error object some servers send in place of an SSE stream, else a server that ignored `stream`.
           const text = await readText(res.body, run, limits.maxBodyBytes);
           let json: unknown;
-          try { json = JSON.parse(text); } catch (cause) { throw new ProviderError("protocol", "response body is not valid JSON", { cause }); }
+          try { json = JSON.parse(text); } catch (cause) { throw protocolError("response body is not valid JSON", { cause }); }
           if (isRecord(json) && json["error"] !== undefined && json["error"] !== null) throw classifyStreamError(json, redact);
-          throw new ProviderError("protocol", "expected text/event-stream, got a JSON body");
+          throw protocolError("expected text/event-stream, got a JSON body");
         }
-        if (!/^text\/event-stream\b/i.test(type)) throw new ProviderError("protocol", `expected text/event-stream, got "${type.slice(0, 80)}"`);
-        if (!res.body) throw new ProviderError("protocol", "response has no body");
+        if (!/^text\/event-stream\b/i.test(type)) throw protocolError(`expected text/event-stream, got "${type.slice(0, 80)}"`);
+        if (!res.body) throw protocolError("response has no body");
         const parser = new SseParser(limits.maxEventBytes);
         let done = false;
         const handle = function* (events: ReturnType<SseParser["push"]>): Generator<ChatStreamEvent> {
@@ -213,7 +213,7 @@ export function createChatCompletionsAdapter(config: ChatCompletionsConfig): Cha
             if (ev.data === "[DONE]") { done = true; return; }
             if (ev.data === "") continue; // an empty `data:` line is a keep-alive some servers send, not an error
             let json: unknown;
-            try { json = JSON.parse(ev.data); } catch (cause) { throw new ProviderError("protocol", "SSE data is not valid JSON", { cause }); }
+            try { json = JSON.parse(ev.data); } catch (cause) { throw protocolError("SSE data is not valid JSON", { cause }); }
             yield* acc.push(json);
           }
         };
@@ -224,12 +224,12 @@ export function createChatCompletionsAdapter(config: ChatCompletionsConfig): Cha
         if (!done) {
           yield* handle(parser.end());
           // RULING: a stream that ends without [DONE] is truncated unless the adapter was told to accept a finished one.
-          if (!done && !(config.allowMissingDone && acc.finished)) throw new ProviderError("protocol", "stream ended without [DONE]");
+          if (!done && !(config.allowMissingDone && acc.finished)) throw protocolError("stream ended without [DONE]");
         }
         yield { type: "done", result: await acc.finish(config.repair, req.tools, run.signal) };
       } catch (e) {
         const err = run.normalise(e);
-        if (err.partial === undefined && err.kind !== "auth" && err.kind !== "bad_request") err.partial = acc.snapshot();
+        if (err.partial === undefined && err.kind !== "auth" && !(err.kind === "invalid_request" && !err.contentFiltered)) err.partial = acc.snapshot();
         throw err;
       } finally {
         run.dispose();

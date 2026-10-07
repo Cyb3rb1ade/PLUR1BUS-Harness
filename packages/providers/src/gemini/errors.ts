@@ -8,7 +8,7 @@ const MAX_RETRY_DELAY_MS = 24 * 60 * 60 * 1000;
 /**
  * Gemini refused to produce (all of) the answer for safety or policy reasons: the prompt was blocked
  * (`promptFeedback.blockReason`) or the candidate stopped with `SAFETY`, `RECITATION`, `PROHIBITED_CONTENT`, ….
- * It is a `content_filter` `ProviderError` (never retryable: the same input is blocked again) that also says which
+ * It is an `invalid_request` `ProviderError` with `contentFiltered` (never retryable: the same input is blocked again) that also says which
  * side was blocked and carries the verbatim reason and the per-category ratings. Whatever text had arrived before a
  * candidate block is in `partial`.
  * RULING: unlike the chat_completions adapter (where finish `content_filter` is a result with a refusal text), a
@@ -21,7 +21,7 @@ export class GeminiSafetyBlockError extends ProviderError {
 
   constructor(message: string, init: GeminiSafetyInit) {
     const { source, reason, ratings, ...rest } = init;
-    super("content_filter", message, { ...rest, code: rest.code ?? reason, retryable: false });
+    super("invalid_request", message, { ...rest, code: rest.code ?? reason, retryable: false, contentFiltered: true });
     this.name = "GeminiSafetyBlockError";
     this.source = source;
     this.reason = reason;
@@ -131,6 +131,7 @@ export function classifyGeminiHttp(status: number, headers: Headers, bodyText: s
     if (e.code !== undefined) init.code = e.code;
     if (e.providerMessage !== undefined) init.providerMessage = e.providerMessage;
     if (e.timeoutPhase !== undefined) init.timeoutPhase = e.timeoutPhase;
+    if (e.contentFiltered) init.contentFiltered = true;
     return new ProviderError(e.kind, e.message, init);
   }
   // RULING: Gemini's 429 `RESOURCE_EXHAUSTED` covers both the per-minute limit and an exhausted daily quota/billing cap and
@@ -142,12 +143,12 @@ const GRPC_KIND: Record<string, ProviderError["kind"]> = {
   RESOURCE_EXHAUSTED: "rate_limit",
   UNAUTHENTICATED: "auth",
   PERMISSION_DENIED: "auth",
-  INVALID_ARGUMENT: "bad_request",
-  FAILED_PRECONDITION: "bad_request",
-  NOT_FOUND: "bad_request",
-  UNAVAILABLE: "server",
-  INTERNAL: "server",
-  DEADLINE_EXCEEDED: "server",
+  INVALID_ARGUMENT: "invalid_request",
+  FAILED_PRECONDITION: "invalid_request",
+  NOT_FOUND: "invalid_request",
+  UNAVAILABLE: "overloaded",
+  INTERNAL: "overloaded",
+  DEADLINE_EXCEEDED: "overloaded",
 };
 
 /** An `{error:{code,message,status}}` object inside a 200 body or stream event. */
@@ -166,14 +167,14 @@ export function classifyGeminiStreamError(v: unknown, redact: (s: string) => str
   const text = (what: string) => `${what} in stream (${where})${message ? `: ${message}` : ""}`;
   let kind: ProviderError["kind"] | undefined = gstatus === undefined ? undefined : GRPC_KIND[gstatus];
   if (kind === undefined && code !== undefined) {
-    kind = code === 429 ? "rate_limit" : code === 401 || code === 403 ? "auth" : code >= 500 ? "server" : code >= 400 ? "bad_request" : undefined;
+    kind = code === 429 ? "rate_limit" : code === 401 || code === 403 ? "auth" : code >= 500 ? "overloaded" : code >= 400 ? "invalid_request" : undefined;
   }
   switch (kind) {
     case "rate_limit": return new ProviderError("rate_limit", text("rate limited"), init);
     case "auth": return new ProviderError("auth", text("authentication failure"), init);
-    case "bad_request": return new ProviderError("bad_request", text("request rejected"), init);
-    case "server": return new ProviderError("server", text("provider server error"), init);
-    // RULING: an unrecognised in-stream error is a server-side failure, not retryable by default (as in chat_completions).
-    default: return new ProviderError("server", text("provider error"), { ...init, retryable: false });
+    case "invalid_request": return new ProviderError("invalid_request", text("request rejected"), init);
+    case "overloaded": return new ProviderError("overloaded", text("provider could not serve the request"), init);
+    // RULING: an unrecognised in-stream error is `unknown` and not retryable by default (as in chat_completions).
+    default: return new ProviderError("unknown", text("provider error"), { ...init, retryable: false });
   }
 }

@@ -49,12 +49,12 @@ test("an event cut off by the end of the stream is dropped", T, () => {
 
 test("invalid UTF-8 is a protocol error", T, () => {
   const p = new SseParser(1024);
-  assert.throws(() => p.push(new Uint8Array([0x64, 0x61, 0x74, 0x61, 0x3a, 0x20, 0xff, 0x0a, 0x0a])), (e) => e instanceof ProviderError && e.kind === "protocol");
+  assert.throws(() => p.push(new Uint8Array([0x64, 0x61, 0x74, 0x61, 0x3a, 0x20, 0xff, 0x0a, 0x0a])), (e) => e instanceof ProviderError && e.kind === "unknown");
 });
 
 test("an oversized event or line is a protocol error", T, () => {
   const p = new SseParser(64);
-  assert.throws(() => { for (let i = 0; i < 10; i++) p.push(enc("data: 0123456789\n")); }, (e) => e instanceof ProviderError && e.kind === "protocol");
+  assert.throws(() => { for (let i = 0; i < 10; i++) p.push(enc("data: 0123456789\n")); }, (e) => e instanceof ProviderError && e.kind === "unknown");
   const q = new SseParser(64);
-  assert.throws(() => q.push(enc("x".repeat(100))), (e) => e instanceof ProviderError && e.kind === "protocol");
+  assert.throws(() => q.push(enc("x".repeat(100))), (e) => e instanceof ProviderError && e.kind === "unknown");
 });

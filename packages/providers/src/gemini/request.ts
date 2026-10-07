@@ -10,7 +10,7 @@ const SIGNATURE_RE = /^[A-Za-z0-9+/=_-]{1,65536}$/;
 export const SIGNATURE_SEPARATOR = "~";
 
 function bad(msg: string): ProviderError {
-  return new ProviderError("bad_request", `invalid request: ${msg}`);
+  return new ProviderError("invalid_request", `invalid request: ${msg}`);
 }
 
 /** `models/gemini-x` and `gemini-x` both name the model; anything that could change the URL path is refused. */

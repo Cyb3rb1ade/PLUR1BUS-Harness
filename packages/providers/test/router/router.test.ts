@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { ProviderError } from "../../src/errors.ts";
 import { ProviderRouter, RouterError } from "../../src/router/router.ts";
 import type { BudgetGuard, RouterConfig } from "../../src/router/types.ts";
-import { FakeClock, REQ, auth, badRequest, cand, collector, drain, filter, rateLimit, server } from "./helpers.ts";
+import { FakeClock, REQ, auth, badRequest, cand, collector, down, drain, filter, rateLimit, server } from "./helpers.ts";
 
 function setup(profile: ReturnType<typeof cand>[], extra: Partial<RouterConfig> = {}) {
   const clock = new FakeClock();
@@ -59,22 +59,22 @@ test("retries exhausted -> fallback to the next candidate, with a provider.fallb
   const out = await drain(router.stream("p", REQ));
   assert.equal(a.adapter.calls, 3);
   const fb = events.find((e) => e.type === "provider.fallback");
-  assert.deepEqual(fb, { type: "provider.fallback", profile: "p", from: { provider: "A", model: "m" }, to: { provider: "B", model: "m2" }, reason: "server" });
+  assert.deepEqual(fb, { type: "provider.fallback", profile: "p", from: { provider: "A", model: "m" }, to: { provider: "B", model: "m2" }, reason: "overloaded" });
   assert.deepEqual(out[0], { type: "served", provider: "B", model: "m2" });
 });
 
 test("no silent switch: every answer from a non-first candidate is preceded by provider.fallback", async () => {
-  const a = cand("A", "m", [{ err: auth() }]);
+  const a = cand("A", "m", [{ err: down() }]);
   const b = cand("B", "m2", [{ text: "x" }]);
   const { router, events } = setup([a, b]);
   const r = await router.complete("p", REQ);
   assert.equal(r.served.provider, "B");
   assert.equal(events.filter((e) => e.type === "provider.fallback").length, 1);
-  assert.equal(a.adapter.calls, 1); // auth is not retried
+  assert.equal(a.adapter.calls, 1); // a non-retryable answer is not retried
 });
 
 test("non-fallbackable errors go to the caller and the next candidate is never asked", async () => {
-  for (const err of [badRequest(), filter(), new ProviderError("context_length", "x")]) {
+  for (const err of [badRequest(), filter(), auth(), new ProviderError("context_length", "x"), new ProviderError("unknown", "x")]) {
     const a = cand("A", "m", [{ err }]);
     const b = cand("B", "m2", [{ text: "x" }]);
     const { router, events } = setup([a, b]);
@@ -85,11 +85,12 @@ test("non-fallbackable errors go to the caller and the next candidate is never a
   }
 });
 
-test("a foreign (non-ProviderError) exception fails closed", async () => {
-  const a = cand("A", "m", [{ throwRaw: new TypeError("bug") }]);
+test("a foreign (non-ProviderError) exception fails closed and leaves as an `unknown` ProviderError with its cause", async () => {
+  const bug = new TypeError("bug");
+  const a = cand("A", "m", [{ throwRaw: bug }]);
   const b = cand("B", "m2", [{ text: "x" }]);
   const { router } = setup([a, b]);
-  await assert.rejects(router.complete("p", REQ), TypeError);
+  await assert.rejects(router.complete("p", REQ), (e) => e instanceof ProviderError && e.kind === "unknown" && e.cause === bug);
   assert.equal(b.adapter.calls, 0);
 });
 
@@ -98,7 +99,7 @@ test("failure AFTER the first streamed token: error to the caller, no retry, no 
   const b = cand("B", "m2", [{ text: "x" }]);
   const { router, events } = setup([a, b]);
   const seen: string[] = [];
-  await assert.rejects(async () => { for await (const ev of router.stream("p", REQ)) seen.push(ev.type); }, (e) => e instanceof ProviderError && e.kind === "server");
+  await assert.rejects(async () => { for await (const ev of router.stream("p", REQ)) seen.push(ev.type); }, (e) => e instanceof ProviderError && e.kind === "overloaded");
   assert.deepEqual(seen, ["served", "text_delta"]);
   assert.equal(a.adapter.calls, 1);
   assert.equal(b.adapter.calls, 0);
@@ -173,7 +174,7 @@ test("caller abort is rethrown, never retried and not a breaker failure", async 
 });
 
 test("a throwing event sink never changes routing", async () => {
-  const a = cand("A", "m", [{ err: auth() }]);
+  const a = cand("A", "m", [{ err: down() }]);
   const b = cand("B", "m2", [{ text: "x" }]);
   const { router } = setup([a, b], { onEvent: () => { throw new Error("sink"); } });
   assert.equal((await router.complete("p", REQ)).served.provider, "B");

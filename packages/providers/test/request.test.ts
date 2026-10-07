@@ -78,6 +78,6 @@ test("invalid requests are refused before any I/O with a bad_request error", T, 
     ["schema format without a name", { model: "m", messages: m, responseFormat: { type: "json_schema", name: "", schema: {} } }],
   ];
   for (const [name, req] of cases) {
-    assert.throws(() => buildRequestBody(req, opts), (e) => e instanceof ProviderError && e.kind === "bad_request", name);
+    assert.throws(() => buildRequestBody(req, opts), (e) => e instanceof ProviderError && e.kind === "invalid_request", name);
   }
 });

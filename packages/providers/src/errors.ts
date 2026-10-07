@@ -1,16 +1,30 @@
 import type { PartialChatResult } from "./types.ts";
 
+/**
+ * The error taxonomy every adapter maps onto (HTTP status, provider error codes, transport failures). The kind never
+ * carries provider vocabulary; the verbatim provider `code`/`providerType` stay on the error for diagnostics.
+ *
+ * - `auth`: credentials missing, rejected or unusable (HTTP 401/402/403, a key the provider calls invalid).
+ * - `rate_limit`: too many requests or an exhausted quota (HTTP 429, `RESOURCE_EXHAUSTED`); `retryAfterMs` when given.
+ * - `overloaded`: the provider could not serve the request right now (HTTP 5xx incl. 529, `UNAVAILABLE`, `overloaded_error`).
+ * - `context_length`: the prompt does not fit the model's context window.
+ * - `invalid_request`: refused as malformed, unknown or blocked by a content/safety policy (`contentFiltered` tells the
+ *   last apart); the same input is refused again, so it is neither retried nor sent to another vendor.
+ * - `network`: no connection could be made, or it broke.
+ * - `timeout`: a client-side bound elapsed (`timeoutPhase`) or the server gave up (HTTP 408).
+ * - `aborted`: the caller cancelled.
+ * - `unknown`: anything not understood: a malformed response or stream (`code: "protocol"`), an unrecognised in-stream error.
+ */
 export type ProviderErrorKind =
   | "auth"
   | "rate_limit"
+  | "overloaded"
   | "context_length"
-  | "content_filter"
-  | "bad_request"
-  | "server"
-  | "timeout"
+  | "invalid_request"
   | "network"
-  | "protocol"
-  | "aborted";
+  | "timeout"
+  | "aborted"
+  | "unknown";
 
 export interface ProviderErrorInit {
   status?: number;
@@ -20,11 +34,13 @@ export interface ProviderErrorInit {
   providerMessage?: string;
   timeoutPhase?: "headers" | "idle" | "total";
   retryable?: boolean;
+  /** An `invalid_request` that a content or safety policy caused. */
+  contentFiltered?: boolean;
   partial?: PartialChatResult;
   cause?: unknown;
 }
 
-const RETRYABLE: ReadonlySet<ProviderErrorKind> = new Set(["rate_limit", "server", "timeout", "network"]);
+const RETRYABLE: ReadonlySet<ProviderErrorKind> = new Set(["rate_limit", "overloaded", "timeout", "network"]);
 
 /** The one error type the adapter throws. It never carries a request body or a credential. */
 export class ProviderError extends Error {
@@ -37,6 +53,8 @@ export class ProviderError extends Error {
   readonly timeoutPhase: "headers" | "idle" | "total" | undefined;
   /** A retry of the same request could succeed (a hint for the retry budget, not a promise). */
   readonly retryable: boolean;
+  /** True for an `invalid_request` caused by a content or safety policy (never retryable, never sent to another vendor). */
+  readonly contentFiltered: boolean;
   partial: PartialChatResult | undefined;
 
   constructor(kind: ProviderErrorKind, message: string, init: ProviderErrorInit = {}) {
@@ -50,8 +68,14 @@ export class ProviderError extends Error {
     this.providerMessage = init.providerMessage;
     this.timeoutPhase = init.timeoutPhase;
     this.retryable = init.retryable ?? RETRYABLE.has(kind);
+    this.contentFiltered = init.contentFiltered === true;
     this.partial = init.partial;
   }
+}
+
+/** A response or stream the adapter could not understand (malformed JSON/SSE, wrong shape, truncation): `unknown` with `code: "protocol"`. */
+export function protocolError(message: string, init: ProviderErrorInit = {}): ProviderError {
+  return new ProviderError("unknown", message, { code: "protocol", ...init });
 }
 
 const MAX_RETRY_AFTER_MS = 24 * 60 * 60 * 1000;
@@ -121,7 +145,9 @@ function lc(s: string | undefined): string { return (s ?? "").toLowerCase(); }
 /**
  * Maps an HTTP error response to the taxonomy. `redact` removes secrets from provider text before it is stored.
  * RULING: 402 is `auth` (a billing/credential problem, not retryable); 413 is `context_length` only when the body
- * says so; a 3xx is never followed (the credential would travel) and is a `protocol` error.
+ * says so; a 3xx is never followed (the credential would travel) and is `unknown` (`code: "redirect"`); every 5xx,
+ * 529 included, is `overloaded` (the taxonomy has no separate "server" class; the status stays on the error);
+ * a content-filter refusal is `invalid_request` with `contentFiltered`.
  */
 export function classifyHttpError(status: number, headers: Headers, bodyText: string, nowMs: number, redact: (s: string) => string): ProviderError {
   const body = readErrorBody(bodyText);
@@ -136,7 +162,7 @@ export function classifyHttpError(status: number, headers: Headers, bodyText: st
   const text = (kind: ProviderErrorKind, what: string, extra: ProviderErrorInit = {}): ProviderError =>
     new ProviderError(kind, `${what} (HTTP ${status}${code ? `, ${code}` : ""})${providerMessage ? `: ${providerMessage}` : ""}`, { ...base, ...extra });
 
-  if (status >= 300 && status < 400) return text("protocol", "unexpected redirect, not followed");
+  if (status >= 300 && status < 400) return text("unknown", "unexpected redirect, not followed", { code: "redirect" });
   if (status === 401 || status === 403) return text("auth", "authentication or permission failure");
   if (status === 402) return text("auth", "payment or credit problem");
   if (status === 408) return text("timeout", "the server timed out the request", { timeoutPhase: "headers" });
@@ -144,13 +170,13 @@ export function classifyHttpError(status: number, headers: Headers, bodyText: st
     const quota = lc(code) === "insufficient_quota" || lc(type) === "insufficient_quota";
     return text("rate_limit", quota ? "quota exhausted" : "rate limited", quota ? { retryable: false } : {});
   }
-  if (status >= 500) return text("server", "provider server error");
+  if (status >= 500) return text("overloaded", "provider could not serve the request");
   if (status >= 400) {
     if (CONTEXT_CODES.has(lc(code)) || CONTEXT_RE.test(body.message ?? "")) return text("context_length", "context length exceeded");
-    if (FILTER_CODES.has(lc(code)) || lc(type) === "content_filter" || FILTER_RE.test(body.message ?? "")) return text("content_filter", "blocked by a content filter");
-    return text("bad_request", "request rejected");
+    if (FILTER_CODES.has(lc(code)) || lc(type) === "content_filter" || FILTER_RE.test(body.message ?? "")) return text("invalid_request", "blocked by a content filter", { contentFiltered: true });
+    return text("invalid_request", "request rejected");
   }
-  return text("protocol", "unexpected HTTP status");
+  return text("unknown", "unexpected HTTP status", { code: "protocol" });
 }
 
 /** An error object delivered inside a 200 stream (`data: {"error":{…}}`): there is no status, so code and type decide. */
@@ -165,11 +191,11 @@ export function classifyStreamError(v: unknown, redact: (s: string) => string): 
   const msg = (what: string) => `${what} in stream${body.code ? ` (${body.code})` : ""}${providerMessage ? `: ${providerMessage}` : ""}`;
   if (code.includes("rate_limit") || type.includes("rate_limit")) return new ProviderError("rate_limit", msg("rate limited"), init);
   if (CONTEXT_CODES.has(code) || CONTEXT_RE.test(body.message ?? "")) return new ProviderError("context_length", msg("context length exceeded"), init);
-  if (FILTER_CODES.has(code) || type === "content_filter") return new ProviderError("content_filter", msg("blocked by a content filter"), init);
+  if (FILTER_CODES.has(code) || type === "content_filter") return new ProviderError("invalid_request", msg("blocked by a content filter"), { ...init, contentFiltered: true });
   if (code.includes("auth") || type.includes("auth") || code === "invalid_api_key") return new ProviderError("auth", msg("authentication failure"), init);
-  if (type === "server_error" || code === "server_error" || type === "overloaded_error" || code.includes("overload")) return new ProviderError("server", msg("provider server error"), init);
-  // RULING: an unrecognised in-stream error is a server-side failure, retryable only by the caller's own judgement.
-  return new ProviderError("server", msg("provider error"), { ...init, retryable: false });
+  if (type === "server_error" || code === "server_error" || type === "overloaded_error" || code.includes("overload")) return new ProviderError("overloaded", msg("provider could not serve the request"), init);
+  // RULING: an unrecognised in-stream error is `unknown` and never retried by default: nothing says a retry would help.
+  return new ProviderError("unknown", msg("provider error"), { ...init, retryable: false });
 }
 
 export function isRecord(v: unknown): v is Record<string, unknown> {

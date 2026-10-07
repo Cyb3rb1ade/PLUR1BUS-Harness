@@ -1,10 +1,10 @@
-import { isRecord, ProviderError } from "../errors.ts";
+import { isRecord, protocolError, ProviderError } from "../errors.ts";
 import type { ChatResult, ChatStreamEvent, FinishReason, JsonObject, PartialChatResult, ResponseMeta, ToolCall, Usage } from "../types.ts";
 import { candidateBlock, classifyGeminiStreamError, isCandidateBlock, promptBlock } from "./errors.ts";
 import { toolCallId } from "./request.ts";
 
 function protocol(msg: string, retryable = false): ProviderError {
-  return new ProviderError("protocol", `malformed Gemini response: ${msg}`, { retryable });
+  return protocolError(`malformed Gemini response: ${msg}`, { retryable });
 }
 
 function count(v: Record<string, unknown>, key: string): number {

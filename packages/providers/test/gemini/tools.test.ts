@@ -75,8 +75,8 @@ test("a malformed functionCall, oversized arguments and MALFORMED_FUNCTION_CALL 
     const stub = await startStub((_q, res) => json(res, b));
     try { return await adapterFor(stub, cfg).adapter.complete({ ...basic, tools }); } finally { await stub.close(); }
   };
-  await assert.rejects(send(candidate([{ functionCall: { args: {} } }], "STOP")), (e: unknown) => e instanceof ProviderError && e.kind === "protocol");
-  await assert.rejects(send(candidate([{ functionCall: { name: "f", args: [1] } }], "STOP")), (e: unknown) => e instanceof ProviderError && e.kind === "protocol");
-  await assert.rejects(send(candidate([{ functionCall: { name: "f", args: { big: "x".repeat(200) } } }], "STOP"), { limits: { maxToolArgumentBytes: 100 } }), (e: unknown) => e instanceof ProviderError && e.kind === "protocol");
-  await assert.rejects(send(candidate([], "MALFORMED_FUNCTION_CALL")), (e: unknown) => e instanceof ProviderError && e.kind === "protocol" && e.retryable);
+  await assert.rejects(send(candidate([{ functionCall: { args: {} } }], "STOP")), (e: unknown) => e instanceof ProviderError && e.kind === "unknown");
+  await assert.rejects(send(candidate([{ functionCall: { name: "f", args: [1] } }], "STOP")), (e: unknown) => e instanceof ProviderError && e.kind === "unknown");
+  await assert.rejects(send(candidate([{ functionCall: { name: "f", args: { big: "x".repeat(200) } } }], "STOP"), { limits: { maxToolArgumentBytes: 100 } }), (e: unknown) => e instanceof ProviderError && e.kind === "unknown");
+  await assert.rejects(send(candidate([], "MALFORMED_FUNCTION_CALL")), (e: unknown) => e instanceof ProviderError && e.kind === "unknown" && e.retryable);
 });

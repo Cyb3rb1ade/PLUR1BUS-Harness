@@ -1,11 +1,11 @@
-import { classifyStreamError, isRecord, ProviderError } from "./errors.ts";
+import { classifyStreamError, isRecord, protocolError, ProviderError } from "./errors.ts";
 import type {
   ChatResult, ChatStreamEvent, FinishReason, JsonObject, PartialChatResult, ResponseMeta, ToolArgumentRepair, ToolCall,
   ToolDefinition, Usage,
 } from "./types.ts";
 
 function protocol(msg: string): ProviderError {
-  return new ProviderError("protocol", `malformed chat_completions response: ${msg}`);
+  return protocolError(`malformed chat_completions response: ${msg}`);
 }
 
 function nonNegInt(v: unknown, what: string): number | undefined {

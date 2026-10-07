@@ -46,7 +46,7 @@ for (const c of cases) {
       const t0 = Date.now();
       await assert.rejects(async () => { for await (const _ of a.stream(basicRequest)) { /* drain */ } }, (e) => {
         assert.ok(e instanceof ProviderError, String(e));
-        assert.equal(e.kind, "protocol", e.message);
+        assert.equal(e.kind, "unknown", e.message);
         assert.equal(e.retryable, false);
         return true;
       });
@@ -83,7 +83,7 @@ test("non-stream: a body that is not JSON, or has the wrong shape, is a protocol
   for (const body of bodies) {
     const stub = await startStub((_q, res) => { res.writeHead(200, { "content-type": "application/json" }); res.end(body); });
     try {
-      await assert.rejects(createChatCompletionsAdapter({ baseUrl: stub.baseUrl, credentials: credentials() }).complete(basicRequest), (e) => e instanceof ProviderError && e.kind === "protocol", body);
+      await assert.rejects(createChatCompletionsAdapter({ baseUrl: stub.baseUrl, credentials: credentials() }).complete(basicRequest), (e) => e instanceof ProviderError && e.kind === "unknown", body);
     } finally { await stub.close(); }
   }
 });
@@ -92,6 +92,6 @@ test("non-stream: an oversized body is refused", T, async () => {
   const stub = await startStub((_q, res) => { res.writeHead(200, { "content-type": "application/json" }); res.end("x".repeat(5000)); });
   try {
     const a = createChatCompletionsAdapter({ baseUrl: stub.baseUrl, credentials: credentials(), limits: { maxBodyBytes: 1000 } });
-    await assert.rejects(a.complete(basicRequest), (e) => e instanceof ProviderError && e.kind === "protocol");
+    await assert.rejects(a.complete(basicRequest), (e) => e instanceof ProviderError && e.kind === "unknown");
   } finally { await stub.close(); }
 });
