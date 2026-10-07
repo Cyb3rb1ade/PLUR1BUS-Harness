@@ -226,6 +226,17 @@ describe("logs viewer: filters", opts, () => {
       assert.equal(await filters(app.page).getByLabel("Trace ID").inputValue(), "trace0020");
     });
   });
+
+  test("?q= and ?stream=audit (from the palette and the activity feed) prefill text and stream", async () => {
+    await withApp({}, async (app) => {
+      const m = installLogsMocks(app.server, { lines: makeLines(40), tail: false });
+      await openRoute(app.page, "#/logs?q=backup&stream=audit");
+      await app.page.waitForFunction(() => document.querySelector("#main, main") !== null);
+      for (let i = 0; i < 100 && m.queries().length === 0; i++) await app.page.waitForTimeout(50);
+      assert.equal(firstQuery(m).text, "backup");
+      assert.equal(firstQuery(m).stream, "audit");
+    });
+  });
 });
 
 describe("logs viewer: pagination", opts, () => {

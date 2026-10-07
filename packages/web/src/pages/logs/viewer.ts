@@ -30,7 +30,10 @@ function download(name: string, mime: string, text: string): void {
 }
 
 function Viewer(): View {
-  const initial = useMemo<Filters>(() => ({ ...DEFAULT_FILTERS, trace: query.value.get("trace") ?? "" }), []);
+  const initial = useMemo<Filters>(() => ({
+    ...DEFAULT_FILTERS, trace: query.value.get("trace") ?? "", text: query.value.get("q") ?? "",
+    stream: query.value.get("stream") === "audit" ? "audit" : "diagnostic",
+  }), []);
   const [draft, setDraft] = useState<Filters>(initial);
   const [applied, setApplied] = useState<Filters>(initial);
   const [reload, setReload] = useState(0);

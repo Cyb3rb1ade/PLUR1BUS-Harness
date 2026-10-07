@@ -68,8 +68,8 @@ test("the bundles use no eval, Function constructor, javascript: URL or remote o
 // page, 6 KiB when there was one page) is allowed 9 KiB. The catalogues are the largest part of the
 // start-up closure (~28 KiB gzip for de+en of all areas); loading them per page would take it near the old 25 KiB (follow-up F18).
 // M3 part 2 added ten areas (wizard, agents, settings, users, secrets, logs, activity, sessions, devices, shared) and raised the
-// ceiling from 46 to 60 KiB (measured 58.1) and styles from 8 to 9 KiB (measured 8.6).
-const BUDGET_KIB = { main: 10, startup: 60, page: 12, styles: 9 } as const;
+// ceiling from 46 to 54 KiB (measured about 51 after the palette dialog became a lazy chunk) and styles from 8 to 9 KiB (measured 8.6).
+const BUDGET_KIB = { main: 10, startup: 54, page: 12, styles: 9 } as const;
 
 test("size budgets: main.js, the start-up closure, each lazy page chunk, styles.css", async () => {
   const { initial, lazy } = await graph();
