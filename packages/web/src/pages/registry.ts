@@ -1,6 +1,7 @@
 import { GALLERY_ITEM, type NavItem } from "../nav.ts";
 import type { View } from "../view.ts";
 import { GalleryPage } from "./gallery.ts";
+import { ModelsPage } from "./models/page.ts";
 import { PlaceholderPage } from "./placeholder.ts";
 
 /** What the router hands to a page: its nav item and the sub-route (`/memories/dreams` -> sub "dreams"), if any. */
@@ -19,7 +20,7 @@ export const PAGES: Readonly<Record<string, PageComponent>> = {
   library: PlaceholderPage,
   skills: PlaceholderPage,
   plugins: PlaceholderPage,
-  models: PlaceholderPage,
+  models: ModelsPage,
   switchboard: PlaceholderPage,
   recurring: PlaceholderPage,
   approvals: PlaceholderPage,
