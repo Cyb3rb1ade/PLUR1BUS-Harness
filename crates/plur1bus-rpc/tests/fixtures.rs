@@ -146,6 +146,7 @@ fn method_fixture(name: &str, f: &Value) {
         "session.archive" => pair::<SessionArchiveParams, SessionArchiveResult>(name, f),
         "session.submit" => pair::<SessionSubmitParams, SessionSubmitResult>(name, f),
         "session.events" => pair::<SessionEventsParams, SessionEventsResult>(name, f),
+        "session.cancel" => pair::<SessionCancelParams, SessionCancelResult>(name, f),
         "identity.list" => pair::<IdentityListParams, IdentityListResult>(name, f),
         "identity.human.create" => {
             pair::<IdentityHumanCreateParams, IdentityHumanCreateResult>(name, f)

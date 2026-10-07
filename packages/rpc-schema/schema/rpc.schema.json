@@ -1451,6 +1451,12 @@
         "description": "The session's persisted events after afterSeq (default 0), oldest first: the same stream session.event delivers, for replay and catch-up. running tells whether a turn is still producing events.",
         "params": { "type": "object", "additionalProperties": false, "required": ["caller", "sessionId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "sessionId": { "$ref": "#/$defs/SessionId" }, "afterSeq": { "type": "integer", "minimum": 0 }, "limit": { "type": "integer", "minimum": 1, "maximum": 2000 } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["sessionId", "events", "lastSeq", "running"], "properties": { "sessionId": { "$ref": "#/$defs/SessionId" }, "events": { "type": "array", "items": { "$ref": "#/$defs/SessionEvent" } }, "lastSeq": { "type": "integer", "minimum": 0 }, "running": { "type": "boolean" } } }
+      },
+      "session.cancel": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "Cancels the session's running turn: it ends failed with error cancelled (what was already streamed stays stored; nothing is captured). Idempotent: with no running turn nothing happens and cancelled is false.",
+        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "sessionId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "sessionId": { "$ref": "#/$defs/SessionId" } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["sessionId", "turnId", "cancelled"], "properties": { "sessionId": { "$ref": "#/$defs/SessionId" }, "turnId": { "type": ["string", "null"] }, "cancelled": { "type": "boolean" } } }
       }
     },
     "BudgetLimit": {

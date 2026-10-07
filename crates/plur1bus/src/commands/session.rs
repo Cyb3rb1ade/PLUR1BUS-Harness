@@ -179,7 +179,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: SessionCmd) {
 }
 
 /// The agent to talk to: `--agent`, else the only registered one (D92 §6: "single agent → that one").
-fn pick_agent(out: &Out, config: &Value, agent: Option<String>) -> String {
+pub(crate) fn pick_agent(out: &Out, config: &Value, agent: Option<String>) -> String {
     if let Some(a) = agent {
         require_agent(out, config, &a);
         return a;

@@ -283,6 +283,10 @@
     "session.events": {
       "stability": "experimental",
       "since": "1.5.0"
+    },
+    "session.cancel": {
+      "stability": "experimental",
+      "since": "1.5.0"
     }
   },
   "notifications": {
