@@ -77,13 +77,17 @@ pub(super) fn open_private_append(path: &Path) -> io::Result<File> {
     {
         use std::os::windows::fs::OpenOptionsExt;
         use windows_sys::Win32::Storage::FileSystem::{
-            FILE_APPEND_DATA, FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES, SYNCHRONIZE,
-            WRITE_DAC,
+            FILE_APPEND_DATA, FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES, READ_CONTROL,
+            SYNCHRONIZE, WRITE_DAC,
         };
+        // SetSecurityInfo also reads the existing descriptor when protecting the DACL, so the handle
+        // needs READ_CONTROL as well as WRITE_DAC. Neither grants access to the file contents.
         // An explicit access mask replaces what `append(true)` would grant, and FILE_WRITE_DATA (in GENERIC_WRITE)
         // would make every write start at offset 0 of a reopened file. Append-only access keeps appending.
         options
-            .access_mode(FILE_APPEND_DATA | FILE_READ_ATTRIBUTES | SYNCHRONIZE | WRITE_DAC)
+            .access_mode(
+                FILE_APPEND_DATA | FILE_READ_ATTRIBUTES | READ_CONTROL | SYNCHRONIZE | WRITE_DAC,
+            )
             .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT);
     }
     let file = options.open(path)?;
@@ -111,11 +115,12 @@ pub(super) fn secure_existing_file(path: &Path) -> io::Result<()> {
     use std::os::windows::fs::OpenOptionsExt;
     use std::os::windows::io::AsRawHandle;
     use windows_sys::Win32::Storage::FileSystem::{
-        FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES, SYNCHRONIZE, WRITE_DAC,
+        FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES, READ_CONTROL, SYNCHRONIZE, WRITE_DAC,
     };
 
+    // Protecting the DACL needs descriptor read access too, but no data read/write access.
     let file = OpenOptions::new()
-        .access_mode(FILE_READ_ATTRIBUTES | SYNCHRONIZE | WRITE_DAC)
+        .access_mode(FILE_READ_ATTRIBUTES | READ_CONTROL | SYNCHRONIZE | WRITE_DAC)
         .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
         .open(path)?;
     if file.metadata()?.file_type().is_symlink() {
@@ -155,6 +160,21 @@ impl Write for RotatingFile {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn private_log_can_be_secured_while_open_and_reopened_without_losing_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("supervisor.log");
+        let mut first = open_private_append(&path).unwrap();
+        first.write_all(b"before\n").unwrap();
+        // Startup tightens existing logs while an adopted child may still have a writer open.
+        super::super::tighten_log_file(&path).expect("secure an existing log with an open writer");
+        let mut second = open_private_append(&path).unwrap();
+        second.write_all(b"after\n").unwrap();
+        first.write_all(b"still open\n").unwrap();
+        drop((first, second));
+        assert_eq!(fs::read(&path).unwrap(), b"before\nafter\nstill open\n");
+    }
 
     #[test]
     fn rotates_at_max_bytes_keeping_n() {

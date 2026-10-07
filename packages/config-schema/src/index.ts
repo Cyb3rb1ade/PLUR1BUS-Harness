@@ -18,10 +18,21 @@ export interface HarnessConfig {
   oauth: Record<string, unknown>;
   decision: Record<string, unknown>;
   modelRoles: Record<string, string>;
+  modelProfiles: Record<string, ModelProfile>;
   models: { scan: { enabled: boolean; intervalHours: number } };
   secrets: { fileFallback: { enabled: boolean } };
   egress: { allowHosts: string[]; allowPorts: number[]; allowLoopback: boolean };
   modules: Record<string, Record<string, unknown> & { enabled: boolean }>;
+}
+
+export interface ModelProfile {
+  displayName?: string;
+  strategy: "fallback" | "moa";
+  /** Priority order is list order; `weight` (default 1) is the relative share for moa. */
+  candidates: { model: string; weight: number }[];
+  aggregator?: string;
+  params: { temperature?: number; topP?: number; maxTokens?: number };
+  cache: { hint: "auto" | "none" | "prefer"; ttlSeconds?: number };
 }
 
 export type RestartClass = "live" | "core" | `module:${string}`;
@@ -187,9 +198,19 @@ export function filterConfigByTier(config: unknown, tier: Tier): Record<string, 
 
 /** Migrations vN → vN+1 register here; version 1 has none. */
 const MIGRATIONS: Record<number, (c: any) => any> = {};
+
+/** RULING (C4): `modelProfiles` is additive with a default, so it needs no schemaVersion bump (the Rust
+ * validator and every v1 reader keep working). Existing configs get an explicit empty map so the file on
+ * disk shows the key; idempotent, and a config that already has the key is returned untouched. */
+function addModelProfiles(c: any): boolean {
+  if (c && typeof c === "object" && !Array.isArray(c) && !("modelProfiles" in c)) { c.modelProfiles = {}; return true; }
+  return false;
+}
+
 export function migrate(value: unknown): { config: unknown; from: number; to: number; applied: boolean } {
   const from = Number((value as any)?.schemaVersion ?? 0);
   let config = structuredClone(value) as any; let v = from;
   while (MIGRATIONS[v]) { config = MIGRATIONS[v]!(config); v += 1; config.schemaVersion = v; }
-  return { config, from, to: v, applied: v !== from };
+  const additive = from === 1 && v === 1 && addModelProfiles(config);
+  return { config, from, to: v, applied: v !== from || additive };
 }

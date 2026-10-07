@@ -6,3 +6,4 @@ export type { SseEvent } from "./sse.ts";
 export { ProviderError, classifyHttpError, parseRetryAfter } from "./errors.ts";
 export type { ProviderErrorKind, ProviderErrorInit } from "./errors.ts";
 export type * from "./types.ts";
+export * from "./router/index.ts";

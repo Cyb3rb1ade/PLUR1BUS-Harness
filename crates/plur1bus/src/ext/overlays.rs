@@ -187,6 +187,7 @@ fn kind_of(s: &str) -> Option<Kind> {
         "module" => Kind::Module,
         "channel" => Kind::Channel,
         "mcp-server" => Kind::McpServer,
+        "provider" => Kind::Provider,
         "bundle" => Kind::Bundle,
         _ => return None,
     })

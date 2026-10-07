@@ -15,8 +15,10 @@ use std::os::windows::ffi::OsStrExt;
 use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
-use windows_sys::Win32::Foundation::{ERROR_PIPE_CONNECTED, INVALID_HANDLE_VALUE};
+use std::time::{Duration, Instant};
+use windows_sys::Win32::Foundation::{
+    ERROR_ACCESS_DENIED, ERROR_PIPE_CONNECTED, INVALID_HANDLE_VALUE,
+};
 use windows_sys::Win32::Storage::FileSystem::{
     FlushFileBuffers, FILE_FLAG_FIRST_PIPE_INSTANCE, FILE_FLAG_OVERLAPPED, PIPE_ACCESS_DUPLEX,
 };
@@ -29,6 +31,8 @@ use windows_sys::Win32::System::IO::CancelSynchronousIo;
 
 /// How long a close or a stop waits for the client to read the last reply.
 const DRAIN_DEADLINE: Duration = Duration::from_secs(2);
+const FIRST_INSTANCE_RETRY_DEADLINE: Duration = Duration::from_secs(1);
+const FIRST_INSTANCE_RETRY_INTERVAL: Duration = Duration::from_millis(10);
 
 pub struct Listener {
     name: Vec<u16>,
@@ -130,15 +134,28 @@ fn drain_with_deadline(pipe: &Arc<OverlappedPipe>, deadline: Duration) {
 }
 
 impl Listener {
-    /// Creates the first instance: a pipe of that name that already exists, whoever made it, is an error
-    /// (`ERROR_ACCESS_DENIED`), so the supervisor never shares its name with a squatter.
+    /// Creates the first instance. A short-lived existing instance can belong to a supervisor that has released its
+    /// single-instance lock but has not finished exiting yet; retry that teardown window, then refuse the name
+    /// (`ERROR_ACCESS_DENIED`) rather than sharing it with a squatter.
     pub fn bind(address: &str) -> io::Result<Self> {
         let name: Vec<u16> = std::ffi::OsStr::new(address)
             .encode_wide()
             .chain(Some(0))
             .collect();
         let security = SecurityDescriptor::user_and_system()?;
-        let first = create_instance(&name, &security, true)?;
+        let deadline = Instant::now() + FIRST_INSTANCE_RETRY_DEADLINE;
+        let first = loop {
+            match create_instance(&name, &security, true) {
+                Ok(first) => break first,
+                Err(e)
+                    if e.raw_os_error() == Some(ERROR_ACCESS_DENIED as i32)
+                        && Instant::now() < deadline =>
+                {
+                    std::thread::sleep(FIRST_INSTANCE_RETRY_INTERVAL);
+                }
+                Err(e) => return Err(e),
+            }
+        };
         Ok(Self {
             name,
             security,
@@ -170,5 +187,32 @@ impl Listener {
             }),
             drain: Box::new(move || drain_with_deadline(&drain, DRAIN_DEADLINE)),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bind_retries_a_transient_first_instance_collision() {
+        let address = format!(r"\\.\pipe\plur1bus-test-{}", uuid::Uuid::new_v4());
+        let name: Vec<u16> = std::ffi::OsStr::new(&address)
+            .encode_wide()
+            .chain(Some(0))
+            .collect();
+        let security = SecurityDescriptor::user_and_system().unwrap();
+        let held = create_instance(&name, &security, true).unwrap();
+        let releaser = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(120));
+            drop(held);
+        });
+
+        let started = Instant::now();
+        let listener = Listener::bind(&address).unwrap();
+        assert!(started.elapsed() >= Duration::from_millis(100));
+
+        drop(listener);
+        releaser.join().unwrap();
     }
 }

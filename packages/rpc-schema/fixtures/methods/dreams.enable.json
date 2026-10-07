@@ -1,0 +1,1 @@
+{ "params": { "agentId": "bernd", "phase": "deep" }, "result": { "schedule": { "agentId": "bernd", "phase": "deep", "cron": "0 4 * * *", "timezone": "Europe/Berlin", "enabled": true, "staggerOffsetS": 412, "nextRunAt": 1758769200000 } } }

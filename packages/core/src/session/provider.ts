@@ -3,7 +3,7 @@
 
 export type ChatChunk =
   | { type: "delta"; text: string }
-  /** Placeholder: the loop persists and relays a reported tool call/result and executes nothing (tools come with M2). */
+  /** With a tool dispatcher the loop executes the call and persists the envelope as `tool.result`; without one it persists a reported call/result and executes nothing. */
   | { type: "tool.call"; id: string; name: string; args?: unknown }
   | { type: "tool.result"; id: string; output: string }
   | { type: "usage"; inputTokens: number; outputTokens: number };
@@ -16,6 +16,8 @@ export interface ChatRequest {
   memory: string;
   /** The uncovered history ending with this turn's user message. */
   messages: { role: "system" | "user" | "assistant" | "tool"; text: string }[];
+  /** The tools the harness will execute for this turn (B1); absent when the turn loop has no tool dispatcher. */
+  tools?: { name: string; description: string; inputSchema: Record<string, unknown>; risk: string }[];
   signal: AbortSignal;
 }
 
