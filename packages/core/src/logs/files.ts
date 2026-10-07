@@ -12,7 +12,9 @@ export interface LogChain {
   role: string;
   /** Source key the chain's files stand for (D111 R7: attribution comes from the file). */
   key: string;
-  /** Paths, newest file first. */
+  /** The live file's path (`<role>.log` or `<role>.out.log`), whether or not it exists right now. */
+  base: string;
+  /** Paths that exist, newest file first. */
   files: string[];
 }
 
@@ -36,7 +38,7 @@ export function listChains(dir: string): LogChain[] {
     try { if (!lstatSync(full).isFile()) continue; } catch { continue; }
     const id = `${stream}/${role}`;
     let e = byId.get(id);
-    if (!e) { e = { chain: { id, stream, role, key: sourceKeyOfRole(role, stream), files: [] }, ns: new Map() }; byId.set(id, e); }
+    if (!e) { e = { chain: { id, stream, role, key: sourceKeyOfRole(role, stream), base: path.join(dir, `${role}${m.groups["out"] ? ".out" : ""}.log`), files: [] }, ns: new Map() }; byId.set(id, e); }
     e.ns.set(m.groups["n"] ? Number(m.groups["n"]) : 0, full);
   }
   return [...byId.values()]
