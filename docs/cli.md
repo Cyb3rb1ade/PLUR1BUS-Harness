@@ -116,6 +116,16 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus secret get`↴](#plur1bus-secret-get)
 * [`plur1bus secret rm`↴](#plur1bus-secret-rm)
 * [`plur1bus secret ls`↴](#plur1bus-secret-ls)
+* [`plur1bus grant`↴](#plur1bus-grant)
+* [`plur1bus grant list`↴](#plur1bus-grant-list)
+* [`plur1bus grant add`↴](#plur1bus-grant-add)
+* [`plur1bus grant revoke`↴](#plur1bus-grant-revoke)
+* [`plur1bus approval`↴](#plur1bus-approval)
+* [`plur1bus approval list`↴](#plur1bus-approval-list)
+* [`plur1bus approval pending`↴](#plur1bus-approval-pending)
+* [`plur1bus approval approve`↴](#plur1bus-approval-approve)
+* [`plur1bus approval deny`↴](#plur1bus-approval-deny)
+* [`plur1bus approval verify`↴](#plur1bus-approval-verify)
 * [`plur1bus login`↴](#plur1bus-login)
 * [`plur1bus channel`↴](#plur1bus-channel)
 * [`plur1bus project`↴](#plur1bus-project)
@@ -171,6 +181,8 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `budget` — [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
 * `audit` — [experimental] Audit trail: verify the hash-chained audit file (B5)
 * `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
+* `grant` — [experimental] Standing permissions: list, add and revoke grants (D109)
+* `approval` — [experimental] Approval requests: the pending queue, approve, deny and verify the chain (D109)
 * `login` — Provider login (API keys, OAuth) — M2
 * `channel` — Channels — M4
 * `project` — Projects — M3
@@ -1734,6 +1746,172 @@ One trailing newline is removed. Replacing a secret revokes the leases on the ol
 [experimental] List secret names (never values)
 
 **Usage:** `plur1bus secret ls`
+
+
+
+## `plur1bus grant`
+
+[experimental] Standing permissions: list, add and revoke grants (D109)
+
+A grant lets an agent use a capability without asking each time. Only a person creates one.
+
+**Usage:** `plur1bus grant <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List grants, newest first (owner/admin only)
+* `add` — [experimental] Give an agent a standing permission (scope task, session or always)
+* `revoke` — [experimental] Revoke a grant now; revoking a revoked grant changes nothing
+
+
+
+## `plur1bus grant list`
+
+[experimental] List grants, newest first (owner/admin only)
+
+**Usage:** `plur1bus grant list [OPTIONS]`
+
+###### **Options:**
+
+* `--agent <AGENT>` — only this agent's grants
+* `--capability <CAPABILITY>` — only this capability
+* `--state <STATE>` — only grants in this state
+
+  Possible values: `active`, `revoked`, `consumed`, `suspended`
+
+* `--limit <LIMIT>` — at most this many (1-500, default 100)
+
+
+
+## `plur1bus grant add`
+
+[experimental] Give an agent a standing permission (scope task, session or always)
+
+`once` grants exist only as the answer to a request: use `plur1bus approval approve`.
+
+**Usage:** `plur1bus grant add [OPTIONS] --agent <AGENT> --scope <SCOPE> <CAPABILITY>`
+
+###### **Arguments:**
+
+* `<CAPABILITY>` — the capability to grant, e.g. `fs.write` (some capabilities can never be granted)
+
+###### **Options:**
+
+* `--agent <AGENT>` — the agent that receives the grant
+* `--scope <SCOPE>` — how long it lasts: the task, the session, or until revoked (auto-expires after 90 days unused)
+
+  Possible values: `task`, `session`, `always`
+
+* `--task-id <ID>` — the task the grant is bound to (required for `--scope task`)
+* `--session-id <ID>` — the session the grant is bound to (required for `--scope session`)
+* `--path <PATH>` — limit the grant to this path (default: the whole capability)
+* `--access <ACCESS>` — read or write access on `--path` (write implies read)
+
+  Possible values: `read`, `write`
+
+* `--recursive` — the path grant covers everything below `--path`, not only its direct children
+* `--expires <WHEN>` — end the grant at a time: `30m`, `12h`, `7d`, or an RFC 3339 UTC time such as 2026-12-31T23:59:59Z
+* `--delegable` — let the agent pass this grant on to the helpers it starts
+
+
+
+## `plur1bus grant revoke`
+
+[experimental] Revoke a grant now; revoking a revoked grant changes nothing
+
+**Usage:** `plur1bus grant revoke [OPTIONS] <ID>`
+
+###### **Arguments:**
+
+* `<ID>` — the grant id (grt_...)
+
+###### **Options:**
+
+* `--reason <REASON>` — a note shown in this command's output; `grant.revoke` takes only an id, so the core never receives it
+
+
+
+## `plur1bus approval`
+
+[experimental] Approval requests: the pending queue, approve, deny and verify the chain (D109)
+
+**Usage:** `plur1bus approval <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List approval requests, newest first
+* `pending` — [experimental] The pending queue: requests waiting for a person (approval list --status pending)
+* `approve` — [experimental] Approve a pending request after showing exactly what it asks for
+* `deny` — [experimental] Deny a pending request
+* `verify` — [experimental] Verify the HMAC chain of the approval store; exit 1 and the first broken position if it breaks
+
+
+
+## `plur1bus approval list`
+
+[experimental] List approval requests, newest first
+
+**Usage:** `plur1bus approval list [OPTIONS]`
+
+###### **Options:**
+
+* `--status <STATUS>`
+
+  Possible values: `pending`, `approved`, `denied`, `used`, `expired`, `cancelled`
+
+* `--agent <AGENT>` — only this agent's requests
+* `--limit <LIMIT>` — at most this many (1-500, default 100)
+
+
+
+## `plur1bus approval pending`
+
+[experimental] The pending queue: requests waiting for a person (approval list --status pending)
+
+**Usage:** `plur1bus approval pending`
+
+
+
+## `plur1bus approval approve`
+
+[experimental] Approve a pending request after showing exactly what it asks for
+
+The request (command line or diff summary, targets, risk) is printed first. In a terminal you confirm with `y`; outside a terminal `--yes` is required, so nothing is approved silently.
+
+**Usage:** `plur1bus approval approve [OPTIONS] <ID>`
+
+###### **Arguments:**
+
+* `<ID>` — the request id (apr_...)
+
+###### **Options:**
+
+* `--scope <SCOPE>` — how long the permission lasts; default: the narrowest option the request offers
+
+  Possible values: `once`, `task`, `session`, `always`
+
+* `--delegable` — let the agent pass the permission on to the helpers it starts
+* `--yes` — do not ask for confirmation (required outside a terminal); the request is still printed
+
+
+
+## `plur1bus approval deny`
+
+[experimental] Deny a pending request
+
+**Usage:** `plur1bus approval deny <ID>`
+
+###### **Arguments:**
+
+* `<ID>` — the request id (apr_...)
+
+
+
+## `plur1bus approval verify`
+
+[experimental] Verify the HMAC chain of the approval store; exit 1 and the first broken position if it breaks
+
+**Usage:** `plur1bus approval verify`
 
 
 
