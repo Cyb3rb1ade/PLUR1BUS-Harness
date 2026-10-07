@@ -10,7 +10,7 @@ export const isSensitiveName = (name: string): boolean => SENSITIVE_NAME.test(na
 const MIN_SECRET_LENGTH = 4;
 
 export interface Redactor {
-  add(value: string): void;
+  add(value: string, force?: boolean): void;
   redact(text: string): string;
   /** True when `redact(text)` would change `text`. */
   contains(text: string): boolean;
@@ -20,10 +20,11 @@ export interface Redactor {
 export function createRedactor(initial: Iterable<string> = []): Redactor {
   const values = new Set<string>();
   let ordered: string[] = [];
-  const add = (v: string): void => {
-    if (typeof v !== "string" || v.length < MIN_SECRET_LENGTH) return;
-    for (const form of new Set([v, encodeURIComponent(v)])) {
-      if (form.length >= MIN_SECRET_LENGTH) values.add(form);
+  const add = (v: string, force = false): void => {
+    if (typeof v !== "string" || v.length < (force ? 1 : MIN_SECRET_LENGTH)) return;
+    const lines = v.split(/\r\n|\r|\n/).filter(Boolean);
+    for (const form of new Set([v, encodeURIComponent(v), ...lines, ...lines.map(encodeURIComponent)])) {
+      if (form.length >= (force ? 1 : MIN_SECRET_LENGTH)) values.add(form);
     }
     ordered = [...values].sort((a, b) => b.length - a.length); // longest first: a secret containing another is removed whole
   };
