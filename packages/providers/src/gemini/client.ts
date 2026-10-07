@@ -1,5 +1,5 @@
 import { DEFAULT_LIMITS, DEFAULT_TIMEOUTS, chunks, FORBIDDEN_HEADERS, LOOPBACK, readText, Run } from "../client.ts";
-import { isRecord, protocolError, ProviderError } from "../errors.ts";
+import { redactAll, isRecord, protocolError, ProviderError } from "../errors.ts";
 import { SseParser } from "../sse.ts";
 import type { CallOptions, ChatRequest, ChatResult, ChatStreamEvent, Limits, Timeouts } from "../types.ts";
 import { classifyGeminiHttp, classifyGeminiStreamError } from "./errors.ts";
@@ -45,6 +45,8 @@ export function createGeminiAdapter(config: GeminiConfig): GeminiAdapter {
     if (/[\r\n]/.test(k + v)) throw new TypeError("header contains a line break");
     extra.push([k, v]);
   }
+  // RULING: caller-supplied header values (api-key style) are secrets too; they are redacted like the credential.
+  const extraSecrets = extra.map(([, v]) => v);
   const doFetch = config.fetch ?? globalThis.fetch;
   const limits: Limits = { ...DEFAULT_LIMITS, ...config.limits };
   const insecureOk = base.protocol === "https:" || LOOPBACK.has(base.hostname) || config.allowInsecureHttp === true;
@@ -57,7 +59,8 @@ export function createGeminiAdapter(config: GeminiConfig): GeminiAdapter {
     if (!stream && opts?.timeouts?.headersMs === undefined && config.timeouts?.headersMs === undefined) merged.headersMs = merged.totalMs;
     const run = new Run(merged, opts?.signal);
     let secret = "";
-    const redact = (s: string) => (secret.length >= 6 ? s.split(secret).join("[redacted]") : s);
+    const redact = (s: string) => redactAll(s, secret, extraSecrets);
+    run.redact = redact;
     try {
       run.throwIfInterrupted();
       let key: string | undefined;
@@ -123,7 +126,7 @@ export function createGeminiAdapter(config: GeminiConfig): GeminiAdapter {
           if (isRecord(first) && first["error"] !== undefined && first["error"] !== null) throw classifyGeminiStreamError(first, redact);
           throw protocolError("expected text/event-stream, got a JSON body");
         }
-        if (!/^text\/event-stream\b/i.test(type)) throw protocolError(`expected text/event-stream, got "${type.slice(0, 80)}"`);
+        if (!/^text\/event-stream\b/i.test(type)) throw protocolError(`expected text/event-stream, got "${redact(type.slice(0, 80))}"`);
         if (!res.body) throw protocolError("response has no body");
         const parser = new SseParser(limits.maxEventBytes);
         const handle = function* (events: ReturnType<SseParser["push"]>): Generator<ChatStreamEvent> {

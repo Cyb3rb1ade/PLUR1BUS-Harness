@@ -1,0 +1,3 @@
+: SYNTHETIC reconstruction of the Gemini streamGenerateContent?alt=sse wire format (scenario "empty"), written by hand from the public docs. NOT a live capture. See ../README.md.
+data: {"candidates":[{"content":{"role":"model"},"finishReason":"STOP","index":0}],"modelVersion":"contract-gemini-1","responseId":"resp-contract-1"}
+

@@ -1,0 +1,23 @@
+: SYNTHETIC reconstruction of the ollama wire format (scenario "tools"), written by hand from the public docs. NOT a live capture. See ../README.md.
+data: {"id":"chatcmpl-contract-ollama","object":"chat.completion.chunk","created":1700000000,"model":"contract-llama","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-ollama","object":"chat.completion.chunk","created":1700000000,"model":"contract-llama","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_weather_0","type":"function","function":{"name":"get_weather","arguments":""}}]},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-ollama","object":"chat.completion.chunk","created":1700000000,"model":"contract-llama","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"ci"}}]},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-ollama","object":"chat.completion.chunk","created":1700000000,"model":"contract-llama","choices":[{"index":0,"delta":{"tool_calls":[{"index":1,"id":"call_time_1","type":"function","function":{"name":"get_time","arguments":""}}]},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-ollama","object":"chat.completion.chunk","created":1700000000,"model":"contract-llama","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"ty\":\"Ber"}}]},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-ollama","object":"chat.completion.chunk","created":1700000000,"model":"contract-llama","choices":[{"index":0,"delta":{"tool_calls":[{"index":1,"function":{"arguments":"{\"tz\":\"Eur"}}]},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-ollama","object":"chat.completion.chunk","created":1700000000,"model":"contract-llama","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"lin\",\"units\""}}]},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-ollama","object":"chat.completion.chunk","created":1700000000,"model":"contract-llama","choices":[{"index":0,"delta":{"tool_calls":[{"index":1,"function":{"arguments":"ope/Berlin\"}"}}]},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-ollama","object":"chat.completion.chunk","created":1700000000,"model":"contract-llama","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":":\"metric\"}"}}]},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-ollama","object":"chat.completion.chunk","created":1700000000,"model":"contract-llama","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"usage":{"prompt_eval_count":12,"eval_count":7}}
+
+data: [DONE]
+

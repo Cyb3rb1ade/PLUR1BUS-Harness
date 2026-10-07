@@ -41,12 +41,12 @@ export function isCandidateBlock(finishReason: string): boolean {
 }
 
 /** `safetyRatings` → the typed list; anything malformed is dropped, never thrown on (the block verdict stands). */
-export function readRatings(v: unknown): GeminiSafetyRating[] {
+export function readRatings(v: unknown, redact: (s: string) => string = (s) => s): GeminiSafetyRating[] {
   if (!Array.isArray(v)) return [];
   const out: GeminiSafetyRating[] = [];
   for (const r of v) {
     if (!isRecord(r) || typeof r["category"] !== "string") continue;
-    const item: GeminiSafetyRating = { category: r["category"], probability: typeof r["probability"] === "string" ? r["probability"] : "UNKNOWN" };
+    const item: GeminiSafetyRating = { category: redact(r["category"]).slice(0, 100), probability: typeof r["probability"] === "string" ? redact(r["probability"]).slice(0, 100) : "UNKNOWN" };
     if (typeof r["blocked"] === "boolean") item.blocked = r["blocked"];
     out.push(item);
   }
@@ -54,15 +54,16 @@ export function readRatings(v: unknown): GeminiSafetyRating[] {
 }
 
 export function promptBlock(promptFeedback: Record<string, unknown>, redact: (s: string) => string): GeminiSafetyBlockError {
-  const reason = typeof promptFeedback["blockReason"] === "string" ? promptFeedback["blockReason"] : "BLOCK_REASON_UNSPECIFIED";
+  const reason = typeof promptFeedback["blockReason"] === "string" ? redact(promptFeedback["blockReason"]).slice(0, 100) : "BLOCK_REASON_UNSPECIFIED";
   const m = promptFeedback["blockReasonMessage"];
   const detail = typeof m === "string" && m !== "" ? `: ${redact(m).slice(0, MAX_MESSAGE_CHARS)}` : "";
-  return new GeminiSafetyBlockError(`prompt blocked by Gemini (${reason})${detail}`, { source: "prompt", reason, ratings: readRatings(promptFeedback["safetyRatings"]) });
+  return new GeminiSafetyBlockError(`prompt blocked by Gemini (${reason})${detail}`, { source: "prompt", reason, ratings: readRatings(promptFeedback["safetyRatings"], redact) });
 }
 
-export function candidateBlock(finishReason: string, safetyRatings: unknown, finishMessage: unknown, redact: (s: string) => string): GeminiSafetyBlockError {
+export function candidateBlock(rawFinishReason: string, safetyRatings: unknown, finishMessage: unknown, redact: (s: string) => string): GeminiSafetyBlockError {
+  const finishReason = redact(rawFinishReason).slice(0, 100);
   const detail = typeof finishMessage === "string" && finishMessage !== "" ? `: ${redact(finishMessage).slice(0, MAX_MESSAGE_CHARS)}` : "";
-  return new GeminiSafetyBlockError(`response blocked by Gemini (${finishReason})${detail}`, { source: "candidate", reason: finishReason, ratings: readRatings(safetyRatings) });
+  return new GeminiSafetyBlockError(`response blocked by Gemini (${finishReason})${detail}`, { source: "candidate", reason: finishReason, ratings: readRatings(safetyRatings, redact) });
 }
 
 /** `google.rpc.RetryInfo.retryDelay` ("34s", "0.5s", "34.5s") out of `error.details`, in ms; absent or odd → undefined. */
@@ -107,7 +108,7 @@ export function classifyGeminiHttp(status: number, headers: Headers, bodyText: s
   const message = typeof err?.["message"] === "string" ? err["message"] : "";
   const reasons = detailReasons(err?.["details"]);
   const providerMessage = message === "" ? undefined : redact(message).slice(0, MAX_MESSAGE_CHARS);
-  const gstatus = typeof err?.["status"] === "string" ? err["status"] : undefined;
+  const gstatus = typeof err?.["status"] === "string" ? redact(err["status"]).slice(0, 100) : undefined;
   const base: ProviderErrorInit = { status };
   if (gstatus !== undefined) base.providerType = gstatus;
   if (providerMessage !== undefined) base.providerMessage = providerMessage;
@@ -157,7 +158,7 @@ const GRPC_KIND: Record<string, ProviderError["kind"]> = {
 /** An `{error:{code,message,status}}` object inside a 200 body or stream event. */
 export function classifyGeminiStreamError(v: unknown, redact: (s: string) => string): ProviderError {
   const e = isRecord(v) && isRecord(v["error"]) ? v["error"] : isRecord(v) ? v : {};
-  const gstatus = typeof e["status"] === "string" ? e["status"] : undefined;
+  const gstatus = typeof e["status"] === "string" ? redact(e["status"]).slice(0, 100) : undefined;
   const code = typeof e["code"] === "number" ? e["code"] : undefined;
   const message = typeof e["message"] === "string" ? redact(e["message"]).slice(0, MAX_MESSAGE_CHARS) : undefined;
   const init: ProviderErrorInit = {};

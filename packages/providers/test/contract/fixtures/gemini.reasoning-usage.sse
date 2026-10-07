@@ -1,0 +1,7 @@
+: SYNTHETIC reconstruction of the Gemini streamGenerateContent?alt=sse wire format (scenario "reasoning-usage"), written by hand from the public docs. NOT a live capture. See ../README.md.
+data: {"candidates":[{"content":{"parts":[{"text":"Think ","thought":true}],"role":"model"},"index":0}],"usageMetadata":{"promptTokenCount":12,"thoughtsTokenCount":3,"totalTokenCount":15},"modelVersion":"contract-gemini-1","responseId":"resp-contract-1"}
+
+data: {"candidates":[{"content":{"parts":[{"text":"hard.","thought":true}],"role":"model"},"index":0}],"usageMetadata":{"promptTokenCount":12,"thoughtsTokenCount":5,"totalTokenCount":17},"modelVersion":"contract-gemini-1","responseId":"resp-contract-1"}
+
+data: {"candidates":[{"content":{"parts":[{"text":"42"}],"role":"model"},"finishReason":"STOP","index":0}],"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":2,"thoughtsTokenCount":5,"totalTokenCount":19},"modelVersion":"contract-gemini-1","responseId":"resp-contract-1"}
+

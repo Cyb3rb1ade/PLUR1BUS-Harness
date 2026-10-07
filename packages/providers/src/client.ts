@@ -1,5 +1,5 @@
 import { ChatAccumulator, parseCompletion } from "./accumulate.ts";
-import { classifyHttpError, classifyStreamError, isRecord, protocolError, ProviderError } from "./errors.ts";
+import { redactAll, classifyHttpError, classifyStreamError, isRecord, protocolError, ProviderError } from "./errors.ts";
 import { buildRequestBody } from "./request.ts";
 import { SseParser } from "./sse.ts";
 import type {
@@ -70,11 +70,19 @@ export class Run {
     if (this.#timeouts.idleMs !== null) this.#idle = setTimeout(() => this.#interrupt({ kind: "timeout", phase: "idle" }), this.#timeouts.idleMs);
   }
 
+  /** Set by the adapter once it knows its secrets; transport error text passes through it before it is stored. */
+  redact: (s: string) => string = (s) => s;
+
   interruption(cause: unknown): ProviderError {
     const c = this.#cause;
     if (c?.kind === "timeout") return new ProviderError("timeout", `provider call timed out (${c.phase})`, { timeoutPhase: c.phase, cause });
     if (c?.kind === "aborted") return new ProviderError("aborted", "call aborted by the caller", { cause: c.reason });
-    return new ProviderError("network", `network failure: ${cause instanceof Error ? cause.message : String(cause)}`, { cause });
+    // RULING: a transport error may echo request headers (and so the credential) in its text; neither the message nor the cause chain keeps the raw text.
+    const text = this.redact(cause instanceof Error ? cause.message : String(cause)).slice(0, 500);
+    const safeCause = new Error(text, cause instanceof Error && cause.cause !== undefined ? { cause: new Error(this.redact(String((cause.cause as { message?: unknown })?.message ?? cause.cause)).slice(0, 500)) } : undefined);
+    safeCause.name = cause instanceof Error ? cause.name : "Error";
+    safeCause.stack = `${safeCause.name}: ${text}`;
+    return new ProviderError("network", `network failure: ${text}`, { cause: safeCause });
   }
 
   /** Any thrown value → the taxonomy. A `ProviderError` we raised ourselves passes through untouched. */
@@ -127,6 +135,8 @@ export function createChatCompletionsAdapter(config: ChatCompletionsConfig): Cha
     if (/[\r\n]/.test(k + v)) throw new TypeError("header contains a line break");
     extra.push([k, v]);
   }
+  // RULING: caller-supplied header values (api-key style) are secrets too; they are redacted like the credential.
+  const extraSecrets = extra.map(([, v]) => v);
   const doFetch = config.fetch ?? globalThis.fetch;
   const limits: Limits = { ...DEFAULT_LIMITS, ...config.limits };
   const maxTokensField = config.maxTokensField ?? "max_tokens";
@@ -140,7 +150,8 @@ export function createChatCompletionsAdapter(config: ChatCompletionsConfig): Cha
     if (!stream && opts?.timeouts?.headersMs === undefined && config.timeouts?.headersMs === undefined) merged.headersMs = merged.totalMs;
     const run = new Run(merged, opts?.signal);
     let secret = "";
-    const redact = (s: string) => (secret.length >= 6 ? s.split(secret).join("[redacted]") : s);
+    const redact = (s: string) => redactAll(s, secret, extraSecrets);
+    run.redact = redact;
     try {
       run.throwIfInterrupted();
       let auth: string | undefined;
@@ -203,7 +214,7 @@ export function createChatCompletionsAdapter(config: ChatCompletionsConfig): Cha
           if (isRecord(json) && json["error"] !== undefined && json["error"] !== null) throw classifyStreamError(json, redact);
           throw protocolError("expected text/event-stream, got a JSON body");
         }
-        if (!/^text\/event-stream\b/i.test(type)) throw protocolError(`expected text/event-stream, got "${type.slice(0, 80)}"`);
+        if (!/^text\/event-stream\b/i.test(type)) throw protocolError(`expected text/event-stream, got "${redact(type.slice(0, 80))}"`);
         if (!res.body) throw protocolError("response has no body");
         const parser = new SseParser(limits.maxEventBytes);
         let done = false;

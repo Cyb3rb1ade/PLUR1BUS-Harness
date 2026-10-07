@@ -78,8 +78,16 @@ export function protocolError(message: string, init: ProviderErrorInit = {}): Pr
   return new ProviderError("unknown", message, { code: "protocol", ...init });
 }
 
+/** Replaces the credential and every other known secret (values of caller-supplied headers) in a provider- or transport-chosen string. Values shorter than 6 characters are not treated as secrets (they would shred ordinary text). */
+export function redactAll(s: string, secret: string, others: readonly string[] = []): string {
+  let out = s;
+  for (const v of [secret, ...others]) if (v.length >= 6) out = out.split(v).join("[redacted]");
+  return out;
+}
+
 const MAX_RETRY_AFTER_MS = 24 * 60 * 60 * 1000;
 const MAX_MESSAGE_CHARS = 500;
+const MAX_CODE_CHARS = 200;
 
 const DAY = "(Mon|Tue|Wed|Thu|Fri|Sat|Sun)";
 const MON = "(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)";
@@ -151,7 +159,9 @@ function lc(s: string | undefined): string { return (s ?? "").toLowerCase(); }
  */
 export function classifyHttpError(status: number, headers: Headers, bodyText: string, nowMs: number, redact: (s: string) => string): ProviderError {
   const body = readErrorBody(bodyText);
-  const code = body.code, type = body.type;
+  // RULING: every provider-chosen string that reaches the error (code, type, message) passes through `redact`, not only the message.
+  const code = body.code === undefined ? undefined : redact(body.code).slice(0, MAX_CODE_CHARS);
+  const type = body.type === undefined ? undefined : redact(body.type).slice(0, MAX_CODE_CHARS);
   const providerMessage = body.message === undefined ? undefined : redact(body.message).slice(0, MAX_MESSAGE_CHARS);
   const retryAfterMs = parseRetryAfter(headers, nowMs);
   const base: ProviderErrorInit = { status };
@@ -181,8 +191,11 @@ export function classifyHttpError(status: number, headers: Headers, bodyText: st
 
 /** An error object delivered inside a 200 stream (`data: {"error":{…}}`): there is no status, so code and type decide. */
 export function classifyStreamError(v: unknown, redact: (s: string) => string): ProviderError {
-  const body = errorFromValue(v);
-  const code = lc(body.code), type = lc(body.type);
+  const raw = errorFromValue(v);
+  const body: ErrorBody = { ...raw };
+  if (raw.code !== undefined) body.code = redact(raw.code).slice(0, MAX_CODE_CHARS);
+  if (raw.type !== undefined) body.type = redact(raw.type).slice(0, MAX_CODE_CHARS);
+  const code = lc(raw.code), type = lc(raw.type);
   const providerMessage = body.message === undefined ? undefined : redact(body.message).slice(0, MAX_MESSAGE_CHARS);
   const init: ProviderErrorInit = {};
   if (body.code !== undefined) init.code = body.code;
