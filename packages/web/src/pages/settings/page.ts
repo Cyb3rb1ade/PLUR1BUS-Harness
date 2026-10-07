@@ -27,7 +27,7 @@ export function SettingsPage({ sub }: PageProps): View {
       h("nav", { class: "settings-nav", "aria-label": t("settings.nav") },
         h("ul", null, SECTIONS.map((s) => h("li", { key: s.id },
           h("a", {
-            href: `#/settings/${s.id}`, class: "settings-nav-link", ...(s.id === section.id ? { "aria-current": "page" } : {}),
+            href: `#/settings/${s.id}`, class: "settings-nav-link", ...(s.id === section.id ? { "aria-current": "true" } : {}),
             onClick: (e: MouseEvent) => { if (e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey) { e.preventDefault(); navigate(`/settings/${s.id}`); } },
           }, t(s.label)))))),
       h("div", { class: "settings-content" }, body)));

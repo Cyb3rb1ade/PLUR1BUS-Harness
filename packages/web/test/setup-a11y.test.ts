@@ -86,6 +86,7 @@ describe("setup wizard: a11y", opts, () => {
       assert.equal(await page.getByRole("radio", { name: "Commercial", exact: true }).isChecked(), true);
       await page.keyboard.press("ArrowUp");
       await page.getByRole("radio", { name: /Jina v5 Text Nano/ }).focus();
+      await page.waitForFunction(() => document.activeElement?.id === "setup-embedding-jina-v5-nano");
       await page.keyboard.press("Space");
       await page.getByRole("dialog").waitFor();
       await page.keyboard.press("Tab"); await page.keyboard.press("Tab"); await page.keyboard.press("Tab");

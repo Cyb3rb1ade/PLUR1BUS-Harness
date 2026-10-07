@@ -43,7 +43,7 @@ describe("devices: gate", opts, () => {
       publish(app, "tailnet"); await open(app);
       await app.page.getByText("Published as tailnet").waitFor();
       for (const g of ["Paired devices", "Pair a device", "Removing a device"]) await app.page.getByRole("group", { name: g }).getByRole("status").waitFor();
-      assert.deepEqual([...new Set(app.server.rpc.calls.map((c) => c.method))].filter((m) => m !== "config.get"), []);
+      assert.deepEqual([...new Set(app.server.rpc.calls.map((c) => c.method))].filter((m) => m !== "config.get" && m !== "session.list"), []); // the shell lists sessions itself
     });
   });
   test("loading, error with Try again", async () => {
