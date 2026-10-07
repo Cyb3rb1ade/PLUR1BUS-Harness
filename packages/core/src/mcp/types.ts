@@ -24,12 +24,16 @@ export const DEFAULT_IDLE_MS = 15 * 60_000;
 export const DEFAULT_MAX_RESULT_BYTES = 1024 * 1024;
 export const MAX_LIST_PAGES = 50;
 
+export interface McpReconnectPolicy { maxAttempts: number; initialDelayMs: number; maxDelayMs: number }
+
 export interface McpServerDefinition {
   name: string;
   scope: McpScope;
   transport: McpTransportConfig;
   trust: McpTrust;
   timeouts: McpTimeouts;
+  reconnect?: McpReconnectPolicy;
+  authSecret?: string;
 }
 
 /** Who a call runs for. `principal` is the opaque principal identity the call runs under (D17). */
@@ -58,7 +62,7 @@ export interface McpToolResult {
   tool: string;
   isError: boolean;
   content: Array<Record<string, unknown>>;
-  structuredContent?: Record<string, unknown>;
+  structuredContent?: unknown;
 }
 
 export type McpServerState = "stopped" | "starting" | "running";
@@ -69,6 +73,8 @@ export interface McpServerStatus {
   transport: "stdio" | "http";
   trust: McpTrust;
   state: McpServerState;
+  connectionState: "connecting" | "ready" | "degraded" | "failed" | null;
+  protocolVersion: string | null;
   /** Lifetime counts, so "never started" and "restarted" are visible. */
   starts: number;
   pid: number | null;

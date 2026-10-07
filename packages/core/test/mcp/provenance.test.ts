@@ -36,3 +36,12 @@ describe("mcp provenance envelope (D19)", () => {
     assert.equal(wrapToolResult({ content: [] }, { ...base, trust: "operator-vetted" }).provenance.origin.trust, "operator-vetted");
   });
 });
+
+it("modern structuredContent retains scalars, arrays and null while redacting every content field", () => {
+  for (const structuredContent of [null, 42, false, ["fake-secret-value"], "fake-secret-value"]) {
+    const result = wrapToolResult({ content: [{ type: "resource_link", name: "fake-secret-value", uri: "test://fake-secret-value" }], structuredContent },
+      { server: "fixture", tool: "echo", caller: { agentId: "test", principal: "test" }, trust: "untrusted", redactor: createRedactor(["fake-secret-value"]), maxBytes: 4096 });
+    assert.ok(Object.hasOwn(result, "structuredContent"));
+    assert.ok(!JSON.stringify(result).includes("fake-secret-value"));
+  }
+});

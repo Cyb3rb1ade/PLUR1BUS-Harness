@@ -23,6 +23,10 @@ struct Case {
     argv: Vec<String>,
     exit: i32,
     stdout: Value,
+    #[serde(default)]
+    stderr: String,
+    #[serde(default)]
+    stdin: Option<String>,
 }
 
 pub fn run(kind: &str) -> ! {
@@ -46,7 +50,19 @@ pub fn run(kind: &str) -> ! {
         let Some(case) = scenario.commands.into_iter().find(|c| c.argv == argv) else {
             fail("E_ARGV", "unsupported argv in scenario")
         };
-        println!("{}", case.stdout);
+        if let Some(expected) = case.stdin {
+            let mut actual = String::new();
+            std::io::Read::read_to_string(&mut std::io::stdin(), &mut actual).unwrap();
+            if actual != expected {
+                fail("E_STDIN", "unexpected stdin")
+            }
+        }
+        if let Some(raw) = case.stdout.as_str() {
+            print!("{raw}");
+        } else {
+            println!("{}", case.stdout);
+        }
+        eprint!("{}", case.stderr);
         process::exit(case.exit);
     }
     if kind == "container" {

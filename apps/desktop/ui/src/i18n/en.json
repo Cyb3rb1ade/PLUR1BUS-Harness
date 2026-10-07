@@ -145,5 +145,15 @@
   "autostart.failed": "Could not change autostart. Please try again.",
   "autostart.unconfirmed": "Autostart has not been confirmed in this session. Changing it requests permission.",
   "background.hint": "PLUR1BUS stays in the dash because no tray host is available. Close minimizes the window.",
-  "background.dismiss": "Dismiss"
+  "background.dismiss": "Dismiss",
+  "runtime.not-found": "No local container runtime was found.",
+  "runtime.too-old": "Update the container runtime before continuing.",
+  "runtime.no-access": "Cannot access the runtime. Prefer rootless Docker or Podman; membership in the docker group grants root-equivalent access.",
+  "runtime.wrong-mode": "Switch Docker to Linux containers.",
+  "runtime.stopped": "Start the container runtime and try again.",
+  "runtime.object-missing": "The runtime object no longer exists.",
+  "runtime.conflict": "An existing runtime object conflicts with this installation.",
+  "runtime.timeout": "The runtime did not respond in time. Try again.",
+  "runtime.failed": "The runtime operation failed. Check its local logs.",
+  "runtime.remote-endpoint-ignored": "Remote Docker endpoints are ignored. Choose a local socket or named pipe."
 }

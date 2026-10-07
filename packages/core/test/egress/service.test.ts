@@ -38,7 +38,7 @@ describe("egress.decide: private ranges after resolution (every IPv4/IPv6 spelli
   for (const [name, answers] of [
     ["loopback", ["127.0.0.1"]], ["rfc1918", ["10.1.2.3"]], ["rfc1918-b", ["172.16.0.9"]], ["rfc1918-c", ["192.168.1.1"]], ["metadata", ["169.254.169.254"]],
     ["cgnat (alibaba metadata)", ["100.100.100.200"]], ["unspecified", ["0.0.0.0"]], ["v6 loopback", ["::1"]], ["v4-mapped loopback", ["::ffff:127.0.0.1"]],
-    ["v4-mapped metadata", ["::ffff:169.254.169.254"]], ["ula (aws v6 metadata)", ["fd00:ec2::254"]], ["link-local v6", ["fe80::1"]], ["nat64 of loopback", ["64:ff9b::7f00:1"]],
+    ["v4-mapped metadata", ["::ffff:169.254.169.254"]], ["ula", ["fc00::1"]], ["ula (aws v6 metadata)", ["fd00:ec2::254"]], ["link-local v6", ["fe80::1"]], ["nat64 of loopback", ["64:ff9b::7f00:1"]],
     ["6to4 of loopback", ["2002:7f00:0001::"]], ["mixed public + private", ["93.184.216.34", "10.0.0.1"]],
   ] as const) {
     it(`refuses a name that resolves to ${name}`, async () => {
@@ -53,6 +53,10 @@ describe("egress.decide: private ranges after resolution (every IPv4/IPv6 spelli
       assert.equal(d.allowed, false, lit);
     });
   }
+  it("refuses an IPv4-mapped metadata literal after matching the equivalent IPv4 allowlist entry", async () => {
+    const d = await allowEverything().decide("https://[::ffff:169.254.169.254]/");
+    assert.deepEqual(d.allowed ? null : d.reason, "private-address");
+  });
   for (const spelling of ["0x7f.1", "0x7f.0.0.1", "2130706433", "017700000001", "127.1", "0177.0.0.1", "127.0.1", "0x7f000001", "1.1.1.1.1"]) {
     it(`refuses the legacy spelling ${spelling} (not listed, and loopback besides)`, async () => {
       const d = await allowEverything().decide(`https://${spelling}/`);
