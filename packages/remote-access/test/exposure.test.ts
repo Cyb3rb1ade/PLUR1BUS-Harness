@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseRemoteConfig, planListeners, DEFAULT_REMOTE_CONFIG } from "../src/exposure.ts";
-import type { PlanEnv, RemoteConfig } from "../src/exposure.ts";
+import type { PlanEnv, PlanResult, RemoteConfig } from "../src/exposure.ts";
 
 const LAN = [
   { name: "lo0", address: "127.0.0.1", internal: true },
@@ -11,7 +11,7 @@ const LAN = [
 const NOTICE = { by: "owner", at: 1_700_000_000_000 };
 const env = (over: Partial<PlanEnv> = {}): PlanEnv => ({ apiPort: 18700, tlsPort: 18701, hostInterfaces: LAN, ...over });
 const cfg = (over: Partial<RemoteConfig> = {}): RemoteConfig => ({ ...DEFAULT_REMOTE_CONFIG, ...over });
-const codes = (r: { refusals?: readonly { code: string }[] }) => (r.refusals ?? []).map((x) => x.code).sort();
+const codes = (r: PlanResult) => (r.ok ? [] : r.refusals.map((x) => x.code)).sort();
 
 // --- configuration -------------------------------------------------------------------------------------------------
 

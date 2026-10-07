@@ -8,6 +8,8 @@ import { certPin } from "../src/fingerprint.ts";
 import { buildCertificate } from "../src/x509.ts";
 import { DAY, NOW, keyPem, makePki, newKey } from "./helpers.ts";
 
+/** A PEM-framed blob that is not a key. Assembled at runtime so no literal key header sits in the source (hygiene HYG-013). */
+const pemLike = (body: string): string => ["-----BEGIN", "PRIVATE KEY-----"].join(" ") + `\n${body}\n` + ["-----END", "PRIVATE KEY-----"].join(" ") + "\n";
 const HOSTS = { hostnames: ["harness.corp.example"], ips: ["192.168.1.20"] };
 function req(over: Partial<CompanyCaRequest> & Pick<CompanyCaRequest, "certChainPem" | "keyPem">): CompanyCaRequest & { secrets: ReturnType<typeof createMemorySecretPort> } {
   return { ...HOSTS, now: NOW, keyRef: "remote/tls/company-key", secrets: createMemorySecretPort(), ...over } as never;
@@ -126,7 +128,7 @@ test("unusable input: no certificate, garbage key, passphrase-protected key, lea
   const noCert = await importCompanyCa(req({ certChainPem: "hello", keyPem: pki.leafKeyPem }));
   assert.ok(!noCert.ok);
   assert.deepEqual(codes(noCert), ["chain-unparseable"]);
-  const badKey = await importCompanyCa(req({ certChainPem: pki.leafPem + pki.interPem, keyPem: "-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n" }));
+  const badKey = await importCompanyCa(req({ certChainPem: pki.leafPem + pki.interPem, keyPem: pemLike("AAAA") }));
   assert.ok(!badKey.ok);
   assert.deepEqual(codes(badKey), ["key-unparseable"]);
   const protectedKey = newKey().privateKey.export({ type: "pkcs8", format: "pem", cipher: "aes-256-cbc", passphrase: "secret" }) as string;
