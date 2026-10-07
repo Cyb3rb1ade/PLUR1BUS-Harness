@@ -32,6 +32,10 @@ Evidence levels: **verified 2026-09-25** (read at the cited source today), **kno
 | Jan | 3 or 0 | Local-model desktop app with MCP support; OpenAI-compatible providers. | knowledge (≤ 2026-06) | Tier 0 via provider base URL. |
 | Claude Code, Codex, OpenCode, Gemini CLI (now Antigravity CLI `agy`, D40), Cursor … | 3 (memory) + ACP (control) | MCP clients; driven as agents over ACP (ADR-011). | ADR-011 | Memory through MCP tools; the harness drives them, not the other way round. |
 
+## Managed as Agent Bridge connectors (2026-10-07)
+
+Owner decision of 2026-10-07 (core spec `docs/superpowers/specs/2026-09-24-m1b-2a-core-daemon-cli-design.md` §4.1): attach adapters for CLI and desktop systems (Claude Code, Codex CLI, kimi-cli, Claude Desktop, Jan, LibreChat, …) are managed as **connectors of the `agent-bridge` module** (board `V2AgentBridge`, Settings › Agent Bridge). A connector's **Attach** role is one of the tiers above; its **Drive** role is ADR-011. The bridge detects the installed system (version and login state, never a secret), writes the attach configuration into it (MCP entry, hooks, a prompt snippet with the slim payload) visibly and reversibly, and reports health per connector under rule 1 below. It owns no transport: tier 0 is `memory-proxy`, tier 3 is `mcp-host`. The tier-1 host plugins for OpenClaw and Hermes keep their own distribution (their repositories and Track HM) but appear in the bridge as connectors with their health.
+
 ## Rules for every adapter
 
 1. **No engine in the host.** The adapter holds no store, no model, no journal; if the harness is unreachable it reports degraded to the host and drops nothing silently (a capture is retried through the kit's journal on the host side only if the host allows local files).

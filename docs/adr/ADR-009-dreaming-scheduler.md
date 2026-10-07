@@ -1,6 +1,6 @@
 # ADR-009: Dreaming scheduler
 
-**Status:** Accepted (2026-09-22, with amendment D15) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D4, D6, D9, D11, D15 · `docs/phase0/auftrag-original-2026-09-21.md` §4.1 (feature crons), §6.2, §9, §11, §12 · `docs/phase0/openclaw-sleep-plan-reference.png` (D4's reference screenshot) · `docs/phase0/research/plur1bus-crons-embedding-portability.md` §1 · `docs/phase0/research/openclaw-layout-dreaming-ui.md` §2 · `docs/phase0/research/harness-engineering-state-of-the-art.md` §6, §7 · `docs/phase0/research/plur1bus-host-contract.md` §1, §5 · Source of record: `/home/claude/refs/openclaw-plur1bus-memory` @ `89148f9`; `/home/claude/refs/openclaw` @ `b9421f4` (2026.9.5). Companion: ADR-002 (`engine.jobs` registry), ADR-006 (embed/rerank), ADR-010 (budgets).
+**Status:** Accepted (2026-09-22, with amendment D15; placement confirmed 2026-10-07) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D4, D6, D9, D11, D15 · `docs/phase0/auftrag-original-2026-09-21.md` §4.1 (feature crons), §6.2, §9, §11, §12 · `docs/phase0/openclaw-sleep-plan-reference.png` (D4's reference screenshot) · `docs/phase0/research/plur1bus-crons-embedding-portability.md` §1 · `docs/phase0/research/openclaw-layout-dreaming-ui.md` §2 · `docs/phase0/research/harness-engineering-state-of-the-art.md` §6, §7 · `docs/phase0/research/plur1bus-host-contract.md` §1, §5 · Source of record: `/home/claude/refs/openclaw-plur1bus-memory` @ `89148f9`; `/home/claude/refs/openclaw` @ `b9421f4` (2026.9.5). Companion: ADR-002 (`engine.jobs` registry), ADR-006 (embed/rerank), ADR-010 (budgets).
 
 ## Context
 
@@ -313,3 +313,10 @@ The harness-owned scheduler landed in `packages/core/src/dreams/` (operator guid
   the pinned engine's `consolidate-daily` reports none.
 * **Scope left open:** the REM-trends reader (C2), the doctor check, the diary CLI, the UI, `dreams` events as catalogued D111 log
   events (a `TODO(D111)` marks the emit site), and journal-replayed captures as an importance signal.
+
+## Amendment 2026-10-07 — the scheduler stays in the core; modules contribute job kinds
+
+Owner decision of 2026-10-07, answering the open question of the module catalogue (core spec `docs/superpowers/specs/2026-09-24-m1b-2a-core-daemon-cli-design.md` §4.1, which had proposed a `scheduler` module at Core services · 160): **the scheduler is part of the core, not a module.** The decision above stands as written — the scheduler lives in the resident core daemon, built in `packages/core/src/dreams/`.
+
+* **Why not a module.** A module can crash while the core keeps running; dreaming and every scheduled task would then stop silently, which is exactly the "failure without durable evidence" this ADR exists to prevent. Jobs call `engine.jobs.run()` in-process, with the ledger row written before every step and the budget checked before each LLM call; as a module every step would need IPC and crash-recovery rules of its own. The triggers (a task done, a quota reset) and catch-up time are core events anyway.
+* **Extensibility: job kinds, not schedulers.** Modules contribute **job kinds** through the module API (proposed call `jobs.register`; the name is not final). They never schedule on their own: the core plans, ledgers, enforces budgets and runs the breakers for every job, whatever its origin. `dreaming` is one such job kind, not a process of its own.
