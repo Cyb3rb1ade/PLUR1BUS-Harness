@@ -3,19 +3,16 @@
 import { catalogues, type Key, type Lang } from "../i18n.ts";
 import { ALL_ITEMS, GROUPS } from "../nav.ts";
 import { isSensitiveKey, type Entry } from "./match.ts";
+import { settingsHref } from "../settings-sections.ts";
 import { SETTINGS, type SettingSpec } from "./settings-index.ts";
+
+export { settingsHref };
 
 /** Sub-routes worth a nav entry of their own: path, parent nav id and label key (router.ts `sub`). Memories & Dreams is one nav
  * item with a Dreams sub-area. */
 const SUB_ROUTES: readonly { path: string; parent: string; label: Key }[] = [
   { path: "/memories/dreams", parent: "memories", label: "palette.dreams" },
 ];
-
-/** Where a settings hit goes. The Settings page evaluates `?focus=<key>` to scroll to and focus that setting once it exists; until then
- * the page is a placeholder and the query is ignored (the router drops it from the path). */
-export function settingsHref(key: string): string {
-  return `/settings?focus=${encodeURIComponent(key)}`;
-}
 
 /** "core.recall.softBudgetMs" -> "Soft budget ms": the schema has no titles, so the label comes from the last key segment. */
 export function humanize(key: string): string {

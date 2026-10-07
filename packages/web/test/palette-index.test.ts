@@ -61,12 +61,12 @@ describe("buildIndex", () => {
     assert.equal(nav("de").find((x) => x.to === "/memories/dreams")?.label, "Träume");
     assert.equal(search(buildIndex({ lang: "en" }), "traume")[0]?.entry.to, "/memories/dreams"); // German label found from English UI
   });
-  test("every setting has an entry that links to #/settings?focus=<key>", () => {
+  test("every setting has an entry that links to #/settings/<section>?focus=<key> (the agents key goes to the Agents page)", () => {
     const index = buildIndex({ lang: "en" }).filter((x) => x.group === "setting");
     assert.equal(index.length, SETTINGS.length);
     for (const s of SETTINGS) assert.equal(index.find((x) => x.key === s.key)?.to, settingsHref(s.key));
-    assert.equal(settingsHref("core.recall.softBudgetMs"), "/settings?focus=core.recall.softBudgetMs");
-    assert.equal(settingsHref("a b&c"), "/settings?focus=a%20b%26c");
+    assert.equal(settingsHref("core.recall.softBudgetMs"), "/settings/general?focus=core.recall.softBudgetMs");
+    assert.equal(settingsHref("a b&c"), "/settings/general?focus=a%20b%26c");
   });
   test("entry ids are unique", () => {
     const ids = buildIndex({ lang: "de" }).map((x) => x.id);

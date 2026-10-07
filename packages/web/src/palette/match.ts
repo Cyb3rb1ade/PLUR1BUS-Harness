@@ -17,7 +17,7 @@ export type Entry = {
   value?: string;
   /** Second line for navigation entries (the sidebar group). */
   meta?: string;
-  /** Route to open, with query for settings (`/settings?focus=<key>`). */
+  /** Route to open, with query for settings (`/settings/<section>?focus=<key>`). */
   to: string;
 };
 

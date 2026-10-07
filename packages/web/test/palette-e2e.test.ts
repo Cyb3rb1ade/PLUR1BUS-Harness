@@ -165,7 +165,7 @@ describe("palette: keyboard operation", opts, () => {
     });
   });
 
-  test("a settings hit opens #/settings?focus=<key>; typing finds it by label, key, help and value", async () => {
+  test("a settings hit opens #/settings/<section>?focus=<key>; typing finds it by label, key, help and value", async () => {
     await withApp({}, async (app) => {
       const page = await shell(app);
       await open(page);
@@ -173,7 +173,7 @@ describe("palette: keyboard operation", opts, () => {
       await dlg(page).getByRole("option", { name: /Soft budget ms/ }).waitFor();
       await page.keyboard.press("Enter");
       await page.locator("dialog.palette").waitFor({ state: "detached" });
-      assert.equal(await hash(page), "#/settings?focus=core.recall.softBudgetMs");
+      assert.equal(await hash(page), "#/settings/general?focus=core.recall.softBudgetMs");
       await page.getByRole("heading", { name: "Settings", level: 1 }).waitFor();
       await page.waitForFunction(() => document.activeElement?.tagName === "H1");
       // Same page again: the query changes, focus must not be lost to <body>.
@@ -182,13 +182,13 @@ describe("palette: keyboard operation", opts, () => {
       await dlg(page).getByRole("option", { name: /Allow loopback/ }).waitFor();
       await page.keyboard.press("Enter");
       await page.locator("dialog.palette").waitFor({ state: "detached" });
-      assert.equal(await hash(page), "#/settings?focus=egress.allowLoopback");
+      assert.equal(await hash(page), "#/settings/network?focus=egress.allowLoopback");
       await page.waitForFunction(() => document.activeElement?.tagName === "H1");
       await open(page);
       await combo(page).fill("9464"); // current value, from config.get
       await dlg(page).getByRole("option", { name: /Port/ }).waitFor();
       await dlg(page).getByRole("option", { name: /Port/ }).click();
-      assert.equal(await hash(page), "#/settings?focus=metrics.port");
+      assert.equal(await hash(page), "#/settings/general?focus=metrics.port");
     });
   });
 
