@@ -20,7 +20,7 @@ pub const RULE_PATTERN: &str = "pattern";
 pub const RULE_URL: &str = "url";
 
 /// Substrings of a key name (compared in lower case) whose value is replaced — spec §4 rule 2.
-const KEY_NAMES: [&str; 21] = [
+const KEY_NAMES: [&str; 22] = [
     "authorization",
     "cookie",
     "token",
@@ -42,6 +42,7 @@ const KEY_NAMES: [&str; 21] = [
     "session_key",
     "session-key",
     "sessionkey",
+    "accountkey",
 ];
 
 /// Header-like keys: the value is the rest of the line (`Authorization: Bearer abc`, `Cookie: a=1; b=2`).
@@ -358,6 +359,9 @@ fn vendor_key(run: &str) -> bool {
     if let Some(r) = run.strip_prefix("AIza") {
         return r.len() == 35 && all_of(r, is_ident);
     }
+    if let Some(r) = run.strip_prefix("ya29.") {
+        return r.len() >= 20;
+    }
     false
 }
 
@@ -574,6 +578,60 @@ mod tests {
         let jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NSJ9.c2lnbmF0dXJl";
         assert_gone(&r, &format!("id {jwt} end"), jwt);
         assert_gone(&r, "PLUR1BUS_FOO=whatever-value next", "whatever-value");
+    }
+
+    #[test]
+    fn bearer_url_cloud_and_env_credentials_are_replaced() {
+        let r = none();
+        let bearer = ["fixture", "_token_", "0123456789"].concat();
+        let header = ["WWW-Authenticate: ", "Be", "ar", "er ", &bearer].concat();
+        assert_gone(&r, &header, &bearer);
+        let url = [
+            "https",
+            "://",
+            "deploy-user",
+            ":",
+            "deploy-pass",
+            "@",
+            "example.com/api",
+        ]
+        .concat();
+        assert_gone(&r, &url, "deploy-user:deploy-pass");
+        assert_gone(
+            &r,
+            "AWS_SECRET_ACCESS_KEY=aws-secret-value-0123456789",
+            "aws-secret-value-0123456789",
+        );
+        assert_gone(
+            &r,
+            "AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=demo;AccountKey=AbCdEf0123456789AbCdEf0123456789AbCdEf0123456789AbCdEf0123456789AbCdEf0123456789AbCdEf0123456789;EndpointSuffix=core.windows.net",
+            "AbCdEf0123456789AbCdEf0123456789AbCdEf0123456789AbCdEf0123456789AbCdEf0123456789AbCdEf0123456789",
+        );
+        assert_gone(
+            &r,
+            "GCP access token ya29.a0AfH6SMB0123456789abcdefghijkl",
+            "ya29.a0AfH6SMB0123456789abcdefghijkl",
+        );
+        let jwt_header = ["eyJhbGci", "OiJIUzI1NiJ9"].concat();
+        let jwt = [
+            jwt_header.as_str(),
+            ".",
+            "eyJzdWIiOiIxMjM0NTY3ODkwIn0",
+            ".",
+            "signature123",
+        ]
+        .concat();
+        assert_gone(&r, &format!("id {jwt} end"), &jwt);
+        assert_gone(
+            &r,
+            "OPENAI_API_KEY=sk-proj-abcdefghijklmnopqr",
+            "sk-proj-abcdefghijklmnopqr",
+        );
+        assert_gone(
+            &r,
+            "ANTHROPIC_API_KEY=sk-ant-api03-abcdefghijklmnop",
+            "sk-ant-api03-abcdefghijklmnop",
+        );
     }
 
     #[test]
