@@ -69,8 +69,8 @@ export function installLogsMocks(server: MockHarnessServer, init: { lines?: LogR
       if (typeof p.cursor !== "string") return page(mock.lines.filter((r) => match(r, p)).slice(-limit), `t${mock.lines.length}`);
       const from = Number(p.cursor.slice(1));
       if (mock.lines.length <= from) await new Promise<void>((resolve) => { const timer = setTimeout(resolve, 1500); waiters.push(() => { clearTimeout(timer); resolve(); }); });
-      const fresh = mock.lines.slice(from);
-      return page(fresh.filter((r) => match(r, p)).slice(0, limit), `t${from + fresh.length}`);
+      const chunk = mock.lines.slice(from, from + limit);
+      return page(chunk.filter((r) => match(r, p)), `t${from + chunk.length}`);
     }, { write: false });
   }
   return mock;

@@ -45,7 +45,7 @@ describe("logs virtual list", opts, () => {
     await withApp({}, async (app) => {
       await openMany(app, 10_000);
       await app.page.evaluate(() => { const v = document.querySelector<HTMLElement>(".logs-viewport")!; v.scrollTop = v.scrollHeight / 2; });
-      await app.page.waitForFunction(() => { const r = [...document.querySelectorAll('[role="row"][data-row]')].map((e) => Number(e.getAttribute("aria-rowindex"))); return r.length > 0 && Math.min(...r) > 4000 && Math.max(...r) < 6100; });
+      await app.page.waitForFunction(() => { const r = Array.from(document.querySelectorAll('[role="row"][data-row]')).map((e) => Number(e.getAttribute("aria-rowindex"))); return r.length > 0 && Math.min(...r) > 4000 && Math.max(...r) < 6100; });
       assert.ok(await rowEls(app.page).count() < 80);
       const text = await rowEls(app.page).first().textContent();
       assert.match(text ?? "", /entry 0[45]\d{3}/);

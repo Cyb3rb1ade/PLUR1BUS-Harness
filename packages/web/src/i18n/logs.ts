@@ -84,6 +84,7 @@ export const en = {
   // log viewer: detail
   "logs.detail.title": "Log entry",
   "logs.detail.copy": "Copy {field}",
+  "logs.detail.copyShort": "Copy",
   "logs.detail.copyAll": "Copy record as JSON",
   "logs.detail.copied": "Copied {what}.",
   "logs.detail.copyFailed": "Copying failed.",
@@ -173,6 +174,7 @@ export const de: Record<keyof typeof en, string> = {
   "logs.export.note": "Exportiert die geladenen Einträge dieser Ansicht genau so, wie der Server sie geliefert hat.",
   "logs.detail.title": "Protokolleintrag",
   "logs.detail.copy": "{field} kopieren",
+  "logs.detail.copyShort": "Kopieren",
   "logs.detail.copyAll": "Eintrag als JSON kopieren",
   "logs.detail.copied": "{what} kopiert.",
   "logs.detail.copyFailed": "Kopieren fehlgeschlagen.",

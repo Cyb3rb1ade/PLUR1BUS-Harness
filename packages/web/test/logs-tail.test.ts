@@ -24,7 +24,8 @@ async function open(app: App, n = 30): Promise<LogsMock> {
   await tailState(app.page).getByText("Live").waitFor();
   return m;
 }
-const rowCount = (p: Page) => p.locator('[role="row"][data-row]').count();
+/** Waits for the count line (rows are windowed, so DOM rows do not equal loaded rows). */
+const loaded = (p: Page, n: string) => p.locator(".logs-count").getByText(`${n} entries loaded`, { exact: true }).waitFor();
 const first = async (p: Page) => (await rows(p).first().textContent()) ?? "";
 
 describe("logs tail", opts, () => {
@@ -39,7 +40,7 @@ describe("logs tail", opts, () => {
       assert.equal(typeof follow.waitMs, "number");
       assert.ok((follow.waitMs as number) > 0 && (follow.waitMs as number) <= 30000);
       assert.equal(follow.from, undefined);
-      assert.equal(await rowCount(app.page), 30, "the anchor line is not shown twice");
+      await loaded(app.page, "30");
     });
   });
 
@@ -47,8 +48,26 @@ describe("logs tail", opts, () => {
     await withApp({}, async (app) => {
       const m = await open(app);
       m.push(makeRecord(31), makeRecord(32));
-      await app.page.waitForFunction(() => document.querySelectorAll('[role="row"][data-row]').length === 32);
+      await loaded(app.page, "32");
       assert.ok((await first(app.page)).includes("entry 00032"));
+    });
+  });
+
+  test("lines arriving while the reader is scrolled down do not move what is on screen", async () => {
+    await withApp({}, async (app) => {
+      const m = await open(app, 200);
+      await app.page.evaluate(() => { document.querySelector<HTMLElement>(".logs-viewport")!.scrollTop = 1800; });
+      await app.page.waitForFunction(() => { const r = document.querySelector('[role="row"][data-row]'); return r !== null && Number(r.getAttribute("aria-rowindex")) > 20; });
+      const probe = () => app.page.evaluate(() => {
+        const v = document.querySelector<HTMLElement>(".logs-viewport")!.getBoundingClientRect();
+        const row = Array.from(document.querySelectorAll<HTMLElement>('[role="row"][data-row]')).find((r) => r.getBoundingClientRect().top >= v.top + 40)!;
+        return { text: row.textContent ?? "", offset: Math.round(row.getBoundingClientRect().top - v.top) };
+      });
+      const before = await probe();
+      m.push(makeRecord(201), makeRecord(202), makeRecord(203));
+      await loaded(app.page, "203");
+      await app.page.waitForFunction((t) => Array.from(document.querySelectorAll('[role="row"][data-row]')).some((r) => r.textContent === t), before.text);
+      assert.deepEqual(await probe(), before);
     });
   });
 
@@ -62,11 +81,11 @@ describe("logs tail", opts, () => {
       await tailState(app.page).getByText("Paused").waitFor();
       m.push(makeRecord(31), makeRecord(32), makeRecord(33));
       await app.page.locator(".logs-new").getByText("3 new entries").waitFor();
-      assert.equal(await rowCount(app.page), 30);
+      await loaded(app.page, "30");
       assert.ok((await first(app.page)).includes("entry 00030"));
       await btn.click();
       assert.equal(await btn.getAttribute("aria-pressed"), "false");
-      await app.page.waitForFunction(() => document.querySelectorAll('[role="row"][data-row]').length === 33);
+      await loaded(app.page, "33");
       assert.ok((await first(app.page)).includes("entry 00033"));
       assert.equal(await app.page.locator(".logs-new").count(), 0);
     });
@@ -80,8 +99,7 @@ describe("logs tail", opts, () => {
       await app.page.locator(".logs-new").getByText("2,000 new entries").waitFor();
       await app.page.locator(".logs-new").getByText("500 of them were dropped from the buffer.").waitFor();
       await pauseBtn(app.page).click();
-      await app.page.waitForFunction(() => document.querySelectorAll('[role="row"][data-row]').length > 0);
-      assert.ok(await app.page.getByText("2,005 entries loaded").count() > 0);
+      await loaded(app.page, "2,005");
     });
   });
 
@@ -115,7 +133,7 @@ describe("logs tail", opts, () => {
       }, { write: false });
       await openRoute(app.page, "#/logs");
       await tailState(app.page).getByText("Reconnecting…").waitFor();
-      assert.equal(await rowCount(app.page), 10);
+      await loaded(app.page, "10");
       await tailState(app.page).getByText("Live").waitFor();
     });
   });
@@ -125,14 +143,14 @@ describe("logs tail", opts, () => {
       const m = installLogsMocks(app.server, { lines: makeLines(10), tail: false });
       app.server.rpc.handle("logs.tail", () => { throw rpcError("E_DENIED", "no", "no-permission"); }, { write: false });
       await openRoute(app.page, "#/logs");
-      await app.page.getByText("Your role does not allow live tail.").waitFor();
-      assert.equal(await rowCount(app.page), 10);
+      await tailState(app.page).getByText("Your role does not allow live tail.").waitFor();
+      await loaded(app.page, "10");
       assert.equal(m.tails().length, 1, "no retry loop on a denied tail");
     });
     await withApp({}, async (app) => {
       installLogsMocks(app.server, { lines: makeLines(10), tail: false });
       await openRoute(app.page, "#/logs");
-      await app.page.getByText("Live tail is not available on this harness.").waitFor();
+      await tailState(app.page).getByText("Live tail is not available on this harness.").waitFor();
       assert.equal(await pauseBtn(app.page).isDisabled(), true);
     });
   });
@@ -143,7 +161,7 @@ describe("logs tail", opts, () => {
       const f = app.page.getByRole("search", { name: "Log filters" });
       await f.getByLabel("Order").selectOption("asc");
       await f.getByRole("button", { name: "Apply filters" }).click();
-      await app.page.getByText("Live tail is off for oldest-first order and for ranges with an end time.").waitFor();
+      await tailState(app.page).getByText("Live tail is off for oldest-first order and for ranges with an end time.").waitFor();
       const calls = m.tails().length;
       await new Promise((r) => setTimeout(r, 300));
       assert.equal(m.tails().length, calls, "no tail calls while off");

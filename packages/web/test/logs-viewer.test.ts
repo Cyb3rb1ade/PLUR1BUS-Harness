@@ -20,6 +20,14 @@ async function open(app: App, init: Parameters<typeof installLogsMocks>[1] = { t
   await openRoute(app.page, "#/logs", lang);
   return mock;
 }
+/** Waits until the list shows exactly n loaded entries (the count line; rows are windowed, so counting DOM rows would not do). */
+const loaded = (p: Page, n: number) => p.getByText(n === 1 ? "1 entry loaded" : `${n} entries loaded`, { exact: true }).waitFor();
+/** Waits until the viewer has asked n times and is no longer loading. */
+async function settled(app: App, m: LogsMock, n: number): Promise<void> {
+  await app.page.waitForFunction(() => !document.querySelector('[data-state="loading"]'));
+  while (m.queries().length < n) await new Promise((r) => setTimeout(r, 10));
+  await app.page.waitForFunction(() => !document.querySelector('[data-state="loading"]'));
+}
 const firstQuery = (m: LogsMock) => m.queries()[0]!;
 
 describe("logs viewer: list and states", opts, () => {
@@ -110,6 +118,8 @@ describe("logs viewer: list and states", opts, () => {
 
 describe("logs viewer: filters", opts, () => {
   const apply = (p: Page) => filters(p).getByRole("button", { name: "Apply filters" }).click();
+  /** Applies and waits for the answer to that query. */
+  async function applied(app: App, m: LogsMock): Promise<void> { const n = m.queries().length; await apply(app.page); await settled(app, m, n + 1); }
 
   test("level, component, text, order and a preset range become exact parameters", async () => {
     await withApp({}, async (app) => {
@@ -122,8 +132,7 @@ describe("logs viewer: filters", opts, () => {
       await f.getByLabel("Order").selectOption("asc");
       await f.getByLabel("Time range").selectOption("1h");
       const before = Date.now();
-      await apply(app.page);
-      await app.page.waitForFunction(() => document.querySelectorAll('[role="row"][data-row]').length > 0);
+      await applied(app, m);
       const q = m.queries().at(-1)!;
       const { from, ...rest } = q;
       assert.deepEqual(rest, { stream: "diagnostic", minLevel: "warn", component: "core", text: "entry", order: "asc", limit: 200 });
@@ -138,14 +147,13 @@ describe("logs viewer: filters", opts, () => {
       await rows(app.page).first().waitFor();
       const f = filters(app.page);
       await f.getByLabel("Time range").selectOption("15m");
-      await apply(app.page);
-      await app.page.waitForFunction(() => document.querySelectorAll('[role="row"][data-row]').length > 0);
+      await applied(app, m);
       assert.ok(Math.abs(Date.now() - 900_000 - Date.parse(String(m.queries().at(-1)!.from))) < 10_000);
       await f.getByLabel("Time range").selectOption("24h");
       await f.getByLabel("Minimum level").selectOption("error");
       await f.getByLabel("Stream").selectOption("audit");
       assert.equal(await f.getByLabel("Minimum level").isDisabled(), true);
-      await apply(app.page);
+      await applied(app, m);
       await app.page.getByRole("heading", { name: "No matching entries" }).waitFor();
       const q = m.queries().at(-1)!;
       assert.equal(q.stream, "audit");
@@ -163,8 +171,7 @@ describe("logs viewer: filters", opts, () => {
       await f.getByLabel("Time range").selectOption("custom");
       await f.getByLabel("From").fill("2026-10-07T10:00");
       await f.getByLabel("To").fill("2026-10-07T12:00");
-      await apply(app.page);
-      await app.page.waitForFunction(() => document.querySelectorAll('[role="row"][data-row]').length > 0);
+      await applied(app, m);
       const q = m.queries().at(-1)!;
       const expect = await app.page.evaluate(() => [new Date("2026-10-07T10:00").toISOString(), new Date("2026-10-07T12:00").toISOString()]);
       assert.deepEqual([q.from, q.to], expect);
@@ -183,8 +190,8 @@ describe("logs viewer: filters", opts, () => {
       const f = filters(app.page);
       await f.getByText("The server has no trace filter, so the ID is searched as text.", { exact: false }).waitFor();
       await f.getByLabel("Trace ID").fill("trace0030");
-      await apply(app.page);
-      await app.page.waitForFunction(() => document.querySelectorAll('[role="row"][data-row]').length === 1);
+      await applied(app, m);
+      await loaded(app.page, 1);
       assert.equal(m.queries().at(-1)!.text, "trace0030");
       await f.getByLabel("Search text").fill("x");
       const n = m.queries().length;
@@ -201,10 +208,10 @@ describe("logs viewer: filters", opts, () => {
       const f = filters(app.page);
       await f.getByLabel("Search text").fill("entry 00007");
       await f.getByLabel("Search text").press("Enter");
-      await app.page.waitForFunction(() => document.querySelectorAll('[role="row"][data-row]').length === 1);
+      await loaded(app.page, 1);
       assert.equal(m.queries().at(-1)!.text, "entry 00007");
       await f.getByRole("button", { name: "Clear filters" }).click();
-      await app.page.waitForFunction(() => document.querySelectorAll('[role="row"][data-row]').length === 30);
+      await loaded(app.page, 30);
       assert.equal(await f.getByLabel("Search text").inputValue(), "");
       assert.deepEqual(m.queries().at(-1), { stream: "diagnostic", order: "desc", limit: 200 });
     });
@@ -214,7 +221,7 @@ describe("logs viewer: filters", opts, () => {
     await withApp({}, async (app) => {
       const m = installLogsMocks(app.server, { lines: makeLines(40), tail: false });
       await openRoute(app.page, "#/logs?trace=trace0020");
-      await app.page.waitForFunction(() => document.querySelectorAll('[role="row"][data-row]').length === 1);
+      await loaded(app.page, 1);
       assert.equal(firstQuery(m).text, "trace0020");
       assert.equal(await filters(app.page).getByLabel("Trace ID").inputValue(), "trace0020");
     });
@@ -245,8 +252,8 @@ describe("logs viewer: pagination", opts, () => {
       await rows(app.page).first().waitFor();
       await filters(app.page).getByLabel("Order").selectOption("asc");
       await filters(app.page).getByRole("button", { name: "Apply filters" }).click();
-      await app.page.getByText("200 entries loaded").waitFor();
-      assert.ok(((await rows(app.page).first().textContent()) ?? "").includes("entry 00001"));
+      await loaded(app.page, 200);
+      await app.page.waitForFunction(() => document.querySelector('[role="row"][data-row]')?.textContent?.includes("entry 00001"));
       app.server.rpc.scenario("logs.query", "error");
       await app.page.getByRole("button", { name: "Load newer" }).click();
       await app.page.getByText("More entries could not be loaded.").waitFor();
@@ -331,16 +338,16 @@ describe("logs viewer: export", opts, () => {
       await rows(app.page).first().waitFor();
       await filters(app.page).getByLabel("Minimum level").selectOption("warn");
       await filters(app.page).getByRole("button", { name: "Apply filters" }).click();
-      await app.page.waitForFunction(() => document.querySelectorAll('[role="row"][data-row]').length === 20);
+      await loaded(app.page, 10);
       const expected = m.lines.filter((r) => r.level === "warn" || r.level === "error").reverse();
-      assert.equal(expected.length, 20);
+      assert.equal(expected.length, 10);
       const nd = await download(app, "Export NDJSON");
       assert.match(nd.file, /^plur1bus-logs-.*\.ndjson$/);
       assert.deepEqual(nd.text.trimEnd().split("\n").map((l) => JSON.parse(l)), expected);
       const js = await download(app, "Export JSON");
       assert.match(js.file, /\.json$/);
       assert.deepEqual(JSON.parse(js.text), expected);
-      await app.page.getByText("Exported 20 loaded entries.").waitFor();
+      await app.page.getByText("Exported 10 loaded entries.").waitFor();
       assert.ok(nd.text.includes("[REDACTED:secret-key]"), "redaction markers stay as the server sent them");
     });
   });

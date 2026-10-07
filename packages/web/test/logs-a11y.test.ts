@@ -41,7 +41,7 @@ describe("logs axe", opts, () => {
       await app.page.getByRole("dialog", { name: "Log entry" }).getByText("[REDACTED:secret-key]").waitFor();
       await expectAxeClean(app.page, "redacted detail");
       await app.page.keyboard.press("Escape");
-      for (const [scenario, heading] of [["empty", "No matching entries"], ["error", "Something went wrong"], ["forbidden", "Not allowed"], ["unavailable", "Not available"]] as const) {
+      for (const [scenario, heading] of [["empty", "No matching entries"], ["error", "Something went wrong"], ["forbidden", "Not allowed"], ["unavailable", "Logs are not available"]] as const) {
         app.server.rpc.scenario("logs.query", scenario === "empty" ? "success" : scenario);
         if (scenario === "empty") app.server.rpc.handle("logs.query", () => ({ records: [], nextCursor: null, corrupt: 0, scanned: { files: 1, bytes: 1 }, truncated: false }), { write: false });
         await app.page.getByRole("search", { name: "Log filters" }).getByLabel("Search text").fill("x");
@@ -69,7 +69,7 @@ describe("logs axe", opts, () => {
 });
 
 describe("logs layout", opts, () => {
-  for (const width of [400, 960, 1440]) {
+  for (const width of [320, 400, 960, 1440]) {
     test(`${width} px: no horizontal page scroll, rows readable, filters reachable`, async () => {
       await withApp({ width, height: 800 }, async (app) => {
         installLogsMocks(app.server, { lines: makeLines(60), tail: false });
@@ -94,13 +94,13 @@ describe("logs layout", opts, () => {
     });
   }
 
-  test("200 % zoom at 1280 px (an effective 640 px window) keeps the page free of horizontal scroll", async () => {
+  test("200 % zoom at 1280 px is a 640 px window: no horizontal page scroll, nothing cut off", async () => {
     await withApp({ width: 640, height: 600 }, async (app) => {
       installLogsMocks(app.server, { lines: makeLines(60), tail: false });
       await openRoute(app.page, "#/logs");
       await rows(app.page).first().waitFor();
-      await app.page.addStyleTag({ content: "html { zoom: 2; }" });
       assert.equal(await noPageScroll(app.page), true);
+      await expectAxeClean(app.page, "640px");
     });
   });
 });
