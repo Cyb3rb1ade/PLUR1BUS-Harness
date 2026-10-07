@@ -1,4 +1,5 @@
 import { isAbsolute } from "node:path";
+import { isSecretName } from "../secrets/types.ts";
 import { McpClientError } from "./errors.ts";
 import { DEFAULT_TIMEOUTS, type McpPolicy, type McpScope, type McpServerDefinition, type McpTimeouts, type McpTransportConfig, type McpTrust } from "./types.ts";
 
@@ -113,5 +114,15 @@ export function validateDefinition(raw: unknown, policy: Pick<McpPolicy, "allowe
   const r = raw as Record<string, unknown>;
   const name = typeof r.name === "string" && NAME.test(r.name) ? r.name : invalid(null, "name must match [a-z0-9][a-z0-9_-]{0,63}");
   const trust: McpTrust = r.trust === undefined ? "untrusted" : r.trust === "operator-vetted" || r.trust === "untrusted" ? r.trust : invalid(name, "trust must be \"untrusted\" or \"operator-vetted\"");
-  return { name, scope: validateScope(r.scope, name), transport: validateTransport(r.transport, name, policy), trust, timeouts: validateTimeouts(r.timeouts, name) };
+  let reconnect: McpServerDefinition["reconnect"];
+  if (r.reconnect !== undefined) {
+    const p = r.reconnect as Record<string, unknown>;
+    if (!p || typeof p !== "object" || Array.isArray(p) || Object.keys(p).some(k => !["maxAttempts", "initialDelayMs", "maxDelayMs"].includes(k)) ||
+        !Number.isInteger(p.maxAttempts) || Number(p.maxAttempts) < 0 || Number(p.maxAttempts) > 10 ||
+        !Number.isInteger(p.initialDelayMs) || Number(p.initialDelayMs) < 50 || Number(p.initialDelayMs) > 60000 ||
+        !Number.isInteger(p.maxDelayMs) || Number(p.maxDelayMs) < Number(p.initialDelayMs) || Number(p.maxDelayMs) > 60000) invalid(name, "reconnect policy is invalid");
+    reconnect = { maxAttempts: Number(p.maxAttempts), initialDelayMs: Number(p.initialDelayMs), maxDelayMs: Number(p.maxDelayMs) };
+  }
+  if (r.authSecret !== undefined && !isSecretName(r.authSecret)) invalid(name, "authSecret must be a secret name");
+  return { ...(reconnect ? { reconnect } : {}), ...(typeof r.authSecret === "string" ? { authSecret: r.authSecret } : {}), name, scope: validateScope(r.scope, name), transport: validateTransport(r.transport, name, policy), trust, timeouts: validateTimeouts(r.timeouts, name) };
 }

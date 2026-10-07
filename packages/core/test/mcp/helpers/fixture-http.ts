@@ -23,7 +23,7 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
   return raw === "" ? undefined : JSON.parse(raw);
 }
 
-export async function startFixtureHttp(): Promise<FixtureHttp> {
+export async function startFixtureHttp(factory = createFixtureServer): Promise<FixtureHttp> {
   const transports = new Map<string, StreamableHTTPServerTransport>();
   const states: FixtureState[] = [];
   let last: IncomingMessage["headers"] = {};
@@ -34,7 +34,7 @@ export async function startFixtureHttp(): Promise<FixtureHttp> {
       const body = req.method === "POST" ? await readJson(req) : undefined;
       let transport = sid ? transports.get(sid) : undefined;
       if (!transport && !sid && req.method === "POST" && isInitializeRequest(body)) {
-        const { server, state } = createFixtureServer();
+        const { server, state } = factory();
         states.push(state);
         const t: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => randomUUID(),
