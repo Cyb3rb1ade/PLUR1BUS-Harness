@@ -1,4 +1,5 @@
 // Shared connection lifetime and features; the protocol adapters retain each era's exact wire semantics.
+import { StringDecoder } from "node:string_decoder";
 import { StreamableHTTPClientTransport, StreamableHTTPError } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { RequestOptions } from "@modelcontextprotocol/sdk/shared/protocol.js";
@@ -75,6 +76,7 @@ export class McpConnection {
   private exited = false;
   private stopping = false;
   private stderrBuf = "";
+  private readonly stderrAttached = new WeakSet<BoundedStdioTransport>();
   private stderrWindowStart = 0;
   private stderrInWindow = 0;
   stderrLines = 0;
@@ -109,7 +111,10 @@ export class McpConnection {
       onError: error => { this.state("degraded"); d.logger.debug("mcp.client.error", { server: d.def.name, message: d.redactor.redact(error.message) }); },
     };
     this.client = modern ? new ModernProtocol(options) : new LegacyProtocol(options);
-    if (d.transportFactory) this.transport = d.transportFactory(modern);
+    if (d.transportFactory) {
+      this.transport = d.transportFactory(modern);
+      if (this.transport instanceof BoundedStdioTransport) this.attachStderr(this.transport);
+    }
     else if (t.type === "stdio") {
       const env = buildChildEnv(t, d.hostEnv); for (const secret of env.secrets) d.redactor.add(secret, true);
       if (env.missing.length) d.logger.warn("mcp.server.env-missing", { server: d.def.name, names: env.missing });
@@ -292,7 +297,7 @@ export class McpConnection {
         this.state("degraded"); await this.close("hard"); this.d.onRemoteClose();
         throw new McpClientError("closed", `${name}: MCP session expired; next use initializes a new session`, { server: name });
       }
-      if (deadline.timedOut) { this.state("degraded"); await this.close("hard"); this.d.onRemoteClose(); throw new McpClientError("call-timeout", `${name}: ${what} did not answer within ${ms} ms`, { server: name }); }
+      if (deadline.timedOut || error instanceof McpError && error.code === ErrorCode.RequestTimeout) { this.state("degraded"); await this.close("hard"); this.d.onRemoteClose(); throw new McpClientError("call-timeout", `${name}: ${what} did not answer within ${ms} ms`, { server: name }); }
       if (signal?.aborted) { this.state("degraded"); await this.close("hard"); this.d.onRemoteClose(); throw new McpClientError("aborted", `${name}: ${what} aborted`, { server: name }); }
       const code = error instanceof McpError && error.code === ErrorCode.ConnectionClosed ? "closed" : error instanceof McpError ? "server-error" : "protocol";
       throw new McpClientError(code, this.d.redactor.redact(`${name}: ${what}: ${(error as Error).message}`), { server: name });
@@ -313,9 +318,12 @@ export class McpConnection {
   }
   private attachStderr(t: BoundedStdioTransport): void {
     const s = t.stderr;
-    if (!s) return;
+    if (!s || this.stderrAttached.has(t)) return;
+    this.stderrAttached.add(t);
+    const decoder = new StringDecoder("utf8");
+    s.on("end", () => { this.stderrBuf += decoder.end(); this.flushStderr(); });
     s.on("data", (chunk: Buffer | string) => {
-      this.stderrBuf += typeof chunk === "string" ? chunk : chunk.toString("utf8");
+      this.stderrBuf += typeof chunk === "string" ? chunk : decoder.write(chunk);
       let i: number;
       while ((i = this.stderrBuf.indexOf("\n")) >= 0) { this.emitLine(this.stderrBuf.slice(0, i)); this.stderrBuf = this.stderrBuf.slice(i + 1); }
       if (this.stderrBuf.length > STDERR_PARTIAL_MAX) { this.emitLine(this.stderrBuf); this.stderrBuf = ""; }

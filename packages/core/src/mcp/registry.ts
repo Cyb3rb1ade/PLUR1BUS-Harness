@@ -3,7 +3,7 @@
 import type { Clock } from "./clock.ts";
 import { systemClock } from "./clock.ts";
 import { validateDefinition } from "./config.ts";
-import { McpConnection, type McpConnectionState, type McpResource, type McpPrompt, type McpResourceTemplate } from "./connection.ts";
+import { McpConnection, type McpConnectionState, type McpResource, type McpPrompt, type McpResourceTemplate, type ConnectionDeps } from "./connection.ts";
 import type { McpProtocolVersion } from "./protocol.ts";
 import type { McpClientPorts } from "./ports.ts";
 import { SecretBearerAuthProvider, type McpAuthProvider } from "./auth.ts";
@@ -241,7 +241,7 @@ export class McpRegistry {
     if (e.conn && !e.conn.isClosed) return Promise.resolve(e.conn);
     if (e.starting) return e.starting;
     e.conn = null;
-    const starting = McpConnection.open({
+    const deps: ConnectionDeps = {
       def: e.def, clock: this.clock, logger: this.logger, redactor: e.redactor, hostEnv: this.hostEnv,
       ...(e.protocolVersion ? { knownVersion: e.protocolVersion } : {}),
       ...(this.options.ports ? { ports: this.options.ports(e.def) } : {}),
@@ -251,7 +251,14 @@ export class McpRegistry {
       onNotification: (method, params) => this.emit({ server: e.def.name, method, params: this.safeData(e, params) }),
       onToolsChanged: () => { e.cache.markStale(); },
       onRemoteClose: () => { this.onRemoteClose(e); },
-    }, e.startAbort.signal).then((c) => {
+    };
+    const starting = McpConnection.open(deps, e.startAbort.signal).catch(error => {
+      if (!deps.knownVersion || deps.knownVersion === "2026-07-28" || e.startAbort.signal.aborted || !(error instanceof McpClientError) || error.code !== "connect-failed") throw error;
+      // A deployment changed generations. Forget only the cached era and probe once; do not retry application calls.
+      e.protocolVersion = null;
+      const { knownVersion: _knownVersion, ...fresh } = deps;
+      return McpConnection.open(fresh, e.startAbort.signal);
+    }).then((c) => {
       e.starts++;
       e.conn = c; e.protocolVersion = c.protocolVersion;
       return c;

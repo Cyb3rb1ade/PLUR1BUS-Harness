@@ -85,7 +85,8 @@ connect deadline) falls back to the legacy handshake. Recognized modern errors
 fail visibly when there is no compatible supported revision. A version rejection
 advertising a supported legacy revision can select its legacy handshake.
 The registry remembers and displays the selected `protocolVersion` per registered
-server; the connection exposes both sides' capabilities and server identity.
+server; a failed cached legacy assumption is re-probed once after an upgrade.
+The connection exposes both sides' capabilities and server identity.
 
 | Behavior | 2026-07-28 | 2025-11-25 / older legacy |
 | --- | --- | --- |

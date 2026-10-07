@@ -42,3 +42,14 @@ it("modern progress correlates to progressToken and cancellation is sent on stdi
     assert.deepEqual(progress, [1]); assert.ok(f.requests.some(m => m.method === "notifications/cancelled"));
   } finally { await c.close("graceful"); await f.close(); }
 });
+
+it("fragmented UTF-8 stderr is decoded before secret redaction", async () => {
+  const f = await pipedModern(); const logger = capturingLogger(); const secret = "密🔑fake-secret";
+  const c = await McpConnection.open({ def: stdioDef(), clock: systemClock, logger, redactor: createRedactor([secret]), hostEnv: {}, onToolsChanged: () => {}, onRemoteClose: () => {}, transportFactory: () => f.client });
+  try {
+    const bytes = Buffer.from(secret + "\n");
+    f.client.stderr.write(bytes.subarray(0, 1)); await tick(); f.client.stderr.write(bytes.subarray(1)); await tick();
+    const line = logger.lines.find(l => l.msg === "mcp.server.stderr");
+    assert.equal(line?.fields?.line, "[REDACTED]"); assert.ok(!logger.text().includes("fake-secret"));
+  } finally { await c.close("graceful"); await f.close(); }
+});
