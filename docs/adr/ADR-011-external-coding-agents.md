@@ -1,6 +1,6 @@
 # ADR-011: External coding agents
 
-**Status:** Accepted (2026-09-22; amended 2026-10-07: implemented as `agent-bridge` connectors) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D5, D6, D11; `docs/phase0/auftrag-original-2026-09-21.md` §7, §8, §10, §11, §12 (M6), §13 Q3; `docs/phase0/research/protocols-channels-coding-clis.md` (Coding CLIs, ACP ecosystem, minimum-viable adapter strategy); `docs/phase0/research/providers-chat-auth-caching.md` (subscription-login policy); `docs/phase0/research/hermes-learnings-and-import.md` A2, A12; `docs/phase0/research/harness-engineering-state-of-the-art.md` §5; local repos `agent-client-protocol@bba7ddf`, `buzz@77729ab`; ADR-003, ADR-005, ADR-008
+**Status:** Accepted (2026-09-22; amended 2026-10-07: implemented as `agent-bridge` connectors, connector catalogue) · **Date:** 2026-09-22 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D5, D6, D11; `docs/phase0/auftrag-original-2026-09-21.md` §7, §8, §10, §11, §12 (M6), §13 Q3; `docs/phase0/research/protocols-channels-coding-clis.md` (Coding CLIs, ACP ecosystem, minimum-viable adapter strategy); `docs/phase0/research/providers-chat-auth-caching.md` (subscription-login policy); `docs/phase0/research/hermes-learnings-and-import.md` A2, A12; `docs/phase0/research/harness-engineering-state-of-the-art.md` §5; local repos `agent-client-protocol@bba7ddf`, `buzz@77729ab`; ADR-003, ADR-005, ADR-008
 
 ## Context
 
@@ -219,3 +219,43 @@ Owner decision of 2026-10-07 (core spec `docs/superpowers/specs/2026-09-24-m1b-2
 * The *Discovery* rules above become the connector's detection: version and login state, never reading a credential's contents.
 * The bridge spawns a driven CLI per session, reports health per connector (degraded, never a silent drop) and starts only when at least one connector is active. It owns no transport of its own; it uses `mcp-host`, `memory-proxy`, `http-api` and `plur1bus acp`.
 * Connectors are described by a manifest; new ones can ship as `.p1x` extensions. The per-CLI descriptors and evidence levels of this ADR become connector manifests; the tiers, the permission model and the M6 minimum set are unchanged.
+
+### Drive-side connector catalogue (2026-10-07)
+
+Owner request of 2026-10-07: the bridge covers the systems below. Source and evidence levels (**V** verified 2026-10-07 from the primary source, **P** partly, **U** unverified): `docs/research/2026-10-07-agent-bridge-connectors.md`, which also holds attach tiers, config paths, login-storage paths and sources. It is input to the connector manifests; each connector re-verifies before it is implemented. It supersedes the registry versions in the *Adapter tiers* table above where they differ.
+
+| Connector | Drive tiers | Entry point / adapter package | Evidence |
+|---|---|---|---|
+| Claude Code | T1 adapter, T2, T3 | **`@agentclientprotocol/claude-agent-acp`** (0.86.0; `@zed-industries/claude-code-acp` is stale); T2 `claude -p --output-format stream-json --input-format stream-json` | P |
+| Codex CLI | T1 adapter, T2, T3 | **`@agentclientprotocol/codex-acp`** (2.1.1; `@zed-industries/codex-acp` is stale); T2 `codex exec --json` | P |
+| Kimi Code CLI (`kimi`) | T1 native, T2 | `kimi acp`; `kimi -p … --output-format stream-json` | V |
+| Antigravity CLI (`agy`) | T1 via Google's server, T2 | Google's official ACP server binary `agy_acp_server.par` (ACP/Zed registry "Google Antigravity"); `agy` itself has no ACP flag; T2 `agy -p … --output-format stream-json` | P |
+| DeepSeek Harness (`dsh`; GUI and desktop app not drivable) | T1 native, T2 | `dsh --profile acp` (automation-only: committed text, no tool calls or plans; MCP-in-`session/new` conflicting between READMEs); `dsh --profile headless` | P |
+| Qwen Code (`qwen`; desktop app attach-only) | T1 native, T2 | `qwen --acp`; `qwen -p … --output-format stream-json` | V |
+| Grok CLI (`@xai-official/grok`) | T1 native, T2 | `grok agent stdio`; `grok -p … --output-format streaming-json` | V |
+| Cursor CLI (`agent`, legacy `cursor-agent`) | T1 native, T2 | `agent acp`; `agent -p --output-format stream-json` | V |
+| GitHub Copilot CLI (`copilot`; desktop app and VS Code GUI-only) | T1 native (preview), T2 | `copilot --acp --stdio`; `copilot -p … -s --allow-all-tools` | V |
+| claw-code (`claw`) | T2 (non-streaming JSON), T3 | no ACP yet; `claw --output-format json prompt …`; build from source | P |
+| Pi (`pi`) | T1 adapter, T2/RPC, T3 | **`pi-acp`** (0.0.34); `pi --mode rpc` (bidirectional JSONL) or `--mode json`; package moved to `@earendil-works/pi-coding-agent` | V |
+| OpenCode | T1 native, T2 | `opencode acp`; `opencode run --format json`; also `opencode serve` | V |
+| Kilo Code CLI (`kilo`) | T1 native, T2 | `kilo acp`; `kilo run --format json --auto` | V |
+| Cline CLI (`cline`; IDE extension not drivable) | T1 native, T2 | `cline --acp`; `cline --json` (NDJSON) | V |
+| Kiro CLI (`kiro-cli`, formerly Amazon Q Developer CLI) | T1 native, T2 (text) | `kiro-cli acp`; `kiro-cli chat --no-interactive` | P |
+| nanobot | T2 (text), HTTP | no ACP; `nanobot agent -m …`; `nanobot serve` OpenAI-compatible `/v1/chat/completions` | V |
+| Aider | **T3 only** (text T2 at best) | no ACP, no JSON output; `aider --message … --yes-always` | P |
+| OpenClaw, Hermes | T1 native | on the ACP agents list; attach stays tier 1 (host adapters) | V (version/ACP only) |
+| Claude Desktop, Jan, LibreChat, Open WebUI, NanoClaw, ZeroClaw | — | attach-only connectors (`docs/host-adapters.md`) | U / not re-checked |
+
+**Corrections to the sections above.**
+* **kimi-cli is archived** (PyPI `kimi-cli` 1.52.0 "no longer maintained"); the connector is **Kimi Code CLI** (repo `MoonshotAI/kimi-code`, data root `~/.kimi-code/`), with new detection paths.
+* **Amazon Q Developer CLI is replaced by Kiro CLI**, whose licence is the closed AWS Intellectual Property License (Q CLI was Apache-2.0); config moved from `~/.aws/amazonq/` to `~/.kiro/`.
+* **Aider has no ACP and no JSON output**: Tier 3 (text-only Tier 2 at best), attach tier 0 only.
+* The ACP adapters moved to the `@agentclientprotocol/*` scope; the `@zed-industries/*` packages are stale.
+
+**Terms notes (re-check under action item 9 before promoting a connector).**
+* Anthropic: Free/Pro/Max subscription logins are for Claude Code and claude.ai only; whenever an Anthropic model is routed through the harness (claw-code, Pi, OpenCode, the harness's own agents), use an API key. Driving the official `claude` binary under the user's own login is a grey zone (unverified); an API key is safe.
+* Google `agy`: a Google forum answer says spawning the unmodified binary as a single-user child process or PTY under the user's own login is compliant if tokens are not extracted or forwarded. This is a forum statement, not formal terms.
+* GitHub Copilot CLI: the licence allows redistribution only unmodified and embedded in an app with material extra functionality, never standalone; each `-p` prompt consumes premium requests.
+* Cursor and Kiro: no explicit harness clause found.
+
+**Not connectors.** The Grok bot (Grok in Telegram or @grok on X) and Amazon Bedrock have no local drive or attach surface; they are **provider profiles** (xAI API; Bedrock Converse or its OpenAI-compatible endpoint). Bedrock Agents and Bedrock AgentCore are remote managed runtimes reachable only through the AWS API; they would need a separate remote-API engine adapter, out of scope for T1–T3.
