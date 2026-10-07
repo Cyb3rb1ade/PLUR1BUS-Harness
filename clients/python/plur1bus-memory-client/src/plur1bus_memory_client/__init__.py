@@ -14,6 +14,7 @@ from .client import (
     MemoryClient,
 )
 from .paths import core_address, core_pid_path, core_token_path, default_home, is_absolute_home, run_dir
+from .trust import UntrustedEndpoint, is_trust_refusal
 from .protocol import (
     CLIENT_ERROR_CODES,
     MAX_LINE,
@@ -44,6 +45,7 @@ __all__ = [
     "SCHEMA_SHA256",
     "Stream",
     "TRANSPORT_CODES",
+    "UntrustedEndpoint",
     "__version__",
     "core_address",
     "core_pid_path",
@@ -52,6 +54,7 @@ __all__ = [
     "default_home",
     "encode_request",
     "is_absolute_home",
+    "is_trust_refusal",
     "parse_rpc_version",
     "read_response",
     "result_of",

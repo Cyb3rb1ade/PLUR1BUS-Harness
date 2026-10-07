@@ -42,7 +42,7 @@ import { platformCapabilities } from "../../platform.ts";
 import type { AgentImportReport } from "./openclaw-agents.ts";
 import type { Engine, HostServices } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 
-const SAFE_READ_REFUSALS = new Set(["symlink-refused", "not-a-regular-file", "file-too-large", "read-failed"]);
+const SAFE_READ_REFUSALS = new Set(["unsafe-symlink", "not-regular-file", "file-too-large", "source-unreadable"]);
 
 function createImportHost(stateDir: string, workspaceDir: (id: string) => Promise<string>): HostServices {
   return {

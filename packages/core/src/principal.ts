@@ -8,7 +8,7 @@ export const AGENT_CONTEXT_CLI: AgentContext = Object.freeze({ origin: "user", b
 const MAX_IDENTITY = 128; // INPUT_LIMITS.ACCOUNT_ID / USER_ID in the engine's lib/input-limits.js
 const CONTROL = /[\u0000-\u001f\u007f]/;
 
-function validIdentity(v: unknown): v is string {
+export function validIdentity(v: unknown): v is string {
   return typeof v === "string" && v.length > 0 && v.length <= MAX_IDENTITY && !CONTROL.test(v);
 }
 

@@ -5,7 +5,7 @@ import { randomBytes } from "node:crypto";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server, type Socket } from "node:net";
 import { LineDecoder, encodeLine } from "../../src/framing.ts";
-import { runDir, supervisorAddress, supervisorTokenPath } from "../../src/paths.ts";
+import { runDir, supervisorAddress, supervisorPidPath, supervisorTokenPath } from "../../src/paths.ts";
 import type { ConfigChanged } from "../../src/config-watch.ts";
 
 export interface FakeSupervisor {
@@ -62,6 +62,8 @@ function persona(home: string, o: { config: Record<string, unknown>; revision?: 
   const token = o.token ?? randomBytes(32).toString("hex");
   mkdirSync(runDir(home), { recursive: true });
   writeFileSync(supervisorTokenPath(home), token, { mode: 0o600 });
+  // On Windows the client refuses a pipe whose expected server pid is unknown; the fake is served by this process.
+  writeFileSync(supervisorPidPath(home), `${process.pid} fake-supervisor`, { mode: 0o600 });
   return { token, config: o.config, revision: o.revision ?? "r1", n: 1, ...(o.onWatch ? { onWatch: o.onWatch } : {}), sets: [], watches: [], watchers: new Set(), sockets: new Set() };
 }
 

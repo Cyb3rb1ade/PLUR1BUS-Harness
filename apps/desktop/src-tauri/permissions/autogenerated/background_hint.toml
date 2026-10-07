@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-background-hint"
+description = "Enables the background_hint command without any pre-configured scope."
+commands.allow = ["background_hint"]
+
+[[permission]]
+identifier = "deny-background-hint"
+description = "Denies the background_hint command without any pre-configured scope."
+commands.deny = ["background_hint"]

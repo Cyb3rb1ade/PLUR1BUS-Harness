@@ -1,0 +1,1 @@
+{"expect":{"kind":"context_length","status":400,"retryable":false},"response":{"status":400,"headers":{},"body":{"error":{"message":"prompt is too long: 250000 tokens > 200000 maximum"}}}}

@@ -641,6 +641,41 @@ impl HarnessClient {
     }
     /// Consume one bounded authenticated trust event. Its data is never an authority:
     /// callers re-pull the closed trust document, persist it and then acknowledge.
+    /// Open the native status stream only after checking installation identity.
+    pub async fn status_events(
+        &self,
+        installation: &str,
+        token: &SecretString,
+        last: Option<&str>,
+    ) -> Result<reqwest::Response, ClientError> {
+        self.check_meta(installation).await?;
+        let mut request = self
+            .streaming_http()?
+            .get(format!("{}{}", self.origin.as_str(), route::EVENTS))
+            .query(&[("topics", "harness.status")])
+            .bearer_auth(token.expose());
+        if let Some(last) = last {
+            if last.len() > 256 || !last.bytes().all(|b| (32..127).contains(&b)) {
+                return Err(ClientError::Protocol);
+            }
+            request = request.header("Last-Event-ID", last);
+        }
+        let response = request.send().await.map_err(|_| self.error())?;
+        if !response.status().is_success() {
+            self.bytes(response, 4096).await?;
+            return Err(ClientError::Protocol);
+        }
+        if !response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v.starts_with("text/event-stream"))
+        {
+            return Err(ClientError::Protocol);
+        }
+        Ok(response)
+    }
+
     pub async fn trust_event(
         &self,
         installation: &str,

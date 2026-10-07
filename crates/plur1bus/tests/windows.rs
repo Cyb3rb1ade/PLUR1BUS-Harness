@@ -231,6 +231,37 @@ fn supervisor_run_files_grant_only_user_and_system() {
 }
 
 #[test]
+fn supervisor_logs_grant_only_user_and_system() {
+    let dir = tempfile::tempdir().unwrap();
+    let scratch = tempfile::tempdir().unwrap();
+    let _sup = start_supervisor(dir.path());
+    let user = user_sid().unwrap();
+    let logs = dir.path().join("logs");
+    let log = logs.join("supervisor.log");
+    for path in [&logs, &log] {
+        let sddl = file_sddl(path, scratch.path());
+        assert!(
+            sddl.contains("D:P"),
+            "{}: inherited entries kept: {sddl}",
+            path.display()
+        );
+        let entries = file_dacl_report(path).unwrap();
+        assert_eq!(
+            sids(&entries),
+            BTreeSet::from([user.clone(), "S-1-5-18".to_string()]),
+            "{}: {entries:?}",
+            path.display()
+        );
+        assert_eq!(entries.len(), 2, "{}: {entries:?}", path.display());
+        assert!(
+            entries.iter().all(|e| e.allow),
+            "{}: {entries:?}",
+            path.display()
+        );
+    }
+}
+
+#[test]
 fn core_pipe_default_dacl_is_not_writable_by_others() {
     let dir = tempfile::tempdir().unwrap();
     let home: PathBuf = dir.path().to_path_buf();
