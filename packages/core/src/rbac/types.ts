@@ -18,9 +18,15 @@ export interface BreakGlassGrant {
   readonly revokedAt?: number;
 }
 
+/** Who is calling: a person (session, token, local owner) or an agent acting through a tool, MCP, ACP or A2A path. */
+export const PRINCIPAL_KINDS = ["person", "agent"] as const;
+export type PrincipalKind = (typeof PRINCIPAL_KINDS)[number];
+
 export interface Principal {
   /** The opaque harness user id (ADR-007 `harnessUserId`). */
   readonly userId: string;
+  /** Only the resolver that authenticated a *person* sets "person". Absent counts as not-a-person for `humanOnly` actions (fail closed). */
+  readonly kind?: PrincipalKind;
   readonly role: Role;
   readonly agentRights?: Readonly<Record<string, AgentRight>>;
   readonly projectRights?: Readonly<Record<string, ProjectRight>>;
@@ -50,13 +56,15 @@ export interface ActionSpec {
   readonly resource: ResourceShape;
   /** The right `object` grants need on the agent or project; manage implies use, lead implies member. */
   readonly needs?: AgentRight | ProjectRight;
+  /** D109 D6: only a principal of kind "person" may hold it. Checked before roles, rights, token scopes and break-glass, so no role entry can open it to an agent. */
+  readonly humanOnly?: boolean;
   readonly grants: Readonly<Partial<Record<Role, readonly Grant[]>>>;
 }
 
 export type AllowReason = "role" | "own" | "object-right" | "break-glass";
 export type DenyReason =
   | "unauthenticated" | "invalid-principal" | "unknown-action" | "resource-mismatch" | "token-scope"
-  | "role-denied" | "not-owner" | "object-right-required" | "break-glass-required" | "audit-failed";
+  | "role-denied" | "not-owner" | "object-right-required" | "break-glass-required" | "audit-failed" | "agent-principal";
 
 export type Decision =
   | { readonly effect: "allow"; readonly reason: AllowReason; readonly breakGlassId?: string }

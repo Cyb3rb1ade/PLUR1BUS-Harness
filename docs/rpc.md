@@ -7701,7 +7701,7 @@ D109 §5: a new approval request is pending. Opt-in (a subscription must name ap
 
 **Served by:** core
 
-D109 §5: a request left pending (approved, denied, used, expired or cancelled). The first valid answer closes it on every surface. Opt-in; delivered as approval.requested.
+D109 §5: a request left pending (approved, denied, used, expired or cancelled). The first valid answer closes it on every surface. Opt-in (a subscription must name approval.resolved in names) and delivered only to subscriptions of person principals with approval.read; never to an agent.
 
 ```json
 {
@@ -7710,7 +7710,7 @@ D109 §5: a request left pending (approved, denied, used, expired or cancelled).
   "x-server": "core",
   "type": "object",
   "additionalProperties": false,
-  "description": "D109 §5: a request left pending (approved, denied, used, expired or cancelled). The first valid answer closes it on every surface. Opt-in; delivered as approval.requested.",
+  "description": "D109 §5: a request left pending (approved, denied, used, expired or cancelled). The first valid answer closes it on every surface. Opt-in (a subscription must name approval.resolved in names) and delivered only to subscriptions of person principals with approval.read; never to an agent.",
   "required": [
     "approval"
   ],

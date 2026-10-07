@@ -79,6 +79,11 @@ export const ENTRIES: readonly Entry[] = [
   { action: "logs.read", page: "Dreaming, Cron, Sessions/Logs", verb: "read" },
   { action: "audit.read", page: "Users & roles", verb: "read" }, // R7: audit trail with the users page, not the operator's logs
   { action: "logs.query", page: "Users & roles", verb: "read", cells: ownerAdmin }, // D4: logs.query/logs.tail, Owner/Admin only (narrower than logs.read)
+  // D109 grants and approvals (spec 2026-09-28 §4): people only. Deciding and changing grants is Owner/Admin; Operator may read the queue and verify the chain.
+  { action: "grant.read", page: "Users & roles", verb: "read", cells: ownerAdmin },
+  { action: "grant.write", page: "Users & roles", verb: "write", cells: ownerAdmin },
+  { action: "approval.read", page: "Users & roles", verb: "read", cells: cells("yes", "yes", "yes", "none", "none") },
+  { action: "approval.decide", page: "Users & roles", verb: "write", cells: ownerAdmin },
 
   ...["models", "providers", "channels", "plugins", "mcp"].flatMap(catalogue),
 

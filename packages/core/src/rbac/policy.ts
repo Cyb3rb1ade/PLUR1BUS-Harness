@@ -13,6 +13,8 @@ const OB: G = ["own", "break-glass"];
 function spec(action: string, resource: ResourceShape, grants: Partial<Record<Role, G>>, needs?: ActionSpec["needs"]): ActionSpec {
   return { action, resource, ...(needs ? { needs } : {}), grants };
 }
+/** D109 D6: an action no agent principal may ever hold, whatever role, right, token scope or break-glass grant it carries. */
+const humanOnly = (s: ActionSpec): ActionSpec => ({ ...s, humanOnly: true });
 const OA = { owner: A, admin: A } as const; // owner and admin only
 const READERS = { owner: A, admin: A, operator: A, viewer: A } as const; // ADR-004 "read" on the operations/catalogue pages
 
@@ -87,6 +89,12 @@ export const POLICY: readonly ActionSpec[] = Object.freeze([
   spec("import.run", "system", OA),
   spec("doctor.read", "system", { owner: A, admin: A, operator: A }),
   spec("doctor.run", "system", { owner: A, admin: A, operator: A }),
+
+  // D109 grants and approvals (spec 2026-09-28 §4): people only (`humanOnly`). Owner/Admin change and decide; Operator may read the queue and verify the chain.
+  humanOnly(spec("grant.read", "system", OA)),
+  humanOnly(spec("grant.write", "system", OA)),
+  humanOnly(spec("approval.read", "system", { owner: A, admin: A, operator: A })),
+  humanOnly(spec("approval.decide", "system", OA)),
 
   // The RPC `admin.*` family (obsidian, migrate, embedding): CLI-only for people, Owner/Admin.
   ...["admin.obsidian.detect", "admin.obsidian.prepare", "admin.obsidian.confirm", "admin.migrate", "admin.embedding.probe", "admin.embedding.serve",
