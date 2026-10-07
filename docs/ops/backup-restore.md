@@ -113,8 +113,9 @@ gestoppt sein. `restore` prüft das Archiv vor dem Anwenden und bewahrt ersetzte
    plur1bus 1staid check
    ```
 
-   Falls der Store ein älteres Schema als die Engine hat, anschließend `plur1bus admin migrate` ausführen. Die
-   ersetzten Dateien bleiben im genannten `pre-restore`-Verzeichnis.
+   Falls eine Store-Migration erforderlich ist, beachte die [CLI-Anleitung zu `admin migrate`](../cli.md#plur1bus-admin-migrate):
+   der Befehl benötigt die aktuelle und die Ziel-Schema-Version als `--from` und `--to`. Die ersetzten Dateien
+   bleiben im genannten `pre-restore`-Verzeichnis.
 
 ## Typische Fehler
 
