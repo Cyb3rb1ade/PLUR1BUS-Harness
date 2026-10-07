@@ -12,8 +12,8 @@ use plur1bus_ext::testkit::{
 };
 use plur1bus_ext::trust::{trusted_comment, Tier, TrustStore, PINNED_KEYS};
 use plur1bus_ext::verify::{
-    first_line, inspect_file, inspect_reader, inspect_reader_kinds, Inspection, Policy, ScriptInfo, Status,
-    X2_KINDS,
+    first_line, inspect_file, inspect_reader, inspect_reader_kinds, Inspection, Policy, ScriptInfo,
+    Status, X2_KINDS,
 };
 use plur1bus_ext::zipaudit::Limits;
 use serde_json::{json, Value};
@@ -525,7 +525,10 @@ fn x2_kinds_inspect_when_the_caller_accepts_them_and_stay_refused_for_x1_callers
     for t in [x2_mcp(), x2_provider()] {
         let pkg = build_package_from(&t, vec![f("README.md", b"x", false)], Some(&key));
         let e = refusal(&pkg, &store);
-        assert_eq!((e.code, e.reason), ("E_NOT_AVAILABLE", reason::KIND_UNSUPPORTED));
+        assert_eq!(
+            (e.code, e.reason),
+            ("E_NOT_AVAILABLE", reason::KIND_UNSUPPORTED)
+        );
         let i = inspect_reader_kinds(&mut Cursor::new(&pkg), &p, &X2_KINDS).unwrap();
         assert_eq!(status_of(&i, "manifest"), Status::Pass);
         assert_eq!(i.manifest.name, t["name"].as_str().unwrap());

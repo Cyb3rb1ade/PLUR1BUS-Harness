@@ -76,7 +76,11 @@ pub fn declared_rights(m: &P1xManifest) -> Vec<Right> {
         }
     }
     for s in c["secrets"].as_array().into_iter().flatten() {
-        let req = if s["required"] == true { ":required" } else { "" };
+        let req = if s["required"] == true {
+            ":required"
+        } else {
+            ""
+        };
         out.push(right(
             format!("secret:{}{req}", s["slot"].as_str().unwrap_or("")),
             Risk::Medium,
@@ -118,7 +122,11 @@ pub fn declared_rights(m: &P1xManifest) -> Vec<Right> {
     if let Some(url) = m.rest.get("remote").and_then(|r| r["url"].as_str()) {
         out.push(right(format!("remote:{url}"), Risk::Medium));
     }
-    if let Some(url) = m.rest.get("provider").and_then(|p: &Value| p["baseUrl"].as_str()) {
+    if let Some(url) = m
+        .rest
+        .get("provider")
+        .and_then(|p: &Value| p["baseUrl"].as_str())
+    {
         out.push(right(format!("provider:{url}"), Risk::Medium));
     }
     out.sort_by(|a, b| a.id.cmp(&b.id));

@@ -4,8 +4,8 @@ use plur1bus_ext::manifest::{parse_manifest, Kind, P1xManifest};
 use plur1bus_ext::pack::PayloadFile;
 use plur1bus_ext::refusal::reason;
 use plur1bus_ext::rights::{declared_rights, max_risk, Risk};
-use sha2::{Digest, Sha256};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 
 fn base(name: &str, kind: &str) -> Value {
     json!({
@@ -38,13 +38,19 @@ fn f(rel: &str, bytes: &[u8], exec: bool) -> PayloadFile {
     }
 }
 
-fn parse(t: &Value, files: Vec<PayloadFile>) -> Result<P1xManifest, plur1bus_ext::refusal::Refusal> {
+fn parse(
+    t: &Value,
+    files: Vec<PayloadFile>,
+) -> Result<P1xManifest, plur1bus_ext::refusal::Refusal> {
     // Filled by hand: `testkit::filled_manifest` panics on a template the schema refuses, which these tests want to see.
     let mut v = t.clone();
     let mut map = serde_json::Map::new();
     let mut scripts = Vec::new();
     for pf in &files {
-        let hex: String = Sha256::digest(&pf.bytes).iter().map(|b| format!("{b:02x}")).collect();
+        let hex: String = Sha256::digest(&pf.bytes)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
         let mut e = json!({ "sha256": hex, "size": pf.bytes.len() });
         if pf.exec {
             e["exec"] = json!(true);
@@ -61,7 +67,8 @@ fn remote_mcp() -> Value {
     let mut t = base("crm", "mcp-server");
     t["remote"] = json!({ "url": "https://mcp.example.org/v1", "auth": "header" });
     t["capabilities"]["network"] = json!({ "mode": "allowlist", "hosts": ["mcp.example.org"] });
-    t["capabilities"]["secrets"] = json!([{ "slot": "token", "label": { "en": "Token" }, "required": true }]);
+    t["capabilities"]["secrets"] =
+        json!([{ "slot": "token", "label": { "en": "Token" }, "required": true }]);
     t
 }
 
@@ -76,7 +83,8 @@ fn provider() -> Value {
     let mut t = base("acme", "provider");
     t["provider"] = json!({ "api": "chat_completions", "baseUrl": "https://api.acme.example/v1" });
     t["capabilities"]["network"] = json!({ "mode": "allowlist", "hosts": ["api.acme.example"] });
-    t["capabilities"]["secrets"] = json!([{ "slot": "apiKey", "label": { "en": "Key" }, "required": true }]);
+    t["capabilities"]["secrets"] =
+        json!([{ "slot": "apiKey", "label": { "en": "Key" }, "required": true }]);
     t
 }
 
@@ -164,7 +172,11 @@ fn a_remote_mcp_server_runs_nothing_locally() {
     let mut t = remote_mcp();
     t["capabilities"]["processes"] = json!({ "spawn": true });
     refused(&t, vec![], "spawn");
-    refused(&remote_mcp(), vec![f("run.sh", b"#!/bin/sh\n", true)], "script");
+    refused(
+        &remote_mcp(),
+        vec![f("run.sh", b"#!/bin/sh\n", true)],
+        "script",
+    );
 }
 
 #[test]
@@ -234,14 +246,26 @@ fn a_provider_runs_no_code_and_holds_no_authority() {
     let mut t = provider();
     t["capabilities"]["harness"] = json!({ "authority": "full" });
     refused(&t, vec![], "authority");
-    refused(&provider(), vec![f("run.sh", b"#!/bin/sh\n", true)], "script");
+    refused(
+        &provider(),
+        vec![f("run.sh", b"#!/bin/sh\n", true)],
+        "script",
+    );
 }
 
 #[test]
 fn allowlist_hosts_are_bare_names() {
-    for bad in ["https://x.example", "x.example/path", "x.example:443", "X.Example", "a b", ""] {
+    for bad in [
+        "https://x.example",
+        "x.example/path",
+        "x.example:443",
+        "X.Example",
+        "a b",
+        "",
+    ] {
         let mut t = provider();
-        t["capabilities"]["network"] = json!({ "mode": "allowlist", "hosts": [bad, "api.acme.example"] });
+        t["capabilities"]["network"] =
+            json!({ "mode": "allowlist", "hosts": [bad, "api.acme.example"] });
         refused(&t, vec![], "host");
     }
     let mut t = provider();
@@ -265,7 +289,11 @@ fn rights_list_what_the_extension_asks_for_in_a_stable_order() {
     let ids: Vec<String> = declared_rights(&m).into_iter().map(|r| r.id).collect();
     assert_eq!(
         ids,
-        ["network:host:mcp.example.org", "remote:https://mcp.example.org/v1", "secret:token:required"]
+        [
+            "network:host:mcp.example.org",
+            "remote:https://mcp.example.org/v1",
+            "secret:token:required"
+        ]
     );
     let mut t = local_mcp();
     t["capabilities"]["filesystem"] = json!([

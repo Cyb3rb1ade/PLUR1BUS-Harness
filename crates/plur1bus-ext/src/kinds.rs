@@ -77,7 +77,11 @@ fn net_mode(m: &P1xManifest) -> &str {
 fn net_hosts(m: &P1xManifest) -> Vec<String> {
     m.capabilities["network"]["hosts"]
         .as_array()
-        .map(|a| a.iter().filter_map(|h| h.as_str().map(str::to_string)).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|h| h.as_str().map(str::to_string))
+                .collect()
+        })
         .unwrap_or_default()
 }
 
@@ -118,10 +122,14 @@ fn require_endpoint_allowlist(m: &P1xManifest, what: &str, url: &str) -> Result<
 pub fn check_kind(m: &P1xManifest) -> Result<(), Refusal> {
     // Common.
     if has_value(m, "remote") && m.kind != Kind::McpServer {
-        return Err(bad("remote: only an mcp-server may declare a remote endpoint"));
+        return Err(bad(
+            "remote: only an mcp-server may declare a remote endpoint",
+        ));
     }
     if has_value(m, "provider") && m.kind != Kind::Provider {
-        return Err(bad("provider: only a provider may declare a provider block"));
+        return Err(bad(
+            "provider: only a provider may declare a provider block",
+        ));
     }
     if net_mode(m) == "allowlist" {
         for h in net_hosts(m) {
@@ -146,7 +154,9 @@ pub fn check_kind(m: &P1xManifest) -> Result<(), Refusal> {
         Kind::Skill => {
             // RULING: a skill is text the model reads; it never holds harness authority.
             if authority(m) != "none" {
-                return Err(bad("capabilities.harness.authority: a skill has authority none"));
+                return Err(bad(
+                    "capabilities.harness.authority: a skill has authority none",
+                ));
             }
         }
         Kind::Module | Kind::Channel | Kind::Bundle => {}
@@ -196,7 +206,9 @@ fn check_mcp(m: &P1xManifest) -> Result<(), Refusal> {
             ));
         }
         if m.files.is_empty() {
-            return Err(bad("payload: a local mcp-server carries its code, the payload is empty"));
+            return Err(bad(
+                "payload: a local mcp-server carries its code, the payload is empty",
+            ));
         }
         return Ok(());
     }
@@ -226,7 +238,9 @@ fn check_provider(m: &P1xManifest) -> Result<(), Refusal> {
     no_code(m, "a provider")?;
     // RULING: a provider is data the harness interprets; no authority at all.
     if authority(m) != "none" {
-        return Err(bad("capabilities.harness.authority: a provider has authority none"));
+        return Err(bad(
+            "capabilities.harness.authority: a provider has authority none",
+        ));
     }
     require_endpoint_allowlist(m, "the provider baseUrl", value_str(p, "baseUrl"))
 }
