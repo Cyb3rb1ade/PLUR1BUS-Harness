@@ -37,3 +37,13 @@ it("legacy scan failure remains synchronously readable by existing diagnostics",
     assert.ok(text.includes("model.scan.failed")); assert.ok(!text.includes("fixture-legacy-canary"));
   } finally { await log.close(); }
 });
+it("legacy Error fields retain redacted name/message/stack", async () => {
+  const dir = logsDir(); const log = createCoreLog({ dir, role: "core", source: { kind: "harness", id: "core", version: null }, timers: false });
+  try {
+    log.error("legacy error fixture", { err: new Error("fixture failure password=fixture-error-canary") });
+    const rows = readFileSync(path.join(dir, "core.log"), "utf8").trim().split("\n").map(s => JSON.parse(s));
+    const row = rows.find(r => r.msg === "legacy error fixture");
+    assert.equal(row.err.name, "Error"); assert.ok(row.err.message.includes("fixture failure")); assert.ok(typeof row.err.stack === "string");
+    assert.ok(!JSON.stringify(row).includes("fixture-error-canary"));
+  } finally { await log.close(); }
+});

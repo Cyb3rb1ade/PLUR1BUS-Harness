@@ -1,5 +1,6 @@
 import { KEY_ORDER, LIMITS, attrsSchemaFor, levelAtLeast, lookupEvent, validateRecord, type Level } from "@plur1bus/log-schema";
 import { createHash } from "node:crypto";
+import { serializeError } from "@plur1bus/module-api";
 import { createRedactor } from "./redact.ts";
 import { LevelPolicy, type LevelSettings, type Source } from "./levels.ts";
 import { currentTrace, newTrace } from "./trace.ts";
@@ -115,7 +116,7 @@ export function createWriter(o: WriterOptions) {
       if (closed) throw new Error("log writer closed");
       if (!levelAtLeast(level, policy.resolve(o.source))) return;
       try {
-        const safe = redactor.value(fields);
+        const safe = redactor.value(Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, serializeError(value)])));
         const record = { at: new Date(now()).toISOString(), level, role: o.role, ...safe, msg: cap(redactor.text(msg), LIMITS.msgBytes) };
         let line = JSON.stringify(record);
         if (Buffer.byteLength(line) > LIMITS.lineBytes) line = JSON.stringify({ at: record.at, level, role: o.role, msg: record.msg, truncated: true, bytes: Buffer.byteLength(line) });
