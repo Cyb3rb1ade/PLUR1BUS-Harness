@@ -151,6 +151,7 @@ export function createRedactor(o: RedactorOptions = {}): Redactor {
     if (typeof v === "object") {
       const out: Record<string, unknown> = {};
       for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
+        if (k === "__proto__") continue; // a JSON.parse own key of that name must not become a prototype
         out[text(k)] = isSecretKey(k) && x !== null && x !== undefined ? KEY_MARK : value(x, depth + 1);
       }
       return out;
