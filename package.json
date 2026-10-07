@@ -16,7 +16,7 @@
     "lint": "pnpm typecheck && node scripts/lint-hygiene.mjs && node --test --test-timeout=120000 scripts/lint-hygiene.test.mjs scripts/build-hermes-provider.test.mjs",
     "build:hermes": "node scripts/build-hermes-provider.mjs --out dist/hermes",
     "docs:gen": "cargo build -q -p plur1bus && node scripts/gen-engine-keys.mjs && node scripts/gen-docs.mjs",
-    "docs:check": "cargo build -q -p plur1bus && node scripts/gen-docs.mjs --check",
+    "docs:check": "cargo build -q -p plur1bus && node scripts/gen-docs.mjs --check && node scripts/check-docs-commands.mjs",
     "bench": "node scripts/bench.mjs"
   },
   "devDependencies": {
