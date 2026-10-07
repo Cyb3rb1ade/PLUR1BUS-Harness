@@ -4,7 +4,7 @@ import { h } from "preact";
 import type { View } from "../../view.ts";
 import { Badge } from "../../components/card.ts";
 import { formatNumber, t } from "../../i18n.ts";
-import { Facts, Panel, S, duration } from "./common.ts";
+import { Facts, Panel, duration } from "./common.ts";
 import { getApi, caller, useLoad, type Failure } from "./data.ts";
 import type { Degraded } from "./rpc-types.ts";
 
@@ -40,7 +40,7 @@ function EngineBadge({ engine }: { engine: CoreStatusLite["engine"] }): View {
 
 function Schema({ s }: { s: NonNullable<CoreStatusLite["engine"]["storeSchema"]> }): View {
   const behind = s.current !== s.expected;
-  return h("span", { style: S.row },
+  return h("span", { class: "m-row" },
     h("span", {}, s.current === null ? t("memory.health.schemaUnknown", { expected: s.expected }) : behind ? `${s.current} → ${s.expected}` : s.current),
     behind ? h(Badge, { tone: "warn" }, t("memory.health.migration")) : h(Badge, { tone: "ok" }, t("memory.health.upToDate")));
 }
@@ -53,7 +53,7 @@ export function Health({ agentId, core, coreFailure, tick }: HealthProps): View 
   const counts = useLoad((signal) => getApi().rpc("memory.state", { caller: caller(), agentId }, { write: false, signal }), [agentId], tick);
   const e = core?.engine;
   return h(Panel, { title: t("memory.health.title"), aside: e ? h(EngineBadge, { engine: e }) : null },
-    h("div", { style: S.stack },
+    h("div", { class: "m-stack" },
       core && e ? h(Facts, { rows: [
         [t("memory.health.degradation"), e.degraded ? `${e.degraded.reason} (${e.degraded.capability})${e.degraded.detail ? `: ${e.degraded.detail}` : ""}` : undefined],
         [t("memory.health.process"), core.process.reason ? `${core.process.state} (${core.process.reason})` : core.process.state],
@@ -62,9 +62,9 @@ export function Health({ agentId, core, coreFailure, tick }: HealthProps): View 
         [t("memory.health.reranker"), model(e.models?.reranker)],
         [t("memory.health.schema"), e.storeSchema ? h(Schema, { s: e.storeSchema }) : t("memory.none")],
         [t("memory.health.shared"), e.sharedMemory ? (e.sharedMemory.supported ? `${t("memory.health.supported")} (${e.sharedMemory.mode})` : `${t("memory.health.unsupported")}${e.sharedMemory.reason ? `: ${e.sharedMemory.reason}` : ""}`) : t("memory.none")],
-      ] }) : h("p", { style: S.muted }, coreFailure?.kind === "forbidden" ? t("memory.health.statusForbidden") : t("memory.health.statusUnavailable")),
-      counts.state.status === "loading" ? h("p", { role: "status", style: S.muted }, t("state.loading"))
-        : counts.state.status === "fail" ? h("p", { style: S.muted }, counts.state.failure.kind === "forbidden" ? t("memory.health.countsForbidden") : t("memory.health.countsUnavailable"))
+      ] }) : h("p", { class: "m-muted" }, coreFailure?.kind === "forbidden" ? t("memory.health.statusForbidden") : t("memory.health.statusUnavailable")),
+      counts.state.status === "loading" ? h("p", { role: "status", class: "m-muted" }, t("state.loading"))
+        : counts.state.status === "fail" ? h("p", { class: "m-muted" }, counts.state.failure.kind === "forbidden" ? t("memory.health.countsForbidden") : t("memory.health.countsUnavailable"))
         : h(Facts, { rows: [
           [t("memory.scope.agentPrivate"), count(counts.state.data.cards.agentPrivate)],
           [t("memory.scope.workspace"), count(counts.state.data.cards.workspace)],

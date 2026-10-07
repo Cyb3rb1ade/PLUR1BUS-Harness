@@ -13,6 +13,9 @@
 .page-inner > p:has(> .btn:only-child) { margin: 0 0 12px; }
 .page-inner > p.reading { margin: 0 0 16px; color: var(--ink-2); font-size: 13px; }
 
+/* The selected row of a list+detail pane: filled, with an accent bar (not colour alone). */
+.ld-list .nav-link[aria-current="true"] { font-weight: 600; box-shadow: 0 0 0 1px var(--line), inset 3px 0 0 var(--accent); }
+
 /* Fact list: <dl class="facts"> with dt/dd pairs, either flat or wrapped in a div per pair. Two columns, stacked when narrow. */
 .facts { display: grid; grid-template-columns: minmax(8rem, max-content) minmax(0, 1fr); margin: 0; }
 .facts > div { display: contents; }

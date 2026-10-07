@@ -68,33 +68,19 @@ export function OutcomeBadge({ outcome }: { outcome: DreamOutcome | null }): Vie
   return h(Badge, { tone: o.tone }, t(o.label));
 }
 
-// The shared stylesheet is out of this page's scope, so the few layout rules this page needs are set through the CSSOM
-// (style objects), which the strict CSP of ADR-004 allows (it only refuses style attributes and style elements).
-export const S = {
-  facts: { display: "grid", gridTemplateColumns: "minmax(0, max-content) minmax(0, 1fr)", columnGap: "16px", rowGap: "6px", margin: "0" },
-  dt: { color: "var(--ink-2)", fontWeight: "600" },
-  dd: { margin: "0", overflowWrap: "anywhere" },
-  stack: { display: "grid", gap: "12px" },
-  row: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px" },
-  pre: { margin: "0", padding: "12px", whiteSpace: "pre-wrap", overflowWrap: "anywhere", overflow: "auto", maxHeight: "24rem", background: "var(--field-bg)", border: "1px solid var(--border)", borderRadius: "10px", font: "12px/1.5 var(--font-mono, monospace)" },
-  item: { display: "grid", gap: "4px", minWidth: "0" },
-  muted: { color: "var(--ink-2)" },
-  clamp: { overflowWrap: "anywhere" },
-} as const;
-
 /** The shared Card, with a heading that wraps: the shared Card title does not break an unbroken string (an agent id, a card
  *  summary), which would push the page into horizontal scrolling. Same markup and classes, so it looks like every Card. */
 export function Panel({ title, level = 2, aside, children }: { title: string; level?: 2 | 3; aside?: ComponentChildren; children?: ComponentChildren }): View {
   const id = useId();
   return h("div", { class: "card", role: "group", "aria-labelledby": id },
-    h("div", { class: "card-head" }, h(`h${level}`, { id, class: "card-title", style: { minWidth: "0", overflowWrap: "anywhere" } }, title), aside ?? null),
+    h("div", { class: "card-head" }, h(`h${level}`, { id, class: "card-title" }, title), aside ?? null),
     children);
 }
 
 /** A `<dl>` of label/value rows; values may be views. Rows with `undefined` are skipped. */
 export function Facts({ rows }: { rows: readonly (readonly [string, string | View | null | undefined])[] }): View {
-  return h("dl", { style: S.facts }, rows.filter((r) => r[1] !== undefined).map(([k, v]) => [
-    h("dt", { key: `${k}-t`, style: S.dt }, k),
-    h("dd", { key: `${k}-d`, style: S.dd }, v ?? t("memory.none")),
+  return h("dl", { class: "facts" }, rows.filter((r) => r[1] !== undefined).map(([k, v]) => [
+    h("dt", { key: `${k}-t` }, k),
+    h("dd", { key: `${k}-d` }, v ?? t("memory.none")),
   ]));
 }

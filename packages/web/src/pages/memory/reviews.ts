@@ -5,7 +5,7 @@ import type { View } from "../../view.ts";
 import { Badge } from "../../components/card.ts";
 import { PageState } from "../../components/page-state.ts";
 import { t } from "../../i18n.ts";
-import { FailureState, Panel, S, time } from "./common.ts";
+import { FailureState, Panel, time } from "./common.ts";
 import { caller, getApi, useLoad } from "./data.ts";
 
 export function Reviews({ agentId, tick }: { agentId: string; tick: number }): View {
@@ -16,15 +16,15 @@ export function Reviews({ agentId, tick }: { agentId: string; tick: number }): V
   else if (state.data.items.length === 0) body = h(PageState, { state: "empty", title: t("memory.reviews.empty"), detail: t("memory.reviews.emptyDetail") });
   else {
     const { items, truncated, unreadable } = state.data;
-    body = h("div", { style: S.stack },
-      h("ul", { class: "plain-list" }, items.map((p) => h("li", { key: p.id, style: { ...S.item, padding: "8px 0", borderBottom: "1px solid var(--line)" } },
-        h("span", { style: S.row }, h(Badge, { tone: "warn" }, t("memory.reviews.pending")), h(Badge, {}, t(`memory.scope.${p.target}`)),
-          h("span", { style: S.muted }, t("memory.reviews.from", { proposer: p.proposerAgentId, when: time(p.createdAt) }))),
-        p.note ? h("span", { style: S.clamp }, p.note) : null,
-        h("span", { style: S.clamp }, h("strong", {}, t("memory.reviews.before")), " ", p.oldText),
-        h("span", { style: S.clamp }, h("strong", {}, t("memory.reviews.after")), " ", p.newText)))),
-      truncated ? h("p", { style: S.muted }, t("memory.reviews.truncated")) : null,
-      unreadable > 0 ? h("p", { style: S.muted }, t("memory.reviews.unreadable", { n: unreadable })) : null);
+    body = h("div", { class: "m-stack" },
+      h("ul", { class: "plain-list" }, items.map((p) => h("li", { key: p.id, class: "m-item m-review" },
+        h("span", { class: "m-row" }, h(Badge, { tone: "warn" }, t("memory.reviews.pending")), h(Badge, {}, t(`memory.scope.${p.target}`)),
+          h("span", { class: "m-muted" }, t("memory.reviews.from", { proposer: p.proposerAgentId, when: time(p.createdAt) }))),
+        p.note ? h("span", { class: "m-wrap" }, p.note) : null,
+        h("span", { class: "m-wrap" }, h("strong", {}, t("memory.reviews.before")), " ", p.oldText),
+        h("span", { class: "m-wrap" }, h("strong", {}, t("memory.reviews.after")), " ", p.newText)))),
+      truncated ? h("p", { class: "m-muted" }, t("memory.reviews.truncated")) : null,
+      unreadable > 0 ? h("p", { class: "m-muted" }, t("memory.reviews.unreadable", { n: unreadable })) : null);
   }
   return h(Panel, { title: t("memory.reviews.title"), aside: state.status === "ok" && state.data.items.length > 0 ? h(Badge, { tone: "warn" }, String(state.data.items.length)) : null }, body);
 }

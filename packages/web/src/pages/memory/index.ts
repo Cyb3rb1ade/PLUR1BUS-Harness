@@ -10,7 +10,6 @@ import { Tabs } from "../../components/tabs.ts";
 import { t } from "../../i18n.ts";
 import { navigate } from "../../router.ts";
 import type { PageProps } from "../registry.ts";
-import { S } from "./common.ts";
 import { getApi } from "./data.ts";
 import { DreamsTab } from "./dreams-tab.ts";
 import { MemoriesTab } from "./memories-tab.ts";
@@ -64,7 +63,7 @@ export function MemoriesPage({ sub }: PageProps): View {
 
   const refresh = h("button", { type: "button", class: "btn", onClick: () => { setTick((n) => n + 1); } }, t("memory.refresh"));
   return h(Page, { title: t("nav.memories"), width: "full", actions: refresh },
-    h("p", { style: { ...S.muted, margin: "0 0 12px" } }, on ? t("memory.live.on") : live === "connecting" || live === "off" ? t("memory.live.connecting") : t("memory.live.off")),
+    h("p", { class: "m-muted m-live" }, on ? t("memory.live.on") : live === "connecting" || live === "off" ? t("memory.live.connecting") : t("memory.live.off")),
     h(Tabs, {
       label: t("memory.views"), selected: route.tab,
       onSelect: (id) => { navigate(id === "dreams" ? "/memories/dreams" : "/memories"); },

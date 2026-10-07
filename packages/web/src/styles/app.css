@@ -3,6 +3,7 @@
 @import "./models.css"; /* models page */
 @import "./budget.css"; /* usage & quota page */
 @import "./doctor.css"; /* doctor page */
+@import "./memory.css"; /* memories & dreams page */
 @import "./chat.css"; /* chat page (src/pages/chat) */
 @import "./palette.css"; /* command palette (src/palette); declared after the shared rules it overrides via specificity, not order */
 

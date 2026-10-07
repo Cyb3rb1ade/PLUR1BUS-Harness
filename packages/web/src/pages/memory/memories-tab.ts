@@ -6,7 +6,7 @@ import type { View } from "../../view.ts";
 import { PageState } from "../../components/page-state.ts";
 import { t } from "../../i18n.ts";
 import { CardsSection } from "./cards.ts";
-import { FailureState, S } from "./common.ts";
+import { FailureState } from "./common.ts";
 import { failureOf, getApi, useLoad, type Failure } from "./data.ts";
 import { Health, loadCoreStatus, type CoreStatusLite } from "./health.ts";
 import { Reviews } from "./reviews.ts";
@@ -42,7 +42,7 @@ export function MemoriesTab({ selectedId, tick, proposalTick }: MemoriesTabProps
   if (agents.length === 0) return h(PageState, { state: "empty", title: t("memory.noAgents"), detail: t("memory.noAgentsDetail") });
   const agentId = chosen.value !== null && agents.includes(chosen.value) ? chosen.value : agents[0]!;
 
-  return h("div", { style: S.stack },
+  return h("div", { class: "m-stack" },
     agents.length > 1
       ? h("div", { class: "inline-field" },
         h("label", { for: "memory-agent" }, t("memory.agent")),

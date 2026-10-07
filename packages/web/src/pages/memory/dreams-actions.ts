@@ -7,7 +7,7 @@ import { Badge } from "../../components/card.ts";
 import { Dialog } from "../../components/dialog.ts";
 import { PageState } from "../../components/page-state.ts";
 import { t } from "../../i18n.ts";
-import { Facts, failureText, S } from "./common.ts";
+import { Facts, failureText } from "./common.ts";
 import { failureOf, getApi, markRefused, useLoad, type Failure } from "./data.ts";
 import type { DreamPhase, DreamPlan, DreamRun } from "./rpc-types.ts";
 
@@ -22,7 +22,7 @@ export type DialogResult = { text: string; runId?: string };
 const cancel = (onClose: () => void): View => h("button", { key: "cancel", type: "button", class: "btn", onClick: onClose }, t("memory.dialog.cancel"));
 
 function ErrorLine({ failure, what }: { failure: Failure; what: "run" | "schedule" }): View {
-  return h("p", { role: "alert", class: "form-error", style: S.clamp }, failureText(failure, what));
+  return h("p", { role: "alert", class: "form-error m-wrap" }, failureText(failure, what));
 }
 
 export function RunDialog({ agentId, phase, onClose, onDone }: { agentId: string; phase: DreamPhase; onClose: () => void; onDone: (r: DialogResult) => void }): View {
@@ -52,7 +52,7 @@ export function RunDialog({ agentId, phase, onClose, onDone }: { agentId: string
   else if (st.status === "fail") body = h(ErrorLine, { failure: st.failure, what: "run" });
   else {
     const p = st.data;
-    body = h("div", { style: S.stack },
+    body = h("div", { class: "m-stack" },
       h("p", {}, p.wouldRun ? h(Badge, { tone: "ok" }, t("memory.dialog.wouldRun")) : h(Badge, { tone: "warn" }, t("memory.dialog.wouldNotRun"))),
       p.wouldRun ? null : h("p", {}, t("memory.dialog.skipReason", { reason: p.reason ?? t("memory.none") })),
       h(Facts, { rows: [
@@ -69,7 +69,7 @@ export function RunDialog({ agentId, phase, onClose, onDone }: { agentId: string
       h("button", { key: "go", type: "button", class: "btn btn-primary", "aria-disabled": String(!ready), onClick: confirm }, busy ? t("memory.dialog.running") : t("memory.dialog.runNow")),
     ],
   },
-  h("div", { style: S.stack }, h("p", {}, t("memory.dialog.runBody")), body, failure ? h(ErrorLine, { failure, what: "run" }) : null));
+  h("div", { class: "m-stack" }, h("p", {}, t("memory.dialog.runBody")), body, failure ? h(ErrorLine, { failure, what: "run" }) : null));
 }
 
 export function ToggleDialog({ agentId, phase, enable, onClose, onDone }: { agentId: string; phase: DreamPhase; enable: boolean; onClose: () => void; onDone: (r: DialogResult) => void }): View {
@@ -91,5 +91,5 @@ export function ToggleDialog({ agentId, phase, enable, onClose, onDone }: { agen
       h("button", { key: "go", type: "button", class: "btn btn-primary", "aria-disabled": String(busy), onClick: confirm }, enable ? t("memory.dialog.enable") : t("memory.dialog.disable")),
     ],
   },
-  h("div", { style: S.stack }, h("p", {}, t(enable ? "memory.dialog.enableBody" : "memory.dialog.disableBody")), failure ? h(ErrorLine, { failure, what: "schedule" }) : null));
+  h("div", { class: "m-stack" }, h("p", {}, t(enable ? "memory.dialog.enableBody" : "memory.dialog.disableBody")), failure ? h(ErrorLine, { failure, what: "schedule" }) : null));
 }
