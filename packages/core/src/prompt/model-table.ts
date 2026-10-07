@@ -26,9 +26,18 @@ interface Row extends Omit<CacheProfile, "known"> {
   source: string;
 }
 
+/** Provider-class limits; OpenAI's count is the existing harness layout ruling, not a vendor claim.
+ * Google TTL remains unknown until configured by the host; do not invent a warm window. */
+export const PROVIDER_CACHE_CONFIG = {
+  anthropic: { maxBreakpoints: 4, ttlMs: 300_000 },
+  openai: { maxBreakpoints: 4, ttlMs: 1_800_000 },
+  google: { maxBreakpoints: 0, ttlMs: null },
+  unknown: { maxBreakpoints: 0, ttlMs: null },
+} as const;
+
 const MATRIX = "docs/provider-matrix.md §3";
 const anthropic = (id: string, match: RegExp, minTokens: number, source = MATRIX): Row => ({
-  id, match, provider: "anthropic", mechanism: "explicit", minTokens, maxBreakpoints: 4, lookbackPositions: 20, ttls: ["5m", "1h"], source,
+  id, match, provider: "anthropic", mechanism: "explicit", minTokens, maxBreakpoints: PROVIDER_CACHE_CONFIG.anthropic.maxBreakpoints, lookbackPositions: 20, ttls: ["5m", "1h"], source,
 });
 const implicit = (id: string, provider: "openai" | "google", match: RegExp, minTokens: number, source: string): Row => ({
   id, match, provider, mechanism: "implicit", minTokens, maxBreakpoints: 0, lookbackPositions: 0, ttls: [], source,
@@ -49,7 +58,7 @@ export const CACHE_PROFILES: readonly Row[] = [
   anthropic("anthropic.haiku-3.5", /^claude-(3-5-haiku|haiku-3-5)(-|$)/, 2048),
   // OpenAI GPT-5.6+: explicit `prompt_cache_options`, 30m the only TTL. The matrix gives no breakpoint count for it.
   {
-    id: "openai.gpt-5.6+", provider: "openai", mechanism: "explicit", minTokens: 1024, maxBreakpoints: 4, lookbackPositions: 0, ttls: ["30m"],
+    id: "openai.gpt-5.6+", provider: "openai", mechanism: "explicit", minTokens: 1024, maxBreakpoints: PROVIDER_CACHE_CONFIG.openai.maxBreakpoints, lookbackPositions: 0, ttls: ["30m"],
     match: /^gpt-5-(?:[6-9]|\d{2,})(-|$)/, source: "docs/provider-matrix.md §3 (GPT-5.6+); RULING: 4 explicit breakpoints, the same shape as Anthropic (ADR-010 §1)",
   },
   // RULING: pre-5.6 minimums are "variable"; 1 024 is the documented GPT-5.6+ floor and the lowest plausible one.
