@@ -13,6 +13,8 @@ export interface AssistantToolCall {
   name: string;
   /** The arguments as the JSON text the model produced (or the caller re-serialised). */
   arguments: string;
+  /** Opaque provider state to echo back on the next turn (Gemini `thoughtSignature`); other adapters ignore it. */
+  thoughtSignature?: string;
 }
 
 export type ChatMessage =
@@ -69,6 +71,8 @@ export interface ToolCall {
   argumentsError?: string;
   /** True when the repair hook changed the arguments. */
   repaired?: boolean;
+  /** Opaque provider state the caller must hand back in `AssistantToolCall.thoughtSignature` (Gemini). */
+  thoughtSignature?: string;
 }
 
 export interface ResponseMeta {

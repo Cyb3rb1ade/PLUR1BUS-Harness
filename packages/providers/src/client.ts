@@ -27,7 +27,7 @@ function endpoint(baseUrl: string): URL {
  * One call's lifetime: the combined abort signal (caller + three timeouts), the timers, and the single place
  * that decides what an interruption is. `dispose()` always runs and leaves no timer, request or listener behind.
  */
-class Run {
+export class Run {
   readonly controller = new AbortController();
   readonly #timeouts: Timeouts;
   readonly #userSignal: AbortSignal | undefined;
@@ -91,7 +91,7 @@ class Run {
   }
 }
 
-async function* chunks(body: ReadableStream<Uint8Array>, run: Run): AsyncGenerator<Uint8Array, void, void> {
+export async function* chunks(body: ReadableStream<Uint8Array>, run: Run): AsyncGenerator<Uint8Array, void, void> {
   const reader = body.getReader();
   try {
     for (;;) {
@@ -107,7 +107,7 @@ async function* chunks(body: ReadableStream<Uint8Array>, run: Run): AsyncGenerat
   }
 }
 
-async function readText(body: ReadableStream<Uint8Array> | null, run: Run, max: number): Promise<string> {
+export async function readText(body: ReadableStream<Uint8Array> | null, run: Run, max: number): Promise<string> {
   if (!body) return "";
   const dec = new TextDecoder("utf-8");
   let out = "", bytes = 0;
