@@ -101,6 +101,8 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus budget`↴](#plur1bus-budget)
 * [`plur1bus budget status`↴](#plur1bus-budget-status)
 * [`plur1bus budget set`↴](#plur1bus-budget-set)
+* [`plur1bus audit`↴](#plur1bus-audit)
+* [`plur1bus audit verify`↴](#plur1bus-audit-verify)
 * [`plur1bus secret`↴](#plur1bus-secret)
 * [`plur1bus secret status`↴](#plur1bus-secret-status)
 * [`plur1bus secret set`↴](#plur1bus-secret-set)
@@ -159,6 +161,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `user` — [experimental] Humans and their linked channel identities: list, add, pair, link, unlink
 * `model` — [experimental] Models and provider profiles: list, scan and override
 * `budget` — [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
+* `audit` — [experimental] Audit trail: verify the hash-chained audit file (B5)
 * `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
 * `login` — Provider login (API keys, OAuth) — M2
 * `channel` — Channels — M4
@@ -1497,6 +1500,28 @@ A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least o
 * `--clear-soft` — remove the soft bound
 * `--clear-hard` — remove the hard bound
 * `--timezone <ZONE>` — an IANA time zone name the periods follow (default UTC)
+
+
+
+## `plur1bus audit`
+
+[experimental] Audit trail: verify the hash-chained audit file (B5)
+
+**Usage:** `plur1bus audit <COMMAND>`
+
+###### **Subcommands:**
+
+* `verify` — [experimental] Verify the audit chain and its anchor (read-only; exits 1 when anything is wrong)
+
+
+
+## `plur1bus audit verify`
+
+[experimental] Verify the audit chain and its anchor (read-only; exits 1 when anything is wrong)
+
+Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor file must match the newest line. Asks the core (`audit.verify`, Owner and Admin only); the CLI does not read the files itself.
+
+**Usage:** `plur1bus audit verify`
 
 
 

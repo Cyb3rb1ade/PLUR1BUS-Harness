@@ -667,6 +667,29 @@
           "files": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["path", "bytes", "sha256"], "properties": { "path": { "type": "string" }, "bytes": { "type": "integer", "minimum": 0 }, "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" } } } }
         } }
       },
+      "audit.verify": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "B5: verifies the hash-chained audit file (logs/audit-chain*.jsonl) and its anchor. Read-only on the log: every line must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor (logs/audit-chain.anchor, a separate file) must match the newest line. Owner and Admin only (audit.read). A tampered, deleted or cut-off line is a finding, never an RPC error; findings name a file and a line, never record content. An unreadable log directory is E_STORAGE.",
+        "params": { "type": "object", "additionalProperties": false, "properties": {} },
+        "result": { "type": "object", "additionalProperties": false, "required": ["ok", "records", "files", "lastSeq", "lastHash", "anchor", "findings", "findingsTotal"], "properties": {
+          "ok": { "type": "boolean" },
+          "records": { "type": "integer", "minimum": 0 },
+          "files": { "type": "integer", "minimum": 0 },
+          "lastSeq": { "type": "integer", "minimum": 0 },
+          "lastHash": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the newest line; pin it outside the host to detect a rewrite of the whole chain." },
+          "anchor": { "type": "object", "additionalProperties": false, "required": ["status", "seq"], "properties": {
+            "status": { "enum": ["match", "behind", "absent", "invalid", "ahead", "mismatch"], "description": "behind: the anchor trails the newest line by a write that crashed before the anchor moved (not a finding); ahead: the chain is shorter than the anchor." },
+            "seq": { "type": ["integer", "null"], "minimum": 1 }
+          } },
+          "findings": { "type": "array", "maxItems": 50, "items": { "type": "object", "additionalProperties": false, "required": ["code", "file", "line", "seq"], "properties": {
+            "code": { "enum": ["line-malformed", "hash-mismatch", "seq-gap", "prefix-missing", "file-name-mismatch", "torn-tail", "anchor-missing", "anchor-invalid", "anchor-mismatch", "truncated"] },
+            "file": { "type": "string" },
+            "line": { "type": ["integer", "null"], "minimum": 1 },
+            "seq": { "type": ["integer", "null"], "minimum": 1 }
+          } } },
+          "findingsTotal": { "type": "integer", "minimum": 0, "description": "All findings; findings carries the first 50." }
+        } }
+      },
       "admin.embedding.probe": {
         "x-stability": "experimental", "x-since": "1.3.0", "x-server": "core",
         "description": "Exercises the embedding provider once (engine EmbeddingService.probe); a successful result is memoized (cached: true) unless refresh is true. A provider failure is ok: false with error, never an RPC error. Bounded by 30 s and by the core's stop (error aborted).",
