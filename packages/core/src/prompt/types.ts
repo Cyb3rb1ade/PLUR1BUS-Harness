@@ -30,10 +30,18 @@ export interface Segment {
   cache?: { ttl: CacheTtl };
 }
 
-export interface Breakpoint {
+/** Exclusive end offset in the concatenated UTF-8 segment texts (no separators or provider envelope).
+ * Zone estimates are local; breakpoint estimates cover the entire prefix through that breakpoint. */
+export interface ZoneMetadata {
+  zone: ZoneName;
+  byteOffset: number;
+  tokenEstimate: number;
+  hash: string;
+}
+
+export interface Breakpoint extends ZoneMetadata {
   /** Index into `RenderedPrompt.segments`. */
   segment: number;
-  zone: ZoneName;
   ttl: CacheTtl;
   kind: "zone" | "trailing" | "interior";
 }
@@ -52,6 +60,10 @@ export interface VolatileInput {
 export interface RenderInput {
   agentId: string;
   model: string;
+  /** Host session identity, kept out of all prompt bytes. Omitted means the default session for this agent. */
+  sessionId?: string;
+  /** Explicit snapshot refresh; supplied by PromptSession for one render. */
+  invalidationReason?: "memory-refresh";
   tools: readonly ToolDef[];
   /** System parts in order (soul, static supplement, safety preamble, instructions). Never time-varying. */
   system: readonly string[];
@@ -76,7 +88,7 @@ export type PromptEvent =
   | { type: "prompt.below-minimum"; agentId: string; model: string; tokensEstimate: number; minTokens: number }
   | { type: "prompt.unknown-model"; agentId: string; model: string }
   | { type: "prompt.lookback-risk"; agentId: string; model: string; positions: number; lookback: number }
-  | { type: "prompt.prefix-invalidated"; agentId: string; model: string; from: StableZone };
+  | { type: "prompt.prefix-invalidated"; agentId: string; model: string; from?: StableZone; previousModel?: string; reason: "prefix-changed" | "memory-refresh" | "model-changed" };
 
 export type ZoneHashes = Record<ZoneName, string>;
 
@@ -96,5 +108,20 @@ export interface RenderedPrompt {
   prefix: { status: "cold" | "warm" | "invalidated"; changedFrom?: StableZone };
   /** Rough token estimate of zones 1-3 (chars / 4, deliberately low), used for R2 only. */
   stableTokensEstimate: number;
+  /** All five zones, including empty ones, in render order. */
+  zones: ZoneMetadata[];
+  /** OpenRouter sticky routing hint, <= 256 chars, never rendered into a zone. */
+  session_id: string;
+  cache: {
+    provider: "anthropic" | "openai" | "google" | "unknown";
+    mechanism: "explicit" | "implicit" | "none";
+    minimumTokens: number;
+    eligible: boolean;
+    reason: "eligible" | "below-minimum" | "empty-prefix" | "implicit-provider" | "unknown-model";
+    /** Prediction only; provider usage is the source of measured cache hits. */
+    expected: "warm" | "cold";
+    ageMs: number | null;
+    ttlMs: number | null;
+  };
   events: PromptEvent[];
 }

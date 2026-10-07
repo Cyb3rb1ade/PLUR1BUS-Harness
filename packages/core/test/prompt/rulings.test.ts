@@ -24,12 +24,12 @@ describe("Q1: Anthropic 1-hour TTL is automatic once the scheduler projects >= 3
   it("the chosen TTL reaches the render: 1h stable breakpoints, 5m trailing", () => {
     const ttl = chooseCacheTtl({ model: "claude-sonnet-5-5", projectedReads: 4 });
     const r = createPromptBuilder().render(corpusInput(2, { cacheTtl: ttl }));
-    assert.deepEqual(r.breakpoints.map((b) => b.ttl), ["1h", "1h", "1h", "5m"]);
+    assert.deepEqual(r.breakpoints.map((b) => b.ttl), ["1h", "1h", "5m"]);
   });
 });
 
-describe("Q2: the snapshot stays frozen until the next session (no automatic refresh, however long the session)", () => {
-  it("after 200 turns and many recalls the snapshot zone is byte-identical and the session offers no refresh", () => {
+describe("Q2: the snapshot stays frozen until the next session or explicit refresh (no automatic refresh)", () => {
+  it("after 200 turns and many recalls the snapshot zone is byte-identical without automatic refresh", () => {
     const s = createPromptSession({ builder: createPromptBuilder(), agentId: "bernd", model: "claude-sonnet-5-5", tools, system, memorySnapshot: memory });
     const first = s.render();
     for (let i = 0; i < 200; i += 1) {
@@ -39,7 +39,7 @@ describe("Q2: the snapshot stays frozen until the next session (no automatic ref
     }
     const last = s.render();
     assert.deepEqual(last.prefixHashes, first.prefixHashes);
-    assert.deepEqual(Object.keys(s).sort(), ["agentId", "append", "memorySnapshot", "model", "recall", "render"]);
+    assert.deepEqual(Object.keys(s).sort(), ["agentId", "append", "memorySnapshot", "model", "recall", "refreshMemorySnapshot", "render", "setModel"]);
   });
 });
 

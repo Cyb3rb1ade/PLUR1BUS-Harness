@@ -16,16 +16,16 @@ describe("zone order and breakpoint placement (ADR-010 §1, R1; docs/provider-ma
     assert.equal(r.segments.filter((s) => s.zone === "tools").length, 3);
     assert.deepEqual(r.segments.filter((s) => s.zone === "tools").map((s) => JSON.parse(s.text).name), ["file_read", "memory_recall", "shell"]);
   });
-  it("Anthropic: breakpoints at the end of tools, system, memory and the last conversation segment; none on the volatile tail", () => {
+  it("Anthropic: breakpoints at eligible system/memory boundaries and the last conversation segment; none on the volatile tail", () => {
     const r = createPromptBuilder().render(corpusInput(2, { volatile: { blocks: [{ name: "memories", text: "- m", droppable: true, chars: 3 }] } }));
     const last = (z: string) => r.segments.map((s) => s.zone).lastIndexOf(z as never);
-    assert.deepEqual(marked(r).map(([i, z]) => [i, z]), [[last("tools"), "tools"], [last("system"), "system"], [last("memory"), "memory"], [last("conversation"), "conversation"]]);
-    assert.deepEqual(r.breakpoints.map((b) => b.kind), ["zone", "zone", "zone", "trailing"]);
+    assert.deepEqual(marked(r).map(([i, z]) => [i, z]), [[last("system"), "system"], [last("memory"), "memory"], [last("conversation"), "conversation"]]);
+    assert.deepEqual(r.breakpoints.map((b) => b.kind), ["zone", "zone", "trailing"]);
     assert.equal(r.segments.at(-1)!.zone, "volatile");
     assert.equal(r.segments.at(-1)!.cache, undefined);
   });
   it("an empty zone takes no breakpoint; with no conversation the memory breakpoint is the last", () => {
-    const r = createPromptBuilder().render(corpusInput(0, { tools: [], memory: "" }));
+    const r = createPromptBuilder().render(corpusInput(0, { tools: [], system: ["s".repeat(4096)], memory: "" }));
     assert.deepEqual(marked(r).map(([, z]) => z), ["system"]);
   });
   it("a model without explicit caching (Gemini, pre-5.6 GPT, unknown) gets no markers, same zone order", () => {
@@ -38,7 +38,7 @@ describe("zone order and breakpoint placement (ADR-010 §1, R1; docs/provider-ma
   });
   it("GPT-5.6+: explicit markers with its only TTL (30m), whatever TTL was asked for", () => {
     const r = createPromptBuilder().render(corpusInput(1, { model: "gpt-5.6", cacheTtl: "1h" }));
-    assert.equal(r.breakpoints.length, 4);
+    assert.equal(r.breakpoints.length, 3);
     assert.ok(r.breakpoints.every((b) => b.ttl === "30m"));
   });
   it("never more breakpoints than the model's maximum", () => {
@@ -49,25 +49,22 @@ describe("zone order and breakpoint placement (ADR-010 §1, R1; docs/provider-ma
   });
   it("1h on the stable zones, 5m on the trailing breakpoint, 1h entries first (Anthropic mixing rule)", () => {
     const r = createPromptBuilder().render(corpusInput(2, { cacheTtl: "1h" }));
-    assert.deepEqual(r.breakpoints.map((b) => b.ttl), ["1h", "1h", "1h", "5m"]);
+    assert.deepEqual(r.breakpoints.map((b) => b.ttl), ["1h", "1h", "5m"]);
   });
   it("R1: a free slot gets an interior breakpoint 15 positions behind the trailing one once the transcript is long", () => {
     const b = createPromptBuilder();
-    const long = b.render(corpusInput(60, { tools: [], system: ["s"], memory: "" })); // tools and memory slots are free
+    const long = b.render(corpusInput(60, { tools: [], system: ["s".repeat(4096)], memory: "" })); // tools and memory slots are free
     const kinds = long.breakpoints.map((x) => x.kind);
     assert.deepEqual(kinds, ["zone", "interior", "trailing"]);
     const interior = long.breakpoints[1]!, trailing = long.breakpoints[2]!;
     assert.equal(position(long.segments.map(toItem), trailing.segment) - position(long.segments.map(toItem), interior.segment), 15);
-    const short = b.render(corpusInput(5, { tools: [], system: ["s"], memory: "" }));
+    const short = b.render(corpusInput(5, { tools: [], system: ["s".repeat(4096)], memory: "" }));
     assert.deepEqual(short.breakpoints.map((x) => x.kind), ["zone", "trailing"]);
   });
-  it("with every stable zone filled the zones win; a transcript past the lookback is reported, not silently uncached", () => {
+  it("long conversations reserve an interior marker within the provider lookback", () => {
     const r = createPromptBuilder().render(corpusInput(60));
-    assert.deepEqual(r.breakpoints.map((x) => x.kind), ["zone", "zone", "zone", "trailing"]);
-    const ev = r.events.find((e) => e.type === "prompt.lookback-risk");
-    assert.ok(ev && ev.type === "prompt.lookback-risk");
-    assert.equal(ev.lookback, 20);
-    assert.ok(ev.positions > 20);
+    assert.deepEqual(r.breakpoints.map((x) => x.kind), ["zone", "zone", "interior", "trailing"]);
+    assert.equal(r.events.some((e) => e.type === "prompt.lookback-risk"), false);
     assert.equal(createPromptBuilder().render(corpusInput(5)).events.some((e) => e.type === "prompt.lookback-risk"), false);
   });
   it("consecutive tool_use / tool_result blocks count as one position (Anthropic lookback rule)", () => {

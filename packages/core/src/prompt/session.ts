@@ -7,9 +7,11 @@ export interface PromptSessionOptions {
   builder: PromptBuilder;
   agentId: string;
   model: string;
+  /** A host-provided session identity for sticky routing and TTL isolation. */
+  sessionId?: string;
   tools: readonly ToolDef[];
   system: readonly string[];
-  /** The frozen memory snapshot, as of session start. There is deliberately no way to replace it afterwards. */
+  /** The frozen memory snapshot, as of session start. Replaced only by explicit refreshMemorySnapshot(). */
   memorySnapshot: string;
   cacheTtl?: CacheTtl;
   zoneCaps?: { memory?: number };
@@ -27,6 +29,10 @@ export interface PromptSession {
   readonly model: string;
   readonly memorySnapshot: string;
   append(item: ConversationItem): void;
+  /** Explicitly pay the snapshot invalidation cost; no automatic timer/recall refresh. */
+  refreshMemorySnapshot(snapshot: string): void;
+  /** Host performs any confirmation before calling; render reports the model-change cost. */
+  setModel(model: string): void;
   /** Takes a recall result. It never touches the snapshot: it rides this request's volatile tail, then folds into the
    *  conversation at the point it arrived, so the cached prefix only grows. Returns its clip events (also `emit`ted). */
   recall(result: RecallInput, o?: { delivery?: "tool_result" | "context"; toolUseId?: string }): PromptEvent[];
@@ -41,13 +47,18 @@ interface Folded {
 
 /**
  * L7 (ADR-010 §1, zone 3): the snapshot is fixed for the session; a long session stays on it until the next one
- * (RULING for ADR-010 Q2, see the implementation record). Tools and system are copied at open, so a caller mutating its
+ * or an explicit refresh. No automatic refresh is inferred from time or recall. Tools and system are copied at open, so a caller mutating its
  * own arrays cannot move the prefix mid-session (R4: that is an explicit new session, with its cache cost, not a side effect).
  */
 export function createPromptSession(o: PromptSessionOptions): PromptSession {
   const tools = o.tools.map((t) => structuredClone(t));
   const system = [...o.system];
-  const memorySnapshot = o.memorySnapshot;
+  let memorySnapshot = o.memorySnapshot;
+  let model = o.model;
+  let refreshed = false;
+  // Capture scalar options too: caller mutation must not cause a silent mid-session change.
+  const { agentId, sessionId, builder, cacheTtl, emit } = o;
+  const zoneCaps = o.zoneCaps ? { ...o.zoneCaps } : undefined;
   const items: ConversationItem[] = [];
   const recalls: Folded[] = [];
 
@@ -62,13 +73,15 @@ export function createPromptSession(o: PromptSessionOptions): PromptSession {
   }
 
   return {
-    agentId: o.agentId,
-    model: o.model,
-    memorySnapshot,
+    agentId,
+    get model() { return model; },
+    get memorySnapshot() { return memorySnapshot; },
+    refreshMemorySnapshot(snapshot) { if (snapshot !== memorySnapshot) { memorySnapshot = snapshot; refreshed = true; } },
+    setModel(next) { model = next; },
     append(item) { items.push({ ...item }); },
     recall(result, opts = {}) {
       const events: PromptEvent[] = [];
-      const j = joinRecall(o.agentId, o.model, { blocks: result.blocks, ...(result.capChars !== undefined ? { capChars: result.capChars } : {}), ...(opts.delivery ? { delivery: opts.delivery } : {}), ...(opts.toolUseId ? { toolUseId: opts.toolUseId } : {}) }, (e) => { events.push(e); o.emit?.(e); });
+      const j = joinRecall(agentId, model, { blocks: result.blocks, ...(result.capChars !== undefined ? { capChars: result.capChars } : {}), ...(opts.delivery ? { delivery: opts.delivery } : {}), ...(opts.toolUseId ? { toolUseId: opts.toolUseId } : {}) }, (e) => { events.push(e); emit?.(e); });
       const at = recalls.findIndex((r) => r.anchor === items.length);
       if (at >= 0) recalls.splice(at, 1); // RULING: latest recall wins at an anchor
       if (j.text.length) {
@@ -78,13 +91,17 @@ export function createPromptSession(o: PromptSessionOptions): PromptSession {
     },
     render() {
       const live = recalls.find((r) => r.anchor === items.length);
-      return o.builder.render({
-        agentId: o.agentId, model: o.model, tools, system, memory: memorySnapshot,
+      const result = builder.render({
+        agentId, model, tools, system, memory: memorySnapshot,
+        ...(sessionId !== undefined ? { sessionId } : {}),
+        ...(refreshed ? { invalidationReason: "memory-refresh" as const } : {}),
         conversation: conversation(),
         ...(live ? { volatile: { blocks: [{ name: "recall", text: live.item.text, droppable: false, chars: live.item.text.length }], capChars: Infinity, delivery: live.item.kind === "tool_result" ? "tool_result" as const : "context" as const, ...(live.item.id ? { toolUseId: live.item.id } : {}) } } : {}),
-        ...(o.cacheTtl ? { cacheTtl: o.cacheTtl } : {}),
-        ...(o.zoneCaps ? { zoneCaps: o.zoneCaps } : {}),
+        ...(cacheTtl ? { cacheTtl } : {}),
+        ...(zoneCaps ? { zoneCaps } : {}),
       });
+      refreshed = false;
+      return result;
     },
   };
 }
