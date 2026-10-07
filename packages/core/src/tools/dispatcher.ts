@@ -71,6 +71,9 @@ export class ToolDispatcher {
   readonly #d: ToolDispatcherDeps;
   constructor(d: ToolDispatcherDeps) { this.#d = d; }
 
+  /** What a provider is told about the registered tools. */
+  describe(): ReturnType<ToolRegistry["describe"]> { return this.#d.registry.describe(); }
+
   async call(req: ToolCallRequest, ctx: DispatchContext): Promise<ToolResult> {
     const started = this.#d.clock.now();
     const tool = typeof req.name === "string" ? this.#d.registry.get(req.name) : undefined;
