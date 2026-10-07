@@ -98,7 +98,7 @@ input[aria-invalid="true"] { border-color: var(--err-ink); }
 .tab:hover { color: var(--ink); background: var(--hover-bg); }
 .tab[aria-selected="true"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
 .tabpanel[hidden] { display: none; }
-.dialog { width: min(var(--w-dialog), calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+.dialog { width: min(var(--w-dialog), calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px); padding: 0; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
 .dialog::backdrop { background: var(--scrim); }
 .dialog-body { display: flex; flex-direction: column; max-height: calc(100dvh - 34px); padding: 20px; }
 .dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--gap); }
