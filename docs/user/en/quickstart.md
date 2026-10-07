@@ -103,9 +103,15 @@ plur1bus backup create                    # default: <home>/backups/plur1bus-bac
 plur1bus backup verify <archive>          # manifest and every SHA-256; exits 1 for an archive a restore would refuse
 ```
 
+SQLite databases under `state/` are copied with SQLite's online backup API while the core keeps running: the copy is
+consistent, includes what is still in the write-ahead log, passes an integrity check before it is archived, and is one
+self-contained file. `-wal`, `-shm` and `-journal` files are never part of an archive. A fresh home works the same as an
+old one; nothing needs to be stopped or checkpointed first.
+
 To restore, stop the daemon, then run `plur1bus backup restore <archive>` (`--dry-run` prints the plan; a script needs
 `--yes`). It verifies first, swaps each unit in by rename and keeps whatever it replaced in
-`<home>/backups/pre-restore-<id>/`; a failure puts the old state back. Afterwards start the daemon and run
+`<home>/backups/pre-restore-<id>/`; a failure puts the old state back. A leftover `-wal`/`-shm` beside a replaced
+database goes aside with it, so it can never be replayed onto the restored file. Afterwards start the daemon and run
 `plur1bus 1staid check`. `--out <file>` chooses the archive path; an existing file is never overwritten.
 
 One thing that is automatic: when `config.json` is damaged, `plur1bus 1staid repair` restores it from the running
