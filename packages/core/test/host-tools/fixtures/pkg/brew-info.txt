@@ -1,0 +1,3 @@
+==> ripgrep: search tool
+https://github.com/BurntSushi/ripgrep
+/opt/homebrew/Cellar/ripgrep/14.1.1

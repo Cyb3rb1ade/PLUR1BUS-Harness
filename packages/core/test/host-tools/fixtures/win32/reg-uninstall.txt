@@ -1,0 +1,7 @@
+HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Uninstall\Safari
+    DisplayName    REG_SZ    Safari
+    DisplayVersion    REG_SZ    18.3
+
+HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Uninstall\{GUID}
+    DisplayName    REG_SZ    Visual Studio Code
+    DisplayVersion    REG_SZ    1.94.0

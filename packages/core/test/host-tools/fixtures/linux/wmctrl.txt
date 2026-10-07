@@ -1,0 +1,2 @@
+0x02a00003  0 host firefox
+0x03a00001  0 host Alacritty
