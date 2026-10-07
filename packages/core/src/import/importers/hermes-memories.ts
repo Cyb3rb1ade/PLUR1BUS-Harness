@@ -19,7 +19,8 @@ import {
   type ImportLedger,
 } from "../ledger.ts";
 import { writeAtomicSync } from "../fs-atomic.ts";
-import { existsNoFollow, readHermesSourceFileSafe } from "./hermes-fs-safe.ts";
+import { existsNoFollow, readSourceFileSafe } from "../fs-safe.ts";
+import { ImportError } from "../types.ts";
 import type { Engine, Principal } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 
 export const IMPORT_CARD_BATCH_LIMIT = 500;
@@ -156,8 +157,13 @@ function writeMirrorWithConflict(opts: {
     for (const name of readdirSync(dir).sort()) {
       if (name !== `${base}.imported${ext}` && !(name.startsWith(`${base}.imported-`) && name.endsWith(ext))) continue;
       const matchPath = join(dir, name);
-      const existing = readHermesSourceFileSafe(matchPath, Buffer.byteLength(content));
-      if (existing.ok && createHash("sha256").update(existing.buffer).digest("hex") === sha) {
+      let existing: Buffer;
+      try {
+        existing = readSourceFileSafe(matchPath, Buffer.byteLength(content));
+      } catch {
+        continue;
+      }
+      if (createHash("sha256").update(existing).digest("hex") === sha) {
         ledger?.record({
           entity: "file",
           idempotencyKey: fileIdempotencyKey(agentId, relative(l.workspaceDir(agentId), matchPath), sha),
@@ -242,11 +248,14 @@ export async function importHermesMemories(opts: {
   // 1. Process memories/MEMORY.md (agent-scoped)
   const memoryMdPath = join(profileDir, "memories", "MEMORY.md");
   if (existsNoFollow(memoryMdPath)) {
-    const readRes = readHermesSourceFileSafe(memoryMdPath, MAX_MEMORY_FILE_BYTES);
-    if (!readRes.ok) {
-      errors.push({ sourceRef: `${profileName}:memories/MEMORY.md`, reason: readRes.error });
-    } else {
-      const rawCards = splitHermesCards(readRes.content);
+    let content: string | null = null;
+    try {
+      content = readSourceFileSafe(memoryMdPath, MAX_MEMORY_FILE_BYTES).toString("utf8");
+    } catch (error) {
+      errors.push({ sourceRef: `${profileName}:memories/MEMORY.md`, reason: error instanceof ImportError ? error.reason : "source-unreadable" });
+    }
+    if (content !== null) {
+      const rawCards = splitHermesCards(content);
       totalCards += rawCards.length;
 
       const seenKeysInRun = new Set<string>();
@@ -407,11 +416,14 @@ export async function importHermesMemories(opts: {
   // They are reported as unresolved-user-scope.
   const userMdPath = join(profileDir, "memories", "USER.md");
   if (existsNoFollow(userMdPath)) {
-    const readRes = readHermesSourceFileSafe(userMdPath, MAX_MEMORY_FILE_BYTES);
-    if (!readRes.ok) {
-      errors.push({ sourceRef: `${profileName}:memories/USER.md`, reason: readRes.error });
-    } else {
-      const userCards = splitHermesCards(readRes.content);
+    let content: string | null = null;
+    try {
+      content = readSourceFileSafe(userMdPath, MAX_MEMORY_FILE_BYTES).toString("utf8");
+    } catch (error) {
+      errors.push({ sourceRef: `${profileName}:memories/USER.md`, reason: error instanceof ImportError ? error.reason : "source-unreadable" });
+    }
+    if (content !== null) {
+      const userCards = splitHermesCards(content);
       totalCards += userCards.length;
 
       if (userPrincipal) {

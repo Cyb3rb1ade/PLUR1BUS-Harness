@@ -1,0 +1,15 @@
+{
+  "sensitive_key": "(?i)^(authorization|proxy-authorization|cookie|set-cookie|token|secret|password|passwd|api[_-]?key|client[_-]?secret|refresh|code_verifier|ticket|csrf|id_token_hint|private[_-]?key|session[_-]?key|code|key)$",
+  "key_value": "(?i)\\b(authorization|proxy-authorization|cookie|set-cookie|token|secret|password|passwd|api[_-]?key|client[_-]?secret|refresh|code_verifier|ticket|csrf|id_token_hint|private[_-]?key|session[_-]?key|code|key|PLUR1BUS_[A-Z0-9_]+)[\"']?\\s*[:=]\\s*",
+  "patterns": [
+    "(?s)-----BEGIN (?:[A-Z0-9]+ )?PRIVATE KEY-----.*?(?:-----END (?:[A-Z0-9]+ )?PRIVATE KEY-----|$)",
+    "(?i)\\b(?:Bearer\\s+[^\\s,;\"'}]+|Basic\\s+[A-Za-z0-9+/=]+)",
+    "\\b(?:sk-(?:ant-|proj-)?[A-Za-z0-9_-]+|ek_[A-Za-z0-9_-]+|ghp_[A-Za-z0-9_]+|github_pat_[A-Za-z0-9_]+|xox[abpr]-[A-Za-z0-9_-]+|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35})",
+    "\\beyJ[A-Za-z0-9_-]+\\.eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+"
+  ],
+  "base64url": "[A-Za-z0-9_-]{43,}",
+  "url": "(?i)\\b[a-z][a-z0-9+.-]*://[^\\s<>\"']+",
+  "path": "(?:\"(?:[A-Za-z]:[\\\\/]|~/|/)[^\"]+\"|'(?:[A-Za-z]:[\\\\/]|~/|/)[^']+'|(?:[A-Za-z]:[\\\\/]|~/|/)[^\\s<>\"'\\[\\]{},;]+)",
+  "email": "(?i)\\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\b",
+  "phone": "(?:\\+?[0-9][0-9 ()-]{6,}[0-9])"
+}

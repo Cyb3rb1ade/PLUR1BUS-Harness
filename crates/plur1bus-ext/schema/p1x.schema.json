@@ -46,6 +46,7 @@
         "module",
         "channel",
         "mcp-server",
+        "provider",
         "bundle"
       ]
     },
@@ -504,6 +505,26 @@
         }
       ]
     },
+    "provider": {
+      "type": "object",
+      "properties": {
+        "api": {
+          "enum": [
+            "chat_completions"
+          ]
+        },
+        "baseUrl": {
+          "type": "string",
+          "pattern": "^https://[^ ]+$",
+          "maxLength": 2048
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "api",
+        "baseUrl"
+      ]
+    },
     "members": {
       "oneOf": [
         {
@@ -616,6 +637,25 @@
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "provider"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "provider"
+        ]
+      }
+    }
+  ],
   "required": [
     "format",
     "id",

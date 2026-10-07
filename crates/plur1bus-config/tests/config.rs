@@ -453,3 +453,30 @@ fn extension_and_agent_skills_values_are_validated() {
     c["extensions"]["bogus"] = json!(1);
     assert!(validate(&c).is_err());
 }
+
+#[test]
+fn model_profiles_are_settable_live_and_validated_like_the_ts_side() {
+    let c = defaults();
+    assert_eq!(c["modelProfiles"], json!({}));
+    let profile = json!({ "strategy": "moa", "aggregator": "a/x",
+        "candidates": [{ "model": "a/x" }, { "model": "b/y", "weight": 2 }],
+        "params": { "temperature": 0.7, "maxTokens": 1024 }, "cache": { "hint": "prefer" } });
+    let plan = set(&c, "modelProfiles.panel", profile).unwrap();
+    assert_eq!(plan.after["modelProfiles"]["panel"]["strategy"], "moa");
+    assert_eq!(
+        restart_class_name("modelProfiles.panel.params.temperature"),
+        "live"
+    );
+    for bad in [
+        json!({ "candidates": [] }),
+        json!({ "strategy": "moa", "candidates": [{ "model": "a/x" }] }),
+        json!({ "candidates": [{ "model": "a/x" }], "aggregator": "a/x" }),
+        json!({ "candidates": [{ "model": "a/x", "weight": 0 }] }),
+        json!({ "candidates": [{ "model": "a/x" }], "bogus": 1 }),
+    ] {
+        assert!(matches!(
+            set(&c, "modelProfiles.p", bad),
+            Err(ConfigError::Invalid(_))
+        ));
+    }
+}

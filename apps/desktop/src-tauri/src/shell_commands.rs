@@ -9,6 +9,14 @@ pub const SHELL_COMMANDS: &[&str] = &[
     "pair_code",
     "pair_local",
     "open_connection",
+    "autostart_get",
+    "autostart_set",
+    "quit_request",
+    "quit_offer",
+    "background_hint",
+    "crash_offers",
+    "crash_handled",
+    "quit_response",
 ];
 
 // Application manifest includes both trust zones; shell-ui still names only SHELL_COMMANDS.
@@ -22,5 +30,13 @@ pub const APP_COMMANDS: &[&str] = &[
     "pair_code",
     "pair_local",
     "open_connection",
+    "autostart_get",
+    "autostart_set",
+    "quit_request",
+    "quit_offer",
+    "background_hint",
+    "crash_offers",
+    "crash_handled",
+    "quit_response",
     "shell_info",
 ];

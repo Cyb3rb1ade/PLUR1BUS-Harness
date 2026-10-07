@@ -42,10 +42,16 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -91,10 +97,16 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -153,10 +165,16 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -204,10 +222,16 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -266,10 +290,16 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -319,10 +349,16 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -387,10 +423,16 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -436,10 +478,16 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -504,10 +552,16 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -557,10 +611,16 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -623,10 +683,16 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -676,10 +742,16 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -740,10 +812,16 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -789,10 +867,16 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -854,10 +938,16 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {
@@ -908,10 +998,16 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {
@@ -977,10 +1073,16 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {}
@@ -1026,10 +1128,16 @@
       "oauth": {},
       "decision": {},
       "modelRoles": {},
+      "modelProfiles": {},
       "models": {
         "scan": {
           "enabled": true,
           "intervalHours": 24
+        }
+      },
+      "secrets": {
+        "fileFallback": {
+          "enabled": false
         }
       },
       "modules": {

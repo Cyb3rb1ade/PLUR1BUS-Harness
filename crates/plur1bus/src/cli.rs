@@ -54,7 +54,14 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: MemoryCmd,
     },
-    /// Dreaming jobs: status, run, log
+    /// Chat sessions: list, show, archive
+    Session {
+        #[command(subcommand)]
+        sub: SessionCmd,
+    },
+    /// [experimental] Chat with an agent (one message, or a line-by-line conversation on stdin)
+    Chat(ChatArgs),
+    /// Dreaming: phase schedules, status, run, log
     Dreams {
         #[command(subcommand)]
         sub: DreamsCmd,
@@ -74,6 +81,11 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: AdminCmd,
     },
+    /// [experimental] Backup and restore: create, verify, restore
+    Backup {
+        #[command(subcommand)]
+        sub: BackupCmd,
+    },
     /// Supervisor control: start, stop, restart, status
     Daemon {
         #[command(subcommand)]
@@ -89,16 +101,34 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: CoreCmd,
     },
-    /// [experimental] Update check: what a release would change and which units would restart (`--check`)
+    /// [experimental] Apply a signed release with snapshot, health gate and automatic rollback; `--check` shows the plan, `--rollback` undoes the last update
     ///
-    /// Applying an update is M8; without `--check` the command answers that milestone.
+    /// Needs a verified release feed. Stops the daemon, snapshots the binary, `config.json`, the install manifest and the core payload (never the memory store), swaps, starts, and gates on `--version`, a ready core and `1staid check`; any failure restores the snapshot. A crashed update is settled by the next `update` or `daemon start`. A release that changes the Node runtime or the module set is refused: run `plur1bus setup`.
     Update(UpdateArgs),
-    /// Users — M2
-    User(StubArgs),
+    /// [experimental] Humans and their linked channel identities: list, add, pair, link, unlink
+    ///
+    /// One human across channels only by proof (D24, ADR-007): a one-time pairing code the owner confirms, or a link the
+    /// owner makes by hand. Nothing is ever linked by a matching name.
+    User {
+        #[command(subcommand)]
+        sub: UserCmd,
+    },
     /// [experimental] Models and provider profiles: list, scan and override
     Model {
         #[command(subcommand)]
         sub: ModelCmd,
+    },
+    /// [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
+    Budget {
+        #[command(subcommand)]
+        sub: BudgetCmd,
+    },
+    /// [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
+    ///
+    /// Values are read from stdin, never from arguments, and are printed only by `get --reveal`.
+    Secret {
+        #[command(subcommand)]
+        sub: SecretCmd,
     },
     /// Provider login (API keys, OAuth) — M2
     Login(StubArgs),
@@ -237,18 +267,34 @@ pub struct SetupArgs {
     pub profile: Option<String>,
 }
 
-/// `plur1bus update` (spec §6.5, HB10).
+/// `plur1bus update` (spec §6.5, D78, HB10): apply a signed release (snapshot, swap, health gate, automatic
+/// rollback), roll back to the last snapshot, or check what a release would change.
 #[derive(Args, Debug)]
+#[command(args_conflicts_with_subcommands = true)]
 pub struct UpdateArgs {
+    #[command(subcommand)]
+    pub sub: Option<UpdateCmd>,
     /// Compare the installation with the release manifest and print the plan; changes nothing
-    #[arg(long)]
+    #[arg(long, conflicts_with = "rollback")]
     pub check: bool,
+    /// Go back to the snapshot of the last applied update (binary, config, install manifest, core)
+    #[arg(long)]
+    pub rollback: bool,
+    /// Apply without asking (required outside a terminal)
+    #[arg(long)]
+    pub yes: bool,
     /// Release manifest to compare with, a path or an https URL (default: the channel's signed release feed)
     #[arg(long, value_name = "PATH|URL")]
     pub manifest: Option<String>,
     /// Release channel (default: the installed one)
     #[arg(long, value_name = "CHANNEL", value_parser = ["stable", "beta"])]
     pub channel: Option<String>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum UpdateCmd {
+    /// [experimental] Where the last update stands: phase, outcome, whether a rollback is possible; changes nothing
+    Status,
 }
 
 /// `plur1bus 1staid repair` (spec §6.6, HB16).
@@ -265,6 +311,17 @@ pub struct RepairArgs {
     pub only: Vec<String>,
 }
 
+/// `plur1bus 1staid bundle` (M8, logging and diagnostics spec §2.9).
+#[derive(Args, Debug)]
+pub struct BundleArgs {
+    /// Where to write the zip: a new file, or an existing directory (default: `<home>/bundles/`)
+    #[arg(long, value_name = "PATH")]
+    pub out: Option<std::path::PathBuf>,
+    /// Keep the last N lines of each log
+    #[arg(long, value_name = "N", default_value_t = crate::firstaid_bundle::DEFAULT_LINES)]
+    pub lines: usize,
+}
+
 #[derive(Args, Debug)]
 pub struct StubArgs {
     #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
@@ -277,6 +334,9 @@ pub enum FirstAidCmd {
     Check,
     /// [experimental] Repair what `1staid check` finds: prints the plan, then applies the confirmed steps
     Repair(RepairArgs),
+    /// [experimental] Write a redacted diagnostic zip (versions, check results, service status, config and the last
+    /// log lines; never the audit log, payload capture, stores or secrets) and print its path
+    Bundle(BundleArgs),
 }
 #[derive(Subcommand, Debug)]
 pub enum AgentCmd {
@@ -381,6 +441,51 @@ pub enum MemoryCmd {
         #[command(subcommand)]
         sub: ProposalsCmd,
     },
+    /// [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
+    Reembed(ReembedArgs),
+}
+
+/// `memory reembed`: exactly one of `--plan`, `--run`, `--status`, `--abort`. The migration covers the whole installation
+/// (the engine copies every agent's tables into one new generation) and keeps the old generation.
+#[derive(clap::Args, Debug)]
+#[command(group(clap::ArgGroup::new("action").required(true).multiple(false).args(["plan", "run", "status", "abort"])))]
+pub struct ReembedArgs {
+    /// Compare the store with --model and show what a migration would do; copies nothing
+    #[arg(long)]
+    pub plan: bool,
+    /// Copy the planned migration into a new generation in throttled batches, validate it and switch
+    #[arg(long)]
+    pub run: bool,
+    /// Show the migration's phase and progress
+    #[arg(long)]
+    pub status: bool,
+    /// Stop at the next batch boundary; --run continues the same migration
+    #[arg(long)]
+    pub abort: bool,
+    /// Target model: a pinned local embedding model id such as intfloat/multilingual-e5-small (required with --plan)
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"], required_if_eq("plan", "true"))]
+    pub model: Option<String>,
+    /// Target vector dimensions, when the model supports more than one
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub dimensions: Option<u32>,
+    /// Query prefix of the target model
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub query_prefix: Option<String>,
+    /// Passage prefix of the target model
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub passage_prefix: Option<String>,
+    /// Milliseconds to pause between batches (default 250)
+    #[arg(long, conflicts_with_all = ["run", "status", "abort"])]
+    pub throttle_ms: Option<u32>,
+    /// With --run: copy and validate, but do not switch to the new generation
+    #[arg(long, conflicts_with_all = ["plan", "status", "abort"])]
+    pub no_switch: bool,
+    /// With --run: return as soon as the run has started instead of following it
+    #[arg(long, conflicts_with_all = ["plan", "status", "abort"])]
+    pub no_wait: bool,
+    /// With --run: do not ask for confirmation (required outside a terminal)
+    #[arg(long, conflicts_with_all = ["plan", "status", "abort"])]
+    pub yes: bool,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
@@ -425,26 +530,94 @@ pub enum ProposalsCmd {
 }
 #[derive(Subcommand, Debug)]
 pub enum DreamsCmd {
-    /// [experimental] Dreaming job status and breaker state
+    /// [experimental] Dreaming status: the three phase schedules, last runs, breaker and importance, plus the engine jobs
     Status {
         #[arg(long)]
         agent: Option<String>,
     },
-    /// [experimental] Run a dreaming job now
+    /// [experimental] Run a dreaming phase (light, rem or deep) now under every guard but the cron gate; an engine job name still runs that job
     Run {
-        job: String,
+        /// light, rem or deep (a phase), or an engine job name such as gc-run
+        target: String,
         #[arg(long)]
         agent: String,
+        /// evaluate the guards and print what would happen, without a ledger row or an engine call (phases only)
+        #[arg(long)]
+        dry_run: bool,
     },
-    /// [experimental] Dreaming job run history
+    /// [experimental] Dreaming run history; with --run, one run and its log
     Log {
-        #[arg(long)]
-        agent: String,
-        #[arg(long)]
+        #[arg(long, required_unless_present = "run")]
+        agent: Option<String>,
+        #[arg(long, conflicts_with = "phase")]
         job: Option<String>,
+        /// show the phase ledger (light, rem or deep) instead of the engine job history
+        #[arg(long, value_enum)]
+        phase: Option<PhaseArg>,
+        /// one phase run by id, with its per-run log
+        #[arg(long, conflicts_with_all = ["job", "phase"])]
+        run: Option<String>,
         #[arg(long, default_value_t = 20)]
         limit: u32,
     },
+    /// [experimental] Phase schedules: get, set
+    Schedule {
+        #[command(subcommand)]
+        sub: DreamsScheduleCmd,
+    },
+    /// [experimental] Enable one phase's schedule
+    Enable {
+        #[arg(value_enum)]
+        phase: PhaseArg,
+        #[arg(long)]
+        agent: String,
+    },
+    /// [experimental] Disable one phase's schedule (run now still works)
+    Disable {
+        #[arg(value_enum)]
+        phase: PhaseArg,
+        #[arg(long)]
+        agent: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DreamsScheduleCmd {
+    /// [experimental] The three phase schedules of an agent
+    Get {
+        #[arg(long)]
+        agent: String,
+    },
+    /// [experimental] Change one phase's cron (5 fields), IANA timezone or enabled switch
+    Set {
+        #[arg(value_enum)]
+        phase: PhaseArg,
+        #[arg(long)]
+        agent: String,
+        #[arg(long)]
+        cron: Option<String>,
+        #[arg(long)]
+        timezone: Option<String>,
+        #[arg(long)]
+        enabled: Option<bool>,
+    },
+}
+
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PhaseArg {
+    Light,
+    Rem,
+    Deep,
+}
+
+impl PhaseArg {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            PhaseArg::Light => "light",
+            PhaseArg::Rem => "rem",
+            PhaseArg::Deep => "deep",
+        }
+    }
 }
 #[derive(Subcommand, Debug)]
 pub enum ConfigCmd {
@@ -546,6 +719,47 @@ pub enum ModuleCmd {
 }
 
 #[derive(Subcommand, Debug)]
+pub enum BackupCmd {
+    /// [experimental] Create a consistent, checksummed archive of this installation (needs a running core)
+    ///
+    /// The core stages the memory store through the engine's snapshot and every SQLite database through the SQLite
+    /// backup API; config, agents, skills, modules, extensions, catalog, the capture journal and the system-job ledger are
+    /// copied. The archive is private to the user. It never contains secrets: API keys stay in the OS keyring and
+    /// `run/` (tokens) is never archived. Checksums detect corruption; the archive is not signed or encrypted.
+    Create {
+        /// where to write the archive (default: `<home>/backups/plur1bus-backup-<UTC>.tar.gz`); an existing file is never overwritten
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// list what would be archived and where, without touching the core or writing anything
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// [experimental] Check an archive: manifest, every entry against its SHA-256, nothing extra, nothing missing
+    ///
+    /// Exits 1 with a `reason` (archive-corrupt, truncated, manifest-invalid, unsupported-format, unexpected-entry,
+    /// checksum-mismatch, missing-entry) for an archive a restore would refuse.
+    Verify {
+        /// the archive
+        file: PathBuf,
+    },
+    /// [experimental] Restore an archive into this home (the core must be stopped)
+    ///
+    /// Verifies first, extracts into a staging directory, then swaps each unit in by rename. Whatever is replaced is kept in
+    /// `<home>/backups/pre-restore-<id>/`; a failure puts the old state back. Asks first on a terminal; a script (or
+    /// `--json`) needs `--yes`. `--dry-run` prints the plan and changes nothing.
+    Restore {
+        /// the archive
+        file: PathBuf,
+        /// print what would be replaced, created and removed, without changing anything
+        #[arg(long)]
+        dry_run: bool,
+        /// apply without asking
+        #[arg(long)]
+        yes: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
 pub enum AdminCmd {
     /// [experimental] Obsidian vault setup for an agent: detect, prepare, confirm
     Obsidian {
@@ -571,6 +785,94 @@ pub enum AdminCmd {
     Embedding {
         #[command(subcommand)]
         sub: EmbeddingCmd,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum SessionCmd {
+    /// [experimental] List your chat sessions (pinned first, then by last turn)
+    List {
+        #[arg(long)]
+        agent: Option<String>,
+        /// direct, card, project, channel or acp
+        #[arg(long, value_parser = ["direct", "card", "project", "channel", "acp"])]
+        kind: Option<String>,
+        /// Show archived sessions: `only` or `any` (default: none)
+        #[arg(long, value_parser = ["only", "any"])]
+        archived: Option<String>,
+        /// Full-text search over titles and messages
+        #[arg(long)]
+        search: Option<String>,
+        #[arg(long)]
+        limit: Option<u32>,
+    },
+    /// [experimental] Show one session and its last messages
+    Show {
+        id: String,
+        /// How many of the last messages to show
+        #[arg(long, default_value_t = 20)]
+        messages: u32,
+    },
+    /// [experimental] Archive a session (nothing is deleted)
+    Archive { id: String },
+}
+
+#[derive(clap::Args, Debug)]
+pub struct ChatArgs {
+    /// The agent to talk to (default: the only registered agent)
+    #[arg(long)]
+    pub agent: Option<String>,
+    /// Continue this session instead of starting a new one
+    #[arg(long)]
+    pub session: Option<String>,
+    /// Start the chat incognito: nothing of it is remembered
+    #[arg(long)]
+    pub no_memory: bool,
+    /// One message to send; without it, lines are read from stdin until EOF
+    pub message: Option<String>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum BudgetCmd {
+    /// [experimental] Show usage for the current day and month and every limit with its state
+    Status {
+        /// only this agent's usage (and the global limits plus its own)
+        #[arg(long, value_name = "ID")]
+        agent: Option<String>,
+    },
+    /// [experimental] Set or clear a limit, or the time zone budget periods follow
+    ///
+    /// A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least one of
+    /// `--soft`, `--hard`, `--clear-soft`, `--clear-hard`. Cost values are USD (up to 6 decimals),
+    /// token values are input + output tokens. A bound left out stays as it is.
+    Set {
+        /// the limit covers all agents together
+        #[arg(long, conflicts_with = "agent")]
+        global: bool,
+        /// the limit covers this agent
+        #[arg(long, value_name = "ID")]
+        agent: Option<String>,
+        /// the period the limit resets on (local calendar day or month)
+        #[arg(long, value_parser = ["day", "month"])]
+        period: Option<String>,
+        /// what is counted: cost in USD or input + output tokens
+        #[arg(long, value_parser = ["cost", "tokens"])]
+        metric: Option<String>,
+        /// warn (once per period) above this value
+        #[arg(long, value_name = "VALUE", allow_hyphen_values = true)]
+        soft: Option<String>,
+        /// refuse calls that would exceed this value
+        #[arg(long, value_name = "VALUE", allow_hyphen_values = true)]
+        hard: Option<String>,
+        /// remove the soft bound
+        #[arg(long, conflicts_with = "soft")]
+        clear_soft: bool,
+        /// remove the hard bound
+        #[arg(long, conflicts_with = "hard")]
+        clear_hard: bool,
+        /// an IANA time zone name the periods follow (default UTC)
+        #[arg(long, value_name = "ZONE")]
+        timezone: Option<String>,
     },
 }
 
@@ -617,6 +919,38 @@ pub enum ModelCmd {
         #[arg(long)]
         remove: bool,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum SecretCmd {
+    /// [experimental] Which backend holds the secrets (keyring or encrypted file), why, and how many
+    Status,
+    /// [experimental] Store a secret; the value is read from stdin (pipe it), never from an argument
+    ///
+    /// One trailing newline is removed. Replacing a secret revokes the leases on the old value.
+    Set {
+        /// the secret's name: letters, digits and . _ : / @ - (at most 128, first a letter or digit)
+        name: String,
+        /// refused: a value never goes in an argument (kept only so the refusal does not echo it)
+        #[arg(hide = true, num_args = 0.., allow_hyphen_values = true)]
+        rest: Vec<String>,
+    },
+    /// [experimental] Show a secret's metadata; `--reveal` prints its value (audited, owner only)
+    Get {
+        name: String,
+        /// print the value itself (it is the only command that does)
+        #[arg(long)]
+        reveal: bool,
+    },
+    /// [experimental] Delete a secret from every available backend
+    Rm {
+        name: String,
+        /// skip the confirmation prompt (required outside a terminal)
+        #[arg(long)]
+        yes: bool,
+    },
+    /// [experimental] List secret names (never values)
+    Ls,
 }
 
 #[derive(Subcommand, Debug)]
@@ -950,6 +1284,66 @@ mod tests {
     }
 
     #[test]
+    fn session_and_chat_parse_their_flags() {
+        match parse(&[
+            "session",
+            "list",
+            "--kind",
+            "card",
+            "--archived",
+            "any",
+            "--search",
+            "boiler",
+            "--limit",
+            "5",
+        ])
+        .cmd
+        {
+            Cmd::Session {
+                sub:
+                    SessionCmd::List {
+                        kind,
+                        archived,
+                        search,
+                        limit,
+                        agent,
+                    },
+            } => {
+                assert_eq!(
+                    (kind.as_deref(), archived.as_deref(), search.as_deref()),
+                    (Some("card"), Some("any"), Some("boiler"))
+                );
+                assert_eq!((limit, agent), (Some(5), None));
+            }
+            other => panic!("{other:?}"),
+        }
+        match parse(&["session", "show", "ses_1"]).cmd {
+            Cmd::Session {
+                sub: SessionCmd::Show { id, messages },
+            } => assert_eq!((id.as_str(), messages), ("ses_1", 20)),
+            other => panic!("{other:?}"),
+        }
+        match parse(&["chat", "--agent", "bernd", "--no-memory", "hello"]).cmd {
+            Cmd::Chat(a) => {
+                assert_eq!(
+                    (
+                        a.agent.as_deref(),
+                        a.session,
+                        a.no_memory,
+                        a.message.as_deref()
+                    ),
+                    (Some("bernd"), None, true, Some("hello"))
+                );
+            }
+            other => panic!("{other:?}"),
+        }
+        assert!(Cli::try_parse_from(["plur1bus", "session", "list", "--kind", "bogus"]).is_err());
+        assert!(
+            Cli::try_parse_from(["plur1bus", "session", "list", "--archived", "exclude"]).is_err()
+        );
+    }
+
+    #[test]
     fn setup_update_repair_parse_their_flags() {
         match parse(&["setup"]).cmd {
             Cmd::Setup(a) => {
@@ -1054,4 +1448,69 @@ mod tests {
             other => panic!("{other:?}"),
         }
     }
+}
+
+#[derive(Subcommand, Debug)]
+pub enum UserCmd {
+    /// [experimental] List humans with their linked identities and the pairings still waiting
+    Ls {
+        /// Include revoked links
+        #[arg(long)]
+        all: bool,
+    },
+    /// [experimental] Create a human (an opaque id; prints it)
+    Add { name: String },
+    /// [experimental] One-time pairing codes: start, claim (what a channel adapter relays) and confirm
+    Pair {
+        #[command(subcommand)]
+        sub: PairCmd,
+    },
+    /// [experimental] Link a channel identity to a human by hand, with no code (audited; never inferred)
+    Link {
+        /// The human's id (see `user ls`)
+        human: String,
+        #[arg(long)]
+        channel: String,
+        #[arg(long)]
+        account: String,
+        #[arg(long = "user-id")]
+        user_id: String,
+        /// A label for people to read; never matched on
+        #[arg(long)]
+        display_name: Option<String>,
+    },
+    /// [experimental] Revoke a link at once (the record stays for the audit trail)
+    Unlink {
+        /// The link's id (see `user ls`)
+        link: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum PairCmd {
+    /// [experimental] Mint a one-time code for a human on a channel (shown once, valid 10 minutes, single use)
+    Start {
+        /// The human's id (see `user ls`)
+        human: String,
+        #[arg(long)]
+        channel: String,
+    },
+    /// [experimental] Present a code from a channel identity, as the channel adapter does; links nothing until confirmed
+    Claim {
+        code: String,
+        #[arg(long)]
+        channel: String,
+        #[arg(long)]
+        account: String,
+        #[arg(long = "user-id")]
+        user_id: String,
+        #[arg(long)]
+        display_name: Option<String>,
+    },
+    /// [experimental] Approve (or with --reject, decline) a claimed pairing: approving links the identity
+    Confirm {
+        pairing: String,
+        #[arg(long)]
+        reject: bool,
+    },
 }

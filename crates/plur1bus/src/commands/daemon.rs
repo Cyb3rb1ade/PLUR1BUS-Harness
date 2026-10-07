@@ -84,6 +84,15 @@ fn probe_status(layout: &Layout) -> Option<Value> {
     }
 }
 
+/// Whether a supervisor answers for this home (M8 `backup restore` refuses while one does: it would restart the core).
+/// An unresponsive listener counts: something owns the home.
+pub(crate) fn supervisor_answers(layout: &Layout) -> bool {
+    !matches!(
+        probe(layout, PROBE_CONNECT_TIMEOUT, PROBE_CALL_TIMEOUT),
+        Probe::NotRunning
+    )
+}
+
 /// The core child of a `daemon.status` result, if any: the first child that is not a module (`kind: "module"`,
 /// 1.3.0). A supervisor before 1.3.0 reports no `kind` and only the core.
 pub(crate) fn core_child(status: &Value) -> Option<&Value> {
@@ -450,8 +459,9 @@ fn call_daemon_start(layout: &Layout) -> Result<Value, ()> {
     client.call("daemon.start", json!({})).map_err(drop)
 }
 
-/// `daemon stop`: `daemon.stop`, then waits up to `budget + 10 s` for `run/supervisor.pid` to disappear. With no
-/// supervisor answering: `{ stopped: false, wasRunning: false }`, exit 0 (the brief).
+/// `daemon stop`: `daemon.stop`, then waits up to `budget + 10 s` for `run/supervisor.pid` to disappear and the
+/// supervisor's single-instance lock to be released. With no supervisor answering: `{ stopped: false,
+/// wasRunning: false }`, exit 0 (the brief).
 fn do_stop(out: &Out, layout: &Layout, budget_ms: Option<u64>) -> (bool, bool) {
     match stop_supervisor(layout, budget_ms) {
         None => (false, false),
@@ -461,7 +471,8 @@ fn do_stop(out: &Out, layout: &Layout, budget_ms: Option<u64>) -> (bool, bool) {
 }
 
 /// Asks the running supervisor to stop (`daemon.stop`) and waits up to `budget + 10 s` for `run/supervisor.pid` to
-/// disappear. `None`: no supervisor answered; `Some(Err)`: it refused; `Some(Ok(stopped))`: whether it is gone.
+/// disappear and its single-instance lock to be released. `None`: no supervisor answered; `Some(Err)`: it refused;
+/// `Some(Ok(stopped))`: whether it is gone.
 /// Also used by `service uninstall` on Windows, where Task Scheduler's own `/End` can only terminate the process.
 pub(crate) fn stop_supervisor(
     layout: &Layout,
@@ -485,19 +496,39 @@ pub(crate) fn stop_supervisor(
     }
     let budget = Duration::from_millis(budget_ms.unwrap_or(DEFAULT_STOP_BUDGET_MS));
     let deadline = Instant::now() + budget + STOP_GRACE;
-    let pid_file = layout.supervisor_pid();
-    while pid_file.exists() {
+    let stopped = wait_for_supervisor_exit(layout, deadline);
+    Some(Ok(stopped))
+}
+
+fn wait_for_supervisor_exit(layout: &Layout, deadline: Instant) -> bool {
+    loop {
+        if !layout.supervisor_pid().exists() && supervisor_lock_available(layout) {
+            return true;
+        }
         if Instant::now() >= deadline {
-            return Some(Ok(false));
+            return false;
         }
         std::thread::sleep(POLL_INTERVAL);
     }
-    Some(Ok(true))
+}
+
+fn supervisor_lock_available(layout: &Layout) -> bool {
+    let lock = match std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(layout.supervisor_lock())
+    {
+        Ok(lock) => lock,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return true,
+        Err(_) => return false,
+    };
+    matches!(lock.try_lock(), Ok(()))
 }
 
 pub fn run(out: &Out, layout: &Layout, cmd: DaemonCmd) {
     match cmd {
         DaemonCmd::Start { no_wait } => {
+            super::update_apply::recover_at_start(layout);
             let (started, via, status) = start(out, layout, no_wait);
             out.ok(
                 "daemon.start/1",
@@ -728,6 +759,34 @@ mod tests {
         assert_eq!(sup["process"]["state"], "degraded");
         assert_eq!(sup["process"]["reason"], "unresponsive");
         assert_eq!(children, json!([]));
+    }
+
+    #[test]
+    fn stop_waits_for_the_supervisor_lock_after_its_pid_file_is_removed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let layout = Layout::new(tmp.path().to_path_buf());
+        std::fs::create_dir_all(layout.run()).unwrap();
+        let lock_path = layout.supervisor_lock();
+        let lock = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .read(true)
+            .write(true)
+            .open(lock_path)
+            .unwrap();
+        lock.try_lock().unwrap();
+
+        let releaser = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            drop(lock);
+        });
+        let started = Instant::now();
+        assert!(wait_for_supervisor_exit(
+            &layout,
+            started + Duration::from_secs(2)
+        ));
+        assert!(started.elapsed() >= Duration::from_millis(80));
+        releaser.join().unwrap();
     }
 
     /// A recorded call as `service::fake::FakeRunner`'s `calls.jsonl` stores it.

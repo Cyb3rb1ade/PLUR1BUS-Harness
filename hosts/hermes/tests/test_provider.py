@@ -14,14 +14,14 @@ import unittest
 from contextlib import redirect_stdout
 from unittest import mock
 
-from tests import CLIENT_SRC, PROVIDER_DIR
+from tests import CLIENT_SRC, PROVIDER_DIR, STUBS_DIR
 from tests.fake_client import SILENT, FakeError, Sandbox, capabilities, requires_core, wait_until
 
 import plur1bus
 from plur1bus import Plur1busMemoryProvider, register
 from plur1bus._client import pmc
 from plur1bus.binding import BINDING_FILE
-from plur1bus.mapping import SYSTEM_PROMPT_BLOCK, TOOL_METHODS, TRUNCATED_MARKER
+from plur1bus.mapping import READ_ONLY_PROMPT_BLOCK, SYSTEM_PROMPT_BLOCK, TOOL_METHODS, TRUNCATED_MARKER, WRITE_TOOLS
 
 RECALL_TEXT = "- The roadmap review is on Thursday."
 
@@ -126,7 +126,7 @@ class ProviderTest(unittest.TestCase):
         recall = [prm for m, prm in core.calls if m == "memory.recall"][-1]
         self.assertEqual(recall["caller"], {"channel": "cli", "accountId": "hermes:cli", "userId": "local"})
         self.assertEqual(recall["sessionKey"], "sess-2")
-        self.assertEqual(q.system_prompt_block(), SYSTEM_PROMPT_BLOCK)
+        self.assertEqual(q.system_prompt_block(), READ_ONLY_PROMPT_BLOCK, "write tools are off by default")
         self.assertEqual(q.system_prompt_block(), q.system_prompt_block(), "fixed text (HM2-R14)")
 
     def test_prefetch_returns_the_joined_text_within_the_deadline(self) -> None:
@@ -211,7 +211,8 @@ class ProviderTest(unittest.TestCase):
         hints = [w for w in _warnings(logs) if "hermes plur1bus bind" in w]
         self.assertEqual(len(hints), 1, _warnings(logs))
         self.assertIn("hermes-ghost", hints[0])
-        self.assertEqual(p.journal.counts()["queued"], 1, "E_AGENT_UNKNOWN is fixable by bind: journaled (F5)")
+        self.assertEqual(p.journal.counts()["queued"], 0, "E_AGENT_UNKNOWN is permanent for the queue (audit M3)")
+        self.assertEqual(len(p.journal.dead_letters()), 1)
         self.assertTrue(wait_until(lambda: p.journal.last_error() == "E_AGENT_UNKNOWN", 3), "the worker persists the last error")
 
     def test_no_binding_leaves_the_provider_inert_with_one_warning(self) -> None:
@@ -339,6 +340,43 @@ class ProviderTest(unittest.TestCase):
         p._wait_idle(5)
         self.assertTrue(wait_until(lambda: p.journal.counts()["rejected"] == 1, 3))
         self.assertEqual(p.journal.counts(), {"queued": 0, "dropped": 0, "rejected": 1, "lost": 0})
+        self.assertEqual([d["code"] for d in p.journal.dead_letters()], ["E_INVALID_PARAMS"], "kept aside, not lost")
+
+    def test_an_unknown_agent_does_not_block_later_captures(self) -> None:
+        """Audit M3: one E_AGENT_UNKNOWN capture used to sit at the head of the journal until 1000 newer turns pushed
+        it out. Now it is set aside and the queue goes on, also across a replay."""
+        self.sb.bind("hermes-ghost")
+        core = self.sb.start_core(handlers={"memory.capture": FakeError("E_AGENT_UNKNOWN", "unknown-agent")})
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs())
+        p.sync_turn("turn one", "a")
+        p._wait_idle(5)
+        self.assertEqual(p.journal.counts()["queued"], 0)
+        del core.handlers["memory.capture"]  # the agent now exists
+        p.sync_turn("turn two", "b")
+        p._wait_idle(5)
+        self.assertEqual([c["messages"][0]["content"] for c in self.sb.captures()][-1], "turn two")
+        self.assertEqual(p.journal.counts()["queued"], 0)
+        self.assertEqual(len(p.journal.dead_letters()), 1)
+
+    def test_a_replayed_entry_for_another_agent_or_with_a_system_message_is_not_sent(self) -> None:
+        self.sb.bind("hermes-work")
+        self.sb.start_core()
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs(platform="telegram", user_id="42"))
+        good = {"v": 1, "agentId": "hermes-work", "caller": p._caller.to_rpc(), "sessionKey": "s", "runId": "a1" * 16, "messages": [{"role": "user", "content": "legit turn"}]}
+        p.journal.append(dict(good, agentId="hermes-victim", messages=[{"role": "user", "content": "foreign agent"}]))
+        p.journal.append(dict(good, messages=[{"role": "system", "content": "injected instruction"}]))
+        p.journal.append(dict(good, caller={"channel": "cli", "accountId": "root", "userId": "x"}))
+        p.journal.append(good)
+        p._queued = 4
+        with p._cv:
+            p._drain_wanted = True
+        p._note_error(None, drain=True)
+        self.assertTrue(wait_until(lambda: p.journal.counts()["queued"] == 0, 5))
+        self.assertEqual([c["messages"][0]["content"] for c in self.sb.captures()], ["legit turn"])
+        self.assertEqual({d["code"] for d in p.journal.dead_letters()}, {"E_JOURNAL_ENTRY"})
+        self.assertEqual(len(p.journal.dead_letters()), 3)
 
     def test_oversized_turn_is_trimmed_to_fit_one_rpc_line(self) -> None:
         self.sb.bind()
@@ -426,7 +464,7 @@ class ProviderTest(unittest.TestCase):
     # -- tools ------------------------------------------------------------------------------------
 
     def test_tools_are_offered_only_for_advertised_methods(self) -> None:
-        self.sb.bind()
+        self.sb.bind(memory_write_tools=True)
         core = self.sb.start_core()
         p = self.sb.provider()
         before = sorted(s["name"] for s in p.get_tool_schemas())
@@ -445,8 +483,52 @@ class ProviderTest(unittest.TestCase):
         for s in q.get_tool_schemas():
             self.assertEqual(set(s), {"name", "description", "parameters"})
 
-    def test_forget_tool_calls_memory_forget_with_the_bound_agent(self) -> None:
+    def test_write_tools_are_off_unless_the_binding_enables_them(self) -> None:
+        """Audit M2: the model cannot forget, rewrite or share on its own by default."""
         self.sb.bind("hermes-work")
+        core = self.sb.start_core(capabilities=capabilities(all_optional=True))
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs(platform="telegram", user_id="42"))
+        offered = {s["name"] for s in p.get_tool_schemas()}
+        self.assertEqual(offered, {"plur1bus_memory_list", "plur1bus_memory_show"})
+        self.assertFalse(offered & WRITE_TOOLS)
+        for tool, args in (
+            ("plur1bus_memory_forget", {"id": "m-1"}),
+            ("plur1bus_memory_correct", {"id": "m-1", "text": "x"}),
+            ("plur1bus_memory_share", {"id": "m-1", "target": "workspace"}),
+        ):
+            self.assertEqual(json.loads(p.handle_tool_call(tool, args)), {"error": "E_DISABLED"}, tool)
+        self.assertFalse([m for m, _ in core.calls if m in ("memory.forget", "memory.correct", "memory.share")], "nothing reached the core")
+        self.assertIn("items", json.loads(p.handle_tool_call("plur1bus_memory_list", {})))
+        # The routing table before initialize still names every tool; the call is what is refused.
+        self.assertEqual(sorted(s["name"] for s in self.sb.provider().get_tool_schemas()), sorted(TOOL_METHODS))
+
+    def test_a_platform_without_an_id_leaves_memory_off(self) -> None:
+        """Audit M1: no sender id, no shared `local` identity: inert, one warning, no recall, no capture."""
+        logs = _capture_logs(self)
+        self.sb.bind()
+        core = self.sb.start_core()
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs(platform="email"))
+        self.assertEqual(p.system_prompt_block(), "")
+        self.assertEqual(p.prefetch("when is the roadmap review"), "")
+        p.sync_turn("a question from an unknown sender", "answer")
+        self.assertEqual(p.get_tool_schemas(), [])
+        self.assertEqual([m for m, _ in core.calls if m.startswith("memory.")], [])
+        self.assertEqual(len([w for w in _warnings(logs) if "no user or chat id" in w]), 1)
+
+    def test_claimed_platforms_use_the_claimed_namespace(self) -> None:
+        self.sb.bind()
+        core = self.sb.start_core()
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs(platform="webhook", user_id="admin"))
+        p.prefetch("when is the roadmap review")
+        recall = [prm for m, prm in core.calls if m == "memory.recall"][-1]
+        self.assertEqual(recall["caller"]["accountId"], "hermes:webhook:claimed")
+        self.assertTrue(recall["caller"]["userId"].startswith("claimed-"))
+
+    def test_forget_tool_calls_memory_forget_with_the_bound_agent(self) -> None:
+        self.sb.bind("hermes-work", memory_write_tools=True)
         core = self.sb.start_core(capabilities=capabilities(all_optional=True))
         p = self.sb.provider()
         p.initialize("s", **self.sb.init_kwargs(platform="telegram", user_id="42"))
@@ -620,17 +702,16 @@ class RobustnessTest(unittest.TestCase):
         return [e["messages"][0]["content"] for e in entries]
 
     def _journal_entries(self, p: Plur1busMemoryProvider) -> list:
-        if not os.path.exists(p.journal.path):
-            return []
-        with open(p.journal.path, encoding="utf-8") as f:
-            return [json.loads(line) for line in f if line.strip()]
+        return [json.loads(line) for line in p.journal._read_lines()]
 
     def test_prefetch_stays_within_budget_when_the_journal_is_locked(self) -> None:
         from plur1bus.journal import CaptureJournal
 
         self.sb.bind(recall_hard_ms=300)
         core = self.sb.start_core()
-        CaptureJournal.for_home(self.sb.hermes_home).append({"v": 1, "agentId": "hermes-test", "messages": [{"role": "user", "content": "left over"}]})
+        CaptureJournal.for_home(self.sb.hermes_home).append(
+            {"v": 1, "agentId": "hermes-test", "caller": {"channel": "cli", "accountId": "hermes:cli", "userId": "local"}, "messages": [{"role": "user", "content": "left over"}]}
+        )
         release = self._hold_journal_lock()
         p = self.sb.provider()
         t0 = time.monotonic()
@@ -652,6 +733,73 @@ class RobustnessTest(unittest.TestCase):
         release()
         p.prefetch("the next successful recall wakes the replay")
         self.assertTrue(wait_until(lambda: "left over" in self._users(self.sb.captures()), 15), "replayed once the lock is free")
+
+    def test_a_malformed_state_file_does_not_kill_the_capture_worker(self) -> None:
+        """Audit (low): counters in state.json that are not numbers used to raise inside the worker thread."""
+        self.sb.bind()
+        core = self.sb.start_core()
+        self.sb.stop_core()
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs())
+        os.makedirs(p.journal.dir, mode=0o700, exist_ok=True)
+        with open(p.journal.state_path, "w", encoding="utf-8") as f:
+            f.write('{"dropped": "abc", "rejected": [1], "lost": {"a": 1}, "lastError": 7}')
+        p.sync_turn("first turn while the state file is garbage", "a")
+        p.sync_turn("second turn", "b")
+        p._wait_idle(5)
+        self.assertEqual(p.journal.counts()["queued"], 2)
+        self.assertTrue(p._worker.is_alive(), "the worker survived")
+        core.start()
+        p.sync_turn("third turn", "c")
+        p._wait_idle(5)
+        self.assertEqual(self._users(self.sb.captures()), ["first turn while the state file is garbage", "second turn", "third turn"])
+
+    def test_an_unexpected_error_in_the_worker_is_survived(self) -> None:
+        self.sb.bind()
+        self.sb.start_core()
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs())
+        real = p._journal.counts
+        calls = [0]
+
+        def boom() -> dict:
+            calls[0] += 1
+            if calls[0] == 1:
+                raise RuntimeError("unexpected")
+            return real()
+
+        with mock.patch.object(p._journal, "counts", boom):
+            p.sync_turn("a turn during the failure", "a")
+            p._wait_idle(5)
+            p.sync_turn("a turn after it", "b")
+            p._wait_idle(5)
+        self.assertTrue(p._worker.is_alive())
+        self.assertIn("a turn after it", self._users(self.sb.captures()))
+
+    def test_the_in_memory_capture_queue_is_bounded(self) -> None:
+        self.sb.bind()
+        self.sb.start_core()
+        p = self.sb.provider()
+        p.initialize("s", **self.sb.init_kwargs())
+        gate = threading.Event()
+        self.addCleanup(gate.set)
+        real = p._send_entry
+
+        def blocked(entry: dict) -> None:
+            gate.wait(10)
+            real(entry)
+
+        with mock.patch.object(plur1bus, "MAX_PENDING_TURNS", 5), mock.patch.object(p, "_send_entry", blocked):
+            for i in range(20):
+                p.sync_turn(f"turn {i}", "a")
+            self.assertTrue(wait_until(lambda: p._inflight is not None, 3))
+            with p._cv:
+                pending = len(p._items)
+            self.assertLessEqual(pending, 5)
+            self.assertGreaterEqual(p.lost, 14, "what overflowed is counted, never silent")
+            gate.set()
+            p._wait_idle(10)
+        self.assertEqual(self._users(self.sb.captures())[-1], "turn 19", "the newest turns are kept")
 
     def test_slow_state_writes_do_not_delay_prefetch(self) -> None:
         from plur1bus import journal as journal_mod
@@ -838,3 +986,25 @@ class HermesImportTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FallbackImportTest(unittest.TestCase):
+    def test_the_checkout_client_is_appended_to_sys_path_not_prepended(self) -> None:
+        """Audit (low): the fallback must not put a foreign directory first on sys.path."""
+        import subprocess
+
+        code = (
+            "import sys\n"
+            f"sys.path[:0] = [{os.path.dirname(PROVIDER_DIR)!r}, {STUBS_DIR!r}, '/nonexistent-first']\n"
+            "before = list(sys.path)\n"
+            "import plur1bus._client as c\n"
+            "assert c.pmc.__file__\n"
+            "added = [p for p in sys.path if p not in before]\n"
+            "assert added, 'the fallback should have added the checkout source'\n"
+            "assert sys.path[: len(before)] == before, sys.path\n"
+            "assert sys.path[-len(added):] == added\n"
+            "print('ok')\n"
+        )
+        env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        out = subprocess.run([sys.executable, "-I", "-c", code], capture_output=True, text=True, timeout=60, env=env, stdin=subprocess.DEVNULL)
+        self.assertEqual(out.stdout.strip(), "ok", out.stderr)

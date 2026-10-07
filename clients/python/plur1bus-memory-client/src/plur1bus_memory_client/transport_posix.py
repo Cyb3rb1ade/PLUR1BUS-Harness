@@ -16,6 +16,7 @@ import threading
 import time
 
 from .protocol import RpcError, read_line
+from .trust import peer_uid_of
 from .protocol import remaining as _remaining
 
 __all__ = ["open_stream", "PosixStream"]
@@ -163,6 +164,13 @@ class PosixStream:
         except OSError:
             return None
         return None
+
+    def peer_uid(self) -> int | None:
+        """The uid the kernel names for the listening end (``SO_PEERCRED`` / ``LOCAL_PEERCRED``), or ``None``."""
+        sock = self._sock
+        if sock is None or self._closed:
+            return None
+        return peer_uid_of(sock)
 
     def close(self) -> None:
         """Idempotent. Wakes a call waiting on another thread (it fails with ``E_TRANSPORT``, reason

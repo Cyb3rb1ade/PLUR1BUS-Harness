@@ -1,4 +1,4 @@
-use crate::cli::DreamsCmd;
+use crate::cli::{DreamsCmd, DreamsScheduleCmd};
 use crate::output::Out;
 use crate::paths::{core_address, Layout};
 use plur1bus_config as cfg;
@@ -120,6 +120,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
             let jobs = c
                 .call("jobs.list", json!({}))
                 .unwrap_or_else(|e| out.from_rpc_error(&e));
+            let agents_filter = agent.clone();
             let agents: Vec<String> = agent.map(|a| vec![a]).unwrap_or(registered.clone());
             let now_ms = crate::journal::now_ms();
             let today = utc_day(now_ms);
@@ -153,9 +154,19 @@ pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
                     llm_sessions_today(&jobs["jobs"], &Value::Array(llm_runs), midnight_ms);
                 per_agent.push(json!({ "agentId": a, "breaker": { "llmSessionsToday": llm_today, "limit": 3, "open": llm_today >= 3 }, "jobs": last }));
             }
-            let v = json!({ "jobs": jobs["jobs"], "agents": per_agent });
+            // The harness-owned scheduler (ADR-009). A core without it (older, or its store failed to open) leaves the
+            // engine-job view above intact and says why here.
+            let scheduler = match c.call("dreams.status", agent_params(&agents_filter)) {
+                Ok(v) => v,
+                Err(e) => json!({ "unavailable": e.to_string() }),
+            };
+            let v = json!({ "jobs": jobs["jobs"], "agents": per_agent, "scheduler": scheduler });
             out.ok("dreams.status/1", &v, || {
-                per_agent
+                let mut head = scheduler_text(&scheduler);
+                if !head.is_empty() {
+                    head.push('\n');
+                }
+                head + &per_agent
                     .iter()
                     .map(|a| {
                         let b = &a["breaker"];
@@ -184,9 +195,69 @@ pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
                     .join("\n")
             });
         }
-        DreamsCmd::Run { job, agent } => {
+        DreamsCmd::Run {
+            target,
+            agent,
+            dry_run,
+        } => {
             require(&agent);
+            let is_phase = matches!(target.as_str(), "light" | "rem" | "deep");
+            if dry_run && !is_phase {
+                out.fail(
+                    "E_INVALID_PARAMS",
+                    "--dry-run applies to the phases light, rem and deep",
+                    json!({}),
+                    2,
+                );
+            }
             let mut c = connect(out, layout);
+            if is_phase {
+                let mut params = json!({ "agentId": agent, "phase": target });
+                if dry_run {
+                    params["dryRun"] = json!(true);
+                }
+                let v = c
+                    .call("dreams.run", params)
+                    .unwrap_or_else(|e| out.from_rpc_error(&e));
+                let outcome = v["outcome"].as_str().unwrap_or("-").to_string();
+                out.ok("dreams.run/1", &v, || {
+                    if dry_run {
+                        format!(
+                            "{target}: {} ({}) jobs: {}",
+                            if v["wouldRun"].as_bool().unwrap_or(false) {
+                                "would run"
+                            } else {
+                                "would skip"
+                            },
+                            v["reason"].as_str().unwrap_or("-"),
+                            v["jobs"]
+                                .as_array()
+                                .map(|j| j
+                                    .iter()
+                                    .filter_map(|x| x.as_str())
+                                    .collect::<Vec<_>>()
+                                    .join(", "))
+                                .unwrap_or_default()
+                        )
+                    } else {
+                        format!(
+                            "{target}: {outcome}{} in {} ms (run {})",
+                            v["reason"]
+                                .as_str()
+                                .map(|r| format!(" ({r})"))
+                                .unwrap_or_default(),
+                            v["durationMs"],
+                            v["runId"]
+                        )
+                    }
+                });
+                // A skip is a recorded, explained outcome (exit 0); a failure or an abort is not.
+                if matches!(outcome.as_str(), "failed" | "aborted") {
+                    std::process::exit(1);
+                }
+                return;
+            }
+            let job = target;
             let v = c
                 .call("jobs.run", json!({ "agentId": agent, "job": job }))
                 .unwrap_or_else(|e| out.from_rpc_error(&e));
@@ -206,9 +277,58 @@ pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
                 std::process::exit(1);
             }
         }
-        DreamsCmd::Log { agent, job, limit } => {
-            require(&agent);
+        DreamsCmd::Log {
+            agent,
+            job,
+            phase,
+            run,
+            limit,
+        } => {
+            if let Some(a) = &agent {
+                require(a);
+            }
             let mut c = connect(out, layout);
+            if run.is_some() || phase.is_some() {
+                let mut params = json!({ "limit": limit });
+                if let Some(a) = &agent {
+                    params["agentId"] = json!(a);
+                }
+                if let Some(p) = phase {
+                    params["phase"] = json!(p.as_str());
+                }
+                if let Some(r) = &run {
+                    params["runId"] = json!(r);
+                }
+                let v = c
+                    .call("dreams.log", params)
+                    .unwrap_or_else(|e| out.from_rpc_error(&e));
+                out.ok("dreams.log/1", &v, || {
+                    let mut lines: Vec<String> = v["runs"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .map(|r| {
+                            format!(
+                                "{} {:<5} {:<10} {:<10} {} {} ms {}",
+                                r["startedAt"],
+                                r["phase"].as_str().unwrap_or(""),
+                                r["trigger"].as_str().unwrap_or(""),
+                                r["outcome"].as_str().unwrap_or("(open)"),
+                                r["runId"].as_str().unwrap_or(""),
+                                r["durationMs"],
+                                r["reason"].as_str().unwrap_or("")
+                            )
+                        })
+                        .collect();
+                    if let Some(t) = v["log"].as_str() {
+                        lines.push(String::new());
+                        lines.push(t.trim_end().to_string());
+                    }
+                    lines.join("\n")
+                });
+                return;
+            }
+            let agent = agent.expect("clap requires --agent unless --run is given");
             let mut params = json!({ "agentId": agent, "limit": limit });
             if let Some(j) = job {
                 params["job"] = json!(j);
@@ -235,7 +355,144 @@ pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
                     .join("\n")
             });
         }
+        DreamsCmd::Schedule { sub } => match sub {
+            DreamsScheduleCmd::Get { agent } => {
+                require(&agent);
+                let mut c = connect(out, layout);
+                let v = c
+                    .call("dreams.schedule.get", json!({ "agentId": agent }))
+                    .unwrap_or_else(|e| out.from_rpc_error(&e));
+                out.ok("dreams.schedule.get/1", &v, || {
+                    v["schedules"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .map(schedule_line)
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                });
+            }
+            DreamsScheduleCmd::Set {
+                phase,
+                agent,
+                cron,
+                timezone,
+                enabled,
+            } => {
+                require(&agent);
+                if cron.is_none() && timezone.is_none() && enabled.is_none() {
+                    out.fail(
+                        "E_INVALID_PARAMS",
+                        "nothing to change: give --cron, --timezone or --enabled",
+                        json!({}),
+                        2,
+                    );
+                }
+                let mut params = json!({ "agentId": agent, "phase": phase.as_str() });
+                if let Some(x) = cron {
+                    params["cron"] = json!(x);
+                }
+                if let Some(x) = timezone {
+                    params["timezone"] = json!(x);
+                }
+                if let Some(x) = enabled {
+                    params["enabled"] = json!(x);
+                }
+                let mut c = connect(out, layout);
+                let v = c
+                    .call("dreams.schedule.set", params)
+                    .unwrap_or_else(|e| out.from_rpc_error(&e));
+                out.ok("dreams.schedule.set/1", &v, || {
+                    schedule_line(&v["schedule"])
+                });
+            }
+        },
+        DreamsCmd::Enable { phase, agent } => {
+            toggle(out, layout, &agent, phase.as_str(), true, &require)
+        }
+        DreamsCmd::Disable { phase, agent } => {
+            toggle(out, layout, &agent, phase.as_str(), false, &require)
+        }
     }
+}
+
+fn agent_params(agent: &Option<String>) -> Value {
+    match agent {
+        Some(a) => json!({ "agentId": a }),
+        None => json!({}),
+    }
+}
+
+fn schedule_line(s: &Value) -> String {
+    format!(
+        "{:<5} {} {:<20} {:<20} next {}",
+        s["phase"].as_str().unwrap_or(""),
+        if s["enabled"].as_bool().unwrap_or(false) {
+            "on "
+        } else {
+            "off"
+        },
+        s["cron"].as_str().unwrap_or(""),
+        s["timezone"].as_str().unwrap_or(""),
+        s["nextRunAt"]
+    )
+}
+
+fn toggle(out: &Out, layout: &Layout, agent: &str, phase: &str, on: bool, require: &dyn Fn(&str)) {
+    require(agent);
+    let mut c = connect(out, layout);
+    let method = if on {
+        "dreams.enable"
+    } else {
+        "dreams.disable"
+    };
+    let v = c
+        .call(method, json!({ "agentId": agent, "phase": phase }))
+        .unwrap_or_else(|e| out.from_rpc_error(&e));
+    out.ok(&format!("{method}/1"), &v, || schedule_line(&v["schedule"]));
+}
+
+/// The phase table of `dreams status`: one line per agent and phase from the scheduler's own ledger.
+fn scheduler_text(s: &Value) -> String {
+    if let Some(why) = s["unavailable"].as_str() {
+        return format!("scheduler unavailable: {why}");
+    }
+    let mut lines = Vec::new();
+    for a in s["agents"].as_array().into_iter().flatten() {
+        lines.push(format!("{}  phases", a["agentId"].as_str().unwrap_or("")));
+        for p in a["phases"].as_array().into_iter().flatten() {
+            let last = &p["lastRun"];
+            let b = &p["breaker"];
+            lines.push(format!(
+                "  {:<5} {} {:<14} next {} last {}{}{}",
+                p["phase"].as_str().unwrap_or(""),
+                if p["enabled"].as_bool().unwrap_or(false) {
+                    "on "
+                } else {
+                    "off"
+                },
+                p["cron"].as_str().unwrap_or(""),
+                p["nextRunAt"],
+                last["outcome"]
+                    .as_str()
+                    .unwrap_or(if last.is_null() { "never" } else { "(open)" }),
+                last["reason"]
+                    .as_str()
+                    .map(|r| format!(" ({r})"))
+                    .unwrap_or_default(),
+                if b["state"] == "open" {
+                    format!(
+                        "  BREAKER OPEN until {} ({})",
+                        b["until"],
+                        b["reason"].as_str().unwrap_or("")
+                    )
+                } else {
+                    String::new()
+                }
+            ));
+        }
+    }
+    lines.join("\n")
 }
 
 #[cfg(test)]

@@ -16,7 +16,7 @@ guessed. Paths are relative to the repository named in the "Repo" column of the 
 
 | Harness | Engine pin (plugin repo SHA) | Engine contract | Contract floor | Plugin version at the pin | OpenClaw min tested | OpenClaw latest tested | Hermes min / latest tested |
 |---|---|---|---|---|---|---|---|
-| `main` (unreleased, `bd3fb20b`) | `9bafa0477bb47a3d8386d0dc682137adba3aa466` (merge of plugin PR #217) | `1.11.0` | `1.8.0`, major 1 only | `7.18.4` | `2026.8.1` (Host-Addons) | `2026.9.6` (Host-Addons, resolved 2026-09-28) | `0.21.4` (`743ee72596e7a9f23bc7cd5c570a6ebd958043e4`) / `0.21.5` (`f97608f178d1ffeca59860195ab7da295f7c8e5f`, Linux only) |
+| `main` (unreleased, `e611a0d8`) | `6868b7b117cf7d59b24eb1e75f02aafc1a48f46c` (plugin `origin/main` after PR #237) | `1.12.0` | `1.8.0`, major 1 only | `7.18.4` | `2026.8.1` (Host-Addons) | `2026.9.6` (Host-Addons, resolved 2026-09-28) | `0.21.4` (`743ee72596e7a9f23bc7cd5c570a6ebd958043e4`) / `0.21.5` (`f97608f178d1ffeca59860195ab7da295f7c8e5f`, Linux only) |
 
 Notes on the row:
 
@@ -32,7 +32,7 @@ Notes on the row:
   `.github/workflows/plugin-dist.yml`), so the value moves; the recorded `2026.9.6` is what the cited run saw
   (Host-Addons `docs/distribution/openclaw-cli-facts.md`, run 36528979525 at plugin-repo `fcab978b`, 2026-09-29, all 10
   `install` legs and `wsl` green; that run packed plugin `7.17.0`, not `7.18.4`).
-- **Whether the plugin at `7.18.4` / `9bafa047` has been run against OpenClaw min and latest: unverified.** The
+- **Whether the plugin at `7.18.4` / `61025251` has been run against OpenClaw min and latest: unverified.** The
   recorded green run predates it (plugin `7.17.0`). No later run is cited in the checked-in docs.
 - **Hermes:** the Harness's own `hermes-host.yml` runs the host-mode sidecar against `0.21.4` on ubuntu-24.04,
   macos-15 and windows-2025 (windows is `continue-on-error`) and against `0.21.5` on ubuntu-24.04 only. `0.21.4` is
@@ -47,21 +47,23 @@ Notes on the row:
 |---|---|---|---|
 | `1.9.0` | `b0e149b8` ("E4.3") | `7.16.11` | Harness `CHANGELOG.md` (`[0.1.0]` → Changed); Host-Addons `docs/distribution/openclaw-cli-facts.md` (tarball of this repo at `b0e149b8`, `7.16.11`) |
 | `1.10.0` | unverified | unverified | plugin `docs/engine-api.md` (1.10.0 entry) and plugin `CHANGELOG.md` ("7.18.5 … Contract 1.10.0"); the Harness did not pin this contract in a recorded SHA |
-| `1.11.0` | `9bafa0477bb47a3d8386d0dc682137adba3aa466` (full SHA from `pnpm-lock.yaml` and `packages/core/package.json`) | `7.18.4` (`package.json` at `9bafa047`) | Harness `CHANGELOG.md` `[Unreleased]`; plugin `docs/engine-api.md` (1.11.0 entry: `MemoryOps.import`, `Engine.stores.adopt`, additive only) |
+| `1.11.0` | `9bafa0477bb47a3d8386d0dc682137adba3aa466` (first pinned at plugin #217; now `6868b7b117cf7d59b24eb1e75f02aafc1a48f46c`, full SHA from `pnpm-lock.yaml` and `packages/core/package.json`) | `7.18.4` (`package.json` at `9bafa047` and `61025251`) | Harness `CHANGELOG.md` `[Unreleased]`; plugin `docs/engine-api.md` (1.11.0 entry: `MemoryOps.import`, `Engine.stores.adopt`, additive only) |
+| `1.12.0` | `6868b7b117cf7d59b24eb1e75f02aafc1a48f46c` (first pinned at plugin #219, merge `6868b7b1`; plugin `origin/main` after #237) | `7.18.4` (`package.json` at `6868b7b1`) | Harness `CHANGELOG.md` `[Unreleased]`; plugin `docs/engine-api.md` (1.12.0 entry: `MemoryOps.rebind`/`unbind`, additive only) |
 
-Contract history 1.8.0 → 1.11.0, from plugin `docs/engine-api.md` ("Contract version 1.11.0 … amended twelve times"):
+Contract history 1.8.0 → 1.12.0, from plugin `docs/engine-api.md` ("Contract version 1.12.0 … amended thirteen times"):
 
 - **1.8.0:** `Engine.status()` real, `Engine.models`, journal backlog, turn-replay guard, typed `unsupported` for shared memory.
 - **1.9.0:** host-neutral engine config schema, warm-only recall, honest recall timing, bounded fragment compaction.
 - **1.10.0:** additive engine-config keys (`runtime.deferPostTurnLlm` and others), `JobName` `"post-turn-refine"`.
 - **1.11.0:** `MemoryOps.import`, `Engine.stores.adopt`; additive members only.
+- **1.12.0:** `MemoryOps.rebind`, `MemoryOps.unbind` (manual N:1 channel-identity link, user-scope owner metadata only); `UserPrincipal` accepts `user:v1` and `user:v2`; new `MemoryOpErrorCode` values `identity-already-bound`, `ledger-corrupt`, `lock-lost`; additive.
 
-The plugin version stayed `7.18.4` across 1.10.0 and 1.11.0 (plugin `package.json` is `7.18.4` at both
-`9bafa047` and `origin/main` `f2160c3c`; the plugin `CHANGELOG.md` lists the 7.18.5–7.18.20 items as "Ported", not as
+The plugin version stayed `7.18.4` across 1.10.0, 1.11.0 and 1.12.0 (plugin `package.json` is `7.18.4` at both
+`9bafa047` and `61025251`; the plugin `CHANGELOG.md` lists the 7.18.5–7.18.20 items as "Ported", not as
 version bumps). Do not read the plugin version as a monotone proxy for the contract.
 
-Plugin `origin/main` is three commits past the pin (`ce4c5c64`, `78b3c0f1`, merge `f2160c3c`, PR #220: registry-lock
-ownership fix). None of them changes the contract; the Harness does not take them until it re-pins.
+The pin `61025251` (plugin `origin/main` after PR #232) adds, on top of #217, the lock-ownership fixes (#220, #224)
+and the log-redaction fixes (#225, #229, #231); the contract is unchanged at 1.11.0. The pin `6868b7b1` (plugin `origin/main` after PR #237) adds `memory.rebind`/`unbind` (#219, contract 1.12.0, including the rebind lock fix) and the `global-agent` override that drops `roarr`/`sprintf-js` (#237).
 
 ## 3. The contract floor rule
 
@@ -70,7 +72,7 @@ Anything else makes the core refuse to start with `E_RPC_VERSION`.
 
 | Constant | Value | Source |
 |---|---|---|
-| `CORE_CONTRACT` (the contract the Harness is built and pinned against) | `1.11.0` | `packages/core/src/engine.ts`; mirrored in `crates/plur1bus/src/install/manifest.rs` (`CORE_CONTRACT`) |
+| `CORE_CONTRACT` (the contract the Harness is built and pinned against) | `1.12.0` | `packages/core/src/engine.ts`; mirrored in `crates/plur1bus/src/install/manifest.rs` (`CORE_CONTRACT`) |
 | `SUPPORTED_CONTRACT_MAJOR` | `1` | `packages/core/src/engine.ts` |
 | `MIN_CONTRACT_MINOR` (floor = `1.8.0`) | `8` | `packages/core/src/engine.ts` |
 
@@ -78,18 +80,18 @@ Anything else makes the core refuse to start with `E_RPC_VERSION`.
   engine-contract-major` (not a `<int>.<int>.<int>` string, or major ≠ 1) or `reason = engine-contract-minor`
   (major 1, minor < 8).
 - **The floor is deliberately below the pin.** The comment on `MIN_CONTRACT_MINOR` states that the floor stays 1.8.0
-  because nothing in the core needs a 1.11.0 member. A search of `packages/core/src` finds no call to
-  `memory.import` or `stores.adopt` (2026-10-05), so an engine at 1.8.0 to 1.10.0 passes the startup check (HB2).
-  Whether such an engine passes the core's tests: unverified (the test suite pins 1.11.0).
+  because nothing in the core needs a 1.12.0 member. A search of `packages/core/src` finds no call to
+  `memory.import`, `stores.adopt`, `memory.rebind` or `memory.unbind` (2026-10-06), so an engine at 1.8.0 to 1.11.0 passes the startup check (HB2).
+  Whether such an engine passes the core's tests: unverified (the test suite pins 1.12.0).
 - **The two constants cannot drift apart silently.** The Rust test `core_contract_matches_the_typescript_core_contract`
   in `crates/plur1bus/src/install/manifest.rs` reads `packages/core/src/engine.ts` and asserts equality of
   `CORE_CONTRACT`.
 - **Installed-core check in `1staid check` is stricter than the floor.** `check_runtime_core` in
   `crates/plur1bus/src/commands/firstaid_install.rs` reports `warn` when a running core's contract has a different
-  major or is **older than the manifest's** `core.contract` (the manifest value is `CORE_CONTRACT`, `1.11.0`), or when
+  major or is **older than the manifest's** `core.contract` (the manifest value is `CORE_CONTRACT`, `1.12.0`), or when
   its `rpc` differs; a newer additive minor is accepted (`contract_compatible`: same major and `running >= installed`).
   It is a warning, not a refusal; the core still answers. Two different rules, by design: startup refusal uses the
-  floor (1.8.0), the installation health check compares against what the installer shipped (1.11.0).
+  floor (1.8.0), the installation health check compares against what the installer shipped (1.12.0).
 - **Major 2 is out of range.** `runCommand` is deprecated in plugin contract 1.5.0 and removed in 2.0
   (plugin `docs/engine-api.md`); the Harness refuses any major other than 1 until a deliberate bump.
 
@@ -99,7 +101,7 @@ Per the plugin's amendment rule (plugin `docs/engine-api.md` "Amending the contr
 `ContractVersion`, the conformance assertions and both adapters together in one plugin PR. For the Harness, a re-pin
 changes, in one PR: `packages/core/package.json` and `pnpm-lock.yaml` (SHA), `CORE_CONTRACT` in
 `packages/core/src/engine.ts` and `crates/plur1bus/src/install/manifest.rs`, `scripts/gen-engine-keys.mjs` and the
-generated `docs/config-engine-keys.md` (header "contract 1.11.0, engine @ 9bafa047"), `CHANGELOG.md`, and this file.
+generated `docs/config-engine-keys.md` (header "contract 1.12.0, engine @ 6868b7b1"), `CHANGELOG.md`, and this file.
 `MIN_CONTRACT_MINOR` moves only when the core starts to need a newer member.
 
 ## 4. How to verify
@@ -142,7 +144,7 @@ hand-written; staleness is caught only by review at re-pin time.
 |---|---|---|
 | Checklist item 11 | Harness | `docs/milestones.md` §6.2 |
 | Engine pin SHA | Harness | `packages/core/package.json`, `pnpm-lock.yaml` |
-| Engine pin narrative, contract 1.11.0 | Harness | `CHANGELOG.md` `[Unreleased]`, `docs/config-engine-keys.md` |
+| Engine pin narrative, contract 1.12.0 | Harness | `CHANGELOG.md` `[Unreleased]`, `docs/config-engine-keys.md` |
 | `CORE_CONTRACT`, floor, major | Harness | `packages/core/src/engine.ts` |
 | Rust `CORE_CONTRACT`, drift test | Harness | `crates/plur1bus/src/install/manifest.rs` |
 | Installed-core contract check | Harness | `crates/plur1bus/src/commands/firstaid_install.rs`, `crates/plur1bus/src/cli.rs` |

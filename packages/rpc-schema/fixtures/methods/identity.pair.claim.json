@@ -1,0 +1,21 @@
+{
+  "params": {
+    "caller": {
+      "channel": "cli",
+      "accountId": "macbooker",
+      "userId": "cyberblade"
+    },
+    "code": "K7M2QX9D",
+    "identity": {
+      "channel": "telegram",
+      "accountId": "bot1",
+      "userId": "4242",
+      "displayName": "Alex"
+    }
+  },
+  "result": {
+    "pairingId": "0198a2c4-0000-7000-8000-000000000003",
+    "state": "awaiting-confirmation",
+    "confirmBy": 1790000700000
+  }
+}

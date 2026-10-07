@@ -1,0 +1,50 @@
+{
+  "400": {
+    "mode": "rail",
+    "sidebarWidth": 64,
+    "menuButton": true,
+    "navLabelsVisible": false,
+    "groupLabelsVisible": false,
+    "headerActions": "more",
+    "mainWidth": 336,
+    "horizontalScroll": false,
+    "minTarget": 44,
+    "minFontPx": 14
+  },
+  "960": {
+    "mode": "rail",
+    "sidebarWidth": 64,
+    "menuButton": true,
+    "navLabelsVisible": false,
+    "groupLabelsVisible": false,
+    "headerActions": "more",
+    "mainWidth": 896,
+    "horizontalScroll": false,
+    "minTarget": 44,
+    "minFontPx": 14
+  },
+  "1440": {
+    "mode": "full",
+    "sidebarWidth": 256,
+    "menuButton": false,
+    "navLabelsVisible": true,
+    "groupLabelsVisible": true,
+    "headerActions": "inline",
+    "mainWidth": 1184,
+    "horizontalScroll": false,
+    "minTarget": 33,
+    "minFontPx": 12
+  },
+  "2560": {
+    "mode": "full",
+    "sidebarWidth": 256,
+    "menuButton": false,
+    "navLabelsVisible": true,
+    "groupLabelsVisible": true,
+    "headerActions": "inline",
+    "mainWidth": 2304,
+    "horizontalScroll": false,
+    "minTarget": 33,
+    "minFontPx": 12
+  }
+}

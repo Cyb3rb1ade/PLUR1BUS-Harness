@@ -438,6 +438,7 @@ mod windows {
     ) -> io::Result<()> {
         crate::profile_audit::read_file_bounded(path, deadline, remaining, &std::time::Instant::now)
     }
+    #[cfg(test)]
     fn audit_profile_readability(root: &Path, deadline: std::time::Instant) -> io::Result<()> {
         crate::profile_audit::audit_profile_readability(
             root,
@@ -844,28 +845,45 @@ mod windows {
                 let secret_audit = secret_audit.clone();
                 async move {
                     let mut evidence = super::ProfileCleanupEvidence::default();
-                    let deadline =
-                        crate::profile_audit::deadline(std::time::Instant::now(), deadline);
                     let audit = tokio::task::spawn_blocking(move || {
-                        crate::profile_audit::post_exit_audit(
-                            || {
-                                validate_owned_path(&root, &path)?;
-                                ensure_no_reparse_tree_before(&path, Some(deadline))?;
-                                #[cfg(not(debug_assertions))]
-                                let _ = &secret_audit;
-                                #[cfg(debug_assertions)]
-                                if let Some(check) = secret_audit {
-                                    return Ok(check(&path));
-                                }
-                                audit_profile_readability(&path, deadline)?;
-                                Ok(super::SecretScanOutcome {
-                                    complete: true,
-                                    secret_detected: false,
-                                })
+                        #[cfg(debug_assertions)]
+                        let secret = secret_audit.as_ref().map(|check| {
+                            check.as_ref() as &dyn Fn(&Path) -> super::SecretScanOutcome
+                        });
+                        #[cfg(not(debug_assertions))]
+                        let secret = {
+                            let _ = &secret_audit;
+                            None
+                        };
+                        crate::profile_audit::audit_after_exit(
+                            crate::profile_audit::ReadAudit {
+                                root: &path,
+                                max_bytes: crate::profile_audit::MAX_BYTES,
+                                now: &std::time::Instant::now,
+                                metadata: &check_no_reparse,
+                                special: &|file| {
+                                    if file.file_name() == Some(OsStr::new(".lease")) {
+                                        read_owned_lease(file)?.ok_or_else(|| {
+                                            io::Error::new(
+                                                io::ErrorKind::PermissionDenied,
+                                                "lease unavailable",
+                                            )
+                                        })?;
+                                        Ok(true)
+                                    } else {
+                                        Ok(false)
+                                    }
+                                },
                             },
-                            || {
+                            deadline,
+                            |limit| {
+                                validate_owned_path(&root, &path)?;
+                                ensure_no_reparse_tree_before(&path, Some(limit))
+                            },
+                            secret,
+                            |limit| {
                                 let audit =
-                                    inspect_cookie_databases_with_deadline(&path, Some(deadline))?;
+                                    inspect_cookie_databases_with_deadline(&path, Some(limit))?;
                                 Ok(super::ProfileCleanupEvidence {
                                     cookie_rows: audit.rows,
                                     cookie_database_files: audit.database_files,
@@ -1094,10 +1112,6 @@ mod windows {
             self.remove_before(std::time::Instant::now() + Duration::from_secs(10))
         }
 
-        fn remove_tree_before(path: &Path, deadline: std::time::Instant) -> io::Result<()> {
-            Self::remove_tree_before_with(path, deadline, &std::time::Instant::now)
-        }
-
         fn remove_tree_before_with<F>(
             path: &Path,
             deadline: std::time::Instant,
@@ -1131,18 +1145,26 @@ mod windows {
         }
 
         fn remove_before(self, deadline: std::time::Instant) -> io::Result<()> {
+            self.remove_before_with(deadline, &std::time::Instant::now)
+        }
+
+        fn remove_before_with(
+            self,
+            deadline: std::time::Instant,
+            now: &impl Fn() -> std::time::Instant,
+        ) -> io::Result<()> {
             let Self { root, leaf, lock } = self;
-            if std::time::Instant::now() >= deadline {
+            if now() >= deadline {
                 return Err(io::Error::new(
                     io::ErrorKind::TimedOut,
                     "profile removal deadline",
                 ));
             }
             validate_owned_path(&root, &leaf)?;
-            ensure_no_reparse_tree(&leaf)?;
+            ensure_no_reparse_tree_before_with(&leaf, Some(deadline), now)?;
             // The lock file remains held until all browser data has been removed.
             for entry in fs::read_dir(&leaf)? {
-                if std::time::Instant::now() >= deadline {
+                if now() >= deadline {
                     return Err(io::Error::new(
                         io::ErrorKind::TimedOut,
                         "profile removal deadline",
@@ -1155,11 +1177,11 @@ mod windows {
                 let path = entry.path();
                 let metadata = check_no_reparse(&path)?;
                 if metadata.is_dir() {
-                    Self::remove_tree_before(&path, deadline)?;
+                    Self::remove_tree_before_with(&path, deadline, now)?;
                 } else {
                     fs::remove_file(path)?;
                 }
-                if std::time::Instant::now() >= deadline {
+                if now() >= deadline {
                     return Err(io::Error::new(
                         io::ErrorKind::TimedOut,
                         "profile removal deadline",
@@ -1176,7 +1198,7 @@ mod windows {
                 fs::remove_file(leaf.join(".lease"))?;
             }
             drop(lock);
-            if std::time::Instant::now() >= deadline {
+            if now() >= deadline {
                 return Err(io::Error::new(
                     io::ErrorKind::TimedOut,
                     "profile removal deadline",
@@ -1294,6 +1316,17 @@ mod windows {
         root: &Path,
         deadline: std::time::Instant,
     ) -> io::Result<SweepResult> {
+        sweep_in_with(root, deadline, &std::time::Instant::now, |path, limit| {
+            inspect_cookie_databases_with_deadline(path, Some(limit))
+        })
+    }
+
+    fn sweep_in_with(
+        root: &Path,
+        deadline: std::time::Instant,
+        now: &impl Fn() -> std::time::Instant,
+        audit: impl Fn(&Path, std::time::Instant) -> io::Result<CookieAudit>,
+    ) -> io::Result<SweepResult> {
         match fs::symlink_metadata(root) {
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
                 return Ok(SweepResult::default());
@@ -1303,15 +1336,29 @@ mod windows {
         }
         ensure_root(root)?;
         let mut result = SweepResult::default();
-        for (index, entry) in fs::read_dir(root)?.enumerate() {
-            if std::time::Instant::now() >= deadline {
+        let mut entries = Vec::new();
+        for entry in fs::read_dir(root)? {
+            if now() >= deadline {
+                result.timed_out = true;
+                return Ok(result);
+            }
+            if entries.len() >= 128 {
+                return Err(io::Error::other("SPA profile sweep limit"));
+            }
+            entries.push(entry?);
+        }
+        entries.sort_by_key(|entry| entry.file_name());
+        let count = entries.len();
+        for (index, entry) in entries.into_iter().enumerate() {
+            if now() >= deadline {
                 result.timed_out = true;
                 break;
             }
             if index >= 128 {
                 return Err(io::Error::other("SPA profile sweep limit"));
             }
-            let entry = entry?;
+            let (audit_deadline, removal_deadline) =
+                crate::profile_audit::sweep_leaf_deadlines(now(), deadline, count - index);
             let name = entry.file_name();
             let Some(name) = name.to_str() else { continue };
             if !owned_leaf_name(name) {
@@ -1351,15 +1398,15 @@ mod windows {
                     leaf: path.clone(),
                     lock: LeaseLock::new(lock_path, lock),
                 };
-                let rows =
-                    match inspect_cookie_databases_with_deadline(lease.path(), Some(deadline)) {
-                        Ok(audit) => audit.rows,
-                        Err(_) => {
-                            result.audit_failed = result.audit_failed.saturating_add(1);
-                            0
-                        }
-                    };
-                lease.remove_before(deadline)?;
+                let rows = match audit(lease.path(), audit_deadline) {
+                    Ok(audit) => audit.rows,
+                    Err(error) => {
+                        result.timed_out |= error.kind() == io::ErrorKind::TimedOut;
+                        result.audit_failed = result.audit_failed.saturating_add(1);
+                        0
+                    }
+                };
+                lease.remove_before_with(removal_deadline, now)?;
                 Ok(Some((true, false, rows)))
             })();
             match outcome {
@@ -1448,22 +1495,27 @@ mod windows {
         Ok(())
     }
 
-    fn ensure_no_reparse_tree(root: &Path) -> io::Result<()> {
-        ensure_no_reparse_tree_before(root, None)
-    }
     fn ensure_no_reparse_tree_before(
         root: &Path,
         deadline: Option<std::time::Instant>,
     ) -> io::Result<()> {
+        ensure_no_reparse_tree_before_with(root, deadline, &std::time::Instant::now)
+    }
+
+    fn ensure_no_reparse_tree_before_with(
+        root: &Path,
+        deadline: Option<std::time::Instant>,
+        now: &impl Fn() -> std::time::Instant,
+    ) -> io::Result<()> {
         let mut pending = vec![root.to_path_buf()];
         let mut visited = 0usize;
         while let Some(dir) = pending.pop() {
-            audit_deadline(deadline)?;
+            crate::profile_audit::check_deadline(deadline, now)?;
             if !check_no_reparse(&dir)?.is_dir() {
                 return Err(io::Error::other("SPA profile tree changed"));
             }
             for entry in fs::read_dir(dir)? {
-                audit_deadline(deadline)?;
+                crate::profile_audit::check_deadline(deadline, now)?;
                 visited += 1;
                 if visited > 20_000 {
                     return Err(io::Error::other("SPA profile tree limit"));
@@ -2455,6 +2507,45 @@ mod windows {
             drop(unknown);
             assert_eq!(sweep_in(&root).unwrap().skipped_unknown, 1);
             assert!(unknown_path.exists());
+        }
+
+        #[test]
+        fn startup_sweep_slow_audit_deletes_leaf_and_processes_next() {
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path().join("spa-tmp");
+            let mut paths = Vec::new();
+            for _ in 0..2 {
+                let profile = create_in(&root).unwrap();
+                paths.push(profile.path().to_path_buf());
+                record_exited_browser(&profile);
+                drop(profile);
+            }
+            paths.sort();
+            let start = std::time::Instant::now();
+            let clock = std::cell::Cell::new(start);
+            let audited = std::cell::Cell::new(0);
+            let result = sweep_in_with(
+                &root,
+                start + Duration::from_secs(5),
+                &|| clock.get(),
+                |path, limit| {
+                    audited.set(audited.get() + 1);
+                    if path == paths[0] {
+                        clock.set(limit);
+                        Err(io::Error::new(io::ErrorKind::TimedOut, "injected audit"))
+                    } else {
+                        assert!(clock.get() < limit);
+                        inspect_cookie_databases_with_deadline(path, Some(limit))
+                    }
+                },
+            )
+            .unwrap();
+            assert_eq!(audited.get(), 2);
+            assert_eq!(result.removed, 2);
+            assert!(result.timed_out);
+            assert_eq!(result.audit_failed, 1);
+            assert_eq!(result.reason_code(), "SPA_PROFILE_SWEEP_TIMEOUT");
+            assert!(paths.iter().all(|path| !path.exists()));
         }
 
         #[test]
