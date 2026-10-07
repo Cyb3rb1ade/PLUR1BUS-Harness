@@ -123,6 +123,14 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: BudgetCmd,
     },
+    /// [experimental] Audit log: verify the tamper-evident hash chain
+    ///
+    /// The core's audit chain (`logs/audit.chain.*`) links every line to the SHA-256 of the one before and keeps the
+    /// last hash in an anchor file. `audit verify` asks the running core to check it and exits 1 on any finding.
+    Audit {
+        #[command(subcommand)]
+        sub: AuditCmd,
+    },
     /// [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
     ///
     /// Values are read from stdin, never from arguments, and are printed only by `get --reveal`.
@@ -830,6 +838,12 @@ pub struct ChatArgs {
     pub no_memory: bool,
     /// One message to send; without it, lines are read from stdin until EOF
     pub message: Option<String>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AuditCmd {
+    /// [experimental] Verify the audit hash chain: modified, deleted or truncated lines, rotation gaps
+    Verify,
 }
 
 #[derive(Subcommand, Debug)]

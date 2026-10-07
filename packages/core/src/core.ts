@@ -32,6 +32,7 @@ import { buildMethods } from "./rpc/methods.ts";
 import { engineTurnMemory } from "./session/memory-port.ts";
 import type { ChatProvider } from "./session/provider.ts";
 import { openSessionService, type SessionService } from "./session/service.ts";
+import { buildAuditMethods, createAuditChain, teeAudit } from "./audit/index.ts";
 import { LOCAL_OWNER, createJsonlAuditSink, guardMethods, type AuditSink, type PrincipalResolver } from "./rbac/index.ts";
 import { createRpcServer, type RpcServer } from "./rpc/server.ts";
 import { sharedMemoryStatus } from "./shared-memory.ts";
@@ -444,6 +445,8 @@ export function createCore(o: CoreOptions): Core {
         switchPort: createConfigSwitchPort({ layout: l, config: { current: () => cs.current(), set: (c) => cs.set(c) } }),
       });
       reembed = migration;
+      // B5: the tamper-evident copy of the core's own audit lines; nothing is created until the first line.
+      const auditChain = createAuditChain({ dir: l.logs, securePath: (p) => platform.securePath(p) });
       const methods = guardMethods({
         ...buildMethods({
         engine: eng, config: cfg, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
@@ -473,7 +476,8 @@ export function createCore(o: CoreOptions): Core {
         secrets: { store: secretStore, principalOf: () => ({ kind: "owner" }) },
         }),
         ...sessions.methods,
-      }, { resolve: o.rbac?.resolve ?? (() => LOCAL_OWNER), audit: o.rbac?.audit ?? createJsonlAuditSink(path.join(l.logs, "audit.log"), { securePath: (p) => platform.securePath(p) }), now: clock });
+        ...buildAuditMethods({ chain: auditChain }),
+      }, { resolve: o.rbac?.resolve ?? (() => LOCAL_OWNER), audit: o.rbac?.audit ?? teeAudit(createJsonlAuditSink(path.join(l.logs, "audit.log"), { securePath: (p) => platform.securePath(p) }), auditChain.sink), now: clock });
       server = createRpcServer({
         address, token, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
         onConnectionClosed: (id) => orphans?.connectionClosed(id),

@@ -105,6 +105,10 @@ describe("tool naming and selection", () => {
     assert.equal(isForbiddenMethod("budget.status"), false);
   });
 
+  it("audit.verify is refused: an agent never reads the audit chain", () => {
+    assert.ok(isForbiddenMethod("audit.verify"));
+  });
+
   it("models.scan, setOverride, removeManual, acknowledge are refused; models.list is opt-in", () => {
     const forbidden = ["models.scan", "models.setOverride", "models.removeManual", "models.acknowledge"];
     for (const m of forbidden) assert.ok(isForbiddenMethod(m), `${m} is forbidden`);

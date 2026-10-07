@@ -49,6 +49,7 @@ fn main() {
         Cmd::Update(args) => commands::update::run(&out, &layout, args),
         Cmd::User { sub } => commands::user::run(&out, &layout, sub),
         Cmd::Model { sub } => commands::model::run(&out, &layout, sub),
+        Cmd::Audit { sub } => commands::audit::run(&out, &layout, sub),
         Cmd::Budget { sub } => commands::budget::run(&out, &layout, sub),
         Cmd::Secret { sub } => commands::secret::run(&out, &layout, sub),
         Cmd::Login(_) => {

@@ -964,6 +964,54 @@ fn dreams_phase_commands_call_the_scheduler_methods_and_print_their_documents() 
     }
 }
 
+#[cfg(unix)]
+#[test]
+fn audit_verify_forwards_to_the_core_and_exits_one_on_findings() {
+    let ok = serde_json::json!({
+        "ok": true, "files": 1, "lines": 3, "lastSeq": 3, "lastHash": "a".repeat(64), "anchor": "match",
+        "findings": [], "findingsTruncated": false
+    });
+    let bad = serde_json::json!({
+        "ok": false, "files": 1, "lines": 3, "lastSeq": 3, "lastHash": "a".repeat(64), "anchor": "mismatch",
+        "findings": [{"code": "anchor-mismatch", "file": "audit.chain.anchor", "line": 0, "detail": "end of the chain does not match the anchor"}],
+        "findingsTruncated": false
+    });
+    for (result, code, human) in [(ok, 0, "audit chain: ok"), (bad, 1, "anchor-mismatch")] {
+        let dir = tempfile::tempdir().unwrap();
+        let h = dir.path().to_str().unwrap();
+        fake_core::spawn(
+            dir.path(),
+            fake_core::hello_with_capabilities(&[]),
+            Some(("audit.verify", serde_json::json!({ "result": result }))),
+        );
+        bin()
+            .args(["--home", h, "audit", "verify"])
+            .assert()
+            .code(code)
+            .stdout(predicate::str::contains(human));
+        let out = bin()
+            .args(["--json", "--home", h, "audit", "verify"])
+            .assert()
+            .code(code)
+            .get_output()
+            .stdout
+            .clone();
+        let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+        assert_eq!(v["schema"], "audit.verify/1");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn audit_verify_without_a_core_is_unavailable_not_ok() {
+    let dir = tempfile::tempdir().unwrap();
+    bin()
+        .args(["--home", dir.path().to_str().unwrap(), "audit", "verify"])
+        .assert()
+        .failure()
+        .code(predicate::ne(0));
+}
+
 /// A minimal fake core for the `plur1bus memory …` tests: writes `run/core.token` and binds
 /// `run/core.sock` under `home` (mirrors `crates/plur1bus-rpc/tests/client.rs`'s
 /// `fake_core_with`), answers `core.auth` with `hello`, and — if given — answers one other
@@ -1029,6 +1077,7 @@ mod fake_core {
     pub fn hello_with_capabilities(missing_methods: &[&str]) -> Value {
         let mut methods = serde_json::Map::new();
         for m in [
+            "audit.verify",
             "memory.list",
             "memory.show",
             "memory.forget",

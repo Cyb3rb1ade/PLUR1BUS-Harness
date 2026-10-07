@@ -157,6 +157,7 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<IdentityPairConfirmParams, IdentityPairConfirmResult>(name, f)
         }
         "identity.unlink" => pair::<IdentityUnlinkParams, IdentityUnlinkResult>(name, f),
+        "audit.verify" => pair::<AuditVerifyParams, AuditVerifyResult>(name, f),
         "budget.status" => pair::<BudgetStatusParams, BudgetStatusResult>(name, f),
         "budget.set" => pair::<BudgetSetParams, BudgetSetResult>(name, f),
         "secret.status" => pair::<SecretStatusParams, SecretStatus>(name, f),

@@ -1264,6 +1264,37 @@
           }
         }
       },
+      "audit.verify": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "Verifies the audit hash chain (logs/audit.chain.*): every line's previous-line hash and sequence number, rotation continuity, and the end of the chain against the anchor file. Read-only; Owner and Admin (B5). Findings carry file names and line numbers, never audited content.",
+        "params": { "type": "object", "additionalProperties": false, "properties": {} },
+        "result": {
+          "type": "object", "additionalProperties": false,
+          "required": ["ok", "files", "lines", "lastSeq", "lastHash", "anchor", "findings", "findingsTruncated"],
+          "properties": {
+            "ok": { "type": "boolean", "description": "No finding at all" },
+            "files": { "type": "integer", "minimum": 0, "description": "Chain files read (rotated and active)" },
+            "lines": { "type": "integer", "minimum": 0 },
+            "lastSeq": { "type": "integer", "minimum": 0, "description": "Sequence number of the last line; 0 when there is none" },
+            "lastHash": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the last line; null for an empty chain" },
+            "anchor": { "enum": ["match", "lag", "missing", "mismatch"], "description": "lag: the anchor is exactly one line behind (a crash between line and anchor), still ok" },
+            "findings": {
+              "type": "array", "maxItems": 50,
+              "items": {
+                "type": "object", "additionalProperties": false,
+                "required": ["code", "file", "line", "detail"],
+                "properties": {
+                  "code": { "enum": ["hash-mismatch", "seq-gap", "bad-line", "rotation-gap", "anchor-mismatch", "anchor-missing"] },
+                  "file": { "type": "string" },
+                  "line": { "type": "integer", "minimum": 0, "description": "1-based; 0 for a whole file or the anchor" },
+                  "detail": { "type": "string" }
+                }
+              }
+            },
+            "findingsTruncated": { "type": "boolean", "description": "More findings than the 50 listed" }
+          }
+        }
+      },
       "secret.status": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
         "description": "Which secret backend is in use (OS keyring first, then the opt-in encrypted file), why, and how many secrets it holds. Owner only (M2, ADR-005).",

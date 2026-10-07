@@ -55,7 +55,7 @@ const FORBIDDEN_EXACT = new Set([
   "models.scan", "models.setOverride", "models.removeManual", "models.acknowledge",
   "budget.set",
 ]);
-const FORBIDDEN_PREFIX = ["supervisor.", "daemon.", "events.", "config.", "module.", "admin.", "service.", "identity.", "update.", "secret.", "secrets.", "login.", "auth."];
+const FORBIDDEN_PREFIX = ["supervisor.", "daemon.", "audit.", "events.", "config.", "module.", "admin.", "service.", "identity.", "update.", "secret.", "secrets.", "login.", "auth."];
 const FORBIDDEN_SUFFIX = [".auth", ".adopt", ".shutdown"];
 
 export function isForbiddenMethod(method: string): boolean {
