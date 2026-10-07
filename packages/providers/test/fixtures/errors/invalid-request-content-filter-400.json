@@ -1,0 +1,1 @@
+{"expect":{"kind":"invalid_request","contentFiltered":true,"status":400,"retryable":false,"code":"content_filter"},"response":{"status":400,"headers":{},"body":{"error":{"message":"The response was filtered due to the prompt triggering the content management policy.","type":"invalid_request_error","code":"content_filter"}}}}

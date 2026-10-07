@@ -51,7 +51,7 @@ test("plain http to a non-loopback host is refused before any I/O; the key store
   const store = new MemStore();
   store.put("k", KEY);
   const adapter = createGeminiAdapter({ baseUrl: "http://gemini.example.invalid/v1beta", credentials: secretStoreKey(store, "k"), fetch: neverFetch });
-  await assert.rejects(adapter.complete(basic), (e: unknown) => e instanceof ProviderError && e.kind === "bad_request" && /plain http/.test(e.message));
+  await assert.rejects(adapter.complete(basic), (e: unknown) => e instanceof ProviderError && e.kind === "invalid_request" && /plain http/.test(e.message));
   const allowed = createGeminiAdapter({ baseUrl: "http://gemini.example.invalid/v1beta", credentials: secretStoreKey(store, "k"), allowInsecureHttp: true, fetch: (async () => new Response(JSON.stringify(candidate([{ text: "x" }], "STOP")), { headers: { "content-type": "application/json" } })) as typeof fetch });
   assert.equal((await allowed.complete(basic)).text, "x");
 });
@@ -73,7 +73,7 @@ test("model names that could change the URL path are refused before any I/O", T,
   store.put("k", KEY);
   const adapter = createGeminiAdapter({ credentials: secretStoreKey(store, "k"), fetch: neverFetch });
   for (const model of ["../../v1/files", "gemini/../x", "gemini?key=1", "gemini#x", "gemini x", "models/", "a:b", "gemini\n"]) {
-    await assert.rejects(adapter.complete({ ...basic, model }), (e: unknown) => e instanceof ProviderError && e.kind === "bad_request", model);
+    await assert.rejects(adapter.complete({ ...basic, model }), (e: unknown) => e instanceof ProviderError && e.kind === "invalid_request", model);
   }
 });
 

@@ -50,20 +50,20 @@ test("401/403 auth, 400 token limit is context_length, other 400/404 bad_request
   const ctx = await failing(400, geminiError(400, "INVALID_ARGUMENT", "The input token count (2000000) exceeds the maximum number of tokens allowed (1048576)."));
   assert.equal(ctx.kind, "context_length");
   assert.equal(ctx.retryable, false);
-  assert.equal((await failing(400, geminiError(400, "INVALID_ARGUMENT", "Unknown name \"foo\""))).kind, "bad_request");
-  assert.equal((await failing(404, geminiError(404, "NOT_FOUND", "models/x is not found for API version v1beta"))).kind, "bad_request");
+  assert.equal((await failing(400, geminiError(400, "INVALID_ARGUMENT", "Unknown name \"foo\""))).kind, "invalid_request");
+  assert.equal((await failing(404, geminiError(404, "NOT_FOUND", "models/x is not found for API version v1beta"))).kind, "invalid_request");
   for (const [s, st] of [[500, "INTERNAL"], [503, "UNAVAILABLE"], [504, "DEADLINE_EXCEEDED"]] as const) {
     const e = await failing(s, geminiError(s, st, "try later"));
-    assert.equal(e.kind, "server", String(s));
+    assert.equal(e.kind, "overloaded", String(s));
     assert.equal(e.retryable, true);
   }
   const redirect = await failing(302, "", { location: "https://example.invalid/steal" });
-  assert.equal(redirect.kind, "protocol");
+  assert.equal(redirect.kind, "unknown");
 });
 
 test("non-JSON and empty error bodies are still classified by status", T, async () => {
   const stub = await startStub((_q, res) => { res.writeHead(502, { "content-type": "text/html" }); res.end("<html>Bad gateway</html>"); });
   try {
-    await assert.rejects(adapterFor(stub).adapter.complete(basic), (e: unknown) => e instanceof ProviderError && e.kind === "server" && e.status === 502);
+    await assert.rejects(adapterFor(stub).adapter.complete(basic), (e: unknown) => e instanceof ProviderError && e.kind === "overloaded" && e.status === 502);
   } finally { await stub.close(); }
 });

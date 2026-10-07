@@ -1,0 +1,7 @@
+: SYNTHETIC reconstruction of the lmstudio wire format (scenario "empty"), written by hand from the public docs. NOT a live capture. See ../README.md.
+data: {"id":"chatcmpl-contract-lms","object":"chat.completion.chunk","created":1700000000,"model":"contract-qwen","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-contract-lms","object":"chat.completion.chunk","created":1700000000,"model":"contract-qwen","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: [DONE]
+
