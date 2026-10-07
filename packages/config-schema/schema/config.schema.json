@@ -2,68 +2,76 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://plur1bus.dev/schema/config/1/config.schema.json",
   "title": "PLUR1BUS harness config.json (schemaVersion 1)",
+  "description": "Configuration for the PLUR1BUS harness process, its supervisor, and optional integrations.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion"],
   "properties": {
-    "$schema": { "type": "string", "x-restart": "live", "x-tier": "advanced" },
-    "schemaVersion": { "const": 1, "x-restart": "core", "x-tier": "advanced" },
+    "$schema": { "description": "URI identifying the JSON Schema used to validate this configuration.", "type": "string", "x-restart": "live", "x-tier": "advanced" },
+    "schemaVersion": { "description": "Configuration format version; this schema supports version 1.", "const": 1, "x-restart": "core", "x-tier": "advanced" },
     "core": {
+      "description": "Settings for the core process, including logging, memory operation budgets, and shutdown.",
       "type": "object", "additionalProperties": false, "default": {},
       "properties": {
-        "logLevel": { "enum": ["debug", "info", "warn", "error"], "default": "info", "x-restart": "live", "x-tier": "advanced" },
+        "logLevel": { "description": "Minimum severity written to the core log.", "enum": ["debug", "info", "warn", "error"], "default": "info", "x-restart": "live", "x-tier": "advanced" },
         "recall": {
+          "description": "Time and response-size limits for memory recall.",
           "type": "object", "additionalProperties": false, "default": {},
           "properties": {
-            "softBudgetMs": { "type": "integer", "minimum": 50, "default": 400, "x-restart": "core", "x-tier": "advanced" },
-            "hardBudgetMs": { "type": "integer", "minimum": 100, "default": 600, "x-restart": "live", "x-tier": "advanced" },
-            "capChars": { "type": "integer", "minimum": 1000, "default": 17000, "x-restart": "core", "x-tier": "advanced" }
+            "softBudgetMs": { "description": "Soft target duration for a recall, in milliseconds.", "type": "integer", "minimum": 50, "default": 400, "x-restart": "core", "x-tier": "advanced" },
+            "hardBudgetMs": { "description": "Maximum duration allowed for a recall before it is aborted, in milliseconds.", "type": "integer", "minimum": 100, "default": 600, "x-restart": "live", "x-tier": "advanced" },
+            "capChars": { "description": "Maximum number of characters returned by a recall.", "type": "integer", "minimum": 1000, "default": 17000, "x-restart": "core", "x-tier": "advanced" }
           }
         },
         "capture": {
+          "description": "Limits for waiting on memory capture after a turn.",
           "type": "object", "additionalProperties": false, "default": {},
-          "properties": { "waitMs": { "type": "integer", "minimum": 1000, "default": 60000, "x-restart": "live", "x-tier": "advanced" } }
+          "properties": { "waitMs": { "description": "Maximum time to wait for a memory capture, in milliseconds.", "type": "integer", "minimum": 1000, "default": 60000, "x-restart": "live", "x-tier": "advanced" } }
         },
-        "shutdownBudgetMs": { "type": "integer", "minimum": 1000, "default": 30000, "x-restart": "live", "x-tier": "advanced" }
+        "shutdownBudgetMs": { "description": "Maximum time the core spends on graceful shutdown, in milliseconds.", "type": "integer", "minimum": 1000, "default": 30000, "x-restart": "live", "x-tier": "advanced" }
       }
     },
     "supervisor": {
+      "description": "Timing settings used by the process supervisor.",
       "type": "object", "additionalProperties": false, "default": {},
       "properties": {
-        "graceMs": { "type": "integer", "minimum": 1000, "default": 60000, "x-restart": "live", "x-tier": "advanced" },
-        "healthIntervalMs": { "type": "integer", "minimum": 1000, "default": 5000, "x-restart": "live", "x-tier": "advanced" }
+        "graceMs": { "description": "Grace period given to a child process to exit during shutdown, in milliseconds.", "type": "integer", "minimum": 1000, "default": 60000, "x-restart": "live", "x-tier": "advanced" },
+        "healthIntervalMs": { "description": "Interval between child-process health checks, in milliseconds.", "type": "integer", "minimum": 1000, "default": 5000, "x-restart": "live", "x-tier": "advanced" }
       }
     },
     "metrics": {
       "description": "D3: the read-only Prometheus text endpoint `GET /metrics` on a loopback address, protected by a bearer token kept in `state/metrics.token`.",
       "type": "object", "additionalProperties": false, "default": {},
       "properties": {
-        "enabled": { "type": "boolean", "default": false, "x-restart": "core", "x-tier": "advanced" },
-        "port": { "type": "integer", "minimum": 1024, "maximum": 65535, "default": 9464, "x-restart": "core", "x-tier": "advanced" }
+        "enabled": { "description": "Whether to expose the read-only Prometheus metrics endpoint.", "type": "boolean", "default": false, "x-restart": "core", "x-tier": "advanced" },
+        "port": { "description": "Loopback port used by the metrics endpoint.", "type": "integer", "minimum": 1024, "maximum": 65535, "default": 9464, "x-restart": "core", "x-tier": "advanced" }
       }
     },
     "logs": {
+      "description": "Retention limits for rotating harness log files.",
       "type": "object", "additionalProperties": false, "default": {},
       "properties": {
-        "maxBytes": { "type": "integer", "minimum": 1048576, "default": 20971520, "x-restart": "live", "x-tier": "advanced" },
-        "keep": { "type": "integer", "minimum": 1, "default": 5, "x-restart": "live", "x-tier": "advanced" }
+        "maxBytes": { "description": "Maximum size of each log file before rotation, in bytes.", "type": "integer", "minimum": 1048576, "default": 20971520, "x-restart": "live", "x-tier": "advanced" },
+        "keep": { "description": "Number of rotated log files to retain.", "type": "integer", "minimum": 1, "default": 5, "x-restart": "live", "x-tier": "advanced" }
       }
     },
     "agents": {
+      "description": "Per-agent settings keyed by a lowercase agent identifier.",
       "type": "object", "default": {}, "x-restart": "live", "x-tier": "basic",
       "propertyNames": { "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$" },
       "additionalProperties": {
+        "description": "Settings for one agent.",
         "type": "object", "additionalProperties": false,
         "properties": {
-          "createdAt": { "type": "string", "format": "date-time" },
-          "displayName": { "type": "string", "maxLength": 128 },
+          "createdAt": { "description": "Timestamp when the agent was created, in date-time format.", "type": "string", "format": "date-time" },
+          "displayName": { "description": "Optional human-readable name for the agent.", "type": "string", "maxLength": 128 },
           "skills": {
             "description": "Per-agent skill selection (X1-R11): `blocked` names skills this agent does not get although they are enabled installation-wide; `pinned` is stored and shown, not interpreted before D69; `applyAt` says when a change reaches a running agent.",
             "type": "object", "additionalProperties": false, "x-restart": "live", "x-tier": "advanced",
             "properties": {
-              "blocked": { "type": "array", "items": { "type": "string" }, "default": [] },
-              "pinned": { "type": "array", "items": { "type": "string" }, "default": [] },
-              "applyAt": { "enum": ["next-turn", "next-session"], "default": "next-turn" }
+              "blocked": { "description": "Skill names this agent must not receive, even when enabled installation-wide.", "type": "array", "items": { "type": "string" }, "default": [] },
+              "pinned": { "description": "Skill names pinned for this agent; currently stored and displayed but not interpreted.", "type": "array", "items": { "type": "string" }, "default": [] },
+              "applyAt": { "description": "When a changed skill selection takes effect for a running agent.", "enum": ["next-turn", "next-session"], "default": "next-turn" }
             }
           }
         }
@@ -73,23 +81,25 @@
       "description": "Extension management (X1-R21): whether unsigned packages may be installed, how many days uninstalled items stay in the trash, and the size caps for packages and skill folders.",
       "type": "object", "additionalProperties": false, "default": {},
       "properties": {
-        "allowUnsigned": { "type": "boolean", "default": true, "x-restart": "live", "x-tier": "advanced" },
-        "trashDays": { "type": "integer", "minimum": 1, "maximum": 365, "default": 14, "x-restart": "live", "x-tier": "advanced" },
+        "allowUnsigned": { "description": "Whether unsigned extension packages may be installed.", "type": "boolean", "default": true, "x-restart": "live", "x-tier": "advanced" },
+        "trashDays": { "description": "Number of days uninstalled extensions are retained in the trash.", "type": "integer", "minimum": 1, "maximum": 365, "default": 14, "x-restart": "live", "x-tier": "advanced" },
         "limits": {
+          "description": "Maximum unpacked sizes for extension packages and skill folders.",
           "type": "object", "additionalProperties": false, "default": {},
           "properties": {
-            "packageBytes": { "type": "integer", "minimum": 1048576, "maximum": 1073741824, "default": 268435456, "x-restart": "live", "x-tier": "advanced" },
-            "skillBytes": { "type": "integer", "minimum": 1048576, "maximum": 1073741824, "default": 16777216, "x-restart": "live", "x-tier": "advanced" }
+            "packageBytes": { "description": "Maximum size of an extension package, in bytes.", "type": "integer", "minimum": 1048576, "maximum": 1073741824, "default": 268435456, "x-restart": "live", "x-tier": "advanced" },
+            "skillBytes": { "description": "Maximum size of an installed skill folder, in bytes.", "type": "integer", "minimum": 1048576, "maximum": 1073741824, "default": 16777216, "x-restart": "live", "x-tier": "advanced" }
           }
         }
       }
     },
     "embedding": {
+      "description": "Embedding model use classification and non-commercial licence acknowledgement.",
       "type": "object", "additionalProperties": false, "default": {},
       "properties": {
-        "useClass": { "enum": ["general", "research", "commercial"], "default": "general", "x-restart": "core", "x-tier": "basic" },
-        "acceptedNcLicence": { "type": "boolean", "default": false, "x-restart": "core", "x-tier": "advanced" },
-        "acceptedNcLicenceAt": { "type": "string", "format": "date-time", "x-restart": "core", "x-tier": "advanced" }
+        "useClass": { "description": "Intended use of the embedding model: general, research, or commercial.", "enum": ["general", "research", "commercial"], "default": "general", "x-restart": "core", "x-tier": "basic" },
+        "acceptedNcLicence": { "description": "Whether the owner has accepted the model's non-commercial licence terms.", "type": "boolean", "default": false, "x-restart": "core", "x-tier": "advanced" },
+        "acceptedNcLicenceAt": { "description": "Date-time when the non-commercial licence was accepted.", "type": "string", "format": "date-time", "x-restart": "core", "x-tier": "advanced" }
       }
     },
     "engine": {
@@ -100,47 +110,53 @@
       },
       "additionalProperties": true
     },
-    "providers": { "type": "object", "default": {}, "x-restart": "live", "x-tier": "basic", "x-reserved": "M2 (D15)", "additionalProperties": true },
-    "oauth":     { "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced", "x-reserved": "M2 (D16)", "additionalProperties": true },
-    "decision":  { "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced", "x-reserved": "M2 (D18)", "additionalProperties": true },
+    "providers": { "description": "Reserved namespace for model-provider configuration.", "type": "object", "default": {}, "x-restart": "live", "x-tier": "basic", "x-reserved": "M2 (D15)", "additionalProperties": true },
+    "oauth":     { "description": "Reserved namespace for OAuth configuration.", "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced", "x-reserved": "M2 (D16)", "additionalProperties": true },
+    "decision":  { "description": "Reserved namespace for decision model configuration.", "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced", "x-reserved": "M2 (D18)", "additionalProperties": true },
     "modelRoles": {
+      "description": "Model identifiers assigned to the supported functional roles.",
       "type": "object", "default": {}, "x-restart": "live", "x-tier": "basic", "x-reserved": "M2 (D15, D18)",
       "propertyNames": { "enum": ["chat", "reasoning", "capture", "dream", "embedding", "rerank", "decision"] },
-      "additionalProperties": { "type": "string" }
+      "additionalProperties": { "description": "Model identifier assigned to the role.", "type": "string" }
     },
     "modelProfiles": {
       "description": "Named model profiles (C4): an ordered candidate list with weights for fallback or mixture-of-agents (moa) use, plus sampling parameters and cache hints. Data only; selection is the router's job. List order is priority order.",
       "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced",
       "propertyNames": { "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$" },
       "additionalProperties": {
+        "description": "Configuration for one named model profile.",
         "type": "object", "additionalProperties": false, "required": ["candidates"],
         "properties": {
-          "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
-          "strategy": { "enum": ["fallback", "moa"], "default": "fallback" },
+          "displayName": { "description": "Optional human-readable profile name.", "type": "string", "minLength": 1, "maxLength": 120 },
+          "strategy": { "description": "How candidates are used: try in priority order (fallback) or combine them (moa).", "enum": ["fallback", "moa"], "default": "fallback" },
           "candidates": {
+            "description": "Ordered model candidates; the first candidate has the highest priority.",
             "type": "array", "minItems": 1, "maxItems": 16,
             "items": {
+              "description": "A candidate model and its optional mixture weight.",
               "type": "object", "additionalProperties": false, "required": ["model"],
               "properties": {
-                "model": { "type": "string", "minLength": 1, "maxLength": 200 },
-                "weight": { "type": "number", "exclusiveMinimum": 0, "maximum": 100, "default": 1 }
+                "model": { "description": "Model identifier for this candidate.", "type": "string", "minLength": 1, "maxLength": 200 },
+                "weight": { "description": "Relative contribution of this candidate when the moa strategy is used.", "type": "number", "exclusiveMinimum": 0, "maximum": 100, "default": 1 }
               }
             }
           },
-          "aggregator": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "aggregator": { "description": "Model identifier used to aggregate moa candidate outputs.", "type": "string", "minLength": 1, "maxLength": 200 },
           "params": {
+            "description": "Sampling and output-size parameters for this profile.",
             "type": "object", "additionalProperties": false, "default": {},
             "properties": {
-              "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
-              "topP": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
-              "maxTokens": { "type": "integer", "minimum": 1, "maximum": 2000000 }
+              "temperature": { "description": "Sampling temperature, from 0 to 2.", "type": "number", "minimum": 0, "maximum": 2 },
+              "topP": { "description": "Nucleus-sampling probability threshold, greater than 0 and at most 1.", "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+              "maxTokens": { "description": "Maximum number of output tokens.", "type": "integer", "minimum": 1, "maximum": 2000000 }
             }
           },
           "cache": {
+            "description": "Provider prompt-cache preference and optional time-to-live.",
             "type": "object", "additionalProperties": false, "default": {},
             "properties": {
-              "hint": { "enum": ["auto", "none", "prefer"], "default": "auto" },
-              "ttlSeconds": { "type": "integer", "minimum": 0, "maximum": 86400 }
+              "hint": { "description": "Whether to use prompt caching automatically, never, or when preferred.", "enum": ["auto", "none", "prefer"], "default": "auto" },
+              "ttlSeconds": { "description": "Maximum cache lifetime, in seconds.", "type": "integer", "minimum": 0, "maximum": 86400 }
             }
           }
         },
@@ -153,13 +169,15 @@
       }
     },
     "models": {
+      "description": "Model discovery settings.",
       "type": "object", "additionalProperties": false, "default": {},
       "properties": {
         "scan": {
+          "description": "Schedule for periodic local model discovery scans.",
           "type": "object", "additionalProperties": false, "default": {},
           "properties": {
-            "enabled": { "type": "boolean", "default": true, "x-restart": "live", "x-tier": "advanced" },
-            "intervalHours": { "type": "integer", "minimum": 1, "maximum": 168, "default": 24, "x-restart": "live", "x-tier": "advanced" }
+            "enabled": { "description": "Whether periodic model discovery scans are enabled.", "type": "boolean", "default": true, "x-restart": "live", "x-tier": "advanced" },
+            "intervalHours": { "description": "Hours between periodic model discovery scans.", "type": "integer", "minimum": 1, "maximum": 168, "default": 24, "x-restart": "live", "x-tier": "advanced" }
           }
         }
       }
@@ -169,6 +187,7 @@
       "type": "object", "additionalProperties": false, "default": {},
       "properties": {
         "fileFallback": {
+          "description": "Settings for the encrypted-file secret-store fallback.",
           "type": "object", "additionalProperties": false, "default": {},
           "properties": {
             "enabled": {
@@ -190,6 +209,7 @@
           "x-restart": "live", "x-tier": "advanced"
         },
         "allowPorts": {
+          "description": "Destination ports allowed for outgoing requests.",
           "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true, "default": [443],
           "items": { "type": "integer", "minimum": 1, "maximum": 65535 },
           "x-restart": "live", "x-tier": "advanced"
@@ -204,8 +224,9 @@
       "description": "Per-module settings, keyed by module name (B13). A change restarts only that module; `enabled: false` keeps it stopped.",
       "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced",
       "additionalProperties": {
+        "description": "Settings for one installed module; unknown module-specific keys are retained.",
         "type": "object", "x-restart": "module:$key", "x-tier": "advanced",
-        "properties": { "enabled": { "type": "boolean", "default": true } },
+        "properties": { "enabled": { "description": "Whether the module is allowed to run.", "type": "boolean", "default": true } },
         "additionalProperties": true
       }
     }
