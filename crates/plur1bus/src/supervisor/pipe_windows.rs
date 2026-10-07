@@ -95,33 +95,6 @@ fn wait_for_client(h: &OwnedHandle) -> io::Result<()> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn bind_retries_a_transient_first_instance_collision() {
-        let address = format!(r"\\.\pipe\plur1bus-test-{}", uuid::Uuid::new_v4());
-        let name: Vec<u16> = std::ffi::OsStr::new(&address)
-            .encode_wide()
-            .chain(Some(0))
-            .collect();
-        let security = SecurityDescriptor::user_and_system().unwrap();
-        let held = create_instance(&name, &security, true).unwrap();
-        let releaser = std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_millis(120));
-            drop(held);
-        });
-
-        let started = Instant::now();
-        let listener = Listener::bind(&address).unwrap();
-        assert!(started.elapsed() >= Duration::from_millis(100));
-
-        drop(listener);
-        releaser.join().unwrap();
-    }
-}
-
 struct Pipe(Arc<OverlappedPipe>);
 impl Read for Pipe {
     fn read(&mut self, b: &mut [u8]) -> io::Result<usize> {
@@ -214,5 +187,32 @@ impl Listener {
             }),
             drain: Box::new(move || drain_with_deadline(&drain, DRAIN_DEADLINE)),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bind_retries_a_transient_first_instance_collision() {
+        let address = format!(r"\\.\pipe\plur1bus-test-{}", uuid::Uuid::new_v4());
+        let name: Vec<u16> = std::ffi::OsStr::new(&address)
+            .encode_wide()
+            .chain(Some(0))
+            .collect();
+        let security = SecurityDescriptor::user_and_system().unwrap();
+        let held = create_instance(&name, &security, true).unwrap();
+        let releaser = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(120));
+            drop(held);
+        });
+
+        let started = Instant::now();
+        let listener = Listener::bind(&address).unwrap();
+        assert!(started.elapsed() >= Duration::from_millis(100));
+
+        drop(listener);
+        releaser.join().unwrap();
     }
 }
