@@ -128,6 +128,11 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: BudgetCmd,
     },
+    /// [experimental] Audit trail: verify the hash-chained audit file (B5)
+    Audit {
+        #[command(subcommand)]
+        sub: AuditCmd,
+    },
     /// [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
     ///
     /// Values are read from stdin, never from arguments, and are printed only by `get --reveal`.
@@ -849,6 +854,16 @@ pub struct ChatArgs {
     pub no_memory: bool,
     /// One message to send; without it, lines are read from stdin until EOF
     pub message: Option<String>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AuditCmd {
+    /// [experimental] Verify the audit chain and its anchor (read-only; exits 1 when anything is wrong)
+    ///
+    /// Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must
+    /// be gapless across rotated files, and the anchor file must match the newest line. Asks the core
+    /// (`audit.verify`, Owner and Admin only); the CLI does not read the files itself.
+    Verify,
 }
 
 #[derive(Subcommand, Debug)]

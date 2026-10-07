@@ -7,6 +7,8 @@ import type {
 } from "@plur1bus/rpc-schema";
 import type { ActivityTracker } from "../activity.ts";
 import { buildAdminMethods } from "../admin-ops.ts";
+import { buildAuditMethods } from "../audit/rpc.ts";
+import type { AuditChain } from "../audit/chain.ts";
 import { buildBackupMethods } from "../backup-ops.ts";
 import type { Layout } from "../paths.ts";
 import type { AgentRegistry } from "../agents.ts";
@@ -59,6 +61,8 @@ export interface MethodDeps {
   onMigrated: () => void | Promise<void>;
   /** M8: where `admin.backup.snapshot` stages (the home layout and the engine's configured store path). */
   backup?: { layout: Layout; baseDbPath: string };
+  /** B5: the hash-chained audit file (`audit.verify`). */
+  auditChain?: AuditChain;
   /** D112: harness-side system jobs registry. */
   systemJobs?: import("../system-jobs/index.ts").SystemJobs;
   /** D112: model discovery service. */
@@ -204,6 +208,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
     ...buildAdminMethods({ engine: d.engine, agents: d.agents, logger: d.logger, isStopping: d.isStopping, onMigrated: d.onMigrated, signal: d.captureSignal }),
     ...(d.reembed ?? {}),
 
+    ...(d.auditChain ? buildAuditMethods({ chain: d.auditChain }) : {}),
     ...(d.backup ? buildBackupMethods({ engine: d.engine, layout: d.backup.layout, baseDbPath: d.backup.baseDbPath, logger: d.logger, isStopping: d.isStopping }) : {}),
 
     "agent.list": async () => ({ agents: d.agents.list().map((agentId) => ({ agentId, open: openAgents.has(agentId), activity: d.activity.get(agentId) })) }),

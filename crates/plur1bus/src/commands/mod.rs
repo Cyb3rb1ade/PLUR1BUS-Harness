@@ -1,6 +1,7 @@
 pub mod acp;
 pub mod admin;
 pub mod agent;
+pub mod audit;
 pub mod backup;
 pub mod budget;
 pub mod config;
