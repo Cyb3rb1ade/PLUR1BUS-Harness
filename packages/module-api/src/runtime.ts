@@ -20,6 +20,7 @@ import { readRecordedPid, readRunToken } from "./trust.ts";
 /** What a module may log through: the harness logger without its lifecycle controls. */
 export type HarnessLikeLogger = Pick<HarnessLogger, "debug" | "info" | "warn" | "error" | "child">;
 
+/** Identity, lifecycle, configuration, logger, and optional core access provided to `ModuleDefinition.start`. */
 export interface ModuleContext {
   name: string; home: string; instanceId: string;
   /** Aborted when the module starts to stop. */
@@ -36,6 +37,7 @@ export interface ModuleContext {
   /** Replaces `module.status.detail`. */
   setDetail(d: Record<string, unknown>): void;
 }
+/** A module implementation whose start handler returns its budget-aware shutdown handler. */
 export interface ModuleDefinition { start(ctx: ModuleContext): Promise<{ stop(o: { budgetMs: number }): Promise<void> }> }
 
 /** The features `module.auth` advertises. */

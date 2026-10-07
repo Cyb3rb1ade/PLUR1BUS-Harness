@@ -2,6 +2,7 @@ import type { HarnessLogger } from "./logger.ts";
 import { silentLogger } from "./logger.ts";
 import { createRpcServer } from "./rpc-server.ts";
 
+/** Options for a module's authenticated, schema-validated control endpoint. */
 export interface ControlServerOptions {
   address: string; token: string;
   /** `module.auth`'s result. */
@@ -13,6 +14,7 @@ export interface ControlServerOptions {
   authIdleMs?: number;
   logger?: HarnessLogger;
 }
+/** Lifecycle operations for a module control endpoint. */
 export interface ControlServer {
   listen(): Promise<void>;
   /** Ends every connection and destroys the ones still open after `graceMs` (default 1000). */
