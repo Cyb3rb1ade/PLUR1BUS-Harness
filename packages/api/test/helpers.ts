@@ -31,7 +31,7 @@ export interface Harness {
 
 export interface StartOptions {
   limits?: Partial<ApiLimits>; rateClasses?: RateClasses; sessionLimits?: SessionLimits; core?: FakeCore;
-  users?: MemoryUserDirectory; lockout?: Partial<LockoutPolicy>; extraRoutes?: ApiServerOptions["extraRoutes"];
+  users?: MemoryUserDirectory; lockout?: Partial<LockoutPolicy>; extraRoutes?: ApiServerOptions["extraRoutes"]; webRoot?: string;
 }
 
 export async function start(o: StartOptions = {}): Promise<Harness> {
@@ -41,7 +41,7 @@ export async function start(o: StartOptions = {}): Promise<Harness> {
   const api = createApiServer({
     core, ownerToken: OWNER_TOKEN, clock, users, audit, logger: { debug: sink("debug"), info: sink("info"), warn: sink("warn"), error: sink("error") },
     ...(o.limits ? { limits: o.limits } : {}), ...(o.rateClasses ? { rateClasses: o.rateClasses } : {}), ...(o.sessionLimits ? { sessionLimits: o.sessionLimits } : {}),
-    ...(o.lockout ? { lockout: o.lockout } : {}), ...(o.extraRoutes ? { extraRoutes: o.extraRoutes } : {}),
+    ...(o.lockout ? { lockout: o.lockout } : {}), ...(o.extraRoutes ? { extraRoutes: o.extraRoutes } : {}), ...(o.webRoot ? { webRoot: o.webRoot } : {}),
   });
   const { url, port } = await api.listen();
   return { api, url, port, clock, core, logs, audit, users, close: () => api.close() };

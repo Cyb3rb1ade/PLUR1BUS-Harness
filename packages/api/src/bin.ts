@@ -14,12 +14,12 @@ function arg(name: string): string | undefined {
 
 async function main(): Promise<void> {
   const home = arg("--home");
-  if (!home) { console.error("usage: plur1bus-api --home <path> [--host <loopback address>] [--port <n>]"); process.exit(2); }
+  if (!home) { console.error("usage: plur1bus-api --home <path> [--host <loopback address>] [--port <n>] [--web-root <dir>]"); process.exit(2); }
   const portArg = arg("--port"); const port = portArg === undefined ? 0 : Number(portArg);
   if (!Number.isInteger(port) || port < 0 || port > 65535) { console.error("--port must be an integer between 0 and 65535"); process.exit(2); }
   const logger = createLogger({ file: join(home, "logs", "api.log"), level: "info", role: "api" });
   const core = createCoreLink(home, { log: logger });
-  const api = createApiServer({ core, ownerToken: ensureOwnerToken(home), logger, port, ...(arg("--host") ? { host: arg("--host")! } : {}) });
+  const api = createApiServer({ core, ownerToken: ensureOwnerToken(home), logger, port, ...(arg("--host") ? { host: arg("--host")! } : {}), ...(arg("--web-root") ? { webRoot: arg("--web-root")! } : {}) });
   const { url } = await api.listen();
   console.log(JSON.stringify({ ready: true, url, pid: process.pid }));
   let stopping = false;

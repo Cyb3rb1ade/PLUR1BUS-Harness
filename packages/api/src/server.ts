@@ -1,3 +1,4 @@
+import { statSync } from "node:fs";
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
 import { isIP, type Socket } from "node:net";
@@ -6,7 +7,7 @@ import { createAuditEmitter } from "./audit.ts";
 import { systemClock, type Clock } from "./clock.ts";
 import type { CoreRpc } from "./core-rpc.ts";
 import { ApiError, errorBody, errors } from "./errors.ts";
-import { securityHeaders } from "./headers.ts";
+import { htmlCsp, injectNonce, newNonce, securityHeaders } from "./headers.ts";
 import { PasswordLogin, type LockoutPolicy } from "./login.ts";
 import { MemoryTokenStore, MemoryTotpStore } from "./memory-stores.ts";
 import type { TokenStore, TotpStore, UserDirectory } from "./ports.ts";
@@ -14,6 +15,7 @@ import { LoginChallenges } from "./challenge.ts";
 import { DEFAULT_RATE_CLASSES, RateLimiter, type RateClasses } from "./rate-limit.ts";
 import { authorize, type AuditSink, type Decision, type RbacPrincipal, type Resource } from "./rbac-bridge.ts";
 import { redactFields } from "./redact.ts";
+import { createStaticServer } from "./static.ts";
 import { buildHandlers, COOKIE_NAME, COOKIE_NAME_TLS, CSRF_HEADER, ROUTES, sessionCookie, type Handler, type RouteSpec } from "./routes.ts";
 import { TokenService } from "./tokens.ts";
 import { TotpService } from "./totp.ts";
@@ -43,6 +45,9 @@ export interface ApiServerOptions {
   totp?: TotpStore; totpIssuer?: string;
   /** The hash-chained audit log of the core, or any sink with the same `append`. Without one nothing is audited. */
   audit?: AuditSink;
+  /** The built web app (`packages/web/dist`): served read-only at `/` and below, never under `/api`, with a CSP nonce per
+   *  page. Without it the API serves JSON only. */
+  webRoot?: string;
   /** Loopback only (ruling R7); anything else is refused. Default `127.0.0.1`. */
   host?: string; port?: number;
   /** A PEM key and certificate: the listener is then HTTPS, the cookie `Secure`, HSTS is sent. */
@@ -124,6 +129,8 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   const totp = new TotpService({ store: o.totp ?? new MemoryTotpStore(), clock, issuer: o.totpIssuer ?? "PLUR1BUS Harness" });
   const challenges = new LoginChallenges(clock);
   const handlers = buildHandlers({ core: o.core, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, audit });
+  if (o.webRoot !== undefined && !statSync(o.webRoot, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`webRoot ${JSON.stringify(o.webRoot)} is not a directory`);
+  const staticFiles = o.webRoot !== undefined ? createStaticServer(o.webRoot) : undefined;
   const cookieName = tls ? COOKIE_NAME_TLS : COOKIE_NAME;
   const secHeaders = securityHeaders(tls);
   const byPath = new Map<string, Map<string, { spec: RouteSpec; handler: Handler }>>();
@@ -201,7 +208,23 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       const cls = route?.spec.rate ?? "read";
       const ipVerdict = limiter.take(cls, `ip:${ip}`);
       if (!ipVerdict.ok) rateLimited(`ip:${ip}`, cls, ipVerdict.retryAfterSec);
-      if (!methods) throw errors.notFound();
+      if (!methods) {
+        // Not an API route: the app shell and its assets, if a web root is configured. Public by design (the sign-in page
+        // must load before anyone is signed in), read-only, files below the root only, and never anything under /api.
+        if (staticFiles && path !== "/api" && !path.startsWith("/api/")) {
+          routeId = "static";
+          if (req.method !== "GET" && req.method !== "HEAD") throw errors.methodNotAllowed(["GET", "HEAD"]);
+          const f = await staticFiles.read(path);
+          if (!f) throw errors.notFound();
+          const nonce = f.html ? newNonce() : undefined;
+          const body = nonce ? Buffer.from(injectNonce(f.body.toString("utf8"), nonce), "utf8") : f.body;
+          status = 200;
+          res.writeHead(200, { ...secHeaders, ...(nonce ? { "Content-Security-Policy": htmlCsp(nonce) } : {}), "Content-Type": f.contentType, "Content-Length": body.length });
+          res.end(req.method === "HEAD" ? undefined : body);
+          return;
+        }
+        throw errors.notFound();
+      }
       if (!route) throw errors.methodNotAllowed([...methods.keys()]);
       const { spec, handler } = route; routeId = spec.id;
 
