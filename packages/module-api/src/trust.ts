@@ -49,8 +49,7 @@ export function checkRunDir(dir: string, o: TrustOptions = {}): TrustVerdict {
   return { ok: true };
 }
 
-/** `file` must be a socket of the current user. A missing file is `{ ok: true }` (core absent). */
-/** Checks that a POSIX RPC endpoint is a socket owned by the current user. */
+/** Checks that a POSIX RPC endpoint is a socket owned by the current user. A missing file is `{ ok: true }` (core absent). */
 export function checkSocketFile(file: string, o: TrustOptions = {}): TrustVerdict {
   if ((o.platform ?? process.platform) === "win32") return { ok: true };
   const euid = euidOf(o);

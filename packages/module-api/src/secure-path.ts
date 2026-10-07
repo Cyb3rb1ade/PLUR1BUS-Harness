@@ -13,8 +13,8 @@ export interface SecurePathResult {
 /** Function returned by {@link createSecurePath} to secure a filesystem path. */
 export type SecurePath = (p: string, options?: { mode?: number }) => SecurePathResult;
 
-/** Runs a tool synchronously and returns its stdout; throws when it cannot run or exits non-zero. */
-/** Synchronous executable adapter used by the Windows ACL implementation. */
+/** Synchronous executable adapter used by the Windows ACL implementation. Runs a tool and returns its stdout;
+ *  throws when it cannot run or exits non-zero. */
 export type ExecFile = (file: string, args: readonly string[]) => string;
 
 /** Platform, filesystem, and process adapters used to create a secure-path function. */
