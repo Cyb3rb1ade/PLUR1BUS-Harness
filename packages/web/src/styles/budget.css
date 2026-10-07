@@ -1,0 +1,11 @@
+/* Usage & Quota page: one card per limit (meter + text + numbers), grouped by scope or agent; usage tab with period cards. */
+.page-inner > .tabs { margin-top: 8px; }
+.tabs section { margin-bottom: 24px; }
+.tabs section > .group-label { padding: 0; margin: 0 0 8px; font-size: 13px; color: var(--ink-2); }
+.tabs section > .card, .tabs > .tabpanel > div > .card { margin-bottom: 12px; }
+/* A limit card: the sentence "x of y (n %)" sits right under the bar, the numbers in one row, the actions at the foot. */
+.tabpanel .card > p { margin: 0 0 12px; font-variant-numeric: tabular-nums; }
+.tabpanel .card .state-actions { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.tabpanel .card dl.facts { font-variant-numeric: tabular-nums; }
+.tabpanel .card ul.plain-list { color: var(--ink-2); font-size: 13px; }
+.tabpanel .card section h4.card-title { margin-top: 0; }

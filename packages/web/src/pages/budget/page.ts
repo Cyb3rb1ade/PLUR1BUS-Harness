@@ -32,10 +32,10 @@ function LimitCard({ limit, level, onEdit, onRemove }: { limit: Limit; level: 2 
   const bound = v.bound === null ? null : amount(limit.metric, v.bound);
   return h(Card, { title, level, aside: h(Badge, { tone }, stateText) },
     bound !== null && v.bound !== null && v.bound > 0
-      ? h("meter", { min: 0, max: v.bound, value: v.barValue, "aria-label": t("budget.meter", { title, used, limit: bound }) }, `${used} / ${bound}`)
+      ? h("meter", { class: `meter meter-${tone}`, min: 0, max: v.bound, value: v.barValue, "aria-label": t("budget.meter", { title, used, limit: bound }) }, `${used} / ${bound}`)
       : null,
     h("p", {}, bound === null ? t("budget.noBound", { used }) : t("budget.usedOf", { used, limit: bound, percent: v.percent })),
-    h("dl", { class: "facts" },
+    h("dl", { class: "facts facts-cols" },
       h(Row, { label: t("budget.field.used"), value: used }),
       h(Row, { label: t("budget.field.soft"), value: limit.soft === null ? t("budget.field.notSet") : amount(limit.metric, limit.soft) }),
       h(Row, { label: t("budget.field.hard"), value: limit.hard === null ? t("budget.field.notSet") : amount(limit.metric, limit.hard) })),
