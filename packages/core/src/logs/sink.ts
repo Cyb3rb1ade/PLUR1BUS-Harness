@@ -1,13 +1,14 @@
-import { chmodSync, closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readdirSync, renameSync, rmSync, statSync, utimesSync, writeSync } from "node:fs";
+import { chmodSync, closeSync, existsSync, fstatSync, fsyncSync, lstatSync, mkdirSync, openSync, readdirSync, renameSync, rmSync, statSync, utimesSync, writeSync } from "node:fs";
 import path from "node:path";
-import { acquireExclusiveLock, createSecurePath } from "@plur1bus/module-api";
+import { acquireExclusiveLock, createSecurePath, type SecurePath } from "@plur1bus/module-api";
 const DAY = 86400000;
 /** No persistent descriptors: rotation/pruning also work on Windows. All writers of a role share the native lock. */
-export function createSink(o: { dir: string; role: string; now: () => number; maxBytes?: number; keep?: number; retentionDays?: number }) {
+export function createSink(o: { dir: string; role: string; now: () => number; maxBytes?: number; keep?: number; retentionDays?: number; securePath?: SecurePath }) {
   if (!/^[a-z0-9][a-z0-9._-]{0,127}$/.test(o.role) || /^(audit|payload)(\.|$)/.test(o.role)) throw new RangeError("diagnostic role required");
   mkdirSync(o.dir, { recursive: true, mode: 0o700 });
   if (!lstatSync(o.dir).isDirectory()) throw new Error("log directory is not a directory");
-  const securePath = createSecurePath();
+  const securePath = o.securePath ?? createSecurePath();
+  let securedIdentity: string | null = null;
   const secure = (p: string, mode: number) => { const r = securePath(p, { mode }); if (!r.applied) throw new Error("cannot secure log path"); };
   secure(o.dir, 0o700);
   const file = path.join(o.dir, `${o.role}.log`); let maxBytes = o.maxBytes ?? 20 * 1024 * 1024; let keep = o.keep ?? 5;
@@ -27,6 +28,7 @@ export function createSink(o: { dir: string; role: string; now: () => number; ma
     regular(file); regular(`${file}.${keep}`); rmSync(`${file}.${keep}`, { force: true });
     for (let i = keep - 1; i >= 1; i--) { const p = `${file}.${i}`; regular(p); regular(`${file}.${i + 1}`); if (existsSync(p)) renameSync(p, `${file}.${i + 1}`); }
     if (existsSync(file)) renameSync(file, `${file}.1`);
+    securedIdentity = null;
   };
   return {
     file,
@@ -36,7 +38,14 @@ export function createSink(o: { dir: string; role: string; now: () => number; ma
         regular(file);
         if (existsSync(file)) { const st = statSync(file); if (st.size > 0 && (st.size + Buffer.byteLength(line) > maxBytes || Math.floor(st.mtimeMs / DAY) < Math.floor(o.now() / DAY))) rotate(); }
         const fd = openSync(file, "a", 0o600);
-        try { if (process.platform !== "win32") chmodSync(file, 0o600); secure(file, 0o600); const buf = Buffer.from(line); if (writeSync(fd, buf) !== buf.length) throw new Error("short log write"); fsyncSync(fd); }
+        try {
+          const st = fstatSync(fd); const identity = `${st.dev}:${st.ino}:${st.birthtimeMs}`;
+          if (identity !== securedIdentity) {
+            if (process.platform !== "win32") chmodSync(file, 0o600);
+            secure(file, 0o600); securedIdentity = identity;
+          }
+          const buf = Buffer.from(line); if (writeSync(fd, buf) !== buf.length) throw new Error("short log write"); fsyncSync(fd);
+        }
         finally { closeSync(fd); }
         utimesSync(file, new Date(o.now()), new Date(o.now()));
       });
