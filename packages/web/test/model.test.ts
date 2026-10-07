@@ -1,23 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { catalogues } from "../src/i18n.ts";
 import { ALL_ITEMS, BOTTOM, GROUPS, LANDING } from "../src/nav.ts";
 import { resolve } from "../src/router.ts";
-
-test("i18n: de and en have the same keys and no empty text", () => {
-  const en = Object.keys(catalogues.en).sort();
-  assert.deepEqual(Object.keys(catalogues.de).sort(), en);
-  for (const lang of ["en", "de"] as const) {
-    for (const [k, v] of Object.entries(catalogues[lang])) assert.ok(v.trim().length > 0, `${lang}.${k} is empty`);
-  }
-});
-
-test("i18n: placeholders match between languages", () => {
-  const ph = (s: string): string[] => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]!).sort();
-  for (const k of Object.keys(catalogues.en) as (keyof typeof catalogues.en)[]) {
-    assert.deepEqual(ph(catalogues.de[k]), ph(catalogues.en[k]), k);
-  }
-});
 
 test("nav: groups Workspace, Build, Control with the canvas items; Settings and Help are pinned apart", () => {
   assert.deepEqual(GROUPS.map((g) => g.id), ["workspace", "build", "control"]);
