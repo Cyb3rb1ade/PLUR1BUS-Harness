@@ -8,3 +8,4 @@ export type { ProviderErrorKind, ProviderErrorInit } from "./errors.ts";
 export type * from "./types.ts";
 export * from "./gemini/index.ts";
 export * from "./router/index.ts";
+export * from "./local/index.ts";

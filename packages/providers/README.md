@@ -92,3 +92,12 @@ jittered backoff, a circuit breaker per provider+model (closed / open / half-ope
 before the first streamed event and always emits `provider.fallback` through `onEvent`; a `BudgetGuard` port is asked
 before every attempt so a fallback cannot bypass a cost limit. Content-filter, context-length and bad-request errors
 are never retried nor routed to another vendor. Time and randomness are injected (`Clock`, `random`).
+
+## Local models (`src/local`)
+
+- `discoverLocalEndpoints()` probes `127.0.0.1:11434` (Ollama: `/api/tags`, then `/v1/models`) and `127.0.0.1:1234` (LM Studio: `/v1/models`) without any key.
+- `probeEndpoint()` never throws on a service problem; it returns a `state`: `ok`, `empty`, `unreachable`, `timeout`, `refused`, `protocol`.
+- Loopback only. Any other origin needs `allowNonLoopback: true` **and** an `EgressPolicy`; without a policy it is `refused`.
+- `createLocalChatAdapter(endpoint, createChatCompletionsAdapter)` builds the chat_completions adapter with `NO_AUTH` credentials (no `Authorization` header).
+
+Tests: `pnpm --filter @plur1bus/providers test` (fake loopback servers only).
