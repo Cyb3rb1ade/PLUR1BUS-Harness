@@ -151,6 +151,8 @@ importers:
         specifier: 16.0.0
         version: 16.0.0
 
+  packages/voice-providers: {}
+
   packages/web:
     dependencies:
       '@preact/signals':
