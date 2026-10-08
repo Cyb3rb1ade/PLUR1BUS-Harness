@@ -94,7 +94,6 @@
       "additionalProperties": false,
       "properties": {
         "agents": {
-          "description": "Per-agent settings keyed by a lowercase agent identifier.",
           "type": "object",
           "default": {},
           "x-restart": "live",
@@ -103,17 +102,14 @@
             "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
           },
           "additionalProperties": {
-            "description": "Settings for one agent.",
             "type": "object",
             "additionalProperties": false,
             "properties": {
               "createdAt": {
-                "description": "Timestamp when the agent was created, in date-time format.",
                 "type": "string",
                 "format": "date-time"
               },
               "displayName": {
-                "description": "Optional human-readable name for the agent.",
                 "type": "string",
                 "maxLength": 128
               },
@@ -125,7 +121,6 @@
                 "x-tier": "advanced",
                 "properties": {
                   "blocked": {
-                    "description": "Skill names this agent must not receive, even when enabled installation-wide.",
                     "type": "array",
                     "items": {
                       "type": "string"
@@ -133,7 +128,6 @@
                     "default": []
                   },
                   "pinned": {
-                    "description": "Skill names pinned for this agent; currently stored and displayed but not interpreted.",
                     "type": "array",
                     "items": {
                       "type": "string"
@@ -141,7 +135,6 @@
                     "default": []
                   },
                   "applyAt": {
-                    "description": "When a changed skill selection takes effect for a running agent.",
                     "enum": [
                       "next-turn",
                       "next-session"
@@ -154,13 +147,11 @@
           }
         },
         "embedding": {
-          "description": "Embedding model use classification and non-commercial licence acknowledgement.",
           "type": "object",
           "additionalProperties": false,
           "default": {},
           "properties": {
             "useClass": {
-              "description": "Intended use of the embedding model: general, research, or commercial.",
               "enum": [
                 "general",
                 "research",
@@ -173,7 +164,6 @@
           }
         },
         "providers": {
-          "description": "Reserved namespace for model-provider configuration.",
           "type": "object",
           "default": {},
           "x-restart": "live",
@@ -182,7 +172,6 @@
           "additionalProperties": true
         },
         "modelRoles": {
-          "description": "Model identifiers assigned to the supported functional roles.",
           "type": "object",
           "default": {},
           "x-restart": "live",
@@ -200,7 +189,6 @@
             ]
           },
           "additionalProperties": {
-            "description": "Model identifier assigned to the role.",
             "type": "string"
           }
         }
@@ -215,25 +203,21 @@
       "additionalProperties": false,
       "properties": {
         "$schema": {
-          "description": "URI identifying the JSON Schema used to validate this configuration.",
           "type": "string",
           "x-restart": "live",
           "x-tier": "advanced"
         },
         "schemaVersion": {
-          "description": "Configuration format version; this schema supports version 1.",
           "const": 1,
           "x-restart": "core",
           "x-tier": "advanced"
         },
         "core": {
-          "description": "Settings for the core process, including logging, memory operation budgets, and shutdown.",
           "type": "object",
           "additionalProperties": false,
           "default": {},
           "properties": {
             "logLevel": {
-              "description": "Minimum severity written to the core log.",
               "enum": [
                 "debug",
                 "info",
@@ -245,13 +229,11 @@
               "x-tier": "advanced"
             },
             "recall": {
-              "description": "Time and response-size limits for memory recall.",
               "type": "object",
               "additionalProperties": false,
               "default": {},
               "properties": {
                 "softBudgetMs": {
-                  "description": "Soft target duration for a recall, in milliseconds.",
                   "type": "integer",
                   "minimum": 50,
                   "default": 400,
@@ -259,7 +241,6 @@
                   "x-tier": "advanced"
                 },
                 "hardBudgetMs": {
-                  "description": "Maximum duration allowed for a recall before it is aborted, in milliseconds.",
                   "type": "integer",
                   "minimum": 100,
                   "default": 600,
@@ -267,7 +248,6 @@
                   "x-tier": "advanced"
                 },
                 "capChars": {
-                  "description": "Maximum number of characters returned by a recall.",
                   "type": "integer",
                   "minimum": 1000,
                   "default": 17000,
@@ -277,13 +257,11 @@
               }
             },
             "capture": {
-              "description": "Limits for waiting on memory capture after a turn.",
               "type": "object",
               "additionalProperties": false,
               "default": {},
               "properties": {
                 "waitMs": {
-                  "description": "Maximum time to wait for a memory capture, in milliseconds.",
                   "type": "integer",
                   "minimum": 1000,
                   "default": 60000,
@@ -293,7 +271,6 @@
               }
             },
             "shutdownBudgetMs": {
-              "description": "Maximum time the core spends on graceful shutdown, in milliseconds.",
               "type": "integer",
               "minimum": 1000,
               "default": 30000,
@@ -303,13 +280,11 @@
           }
         },
         "supervisor": {
-          "description": "Timing settings used by the process supervisor.",
           "type": "object",
           "additionalProperties": false,
           "default": {},
           "properties": {
             "graceMs": {
-              "description": "Grace period given to a child process to exit during shutdown, in milliseconds.",
               "type": "integer",
               "minimum": 1000,
               "default": 60000,
@@ -317,7 +292,6 @@
               "x-tier": "advanced"
             },
             "healthIntervalMs": {
-              "description": "Interval between child-process health checks, in milliseconds.",
               "type": "integer",
               "minimum": 1000,
               "default": 5000,
@@ -333,14 +307,12 @@
           "default": {},
           "properties": {
             "enabled": {
-              "description": "Whether to expose the read-only Prometheus metrics endpoint.",
               "type": "boolean",
               "default": false,
               "x-restart": "core",
               "x-tier": "advanced"
             },
             "port": {
-              "description": "Loopback port used by the metrics endpoint.",
               "type": "integer",
               "minimum": 1024,
               "maximum": 65535,
@@ -351,13 +323,11 @@
           }
         },
         "logs": {
-          "description": "Retention limits for rotating harness log files.",
           "type": "object",
           "additionalProperties": false,
           "default": {},
           "properties": {
             "maxBytes": {
-              "description": "Maximum size of each log file before rotation, in bytes.",
               "type": "integer",
               "minimum": 1048576,
               "default": 20971520,
@@ -365,7 +335,6 @@
               "x-tier": "advanced"
             },
             "keep": {
-              "description": "Number of rotated log files to retain.",
               "type": "integer",
               "minimum": 1,
               "default": 5,
@@ -381,14 +350,12 @@
           "default": {},
           "properties": {
             "allowUnsigned": {
-              "description": "Whether unsigned extension packages may be installed.",
               "type": "boolean",
               "default": true,
               "x-restart": "live",
               "x-tier": "advanced"
             },
             "trashDays": {
-              "description": "Number of days uninstalled extensions are retained in the trash.",
               "type": "integer",
               "minimum": 1,
               "maximum": 365,
@@ -397,13 +364,11 @@
               "x-tier": "advanced"
             },
             "limits": {
-              "description": "Maximum unpacked sizes for extension packages and skill folders.",
               "type": "object",
               "additionalProperties": false,
               "default": {},
               "properties": {
                 "packageBytes": {
-                  "description": "Maximum size of an extension package, in bytes.",
                   "type": "integer",
                   "minimum": 1048576,
                   "maximum": 1073741824,
@@ -412,7 +377,6 @@
                   "x-tier": "advanced"
                 },
                 "skillBytes": {
-                  "description": "Maximum size of an installed skill folder, in bytes.",
                   "type": "integer",
                   "minimum": 1048576,
                   "maximum": 1073741824,
@@ -425,20 +389,17 @@
           }
         },
         "embedding": {
-          "description": "Embedding model use classification and non-commercial licence acknowledgement.",
           "type": "object",
           "additionalProperties": false,
           "default": {},
           "properties": {
             "acceptedNcLicence": {
-              "description": "Whether the owner has accepted the model's non-commercial licence terms.",
               "type": "boolean",
               "default": false,
               "x-restart": "core",
               "x-tier": "advanced"
             },
             "acceptedNcLicenceAt": {
-              "description": "Date-time when the non-commercial licence was accepted.",
               "type": "string",
               "format": "date-time",
               "x-restart": "core",
@@ -463,7 +424,6 @@
           "additionalProperties": true
         },
         "oauth": {
-          "description": "Reserved namespace for OAuth configuration.",
           "type": "object",
           "default": {},
           "x-restart": "live",
@@ -472,7 +432,6 @@
           "additionalProperties": true
         },
         "decision": {
-          "description": "Reserved namespace for decision model configuration.",
           "type": "object",
           "default": {},
           "x-restart": "live",
@@ -490,7 +449,6 @@
             "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
           },
           "additionalProperties": {
-            "description": "Configuration for one named model profile.",
             "type": "object",
             "additionalProperties": false,
             "required": [
@@ -498,13 +456,11 @@
             ],
             "properties": {
               "displayName": {
-                "description": "Optional human-readable profile name.",
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 120
               },
               "strategy": {
-                "description": "How candidates are used: try in priority order (fallback) or combine them (moa).",
                 "enum": [
                   "fallback",
                   "moa"
@@ -512,12 +468,10 @@
                 "default": "fallback"
               },
               "candidates": {
-                "description": "Ordered model candidates; the first candidate has the highest priority.",
                 "type": "array",
                 "minItems": 1,
                 "maxItems": 16,
                 "items": {
-                  "description": "A candidate model and its optional mixture weight.",
                   "type": "object",
                   "additionalProperties": false,
                   "required": [
@@ -525,13 +479,11 @@
                   ],
                   "properties": {
                     "model": {
-                      "description": "Model identifier for this candidate.",
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 200
                     },
                     "weight": {
-                      "description": "Relative contribution of this candidate when the moa strategy is used.",
                       "type": "number",
                       "exclusiveMinimum": 0,
                       "maximum": 100,
@@ -541,31 +493,26 @@
                 }
               },
               "aggregator": {
-                "description": "Model identifier used to aggregate moa candidate outputs.",
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 200
               },
               "params": {
-                "description": "Sampling and output-size parameters for this profile.",
                 "type": "object",
                 "additionalProperties": false,
                 "default": {},
                 "properties": {
                   "temperature": {
-                    "description": "Sampling temperature, from 0 to 2.",
                     "type": "number",
                     "minimum": 0,
                     "maximum": 2
                   },
                   "topP": {
-                    "description": "Nucleus-sampling probability threshold, greater than 0 and at most 1.",
                     "type": "number",
                     "exclusiveMinimum": 0,
                     "maximum": 1
                   },
                   "maxTokens": {
-                    "description": "Maximum number of output tokens.",
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 2000000
@@ -573,13 +520,11 @@
                 }
               },
               "cache": {
-                "description": "Provider prompt-cache preference and optional time-to-live.",
                 "type": "object",
                 "additionalProperties": false,
                 "default": {},
                 "properties": {
                   "hint": {
-                    "description": "Whether to use prompt caching automatically, never, or when preferred.",
                     "enum": [
                       "auto",
                       "none",
@@ -588,7 +533,6 @@
                     "default": "auto"
                   },
                   "ttlSeconds": {
-                    "description": "Maximum cache lifetime, in seconds.",
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 86400
@@ -641,26 +585,22 @@
           }
         },
         "models": {
-          "description": "Model discovery settings.",
           "type": "object",
           "additionalProperties": false,
           "default": {},
           "properties": {
             "scan": {
-              "description": "Schedule for periodic local model discovery scans.",
               "type": "object",
               "additionalProperties": false,
               "default": {},
               "properties": {
                 "enabled": {
-                  "description": "Whether periodic model discovery scans are enabled.",
                   "type": "boolean",
                   "default": true,
                   "x-restart": "live",
                   "x-tier": "advanced"
                 },
                 "intervalHours": {
-                  "description": "Hours between periodic model discovery scans.",
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 168,
@@ -679,7 +619,6 @@
           "default": {},
           "properties": {
             "fileFallback": {
-              "description": "Settings for the encrypted-file secret-store fallback.",
               "type": "object",
               "additionalProperties": false,
               "default": {},
@@ -716,7 +655,6 @@
               "x-tier": "advanced"
             },
             "allowPorts": {
-              "description": "Destination ports allowed for outgoing requests.",
               "type": "array",
               "minItems": 1,
               "maxItems": 64,
@@ -748,13 +686,11 @@
           "x-restart": "live",
           "x-tier": "advanced",
           "additionalProperties": {
-            "description": "Settings for one installed module; unknown module-specific keys are retained.",
             "type": "object",
             "x-restart": "module:$key",
             "x-tier": "advanced",
             "properties": {
               "enabled": {
-                "description": "Whether the module is allowed to run.",
                 "type": "boolean",
                 "default": true
               }
