@@ -20,6 +20,8 @@ export interface SessionServiceDeps {
   /** The core's shutdown signal. */
   signal: AbortSignal;
   compaction?: CompactionConfig;
+  /** Local resources owned by an archived session; observes committed archive/replacement only. */
+  onSessionEnd?: (id: string) => void;
   approver?: SessionMethodDeps["approver"];
 }
 
@@ -27,6 +29,7 @@ export interface SessionService { store: SessionStore; runner: TurnRunner; metho
 
 export function openSessionService(d: SessionServiceDeps): SessionService {
   const store = new SessionStore({ path: d.dbPath, clock: d.clock });
+  if (d.onSessionEnd) store.onArchived(d.onSessionEnd);
   // Acceptance 7: a turn that was running when the previous core died is marked failed before anything is served.
   const recovered = store.recoverRunningTurns().length;
   if (recovered > 0) d.logger.warn("session turns recovered as failed", { count: recovered });

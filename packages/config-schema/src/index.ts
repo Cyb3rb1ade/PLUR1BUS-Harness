@@ -8,6 +8,7 @@ export const SCHEMA_VERSION = 1 as const;
 export interface HarnessConfig {
   $schema?: string;
   schemaVersion: 1;
+  tools: { hostctl: { enabled: boolean; shell: { allowed: boolean; default: "bash" | "zsh" | "pwsh" }; exec: { timeoutMs: number }; output: { maxBytes: number }; env: { allow: string[] }; denyPatterns: string[]; search: { maxResults: number } } };
   core: { logLevel: "debug" | "info" | "warn" | "error"; recall: { softBudgetMs: number; hardBudgetMs: number; capChars: number }; capture: { waitMs: number }; shutdownBudgetMs: number };
   supervisor: { graceMs: number; healthIntervalMs: number };
   logs: { maxBytes: number; keep: number };

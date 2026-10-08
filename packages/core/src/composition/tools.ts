@@ -1,3 +1,4 @@
+import type { createHostctlPool } from '../../../hostctl/src/pool.ts';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { readFile } from 'node:fs/promises';
@@ -24,6 +25,7 @@ export interface ToolCompositionOptions {
   mcp?: { port: McpToolPort; servers: readonly string[] };
   media?: { adapter: ImageAdapter; store: OutputStore };
   extra?: readonly ToolDef[];
+  hostctl?: ReturnType<typeof createHostctlPool>;
 }
 function unwrap(value: unknown): unknown {
   if (value && typeof value === 'object' && 'isError' in value) {
@@ -96,6 +98,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
       return { id: manifest.id, files: manifest.files, metadata: manifest.metadata };
     } });
   }
+  for (const tool of o.roots.length ? (o.hostctl?.forRoots(o.roots, deny).definitions() ?? []) : []) registry.register(tool);
   for (const tool of o.extra ?? []) registry.register(tool);
   if (o.mcp) for (const server of o.mcp.servers) {
     req.signal.throwIfAborted();
