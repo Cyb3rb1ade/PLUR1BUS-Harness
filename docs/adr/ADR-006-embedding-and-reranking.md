@@ -1,6 +1,6 @@
 # ADR-006: Embedding and reranking service
 
-**Status:** Accepted (2026-09-22; implementation record of plan 2a-H3b-b added 2026-09-28) · **Date:** 2026-09-22 / 2026-09-28 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D2, D6, D9 · `docs/phase0/auftrag-original-2026-09-21.md` §6, §6.2, §10, §11 · `docs/phase0/research/providers-embedding-rerank.md` (all) · `docs/phase0/research/plur1bus-crons-embedding-portability.md` §2 (and §3 for `/share`) · `docs/phase0/research/platform-binaries-and-startup.md` (binaries table) · PLUR1BUS checkout `/home/claude/refs/openclaw-plur1bus-memory` @ `89148f9` · the 2a-H3b-b plan's rulings HB11 (the setup wizard's use-class question and NC-licence gate) and HB12 (the audit log) · Source of record for the implementation section: this repository @ `main` (`049b9a3`), `crates/plur1bus/src/install/setup.rs`, `packages/core/src/engine-config.ts`.
+**Status:** Accepted (2026-09-22; implementation record of plan 2a-H3b-b added 2026-09-28; default model amended 2026-10-08) · **Date:** 2026-09-22 / 2026-09-28 · **Deciders:** Christian (owner) · **Inputs:** `docs/phase0/brief.md` D2, D6, D9 · `docs/phase0/auftrag-original-2026-09-21.md` §6, §6.2, §10, §11 · `docs/phase0/research/providers-embedding-rerank.md` (all) · `docs/phase0/research/plur1bus-crons-embedding-portability.md` §2 (and §3 for `/share`) · `docs/phase0/research/platform-binaries-and-startup.md` (binaries table) · PLUR1BUS checkout `/home/claude/refs/openclaw-plur1bus-memory` @ `89148f9` · the 2a-H3b-b plan's rulings HB11 (the setup wizard's use-class question and NC-licence gate) and HB12 (the audit log) · Source of record for the implementation section: this repository @ `main` (`049b9a3`), `crates/plur1bus/src/install/setup.rs`, `packages/core/src/engine-config.ts`.
 
 ## Context
 
@@ -39,6 +39,7 @@ What exists today, verified in the checkout at `89148f9`:
 
 | Model | HF id | Type | Dim | Max tok | Prefix / task scheme | Licence | ONNX | Source |
 |---|---|---|---|---|---|---|---|---|
+| EmbeddingGemma 2 (text-only) | `google/embeddinggemma-2` (ONNX: `onnx-community/embeddinggemma-2-ONNX`) | Embedding | 768, MRL 512/256/128 (re-normalise after truncation) | 8192 | `task: search result \| query: ` (query) / `title: none \| text: ` or `title: {title} \| text: ` (document); other task prefixes per card | **Apache-2.0** | Yes, `onnx/model*.onnx` (+`_data`): fp32 1085 MB, q8 314 MB, q4 175 MB (text model); needs `@huggingface/transformers` ≥ 4.3.1 | Amendment 2026-10-08 below; [HF card](https://huggingface.co/google/embeddinggemma-2), [ONNX](https://huggingface.co/onnx-community/embeddinggemma-2-ONNX) |
 | multilingual-e5-small | `intfloat/multilingual-e5-small` | Embedding | 384 | 512 | `query: ` / `passage: ` (required) | **MIT** | Yes, `onnx/model.onnx` in repo | `research/providers-embedding-rerank.md` Q1 → [HF card](https://huggingface.co/intfloat/multilingual-e5-small) |
 | Qwen3-Embedding-0.6B | `Qwen/Qwen3-Embedding-0.6B` | Embedding | ≤1024, selectable 32–1024 (MRL) | 32K | `Instruct: {task}\nQuery:{q}` for queries; documents unprefixed | **Apache-2.0** | Yes, `onnx-community/Qwen3-Embedding-0.6B-ONNX` | ibid. |
 | Qwen3-Reranker-0.6B | `Qwen/Qwen3-Reranker-0.6B` | Reranker | – | 32,768 | default instruction, customisable | **Apache-2.0** | Yes, `onnx-community/Qwen3-Reranker-0.6B-ONNX`; raw logit-difference score, sigmoid optional | ibid. |
@@ -52,6 +53,8 @@ What exists today, verified in the checkout at `89148f9`:
 Remote embedding: OpenAI `text-embedding-3-small/large` (`dimensions` param), Google `gemini-embedding-2`/`-001` (128–3072; `task_type` only on `-001`), Cohere `embed-v4.0` (details unverified, primary doc 404'd), Jina v5 family, Voyage `voyage-4` family, OpenRouter (pass-through — the identity is the **pinned upstream**), Ollama `/api/embed`. **Anthropic offers no embedding API and recommends Voyage** (`research/providers-embedding-rerank.md` Q2). Remote rerank: Cohere, Jina, Voyage; self-hosted TEI, vLLM, llama.cpp, oMLX, Infinity.
 
 ### Installer / wizard default — owner decision
+
+> **Amended 2026-10-08:** the default model is now EmbeddingGemma 2 for every use class; see "Amendment 2026-10-08 (owner)" at the end of this ADR. The use-class analysis below is kept for the record and still governs the optional non-commercial models.
 
 §6.2 proposes Jina v5 Text Nano as the suggested default with a licence confirmation. Evidence gathered since: Jina v3, v5-text-nano and reranker v2 are all **CC BY-NC-4.0** (`research/providers-embedding-rerank.md` Q1; PLUR1BUS's own metadata agrees, `local-model-artifacts.js:50-51,79-80` carrying `commercialUse:false`), while Qwen3-Embedding-0.6B / Qwen3-Reranker-0.6B are **Apache-2.0 with maintained ONNX mirrors**, and the repo is MIT and public (D10).
 
@@ -190,7 +193,7 @@ Plan 2a-H3b-b (this repository @ `main`, `049b9a3` at this record) builds `setup
 ## Action items
 
 1. [ ] Write the identity spec (`docs/embedding-identity.md`): field list, canonical serialisation, hash, where it is stored (generation record, store metadata, cache key) — then change `lib/embedding-cache.js:57-58` to key on the identity hash instead of `model+dimensions`.
-2. [ ] Measure RAM (int8 vs fp32) and cold/warm latency for E5-small, Qwen3-Embedding-0.6B, Qwen3-Reranker-0.6B and BGE-v2-m3 on all five CI targets; the research note records this as a full gap.
+2. [ ] Measure RAM (int8 vs fp32) and cold/warm latency for EmbeddingGemma 2 (text), E5-small, Qwen3-Embedding-0.6B, Qwen3-Reranker-0.6B and BGE-v2-m3 on all five CI targets; the research note records this as a full gap.
 3. [ ] Live smoke test to capture the exact rerank request/response JSON for Jina, TEI, vLLM, llama.cpp and oMLX; only then freeze the adapter field-mapping table.
 4. [ ] PLUR1BUS PR: Windows named-pipe transport in `scoped-embedding-ipc.js` (protocol untouched) plus a `securePath()` helper replacing the `chmod 0o600/0o700` sites.
 5. [ ] PLUR1BUS PR: per-route/per-DB dimension replacing the `vectorDim` scalar (`index.js:5594-5595` and the pool/`MemoryDB` chain), one query vector per identity in the recall pipeline, RRF fusion, and removal of the dimension-equality check in the share path.
@@ -199,3 +202,61 @@ Plan 2a-H3b-b (this repository @ `main`, `049b9a3` at this record) builds `setup
 8. [ ] Bound the per-text fallback loop in `embedding-openai.js:159-196` against the 15 s budget; make the 5 s rerank timeout single-owned.
 9. [ ] Extend `bench/` into a CI regression gate and a UI decision aid; check a 20-query golden set into the repo.
 10. [ ] Offline model bundle (mirror of the pinned artefacts with their SHA-256 manifest) so an install does not depend on third-party re-export repos remaining online.
+
+## Amendment 2026-10-08 (owner): EmbeddingGemma 2 as unified local default
+
+**Decision (owner, 2026-10-08).** EmbeddingGemma 2 (Google DeepMind, released 2026-10-06), **text-only variant**, becomes the single local default embedding model for **all** use classes (personal and commercial). This supersedes the use-class-dependent default of "Installer / wizard default — owner decision" (Jina v5 Text Nano for the personal branch, Qwen3-Embedding-0.6B otherwise) and the keyless E5-small fallback for interactive installs. Qwen3-Embedding-0.6B stays as the "higher quality" alternative, Jina v5 Text Nano as an optional, licence-gated choice, multilingual-e5-small as the non-interactive/minimal fallback **only if EmbeddingGemma 2 cannot run**. The owner's own setup (OpenAI `text-embedding-3-large` + Cohere reranker) is unaffected. The default reranker is unchanged (BGE-v2-m3).
+
+**Verified facts (checked 2026-10-08 against the Hugging Face API and model cards).**
+
+| Fact | Value | Source |
+|---|---|---|
+| Repo, licence, gating | `google/embeddinggemma-2`, `apache-2.0`, not gated | [HF API](https://huggingface.co/api/models/google/embeddinggemma-2), [card](https://huggingface.co/google/embeddinggemma-2) |
+| Licence text | The card's licence link ([`gemma_4_license`](https://ai.google.dev/gemma/docs/gemma_4_license)) resolves to the Apache License 2.0 text, not the Gemma Terms of Use | fetched 2026-10-08 |
+| Commit (safetensors repo) | `914f7f89142e33e77833254d9c9b90c3cef7303b` (lastModified 2026-10-06) | HF API |
+| Size / variants | 740M total = 270M text (130M transformer + 140M embedder) + 170M vision + 300M audio; one checkpoint, encoders loaded selectively (`vision_config`/`audio_config` = `null` → text only, 270M) | card, "Selective Encoder Loading" |
+| Dimensions | 768 native; Matryoshka 512 / 256 / 128; queries and documents must share one dimension | card |
+| Max sequence length | 8192 tokens (sliding window 1024 in the card table; 512 in `config.json`) | card, `config.json` |
+| Pooling / normalisation | Mean pooling, 512→768 projection, L2-normalised output; **re-normalise after truncating** | card, `2_Normalize/config.json`, ONNX card |
+| Prompts | query: `task: search result \| query: {text}` (also `question answering`, `fact checking`, `code retrieval`, `classification`, `clustering`, `sentence similarity` for symmetric tasks); document: `title: {title} \| text: {text}`, `title: none` when untitled. Prefixes apply to text only. Omitting them still works at lower precision | card, `config_sentence_transformers.json` |
+| Precision | bf16/fp32; **not fp16** in the Python reference (NaN risk); ONNX fp16 is offered separately | card |
+| ONNX export | `onnx-community/embeddinggemma-2-ONNX`, `apache-2.0`, `library_name: transformers.js`, commit `daa72c51243991dfcaf9f9137d2c573d8f7790c0` (lastModified 2026-10-06) | [HF API](https://huggingface.co/api/models/onnx-community/embeddinggemma-2-ONNX?blobs=true) |
+| Runtime requirement | `embedding_gemma2` is present in `@huggingface/transformers` **4.3.1** (2026-10-06) and **absent from 4.3.0** (the version this ADR's §5a assumed). The engine runtime must move to ≥ 4.3.1 before the model can be loaded | npm tarballs grepped 2026-10-08 |
+
+**ONNX pins (text model; sha256 from the HF LFS metadata, tree `daa72c51…`).**
+
+| dtype (transformers.js) | Files | Bytes | sha256 |
+|---|---|---|---|
+| `fp32` | `onnx/model.onnx` | 421 421 | `bc47de15f81208a5c99e5ab10f746d5e33b51ea228b7dc0bef9c133a94f1c1c3` |
+| | `onnx/model.onnx_data` | 1 084 170 240 | `9fd452bfc6916e5a92f080f8dada35598ca4512b21c65897d4c5974d5f9630a2` |
+| `q8` (**default**, int8) | `onnx/model_quantized.onnx` | 495 165 | `d06edd601f851c633a2519304cbeb8dc6170d7ceb61b436625c17fb9b6e74953` |
+| | `onnx/model_quantized.onnx_data` | 313 724 928 | `278a7ff1248c3618e4bd11a607fc54f7bdc7778854230f3956d3f86bd9db4f3b` |
+| `q4` | `onnx/model_q4.onnx` | 490 742 | `f9eeba97acddf139b8ee2ddf04bc30dceafa88de93fadf74d7644e0d61a477a9` |
+| | `onnx/model_q4.onnx_data` | 174 028 800 | `c3975f2d1ab7a1878ae31a7d7a9b7804a827aff3800b60dfceafce21cac3df49` |
+| tokenizer | `tokenizer.json` | 32 170 510 | `4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4` |
+
+`config.json`, `tokenizer_config.json`, `preprocessor_config.json` and `processor_config.json` are plain git blobs (no LFS hash; pin them by the commit). The vision and audio encoders are not part of the default download. Worst-case cosine similarity to fp32 per the ONNX card: q8 0.9997, q4 0.975 (text 0.988). **q8 is the pinned default dtype** (a sixth of fp32 on disk, near-lossless); q4 is the low-RAM option and fp32 the reference. The text model is loaded via `AutoModel` with `vision_config`/`audio_config` removed (the `feature-extraction` pipeline loads every encoder and must not be used for the default).
+
+**Identity fields** (what the engine fingerprint must record; any change is a migration, see "Embedding identity"):
+
+| Field | Value |
+|---|---|
+| provider | `local-transformers` |
+| model | `onnx-community/embeddinggemma-2-ONNX` (base model `google/embeddinggemma-2`) |
+| revision | `daa72c51243991dfcaf9f9137d2c573d8f7790c0` |
+| dimension | 768 (a truncated 512/256/128 store is a different identity) |
+| normalisation | mean pooling, L2 (re-normalised after any truncation) |
+| prefix scheme | query `task: search result \| query: `, passage `title: none \| text: ` |
+| dtype | `q8` (`model_quantized.onnx`) |
+| token cap | 512 by the existing local-model default (8192 supported by the model) |
+
+**Wizard impact.** The personal/commercial use-class branch no longer decides the default: EmbeddingGemma 2 is pre-selected for every use class and never opens a licence dialog. The use class still governs the optional non-commercial models: Jina stays disabled for `commercial` and for non-owners, and is selectable only through the confirmation dialog (web) or `--accept-nc-licence` (CLI, audit-logged as `licence.accept-nc`). `plur1bus setup` no longer asks the interactive NC question for the permissive defaults. A non-interactive install never accepts an NC licence silently (unchanged).
+
+**Migration.** Existing stores keep their recorded identity; nothing is re-embedded implicitly and `engine-config.ts` is not changed in this amendment. Moving a store to EmbeddingGemma 2 is the explicit, planned migration `plur1bus memory reembed --plan --model onnx-community/embeddinggemma-2-ONNX` (see `docs/embedding-migration.md`).
+
+**What stays open.**
+
+1. **Engine-side default** in the `openclaw-plur1bus-memory` repo (model catalogue entry with the prefix scheme and the pins above, `local-model-artifacts` pin with the sha256 values, transformers.js ≥ 4.3.1, dimension default 768) is a follow-up after PR-10. Until it lands the harness keeps forcing E5-small in `engine-config.ts` (ruling O5), because the engine does not yet know the `task: … | query:` / `title: … | text:` scheme; switching the forced model earlier would silently mis-embed or fail to load. When the engine lands, `E5_SMALL`/`MODEL_IDS` (`firstaid_install.rs`) change together (the parity test enforces it) and the importer `CATALOG` gains the entry with the engine's `artefactDigest`.
+2. If the engine cannot run the in-process model, the documented fallback is E5-small (non-interactive/minimal) or GGUF via llama.cpp/Ollama through the `embedding-adapters` package (the community GGUF conversions `ggml-org/embeddinggemma-2-GGUF` and `unsloth/embeddinggemma-2-GGUF` exist; not verified here).
+3. Multimodal use (vision/audio encoders, shared 768-d space) is later work; the pinned text-only default keeps that door open without a re-embed, because text vectors are the same space.
+4. Measure RAM and latency of the q8 text model on the five CI targets (action item 2 now includes EmbeddingGemma 2).

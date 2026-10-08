@@ -210,7 +210,7 @@ Downloads the pinned Node runtime and the core payload and verifies their SHA-25
 ###### **Options:**
 
 * `--non-interactive` — Never prompt: answers come from the flags and the defaults (agent `main`, use class `general`)
-* `--accept-nc-licence` — Accept the non-commercial licence of the default models (asked for unless the use class is commercial)
+* `--accept-nc-licence` — Accept a non-commercial model licence (only needed when you opt into a CC BY-NC model such as Jina; the defaults are permissive)
 * `--no-service` — Do not register the OS service (the supervisor is still started for this session)
 * `--core-from <DIR|TAR.GZ>` — Install the core from this directory or .tar.gz instead of the release payload
 * `--channel <CHANNEL>` — Release channel recorded in the install manifest

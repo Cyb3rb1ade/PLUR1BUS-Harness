@@ -10,7 +10,7 @@ import { sessionState, signIn } from "../../session.ts";
 import { Notice } from "../common/states.ts";
 import { Field, bad } from "../common/field.ts";
 import { useLoad } from "../common/load.ts";
-import { choiceById, choicesOf, type ModelChoice, type ModelKind } from "./licences.ts";
+import { DEFAULT_EMBEDDING, choiceById, choicesOf, type ModelChoice, type ModelKind } from "./licences.ts";
 import { USE_CLASSES, type Answers, type Errors, type UseClass } from "./model.ts";
 
 export type StepProps = { a: Answers; set: (p: Partial<Answers>) => void; errors: Errors; busy: boolean };
@@ -129,7 +129,7 @@ export function MemoryStep({ a, set }: StepProps): View {
   const setUse = (u: UseClass): void => {
     const nc = (id: string): boolean => choiceById(id)?.nc === true;
     // Commercial use never keeps a non-commercial model: back to the permissive defaults, acceptance forgotten.
-    set(u === "commercial" ? { useClass: u, nc: null, ...(nc(a.embedding) ? { embedding: "qwen3-emb" } : {}), ...(nc(a.rerank) ? { rerank: "bge-m3" } : {}) } : { useClass: u });
+    set(u === "commercial" ? { useClass: u, nc: null, ...(nc(a.embedding) ? { embedding: DEFAULT_EMBEDDING } : {}), ...(nc(a.rerank) ? { rerank: "bge-m3" } : {}) } : { useClass: u });
   };
 
   return h("div", {},
