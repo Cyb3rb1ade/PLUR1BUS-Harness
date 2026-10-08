@@ -19,6 +19,8 @@ export interface ToolRunContext {
   agentId: string;
   principal: string;
   sessionId?: string;
+  /** Trust of the surface the call originates from (D109 §5), as the dispatcher received it. */
+  surface?: 0 | 1 | 2 | 3;
 }
 
 /** What the tool knows about a call that the policy needs (D109 §2). Flags are computed by the harness path layer, not the model. */

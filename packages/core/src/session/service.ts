@@ -20,7 +20,7 @@ export interface SessionServiceDeps {
   /** The core's shutdown signal. */
   signal: AbortSignal;
   compaction?: CompactionConfig;
-  authenticatedPerson?: SessionMethodDeps["authenticatedPerson"];
+  approver?: SessionMethodDeps["approver"];
 }
 
 export interface SessionService { store: SessionStore; runner: TurnRunner; methods: Record<string, Handler>; recovered: number; close(budgetMs?: number): Promise<void> }
@@ -44,7 +44,7 @@ export function openSessionService(d: SessionServiceDeps): SessionService {
     logger: { info: (m, f) => d.logger.info(m, f), warn: (m, f) => d.logger.warn(m, f) },
     notify: (e, s) => d.notify("session.event", { agentId: s.agentId, event: toWireEvent(e) }, { optIn: true }),
   });
-  const methods = buildSessionMethods({ store, runner, agents: d.agents, isStopping: d.isStopping, ...(d.authenticatedPerson ? { authenticatedPerson: d.authenticatedPerson } : {}) });
+  const methods = buildSessionMethods({ store, runner, agents: d.agents, isStopping: d.isStopping, ...(d.approver ? { approver: d.approver } : {}) });
   return {
     store, runner, methods, recovered,
     // A turn that ignores the shutdown abort is not waited for beyond the budget: it stays `running` in the file and the

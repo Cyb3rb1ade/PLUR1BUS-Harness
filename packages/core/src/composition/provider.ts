@@ -7,9 +7,12 @@ import { CapabilityIndex } from '../toolcall/capabilities.ts';
 import { compileDialect, fromRegisteredTool, restoreStrictArguments } from '../toolcall/dialects.ts';
 import type { ProviderFamily } from '../toolcall/quirks.ts';
 import { capResult, type FullResultPort } from '../toolcall/results.ts';
-import { ToolDispatcher, type GrantUse } from '../tools/dispatcher.ts';
+import { ToolDispatcher, type GrantUse, type DispatchContext } from '../tools/dispatcher.ts';
+import { AuthError } from '../auth/errors.ts';
+import type { SurfaceTrustLevel } from '../rbac/surface.ts';
 import type { ToolRegistry } from '../tools/registry.ts';
 import type { ApprovalPort } from '../tools/approval.ts';
+import type { Served } from '../../../providers/src/router/types.ts';
 import type { GrantSource, Context } from '../policy/index.ts';
 import type { PolicyAudit } from '../policy/audit.ts';
 import type { ChatProvider, ChatRequest, ChatChunk } from '../session/provider.ts';
@@ -21,12 +24,23 @@ export class TurnToolError extends Error {
   readonly code: string; readonly detail: unknown;
   constructor(code: string, detail: unknown) { super(code); this.name = 'TurnToolError'; this.code = code; this.detail = detail; }
 }
+/** Plan (subscription) vs paid (metered) billing of a provider; a fallback never crosses it silently (ADR-005 §Never). */
+export type BillingClass = 'plan' | 'paid';
+export type TurnRouterEvent = RouterEvent
+  | { type: 'provider.cross_billing_refused'; profile: string; from: Served & { billing: BillingClass }; to: Served & { billing: BillingClass } };
 export interface TurnProviderOptions {
   registry: ToolRegistry; budget: CallBudget; profiles: ProfileTable;
   profile?: string; profileForClass?: (modelClass: string) => string | undefined;
   family?: Readonly<Record<string, ProviderFamily>>;
   approval: ApprovalPort; grants: GrantSource; grantUse?: GrantUse; audit?: PolicyAudit;
-  policyContext?: (request: ChatRequest) => Partial<Context>;
+  /** Per dispatched call: D109 context (repeat-denied, prompt cap, hand-off) for this turn's DispatchContext. */
+  policyContext?: (ctx: DispatchContext, request: ChatRequest) => Partial<Context>;
+  /** Router events (retry, fallback, skipped, breaker) and billing refusals, with the turn they belong to. */
+  onRouterEvent?: (event: TurnRouterEvent, turn: { sessionId: string; turnId: string; agentId: string }) => void;
+  /** Billing class per provider id; providers without one are never refused for billing. */
+  billing?: Readonly<Record<string, BillingClass>>;
+  /** Profiles whose config explicitly allows a fallback across billing classes. Default: refuse. */
+  allowCrossBilling?: (profile: string) => boolean;
   log: PipelineLog; resultStore: FullResultPort;
   maxTokens?: number; maxRounds?: number; topK?: number; system?: readonly string[];
   router?: Pick<RouterConfig, 'retry' | 'clock' | 'random' | 'breaker' | 'profileDefaults' | 'unsupportedProfiles'>;
@@ -39,6 +53,23 @@ export interface TurnProviderOptions {
   snapshot?: (request: ChatRequest, memory: string) => string;
 }
 const retryKinds = new Set(['rate_limit', 'overloaded', 'network', 'timeout']);
+/** One attempt as the turn's adapter wrapper observed it; the budget ticket settles from this when the router knows no usage. */
+interface AttemptState { invoked: boolean; received: boolean; outputChars: number; error?: unknown }
+/** One router call (one model request with its retries/fallbacks). */
+interface CallState { firstClass?: RetryClass; lastFailure?: RetryClass; current?: AttemptState }
+/**
+ * Provably nothing billable left the harness for this attempt: the adapter never ran, the credential lease failed before the
+ * request, egress refused it locally, or the provider answered with an HTTP error before the first streamed byte.
+ */
+function nothingBillable(a: AttemptState): boolean {
+  if (!a.invoked) return true;
+  if (a.received) return false;
+  const e = a.error;
+  if (!(e instanceof ProviderError)) return false;
+  if (e.status !== undefined) return true;
+  if (e.code === 'egress_denied' || e.code === 'request_refused_locally') return true;
+  return e.kind === 'auth' && e.cause instanceof AuthError;
+}
 const estimate = (request: WireRequest) => Math.ceil(JSON.stringify(request.messages).length / 4) + Math.ceil(JSON.stringify(request.tools ?? []).length / 4);
 function actual(usage: Usage) {
   if (usage.inputTokens === undefined || usage.outputTokens === undefined) return undefined;
@@ -51,7 +82,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
   const telemetry = createCacheTelemetry();
   const snapshots = new Map<string, string>();
   const retryBudget = new RetryBudget();
-  interface RoutingContext { profiles: ProfileTable; guard: BudgetGuard; event(event: RouterEvent): void }
+  interface RoutingContext { profiles: ProfileTable; guard: BudgetGuard; call: CallState; event(event: RouterEvent): void }
   const routing = new AsyncLocalStorage<RoutingContext>();
   // One breaker owner across turns; admission and adapters bind to the concurrent turn through ALS.
   const router = new ProviderRouter({ ...o.router,
@@ -98,7 +129,9 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       ...req.summaries.map(content => ({ role: 'system' as const, content })),
       ...req.messages.map((m): ChatMessage => m.role === 'tool' ? { role: 'user', content: m.text } : { role: m.role, content: m.text }),
     ];
-    let pendingRetry: RetryClass | undefined, fatal: unknown;
+    let fatal: unknown;
+    const turn = { sessionId: req.sessionId, turnId, agentId: req.agentId };
+    const emitEvent = (event: TurnRouterEvent) => { try { o.onRouterEvent?.(event, turn); } catch { /* a faulty sink never changes routing */ } };
     let rendered: RenderedPrompt | undefined;
     let renderInput: RenderInput | undefined;
     const family = (provider: string): ProviderFamily => o.family?.[provider] ?? 'openai-chat';
@@ -107,6 +140,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const original = new Map([...aliases].map(([name, alias]) => [alias, name]));
     const profiles = Object.fromEntries(Object.entries(o.profiles).map(([name, candidates]) => [name, candidates.map(c => ({ ...c, adapter: {
       async *stream(request: WireRequest, options?: Parameters<typeof c.adapter.stream>[1]) {
+        const attempt = routing.getStore()?.call.current;
         if (renderInput && rendered?.model !== c.model) {
           rendered = await stage('prompt', signal, o.log, () => builder.render({ ...renderInput!, model: c.model }));
           o.onPrompt?.(rendered);
@@ -121,54 +155,88 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         const mapped = request.messages.map(m => m.role === 'assistant' && m.toolCalls ? { ...m, toolCalls: m.toolCalls.map(t => ({ ...t, name: aliases.get(t.name) ?? t.name })) } : m);
         const stream = c.adapter.stream({ ...request, messages: mapped, tools }, options);
         try { while (true) {
+          if (attempt) attempt.invoked = true;
           const next = await (rendered ? promptContext.run(rendered, () => stream.next()) : stream.next());
           if (next.done) break;
           const e = next.value;
+          if (attempt) { attempt.received = true; if (e.type === 'text_delta') attempt.outputChars += e.text.length; }
           if (e.type === 'done') yield { ...e, result: { ...e.result, toolCalls: e.result.toolCalls.map(t => ({ ...t, name: original.get(t.name) ?? t.name })) } };
           else yield e;
-        } } finally { await stream.return(undefined); }
+        } } catch (e) {
+          if (attempt) attempt.error = e;
+          const call = routing.getStore()?.call;
+          if (call && e instanceof ProviderError && retryKinds.has(e.kind)) call.lastFailure = e.kind as RetryClass;
+          throw e;
+        } finally { await stream.return(undefined); }
       },
     } }))]));
-    const guard: BudgetGuard = {
+    const primary = o.profiles[profile]?.[0];
+    const guardFor = (call: CallState): BudgetGuard => ({
       async authorize(info, request) {
+        // ADR-005: never fall back silently between plan and paid billing; refusing this candidate lets the router try the next.
+        const from = primary && o.billing?.[primary.provider], to = o.billing?.[info.provider];
+        if (from && to && from !== to && !(o.allowCrossBilling?.(info.profile) ?? false)) {
+          emitEvent({ type: 'provider.cross_billing_refused', profile: info.profile, from: { provider: primary!.provider, model: primary!.model, billing: from }, to: { provider: info.provider, model: info.model, billing: to } });
+          return { ok: false as const, reason: 'cross-billing fallback refused' };
+        }
         try {
           return await stage('budget', signal, o.log, () => {
             if (fatal) throw fatal;
-            const admitted = o.budget.checkBeforeCall({ principal, agent: req.agentId, project: req.projectId ?? 'direct', model: info.model, provider: info.provider, turn: turnId, session: req.sessionId, estimatedInputTokens: estimate(request), maxOutputTokens: request.maxTokens ?? o.maxTokens ?? 4096 });
+            const estimatedInputTokens = estimate(request);
+            const admitted = o.budget.checkBeforeCall({ principal, agent: req.agentId, project: req.projectId ?? 'direct', model: info.model, provider: info.provider, turn: turnId, session: req.sessionId, estimatedInputTokens, maxOutputTokens: request.maxTokens ?? o.maxTokens ?? 4096 });
             if (admitted.kind === 'refuse') throw new CallBudgetExceededError(admitted);
+            // A retry or fallback inside this router call is charged to the class of the failure that caused it; the first
+            // attempt is charged only when the call itself is a retry (a tool-argument repair).
+            const retryClass = info.attempt > 1 ? call.lastFailure ?? 'network' : call.firstClass;
             let ticket: number | undefined;
-            if (pendingRetry) {
-              try { ticket = retryBudget.consume(turnId, pendingRetry, admitted.estimatedCostMicros ?? DEFAULT_RETRY_POLICY[pendingRetry].maxCostMicros); }
+            if (retryClass) {
+              try { ticket = retryBudget.consume(turnId, retryClass, admitted.estimatedCostMicros ?? DEFAULT_RETRY_POLICY[retryClass].maxCostMicros); }
               catch (e) { o.budget.releaseUnused(admitted.reservationId); throw e; }
-              pendingRetry = undefined;
             }
+            const attempt: AttemptState = { invoked: false, received: false, outputChars: 0 };
+            call.current = attempt;
             return { ok: true as const, ticket: { async settle(u?: Usage) {
-              const counts = u && actual(u);
-              if (!counts) return; // Unknown usage retains the reservation, including cancellations and failed attempts.
+              let counts = u && actual(u);
+              const estimated = !counts;
+              if (!counts) {
+                if (nothingBillable(attempt)) {
+                  // Nothing billable was sent: the reservation is given back, never left pending.
+                  try { o.budget.releaseUnused(admitted.reservationId); if (ticket !== undefined) retryBudget.settle(ticket, 0); }
+                  catch (e) { fatal = e; throw e; }
+                  return;
+                }
+                // Sent but no authoritative usage (abort mid-stream, network failure after the request): settle an estimate.
+                counts = { inputTokens: estimatedInputTokens, outputTokens: Math.ceil(attempt.outputChars / 4), cacheReadTokens: 0, cacheWriteTokens: 0 };
+              }
+              const settled = counts;
               try { await stage('usage', new AbortController().signal, o.log, () => {
-                const s = o.budget.settle(admitted.reservationId, counts);
+                const s = o.budget.settle(admitted.reservationId, settled);
                 if (ticket !== undefined && s.costMicros !== null) retryBudget.settle(ticket, s.costMicros);
-                if (rendered) { const cacheRecord = telemetry.record(rendered, { cache_read: counts.cacheReadTokens, cache_creation: counts.cacheWriteTokens, input: Math.max(0, counts.inputTokens - counts.cacheReadTokens - counts.cacheWriteTokens) }); o.onUsage?.(cacheRecord); }
+                if (rendered && !estimated) { const cacheRecord = telemetry.record(rendered, { cache_read: settled.cacheReadTokens, cache_creation: settled.cacheWriteTokens, input: Math.max(0, settled.inputTokens - settled.cacheReadTokens - settled.cacheWriteTokens) }); o.onUsage?.(cacheRecord); }
               }); } catch (e) { fatal = e; throw e; }
             } } };
           });
         } catch (e) { fatal = e; return { ok: false as const, reason: 'turn admission refused' }; }
       },
-    };
-    const active: RoutingContext = { profiles, guard, event(event) {
-      if ((event.type === 'provider.retry' || event.type === 'provider.fallback') && retryKinds.has(event.reason)) pendingRetry = event.reason as RetryClass;
-    } };
-    const invoke = async function* (request: WireRequest) {
+    });
+    const invoke = async function* (request: WireRequest, firstClass?: RetryClass) {
+      const call: CallState = firstClass ? { firstClass } : {};
+      const active: RoutingContext = { profiles, guard: guardFor(call), call, event: emitEvent };
       const stream = router.stream(profile, request, { signal });
       try { while (true) { const next = await routing.run(active, () => stream.next()); if (next.done) break; yield next.value; } }
       finally { await routing.run(active, () => stream.return(undefined)); }
     };
     const repairs = new Map<string, unknown>();
-    const dispatcher = new ToolDispatcher({ registry, approvals: o.approval, grants: o.grants, ...(o.grantUse ? { grantUse: o.grantUse } : {}), ...(o.audit ? { audit: o.audit } : {}), clock: { now: Date.now }, policyContext: () => ({ ...(req.headlessJobId ? { headless: { jobId: req.headlessJobId } } : {}), ...o.policyContext?.(req) }), repair: async input => {
-      pendingRetry = 'tool_call_invalid';
+    // D109 §5: who may approve. An RPC turn carries the connection's resolved approver; a non-person may chat and use what
+    // needs no approval, but a call that needs a person's decision is refused with a typed error instead of prompting.
+    const approver = req.approver;
+    const surface: SurfaceTrustLevel = approver?.surface ?? req.originSurface ?? 0;
+    let approvalNeedsPerson = false;
+    const approvals: ApprovalPort = approver && approver.person === null ? { ...o.approval, async request() { approvalNeedsPerson = true; return { approved: false, reason: 'approval requires an authenticated person' }; } } : o.approval;
+    const dispatcher = new ToolDispatcher({ registry, approvals, grants: o.grants, ...(o.grantUse ? { grantUse: o.grantUse } : {}), ...(o.audit ? { audit: o.audit } : {}), clock: { now: Date.now }, policyContext: ctx => ({ ...(req.headlessJobId ? { headless: { jobId: req.headlessJobId } } : {}), ...o.policyContext?.(ctx, req) }), repair: async input => {
       const repairRequest: WireRequest = { model: candidate.model, ...(o.maxTokens === undefined ? {} : { maxTokens: o.maxTokens }), messages: [{ role: 'user', content: `${input.message}\nInvalid arguments (data): ${JSON.stringify(input.args)}` }], tools: selected.map(t => fromRegisteredTool(t)) };
       let repaired: ChatResult | undefined;
-      await stage('tool-repair', signal, o.log, async () => { for await (const e of invoke(repairRequest)) if (e.type === 'done') { repaired = e.result; if (repaired.usage?.inputTokens !== undefined && repaired.usage.outputTokens !== undefined) { totalInputTokens += repaired.usage.inputTokens; totalOutputTokens += repaired.usage.outputTokens; } } });
+      await stage('tool-repair', signal, o.log, async () => { for await (const e of invoke(repairRequest, 'tool_call_invalid')) if (e.type === 'done') { repaired = e.result; if (repaired.usage?.inputTokens !== undefined && repaired.usage.outputTokens !== undefined) { totalInputTokens += repaired.usage.inputTokens; totalOutputTokens += repaired.usage.outputTokens; } } });
       if (fatal) throw fatal;
       const args = repaired?.toolCalls.find(c => c.name === input.tool)?.arguments;
       if (args !== undefined) repairs.set(input.tool, args);
@@ -211,8 +279,9 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           yield { type: 'tool.call', id: call.id, name: call.name, args };
           await o.beforeTools?.();
           signal.throwIfAborted();
-          const output = await stage('tool-dispatch', signal, o.log, () => dispatcher.call({ id: call.id, name: call.name, args }, { agentId: req.agentId, principal: req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface: 2, signal }));
+          const output = await stage('tool-dispatch', signal, o.log, () => dispatcher.call({ id: call.id, name: call.name, args }, { agentId: req.agentId, principal: approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface, signal }));
           if (fatal) throw fatal;
+          if (output.isError && approvalNeedsPerson) throw new TurnToolError('approval-requires-person', output);
           if (output.isError) throw new TurnToolError(output.error.sourceCode ?? output.error.code, output);
           if (repairs.has(call.name)) {
             const assistant = messages.at(-1);

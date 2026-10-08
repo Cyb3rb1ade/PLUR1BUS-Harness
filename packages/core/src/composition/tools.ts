@@ -60,7 +60,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
   // Only ToolDispatcher invokes this closure after a recorded D109 authorization. The inner exec gate is narrowed
   // to that already-authorized invocation; it still enforces config.mode, roots, deny paths, arguments and env.
   registry.register({ name: 'exec.run', description: 'Run an enabled, allowlisted program inside a granted root without a shell.', inputSchema: (await import('../tools/exec/tool.ts')).EXEC_RUN_SCHEMA, capability: 'shell.exec', effect: 'local-write', risk: 'medium', trust: 'first-party', execute: async (args, ctx) => {
-    const tool = createExecTool({ config: { ...o.exec, mode: o.exec?.mode ?? 'deny', roots: o.roots, deny }, process: createNodeProcessPort(), timers: systemTimers, audit: o.audit, policy: { grants: o.grants, clock: { now: Date.now } }, policyContext: { principal: { person: ctx.principal }, subject: { kind: 'agent', agentId: ctx.agentId }, surface: 2, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), overrides: { 'shell.exec': 'allowed' } } });
+    const tool = createExecTool({ config: { ...o.exec, mode: o.exec?.mode ?? 'deny', roots: o.roots, deny }, process: createNodeProcessPort(), timers: systemTimers, audit: o.audit, policy: { grants: o.grants, clock: { now: Date.now } }, policyContext: { principal: { person: ctx.principal }, subject: { kind: 'agent', agentId: ctx.agentId }, surface: ctx.surface ?? 0, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), overrides: { 'shell.exec': 'allowed' } } });
     const run = tool.execute; return unwrap(await run(args, ctx));
   } });
   if (o.media) for (const operation of ['generate', 'edit'] as const) {
@@ -79,7 +79,17 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
       const media = [{ kind: 'image' as const, resolution: request.size ? `${request.size.width}x${request.size.height}` : 'default', quantity: request.n ?? 1 }];
       const admitted = o.budget?.checkBeforeCall({ principal: req.principal!, agent: ctx.agentId, project: req.projectId ?? 'direct', model: o.media!.adapter.model ?? o.media!.adapter.id, provider: o.media!.adapter.id, session: req.sessionId, ...(req.turnId ? { turn: req.turnId } : {}), estimatedInputTokens: 0, maxOutputTokens: 0, media });
       if (admitted?.kind === 'refuse') throw new CallBudgetExceededError(admitted);
-      const result = await o.media!.adapter[operation](request, { signal: ctx.signal });
+      let result: Awaited<ReturnType<ImageAdapter['generate']>>;
+      try { result = await o.media!.adapter[operation](request, { signal: ctx.signal }); }
+      catch (e) {
+        // A failed generation returns no media: nothing is billed, so the reservation is released. An abort may still complete
+        // (and bill) remotely (docs/media.md), so it settles the requested quantity instead of leaving the reservation pending.
+        if (admitted?.kind === 'allow') {
+          if (ctx.signal.aborted) o.budget!.settle(admitted.reservationId, { inputTokens: 0, outputTokens: 0, media });
+          else o.budget!.releaseUnused(admitted.reservationId);
+        }
+        throw e;
+      }
       if (admitted?.kind === 'allow') o.budget!.settle(admitted.reservationId, { inputTokens: 0, outputTokens: 0, media: [{ ...media[0]!, quantity: result.files.length }] });
       ctx.signal.throwIfAborted();
       const manifest = await o.media!.store.put(randomUUID(), request, result);

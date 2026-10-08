@@ -272,7 +272,7 @@ export class ToolDispatcher {
       const onAbort = (): void => { finish({ kind: "aborted" }); ac.abort(ctx.signal.reason); };
       const cancel = timers.set(() => { finish({ kind: "timeout" }); ac.abort(new Error("timeout")); }, tool.limits.timeoutMs);
       ctx.signal.addEventListener("abort", onAbort, { once: true });
-      Promise.resolve().then(() => tool.execute(args, { signal: ac.signal, agentId: ctx.agentId, principal: ctx.principal, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}) }))
+      Promise.resolve().then(() => tool.execute(args, { signal: ac.signal, agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}) }))
         .then((value) => finish({ kind: "ok", value }), (e: unknown) => { const sourceCode = e && typeof e === "object" && "code" in e && typeof e.code === "string" && /^[a-z0-9_.-]{1,64}$/.test(e.code) ? e.code : undefined; finish({ kind: "failed", message: errMsg(e), ...(sourceCode ? { sourceCode } : {}) }); });
     });
   }

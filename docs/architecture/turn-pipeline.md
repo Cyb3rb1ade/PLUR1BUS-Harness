@@ -126,9 +126,27 @@ keeps `retry_budget_exceeded`. Router/provider errors retain their original taxo
 auth never falls back, and no fallback happens after a streamed event. Dispatcher
 failures become typed `TurnToolError` with the original envelope; source error codes
 survive the adapter boundary. A second invalid argument set is `tool-call-invalid`.
-Unknown usage is **not zero usage**: its persistent reservation and retry estimate
-stay counted. A reservation is released only when retry admission refused before
-any adapter invocation. Known usage is settled before done can be consumed.
+Unknown usage is **not zero usage**, but it never stays pending forever. An attempt
+whose request provably billed nothing (the adapter never ran, the credential lease
+failed, egress refused locally, or the provider answered an HTTP error before the
+first byte) releases its reservation; an attempt that was sent but ended without
+authoritative usage (abort mid-stream, network failure after the request) settles an
+estimate (input estimate plus streamed output). Media generate/edit failures release;
+an aborted generation settles the requested quantity. As a safety net, a reservation
+older than the call budget's `reservationTtlMs` (default 30 min) stops counting and
+is reconciled on start. Known usage is settled before done can be consumed.
+
+Router events (`provider.retry`, `provider.fallback`, `provider.skipped`,
+`provider.breaker`) are written to the core log and the audit log with their turn.
+A retry or fallback is charged to the retry budget at its own authorization
+(`attempt > 1`, class of the failure that caused it). A fallback across billing
+classes (plan vs paid, from the provider definition's `billingPath` or its credential
+kind) is refused with `provider.cross_billing_refused` unless
+`providers.modelProfilePolicy.<profile>.allowCrossBilling` is `true`.
+
+Each dispatched call gets the approval service's D109 context (repeat-denied, prompt
+cap per session) and the connection's derived surface. A non-person principal may
+chat; a call that needs a person's approval fails with `approval-requires-person`.
 
 Recall errors degrade to an empty/live context and remain logged. Failed captures
 leave the completed session outcome intact and are logged. Budget/auth/session store

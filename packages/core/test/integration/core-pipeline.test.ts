@@ -139,3 +139,51 @@ test('real RPC approval uses authenticated person and resumes exactly once', { t
     assert.equal((await client.call<any>('approval.get', { id: request.id })).status, 'used');
   } finally { await client?.close(); await core.stop(); await rm(home, { recursive: true, force: true }); if (previous === undefined) delete process.env.PLUR1BUS_SECRETS_KEYRING; else process.env.PLUR1BUS_SECRETS_KEYRING = previous; if (gate === undefined) delete process.env.PLUR1BUS_ALLOW_TEST_INTERNALS; else process.env.PLUR1BUS_ALLOW_TEST_INTERNALS = gate; }
 });
+
+import { existsSync } from 'node:fs';
+import { openTurnComposition } from '../../src/composition/index.ts';
+
+test('finding 4: a throwing createTurnProvider closes everything composition already opened', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'turn-partial-')); const cfg = defaults(); cfg.agents.bernd = {};
+  const logger = createLogger({ file: join(home, 'logs', 'core.log'), level: 'info', role: 'partial' });
+  const identity = createIdentityService({ dbPath: join(home, 'identity.sqlite'), clock: Date.now, audit: () => {} });
+  const agents = createAgentRegistry({ config: () => cfg }, layout(home), logger);
+  const budgetWal = join(home, 'state', 'budget.sqlite-wal');
+  let walWhileOpen = false;
+  try {
+    await assert.rejects(() => openTurnComposition({ home, config: () => cfg, engine: {} as never, agents, logger, secrets: {} as never, egress: { decide: async () => ({ allowed: false }) } as never,
+      permissions: { current: () => null, open: async () => { throw new Error('unused'); } } as never, audit: memoryAuditSink(), identity, clock: Date.now, signal: new AbortController().signal, isStopping: () => false, notify: () => {},
+      options: { providers: { profiles: { default: [{ provider: 'fixture', model: 'gpt-4.1', adapter: { async *stream() {} } }] } }, createTurnProvider: () => { walWhileOpen = existsSync(budgetWal); throw new Error('synthetic provider failure'); } } }), /synthetic provider failure/);
+    assert.equal(walWhileOpen, true, 'the budget store was open when the provider factory threw');
+    assert.equal(existsSync(budgetWal), false, 'the budget store was closed by the partial-init cleanup');
+  } finally { identity.close(); await logger.close(); await rm(home, { recursive: true, force: true }); }
+});
+
+test('finding 2 (wiring) + 6: a denied action re-submitted is repeat-denied without a new approval; the request records the connection surface', { timeout: 30000 }, async () => {
+  const home = await mkdtemp(join(tmpdir(), 'turn-repeat-')); const cfg = defaults(); cfg.agents.bernd = {};
+  await writeFile(join(home, 'config.json'), JSON.stringify(cfg));
+  let executed = 0;
+  const core = createCore({ home, testInternals: flatTestInternals(), composition: { providers: { profiles: { default: [{ provider: 'fixture', model: 'gpt-4.1', adapter: { async *stream() {
+    yield { type: 'done', result: { text: '', toolCalls: [{ id: 'c1', name: 'fixture_write', arguments: {}, argumentsRaw: '{}' }], finishReason: 'tool_calls', rawFinishReason: 'tool_calls', usage: { inputTokens: 10, outputTokens: 1 }, meta: {} } };
+  } } }] } }, tools: { extra: [{ name: 'fixture.write', description: 'write fixture', inputSchema: { type: 'object', properties: {}, additionalProperties: false }, capability: 'fs.write', effect: 'local-write', risk: 'low', trust: 'first-party', classify: () => ({ flags: { outsideRoots: true } }), execute: async () => { executed++; return 'written'; } }] } } });
+  let client: Awaited<ReturnType<typeof connect>> | undefined;
+  const previous = process.env.PLUR1BUS_SECRETS_KEYRING, gate = process.env.PLUR1BUS_ALLOW_TEST_INTERNALS;
+  process.env.PLUR1BUS_SECRETS_KEYRING = 'memory'; process.env.PLUR1BUS_ALLOW_TEST_INTERNALS = '1';
+  const settle = async (sessionId: string) => { let state: any; for (let i = 0; i < 300; i++) { state = await client!.call<any>('session.events', { caller, sessionId }); if (!state.running) break; await new Promise(resolve => setTimeout(resolve, 10)); } return state; };
+  try {
+    await core.start(); client = await connect({ address: core.address, token: core.token });
+    const { session } = await client.call<any>('session.create', { caller, agentId: 'bernd' });
+    await client.call<any>('session.submit', { caller, sessionId: session.id, text: 'write fixture', wait: false });
+    let request: any;
+    for (let i = 0; i < 300 && !request; i++) { request = (await client.call<any>('approval.list', {})).approvals[0]; if (!request) await new Promise(resolve => setTimeout(resolve, 10)); }
+    assert.ok(request); assert.equal(request.originSurface, 2, 'unattested local owner connection = derived T2, recorded on the request');
+    await client.call('approval.decide', { id: request.id, decision: 'deny' });
+    await settle(session.id);
+    const second = await client.call<any>('session.submit', { caller, sessionId: session.id, text: 'write fixture again', wait: true });
+    assert.equal(second.state, 'failed');
+    const all = (await client.call<any>('approval.list', {})).approvals;
+    assert.equal(all.filter((a: any) => a.status === 'pending').length, 0, 'no new prompt for the repeated denied action');
+    assert.equal(executed, 0);
+    const audit = await readFile(join(home, 'logs', 'audit.log'), 'utf8'); assert.match(audit, /fatigue:repeat-denied/);
+  } finally { await client?.close(); await core.stop(); await rm(home, { recursive: true, force: true }); if (previous === undefined) delete process.env.PLUR1BUS_SECRETS_KEYRING; else process.env.PLUR1BUS_SECRETS_KEYRING = previous; if (gate === undefined) delete process.env.PLUR1BUS_ALLOW_TEST_INTERNALS; else process.env.PLUR1BUS_ALLOW_TEST_INTERNALS = gate; }
+});

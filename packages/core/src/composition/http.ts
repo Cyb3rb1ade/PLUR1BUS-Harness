@@ -48,8 +48,8 @@ export function providerFetch(egress: Pick<Egress, 'decide'>, format: string, tr
     if (transport) return transport(input, { ...init, ...(body === undefined ? {} : { body }), redirect: 'error' });
     const d = await egress.decide(url.toString());
     signal?.throwIfAborted();
-    if (!d.allowed) throw new ProviderError('invalid_request', 'provider egress denied');
-    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || (body != null && typeof body !== 'string')) throw new ProviderError('invalid_request', 'unsupported provider request');
+    if (!d.allowed) throw new ProviderError('invalid_request', 'provider egress denied', { code: 'egress_denied' });
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || (body != null && typeof body !== 'string')) throw new ProviderError('invalid_request', 'unsupported provider request', { code: 'request_refused_locally' });
     return new Promise<Response>((resolve, reject) => {
       const headers: Record<string, string> = {}; new Headers(init?.headers).forEach((value, key) => { headers[key] = value; });
       if (typeof body === 'string') headers['content-length'] = String(Buffer.byteLength(body));

@@ -7,7 +7,7 @@ import type { CallerIdentity } from "@plur1bus/rpc-schema";
 import type { Compactor } from "./compaction.ts";
 import { estimateTokens } from "./compaction.ts";
 import type { TurnMemory } from "./memory-port.ts";
-import type { ChatProvider } from "./provider.ts";
+import type { ChatProvider, TurnApprover } from "./provider.ts";
 import type { DispatchContext, ToolDispatcher } from "../tools/dispatcher.ts";
 import type { SessionStore } from "./store.ts";
 import { SessionError, type EventRecord, type SessionRecord } from "./types.ts";
@@ -42,7 +42,7 @@ export class TurnRunner {
   constructor(d: TurnRunnerDeps) { this.#d = d; }
 
   /** The caller has authorised `session` (owner check) already. */
-  submit(a: { session: SessionRecord; caller: CallerIdentity; text: string; authenticatedPerson?: string }): TurnHandle {
+  submit(a: { session: SessionRecord; caller: CallerIdentity; text: string; approver?: TurnApprover }): TurnHandle {
     const provider = this.#d.provider();
     if (!provider) throw new NoProviderError();
     if (a.text.length === 0) throw new SessionError("invalid", "message text is empty", "text-empty");
@@ -50,7 +50,7 @@ export class TurnRunner {
     this.#emit(event, a.session);
     const cancel = new AbortController();
     this.#cancels.set(turn.id, cancel);
-    const run = withTrace(currentTrace() ?? newTrace(), () => this.#run(a.session, a.caller, a.text, turn.id, turn.incognito, provider, cancel.signal, a.authenticatedPerson));
+    const run = withTrace(currentTrace() ?? newTrace(), () => this.#run(a.session, a.caller, a.text, turn.id, turn.incognito, provider, cancel.signal, a.approver));
     this.#inflight.add(run); void run.finally(() => { this.#inflight.delete(run); this.#cancels.delete(turn.id); });
     return { turnId: turn.id, sessionId: a.session.id, messageId: message.id, done: run };
   }
@@ -75,7 +75,7 @@ export class TurnRunner {
     this.#emit(this.#d.store.appendEvent(turnId, type, data), session);
   }
 
-  async #run(session: SessionRecord, caller: CallerIdentity, text: string, turnId: string, incognito: boolean, provider: ChatProvider, cancelled: AbortSignal, authenticatedPerson?: string): Promise<TurnOutcome> {
+  async #run(session: SessionRecord, caller: CallerIdentity, text: string, turnId: string, incognito: boolean, provider: ChatProvider, cancelled: AbortSignal, approver?: TurnApprover): Promise<TurnOutcome> {
     const { store, memory, compactor } = this.#d;
     const signal = this.#d.signal ? AbortSignal.any([this.#d.signal, cancelled]) : cancelled;
     const trace = (r: import("../composition/trace.ts").PipelineRecord) => this.#d.logger?.info("turn.stage", { ...r });
@@ -92,7 +92,7 @@ export class TurnRunner {
       // 3. the provider stream, persisted event by event.
       let reply = ""; let usage: { inputTokens: number; outputTokens: number } | null = null; let index = 0;
       for await (const chunk of provider.stream({
-        sessionId: session.id, turnId, caller, ...(authenticatedPerson ? { authenticatedPerson } : {}), principal: session.owner, agentId: session.agentId, summaries: view.summaries.map((s) => s.text), memory: recalled.text,
+        sessionId: session.id, turnId, caller, ...(approver ? { approver } : {}), principal: session.owner, agentId: session.agentId, summaries: view.summaries.map((s) => s.text), memory: recalled.text,
         messages: view.messages.map((m) => ({ role: m.role, text: m.text })), signal,
         ...(this.#d.toolCalls ? { tools: this.#d.toolCalls.dispatcher.describe() } : {}),
       })) {

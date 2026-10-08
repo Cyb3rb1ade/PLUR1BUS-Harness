@@ -488,7 +488,9 @@ export function createCore(o: CoreOptions): Core {
       const perms = permissions;
       try { turnComposition = await openTurnComposition({ home: l.home, config: cfg, engine: eng, agents: registry, logger: log,
         secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal,
-        authenticatedPerson: async (ctx, params) => { const principal = await resolvePrincipal(ctx, "session.submit", params); if (!principal || principal.kind !== "person") throw new RpcError("E_DENIED", "tool approvals require an authenticated person"); return principal.userId; },
+        // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or
+        // grant-covered turns) and is refused with a typed error only when a call needs a person's approval.
+        approver: async (ctx, params) => { const principal = await resolvePrincipal(ctx, "session.submit", params); return { person: principal && principal.kind === "person" ? principal.userId : null, surface: connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }; },
         isStopping: () => state.state === "stopping" || state.state === "stopped", notify: (method, params, opts) => server?.notify(method, params, opts),
         onStoredCapture: agentId => dreams?.scheduler.recordCapture(agentId), ...(o.chatProvider ? { provider: o.chatProvider } : {}),
         ...(o.composition ? { options: o.composition } : {}), ...(o.budget?.prices ? { prices: o.budget.prices } : {}),
