@@ -52,6 +52,7 @@ interface Chain {
 
 export interface Collab {
   close(): void;
+  shutdown(): Promise<void>;
   createProject(principal: Principal, input: { name: string; settings?: Partial<CollabSettings> }): Project;
   getProject(principal: Principal, id: string): Project;
   listProjects(principal: Principal): Project[];
@@ -230,17 +231,22 @@ export function createCollab(o: CollabOptions): Collab {
     if (!b.allowed) refuse(chain, { agentId: i.toAgent, parentSpanId: i.parentSpanId, reason: b.reason, detail: `guardrail ${b.reason}` });
   };
 
-  const runTarget = async (chain: Chain, project: Project, toAgent: string, question: string, context: string, signal: AbortSignal): Promise<{ text: string; inputTokens: number; outputTokens: number }> => {
+  const runTarget = async (chain: Chain, project: Project, toAgent: string, question: string, context: string, signal: AbortSignal, principal?: Principal): Promise<{ text: string; inputTokens: number; outputTokens: number }> => {
     const sc = scopeFor(toAgent, project.id);
     return scope.run(sc, async () => {
       if (!scope.current() || scope.current()!.agentId !== toAgent) {
         throw new CollabError("no-scope", "AgentScope is required; unscoped access is refused");
       }
-      return runner.run({ agentId: toAgent, question, context, signal });
+      return runner.run({ agentId: toAgent, question, context, signal, ...(principal ? { principal } : {}) });
     });
   };
 
   const api: Collab = {
+    async shutdown() {
+      for (const chain of chains.values()) chain.abort.abort(new Error("core stopping"));
+      while ([...chains.values()].some(chain => chain.inflight.size > 0)) await new Promise<void>(resolve => setImmediate(resolve));
+      api.close();
+    },
     close() {
       for (const c of chains.values()) { if (c.timeout) clearTimeout(c.timeout); }
       store.close();
@@ -327,7 +333,7 @@ export function createCollab(o: CollabOptions): Collab {
       const signal = chainSignal(chain, local.signal);
       if (input.signal?.aborted || chain.abort.signal.aborted) local.abort(new Error("aborted"));
       try {
-        const out = await runTarget(chain, project, input.toAgent, input.question, input.context, signal);
+        const out = await runTarget(chain, project, input.toAgent, input.question, input.context, signal, input.principal);
         chain.tokensUsed += out.inputTokens + out.outputTokens;
         budget.record({ tokens: out.inputTokens + out.outputTokens, cost: 0, projectId: project.id, agentId: input.toAgent, chainId: chain.traceId });
         store.finishSpan(spanId, {
@@ -399,7 +405,7 @@ export function createCollab(o: CollabOptions): Collab {
         fire({ type: "delegate.started", projectId: project.id, traceId: chain.traceId, agentId: input.toAgent, data: { taskId, spanId } });
         try {
           const prompt = `${input.task}\n\nAcceptance criteria:\n${input.acceptanceCriteria}`;
-          const out = await runTarget(chain, project, input.toAgent, prompt, "", signal);
+          const out = await runTarget(chain, project, input.toAgent, prompt, "", signal, input.principal);
           chain.tokensUsed += out.inputTokens + out.outputTokens;
           budget.record({ tokens: out.inputTokens + out.outputTokens, cost: 0, projectId: project.id, agentId: input.toAgent, chainId: chain.traceId });
           const art = artifacts.put({ projectId: project.id, body: out.text, contentType: "text/plain" });

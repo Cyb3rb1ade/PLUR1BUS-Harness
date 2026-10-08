@@ -41,7 +41,7 @@ export interface ToolDef {
   risk: Risk;
   trust?: ToolTrust;
   limits?: Partial<ToolLimits>;
-  classify?(args: unknown): ToolClassification;
+  classify?(args: unknown): ToolClassification | Promise<ToolClassification>;
   execute(args: unknown, ctx: ToolRunContext): Promise<unknown>;
 }
 
@@ -91,6 +91,9 @@ export class ToolRegistry {
       ...(d.classify ? { classify: d.classify } : {}), execute: d.execute,
     }));
   }
+
+  /** Immutable descriptors for composition/index adapters; execution still belongs to the dispatcher. */
+  entries(): readonly RegisteredTool[] { return [...this.#tools.values()]; }
 
   get(name: string): RegisteredTool | undefined { return this.#tools.get(name); }
 

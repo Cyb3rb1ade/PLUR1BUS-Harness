@@ -1,6 +1,8 @@
 // The submit/event turn loop (ADR-010 L2): `submit` records the user's message and a running turn atomically and returns
 // at once; the turn then runs in the background, every step persisted as an ordered per-session event and relayed to
 // subscribers. recall once before, capture once after (acceptance 4); no memory loop of its own.
+import { stage } from "../composition/trace.ts";
+import { currentTrace, newTrace, withTrace } from "../logs/trace.ts";
 import type { CallerIdentity } from "@plur1bus/rpc-schema";
 import type { Compactor } from "./compaction.ts";
 import { estimateTokens } from "./compaction.ts";
@@ -40,7 +42,7 @@ export class TurnRunner {
   constructor(d: TurnRunnerDeps) { this.#d = d; }
 
   /** The caller has authorised `session` (owner check) already. */
-  submit(a: { session: SessionRecord; caller: CallerIdentity; text: string }): TurnHandle {
+  submit(a: { session: SessionRecord; caller: CallerIdentity; text: string; authenticatedPerson?: string }): TurnHandle {
     const provider = this.#d.provider();
     if (!provider) throw new NoProviderError();
     if (a.text.length === 0) throw new SessionError("invalid", "message text is empty", "text-empty");
@@ -48,7 +50,7 @@ export class TurnRunner {
     this.#emit(event, a.session);
     const cancel = new AbortController();
     this.#cancels.set(turn.id, cancel);
-    const run = this.#run(a.session, a.caller, a.text, turn.id, turn.incognito, provider, cancel.signal);
+    const run = withTrace(currentTrace() ?? newTrace(), () => this.#run(a.session, a.caller, a.text, turn.id, turn.incognito, provider, cancel.signal, a.authenticatedPerson));
     this.#inflight.add(run); void run.finally(() => { this.#inflight.delete(run); this.#cancels.delete(turn.id); });
     return { turnId: turn.id, sessionId: a.session.id, messageId: message.id, done: run };
   }
@@ -73,23 +75,24 @@ export class TurnRunner {
     this.#emit(this.#d.store.appendEvent(turnId, type, data), session);
   }
 
-  async #run(session: SessionRecord, caller: CallerIdentity, text: string, turnId: string, incognito: boolean, provider: ChatProvider, cancelled: AbortSignal): Promise<TurnOutcome> {
+  async #run(session: SessionRecord, caller: CallerIdentity, text: string, turnId: string, incognito: boolean, provider: ChatProvider, cancelled: AbortSignal, authenticatedPerson?: string): Promise<TurnOutcome> {
     const { store, memory, compactor } = this.#d;
     const signal = this.#d.signal ? AbortSignal.any([this.#d.signal, cancelled]) : cancelled;
+    const trace = (r: import("../composition/trace.ts").PipelineRecord) => this.#d.logger?.info("turn.stage", { ...r });
     try {
       // 1. recall: exactly one call. A recall that fails or degrades never fails the turn.
       let recalled: { text: string; degraded: unknown } = { text: "", degraded: null };
-      try { recalled = await memory.recall({ agentId: session.agentId, caller, query: text, signal }); }
+      try { recalled = await stage("recall", signal, trace, () => memory.recall({ agentId: session.agentId, caller, query: text, signal })); }
       catch (e) { recalled = { text: "", degraded: { reason: "recall-error", detail: e instanceof Error ? e.message : String(e) } }; this.#d.logger?.warn("session recall failed", { sessionId: session.id, turnId, err: e }); }
       signal.throwIfAborted();
 
       // 2. context within the L14 bound (a swap is preceded by the `compaction` checkpoint, never for an incognito session).
-      const view = await compactor.prepare(session.id);
+      const view = await stage("context", signal, trace, () => compactor.prepare(session.id));
 
       // 3. the provider stream, persisted event by event.
       let reply = ""; let usage: { inputTokens: number; outputTokens: number } | null = null; let index = 0;
       for await (const chunk of provider.stream({
-        sessionId: session.id, agentId: session.agentId, summaries: view.summaries.map((s) => s.text), memory: recalled.text,
+        sessionId: session.id, turnId, caller, ...(authenticatedPerson ? { authenticatedPerson } : {}), principal: session.owner, agentId: session.agentId, summaries: view.summaries.map((s) => s.text), memory: recalled.text,
         messages: view.messages.map((m) => ({ role: m.role, text: m.text })), signal,
         ...(this.#d.toolCalls ? { tools: this.#d.toolCalls.dispatcher.describe() } : {}),
       })) {
@@ -120,7 +123,7 @@ export class TurnRunner {
       await this.#after(session, caller, turnId, text, reply, incognito);
       return { state: "completed", assistantMessageId: done.message.id, reply };
     } catch (e) {
-      const error = cancelled.aborted ? "cancelled" : signal.aborted ? "aborted" : e instanceof Error ? e.message : String(e);
+      const error = cancelled.aborted ? "cancelled" : signal.aborted ? "aborted" : e && typeof e === 'object' && 'code' in e && typeof e.code === 'string' ? e.code : e && typeof e === 'object' && 'kind' in e && typeof e.kind === 'string' ? e.kind : e instanceof Error ? e.message : String(e);
       try { const ev = store.failTurn(turnId, error); if (ev) this.#emit(ev, session); }
       catch (e2) { this.#d.logger?.warn("session turn could not be marked failed; recovery will at the next start", { sessionId: session.id, turnId, err: e2 }); }
       this.#d.logger?.warn("session turn failed", { sessionId: session.id, turnId, error });
@@ -131,7 +134,7 @@ export class TurnRunner {
   async #after(session: SessionRecord, caller: CallerIdentity, turnId: string, user: string, assistant: string, incognito: boolean): Promise<void> {
     if (!incognito) {
       // RULING: incognito (D92 §3.3) means no capture call at all, not a capture flagged incognito; the flag is still passed, derived here from the session.
-      try { await this.#d.memory.capture({ agentId: session.agentId, caller, sessionId: session.id, turnId, messages: [{ role: "user", content: user }, { role: "assistant", content: assistant }], incognito }); }
+      try { await stage("capture", this.#d.signal ?? new AbortController().signal, r => this.#d.logger?.info("turn.stage", { ...r }), () => this.#d.memory.capture({ agentId: session.agentId, caller, sessionId: session.id, turnId, messages: [{ role: "user", content: user }, { role: "assistant", content: assistant }], incognito })); }
       catch (e) { this.#d.logger?.warn("session capture failed", { sessionId: session.id, turnId, err: e }); }
     }
     try { await this.#d.compactor.afterTurn(session.id); } catch (e) { this.#d.logger?.warn("session compaction prepare failed", { sessionId: session.id, err: e }); }

@@ -1,5 +1,4 @@
-// The chat provider seam. The real adapters (packages/providers, another session) are not wired in yet: the turn loop
-// depends on this interface only, and tests and `plur1bus chat` use the deterministic fake.
+// The session provider seam. Composition supplies the real router/model/tool pipeline; isolated tests can use the deterministic fake.
 
 export type ChatChunk =
   | { type: "delta"; text: string }
@@ -10,6 +9,7 @@ export type ChatChunk =
 
 export interface ChatRequest {
   sessionId: string; agentId: string;
+  turnId?: string; projectId?: string; headlessJobId?: string; toolView?: readonly string[]; principal?: string; authenticatedPerson?: string; caller?: import("@plur1bus/rpc-schema").CallerIdentity;
   /** Applied summaries of the compacted history, oldest first. */
   summaries: string[];
   /** The recalled memory block for this turn (empty when recall returned nothing or degraded). */

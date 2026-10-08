@@ -193,6 +193,11 @@ export function createCallBudget(o: CallBudgetOptions) {
   }
   return {
     setLimit, checkBeforeCall, settle,
+    /** Only a caller that has NOT invoked the provider may release a refused retry's unused reservation. */
+    releaseUnused(reservationId: string): void {
+      id(reservationId);
+      db.prepare("DELETE FROM budget_call WHERE id=? AND state='reserved'").run(reservationId);
+    },
     clearLimit(l: Pick<CallLimit, 'scope' | 'id' | 'period' | 'metric'>): void { db.prepare('DELETE FROM budget_call_limit WHERE scope=? AND id=? AND period=? AND metric=?').run(l.scope, l.id, l.period, l.metric); },
     /** Convenience provider hook. On failure without authoritative usage, keep reservation until reconciled by settle. */
     async run<T>(request: CallRequest, invoke: () => Promise<{ value: T; usage: ActualCallUsage }>): Promise<T> {
