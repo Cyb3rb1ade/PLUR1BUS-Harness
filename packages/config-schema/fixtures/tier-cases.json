@@ -1459,6 +1459,14 @@
                   "x-restart": "module:email",
                   "x-tier": "advanced"
                 },
+                "authServId": {
+                  "description": "Authserv-id of the mail server that delivers into the bot mailbox. Only Authentication-Results headers from this server are read; without it every SPF/DKIM/DMARC result counts as none.",
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 253,
+                  "x-restart": "module:email",
+                  "x-tier": "advanced"
+                },
                 "requireAuthPass": {
                   "description": "Drop mail whose Authentication-Results do not show a pass (dmarc, or spf and dkim). The channel only reads the verdict; it does not verify mail itself.",
                   "type": "boolean",

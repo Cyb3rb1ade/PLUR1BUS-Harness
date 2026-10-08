@@ -109,6 +109,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `channels.email.smtp.passwordSecret` | string | `"channels.email.smtp-password"` | module:email | Name of the secret holding the SMTP password or app password. |
 | `channels.email.dmAllowlist` | array | `[]` | module:email | Sender addresses that may write to the bot: an exact address or `*@domain`. Empty allows nobody. |
 | `channels.email.maxAttachmentBytes` | integer | `10485760` | module:email | Largest attachment accepted or sent, in bytes. |
+| `channels.email.authServId` | string |  | module:email | Authserv-id of the mail server that delivers into the bot mailbox. Only Authentication-Results headers from this server are read; without it every SPF/DKIM/DMARC result counts as none. |
 | `channels.email.requireAuthPass` | boolean | `false` | module:email | Drop mail whose Authentication-Results do not show a pass (dmarc, or spf and dkim). The channel only reads the verdict; it does not verify mail itself. |
 | `channels.email.locale` | enum | `"en"` | module:email | Language of the bot's own messages (pairing replies, refusals, approval prompts). |
 | `modules` | object | `{}` | live | Per-module settings, keyed by module name (B13). A change restarts only that module; `enabled: false` keeps it stopped. |
