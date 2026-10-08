@@ -794,9 +794,8 @@
                       "x-tier": "advanced"
                     },
                     "baseUrl": {
-                      "description": "Override the provider endpoint. https only; plain http is accepted for loopback test servers.",
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
-                      "format": "uri",
                       "maxLength": 2048,
                       "x-restart": "core",
                       "x-tier": "advanced"
@@ -850,9 +849,8 @@
                       "x-tier": "advanced"
                     },
                     "baseUrl": {
-                      "description": "Override the provider endpoint. https only; plain http is accepted for loopback test servers.",
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
-                      "format": "uri",
                       "maxLength": 2048,
                       "x-restart": "core",
                       "x-tier": "advanced"
@@ -906,9 +904,8 @@
                       "x-tier": "advanced"
                     },
                     "baseUrl": {
-                      "description": "Override the provider endpoint. https only; plain http is accepted for loopback test servers.",
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
-                      "format": "uri",
                       "maxLength": 2048,
                       "x-restart": "core",
                       "x-tier": "advanced"
@@ -962,9 +959,8 @@
                       "x-tier": "advanced"
                     },
                     "baseUrl": {
-                      "description": "Override the provider endpoint. https only; plain http is accepted for loopback test servers.",
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
-                      "format": "uri",
                       "maxLength": 2048,
                       "x-restart": "core",
                       "x-tier": "advanced"
@@ -1018,9 +1014,8 @@
                       "x-tier": "advanced"
                     },
                     "baseUrl": {
-                      "description": "Override the provider endpoint. https only; plain http is accepted for loopback test servers.",
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
-                      "format": "uri",
                       "maxLength": 2048,
                       "x-restart": "core",
                       "x-tier": "advanced"
@@ -1074,9 +1069,8 @@
                       "x-tier": "advanced"
                     },
                     "baseUrl": {
-                      "description": "Override the provider endpoint. https only; plain http is accepted for loopback test servers.",
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
-                      "format": "uri",
                       "maxLength": 2048,
                       "x-restart": "core",
                       "x-tier": "advanced"
@@ -1130,9 +1124,8 @@
                       "x-tier": "advanced"
                     },
                     "baseUrl": {
-                      "description": "Override the provider endpoint. https only; plain http is accepted for loopback test servers.",
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
-                      "format": "uri",
                       "maxLength": 2048,
                       "x-restart": "core",
                       "x-tier": "advanced"

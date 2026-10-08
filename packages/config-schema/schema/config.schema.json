@@ -250,7 +250,7 @@
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
                 "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced"},
-                "baseUrl": {"description": "Override the provider endpoint. https only; plain http is accepted for loopback test servers.", "type": "string", "format": "uri", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
+                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "gpt-image-2.5-sunburst", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
                 "maxConcurrent": {"description": "How many requests this adapter runs at once; further jobs wait.", "type": "integer", "minimum": 1, "maximum": 16, "default": 2, "x-restart": "core", "x-tier": "advanced"}
@@ -264,7 +264,7 @@
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
                 "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced"},
-                "baseUrl": {"description": "Override the provider endpoint. https only; plain http is accepted for loopback test servers.", "type": "string", "format": "uri", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
+                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "gemini-nano-banana-2.1", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
                 "maxConcurrent": {"description": "How many requests this adapter runs at once; further jobs wait.", "type": "integer", "minimum": 1, "maximum": 16, "default": 2, "x-restart": "core", "x-tier": "advanced"}
@@ -278,7 +278,7 @@
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
                 "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced"},
-                "baseUrl": {"description": "Override the provider endpoint. https only; plain http is accepted for loopback test servers.", "type": "string", "format": "uri", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
+                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "grok-imagine-image-2.0", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
                 "maxConcurrent": {"description": "How many requests this adapter runs at once; further jobs wait.", "type": "integer", "minimum": 1, "maximum": 16, "default": 2, "x-restart": "core", "x-tier": "advanced"}
@@ -292,7 +292,7 @@
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
                 "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced"},
-                "baseUrl": {"description": "Override the provider endpoint. https only; plain http is accepted for loopback test servers.", "type": "string", "format": "uri", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
+                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "google/gemini-2.5-flash-image", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
                 "maxConcurrent": {"description": "How many requests this adapter runs at once; further jobs wait.", "type": "integer", "minimum": 1, "maximum": 16, "default": 2, "x-restart": "core", "x-tier": "advanced"}
@@ -306,7 +306,7 @@
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
                 "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced"},
-                "baseUrl": {"description": "Override the provider endpoint. https only; plain http is accepted for loopback test servers.", "type": "string", "format": "uri", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
+                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "black-forest-labs/flux-schnell", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
                 "maxConcurrent": {"description": "How many requests this adapter runs at once; further jobs wait.", "type": "integer", "minimum": 1, "maximum": 16, "default": 2, "x-restart": "core", "x-tier": "advanced"}
@@ -320,7 +320,7 @@
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
                 "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced"},
-                "baseUrl": {"description": "Override the provider endpoint. https only; plain http is accepted for loopback test servers.", "type": "string", "format": "uri", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
+                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "fal-ai/flux/schnell", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
                 "maxConcurrent": {"description": "How many requests this adapter runs at once; further jobs wait.", "type": "integer", "minimum": 1, "maximum": 16, "default": 2, "x-restart": "core", "x-tier": "advanced"}
@@ -334,7 +334,7 @@
               "properties": {
                 "enabled": {"description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"},
                 "apiKeyRef": {"description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$", "x-restart": "core", "x-tier": "advanced"},
-                "baseUrl": {"description": "Override the provider endpoint. https only; plain http is accepted for loopback test servers.", "type": "string", "format": "uri", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
+                "baseUrl": {"description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.", "type": "string", "maxLength": 2048, "x-restart": "core", "x-tier": "advanced"},
                 "model": {"description": "Model identifier sent to the provider.", "type": "string", "minLength": 1, "maxLength": 200, "default": "black-forest-labs/FLUX.2-dev", "x-restart": "core", "x-tier": "advanced"},
                 "timeoutMs": {"description": "Upper bound for one generation, including polling, in milliseconds.", "type": "integer", "minimum": 1000, "maximum": 3600000, "default": 120000, "x-restart": "core", "x-tier": "advanced"},
                 "maxConcurrent": {"description": "How many requests this adapter runs at once; further jobs wait.", "type": "integer", "minimum": 1, "maximum": 16, "default": 2, "x-restart": "core", "x-tier": "advanced"}

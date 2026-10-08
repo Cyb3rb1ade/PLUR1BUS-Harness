@@ -50,43 +50,43 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `modules` | object | `{}` | live | Per-module settings, keyed by module name (B13). A change restarts only that module; `enabled: false` keeps it stopped. |
 | `media.adapters.openai.enabled` | boolean |  | core | Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key. |
 | `media.adapters.openai.apiKeyRef` | string |  | core | Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin. |
-| `media.adapters.openai.baseUrl` | string |  | core | Override the provider endpoint. https only; plain http is accepted for loopback test servers. |
+| `media.adapters.openai.baseUrl` | string |  | core | Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers. |
 | `media.adapters.openai.model` | string | `"gpt-image-2.5-sunburst"` | core | Model identifier sent to the provider. |
 | `media.adapters.openai.timeoutMs` | integer | `120000` | core | Upper bound for one generation, including polling, in milliseconds. |
 | `media.adapters.openai.maxConcurrent` | integer | `2` | core | How many requests this adapter runs at once; further jobs wait. |
 | `media.adapters.google.enabled` | boolean |  | core | Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key. |
 | `media.adapters.google.apiKeyRef` | string |  | core | Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin. |
-| `media.adapters.google.baseUrl` | string |  | core | Override the provider endpoint. https only; plain http is accepted for loopback test servers. |
+| `media.adapters.google.baseUrl` | string |  | core | Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers. |
 | `media.adapters.google.model` | string | `"gemini-nano-banana-2.1"` | core | Model identifier sent to the provider. |
 | `media.adapters.google.timeoutMs` | integer | `120000` | core | Upper bound for one generation, including polling, in milliseconds. |
 | `media.adapters.google.maxConcurrent` | integer | `2` | core | How many requests this adapter runs at once; further jobs wait. |
 | `media.adapters.xai.enabled` | boolean |  | core | Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key. |
 | `media.adapters.xai.apiKeyRef` | string |  | core | Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin. |
-| `media.adapters.xai.baseUrl` | string |  | core | Override the provider endpoint. https only; plain http is accepted for loopback test servers. |
+| `media.adapters.xai.baseUrl` | string |  | core | Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers. |
 | `media.adapters.xai.model` | string | `"grok-imagine-image-2.0"` | core | Model identifier sent to the provider. |
 | `media.adapters.xai.timeoutMs` | integer | `120000` | core | Upper bound for one generation, including polling, in milliseconds. |
 | `media.adapters.xai.maxConcurrent` | integer | `2` | core | How many requests this adapter runs at once; further jobs wait. |
 | `media.adapters.openrouter.enabled` | boolean |  | core | Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key. |
 | `media.adapters.openrouter.apiKeyRef` | string |  | core | Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin. |
-| `media.adapters.openrouter.baseUrl` | string |  | core | Override the provider endpoint. https only; plain http is accepted for loopback test servers. |
+| `media.adapters.openrouter.baseUrl` | string |  | core | Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers. |
 | `media.adapters.openrouter.model` | string | `"google/gemini-2.5-flash-image"` | core | Model identifier sent to the provider. |
 | `media.adapters.openrouter.timeoutMs` | integer | `120000` | core | Upper bound for one generation, including polling, in milliseconds. |
 | `media.adapters.openrouter.maxConcurrent` | integer | `2` | core | How many requests this adapter runs at once; further jobs wait. |
 | `media.adapters.replicate.enabled` | boolean |  | core | Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key. |
 | `media.adapters.replicate.apiKeyRef` | string |  | core | Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin. |
-| `media.adapters.replicate.baseUrl` | string |  | core | Override the provider endpoint. https only; plain http is accepted for loopback test servers. |
+| `media.adapters.replicate.baseUrl` | string |  | core | Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers. |
 | `media.adapters.replicate.model` | string | `"black-forest-labs/flux-schnell"` | core | Model identifier sent to the provider. |
 | `media.adapters.replicate.timeoutMs` | integer | `120000` | core | Upper bound for one generation, including polling, in milliseconds. |
 | `media.adapters.replicate.maxConcurrent` | integer | `2` | core | How many requests this adapter runs at once; further jobs wait. |
 | `media.adapters.fal.enabled` | boolean |  | core | Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key. |
 | `media.adapters.fal.apiKeyRef` | string |  | core | Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin. |
-| `media.adapters.fal.baseUrl` | string |  | core | Override the provider endpoint. https only; plain http is accepted for loopback test servers. |
+| `media.adapters.fal.baseUrl` | string |  | core | Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers. |
 | `media.adapters.fal.model` | string | `"fal-ai/flux/schnell"` | core | Model identifier sent to the provider. |
 | `media.adapters.fal.timeoutMs` | integer | `120000` | core | Upper bound for one generation, including polling, in milliseconds. |
 | `media.adapters.fal.maxConcurrent` | integer | `2` | core | How many requests this adapter runs at once; further jobs wait. |
 | `media.adapters.together.enabled` | boolean |  | core | Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key. |
 | `media.adapters.together.apiKeyRef` | string |  | core | Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin. |
-| `media.adapters.together.baseUrl` | string |  | core | Override the provider endpoint. https only; plain http is accepted for loopback test servers. |
+| `media.adapters.together.baseUrl` | string |  | core | Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers. |
 | `media.adapters.together.model` | string | `"black-forest-labs/FLUX.2-dev"` | core | Model identifier sent to the provider. |
 | `media.adapters.together.timeoutMs` | integer | `120000` | core | Upper bound for one generation, including polling, in milliseconds. |
 | `media.adapters.together.maxConcurrent` | integer | `2` | core | How many requests this adapter runs at once; further jobs wait. |
