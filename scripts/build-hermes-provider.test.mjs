@@ -365,32 +365,82 @@ test("harness-release.yml parses, pins every action by SHA and lists the three n
   assert.match(native.slice(native.lastIndexOf("uses:", i), i), /@[0-9a-f]{40} # v/);
 });
 
-test("release.yml is the real-release entry point and its attest job alone holds the attestation permissions", () => {
+test("release.yml is the tag-triggered release pipeline: only `sign` holds OIDC/attestation rights, only `draft` may write contents", () => {
   assert.ok(!/\t/.test(RELEASE), "no tabs");
-  assert.match(RELEASE, /^on:\n {2}workflow_dispatch:\n/m, "dispatched only");
-  assert.ok(!/workflow_call|pull_request|push:|schedule:/.test(code(RELEASE).join("\n")), "no other trigger");
-  assert.ok(!/dry-run: true|dry-run: \$\{\{/.test(RELEASE), "no dry-run path through the attesting caller");
-  assert.match(RELEASE, /^permissions:\n {2}contents: read\n/m);
-  const harness = job("harness", RELEASE).join("\n");
-  assert.match(harness, /\n {4}permissions:\n {6}contents: read\n {4}uses: \.\/\.github\/workflows\/harness-release\.yml\n/);
-  assert.match(harness, /\n {6}dry-run: false\n/);
-  const attest = job("attest", RELEASE);
-  const at = attest.join("\n");
-  assert.match(at, /needs: harness\n/);
-  assert.match(at, /\n {4}permissions:\n {6}contents: read\n {6}id-token: write\n {6}attestations: write\n {4}steps:/);
-  for (const l of usesLines(attest)) assert.match(l, SHA_USES, l.trim());
-  assert.ok(usesLines(attest).some((l) => /actions\/attest-build-provenance@/.test(l)), "attestation step");
-  assert.match(at, /name: hermes-artefacts\n/, "downloads the hermes-artefacts artefact");
-  const subject = at.slice(at.indexOf("attest-build-provenance@"));
-  for (const glob of ["plur1bus-hermes-provider-*.tar.gz", "plur1bus_memory_client-*.whl", "plur1bus_memory_client-*.tar.gz"]) {
-    assert.ok(subject.includes(glob), `attested: ${glob}`);
+  const body = code(RELEASE);
+  const text = body.join("\n");
+
+  // 1. Triggers: tag pushes `v*` and manual dispatch, nothing else (no pull_request, no branch push, no schedule, no workflow_call).
+  const onStart = body.indexOf("on:");
+  assert.ok(onStart >= 0, "top-level on: block");
+  const onLines = [];
+  for (let n = onStart + 1; n < body.length && (/^ /.test(body[n]) || body[n] === ""); n++) onLines.push(body[n]);
+  const triggers = onLines.filter((l) => /^ {2}[\w-]+:/.test(l)).map((l) => l.trim().replace(/:.*$/, ""));
+  assert.deepEqual(triggers, ["push", "workflow_dispatch"], "exactly push and workflow_dispatch");
+  const pushAt = onLines.findIndex((l) => /^ {2}push:\s*$/.test(l));
+  const pushLines = [];
+  for (let n = pushAt + 1; n < onLines.length && /^ {4}/.test(onLines[n]); n++) pushLines.push(onLines[n].trim());
+  assert.deepEqual(pushLines, ["tags: ['v*']"], "push only on v* tags; no branches, no paths");
+
+  // 2. Workflow-wide permissions are read-only contents and nothing else.
+  assert.match(RELEASE, /^permissions:\n {2}contents: read\n(?! )/m, "workflow permissions: contents: read only");
+  assert.equal((RELEASE.match(/^permissions:/gm) ?? []).length, 1, "one top-level permissions block");
+  assert.ok(!/write-all|read-all/.test(text), "no blanket permission shorthands");
+
+  // Every write-level permission in the file, with the job that holds it.
+  const jobNames = ["meta", "legacy-hm2", "build", "universal", "prepare", "sign", "draft"];
+  const holders = [];
+  for (const name of jobNames) {
+    for (const l of job(name, RELEASE).filter((x) => !/^\s*#/.test(x))) {
+      const m = /^\s+([\w-]+): write\s*$/.exec(l);
+      if (m) holders.push(`${name}:${m[1]}`);
+    }
   }
-  // Only the attest job asks for id-token or attestations.
-  const holders = code(RELEASE).map((l, n) => [l, n]).filter(([l]) => /^\s+(id-token|attestations): write/.test(l));
-  assert.equal(holders.length, 2);
-  const lines = RELEASE.split("\n");
-  const attestStart = lines.indexOf("  attest:");
-  for (const [l] of holders) assert.ok(lines.indexOf(l, attestStart) > attestStart, l);
+  const allWrites = body.filter((l) => /^\s+[\w-]+: write\s*$/.test(l));
+  assert.equal(allWrites.length, holders.length, "every write permission sits inside a known job");
+  assert.deepEqual(holders.sort(), ["draft:contents", "sign:attestations", "sign:id-token"], "write permissions: exactly sign (id-token, attestations) and draft (contents)");
+
+  // 3. `sign`: id-token + attestations together with contents: read, and nothing else.
+  const sign = job("sign", RELEASE);
+  const signText = sign.join("\n");
+  assert.match(signText, /\n {4}permissions:\n {6}contents: read\n {6}id-token: write\n {6}attestations: write\n {4}(?:steps|runs-on|timeout-minutes):/);
+  const signPerm = [];
+  for (let n = sign.indexOf("    permissions:") + 1; n < sign.length && /^ {6}\S/.test(sign[n]); n++) signPerm.push(sign[n].trim());
+  assert.deepEqual(signPerm, ["contents: read", "id-token: write", "attestations: write"], "sign's permission block has exactly these three entries");
+  for (const l of usesLines(sign)) assert.match(l, SHA_USES, l.trim());
+  assert.ok(usesLines(sign).some((l) => /actions\/attest-build-provenance@[0-9a-f]{40} # v/.test(l)), "sign attests with a SHA-pinned attest-build-provenance");
+
+  // 4. `sign` only runs for a push of a v* tag; on workflow_dispatch no job has write or OIDC rights.
+  assert.match(signText, /\n {4}if: github\.event_name == 'push' && startsWith\(github\.ref, 'refs\/tags\/v'\)\n/, "sign is gated to tag pushes");
+  assert.match(signText, /\n {4}needs: prepare\n/, "sign runs after prepare");
+  const legacy = job("legacy-hm2", RELEASE).join("\n");
+  assert.match(legacy, /\n {4}if: github\.event_name == 'workflow_dispatch' && inputs\.legacy-hm2\n/);
+  assert.match(legacy, /\n {6}dry-run: true\n/, "the dispatch-only compatibility call is a dry run");
+  assert.ok(!/\n {4}permissions:/.test(legacy), "legacy-hm2 inherits the read-only workflow permissions");
+
+  // 5. `draft`: the only job with contents: write, and it needs `sign` (so a dispatch run skips it).
+  const draft = job("draft", RELEASE);
+  const draftText = draft.join("\n");
+  assert.match(draftText, /\n {4}permissions:\n {6}contents: write\n {4}(?:steps|runs-on|timeout-minutes|env):/, "draft holds contents: write and nothing else");
+  assert.match(draftText, /\n {4}needs: (?:sign|\[[^\]]*\bsign\b[^\]]*\])\n/, "draft needs sign");
+  assert.ok(!/\n {4}if:/.test(draftText), "draft has no if: that could bypass the skipped sign job (no always())");
+  assert.ok(!/always\(\)|!cancelled\(\)|failure\(\)/.test(text), "no status function overrides the needs chain");
+
+  // 6. The other jobs have no permissions block of their own with write access.
+  for (const name of ["meta", "legacy-hm2", "build", "universal", "prepare"]) {
+    const j = job(name, RELEASE).filter((l) => !/^\s*#/.test(l)).join("\n");
+    assert.ok(!/\n {4}permissions:/.test(j), `${name} has no own permissions block`);
+    assert.ok(!/: write\b/.test(j), `${name} requests no write permission`);
+  }
+
+  // 7. Every external `uses:` is pinned to a full commit SHA; the only local `uses:` is the dry-run caller.
+  const allUses = usesLines(body);
+  const local = allUses.filter((l) => /uses: \.\//.test(l));
+  assert.equal(local.length, 1, "exactly one local reusable-workflow call");
+  assert.match(local[0], /uses: \.\/\.github\/workflows\/harness-release\.yml$/);
+  for (const l of allUses.filter((x) => !/uses: \.\//.test(x))) assert.match(l, SHA_USES, l.trim());
+  assert.ok(allUses.some((l) => /actions\/attest-build-provenance@[0-9a-f]{40} # v/.test(l)), "attest-build-provenance is used and SHA-pinned");
+
   // The requirement is documented.
   const doc = readFileSync(join(REPO, "docs/manual-release.md"), "utf8");
   assert.match(doc, /release\.yml/);
