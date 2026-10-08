@@ -55,9 +55,9 @@ describe("Dockerfile", () => {
     assert.match(dockerfile, /pnpm install --frozen-lockfile/);
   });
 
-  it("normalizes the Rust binary timestamp for reproducible image layers", () => {
+  it("normalizes the Rust binary timestamp to SOURCE_DATE_EPOCH", () => {
     assert.match(dockerfile, /ARG SOURCE_DATE_EPOCH=0/);
-    assert.match(dockerfile, /touch -d "@\$\{SOURCE_DATE_EPOCH\}" \/out\/plur1bus/);
+    assert.match(dockerfile, /touch -m -d "@\$\{SOURCE_DATE_EPOCH\}" \/out\/plur1bus/);
   });
 
   it("has a clean entrypoint", () => {

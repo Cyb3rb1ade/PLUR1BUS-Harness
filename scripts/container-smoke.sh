@@ -8,6 +8,7 @@ set -euo pipefail
 image="${1:?usage: container-smoke.sh <image> [expected-version]}"
 expected="${2:-}"
 timeout_s="${SMOKE_TIMEOUT_S:-240}"
+read -r -a smoke_run_args <<< "${SMOKE_RUN_ARGS:-}"
 name="plur1bus-smoke-$$"
 state="$name-state"
 models="$name-models"
@@ -35,7 +36,7 @@ docker volume create "$models" >/dev/null
 docker run -d --name "$name" --init --read-only --tmpfs /tmp:size=64m,mode=1777,noexec,nosuid \
   --cap-drop ALL --security-opt no-new-privileges:true --pids-limit 1024 --memory 3g --stop-timeout 150 \
   -v "$state:/var/lib/plur1bus" -v "$models:/var/lib/plur1bus/models" \
-  ${SMOKE_RUN_ARGS:-} "$image" >/dev/null
+  "${smoke_run_args[@]}" "$image" >/dev/null
 
 # 1. health goes green
 deadline=$((SECONDS + timeout_s))

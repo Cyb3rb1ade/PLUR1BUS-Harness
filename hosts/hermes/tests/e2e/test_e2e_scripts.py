@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import shutil
 import tempfile
 import unittest
@@ -14,6 +15,43 @@ from contextlib import redirect_stderr, redirect_stdout
 
 import drive_turn as dt
 import stub_model_server as sms
+from tests import FIXTURES_DIR
+
+HERMES_CLI_FIXTURES = os.path.join(FIXTURES_DIR, "hermes-cli")
+HERMES_VERSION = re.compile(r"^Hermes Agent v(\d+)\.(\d+)\.(\d+) \((\d{4}\.\d+\.\d+)\)")
+
+
+def _fixture(name: str) -> str:
+    with open(os.path.join(HERMES_CLI_FIXTURES, name), encoding="utf-8") as f:
+        return f.read()
+
+
+class VersionOutputTest(unittest.TestCase):
+    def test_documented_release_outputs_match_the_version_pattern(self) -> None:
+        expected = {
+            "version-min.txt": ("0.21.4", "2026.9.21"),
+            "version-latest.txt": ("0.21.5", "2026.9.24"),
+        }
+        for fixture, (version, date) in expected.items():
+            with self.subTest(fixture=fixture):
+                output = _fixture(fixture).splitlines()
+                self.assertEqual(output[0], "$ hermes --version")
+                match = HERMES_VERSION.match(output[1])
+                self.assertIsNotNone(match)
+                self.assertEqual((".".join(match.groups()[:3]), match.group(4)), (version, date))
+
+    def test_unreleased_git_version_is_unknown_not_a_release_version(self) -> None:
+        output = _fixture("version-main.txt").splitlines()
+        self.assertEqual(output[0], "$ hermes --version")
+        self.assertIsNone(HERMES_VERSION.match(output[1]))
+        self.assertEqual(output[-1], "[exit 0]")
+
+
+class ConfigSetCompatibilityTest(unittest.TestCase):
+    def test_provider_line_edit_preserves_comments_and_unrelated_settings(self) -> None:
+        before = _fixture("config-set-before.yaml")
+        after = _fixture("config-set-after.yaml")
+        self.assertEqual(dt.set_memory_provider(before, "plur1bus"), after)
 
 
 class LineEditTest(unittest.TestCase):

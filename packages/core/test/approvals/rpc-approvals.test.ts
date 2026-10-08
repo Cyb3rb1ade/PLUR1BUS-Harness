@@ -66,7 +66,7 @@ describe("approval.decide", () => {
     const out = await r.call("approval.decide", { id, decision: "approve" });
     assert.equal(out.approval.status, "approved");
     assert.equal(out.approval.decidedBy, "christian");
-    assert.equal(out.approval.decisionSurface, 2);
+    assert.equal(out.approval.decisionSurface, 1, "an unattested token connection is T1 (#192)");
     assert.equal(out.grant, null);
     assert.equal((await answer).approved, true);
     assert.ok(!r.audit.events.some((e) => JSON.stringify(e).includes("nonce")));
@@ -79,7 +79,7 @@ describe("approval.decide", () => {
     assert.equal(out.grant.scope, "task");
     assert.equal(out.grant.person, "christian");
     assert.equal(out.grant.createdBy, "christian");
-    assert.equal(out.grant.surface, 2);
+    assert.equal(out.grant.surface, 1);
     assert.equal(out.grant.delegable, true);
     assert.equal(out.approval.delegable, true);
     assert.equal((await answer).scope, "task");
@@ -105,6 +105,27 @@ describe("approval.decide", () => {
     const out = await r.call("approval.decide", { id, decision: "approve" });
     assert.equal(out.approval.decisionSurface, 3);
     assert.equal((await answer).approved, true);
+  });
+
+  // #192: an unattested connection (T1) decides low-risk requests only; a T2 request needs an attestation.
+  it("an unattested person (T1) cannot approve a T2 request; an attested person can; a T1 request stays decidable", T, async () => {
+    const r = await rpcRig();
+    const t2 = await r.park({ capability: "shell.exec", tool: "shell.run", effect: "local-destructive", targets: [], args: { cmd: "ls" } });
+    assert.deepEqual(await refused(r.call("approval.decide", { id: t2.id, decision: "approve" })), { error: "E_DENIED", reason: "surface-untrusted" });
+    assert.deepEqual(await refused(r.call("approval.decide", { id: t2.id, decision: "approve", scope: "session" })), { error: "E_DENIED", reason: "surface-untrusted" });
+    assert.equal((await r.call("approval.get", { id: t2.id })).status, "pending");
+    assert.equal(r.stores.grants.inspect().length, 0);
+    // A T1 (low risk) request is still decidable without attestation.
+    const t1 = await r.park({ actionHash: "cd".padEnd(64, "0") });
+    const low = await r.call("approval.decide", { id: t1.id, decision: "approve" });
+    assert.equal(low.approval.decisionSurface, 1);
+    assert.equal((await t1.answer).approved, true);
+    // With an attestation the same T2 request is approved.
+    r.attestation = { kind: "desktop-app" };
+    const out = await r.call("approval.decide", { id: t2.id, decision: "approve" });
+    assert.equal(out.approval.status, "approved");
+    assert.ok(out.approval.decisionSurface >= 2);
+    assert.equal((await t2.answer).approved, true);
   });
 
   it("a scope the request does not offer is E_INVALID_PARAMS scope-unavailable", T, async () => {
