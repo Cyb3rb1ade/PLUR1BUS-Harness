@@ -1,0 +1,40 @@
+name: win-debug
+on:
+  push: { branches: [fix/windows-unit-main] }
+jobs:
+  win:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    env:
+      GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@v7
+        with: { node-version: 24.21.0, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@stable
+        with: { toolchain: "1.95" }
+      - uses: Swatinem/rust-cache@v2
+      - name: engine git access over https
+        shell: bash
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then
+            base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"
+            git config --global --add "url.${base}.insteadOf" "https://github.com/"
+          else
+            base="https://github.com/"
+          fi
+          git config --global --add "url.${base}.insteadOf" "git@github.com:"
+          git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm gen
+      - run: pnpm build
+      - name: diag
+        continue-on-error: true
+        working-directory: packages/core
+        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning test/mcp/helpers/win-diag.ts
+      - name: mcp + reembed + journal
+        continue-on-error: true
+        working-directory: packages/core
+        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 --test-timeout=120000 test/mcp/capabilities.test.ts test/mcp/connection.test.ts test/embedding-migrate/core-stack.test.ts
