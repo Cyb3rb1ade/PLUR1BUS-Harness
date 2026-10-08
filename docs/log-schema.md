@@ -99,101 +99,101 @@ emitters land in later parts of D111; the names are already reserved.
 
 | Event | Kinds | Level | Attrs group | Required attrs | Flags | Notes |
 |---|---|---|---|---|---|---|
-| `log.level.changed` | any | info | log_level | `source_key`, `to` |  |  |
-| `log.level.expired` | any | info | log_level | `source_key`, `from` |  |  |
-| `log.suppressed` | any | warn | log_suppressed | `dropped` |  |  |
-| `log.unregistered` | any | warn | log_unregistered | `attempted` |  |  |
-| `log.unattributed` | any | warn | log_unattributed | `original` |  | written by the reader, not by the emitting process |
-| `log.retention.pruned` | any | info | log_retention | `stream`, `files` |  |  |
-| `log.redaction.failed` | any | error | log_redaction_failed | `attempted_event` |  |  |
-| `process.output.line` | any | info | output_line | `text`, `untrusted` | wrapped output | emitted by the harness wrapper on a child's behalf; the level is never taken from the text |
-| `process.output.suppressed` | any | warn | output_suppressed | `dropped`, `window_ms` | wrapped output |  |
-| `supervisor.process.started` | harness | info | process_event | `role`, `pid` |  |  |
-| `supervisor.process.stopping` | harness | info | process_event | `role` |  |  |
-| `supervisor.process.exited` | harness | **info** / error | process_exit | `exit_code`, `planned` |  | info on the intended code, error on any other; replaces the F9 message match that `1staid repair` used for service.silent-exit |
-| `supervisor.child.spawned` | harness | info | process_event | `role`, `pid` |  |  |
-| `supervisor.child.exited` | harness | **info** / error / fatal | process_exit | `role`, `planned` |  | info when planned, error when unexpected, fatal when unexpected for a harness-tier child (§5, R5) |
-| `supervisor.child.restarting` | harness | warn | restart | `role`, `attempt`, `delay_ms` |  |  |
-| `supervisor.child.given_up` | harness | fatal | given_up | `role`, `attempts` |  |  |
-| `supervisor.health.failed` | harness | warn | health | `role` |  |  |
-| `supervisor.health.hung` | harness | error | health | `role`, `timeout_ms` |  |  |
-| `supervisor.adoption.completed` | harness | info | adoption | `role`, `pid` |  |  |
-| `supervisor.config.applied` | harness | info | config_change | `keys` |  |  |
-| `supervisor.config.rejected` | harness | warn | config_change | `reason` |  |  |
-| `supervisor.subscriber.dropped` | harness | warn | subscriber | `channel`, `reason` |  |  |
-| `core.process.started` | harness | info | process_event | `pid` |  |  |
-| `core.process.ready` | harness | info | process_event | `pid` |  |  |
-| `core.process.stopping` | harness | info | process_event |  |  |  |
-| `core.config.applied` | harness | info | config_change | `keys` |  |  |
-| `core.config.fallback` | harness | warn | config_change | `reason` |  |  |
-| `core.watch.lost` | harness | warn | config_change | `reason` |  |  |
-| `core.orphan.detected` | harness | warn | process_event | `pid` |  |  |
-| `core.rpc.failed` | harness | **error** / debug | rpc_failure | `method` |  | error on E_INTERNAL or E_STORAGE, debug for every other enum code |
-| `engine.status.degraded` | harness | warn | engine_status | `status`, `component` |  |  |
-| `engine.status.failed` | harness | error | engine_status | `status`, `component` |  |  |
-| `engine.recall.completed` | harness | debug | recall | `results` |  |  |
-| `engine.recall.budget_exceeded` | harness | warn | recall | `hard_budget_ms` |  |  |
-| `engine.capture.failed` | harness | error | engine_op | `operation`, `reason` |  |  |
-| `engine.acl.denied` | harness | warn | engine_op | `operation` |  | diagnostic, not audit (R11) |
-| `engine.model.loading` | harness | info | engine_model | `model` |  |  |
-| `engine.model.ready` | harness | info | engine_model | `model` |  |  |
-| `scheduler.run.started` | harness | debug | scheduler | `job` |  |  |
-| `scheduler.run.skipped` | harness | **info** / warn | scheduler | `job`, `reason` |  | never below info (ADR-009): a skip that changes a user-visible outcome is always logged with a reason code |
-| `scheduler.run.completed` | harness | info | scheduler | `job` |  |  |
-| `scheduler.run.failed` | harness | error | scheduler | `job`, `reason` |  |  |
-| `api.request.completed` | harness | debug | api_request | `method`, `route`, `status` | experimental |  |
-| `api.auth.failed` | harness | warn | api_request | `method`, `route` | experimental |  |
-| `api.rate.limited` | harness | warn | api_request | `method`, `route` | experimental |  |
-| `api.stream.dropped` | harness | warn | api_request | `route`, `reason` | experimental |  |
-| `module.process.started` | harness | info | module | `module` |  |  |
-| `module.config.invalid` | harness | warn | module | `module`, `keys` |  |  |
-| `module.core.connected` | harness | info | module | `module` |  |  |
-| `module.core.lost` | harness | warn | module | `module` |  |  |
-| `ext.load.failed` | extension | error | ext_load | `extension`, `reason` | experimental |  |
-| `mcp.server.started` | extension | info | mcp | `server` | experimental |  |
-| `mcp.server.exited` | extension | **info** / error | mcp | `server`, `planned` | experimental | info when planned, error when unexpected |
-| `mcp.server.timeout` | extension | warn | mcp | `server`, `timeout_ms` | experimental |  |
-| `mcp.call.completed` | extension | debug | mcp | `server`, `tool` | experimental |  |
-| `mcp.call.failed` | extension | **error** / warn | mcp | `server`, `tool` | experimental | error on a typed protocol error, warn on a timeout that is retried |
-| `skill.script.exited` | extension | **info** / error | skill_script | `skill`, `script`, `exit_code` | experimental | info on exit 0, error on a non-zero exit or a signal |
-| `provider.request.completed` | provider | debug | provider_request | `model`, `capability` | experimental |  |
-| `provider.request.retrying` | provider | warn | provider_request | `model`, `attempt`, `retry_in_ms` | experimental |  |
-| `provider.request.failed` | provider | **error** / warn | provider_request | `model`, `capability` | experimental | warn when err.retryable and a retry is scheduled |
-| `provider.rate.limited` | provider | warn | provider_request | `model` | experimental |  |
-| `provider.oauth.refreshed` | provider | info | provider_oauth | `profile` | experimental |  |
-| `provider.oauth.refresh_failed` | provider | error | provider_oauth | `profile`, `reason` | experimental |  |
-| `provider.auth.expiring` | provider | warn | provider_oauth | `profile`, `expires_in_s` | experimental |  |
-| `model.load.started` | model | info | local_model | `model` | experimental |  |
-| `model.load.completed` | model | info | local_model | `model` | experimental |  |
-| `model.load.failed` | model | error | local_model | `model`, `reason` | experimental |  |
-| `model.process.exited` | model | **info** / error | local_model | `model`, `planned` | experimental | info when planned, error when unexpected |
-| `model.memory.pressure` | model | warn | local_model | `model`, `rss_mb` | experimental |  |
-| `model.unloaded` | model | info | local_model | `model` | experimental |  |
-| `cli.session.started` | cli | info | cli_agent | `cli` | experimental |  |
-| `cli.session.exited` | cli | **info** / error | cli_agent | `cli`, `exit_code` | experimental | info on exit 0, error otherwise |
-| `cli.acp.failed` | cli | error | cli_agent | `cli`, `acp_code` | experimental |  |
-| `cli.login.required` | cli | warn | cli_agent | `cli` | experimental |  |
-| `channel.connection.lost` | channel | warn | channel | `channel` | experimental |  |
-| `channel.connection.restored` | channel | info | channel | `channel` | experimental |  |
-| `channel.message.received` | channel | debug | channel | `channel` | experimental | no content |
-| `channel.message.sent` | channel | debug | channel | `channel` | experimental | no content |
-| `channel.delivery.failed` | channel | **error** / warn | channel | `channel`, `reason` | experimental | warn when retried, error when failed for good |
-| `channel.rate.limited` | channel | warn | channel | `channel` | experimental |  |
-| `host.helper.connected` | host | info | host | `helper` | experimental |  |
-| `host.helper.lost` | host | warn | host | `helper` | experimental |  |
-| `host.call.denied` | host | warn | host | `capability` | experimental |  |
-| `host.signature.invalid` | host | error | host | `helper` | experimental |  |
-| `host.bridge.failed` | host | error | host | `helper`, `reason` | experimental |  |
-| `desktop.app.started` | desktop | info | desktop | `component` | experimental |  |
-| `desktop.app.crashed` | desktop | fatal | desktop | `component`, `crash_id` | experimental | written at the next start from the crash file |
-| `desktop.connection.lost` | desktop | warn | desktop | `component` | experimental |  |
-| `desktop.webview.failed` | desktop | error | desktop | `component`, `reason` | experimental |  |
-| `desktop.update.failed` | desktop | error | desktop | `component`, `reason` | experimental |  |
-| `desktop.deeplink.ignored` | desktop | info | desktop | `reason` | experimental | no arguments are logged |
-| `os.service.installed` | os | info | os_service | `manager` | experimental |  |
-| `os.service.restarted` | os | warn | os_service | `manager` | experimental |  |
-| `os.service.failed` | os | fatal | os_service | `manager`, `reason` | experimental |  |
-| `os.power.resumed` | os | info | os_service | `manager` | experimental |  |
+| `log.level.changed` | any | info | log_level | `source_key`, `to` |  | Log level changed. |
+| `log.level.expired` | any | info | log_level | `source_key`, `from` |  | Log level expired. |
+| `log.suppressed` | any | warn | log_suppressed | `dropped` |  | Log records suppressed. |
+| `log.unregistered` | any | warn | log_unregistered | `attempted` |  | Unregistered log event. |
+| `log.unattributed` | any | warn | log_unattributed | `original` |  | A log line does not match its file; written by the reader, not the emitting process. |
+| `log.retention.pruned` | any | info | log_retention | `stream`, `files` |  | Old log files pruned. |
+| `log.redaction.failed` | any | error | log_redaction_failed | `attempted_event` |  | Log record dropped, redaction failed. |
+| `process.output.line` | any | info | output_line | `text`, `untrusted` | wrapped output | A line of child-process output; emitted by the harness wrapper on its behalf, with the level never taken from the text. |
+| `process.output.suppressed` | any | warn | output_suppressed | `dropped`, `window_ms` | wrapped output | Process output suppressed. |
+| `supervisor.process.started` | harness | info | process_event | `role`, `pid` |  | Supervisor started. |
+| `supervisor.process.stopping` | harness | info | process_event | `role` |  | Supervisor stopping. |
+| `supervisor.process.exited` | harness | **info** / error | process_exit | `exit_code`, `planned` |  | info on the intended code, error on any other; The supervisor process is exiting; replaces the F9 message match that `1staid repair` used for service.silent-exit. |
+| `supervisor.child.spawned` | harness | info | process_event | `role`, `pid` |  | Child process spawned. |
+| `supervisor.child.exited` | harness | **info** / error / fatal | process_exit | `role`, `planned` |  | info when planned, error when unexpected, fatal when unexpected for a harness-tier child (§5, R5); Child process exited. |
+| `supervisor.child.restarting` | harness | warn | restart | `role`, `attempt`, `delay_ms` |  | Child process restarting. |
+| `supervisor.child.given_up` | harness | fatal | given_up | `role`, `attempts` |  | Child restarts given up. |
+| `supervisor.health.failed` | harness | warn | health | `role` |  | Child health check failed. |
+| `supervisor.health.hung` | harness | error | health | `role`, `timeout_ms` |  | Child process hung. |
+| `supervisor.adoption.completed` | harness | info | adoption | `role`, `pid` |  | Running child adopted. |
+| `supervisor.config.applied` | harness | info | config_change | `keys` |  | Configuration applied. |
+| `supervisor.config.rejected` | harness | warn | config_change | `reason` |  | Configuration rejected. |
+| `supervisor.subscriber.dropped` | harness | warn | subscriber | `channel`, `reason` |  | Watch subscriber dropped. |
+| `core.process.started` | harness | info | process_event | `pid` |  | Core started. |
+| `core.process.ready` | harness | info | process_event | `pid` |  | Core ready. |
+| `core.process.stopping` | harness | info | process_event |  |  | Core stopping. |
+| `core.config.applied` | harness | info | config_change | `keys` |  | Configuration applied. |
+| `core.config.fallback` | harness | warn | config_change | `reason` |  | Reading config.json without a supervisor. |
+| `core.watch.lost` | harness | warn | config_change | `reason` |  | Config watch lost. |
+| `core.orphan.detected` | harness | warn | process_event | `pid` |  | Supervisor gone, core orphaned. |
+| `core.rpc.failed` | harness | **error** / debug | rpc_failure | `method` |  | error on E_INTERNAL or E_STORAGE, debug for every other enum code; RPC call failed. |
+| `engine.status.degraded` | harness | warn | engine_status | `status`, `component` |  | Engine degraded. |
+| `engine.status.failed` | harness | error | engine_status | `status`, `component` |  | Engine failed. |
+| `engine.recall.completed` | harness | debug | recall | `results` |  | Recall completed. |
+| `engine.recall.budget_exceeded` | harness | warn | recall | `hard_budget_ms` |  | Recall budget exceeded. |
+| `engine.capture.failed` | harness | error | engine_op | `operation`, `reason` |  | Capture failed. |
+| `engine.acl.denied` | harness | warn | engine_op | `operation` |  | An engine operation was denied by ACL; diagnostic, not audit (R11). |
+| `engine.model.loading` | harness | info | engine_model | `model` |  | Engine model loading. |
+| `engine.model.ready` | harness | info | engine_model | `model` |  | Engine model ready. |
+| `scheduler.run.started` | harness | debug | scheduler | `job` |  | Scheduler run started. |
+| `scheduler.run.skipped` | harness | **info** / warn | scheduler | `job`, `reason` |  | A scheduler run was skipped; never below info (ADR-009), and a skip that changes a user-visible outcome is always logged with a reason code. |
+| `scheduler.run.completed` | harness | info | scheduler | `job` |  | Scheduler run completed. |
+| `scheduler.run.failed` | harness | error | scheduler | `job`, `reason` |  | Scheduler run failed. |
+| `api.request.completed` | harness | debug | api_request | `method`, `route`, `status` | experimental | API request completed. |
+| `api.auth.failed` | harness | warn | api_request | `method`, `route` | experimental | API authentication failed. |
+| `api.rate.limited` | harness | warn | api_request | `method`, `route` | experimental | API request rate limited. |
+| `api.stream.dropped` | harness | warn | api_request | `route`, `reason` | experimental | API stream dropped. |
+| `module.process.started` | harness | info | module | `module` |  | Module started. |
+| `module.config.invalid` | harness | warn | module | `module`, `keys` |  | Module configuration invalid. |
+| `module.core.connected` | harness | info | module | `module` |  | Module connected to core. |
+| `module.core.lost` | harness | warn | module | `module` |  | Module lost its connection to core. |
+| `ext.load.failed` | extension | error | ext_load | `extension`, `reason` | experimental | Extension failed to load. |
+| `mcp.server.started` | extension | info | mcp | `server` | experimental | MCP server started. |
+| `mcp.server.exited` | extension | **info** / error | mcp | `server`, `planned` | experimental | info when planned, error when unexpected; MCP server exited. |
+| `mcp.server.timeout` | extension | warn | mcp | `server`, `timeout_ms` | experimental | MCP server timed out. |
+| `mcp.call.completed` | extension | debug | mcp | `server`, `tool` | experimental | MCP call completed. |
+| `mcp.call.failed` | extension | **error** / warn | mcp | `server`, `tool` | experimental | error on a typed protocol error, warn on a timeout that is retried; MCP call failed. |
+| `skill.script.exited` | extension | **info** / error | skill_script | `skill`, `script`, `exit_code` | experimental | info on exit 0, error on a non-zero exit or a signal; Skill script exited. |
+| `provider.request.completed` | provider | debug | provider_request | `model`, `capability` | experimental | Provider request completed. |
+| `provider.request.retrying` | provider | warn | provider_request | `model`, `attempt`, `retry_in_ms` | experimental | Provider request retrying. |
+| `provider.request.failed` | provider | **error** / warn | provider_request | `model`, `capability` | experimental | warn when err.retryable and a retry is scheduled; Provider request failed. |
+| `provider.rate.limited` | provider | warn | provider_request | `model` | experimental | Provider rate limit. |
+| `provider.oauth.refreshed` | provider | info | provider_oauth | `profile` | experimental | Provider token refreshed. |
+| `provider.oauth.refresh_failed` | provider | error | provider_oauth | `profile`, `reason` | experimental | Provider token refresh failed. |
+| `provider.auth.expiring` | provider | warn | provider_oauth | `profile`, `expires_in_s` | experimental | Provider credential expiring. |
+| `model.load.started` | model | info | local_model | `model` | experimental | Model load started. |
+| `model.load.completed` | model | info | local_model | `model` | experimental | Model load completed. |
+| `model.load.failed` | model | error | local_model | `model`, `reason` | experimental | Model load failed. |
+| `model.process.exited` | model | **info** / error | local_model | `model`, `planned` | experimental | info when planned, error when unexpected; Model process exited. |
+| `model.memory.pressure` | model | warn | local_model | `model`, `rss_mb` | experimental | Model memory pressure. |
+| `model.unloaded` | model | info | local_model | `model` | experimental | Model unloaded. |
+| `cli.session.started` | cli | info | cli_agent | `cli` | experimental | CLI agent session started. |
+| `cli.session.exited` | cli | **info** / error | cli_agent | `cli`, `exit_code` | experimental | info on exit 0, error otherwise; CLI agent session exited. |
+| `cli.acp.failed` | cli | error | cli_agent | `cli`, `acp_code` | experimental | CLI agent protocol error. |
+| `cli.login.required` | cli | warn | cli_agent | `cli` | experimental | CLI agent login required. |
+| `channel.connection.lost` | channel | warn | channel | `channel` | experimental | Channel connection lost. |
+| `channel.connection.restored` | channel | info | channel | `channel` | experimental | Channel connection restored. |
+| `channel.message.received` | channel | debug | channel | `channel` | experimental | A channel message was received; message content is not logged. |
+| `channel.message.sent` | channel | debug | channel | `channel` | experimental | A channel message was sent; message content is not logged. |
+| `channel.delivery.failed` | channel | **error** / warn | channel | `channel`, `reason` | experimental | warn when retried, error when failed for good; Channel delivery failed. |
+| `channel.rate.limited` | channel | warn | channel | `channel` | experimental | Channel rate limited. |
+| `host.helper.connected` | host | info | host | `helper` | experimental | Host helper connected. |
+| `host.helper.lost` | host | warn | host | `helper` | experimental | Host helper lost. |
+| `host.call.denied` | host | warn | host | `capability` | experimental | Host call denied. |
+| `host.signature.invalid` | host | error | host | `helper` | experimental | Host helper signature invalid. |
+| `host.bridge.failed` | host | error | host | `helper`, `reason` | experimental | Host bridge failed. |
+| `desktop.app.started` | desktop | info | desktop | `component` | experimental | Desktop app started. |
+| `desktop.app.crashed` | desktop | fatal | desktop | `component`, `crash_id` | experimental | The desktop app crashed; crash details are written at the next start from the crash file. |
+| `desktop.connection.lost` | desktop | warn | desktop | `component` | experimental | Desktop lost its connection. |
+| `desktop.webview.failed` | desktop | error | desktop | `component`, `reason` | experimental | Desktop webview failed. |
+| `desktop.update.failed` | desktop | error | desktop | `component`, `reason` | experimental | Desktop update failed. |
+| `desktop.deeplink.ignored` | desktop | info | desktop | `reason` | experimental | A desktop deep link was ignored; its arguments are not logged. |
+| `os.service.installed` | os | info | os_service | `manager` | experimental | OS service installed. |
+| `os.service.restarted` | os | warn | os_service | `manager` | experimental | OS service restarted by the service manager. |
+| `os.service.failed` | os | fatal | os_service | `manager`, `reason` | experimental | OS service failed. |
+| `os.power.resumed` | os | info | os_service | `manager` | experimental | System resumed from sleep. |
 
 ### Audit stream
 
@@ -201,44 +201,44 @@ An audit entry's attribute group describes the line's `detail`. Groups marked *o
 
 | Action | Kinds | Level | Attrs group | Required attrs | Flags | Notes |
 |---|---|---|---|---|---|---|
-| `licence.accept-nc` | harness | — | audit_licence | `useClass` |  | pre-D111 HB12 action, unchanged |
-| `setup.complete` | harness | — | audit_setup |  |  | pre-D111 HB12 action, unchanged |
-| `repair.*` | harness | — | audit_repair | `status` |  | pre-D111 HB12 `repair.<step>` family: any name under `repair.` that satisfies the name rule |
-| `ext.install` | harness | — | audit_ext_install | `id`, `version`, `sha256` | activity | pre-D111 HB12 action, unchanged |
-| `ext.enable` | harness | — | audit_ext_state |  | activity | pre-D111 HB12 action, unchanged |
-| `ext.disable` | harness | — | audit_ext_state |  | activity | pre-D111 HB12 action, unchanged |
-| `ext.uninstall` | harness | — | audit_ext_remove |  | activity | pre-D111 HB12 action, unchanged |
-| `ext.purge` | harness | — | audit_ext_remove |  |  | pre-D111 HB12 action, unchanged |
-| `ext.restore` | harness | — | audit_ext_remove |  |  | pre-D111 HB12 action, unchanged |
-| `config.set` | harness | — | audit_config_set | `key` | activity |  |
-| `module.install` | harness | — | audit_module | `name` | activity |  |
-| `module.uninstall` | harness | — | audit_module | `name` | activity |  |
-| `secret.create` | harness | — | audit_secret | `name` | experimental |  |
-| `secret.rotate` | harness | — | audit_secret | `name` | experimental |  |
-| `secret.delete` | harness | — | audit_secret | `name` | experimental |  |
-| `auth.login` | harness | — | audit_auth | `profile` | experimental |  |
-| `auth.logout` | harness | — | audit_auth | `profile` | experimental |  |
-| `log.payload_capture.enabled` | harness | — | audit_payload_capture | `agent`, `until` | experimental |  |
-| `log.payload_capture.disabled` | harness | — | audit_payload_capture | `agent` | experimental |  |
-| `logs.otlp.enabled` | harness | — | audit_otlp | `endpoint` | experimental |  |
-| `logs.otlp.disabled` | harness | — | audit_otlp |  | experimental |  |
-| `logs.retention.changed` | harness | — | audit_retention | `key`, `new_days` | experimental |  |
-| `approval.requested` | harness | — | audit_approval | `request_id`, `tool` | activity, experimental |  |
-| `approval.decided` | harness | — | audit_approval | `request_id`, `decision` | activity, experimental |  |
-| `grant.created` | harness | — | audit_grant | `grant_id`, `scope` | activity, experimental |  |
-| `grant.revoked` | harness | — | audit_grant | `grant_id` | activity, experimental |  |
-| `grant.expired` | harness | — | audit_grant | `grant_id` | experimental |  |
-| `policy.denied` | harness | — | audit_policy | `tool`, `reason` | experimental |  |
-| `approvals.integrity_failed` | harness | — | audit_integrity | `store_ref` | experimental |  |
-| `device.paired` | harness | — | audit_device | `device_id` | activity, experimental |  |
-| `device.revoked` | harness | — | audit_device | `device_id` | activity, experimental |  |
-| `user.break_glass` | harness | — | audit_break_glass | `target`, `reason` | experimental |  |
+| `licence.accept-nc` | harness | — | audit_licence | `useClass` |  | Records acceptance of the non-commercial licence for embedding use; pre-D111 HB12 action, unchanged. |
+| `setup.complete` | harness | — | audit_setup |  |  | Records successful completion of setup and the selected installation; pre-D111 HB12 action, unchanged. |
+| `repair.*` | harness | — | audit_repair | `status` |  | Records the outcome of an applied repair step; pre-D111 HB12 `repair.<step>` family: any name under `repair.` that satisfies the name rule. |
+| `ext.install` | harness | — | audit_ext_install | `id`, `version`, `sha256` | activity | Records installation of an extension; pre-D111 HB12 action, unchanged. |
+| `ext.enable` | harness | — | audit_ext_state |  | activity | Records enabling an extension; pre-D111 HB12 action, unchanged. |
+| `ext.disable` | harness | — | audit_ext_state |  | activity | Records disabling an extension; pre-D111 HB12 action, unchanged. |
+| `ext.uninstall` | harness | — | audit_ext_remove |  | activity | Records removal of an extension; pre-D111 HB12 action, unchanged. |
+| `ext.purge` | harness | — | audit_ext_remove |  |  | Records permanent deletion of an uninstalled extension; pre-D111 HB12 action, unchanged. |
+| `ext.restore` | harness | — | audit_ext_remove |  |  | Records restoration of an uninstalled extension; pre-D111 HB12 action, unchanged. |
+| `config.set` | harness | — | audit_config_set | `key` | activity | Records a configuration change. |
+| `module.install` | harness | — | audit_module | `name` | activity | Records installation of a module. |
+| `module.uninstall` | harness | — | audit_module | `name` | activity | Records removal of a module. |
+| `secret.create` | harness | — | audit_secret | `name` | experimental | Records creation of a stored secret. |
+| `secret.rotate` | harness | — | audit_secret | `name` | experimental | Records rotation of a stored secret. |
+| `secret.delete` | harness | — | audit_secret | `name` | experimental | Records deletion of a stored secret. |
+| `auth.login` | harness | — | audit_auth | `profile` | experimental | Records a successful user login. |
+| `auth.logout` | harness | — | audit_auth | `profile` | experimental | Records a user logout. |
+| `log.payload_capture.enabled` | harness | — | audit_payload_capture | `agent`, `until` | experimental | Records enabling temporary log payload capture. |
+| `log.payload_capture.disabled` | harness | — | audit_payload_capture | `agent` | experimental | Records disabling temporary log payload capture. |
+| `logs.otlp.enabled` | harness | — | audit_otlp | `endpoint` | experimental | Records enabling the OTLP log exporter. |
+| `logs.otlp.disabled` | harness | — | audit_otlp |  | experimental | Records disabling the OTLP log exporter. |
+| `logs.retention.changed` | harness | — | audit_retention | `key`, `new_days` | experimental | Records a change to log retention settings. |
+| `approval.requested` | harness | — | audit_approval | `request_id`, `tool` | activity, experimental | Records a request for approval of an operation. |
+| `approval.decided` | harness | — | audit_approval | `request_id`, `decision` | activity, experimental | Records an approval decision. |
+| `grant.created` | harness | — | audit_grant | `grant_id`, `scope` | activity, experimental | Records creation of a permission grant. |
+| `grant.revoked` | harness | — | audit_grant | `grant_id` | activity, experimental | Records revocation of a permission grant. |
+| `grant.expired` | harness | — | audit_grant | `grant_id` | experimental | Records expiration of a permission grant. |
+| `policy.denied` | harness | — | audit_policy | `tool`, `reason` | experimental | Records an operation denied by policy. |
+| `approvals.integrity_failed` | harness | — | audit_integrity | `store_ref` | experimental | Records an approval-integrity verification failure. |
+| `device.paired` | harness | — | audit_device | `device_id` | activity, experimental | Records pairing of a device. |
+| `device.revoked` | harness | — | audit_device | `device_id` | activity, experimental | Records revocation of a paired device. |
+| `user.break_glass` | harness | — | audit_break_glass | `target`, `reason` | experimental | Records use of break-glass access. |
 
 ### Payload stream
 
 | Event | Kinds | Level | Attrs group | Required attrs | Flags | Notes |
 |---|---|---|---|---|---|---|
-| `provider.payload.captured` | provider | info | provider_payload | `agent`, `capture_id` | experimental | payload stream only; the content is in logs/payload.log |
+| `provider.payload.captured` | provider | info | provider_payload | `agent`, `capture_id` | experimental | A provider payload was captured; payload stream only, with content in logs/payload.log. |
 
 ### Attribute groups
 
