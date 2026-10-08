@@ -61,6 +61,10 @@ unlisted or malformed is T0. `surfaceSatisfies(have, required)`: T0 satisfies no
 | T1 | `acp-editor` that started the session |
 | T0 | group chats, unlinked identities, MCP clients, A2A peers, agents, model output, tool results, a CLI without TTY, everything else |
 
+A person on a local token-authenticated RPC connection (`connectionSurface`, `connection-surface.ts`) is **T1** unless the embedder
+supplies a server-side attestation that raises it to T3 (#192): reading `run/core.token` proves only same-OS-user access, which an
+agent process has too. So without attestation only low-risk requests are decidable and no standing grant above T1 can be created.
+
 ## Privacy (ADR-007 §Privacy)
 
 * `user`-scope cards: only the owning user. Owner and Admin can read **another** user's cards only through break-glass;
