@@ -30,7 +30,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm gen
       - run: pnpm build
-      - name: diag
+      - name: mcp
         continue-on-error: true
         working-directory: packages/core
-        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning test/mcp/helpers/win-diag.ts
+        timeout-minutes: 15
+        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 --test-timeout=120000 test/mcp/*.test.ts

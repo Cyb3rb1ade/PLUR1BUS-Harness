@@ -43,8 +43,8 @@ export class BoundedStdioTransport {
         if (value !== undefined && !value.startsWith("()")) env[key] = value;
       }
       Object.assign(env, buildChildEnv(t, this.host).env);
-      const launch = process.platform === "win32" ? windowsJobCommand(t.command, t.args, this.host) : { command: t.command, args: t.args };
-      const spawnEnv = process.platform === "win32" ? windowsLauncherEnv(this.host, env) : env;
+      const launch = process.platform === "win32" ? windowsJobCommand(t.command, t.args, this.host, Object.keys(env)) : { command: t.command, args: t.args };
+      const spawnEnv = process.platform === "win32" ? windowsLauncherEnv(env) : env;
       this.child = spawn(launch.command, launch.args, { env: spawnEnv, cwd: t.cwd, shell: false, windowsHide: true, detached: process.platform !== "win32", stdio: "pipe" });
       this.pidValue = this.child.pid ?? null;
       this.pipes = { input: this.child.stdin, output: this.child.stdout, stderr: this.child.stderr };
