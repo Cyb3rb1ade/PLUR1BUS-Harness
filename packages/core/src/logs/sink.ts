@@ -10,19 +10,23 @@ export function createSink(o: { dir: string; role: string; now: () => number; ma
   const securePath = o.securePath ?? createSecurePath();
   let securedIdentity: string | null = null;
   const secure = (p: string, mode: number) => { const r = securePath(p, { mode }); if (!r.applied) throw new Error("cannot secure log path"); };
-  secure(o.dir, 0o700);
   const file = path.join(o.dir, `${o.role}.log`); let maxBytes = o.maxBytes ?? 20 * 1024 * 1024; let keep = o.keep ?? 5;
   const retentionDays = o.retentionDays ?? 14;
   if (!Number.isSafeInteger(retentionDays) || retentionDays < 0) throw new RangeError("invalid retention days");
-  const locked = <T>(fn: () => T): T => {
-    let lock = acquireExclusiveLock(`${file}.writer-lock`); const deadline = Date.now() + 5000;
+  const locked = <T>(lockPath: string, waitMs: number, fn: () => T): T => {
+    let lock = acquireExclusiveLock(lockPath); const deadline = Date.now() + waitMs;
     while (!lock) {
       if (Date.now() >= deadline) throw new Error("log writer busy");
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
-      lock = acquireExclusiveLock(`${file}.writer-lock`);
+      lock = acquireExclusiveLock(lockPath);
     }
     try { return fn(); } finally { lock.release(); }
   };
+  const directoryLock = path.join(o.dir, ".directory-security-lock");
+  locked(directoryLock, 30_000, () => {
+    secure(o.dir, 0o700);
+    secure(directoryLock, 0o600);
+  });
   const regular = (p: string) => { if (existsSync(p) && !lstatSync(p).isFile()) throw new Error("log path is not a regular file"); };
   const rotate = () => {
     regular(file); regular(`${file}.${keep}`); rmSync(`${file}.${keep}`, { force: true });
@@ -34,7 +38,7 @@ export function createSink(o: { dir: string; role: string; now: () => number; ma
     file,
     setRotation(r: { maxBytes: number; keep: number }) { if (!Number.isFinite(r.maxBytes) || r.maxBytes <= 0 || !Number.isInteger(r.keep) || r.keep < 1) throw new RangeError("invalid rotation"); maxBytes = r.maxBytes; keep = r.keep; },
     append(line: string) {
-      locked(() => {
+      locked(`${file}.writer-lock`, 5000, () => {
         regular(file);
         if (existsSync(file)) { const st = statSync(file); if (st.size > 0 && (st.size + Buffer.byteLength(line) > maxBytes || Math.floor(st.mtimeMs / DAY) < Math.floor(o.now() / DAY))) rotate(); }
         const fd = openSync(file, "a", 0o600);
@@ -51,7 +55,7 @@ export function createSink(o: { dir: string; role: string; now: () => number; ma
       });
     },
     prune(): { files: number; bytes: number } {
-      return locked(() => {
+      return locked(`${file}.writer-lock`, 5000, () => {
         let files = 0; let bytes = 0;
         if (retentionDays === 0) return { files, bytes };
         for (const name of readdirSync(o.dir)) {
