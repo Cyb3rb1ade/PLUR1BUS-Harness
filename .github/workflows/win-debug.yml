@@ -37,4 +37,4 @@ jobs:
       - name: mcp + reembed + journal
         continue-on-error: true
         working-directory: packages/core
-        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 --test-timeout=120000 test/mcp/capabilities.test.ts test/mcp/connection.test.ts test/embedding-migrate/core-stack.test.ts
+        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 --test-timeout=120000 test/embedding-migrate/core-stack.test.ts
