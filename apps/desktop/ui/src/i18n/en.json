@@ -176,6 +176,7 @@
   "wizard.setup": "Set up a local harness",
   "runtime.recheck": "Recheck runtimes",
   "runtime.memory": "Memory",
+  "runtime.memoryValue": "{gib} GiB",
   "runtime.applyMemory": "Apply memory and restart",
   "runtime.start": "Start harness",
   "runtime.stop": "Stop harness",

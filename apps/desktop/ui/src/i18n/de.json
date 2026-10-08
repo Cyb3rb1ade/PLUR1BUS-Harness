@@ -176,6 +176,7 @@
   "wizard.setup": "Lokalen Harness einrichten",
   "runtime.recheck": "Runtimes erneut prüfen",
   "runtime.memory": "Arbeitsspeicher",
+  "runtime.memoryValue": "{gib} GiB",
   "runtime.applyMemory": "Arbeitsspeicher übernehmen und neu starten",
   "runtime.start": "Harness starten",
   "runtime.stop": "Harness stoppen",

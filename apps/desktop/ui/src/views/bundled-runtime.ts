@@ -4,7 +4,7 @@ import { button } from "../components/button.ts";
 import { initialWizard, advanceWizard, agreeWizard, foundRuntimes, completeWizard, failWizard, retryWizard, wizardError, errors, type Wizard } from "../models/wizard-model.ts";
 import type { DesktopTransport } from "../ipc.ts";
 import type { MessageKey } from "../i18n.ts";
-export function bundledRuntime(transport:DesktopTransport,t:(key:MessageKey)=>string,refresh:()=>void) {
+export function bundledRuntime(transport:DesktopTransport,t:(key:MessageKey,values?:Record<string,string>)=>string,refresh:()=>void) {
  let state:Wizard=initialWizard(), busy=false, status="", log="", memory=3, phase="image";
  void transport.harnessStatus?.().then(value=>{status=value.state;if(value.resources)memory=value.resources.memoryMiB/1024;refresh();}).catch(()=>{});
  void transport.harnessStatusEvents?.(value=>{status=value.state;refresh();}).catch(()=>{});
@@ -28,7 +28,7 @@ export function bundledRuntime(transport:DesktopTransport,t:(key:MessageKey)=>st
   const stateText=element("p",undefined,status?t((`runtime.status.${status}`) as MessageKey):t("runtime.status.unknown"));stateText.setAttribute("role","status");body.append(stateText);
   const recheck=button(t("runtime.recheck"),()=>{void detect();void transport.harnessStatus?.().then(value=>{status=value.state;refresh();});});recheck.disabled=busy;body.append(recheck);
   for(const row of state.runtimes)body.append(element("p","runtime-endpoint",`${row.engine} ${row.version} — ${row.endpoint}`));
-  const label=element("label","memory-control"),input=document.createElement("input");input.type="range";input.min="2";input.max="16";input.step="1";input.value=String(memory);input.setAttribute("aria-label",t("runtime.memory"));const output=element("output",undefined,`${memory} GiB`);input.addEventListener("input",()=>{memory=Number(input.value);output.textContent=`${memory} GiB`;});append(label,element("span",undefined,t("runtime.memory")),input,output);body.append(label);
+  const label=element("label","memory-control"),input=document.createElement("input");input.type="range";input.min="2";input.max="16";input.step="1";input.value=String(memory);input.setAttribute("aria-label",t("runtime.memory"));const output=element("output",undefined,t("runtime.memoryValue",{gib:String(memory)}));input.addEventListener("input",()=>{memory=Number(input.value);output.textContent=t("runtime.memoryValue",{gib:String(memory)});});append(label,element("span",undefined,t("runtime.memory")),input,output);body.append(label);
   const apply=button(t("runtime.applyMemory"),()=>void action(()=>transport.harnessStart?.(memory)??Promise.reject()));apply.disabled=busy;body.append(apply);
   for(const [key,fn] of [["runtime.start",()=>transport.harnessStart?.()],["runtime.stop",()=>transport.harnessStop?.()]] as const){const control=button(t(key),()=>void action(()=>fn()??Promise.reject()));control.disabled=busy;body.append(control);}
   const logs=button(t("runtime.logs"),()=>void action(async()=>{log=await transport.harnessLogsTail?.()??"";}));body.append(logs);if(log)body.append(element("pre","runtime-log",log));
