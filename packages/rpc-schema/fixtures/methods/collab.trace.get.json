@@ -1,0 +1,9 @@
+{
+  "params": {
+    "traceId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "result": {
+    "traceId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "spans": []
+  }
+}

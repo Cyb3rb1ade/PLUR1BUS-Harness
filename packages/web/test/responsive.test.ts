@@ -91,10 +91,12 @@ describe("layout at the reference widths", opts, () => {
         assert.ok(m.minFontPx >= 12, `text ${m.minFontPx}px < 12px`);
         assert.ok(m.minTarget >= (compact ? 44 : 24), `smallest target ${m.minTarget}px at ${width}px`);
         assert.ok(m.mainWidth <= width - m.sidebarWidth);
-        // forms and reading text never stretch: a settings-width page (a placeholder today) is capped at 880 px. The landing
+        // Forms and reading text never stretch: the project page is capped at 880 px. The landing
         // route is Chat, which is deliberately full width (its transcript is capped separately, see the test below).
         await page.evaluate(() => { location.hash = "#/projects"; });
         await page.getByRole("heading", { name: "Projects", level: 1 }).waitFor();
+        // This fixture has no project RPC. Wait for the loaded page, rather than measuring the temporary lazy frame.
+        await page.locator('main [data-state="unavailable"]').waitFor();
         const inner = await page.locator(".page-inner").boundingBox();
         assert.ok((inner?.width ?? 0) <= 880);
         if (width > 1600) assert.ok(Math.abs((inner!.x - 256) - (width - inner!.x - inner!.width)) <= 1, `capped content is centred: x=${inner!.x} w=${inner!.width} of ${width}`);

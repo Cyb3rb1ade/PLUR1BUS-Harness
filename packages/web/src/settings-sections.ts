@@ -2,7 +2,7 @@
 // so the page, its navigation and the palette's settings hits (`/settings/<section>?focus=<key>`) agree.
 import type { Key } from "./i18n.ts";
 
-export type SectionKind = "config" | "users" | "secrets" | "devices";
+export type SectionKind = "media" | "config" | "users" | "secrets" | "devices";
 export type SectionDef = {
   id: string;
   kind: SectionKind;
@@ -13,6 +13,7 @@ export type SectionDef = {
 
 /** Order is the order of the navigation. `general` is the landing section of `/settings`. */
 export const SECTIONS: readonly SectionDef[] = [
+  { id: "media", kind: "media", label: "nav.media" },
   { id: "general", kind: "config", label: "settings.section.general", keys: ["core.", "supervisor.", "logs.", "metrics.", "modules"] },
   { id: "models", kind: "config", label: "settings.section.models", keys: ["modelRoles", "modelProfiles", "models.", "providers", "oauth", "decision"] },
   { id: "memory", kind: "config", label: "settings.section.memory", keys: ["embedding.", "engine"] },

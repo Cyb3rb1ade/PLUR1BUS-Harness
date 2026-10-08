@@ -83,6 +83,17 @@ export class CollabStore {
     });
   }
 
+  updateProject(id: string, name: string): Project {
+    if (!name.trim() || name.length > 256) throw new CollabError("invalid", "invalid project name");
+    return this.#tx(() => {
+      const p = this.#project(id);
+      if (!p) throw new CollabError("not-found", "project not found");
+      if (p.archivedAt !== null) throw new CollabError("invalid", "project archived");
+      this.#run("UPDATE projects SET name = ?, updated_at = ? WHERE id = ?", name.trim(), this.#clock(), id);
+      return this.#project(id)!;
+    });
+  }
+
   getProject(id: string): Project | null { return this.#project(id); }
 
   listProjects(): Project[] {

@@ -129,6 +129,37 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus login`↴](#plur1bus-login)
 * [`plur1bus channel`↴](#plur1bus-channel)
 * [`plur1bus project`↴](#plur1bus-project)
+* [`plur1bus project create`↴](#plur1bus-project-create)
+* [`plur1bus project list`↴](#plur1bus-project-list)
+* [`plur1bus project show`↴](#plur1bus-project-show)
+* [`plur1bus project archive`↴](#plur1bus-project-archive)
+* [`plur1bus project member`↴](#plur1bus-project-member)
+* [`plur1bus project member add`↴](#plur1bus-project-member-add)
+* [`plur1bus project member remove`↴](#plur1bus-project-member-remove)
+* [`plur1bus project member role`↴](#plur1bus-project-member-role)
+* [`plur1bus project agent`↴](#plur1bus-project-agent)
+* [`plur1bus project agent add`↴](#plur1bus-project-agent-add)
+* [`plur1bus project agent remove`↴](#plur1bus-project-agent-remove)
+* [`plur1bus trace`↴](#plur1bus-trace)
+* [`plur1bus trace show`↴](#plur1bus-trace-show)
+* [`plur1bus trace list`↴](#plur1bus-trace-list)
+* [`plur1bus media`↴](#plur1bus-media)
+* [`plur1bus media generate`↴](#plur1bus-media-generate)
+* [`plur1bus media edit`↴](#plur1bus-media-edit)
+* [`plur1bus media jobs`↴](#plur1bus-media-jobs)
+* [`plur1bus media job`↴](#plur1bus-media-job)
+* [`plur1bus media cancel`↴](#plur1bus-media-cancel)
+* [`plur1bus media outputs`↴](#plur1bus-media-outputs)
+* [`plur1bus media output`↴](#plur1bus-media-output)
+* [`plur1bus media rm`↴](#plur1bus-media-rm)
+* [`plur1bus media adapters`↴](#plur1bus-media-adapters)
+* [`plur1bus identity`↴](#plur1bus-identity)
+* [`plur1bus identity link`↴](#plur1bus-identity-link)
+* [`plur1bus identity links`↴](#plur1bus-identity-links)
+* [`plur1bus identity approve`↴](#plur1bus-identity-approve)
+* [`plur1bus identity decline`↴](#plur1bus-identity-decline)
+* [`plur1bus identity unlink`↴](#plur1bus-identity-unlink)
+* [`plur1bus identity whoami`↴](#plur1bus-identity-whoami)
 * [`plur1bus import`↴](#plur1bus-import)
 * [`plur1bus uninstall`↴](#plur1bus-uninstall)
 * [`plur1bus skill`↴](#plur1bus-skill)
@@ -185,7 +216,10 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `approval` — [experimental] Approval requests: the pending queue, approve, deny and verify the chain (D109)
 * `login` — Provider login (API keys, OAuth) — M2
 * `channel` — Channels — M4
-* `project` — Projects — M3
+* `project` — [experimental] Projects, members and agents (M5)
+* `trace` — [experimental] Collaboration traces
+* `media` — [experimental] Image jobs and private outputs (MG-3)
+* `identity` — [experimental] My channel identities and pairing (Identity v2)
 * `import` — [experimental] Import from OpenClaw/Hermes: read-only --detect and the --skills import now; the full import is M7
 * `uninstall` — Uninstall — M8
 * `skill` — Skills from packages, folders or archives: list, show, install, uninstall, restore, enable, disable
@@ -1941,13 +1975,468 @@ Channels — M4
 
 ## `plur1bus project`
 
-Projects — M3
+[experimental] Projects, members and agents (M5)
 
-**Usage:** `plur1bus project`
+**Usage:** `plur1bus project <COMMAND>`
+
+###### **Subcommands:**
+
+* `create` — [experimental] Create a project
+* `list` — [experimental] List records
+* `show` — [experimental] Show a record
+* `archive` — [experimental] Archive a project
+* `member` — Project membership and roles
+* `agent` — Assigned project agents
+
+
+
+## `plur1bus project create`
+
+[experimental] Create a project
+
+**Usage:** `plur1bus project create <NAME>`
 
 ###### **Arguments:**
 
-* `<REST>`
+* `<NAME>`
+
+
+
+## `plur1bus project list`
+
+[experimental] List records
+
+**Usage:** `plur1bus project list`
+
+
+
+## `plur1bus project show`
+
+[experimental] Show a record
+
+**Usage:** `plur1bus project show <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus project archive`
+
+[experimental] Archive a project
+
+**Usage:** `plur1bus project archive <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus project member`
+
+Project membership and roles
+
+**Usage:** `plur1bus project member <COMMAND>`
+
+###### **Subcommands:**
+
+* `add` — [experimental] Add a member or agent
+* `remove` — [experimental] Remove a member or agent
+* `role` — [experimental] Change a member role
+
+
+
+## `plur1bus project member add`
+
+[experimental] Add a member or agent
+
+**Usage:** `plur1bus project member add [OPTIONS] <PROJECT> <USER>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+* `<USER>`
+
+###### **Options:**
+
+* `--role <ROLE>`
+
+  Default value: `member`
+
+  Possible values: `member`, `lead`
+
+
+
+
+## `plur1bus project member remove`
+
+[experimental] Remove a member or agent
+
+**Usage:** `plur1bus project member remove <PROJECT> <USER>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+* `<USER>`
+
+
+
+## `plur1bus project member role`
+
+[experimental] Change a member role
+
+**Usage:** `plur1bus project member role <PROJECT> <USER> <ROLE>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+* `<USER>`
+* `<ROLE>`
+
+  Possible values: `member`, `lead`
+
+
+
+
+## `plur1bus project agent`
+
+Assigned project agents
+
+**Usage:** `plur1bus project agent <COMMAND>`
+
+###### **Subcommands:**
+
+* `add` — [experimental] Add a member or agent
+* `remove` — [experimental] Remove a member or agent
+
+
+
+## `plur1bus project agent add`
+
+[experimental] Add a member or agent
+
+**Usage:** `plur1bus project agent add <PROJECT> <AGENT>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+* `<AGENT>`
+
+
+
+## `plur1bus project agent remove`
+
+[experimental] Remove a member or agent
+
+**Usage:** `plur1bus project agent remove <PROJECT> <AGENT>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+* `<AGENT>`
+
+
+
+## `plur1bus trace`
+
+[experimental] Collaboration traces
+
+**Usage:** `plur1bus trace <COMMAND>`
+
+###### **Subcommands:**
+
+* `show` — [experimental] Show a record
+* `list` — [experimental] List records
+
+
+
+## `plur1bus trace show`
+
+[experimental] Show a record
+
+**Usage:** `plur1bus trace show <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus trace list`
+
+[experimental] List records
+
+**Usage:** `plur1bus trace list <PROJECT>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+
+
+
+## `plur1bus media`
+
+[experimental] Image jobs and private outputs (MG-3)
+
+**Usage:** `plur1bus media <COMMAND>`
+
+###### **Subcommands:**
+
+* `generate` — [experimental] Queue an image generation
+* `edit` — [experimental] Edit a stored image
+* `jobs` — [experimental] List visible media jobs
+* `job` — [experimental] Read a media job
+* `cancel` — [experimental] Cancel a media job
+* `outputs` — [experimental] List visible media outputs
+* `output` — [experimental] Read or download a media output
+* `rm` — [experimental] Delete a media output
+* `adapters` — [experimental] List adapter capabilities
+
+
+
+## `plur1bus media generate`
+
+[experimental] Queue an image generation
+
+**Usage:** `plur1bus media generate [OPTIONS] <PROMPT>`
+
+###### **Arguments:**
+
+* `<PROMPT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+  Default value: `main`
+* `--adapter <ADAPTER>`
+* `--count <COUNT>`
+
+  Default value: `1`
+* `--width <WIDTH>`
+* `--height <HEIGHT>`
+* `--reference <REFERENCE>`
+* `--mask <MASK>`
+* `--embed-metadata <EMBED_METADATA>`
+
+  Possible values: `true`, `false`
+
+* `--wait`
+* `--out <OUT>`
+
+
+
+## `plur1bus media edit`
+
+[experimental] Edit a stored image
+
+**Usage:** `plur1bus media edit [OPTIONS] <PROMPT>`
+
+###### **Arguments:**
+
+* `<PROMPT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+  Default value: `main`
+* `--adapter <ADAPTER>`
+* `--count <COUNT>`
+
+  Default value: `1`
+* `--width <WIDTH>`
+* `--height <HEIGHT>`
+* `--reference <REFERENCE>`
+* `--mask <MASK>`
+* `--embed-metadata <EMBED_METADATA>`
+
+  Possible values: `true`, `false`
+
+* `--wait`
+* `--out <OUT>`
+
+
+
+## `plur1bus media jobs`
+
+[experimental] List visible media jobs
+
+**Usage:** `plur1bus media jobs [OPTIONS]`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+
+
+## `plur1bus media job`
+
+[experimental] Read a media job
+
+**Usage:** `plur1bus media job <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus media cancel`
+
+[experimental] Cancel a media job
+
+**Usage:** `plur1bus media cancel <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus media outputs`
+
+[experimental] List visible media outputs
+
+**Usage:** `plur1bus media outputs [OPTIONS]`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+* `--adapter <ADAPTER>`
+
+
+
+## `plur1bus media output`
+
+[experimental] Read or download a media output
+
+**Usage:** `plur1bus media output [OPTIONS] <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+###### **Options:**
+
+* `--out <OUT>`
+* `--file <FILE>`
+
+  Default value: `0`
+
+
+
+## `plur1bus media rm`
+
+[experimental] Delete a media output
+
+**Usage:** `plur1bus media rm <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus media adapters`
+
+[experimental] List adapter capabilities
+
+**Usage:** `plur1bus media adapters`
+
+
+
+## `plur1bus identity`
+
+[experimental] My channel identities and pairing (Identity v2)
+
+**Usage:** `plur1bus identity <COMMAND>`
+
+###### **Subcommands:**
+
+* `link` — [experimental] Issue a one-time pairing code
+* `links` — [experimental] List my identity links
+* `approve` — [experimental] Approve a claimed pairing
+* `decline` — [experimental] Decline a claimed pairing
+* `unlink` — [experimental] Unlink a channel identity
+* `whoami` — [experimental] Show my principal union
+
+
+
+## `plur1bus identity link`
+
+[experimental] Issue a one-time pairing code
+
+**Usage:** `plur1bus identity link [OPTIONS]`
+
+###### **Options:**
+
+* `--channel <CHANNEL>`
+
+  Default value: `telegram`
+* `--human <HUMAN>`
+
+
+
+## `plur1bus identity links`
+
+[experimental] List my identity links
+
+**Usage:** `plur1bus identity links [OPTIONS]`
+
+###### **Options:**
+
+* `--human <HUMAN>`
+
+
+
+## `plur1bus identity approve`
+
+[experimental] Approve a claimed pairing
+
+**Usage:** `plur1bus identity approve <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus identity decline`
+
+[experimental] Decline a claimed pairing
+
+**Usage:** `plur1bus identity decline <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus identity unlink`
+
+[experimental] Unlink a channel identity
+
+**Usage:** `plur1bus identity unlink <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus identity whoami`
+
+[experimental] Show my principal union
+
+**Usage:** `plur1bus identity whoami [OPTIONS]`
+
+###### **Options:**
+
+* `--human <HUMAN>`
 
 
 

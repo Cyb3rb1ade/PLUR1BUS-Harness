@@ -68,6 +68,15 @@ export const POLICY: readonly ActionSpec[] = Object.freeze([
   spec("breakglass.log.read", "system", OA),
   spec("licence.confirm", "system", { owner: A }),
 
+  // Surface gates; handlers apply the stored agent/project/self object rights as well.
+  humanOnly(spec("media.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A })),
+  humanOnly(spec("media.write", "system", { owner: A, admin: A, operator: A, member: A })),
+  humanOnly(spec("project.surface.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A })),
+  humanOnly(spec("project.surface.write", "system", { owner: A, admin: A, operator: A, member: A })),
+  humanOnly(spec("project.create", "system", OA)),
+  humanOnly(spec("identity.self.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A })),
+  humanOnly(spec("identity.self.write", "system", { owner: A, admin: A, operator: A, member: A })),
+
   // My area and projects.
   spec("my.read", "user", { owner: O, admin: O, operator: O, member: O, viewer: O }),
   spec("my.write", "user", { owner: O, admin: O, operator: O, member: O }),

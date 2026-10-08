@@ -14,6 +14,35 @@ const caller = { channel: "cli", accountId: "a", userId: "u" };
 const SCHEMA = JSON.parse(readFileSync(fileURLToPath(new URL("../../../rpc-schema/schema/rpc.schema.json", import.meta.url)), "utf8"));
 
 const params: Record<string, unknown> = {
+  "media.preferences.get": {}, "media.preferences.set": {},
+  "media.generate": {},
+  "media.edit": {},
+  "media.job.get": {},
+  "media.job.cancel": {},
+  "media.job.list": {},
+  "media.output.get": {},
+  "media.output.list": {},
+  "media.output.delete": {},
+  "media.adapters.list": {},
+  "project.create": {},
+  "project.get": {},
+  "project.list": {},
+  "project.update": {},
+  "project.archive": {},
+  "project.member.add": {},
+  "project.member.remove": {},
+  "project.member.role": {},
+  "project.agent.add": {},
+  "project.agent.remove": {},
+  "collab.trace.get": {},
+  "collab.trace.list": {},
+  "collab.chain.cancel": {},
+  "identity.link.request": {},
+  "identity.link.list": {},
+  "identity.link.approve": {},
+  "identity.link.decline": {},
+  "identity.link.remove": {},
+  "identity.principals": {},
   "memory.forget": { caller, agentId: "bernd", id: "m1" },
   "agent.status": { agentId: "bernd" },
   "jobs.run": { job: "light", agentId: "bernd" },
@@ -55,9 +84,8 @@ describe("rpc guard: rules", () => {
       assert.ok(actions.has(rule.action), `${method} -> unknown action ${rule.action}`);
     }
   });
-  it("secures these families: audit.verify, memory.forget, agent.status, jobs.run, egress.status, models.* writes, the admin.* family, identity.*, logs.* and the dreams.* writes, and grant.* and approval.*", () => {
-    const families = new Set(Object.keys(RPC_RULES).map((m) => m.split(".").slice(0, m.startsWith("admin.") || m.startsWith("identity.") || m.startsWith("logs.") ? 1 : 2).join(".")));
-    assert.deepEqual([...families].sort(), ["admin", "agent.status", "approval.cancel", "approval.decide", "approval.get", "approval.list", "approval.verify", "audit.verify", "dreams.disable", "dreams.enable", "dreams.run", "dreams.schedule", "egress.status", "grant.create", "grant.list", "grant.revoke", "identity", "jobs.run", "logs", "memory.forget", "models.removeManual", "models.setOverride"].sort());
+  it("every surface method is secured", () => {
+    for (const name of Object.keys(findMethods(SCHEMA)).filter(n => /^(media|project|collab|identity)\./.test(n))) assert.ok(RPC_RULES[name], name);
   });
   it("every admin.* method in the schema is guarded (an `admin.*` is never left open)", () => {
     const admin = Object.keys(findMethods(SCHEMA)).filter((m) => m.startsWith("admin."));

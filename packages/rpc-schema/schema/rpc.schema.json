@@ -486,6 +486,1146 @@
       }
     },
     "methods": {
+      "media.preferences.set": {
+        "description": "Persistent metadata embedding preference. Call overrides agent overrides global; default off. Writes need settings or agent manage rights.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "embedMetadata": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "embedMetadata"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "global": {
+              "type": "boolean"
+            },
+            "agents": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "boolean"
+              }
+            }
+          },
+          "required": [
+            "global",
+            "agents"
+          ]
+        }
+      },
+      "media.preferences.get": {
+        "description": "Persistent metadata embedding preference. Call overrides agent overrides global; default off. Writes need settings or agent manage rights.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {},
+          "required": []
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "global": {
+              "type": "boolean"
+            },
+            "agents": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "boolean"
+              }
+            }
+          },
+          "required": [
+            "global",
+            "agents"
+          ]
+        }
+      },
+      "media.generate": {
+        "description": "Queue image generate after RBAC, D109 and budget admission. Returns a durable job id.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "adapter": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "request": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "prompt": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32000
+                },
+                "negativePrompt": {
+                  "type": "string",
+                  "maxLength": 32000
+                },
+                "n": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10
+                },
+                "size": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "width": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8192
+                    },
+                    "height": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8192
+                    }
+                  },
+                  "required": [
+                    "width",
+                    "height"
+                  ]
+                },
+                "format": {
+                  "enum": [
+                    "png",
+                    "jpeg",
+                    "webp"
+                  ]
+                },
+                "seed": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1000
+                },
+                "guidance": {
+                  "type": "number"
+                },
+                "aspect": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "embedMetadata": {
+                  "type": "boolean"
+                },
+                "referenceIds": {
+                  "type": "array",
+                  "maxItems": 10,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9-]{36}$"
+                  }
+                },
+                "maskId": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9-]{36}$"
+                }
+              },
+              "required": [
+                "prompt"
+              ]
+            }
+          },
+          "required": [
+            "agentId",
+            "request"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "jobId": {
+              "type": "string",
+              "pattern": "^[a-f0-9-]{36}$"
+            }
+          },
+          "required": [
+            "jobId"
+          ]
+        }
+      },
+      "media.edit": {
+        "description": "Queue image edit after RBAC, D109 and budget admission. Returns a durable job id.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "adapter": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "request": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "prompt": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32000
+                },
+                "negativePrompt": {
+                  "type": "string",
+                  "maxLength": 32000
+                },
+                "n": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10
+                },
+                "size": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "width": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8192
+                    },
+                    "height": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8192
+                    }
+                  },
+                  "required": [
+                    "width",
+                    "height"
+                  ]
+                },
+                "format": {
+                  "enum": [
+                    "png",
+                    "jpeg",
+                    "webp"
+                  ]
+                },
+                "seed": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "steps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1000
+                },
+                "guidance": {
+                  "type": "number"
+                },
+                "aspect": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "embedMetadata": {
+                  "type": "boolean"
+                },
+                "referenceIds": {
+                  "type": "array",
+                  "maxItems": 10,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9-]{36}$"
+                  }
+                },
+                "maskId": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9-]{36}$"
+                }
+              },
+              "required": [
+                "prompt"
+              ]
+            }
+          },
+          "required": [
+            "agentId",
+            "request"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "jobId": {
+              "type": "string",
+              "pattern": "^[a-f0-9-]{36}$"
+            }
+          },
+          "required": [
+            "jobId"
+          ]
+        }
+      },
+      "media.job.get": {
+        "description": "Read or cancel an authorized agent media job; never expose reference bytes or credentials.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9-]{36}$"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "media.job.cancel": {
+        "description": "Read or cancel an authorized agent media job; never expose reference bytes or credentials.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9-]{36}$"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cancelled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "cancelled"
+          ]
+        }
+      },
+      "media.job.list": {
+        "description": "List only jobs readable by this principal.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            }
+          },
+          "required": []
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "jobs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          },
+          "required": [
+            "jobs"
+          ]
+        }
+      },
+      "media.output.get": {
+        "description": "Get a private manifest and optionally one bounded base64 image for display or download.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9-]{36}$"
+            },
+            "file": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "id"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "manifest": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "data": {
+              "type": "string"
+            },
+            "mimeType": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "canShare": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "manifest",
+            "canShare"
+          ]
+        }
+      },
+      "media.output.list": {
+        "description": "List visible output manifests, filtered by agent, adapter and creation date.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "adapter": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "after": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "before": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": []
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "outputs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          },
+          "required": [
+            "outputs"
+          ]
+        }
+      },
+      "media.output.delete": {
+        "description": "Delete an output after object authorization.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9-]{36}$"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "deleted": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "deleted"
+          ]
+        }
+      },
+      "media.adapters.list": {
+        "description": "Discover configured adapter capabilities; secrets are never returned.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {},
+          "required": []
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "adapters": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          },
+          "required": [
+            "adapters"
+          ]
+        }
+      },
+      "project.create": {
+        "description": "Authenticated project create using ADR-007 object rights.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "name"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "project.get": {
+        "description": "Authenticated project get using ADR-007 object rights.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "projectId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "project.list": {
+        "description": "Authenticated project list using ADR-007 object rights.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {},
+          "required": []
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projects": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          },
+          "required": [
+            "projects"
+          ]
+        }
+      },
+      "project.update": {
+        "description": "Authenticated project update using ADR-007 object rights.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "projectId",
+            "name"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "project.archive": {
+        "description": "Authenticated project archive using ADR-007 object rights.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "projectId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "project.member.add": {
+        "description": "Authenticated project member.add using ADR-007 object rights.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "userId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "role": {
+              "enum": [
+                "member",
+                "lead"
+              ]
+            }
+          },
+          "required": [
+            "projectId",
+            "userId",
+            "role"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "project.member.remove": {
+        "description": "Authenticated project member.remove using ADR-007 object rights.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "userId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "projectId",
+            "userId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "project.member.role": {
+        "description": "Authenticated project member.role using ADR-007 object rights.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "userId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "role": {
+              "enum": [
+                "member",
+                "lead"
+              ]
+            }
+          },
+          "required": [
+            "projectId",
+            "userId",
+            "role"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "project.agent.add": {
+        "description": "Authenticated project agent.add using ADR-007 object rights.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            }
+          },
+          "required": [
+            "projectId",
+            "agentId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "project.agent.remove": {
+        "description": "Authenticated project agent.remove using ADR-007 object rights.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            }
+          },
+          "required": [
+            "projectId",
+            "agentId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "collab.trace.get": {
+        "description": "Authorized collaboration trace.get; previews are redacted by the existing port.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "traceId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "traceId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "collab.trace.list": {
+        "description": "Authorized collaboration trace.list; previews are redacted by the existing port.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "projectId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "traces": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          },
+          "required": [
+            "traces"
+          ]
+        }
+      },
+      "collab.chain.cancel": {
+        "description": "Authorized collaboration chain.cancel; previews are redacted by the existing port.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "traceId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "traceId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cancelled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "cancelled"
+          ]
+        }
+      },
+      "identity.link.request": {
+        "description": "Human-only link.request; self or authenticated administrator, codes revealed only once.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "humanId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "channel": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "channel"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "code": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "expiresAt": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "id",
+            "code",
+            "expiresAt"
+          ]
+        }
+      },
+      "identity.link.list": {
+        "description": "Human-only link.list; self or authenticated administrator, codes revealed only once.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "humanId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": []
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "links": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "pairings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "humanId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "links",
+            "pairings",
+            "humanId"
+          ]
+        }
+      },
+      "identity.link.approve": {
+        "description": "Human-only link.approve; self or authenticated administrator, codes revealed only once.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pairingId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "pairingId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "identity.link.decline": {
+        "description": "Human-only link.decline; self or authenticated administrator, codes revealed only once.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pairingId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "pairingId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "identity.link.remove": {
+        "description": "Human-only link.remove; self or authenticated administrator, codes revealed only once.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "linkId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "linkId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "identity.principals": {
+        "description": "Human-only principals; self or authenticated administrator, codes revealed only once.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "humanId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": []
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "humanId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "principals": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            }
+          },
+          "required": [
+            "humanId",
+            "principals"
+          ]
+        }
+      },
       "core.auth": {
         "x-stability": "stable", "x-since": "1.0.0", "x-server": "core",
         "params": { "type": "object", "additionalProperties": false, "required": ["token"], "properties": { "token": { "type": "string", "minLength": 64, "maxLength": 64 } } },
@@ -2035,6 +3175,76 @@
     },
 
     "notifications": {
+      "media.job.progress": {
+        "description": "Authorized connection receives job progress.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "pattern": "^[a-f0-9-]{36}$"
+          },
+          "agentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "state": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "fraction": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": [
+          "jobId",
+          "agentId",
+          "state",
+          "fraction"
+        ]
+      },
+      "media.job.finished": {
+        "description": "Authorized connection receives job finished.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "pattern": "^[a-f0-9-]{36}$"
+          },
+          "agentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "state": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "fraction": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": [
+          "jobId",
+          "agentId",
+          "state",
+          "fraction"
+        ]
+      },
       "core.state": { "x-stability": "stable", "x-since": "1.0.0", "x-server": "core", "type": "object", "additionalProperties": false, "required": ["process"], "properties": { "process": { "$ref": "#/$defs/ProcessState" } } },
       "agent.activity": { "x-stability": "experimental", "x-since": "1.0.0", "x-server": "core", "type": "object", "additionalProperties": false, "required": ["agentId", "activity"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "activity": { "$ref": "#/$defs/Activity" } } },
       "engine.event": {

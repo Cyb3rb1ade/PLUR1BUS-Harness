@@ -198,3 +198,26 @@ needed, `bg` = a live break-glass grant, `–` = denied). The matrix test compar
 | `admin.reembed.status` | system | ✔ | ✔ | – | – | – |
 | `admin.reembed.abort` | system | ✔ | ✔ | – | – | – |
 | `admin.backup.snapshot` | system | ✔ | ✔ | – | – | – |
+
+## Media, project/collaboration and own-identity surfaces
+
+Every new method is declared in RPC_RULES and is human-only at the surface gate:
+
+| RPC family | Coarse action | Additional stored-object check |
+|---|---|---|
+| media.generate/edit, media.job.cancel, media.output.delete | media.write | agent.use |
+| media.job.get/list, media.output.get/list | media.read | agent.read; lists filter inaccessible agents |
+| media.adapters.list, media.preferences.get | media.read | no credentials returned |
+| media.preferences.set | media.write | settings.write globally, agent.manage per agent |
+| project.create | project.create | Owner/Admin |
+| project.get/list, collab.trace.get/list | project.surface.read | role-level readers or actual project membership |
+| project.update/archive, project.member.add/remove/role | project.surface.write | project.manage (lead) |
+| project.agent.add/remove, collab.chain.cancel | project.surface.write | project.write (member); add also agent.use |
+| identity.link.list, identity.principals | identity.self.read | self or Owner/Admin target override |
+| identity.link.request/approve/decline/remove | identity.self.write | self or Owner/Admin; service authorization remains |
+
+Read gates include all human roles. Write gates exclude Viewer. Token scopes
+still narrow role rights; the service's existing object checks remain additive.
+All new methods reject unauthenticated and agent callers before invoking handlers.
+The guard passes its resolved principal to the invocation through a private
+context map; params cannot forge it. Existing method authorization is unchanged.

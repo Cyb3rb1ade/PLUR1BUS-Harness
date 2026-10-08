@@ -169,3 +169,5 @@ input[aria-invalid="true"] { border-color: var(--err-ink); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+.media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem}.surface-filters{display:flex;flex-wrap:wrap;gap:1rem;margin-block:1rem}.media-grid article{min-width:0}.media-grid button{width:100%}.trace-timeline{border-inline-start:2px solid var(--border);padding-inline-start:1.5rem}.trace-timeline pre{white-space:pre-wrap;overflow-wrap:anywhere}

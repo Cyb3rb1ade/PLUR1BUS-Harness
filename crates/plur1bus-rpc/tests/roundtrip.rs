@@ -94,12 +94,146 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
     fixtures.sort_by(|a, b| a.0.cmp(&b.0));
     assert_eq!(
         fixtures.len(),
-        112,
+        root_schema["$defs"]["methods"].as_object().unwrap().len() + 1,
         "update type dispatch for new RPC methods"
     );
 
     for (name, fixture) in &fixtures {
         match name.as_str() {
+            "media.generate" => {
+                check_pair::<types::MediaGenerateParams, types::MediaGenerateResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "media.edit" => check_pair::<types::MediaEditParams, types::MediaEditResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "media.job.get" => check_pair::<types::MediaJobGetParams, types::MediaJobGetResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "media.job.cancel" => check_pair::<
+                types::MediaJobCancelParams,
+                types::MediaJobCancelResult,
+            >(name, fixture, &root_schema),
+            "media.job.list" => check_pair::<types::MediaJobListParams, types::MediaJobListResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "media.output.get" => check_pair::<
+                types::MediaOutputGetParams,
+                types::MediaOutputGetResult,
+            >(name, fixture, &root_schema),
+            "media.output.list" => check_pair::<
+                types::MediaOutputListParams,
+                types::MediaOutputListResult,
+            >(name, fixture, &root_schema),
+            "media.output.delete" => check_pair::<
+                types::MediaOutputDeleteParams,
+                types::MediaOutputDeleteResult,
+            >(name, fixture, &root_schema),
+            "media.adapters.list" => check_pair::<
+                types::MediaAdaptersListParams,
+                types::MediaAdaptersListResult,
+            >(name, fixture, &root_schema),
+            "project.create" => {
+                check_pair::<types::ProjectCreateParams, types::ProjectCreateResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "project.get" => check_pair::<types::ProjectGetParams, types::ProjectGetResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "project.list" => check_pair::<types::ProjectListParams, types::ProjectListResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "project.update" => {
+                check_pair::<types::ProjectUpdateParams, types::ProjectUpdateResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "project.archive" => check_pair::<
+                types::ProjectArchiveParams,
+                types::ProjectArchiveResult,
+            >(name, fixture, &root_schema),
+            "project.member.add" => check_pair::<
+                types::ProjectMemberAddParams,
+                types::ProjectMemberAddResult,
+            >(name, fixture, &root_schema),
+            "project.member.remove" => check_pair::<
+                types::ProjectMemberRemoveParams,
+                types::ProjectMemberRemoveResult,
+            >(name, fixture, &root_schema),
+            "project.member.role" => check_pair::<
+                types::ProjectMemberRoleParams,
+                types::ProjectMemberRoleResult,
+            >(name, fixture, &root_schema),
+            "project.agent.add" => check_pair::<
+                types::ProjectAgentAddParams,
+                types::ProjectAgentAddResult,
+            >(name, fixture, &root_schema),
+            "project.agent.remove" => check_pair::<
+                types::ProjectAgentRemoveParams,
+                types::ProjectAgentRemoveResult,
+            >(name, fixture, &root_schema),
+            "collab.trace.get" => check_pair::<
+                types::CollabTraceGetParams,
+                types::CollabTraceGetResult,
+            >(name, fixture, &root_schema),
+            "collab.trace.list" => check_pair::<
+                types::CollabTraceListParams,
+                types::CollabTraceListResult,
+            >(name, fixture, &root_schema),
+            "collab.chain.cancel" => check_pair::<
+                types::CollabChainCancelParams,
+                types::CollabChainCancelResult,
+            >(name, fixture, &root_schema),
+            "identity.link.request" => check_pair::<
+                types::IdentityLinkRequestParams,
+                types::IdentityLinkRequestResult,
+            >(name, fixture, &root_schema),
+            "identity.link.list" => check_pair::<
+                types::IdentityLinkListParams,
+                types::IdentityLinkListResult,
+            >(name, fixture, &root_schema),
+            "identity.link.approve" => check_pair::<
+                types::IdentityLinkApproveParams,
+                types::IdentityLinkApproveResult,
+            >(name, fixture, &root_schema),
+            "identity.link.decline" => check_pair::<
+                types::IdentityLinkDeclineParams,
+                types::IdentityLinkDeclineResult,
+            >(name, fixture, &root_schema),
+            "identity.link.remove" => check_pair::<
+                types::IdentityLinkRemoveParams,
+                types::IdentityLinkRemoveResult,
+            >(name, fixture, &root_schema),
+            "identity.principals" => check_pair::<
+                types::IdentityPrincipalsParams,
+                types::IdentityPrincipalsResult,
+            >(name, fixture, &root_schema),
+            "media.preferences.get" => check_pair::<
+                types::MediaPreferencesGetParams,
+                types::MediaPreferencesGetResult,
+            >(name, fixture, &root_schema),
+            "media.preferences.set" => check_pair::<
+                types::MediaPreferencesSetParams,
+                types::MediaPreferencesSetResult,
+            >(name, fixture, &root_schema),
             "core.auth" => check_pair::<types::CoreAuthParams, types::CoreAuthResult>(
                 name,
                 fixture,

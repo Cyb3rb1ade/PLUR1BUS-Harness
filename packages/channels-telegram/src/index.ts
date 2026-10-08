@@ -9,3 +9,5 @@ export type * from "./port.ts";
 export { CallbackSigner } from "./callback.ts";
 export { TokenBucket } from "./rate-limit.ts";
 export { escapeText } from "./split.ts";
+
+export { outputAttachment, TELEGRAM_PHOTO_MAX_BYTES, type OutputPort } from "./outputs.ts";

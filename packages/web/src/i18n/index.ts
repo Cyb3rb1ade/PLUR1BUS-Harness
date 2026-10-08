@@ -23,6 +23,7 @@ import * as secrets from "./secrets.ts";
 import * as sessions from "./sessions.ts";
 import * as settings from "./settings.ts";
 import * as setup from "./setup.ts";
+import * as surfaces from "./surfaces.ts";
 import * as shared from "./shared.ts";
 import * as users from "./users.ts";
 
@@ -30,6 +31,7 @@ export type Area = { readonly name: string; readonly en: Readonly<Record<string,
 
 /** One line per area; order is only the order of the keys in the merged catalogue. */
 export const AREAS = [
+  { name: "surfaces", en: surfaces.en, de: surfaces.de },
   { name: "core", en: core.en, de: core.de },
   { name: "chat", en: chat.en, de: chat.de },
   { name: "memory", en: memory.en, de: memory.de },

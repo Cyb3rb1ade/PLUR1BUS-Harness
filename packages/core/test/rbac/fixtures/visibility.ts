@@ -95,6 +95,13 @@ export const ENTRIES: readonly Entry[] = [
   { action: "breakglass.log.read", page: "Users & roles", verb: "read" },
   { action: "licence.confirm", page: "Settings / Secrets", verb: "write", cells: owner },
 
+  { action: "media.read", page: "My area, Projects", verb: "read" },
+  { action: "media.write", page: "My area, Projects", verb: "write" },
+  { action: "project.surface.read", page: "My area, Projects", verb: "read" },
+  { action: "project.surface.write", page: "My area, Projects", verb: "write" },
+  { action: "project.create", page: "My area, Projects", verb: "write", cells: ownerAdmin },
+  { action: "identity.self.read", page: "My area, Projects", verb: "read" },
+  { action: "identity.self.write", page: "My area, Projects", verb: "write" },
   { action: "my.read", page: "My area, Projects", verb: "read", gate: ALL_O },
   { action: "my.write", page: "My area, Projects", verb: "write", gate: { owner: "O", admin: "O", operator: "O", member: "O" } },
   { action: "project.read", page: "My area, Projects", verb: "read" },

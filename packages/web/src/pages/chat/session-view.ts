@@ -1,4 +1,5 @@
 // The open chat: header, transcript (role=log), notices and composer.
+import { StoredImage } from "../surfaces/media.ts";
 import { h } from "preact";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { isApiError } from "../../api/index.ts";
@@ -20,6 +21,7 @@ function Message({ e, agent }: { e: Entry; agent: string }): View {
       e.state === "completed" ? h(Badge, { tone: "ok" }, t("chat.state.completed")) : null,
       e.state === "failed" ? h(Badge, { tone: cancelled ? "neutral" : "err" }, cancelled ? t("chat.state.cancelled") : t("chat.state.failed")) : null),
     h("div", { class: "msg-text" }, e.text),
+    e.outputId ? h(StoredImage, { id: e.outputId, download: true }) : null,
     e.state === "failed" && !cancelled && e.error ? h("p", { class: "msg-detail" }, t("chat.failed.detail", { error: e.error })) : null);
 }
 

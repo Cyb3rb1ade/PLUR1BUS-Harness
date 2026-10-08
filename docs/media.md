@@ -3,7 +3,8 @@
 `@plur1bus/media` is a standalone, dependency-free Node 24 package. It exports
 image adapters, `AdapterRegistry`, `JobRunner`, `FileJobPersistence`, `OutputStore`,
 `estimateCost`, and capability-name constants `media.generate` / `media.edit`.
-It adds no permission approval flow. Core, RPC, CLI, UI and channels are not wired yet.
+The MG-1 library adds no permission approval flow. MG-3 RPC/CLI/UI/channel
+surfaces and their remaining production gates are documented below.
 The supplied MG-1 owner decisions are the implementation contract; the referenced
 ADR-017 proposal was not present on the implementation's `origin/main` base.
 
@@ -173,8 +174,8 @@ then root `pnpm lint`. Test fixtures cover success, policy rejection, rate limit
 timeout/cancellation, partial results, polling recovery, output replay, quota,
 retention, metadata precedence and sanitized failures.
 
-Follow-ups: RPC/CLI ports, Core job registry, D109 capability discovery, core
-budget/secret/egress integration, Web UI, channels, ComfyUI workflows and progress,
+Remaining follow-ups: the D109 media policy/API gates described below, production
+channel host/compression binding, ComfyUI workflows and progress,
 A1111/Forge, model-specific gateway edit profiles, Imagen, xAI edits, EXIF,
 SDXL/SD3, helper CI/model acceptance, host scheduling and Video (MG-2).
 
@@ -196,3 +197,63 @@ Primary protocol references: [OpenRouter](https://openrouter.ai/docs/api-referen
 [Draw Things](https://github.com/drawthingsai/draw-things-community/blob/main/Libraries/HTTPAPIServer/Sources/HTTPAPIServer.swift),
 [Apple](https://github.com/apple/ml-stable-diffusion),
 [price estimate](https://www.together.ai/pricing). Checked 2026-10-07.
+
+## MG-3 surfaces
+
+The core registers `media.generate`, `media.edit`, `media.job.get/list/cancel`,
+`media.output.get/list/delete`, `media.adapters.list`, and
+`media.preferences.get/set`. Generate/edit return `{jobId}` immediately. Jobs
+emit `media.job.progress` and `media.job.finished` to the submitting connection
+only. A client reconnects with job.get; polling does not depend on event delivery.
+Job responses omit persisted reference bytes and provider checkpoints.
+
+All surface methods have human-only RBAC gates. Reads additionally need
+`agent.read`; generation, cancellation and deletion need `agent.use` on the stored
+agent. Lists filter inaccessible agents. Adapter discovery never exposes secret
+references or keys. The core binds the existing secret/egress adapter wrappers,
+D109 evaluator and CallBudget admission/settlement ports. Admission happens before
+provider execution. Missing budget/policy refuses execution. Interrupt recovery
+never resubmits a job; a committed output succeeds, other unfinished jobs become
+`interrupted`. Existing budget reservation expiry reconciles uncertain usage.
+
+`media.preferences.set {embedMetadata,agentId?}` persists global or agent metadata
+preferences. Global writes require settings.write; agent writes require
+agent.manage. Request > agent > global > false still applies. Manifests are always
+retained independently of image metadata embedding.
+
+CLI examples (all commands support the global `--json` switch):
+
+```sh
+plur1bus media adapters
+plur1bus media generate 'A forest' --agent main --adapter openai --wait --out forest.png
+plur1bus media edit 'Add snow' --reference <output-id> --wait
+plur1bus media jobs
+plur1bus media job <job-id>
+plur1bus media cancel <job-id>
+plur1bus media outputs --agent main
+plur1bus media output <output-id> --out image.png
+plur1bus media rm <output-id>
+```
+
+`--wait` reports progress on stderr and returns a terminal job; JSON stdout remains
+one document. It waits up to ten minutes; timeout leaves the job queryable. `--out`
+creates a new file and preserves existing files. References and masks are existing
+private output IDs, not arbitrary paths or provider URLs. RPC image transfer is
+bounded to 16 MiB per file; larger files remain stored. Output deletion preserves
+the historical job state. Gallery (`#/media`) filters agent/adapter/date, shows
+manifests and bounded previews/downloads, and confirms deletion. Chat tool-result
+images resolve store IDs. Settings exposes global/agent metadata preferences.
+Sharing is hidden while no output-sharing ACL/transport exists (`canShare=false`).
+
+Telegram's `sendOutput(chatId,id,index?)` uses a host-supplied OutputPort. Its
+`authorize` callback must check the destination's sharing rights. Stored bytes are
+SHA-256 verified; photos are capped at 10 MiB. Larger inputs require the host's
+compression callback, whose returned type and size are checked again. Missing
+compression fails before sending. No output URL or credential goes to Telegram.
+
+The Web client follows the existing `/rpc` contract. Production HTTP forwarding
+and authenticated principal binding remain an API-layer dependency outside the
+allowed package scope; mock-server page tests do not establish that deployment.
+The two new D109 media catalogue entries are also a pending scope dependency:
+`policy/**` is excluded by this work package, so unknown capabilities currently
+fail closed. No D109 evaluator or budget behavior was changed.
