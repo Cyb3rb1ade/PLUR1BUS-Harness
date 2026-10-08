@@ -1,0 +1,10 @@
+{
+  "name": "email",
+  "version": "0.1.0",
+  "kind": "channel",
+  "apiVersion": "1",
+  "displayName": "Email",
+  "chatKinds": ["direct"],
+  "startDelayMs": 0,
+  "maxRestarts": 8
+}
