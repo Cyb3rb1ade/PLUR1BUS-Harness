@@ -80,6 +80,9 @@ describe("harness runs light dreams and episodes inline (no post-turn queue)", (
     });
     await core.start();
     c = await connect({ address: core.address, token: core.token });
+    const until = Date.now() + 30_000;
+    while (!core.status().engine.ready && Date.now() < until) await new Promise((r) => setTimeout(r, 25));
+    assert.equal(core.status().engine.ready, true, "the engine warm-up finished");
   });
   after(async () => { await c?.close(); await core?.stop({ budgetMs: 5000 }); });
 
