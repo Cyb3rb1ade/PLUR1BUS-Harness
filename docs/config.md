@@ -47,4 +47,49 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `egress.allowHosts` | array | `[]` | live | Exact names, `*.suffix` (subdomains of any depth, not the apex), `*` (any name, never an IP literal) or an exact canonical IP literal (IPv6 in brackets). |
 | `egress.allowPorts` | array | `[443]` | live | Destination ports allowed for outgoing requests. |
 | `egress.allowLoopback` | boolean | `false` | live | Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused. |
+| `voice.providers.elevenlabs.enabled` | boolean | `false` | live | Whether ElevenLabs may be used. Off until enabled and given an apiKeyRef. |
+| `voice.providers.elevenlabs.apiKeyRef` | string |  | live | Secret-store reference holding the ElevenLabs API key. |
+| `voice.providers.elevenlabs.region` | enum | `"default"` | live | Data-residency region: default (global), us, eu or in. Ignored when baseUrl is set. |
+| `voice.providers.elevenlabs.baseUrl` | string |  | live | Override of the API base URL (https only, or loopback for a local relay). |
+| `voice.providers.elevenlabs.defaultVoice` | string |  | live | Voice id used when a request names none. |
+| `voice.providers.elevenlabs.defaultModel` | string |  | live | Text-to-speech model id used when a request names none; discovery lists the available ones. |
+| `voice.providers.elevenlabs.defaultSttModel` | string |  | live | Speech-to-text model id used when a request names none. |
+| `voice.providers.elevenlabs.zeroRetention` | boolean | `false` | live | Ask ElevenLabs not to log or retain request content (enable_logging=false), where the account plan allows it. |
+| `voice.providers.xai.enabled` | boolean | `false` | live | Whether Grok Voice may be used. Off until enabled and given an apiKeyRef. |
+| `voice.providers.xai.apiKeyRef` | string |  | live | Secret-store reference holding the xAI API key. |
+| `voice.providers.xai.baseUrl` | string |  | live | Override of the API base URL (https only, or loopback for a local relay). |
+| `voice.providers.xai.defaultVoice` | string |  | live | Voice used when a session names none. |
+| `voice.providers.xai.defaultModel` | string |  | live | Realtime model id used when a session names none; found by discovery when empty. |
+| `voice.providers.gemini.enabled` | boolean | `false` | live | Whether Gemini Live may be used. Off until enabled and given an apiKeyRef. |
+| `voice.providers.gemini.apiKeyRef` | string |  | live | Secret-store reference holding the Gemini API key. |
+| `voice.providers.gemini.baseUrl` | string |  | live | Override of the API base URL (https only, or loopback for a local relay). |
+| `voice.providers.gemini.defaultVoice` | string |  | live | Prebuilt voice name used when a session names none. |
+| `voice.providers.gemini.defaultModel` | string |  | live | Live model id used when a session names none; native-audio models are found by discovery when empty. |
+| `voice.providers.polly.enabled` | boolean | `false` | live | Whether Polly may be used. Off until enabled. |
+| `voice.providers.polly.region` | string |  | live | AWS region for Polly; the SDK's own default applies when empty. |
+| `voice.providers.polly.credentials.profile` | string |  | live | Name of the AWS shared-config profile (including SSO profiles); the default chain applies when empty. |
+| `voice.providers.polly.defaultVoice` | string |  | live | Voice id used when a request names none. |
+| `voice.providers.polly.defaultModel` | string |  | live | Polly engine (standard, neural, long-form, generative) used when a request names none. |
+| `voice.local.language` | string |  | live | Language of the local voice (catalog code such as de or en). Empty: the system language when the catalog has it, else en. |
+| `voice.local.profile` | enum | `"fast"` | live | Local model tier: fast (streaming recogniser, small voice) or quality (larger models). |
+| `voice.local.perAgent` | object | `{}` | live | Per-agent override of language and tier, keyed by agent identifier. |
+| `voice.local.catalogOverride` | object |  | live | Data that adds or replaces catalog models and languages (adding a language is data, not code). Same shape as the built-in catalog. |
+| `voice.local.modelsDir` | string |  | live | Directory for downloaded voice models. Empty: a directory under the harness data directory. |
+| `voice.local.acceptNcLicence` | boolean | `false` | live | Confirm that models under non-commercial or unconfirmed licences may be downloaded and used. Off by default; the licence text is shown first. |
+| `voice.localRealtime.enabled` | boolean | `false` | live | Whether the local real-time profile applies. When off, every feature runs without a time budget. |
+| `voice.localRealtime.endpointingMs` | integer | `400` | live | Silence after speech, in milliseconds, before the user's turn counts as finished. |
+| `voice.localRealtime.speculativeTurnStart` | boolean | `false` | live | Start the agent turn on the final transcript before the silence window ends, and cancel it if the user keeps talking. |
+| `voice.localRealtime.ackSound` | boolean | `false` | live | Play a short acknowledgement sound when the user's turn ends. |
+| `voice.localRealtime.sentenceChunking.maxWords` | integer | `24` | live | Maximum words in one spoken chunk; longer sentences are cut at a comma when possible. |
+| `voice.localRealtime.features.autoRecall` | object | `{"mode":"on","maxMs":30}` | live | Automatic memory recall before the answer. |
+| `voice.localRealtime.features.reranker` | object | `{"mode":"off"}` | live | Reranking of recalled memories. |
+| `voice.localRealtime.features.recallMultiIdentity` | object | `{"mode":"off"}` | live | Recall across several linked identities. |
+| `voice.localRealtime.features.promptEnrichment` | object | `{"mode":"on","maxMs":10}` | live | Prompt enrichment with short context. |
+| `voice.localRealtime.features.decisionService` | object | `{"mode":"off"}` | live | Decision-model call before the answer. |
+| `voice.localRealtime.features.postTurnRefine` | object | `{"mode":"deferred"}` | live | Refinement work after the answer has been spoken. |
+| `voice.localRealtime.features.memoryWrite` | object | `{"mode":"deferred"}` | live | Memory capture of the turn. |
+| `voice.localRealtime.features.compaction` | object | `{"mode":"deferred"}` | live | Conversation compaction. |
+| `voice.localRealtime.toolSchemas` | enum | `"reduced"` | live | Tool schemas given to the model in real-time turns: reduced (smaller prompt, faster) or full. |
+| `voice.localRealtime.auditDetail` | enum | `"minimal"` | live | Detail of the audit record for real-time turns: minimal or full. |
+| `voice.localRealtime.perAgent` | object | `{}` | live | Per-agent override of any localRealtime key (same shape, no defaults), keyed by agent identifier. |
 | `modules` | object | `{}` | live | Per-module settings, keyed by module name (B13). A change restarts only that module; `enabled: false` keeps it stopped. |
