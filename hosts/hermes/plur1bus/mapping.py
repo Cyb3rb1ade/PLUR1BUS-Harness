@@ -5,21 +5,22 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from typing import Any, Protocol, cast
 
 from ._client import pmc
 
 __all__ = [
     "CAPTURE_REQUEST_BUDGET",
-    "EntryInvalid",
-    "IdentityRefused",
     "MAX_TURN_MESSAGES",
     "PLATFORM_TRUST",
     "READ_ONLY_PROMPT_BLOCK",
     "SYSTEM_PROMPT_BLOCK",
-    "WRITE_TOOLS",
     "TOOL_METHODS",
     "TOOL_SCHEMAS",
     "TRUNCATED_MARKER",
+    "WRITE_TOOLS",
+    "EntryInvalid",
+    "IdentityRefused",
     "caller_for",
     "fold_platform",
     "session_key_for",
@@ -29,7 +30,16 @@ __all__ = [
     "validate_entry",
 ]
 
+
+class _Caller(Protocol):
+    account_id: str
+    user_id: str
+
+    def to_rpc(self) -> dict[str, Any]: ...
+
+
 Caller = pmc.Caller
+
 
 #: ``memory.capture.messages`` holds at most 64 items (rpc.schema.json).
 MAX_TURN_MESSAGES = 64
@@ -88,17 +98,32 @@ TOOL_METHODS: dict[str, str] = {
     "plur1bus_memory_share": "memory.share",
 }
 
-_ID = {"type": "string", "minLength": 1, "maxLength": 256, "description": "The memory id, as listed by plur1bus_memory_list."}
+_ID = {
+    "type": "string",
+    "minLength": 1,
+    "maxLength": 256,
+    "description": "The memory id, as listed by plur1bus_memory_list.",
+}
 
-TOOL_SCHEMAS: dict[str, dict] = {
+TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
     "plur1bus_memory_list": {
         "name": "plur1bus_memory_list",
         "description": "List stored long-term memories, optionally only those about a topic.",
         "parameters": {
             "type": "object",
             "properties": {
-                "topic": {"type": "string", "minLength": 1, "maxLength": 2000, "description": "Only memories about this topic."},
-                "limit": {"type": "integer", "minimum": 1, "maximum": 100, "description": "At most this many items (default 20)."},
+                "topic": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000,
+                    "description": "Only memories about this topic.",
+                },
+                "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "At most this many items (default 20).",
+                },
             },
             "additionalProperties": False,
         },
@@ -106,19 +131,37 @@ TOOL_SCHEMAS: dict[str, dict] = {
     "plur1bus_memory_show": {
         "name": "plur1bus_memory_show",
         "description": "Show one stored memory in full.",
-        "parameters": {"type": "object", "properties": {"id": _ID}, "required": ["id"], "additionalProperties": False},
+        "parameters": {
+            "type": "object",
+            "properties": {"id": _ID},
+            "required": ["id"],
+            "additionalProperties": False,
+        },
     },
     "plur1bus_memory_forget": {
         "name": "plur1bus_memory_forget",
         "description": "Forget (archive) one stored memory. Use only when the user asks to forget it.",
-        "parameters": {"type": "object", "properties": {"id": _ID}, "required": ["id"], "additionalProperties": False},
+        "parameters": {
+            "type": "object",
+            "properties": {"id": _ID},
+            "required": ["id"],
+            "additionalProperties": False,
+        },
     },
     "plur1bus_memory_correct": {
         "name": "plur1bus_memory_correct",
         "description": "Replace the text of one stored memory with a corrected version the user gave.",
         "parameters": {
             "type": "object",
-            "properties": {"id": _ID, "text": {"type": "string", "minLength": 1, "maxLength": 8000, "description": "The corrected memory."}},
+            "properties": {
+                "id": _ID,
+                "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8000,
+                    "description": "The corrected memory.",
+                },
+            },
             "required": ["id", "text"],
             "additionalProperties": False,
         },
@@ -128,7 +171,10 @@ TOOL_SCHEMAS: dict[str, dict] = {
         "description": "Share one stored memory with the workspace or with the user's other agents.",
         "parameters": {
             "type": "object",
-            "properties": {"id": _ID, "target": {"type": "string", "enum": ["workspace", "user"]}},
+            "properties": {
+                "id": _ID,
+                "target": {"type": "string", "enum": ["workspace", "user"]},
+            },
             "required": ["id", "target"],
             "additionalProperties": False,
         },
@@ -162,7 +208,7 @@ def trust_of(platform: str | None) -> str:
     return PLATFORM_TRUST.get(fold_platform(platform), "claimed")
 
 
-def caller_for(platform: str | None, user_id: str | None, chat_id: str | None) -> Caller:
+def caller_for(platform: str | None, user_id: str | None, chat_id: str | None) -> _Caller:
     """The caller sent to the core (HM2-R6, audit M1). The RPC carries no trust, so it is in the identity:
 
     * trusted platform: ``accountId = "hermes:<platform>"``, ``userId`` = user id, else chat id;
@@ -176,12 +222,12 @@ def caller_for(platform: str | None, user_id: str | None, chat_id: str | None) -
     ident = _clean(user_id, _USER_ID_MAX) or _clean(chat_id, _USER_ID_MAX)
     if not ident:
         if trust == "local":
-            return Caller("hermes:" + plat, "local")
+            return cast(_Caller, pmc.Caller("hermes:" + plat, "local"))
         raise IdentityRefused(f"platform {plat} supplied no user or chat id")
     if trust == "claimed":
         digest = hashlib.sha256(ident.encode("utf-8")).hexdigest()[:32]
-        return Caller("hermes:" + plat + ":claimed", "claimed-" + digest)
-    return Caller("hermes:" + plat, ident)
+        return cast(_Caller, pmc.Caller("hermes:" + plat + ":claimed", "claimed-" + digest))
+    return cast(_Caller, pmc.Caller("hermes:" + plat, ident))
 
 
 def session_key_for(session_id: str, gateway_session_key: str | None) -> str:
@@ -209,16 +255,16 @@ def _text_of(content: object) -> str:
     return "" if content is None else str(content)
 
 
-def _encoded_size(messages: list[dict]) -> int:
+def _encoded_size(messages: list[dict[str, Any]]) -> int:
     return len(json.dumps(messages, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
 
 
-def turn_messages(user: str, assistant: str, messages: list | None) -> list[dict]:
+def turn_messages(user: str, assistant: str, messages: list[Any] | None) -> list[dict[str, Any]]:
     """The completed turn as ``memory.capture`` messages: user and assistant only (never system or tool
     output), at most 64, the whole list within ``CAPTURE_REQUEST_BUDGET`` bytes. Over budget the longest
     content is cut from its end and marked ``[truncated]``. ``messages`` is used only when Hermes passed
     no user/assistant text."""
-    turn: list[dict] = []
+    turn: list[dict[str, Any]] = []
     u, a = _text_of(user), _text_of(assistant)
     if u.strip() or a.strip():
         if u.strip():
@@ -238,7 +284,7 @@ def turn_messages(user: str, assistant: str, messages: list | None) -> list[dict
         excess = _encoded_size(turn) - CAPTURE_REQUEST_BUDGET
         i = max(range(len(turn)), key=lambda k: len(turn[k]["content"]))
         content = turn[i]["content"]
-        body = content[:-len(TRUNCATED_MARKER)] if content.endswith(TRUNCATED_MARKER) else content
+        body = content[: -len(TRUNCATED_MARKER)] if content.endswith(TRUNCATED_MARKER) else content
         # Every character costs at least one byte, so cutting `excess` characters (plus the marker) fits.
         keep = max(0, len(body) - excess - len(TRUNCATED_MARKER))
         if keep == 0 and len(turn) > 1:
@@ -248,13 +294,13 @@ def turn_messages(user: str, assistant: str, messages: list | None) -> list[dict
     return turn
 
 
-def tool_params(tool_name: str, args: object) -> dict:
+def tool_params(tool_name: str, args: object) -> dict[str, Any]:
     """Validated, schema-shaped arguments for a D21 tool; raises ``ToolArgsError``."""
     if not isinstance(args, dict):
         raise ToolArgsError("arguments must be an object")
     schema = TOOL_SCHEMAS[tool_name]["parameters"]
     props = schema["properties"]
-    out: dict = {}
+    out: dict[str, Any] = {}
     for key in schema.get("required", []):
         if key not in args:
             raise ToolArgsError(f"missing {key}")

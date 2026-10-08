@@ -9,6 +9,8 @@ export interface AgentRunInput {
   question: string;
   context: string;
   signal: AbortSignal;
+  /** Authenticated collab caller, supplied by the service to production adapters. */
+  principal?: import("../rbac/types.ts").Principal;
 }
 
 export interface AgentRunResult {

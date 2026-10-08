@@ -29,10 +29,10 @@ import { callerToPrincipal } from "./principal.ts";
 import { startJournalReplay, type JournalReplay } from "./replay.ts";
 import { RpcError } from "./rpc/errors.ts";
 import { buildMethods } from "./rpc/methods.ts";
-import { engineTurnMemory } from "./session/memory-port.ts";
+import { openTurnComposition, type TurnComposition, type CompositionOptions } from "./composition/index.ts";
 import type { ChatProvider } from "./session/provider.ts";
 import { createLogsMethods } from "./logs/index.ts";
-import { openSessionService, type SessionService } from "./session/service.ts";
+import { type SessionService } from "./session/service.ts";
 import { LOCAL_OWNER, createJsonlAuditSink, guardMethods, type AuditSink, type PrincipalResolver } from "./rbac/index.ts";
 import { createRpcServer, type CallContext, type RpcServer } from "./rpc/server.ts";
 import { sharedMemoryStatus } from "./shared-memory.ts";
@@ -88,6 +88,8 @@ export interface Core {
   readonly metrics: Metrics;
   /** D109: the approval service (opens `state/approvals.sqlite` on first use). Rejects E_NOT_AVAILABLE before start() and after stop(). */
   approvalService(): Promise<ApprovalService>;
+  /** In-process composition port; no collab RPC or RBAC surface is added. */
+  collaboration(): import("./collab/service.ts").Collab | null;
 }
 type State = ProcessState & { since: number };
 
@@ -112,8 +114,9 @@ export interface CoreOptions {
   securePathOptions?: Omit<SecurePathOptions, "logger" | "runDir">;
   /** Test seam: sees the HostServices the engine is given. */
   inspectHost?: (host: HostServices) => void;
-  /** M1b-2c: the chat provider the turn loop uses; absent, `session.submit` answers E_NOT_AVAILABLE `no-provider` (the real adapters come with packages/providers). */
+  /** Legacy injected provider seam, adapted through composition; absent, configured provider definitions supply the pipeline. */
   chatProvider?: ChatProvider;
+  composition?: CompositionOptions;
   /** M3 RBAC: who a call is made by, and where refusals are audited. Default: the token-authenticated local connection
    *  is the installation owner (R8) and refusals go to `<home>/logs/audit.log`. */
   rbac?: {
@@ -183,6 +186,7 @@ export function createCore(o: CoreOptions): Core {
   let replay: JournalReplay | null = null;
   let metricsHttp: MetricsServer | null = null;
   let sessions: SessionService | null = null;
+  let turnComposition: TurnComposition | null = null;
   let permissions: PermissionRuntime | null = null; // D109: grants + approvals (`state/approvals.sqlite`), opened on first use
   let permissionNotifier: PermissionNotifier | null = null;
   let engineStatus: EngineStatus | null = null; let engineStatusAt = 0; // performance.now() of the cached copy
@@ -455,12 +459,6 @@ export function createCore(o: CoreOptions): Core {
         logger,
       });
 
-      // M1b-2c: the session store and turn loop; their handlers are merged below, the notifications go through `server`.
-      sessions = openSessionService({
-        dbPath: path.join(l.state, "sessions.sqlite"), clock, logger, agents: registry, isStopping: () => state.state === "stopping" || state.state === "stopped",
-        memory: engineTurnMemory({ engine: eng, config: cfg, agents: registry, logger, captureSignal: shutdown.signal, isStopping: () => state.state === "stopping" || state.state === "stopped", onStoredCapture: (agentId) => dreams?.scheduler.recordCapture(agentId) }),
-        provider: () => o.chatProvider ?? null, notify: (method, params, opts) => server?.notify(method, params, opts), signal: shutdown.signal,
-      });
       // B5: the hash-chained audit file (logs/audit-chain*.jsonl). The core's own writers tee into it besides audit.log.
       auditChain = createAuditChain({ dir: l.logs, securePath: (p) => platform.securePath(p) });
       const chain = auditChain;
@@ -488,6 +486,17 @@ export function createCore(o: CoreOptions): Core {
         audit: createPolicyAudit({ sink: rbacAudit, clock: { now: clock } }), securePath: platform.securePath,
       });
       const perms = permissions;
+      try { turnComposition = await openTurnComposition({ home: l.home, config: cfg, engine: eng, agents: registry, logger: log,
+        secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal,
+        // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or
+        // grant-covered turns) and is refused with a typed error only when a call needs a person's approval.
+        approver: async (ctx, params) => { const principal = await resolvePrincipal(ctx, "session.submit", params); return { person: principal && principal.kind === "person" ? principal.userId : null, surface: connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }; },
+        isStopping: () => state.state === "stopping" || state.state === "stopped", notify: (method, params, opts) => server?.notify(method, params, opts),
+        onStoredCapture: agentId => dreams?.scheduler.recordCapture(agentId), ...(o.chatProvider ? { provider: o.chatProvider } : {}),
+        ...(o.composition ? { options: o.composition } : {}), ...(o.budget?.prices ? { prices: o.budget.prices } : {}),
+      });
+      sessions = turnComposition.sessions; } catch (e) { logger.error("session composition unavailable", { err: e }); sessions = null; }
+
 
       // M2: the re-embedding migration (plan/run/status/abort); its switch is one config.set on the supervisor.
       const migration = createMigrationDriver({
@@ -530,7 +539,7 @@ export function createCore(o: CoreOptions): Core {
           requireAgent: (agentId) => { requireAgent(registry, agentId); }, notify: { grantChanged: notifier.grantChanged },
         },
         }),
-        ...sessions.methods,
+        ...(sessions?.methods ?? {}),
         // D4: logs.query / logs.tail over <home>/logs; RBAC-guarded below (RPC_RULES).
         ...createLogsMethods({ dir: l.logs, signal: shutdown.signal }),
       }, { resolve: resolvePrincipal, audit: rbacAudit, now: clock });
@@ -606,7 +615,7 @@ export function createCore(o: CoreOptions): Core {
       statusClosed = true; warmup?.abort(); if (warmingTimer) { clearTimeout(warmingTimer); warmingTimer = null; }
       orphans?.dispose();
       await step(log, "config watch", async () => { await source?.close(); });
-      await step(log, "sessions close", async () => { await sessions?.close(); }); sessions = null;
+      await step(log, "sessions close", async () => { await turnComposition?.close(); turnComposition = null; }); sessions = null;
       await step(log, "permissions close", async () => { permissionNotifier?.close(); await permissions?.close(); }); permissions = null; permissionNotifier = null;
       await step(log, "budget close", () => { budget?.close(); budget = null; });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
@@ -684,7 +693,7 @@ export function createCore(o: CoreOptions): Core {
         replay.abandon(); // after a finished replay only detaches its logger
       }, errors);
       // M1b-2c: the shutdown abort above ends running turns (failed, `aborted`); they finish their writes before the engine closes.
-      await step(logger, "sessions close", async () => { await sessions?.close(); sessions = null; }, errors);
+      await step(logger, "sessions close", async () => { await turnComposition?.close(); turnComposition = null; sessions = null; }, errors);
       // A re-embedding run in flight ends at its next batch boundary (aborted, resumable) before the engine closes under it.
       await step(logger, "re-embedding run", async () => { await reembed?.stop(Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
@@ -712,5 +721,5 @@ export function createCore(o: CoreOptions): Core {
     if (!permissions) throw new RpcError("E_NOT_AVAILABLE", "the core is not running", { reason: "stopping" });
     return (await permissions.open()).service;
   };
-  return { start, stop, status, address, token, layout: l, currentConfig: () => source?.current() ?? null, metrics, approvalService };
+  return { start, stop, status, address, token, layout: l, currentConfig: () => source?.current() ?? null, metrics, approvalService, collaboration: () => turnComposition?.collab ?? null };
 }

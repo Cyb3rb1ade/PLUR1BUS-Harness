@@ -67,14 +67,14 @@ it('concurrent reservations through separate connections cannot overbook; settle
   } finally { second.close(); f.close(); }
 });
 
-it('reservations survive reopen; pending calls still count after a period rollover', () => {
+it('reservations survive reopen; pending calls still count after a period rollover (within the reservation TTL)', () => {
   const f = fixture();
   try {
     f.gate.setLimit({ scope: 'agent', id: 'a1', period: 'day', metric: 'tokens', hard: 40 });
     const d = f.gate.checkBeforeCall(request);
     assert.equal(d.kind, 'allow');
     f.clock.advance(86400000);
-    const other = createCallBudget({ path: f.path, clock: f.clock, prices: new PriceBook([PRICES_V1]) });
+    const other = createCallBudget({ path: f.path, clock: f.clock, prices: new PriceBook([PRICES_V1]), reservationTtlMs: 2 * 86400000 });
     try { assert.equal(other.checkBeforeCall(request).kind, 'refuse'); } finally { other.close(); }
     if (d.kind === 'allow') f.gate.settle(d.reservationId, { inputTokens: 0, outputTokens: 0 });
     assert.equal(f.gate.checkBeforeCall(request).kind, 'allow');
@@ -308,4 +308,27 @@ it('actual retry costs reconcile once and block subsequent retries when estimate
   assert.throws(() => r.settle(ticket, 11), RetryBudgetExceededError);
   assert.equal(r.settle(ticket, 11), false);
   assert.throws(() => r.consume('t', 'timeout', 0), RetryBudgetExceededError);
+});
+
+it('an orphaned reservation past its TTL no longer counts and is reconciled on start; release frees capacity at once', () => {
+  const f = fixture();
+  try {
+    f.gate.setLimit({ scope: 'agent', id: 'a1', period: 'month', metric: 'tokens', hard: 40 });
+    const d = f.gate.checkBeforeCall(request);
+    assert.equal(d.kind, 'allow');
+    assert.equal(f.gate.checkBeforeCall(request).kind, 'refuse', 'live reservation holds capacity');
+    f.clock.advance(30 * 60_000 + 1);
+    if (d.kind === 'allow') assert.equal(f.gate.reservation(d.reservationId)?.expired, true);
+    assert.deepEqual(f.gate.pendingReservations(), { live: 0, expired: 1 });
+    const second = f.gate.checkBeforeCall(request);
+    assert.equal(second.kind, 'allow', 'expired reservation ignored on read');
+    const reopened = createCallBudget({ path: f.path, clock: f.clock, prices: new PriceBook([PRICES_V1]), emitter: { emit: e => f.events.push(e) } });
+    try {
+      assert.ok(f.events.some(e => e.type === 'expire'), 'reconciled on start with an event');
+      if (d.kind === 'allow') assert.equal(reopened.reservation(d.reservationId), null);
+      if (second.kind === 'allow') { reopened.releaseUnused(second.reservationId); assert.equal(reopened.reservation(second.reservationId), null); }
+      assert.ok(f.events.some(e => e.type === 'release'));
+      assert.equal(reopened.checkBeforeCall(request).kind, 'allow');
+    } finally { reopened.close(); }
+  } finally { f.close(); }
 });

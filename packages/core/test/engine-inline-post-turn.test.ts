@@ -80,12 +80,15 @@ describe("harness runs light dreams and episodes inline (no post-turn queue)", (
     });
     await core.start();
     c = await connect({ address: core.address, token: core.token });
+    const until = Date.now() + 30_000;
+    while (!core.status().engine.ready && Date.now() < until) await new Promise((r) => setTimeout(r, 25));
+    assert.equal(core.status().engine.ready, true, "the engine warm-up finished");
   });
   after(async () => { await c?.close(); await core?.stop({ budgetMs: 5000 }); });
 
   it("a capture with at least 3 turns runs a light dream or episode inline", async () => {
     const cap = await c.call<{ stored: number }>("memory.capture", {
-      caller, agentId: "bernd", runId: randomUUID(), wait: true, waitMs: 10_000,
+      caller, agentId: "bernd", runId: randomUUID(), wait: true, waitMs: 30_000,
       sessionKey: "agent:bernd:cli:direct:10000001",
       messages: [
         { role: "user", content: "We decided to move the weekly planning meeting to Thursday mornings from now on." },

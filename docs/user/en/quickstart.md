@@ -37,8 +37,8 @@ plur1bus setup --profile host
 ```
 
 - `--non-interactive` never prompts; answers come from the flags and defaults (agent `main`, use class `general`).
-- `--accept-nc-licence` accepts the non-commercial licence of the default models (asked for unless the use class
-  is `commercial`).
+- `--accept-nc-licence` accepts a non-commercial model licence. It is only needed when you opt into a CC BY-NC model
+  such as Jina; the default embedding model (EmbeddingGemma 2, Apache-2.0) needs no licence decision.
 - `--no-service` skips the OS service; the supervisor is still started for this session.
 - `--profile host` installs only the supervisor and core (for Hermes host mode); `full` is the default.
 

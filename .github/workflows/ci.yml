@@ -136,7 +136,7 @@ jobs:
         shell: bash
         run: cargo run -q -p plur1bus-ext --features testkit --example make-fixtures -- "$RUNNER_TEMP/p1x-fx"
       # Explicit file list; the system job stays Linux/macOS (Windows system tests wait for engine PR-11, spec §3).
-      - run: node --experimental-strip-types --test --test-timeout=120000 tests/system/two-session-recall.test.ts tests/system/memory-ops.test.ts tests/system/reconnect.test.ts tests/system/config-restart.test.ts tests/system/modules.test.ts tests/system/admin.test.ts tests/system/setup.test.ts tests/system/install-scripts.test.ts tests/system/extensions.test.ts tests/e2e/smoke.test.ts
+      - run: node --experimental-strip-types --test --test-timeout=120000 tests/system/two-session-recall.test.ts tests/system/memory-ops.test.ts tests/system/reconnect.test.ts tests/system/config-restart.test.ts tests/system/modules.test.ts tests/system/admin.test.ts tests/system/setup.test.ts tests/system/install-scripts.test.ts tests/system/extensions.test.ts tests/system/turn-pipeline.test.ts tests/e2e/smoke.test.ts
         timeout-minutes: 10
         env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_CI_RECALL_HARD_MS: "3000", PLUR1BUS_EXT_FIXTURES: "${{ runner.temp }}/p1x-fx" } # H3-R26: shared runners are not reference hardware
       # H3-R22: the same acceptance with a cold flat embedder (the first 2 query embeddings of each core process take

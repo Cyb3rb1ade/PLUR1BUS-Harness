@@ -17,18 +17,25 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 VENDORED = os.path.isfile(os.path.join(_HERE, "_vendor", "plur1bus_memory_client", "__init__.py"))
 
 if VENDORED:
-    from ._vendor import plur1bus_memory_client as pmc  # noqa: F401
+    from ._vendor import plur1bus_memory_client as pmc
 else:
     try:
-        import plur1bus_memory_client as pmc  # noqa: F401
+        import plur1bus_memory_client as pmc
     except ImportError:
-        _SRC = os.path.join(os.path.dirname(os.path.dirname(_HERE)), "..", "clients", "python", "plur1bus-memory-client", "src")
+        _SRC = os.path.join(
+            os.path.dirname(os.path.dirname(_HERE)),
+            "..",
+            "clients",
+            "python",
+            "plur1bus-memory-client",
+            "src",
+        )
         _SRC = os.path.normpath(_SRC)
         if not os.path.isdir(os.path.join(_SRC, "plur1bus_memory_client")):
             raise
         # Appended, never prepended: nothing earlier on sys.path may be shadowed by a harness checkout, and the
         # import above already failed, so no earlier entry holds this package.
         sys.path.append(_SRC)
-        import plur1bus_memory_client as pmc  # noqa: F401
+        import plur1bus_memory_client as pmc
 
-__all__ = ["pmc", "VENDORED"]
+__all__ = ["VENDORED", "pmc"]

@@ -266,7 +266,7 @@ pub struct SetupArgs {
     /// Never prompt: answers come from the flags and the defaults (agent `main`, use class `general`)
     #[arg(long)]
     pub non_interactive: bool,
-    /// Accept the non-commercial licence of the default models (asked for unless the use class is commercial)
+    /// Accept a non-commercial model licence (only needed when you opt into a CC BY-NC model such as Jina; the defaults are permissive)
     #[arg(long)]
     pub accept_nc_licence: bool,
     /// Do not register the OS service (the supervisor is still started for this session)
