@@ -129,7 +129,60 @@
           "perAgent": {}
         }
       },
-      "modules": {}
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
@@ -259,7 +312,60 @@
           "perAgent": {}
         }
       },
-      "modules": {}
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "expected": {
       "changed": [
@@ -402,7 +508,60 @@
           "perAgent": {}
         }
       },
-      "modules": {}
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
@@ -534,7 +693,60 @@
           "perAgent": {}
         }
       },
-      "modules": {}
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "expected": {
       "changed": [
@@ -677,7 +889,60 @@
           "perAgent": {}
         }
       },
-      "modules": {}
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
@@ -811,7 +1076,60 @@
           "perAgent": {}
         }
       },
-      "modules": {}
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "expected": {
       "changed": [
@@ -960,7 +1278,60 @@
           "perAgent": {}
         }
       },
-      "modules": {}
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
@@ -1090,7 +1461,60 @@
           "perAgent": {}
         }
       },
-      "modules": {}
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "expected": {
       "changed": [
@@ -1239,7 +1663,60 @@
           "perAgent": {}
         }
       },
-      "modules": {}
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
@@ -1373,7 +1850,60 @@
           "perAgent": {}
         }
       },
-      "modules": {}
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "expected": {
       "changed": [
@@ -1520,7 +2050,60 @@
           "perAgent": {}
         }
       },
-      "modules": {}
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
@@ -1654,7 +2237,60 @@
           "perAgent": {}
         }
       },
-      "modules": {}
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "expected": {
       "changed": [
@@ -1799,7 +2435,60 @@
           "perAgent": {}
         }
       },
-      "modules": {}
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
@@ -1929,7 +2618,60 @@
           "perAgent": {}
         }
       },
-      "modules": {}
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "expected": {
       "changed": [
@@ -2080,6 +2822,59 @@
           "enabled": true,
           "greeting": "hello"
         }
+      },
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
       }
     },
     "after": {
@@ -2214,6 +3009,59 @@
         "fixture": {
           "enabled": true,
           "greeting": "hi"
+        }
+      },
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
         }
       }
     },
@@ -2360,7 +3208,60 @@
           "perAgent": {}
         }
       },
-      "modules": {}
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
@@ -2493,6 +3394,59 @@
       "modules": {
         "fixture-b": {
           "enabled": true
+        }
+      },
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
         }
       }
     },
