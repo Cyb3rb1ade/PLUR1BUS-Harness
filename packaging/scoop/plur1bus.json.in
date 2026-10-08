@@ -1,0 +1,14 @@
+{
+  "version": "@VERSION@",
+  "description": "PLUR1BUS CLI and memory harness",
+  "homepage": "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness",
+  "license": "MIT",
+  "architecture": {
+    "64bit": {
+      "url": "@BASE@/plur1bus-@VERSION@-win-x64.zip",
+      "hash": "@SHA_win-x64@"
+    }
+  },
+  "bin": "bin\\plur1bus.exe",
+  "notes": "Requires Node 24.21.0; see README.txt for the Core payload layout."
+}

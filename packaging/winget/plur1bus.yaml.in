@@ -1,0 +1,5 @@
+PackageIdentifier: Cyb3rb1ade.PLUR1BUS
+PackageVersion: @VERSION@
+DefaultLocale: en-US
+ManifestType: version
+ManifestVersion: 1.9.0

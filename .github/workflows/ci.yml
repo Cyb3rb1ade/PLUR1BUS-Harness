@@ -9,6 +9,8 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}${{ github.event.action == 'labeled' && github.event.label.name != 'ci:macos' && '-noop' || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+permissions:
+  contents: read
 jobs:
   # PR: Linux + Windows legs always, macOS only `unit`; push to main, schedule and workflow_dispatch run everything.
   # Decides which macOS legs run (policy and path list: docs/ci.md, scripts/ci/macos-plan.mjs). One cheap ubuntu job.
@@ -22,7 +24,7 @@ jobs:
       macos: ${{ steps.plan.outputs.macos }}
       python_matrix: ${{ steps.plan.outputs.python_matrix }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 0 }
       - id: plan
         env:
@@ -42,18 +44,18 @@ jobs:
         os: [ubuntu-24.04, macos-15, windows-2025]
     runs-on: ${{ matrix.os }}
     # A hang fails fast: the job has a ceiling, and each long test step its own, below it.
-    timeout-minutes: 45
+    timeout-minutes: ${{ matrix.os == 'windows-2025' && 90 || 65 }}
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with: { node-version: 24.21.0, cache: pnpm }
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
         with: { toolchain: "1.95", components: "clippy, rustfmt" }
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
       # The lockfile records the engine's git repo as git@github.com:..., and runners have no SSH key:
       # fetch it over HTTPS instead, with the read token when the engine repo is private. Runs in every
       # job that installs; never echoes the rewritten URL.
@@ -70,11 +72,28 @@ jobs:
           git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
       - run: pnpm install --frozen-lockfile
       - run: node scripts/check-toolchain.mjs
+      - name: config fixture drift (before generation)
+        run: node packages/config-schema/src/gen-defaults.mjs --check
       - run: pnpm gen
       - run: pnpm build
-      - run: pnpm lint
-      - run: pnpm test
-        timeout-minutes: 25 # the Windows runner needs ~15 min for the full suite; the job ceiling above is 45
+      - run: node packages/config-schema/src/gen-defaults.mjs --check && pnpm lint
+      - name: unit tests with file timings
+        shell: bash
+        run: |
+          export TEST_TIMING_DIR="$GITHUB_WORKSPACE/test-timings"
+          reporter="$(node -e 'console.log(require("node:url").pathToFileURL(process.cwd() + "/scripts/release/timing-reporter.mjs").href)')"
+          export NODE_OPTIONS="--test-reporter=$reporter --test-reporter-destination=stdout"
+          pnpm test
+        timeout-minutes: ${{ matrix.os == 'windows-2025' && 35 || 25 }}
+      - name: slowest 20 test files
+        if: always()
+        run: node scripts/release/timing-summary.mjs test-timings
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: always()
+        with:
+          name: test-timings-${{ matrix.os }}
+          path: test-timings/
+          if-no-files-found: error
       # The vacuous-run guard must trip on every OS (a filter that matches nothing is what hid the Windows TS tests).
       - name: test guard trips on an empty filter
         shell: bash
@@ -94,7 +113,7 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace --no-fail-fast
         timeout-minutes: 20
-      - run: pnpm docs:check
+      - run: node packages/config-schema/src/gen-defaults.mjs --check && pnpm docs:check
   system:
     needs: [plan, unit]
     if: needs.plan.outputs.proceed == 'true'
@@ -107,14 +126,14 @@ jobs:
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with: { node-version: 24.21.0, cache: pnpm }
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
         with: { toolchain: "1.95" }
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
       # The lockfile records the engine's git repo as git@github.com:..., and runners have no SSH key:
       # fetch it over HTTPS instead, with the read token when the engine repo is private. Runs in every
       # job that installs; never echoes the rewritten URL.
@@ -167,12 +186,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with: { node-version: 24.21.0 }
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
         with: { toolchain: "1.95" }
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
       - run: cargo build --release -p plur1bus
       - run: cargo test --release -p plur1bus --test service
         timeout-minutes: 5
@@ -212,8 +231,8 @@ jobs:
     env:
       PYTHONDONTWRITEBYTECODE: "1"
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with: { python-version: "${{ matrix.python }}" }
       - name: dev requirements (hash-pinned, in a venv)
         shell: bash
@@ -242,13 +261,13 @@ jobs:
         shell: bash
         timeout-minutes: 10
         run: '"$PY" hosts/hermes/tests/run_with_timeout.py discover -v -s hosts/hermes/tests -t hosts/hermes'
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with: { node-version: 24.21.0, cache: pnpm }
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
         with: { toolchain: "1.95" }
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
       # The engine read token exists in this step only; the git@github.com: -> HTTPS rewrite is step-scoped
       # (GIT_CONFIG_*), never the global gitconfig, so the test steps after it never see the token.
       - name: build plur1bus and the core
@@ -285,7 +304,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: setup WSL (attempt 1 of 3)
         id: wsl_setup_1
         continue-on-error: true
@@ -314,7 +333,7 @@ jobs:
       - name: wait before WSL setup retry 3
         if: steps.wsl_setup_2.outcome == 'failure'
         shell: pwsh
-        run: Start-Sleep -Seconds 5
+        run: Start-Sleep -Seconds 15
       - name: setup WSL (attempt 3 of 3)
         id: wsl_setup_3
         if: steps.wsl_setup_2.outcome == 'failure'
@@ -343,13 +362,14 @@ jobs:
               echo "### WSL setup infrastructure failure"
               echo "WSL setup failed after three attempts. This is a runner/WSL infrastructure failure; WSL tests were skipped."
             } >> "$GITHUB_STEP_SUMMARY"
-            echo "::warning::WSL setup failed after three attempts; WSL tests were skipped (infrastructure failure)."
+            echo "::error::WSL setup failed after three attempts; infrastructure gate failed."
+            exit 1
           fi
       - if: steps.wsl_setup_status.outputs.ready == 'true'
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
         with: { version: 10.28.0 }
       - if: steps.wsl_setup_status.outputs.ready == 'true'
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with: { node-version: 24.21.0, cache: pnpm }
       - if: steps.wsl_setup_status.outputs.ready == 'true'
         run: pnpm install --frozen-lockfile
@@ -419,3 +439,18 @@ jobs:
             echo "SECURITY VIOLATION: secret from outside WSL source root leaked into harness staging"
             exit 1
           fi
+
+  release-scripts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 24.21.0 }
+      - run: node --test scripts/release/test/*.test.mjs
+      - name: install pinned actionlint (setup only)
+        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+      - name: lint workflows locally
+        run: '"$(go env GOPATH)/bin/actionlint" -shellcheck= -config-file scripts/release/actionlint.yaml .github/workflows/*.yml'

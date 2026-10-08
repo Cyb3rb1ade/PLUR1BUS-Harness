@@ -1,0 +1,37 @@
+class Plur1bus < Formula
+  desc "PLUR1BUS CLI and memory harness"
+  homepage "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness"
+  version "@VERSION@"
+  license "MIT"
+  on_macos do
+    on_arm do
+      url "@BASE@/plur1bus-@VERSION@-darwin-arm64.tar.gz"
+      sha256 "@SHA_darwin-arm64@"
+    end
+    on_intel do
+      url "@BASE@/plur1bus-@VERSION@-darwin-x64.tar.gz"
+      sha256 "@SHA_darwin-x64@"
+    end
+  end
+  on_linux do
+    on_arm do
+      url "@BASE@/plur1bus-@VERSION@-linux-arm64.tar.gz"
+      sha256 "@SHA_linux-arm64@"
+    end
+    on_intel do
+      url "@BASE@/plur1bus-@VERSION@-linux-x64.tar.gz"
+      sha256 "@SHA_linux-x64@"
+    end
+  end
+  depends_on "node@24"
+  def install
+    bin.install "bin/plur1bus"
+    pkgshare.install "runtime", "licenses", "README.txt"
+  end
+  def caveats
+    "Extract #{pkgshare}/runtime/core.tar.gz into #{pkgshare}/runtime/core and set PLUR1BUS_CORE_JS to its core.js."
+  end
+  test do
+    assert_match "plur1bus", shell_output("#{bin}/plur1bus --help")
+  end
+end
