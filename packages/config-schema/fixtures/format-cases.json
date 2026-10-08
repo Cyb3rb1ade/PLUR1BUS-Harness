@@ -69,6 +69,73 @@
         ],
         "allowLoopback": false
       },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
+      },
       "modules": {}
     },
     "valid": true
@@ -142,6 +209,73 @@
           443
         ],
         "allowLoopback": false
+      },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
       },
       "modules": {}
     },
@@ -217,6 +351,73 @@
         ],
         "allowLoopback": false
       },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
+      },
       "modules": {}
     },
     "valid": true
@@ -290,6 +491,73 @@
           443
         ],
         "allowLoopback": false
+      },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
       },
       "modules": {}
     },
@@ -365,6 +633,73 @@
         ],
         "allowLoopback": false
       },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
+      },
       "modules": {}
     },
     "valid": true
@@ -438,6 +773,73 @@
           443
         ],
         "allowLoopback": false
+      },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
       },
       "modules": {}
     },
@@ -513,6 +915,73 @@
         ],
         "allowLoopback": false
       },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
+      },
       "modules": {}
     },
     "valid": true
@@ -586,6 +1055,73 @@
           443
         ],
         "allowLoopback": false
+      },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
       },
       "modules": {}
     },
@@ -661,6 +1197,73 @@
         ],
         "allowLoopback": false
       },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
+      },
       "modules": {}
     },
     "valid": false
@@ -734,6 +1337,73 @@
           443
         ],
         "allowLoopback": false
+      },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
       },
       "modules": {}
     },
@@ -809,6 +1479,73 @@
         ],
         "allowLoopback": false
       },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
+      },
       "modules": {}
     },
     "valid": false
@@ -882,6 +1619,73 @@
           443
         ],
         "allowLoopback": false
+      },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
       },
       "modules": {}
     },
@@ -957,6 +1761,73 @@
         ],
         "allowLoopback": false
       },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
+      },
       "modules": {}
     },
     "valid": false
@@ -1030,6 +1901,73 @@
           443
         ],
         "allowLoopback": false
+      },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
       },
       "modules": {}
     },
@@ -1105,6 +2043,73 @@
         ],
         "allowLoopback": false
       },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
+      },
       "modules": {}
     },
     "valid": false
@@ -1178,6 +2183,73 @@
           443
         ],
         "allowLoopback": false
+      },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
       },
       "modules": {}
     },
@@ -1253,6 +2325,73 @@
         ],
         "allowLoopback": false
       },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
+      },
       "modules": {}
     },
     "valid": false
@@ -1326,6 +2465,73 @@
           443
         ],
         "allowLoopback": false
+      },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
       },
       "modules": {}
     },
@@ -1401,6 +2607,73 @@
         ],
         "allowLoopback": false
       },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
+      },
       "modules": {}
     },
     "valid": false
@@ -1474,6 +2747,73 @@
           443
         ],
         "allowLoopback": false
+      },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
       },
       "modules": {}
     },
@@ -1549,6 +2889,73 @@
         ],
         "allowLoopback": false
       },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
+      },
       "modules": {}
     },
     "valid": false
@@ -1622,6 +3029,73 @@
           443
         ],
         "allowLoopback": false
+      },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
       },
       "modules": {}
     },
@@ -1697,6 +3171,73 @@
         ],
         "allowLoopback": false
       },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
+      },
       "modules": {}
     },
     "valid": false
@@ -1770,6 +3311,73 @@
           443
         ],
         "allowLoopback": false
+      },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
       },
       "modules": {}
     },
@@ -1845,6 +3453,73 @@
         ],
         "allowLoopback": false
       },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
+      },
       "modules": {}
     },
     "valid": true
@@ -1918,6 +3593,73 @@
           443
         ],
         "allowLoopback": false
+      },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
       },
       "modules": {}
     },
@@ -1993,6 +3735,73 @@
         ],
         "allowLoopback": false
       },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
+      },
       "modules": {}
     },
     "valid": false
@@ -2066,6 +3875,73 @@
           443
         ],
         "allowLoopback": false
+      },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
       },
       "modules": {}
     },
@@ -2141,6 +4017,73 @@
         ],
         "allowLoopback": false
       },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
+      },
       "modules": {}
     },
     "valid": false
@@ -2212,6 +4155,73 @@
         ],
         "allowLoopback": false
       },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
+      },
       "modules": {}
     },
     "valid": true
@@ -2282,6 +4292,73 @@
           443
         ],
         "allowLoopback": false
+      },
+      "channels": {
+        "discord": {
+          "enabled": false,
+          "tokenSecret": "channels.discord.token",
+          "intents": [
+            "GUILDS",
+            "GUILD_MESSAGES",
+            "DIRECT_MESSAGES",
+            "MESSAGE_CONTENT"
+          ],
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "slack": {
+          "enabled": false,
+          "botTokenSecret": "channels.slack.bot-token",
+          "appTokenSecret": "channels.slack.app-token",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "matrix": {
+          "enabled": false,
+          "accessTokenSecret": "channels.matrix.access-token",
+          "autoJoin": "allowlist",
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "signal": {
+          "enabled": false,
+          "endpoint": {},
+          "allowRemoteEndpoint": false,
+          "allowlist": [],
+          "dmAllowlist": [],
+          "replyPolicy": "mention",
+          "maxMediaBytes": 10485760,
+          "locale": "en"
+        },
+        "email": {
+          "enabled": false,
+          "imap": {
+            "port": 993,
+            "security": "tls",
+            "passwordSecret": "channels.email.imap-password",
+            "folder": "INBOX",
+            "idle": true,
+            "pollIntervalSec": 60
+          },
+          "smtp": {
+            "port": 465,
+            "security": "tls",
+            "passwordSecret": "channels.email.smtp-password"
+          },
+          "dmAllowlist": [],
+          "maxAttachmentBytes": 10485760,
+          "requireAuthPass": false,
+          "locale": "en"
+        }
       },
       "modules": {}
     },

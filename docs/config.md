@@ -47,4 +47,68 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `egress.allowHosts` | array | `[]` | live | Exact names, `*.suffix` (subdomains of any depth, not the apex), `*` (any name, never an IP literal) or an exact canonical IP literal (IPv6 in brackets). |
 | `egress.allowPorts` | array | `[443]` | live | Destination ports allowed for outgoing requests. |
 | `egress.allowLoopback` | boolean | `false` | live | Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused. |
+| `channels.discord.enabled` | boolean | `false` | module:discord | Whether the discord channel is started. Off by default; nothing connects until this is true. |
+| `channels.discord.tokenSecret` | string | `"channels.discord.token"` | module:discord | Name of the secret holding the Discord bot token. The value never appears in config or logs. |
+| `channels.discord.applicationId` | string |  | module:discord | Discord application id (needed to register slash commands). Taken from the gateway READY event when omitted. |
+| `channels.discord.intents` | array | `["GUILDS","GUILD_MESSAGES","DIRECT_MESSAGES","MESSAGE_CONTENT"]` | module:discord | Gateway intents to request. MESSAGE_CONTENT is privileged and must also be enabled in the developer portal. |
+| `channels.discord.allowlist` | array | `[]` | module:discord | Guild channel, thread or DM channel ids that may talk to the bot. Empty allows nothing, inbound and outbound. |
+| `channels.discord.dmAllowlist` | array | `[]` | module:discord | Sender ids that may write to the bot in a direct message. Empty allows no direct messages. |
+| `channels.discord.userAllowlist` | array |  | module:discord | When present, only these senders are heard in groups. Also names the senders that need no mention under replyPolicy `allowlist`. |
+| `channels.discord.replyPolicy` | enum | `"mention"` | module:discord | When the bot answers in a group: `mention` only when addressed or replied to, `always` every message of an allowed chat, `allowlist` every message from userAllowlist members and the rest only when addressed. Direct messages are always answered when allowed. |
+| `channels.discord.maxMediaBytes` | integer | `10485760` | module:discord | Largest attachment accepted or sent, in bytes (checked before and during download and before upload). |
+| `channels.discord.locale` | enum | `"en"` | module:discord | Language of the bot's own messages (pairing replies, refusals, approval prompts). |
+| `channels.slack.enabled` | boolean | `false` | module:slack | Whether the slack channel is started. Off by default; nothing connects until this is true. |
+| `channels.slack.botTokenSecret` | string | `"channels.slack.bot-token"` | module:slack | Name of the secret holding the Slack bot token (xoxb-…). |
+| `channels.slack.appTokenSecret` | string | `"channels.slack.app-token"` | module:slack | Name of the secret holding the Slack app-level token (xapp-…) with the connections:write scope, used for Socket Mode. |
+| `channels.slack.teamId` | string |  | module:slack | Slack workspace id; events from other workspaces are ignored when set. |
+| `channels.slack.allowlist` | array | `[]` | module:slack | Slack channel, group or conversation ids that may talk to the bot. Empty allows nothing, inbound and outbound. |
+| `channels.slack.dmAllowlist` | array | `[]` | module:slack | Sender ids that may write to the bot in a direct message. Empty allows no direct messages. |
+| `channels.slack.userAllowlist` | array |  | module:slack | When present, only these senders are heard in groups. Also names the senders that need no mention under replyPolicy `allowlist`. |
+| `channels.slack.replyPolicy` | enum | `"mention"` | module:slack | When the bot answers in a group: `mention` only when addressed or replied to, `always` every message of an allowed chat, `allowlist` every message from userAllowlist members and the rest only when addressed. Direct messages are always answered when allowed. |
+| `channels.slack.maxMediaBytes` | integer | `10485760` | module:slack | Largest attachment accepted or sent, in bytes (checked before and during download and before upload). |
+| `channels.slack.locale` | enum | `"en"` | module:slack | Language of the bot's own messages (pairing replies, refusals, approval prompts). |
+| `channels.matrix.enabled` | boolean | `false` | module:matrix | Whether the matrix channel is started. Off by default; nothing connects until this is true. |
+| `channels.matrix.homeserverUrl` | string |  | module:matrix | Base URL of the Matrix homeserver. Must be https, or http for a loopback host. |
+| `channels.matrix.userId` | string |  | module:matrix | Matrix id of the bot account, for example @bot:example.org. |
+| `channels.matrix.accessTokenSecret` | string | `"channels.matrix.access-token"` | module:matrix | Name of the secret holding the bot account's access token. |
+| `channels.matrix.deviceId` | string |  | module:matrix | Device id of the access token, when the homeserver requires it to be stated. |
+| `channels.matrix.autoJoin` | enum | `"allowlist"` | module:matrix | Which room invites the bot accepts: `allowlist` joins only invites from allowed rooms or senders, `never` joins nothing. |
+| `channels.matrix.allowlist` | array | `[]` | module:matrix | Room ids that may talk to the bot. Empty allows nothing, inbound and outbound. |
+| `channels.matrix.dmAllowlist` | array | `[]` | module:matrix | Sender ids that may write to the bot in a direct message. Empty allows no direct messages. |
+| `channels.matrix.userAllowlist` | array |  | module:matrix | When present, only these senders are heard in groups. Also names the senders that need no mention under replyPolicy `allowlist`. |
+| `channels.matrix.replyPolicy` | enum | `"mention"` | module:matrix | When the bot answers in a group: `mention` only when addressed or replied to, `always` every message of an allowed chat, `allowlist` every message from userAllowlist members and the rest only when addressed. Direct messages are always answered when allowed. |
+| `channels.matrix.maxMediaBytes` | integer | `10485760` | module:matrix | Largest attachment accepted or sent, in bytes (checked before and during download and before upload). |
+| `channels.matrix.locale` | enum | `"en"` | module:matrix | Language of the bot's own messages (pairing replies, refusals, approval prompts). |
+| `channels.signal.enabled` | boolean | `false` | module:signal | Whether the signal channel is started. Off by default; nothing connects until this is true. |
+| `channels.signal.account` | string |  | module:signal | The bot's Signal number in E.164 form, as registered in signal-cli. |
+| `channels.signal.endpoint.socketPath` | string |  | module:signal | Unix socket path of the signal-cli daemon. Use this or host and port. |
+| `channels.signal.endpoint.host` | string |  | module:signal | TCP host of the signal-cli daemon. Non-loopback hosts need allowRemoteEndpoint because the protocol is plaintext. |
+| `channels.signal.endpoint.port` | integer |  | module:signal | TCP port of the signal-cli daemon. |
+| `channels.signal.allowRemoteEndpoint` | boolean | `false` | module:signal | Allow a non-loopback TCP endpoint. The JSON-RPC link is unencrypted; only use it on a trusted network. |
+| `channels.signal.allowlist` | array | `[]` | module:signal | Signal group (base64 group id) or number ids that may talk to the bot. Empty allows nothing, inbound and outbound. |
+| `channels.signal.dmAllowlist` | array | `[]` | module:signal | Sender ids that may write to the bot in a direct message. Empty allows no direct messages. |
+| `channels.signal.userAllowlist` | array |  | module:signal | When present, only these senders are heard in groups. Also names the senders that need no mention under replyPolicy `allowlist`. |
+| `channels.signal.replyPolicy` | enum | `"mention"` | module:signal | When the bot answers in a group: `mention` only when addressed or replied to, `always` every message of an allowed chat, `allowlist` every message from userAllowlist members and the rest only when addressed. Direct messages are always answered when allowed. |
+| `channels.signal.maxMediaBytes` | integer | `10485760` | module:signal | Largest attachment accepted or sent, in bytes (checked before and during download and before upload). |
+| `channels.signal.locale` | enum | `"en"` | module:signal | Language of the bot's own messages (pairing replies, refusals, approval prompts). |
+| `channels.email.enabled` | boolean | `false` | module:email | Whether the email channel is started. Off by default; nothing connects until this is true. |
+| `channels.email.address` | string |  | module:email | Mailbox address of the bot; used as From and to recognise its own mail. |
+| `channels.email.displayName` | string |  | module:email | Display name used in the From header. |
+| `channels.email.imap.host` | string |  | module:email | IMAP server host name. |
+| `channels.email.imap.port` | integer | `993` | module:email | IMAP server port. |
+| `channels.email.imap.security` | enum | `"tls"` | module:email | Transport security: `tls` for implicit TLS, `starttls` for an upgrade before any credential is sent. Plain text is not offered. |
+| `channels.email.imap.user` | string |  | module:email | IMAP login name. |
+| `channels.email.imap.passwordSecret` | string | `"channels.email.imap-password"` | module:email | Name of the secret holding the IMAP password or app password. |
+| `channels.email.imap.folder` | string | `"INBOX"` | module:email | IMAP folder to watch. |
+| `channels.email.imap.idle` | boolean | `true` | module:email | Use IMAP IDLE when the server offers it; otherwise, or when false, poll. |
+| `channels.email.imap.pollIntervalSec` | integer | `60` | module:email | Seconds between polls when IDLE is not used. |
+| `channels.email.smtp.host` | string |  | module:email | SMTP server host name. |
+| `channels.email.smtp.port` | integer | `465` | module:email | SMTP server port. |
+| `channels.email.smtp.security` | enum | `"tls"` | module:email | Transport security: `tls` for implicit TLS, `starttls` for an upgrade before any credential is sent. Plain text is not offered. |
+| `channels.email.smtp.user` | string |  | module:email | SMTP login name. |
+| `channels.email.smtp.passwordSecret` | string | `"channels.email.smtp-password"` | module:email | Name of the secret holding the SMTP password or app password. |
+| `channels.email.dmAllowlist` | array | `[]` | module:email | Sender addresses that may write to the bot: an exact address or `*@domain`. Empty allows nobody. |
+| `channels.email.maxAttachmentBytes` | integer | `10485760` | module:email | Largest attachment accepted or sent, in bytes. |
+| `channels.email.requireAuthPass` | boolean | `false` | module:email | Drop mail whose Authentication-Results do not show a pass (dmarc, or spf and dkim). The channel only reads the verdict; it does not verify mail itself. |
+| `channels.email.locale` | enum | `"en"` | module:email | Language of the bot's own messages (pairing replies, refusals, approval prompts). |
 | `modules` | object | `{}` | live | Per-module settings, keyed by module name (B13). A change restarts only that module; `enabled: false` keeps it stopped. |
