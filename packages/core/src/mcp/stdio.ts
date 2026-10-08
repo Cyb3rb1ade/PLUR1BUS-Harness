@@ -5,7 +5,7 @@ import { DEFAULT_INHERITED_ENV_VARS } from "@modelcontextprotocol/sdk/client/std
 import { JSONRPCMessageSchema, type JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
 import type { McpTransportConfig } from "./types.ts";
 import { buildChildEnv } from "./env.ts";
-import { windowsJobCommand } from "./windows-job.ts";
+import { windowsJobCommand, windowsLauncherEnv } from "./windows-job.ts";
 
 type Pipes = { input: Writable; output: Readable; stderr?: Readable };
 type StdioConfig = Extract<McpTransportConfig, { type: "stdio" }>;
@@ -44,7 +44,8 @@ export class BoundedStdioTransport {
       }
       Object.assign(env, buildChildEnv(t, this.host).env);
       const launch = process.platform === "win32" ? windowsJobCommand(t.command, t.args, this.host) : { command: t.command, args: t.args };
-      this.child = spawn(launch.command, launch.args, { env, cwd: t.cwd, shell: false, windowsHide: true, detached: process.platform !== "win32", stdio: "pipe" });
+      const spawnEnv = process.platform === "win32" ? windowsLauncherEnv(this.host, env) : env;
+      this.child = spawn(launch.command, launch.args, { env: spawnEnv, cwd: t.cwd, shell: false, windowsHide: true, detached: process.platform !== "win32", stdio: "pipe" });
       this.pidValue = this.child.pid ?? null;
       this.pipes = { input: this.child.stdin, output: this.child.stdout, stderr: this.child.stderr };
       this.child.on("close", () => { this.finish(); if (!this.closing) void this.killTree("SIGKILL"); });

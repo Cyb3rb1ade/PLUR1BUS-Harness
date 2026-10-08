@@ -55,6 +55,26 @@ public static class McpJob {
   }
 }
 `;
+/**
+ * Variables the launcher itself needs although the server must not be handed them by us. The child environment is the
+ * minimal allowlist (no PSModulePath); Windows PowerShell started without PSModulePath does not come up at all (no
+ * output, no exit, until killed: observed on windows-2025 runners), so the launcher gets one. PowerShell defines it for
+ * its own process anyway, so the server's view of the environment does not widen in substance.
+ */
+export function windowsLauncherEnv(host: NodeJS.ProcessEnv, env: Record<string, string>): Record<string, string> {
+  const get = (name: string): string | undefined => {
+    const key = Object.keys(env).find((k) => k.toLowerCase() === name.toLowerCase());
+    if (key !== undefined) return env[key];
+    const hostKey = Object.keys(host).find((k) => k.toLowerCase() === name.toLowerCase());
+    return hostKey === undefined ? undefined : host[hostKey];
+  };
+  if (Object.keys(env).some((k) => k.toLowerCase() === "psmodulepath")) return env;
+  const systemRoot = get("SystemRoot") ?? "C:\\Windows";
+  const programFiles = get("ProgramFiles") ?? "C:\\Program Files";
+  const modules = get("PSModulePath") ?? [join(programFiles, "WindowsPowerShell", "Modules"), join(systemRoot, "System32", "WindowsPowerShell", "v1.0", "Modules")].join(";");
+  return { ...env, PSModulePath: modules };
+}
+
 export function windowsJobCommand(command: string, args: string[], host: NodeJS.ProcessEnv): { command: string; args: string[] } {
   if (/\.(cmd|bat|ps1)$/i.test(command)) throw new Error("MCP stdio requires a native executable on Windows");
   const systemRoot = host.SYSTEMROOT ?? host.SystemRoot ?? "C:\\Windows";
