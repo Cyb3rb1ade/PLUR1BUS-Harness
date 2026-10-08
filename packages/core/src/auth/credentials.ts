@@ -80,6 +80,7 @@ export function createCredentialsProvider(o: CredentialsProviderOptions): Creden
 
     async getAuthorization(req) {
       const { profile, pool } = lookup(req.profileId);
+      if (profile.kind === 'federated_token' || profile.client_registration === 'dynamic_on_authorize') throw new AuthError('no_credential', 'This profile requires the D110 OpenAI service.');
       if (profile.kind === "external_cli") throw new AuthError("delegated_login", `${profile.display_name} signs in through the vendor's own CLI; the harness holds no credential for it.`, { profileId: profile.id });
       if (profile.kind === "adc") {
         if (!o.adc) throw new AuthError("adc_unavailable", `No application-default credential source is available for ${profile.display_name}.`, { profileId: profile.id });

@@ -9,20 +9,20 @@ export class LoopbackPkce implements PkcePort {
   async redirect(): Promise<string> {
     if (this.#server) throw new OpenAIError('invalid-request');
     const server = this.#create(); this.#server = server;
-    try { await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); }); } catch { await this.close(); throw new OpenAIError('transport-failed'); }
+    try { await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); }); } catch { await this.close(); throw new OpenAIError('port-in-use'); }
     this.#redirect = 'http://127.0.0.1:' + (server.address() as { port: number }).port + '/auth/callback'; return this.#redirect;
   }
   async authorize(request: { url: Sensitive; redirectUri: string; signal: AbortSignal }): Promise<string> {
     const server = this.#server; if (!server || request.redirectUri !== this.#redirect) throw new OpenAIError('invalid-request');
     try {
       return await new Promise<string>((resolve, reject) => {
-        const fail = () => reject(new OpenAIError('auth-required'));
+        const fail = () => reject(new OpenAIError(request.signal.reason?.name === 'TimeoutError' ? 'login-timeout' : 'login-cancelled'));
         if (request.signal.aborted) { fail(); return; }
         request.signal.addEventListener('abort', fail, { once: true });
         let consumed = false;
         server.on('request', (req, res) => {
           res.setHeader('cache-control', 'no-store'); res.setHeader('referrer-policy', 'no-referrer'); res.setHeader('content-security-policy', "default-src 'none'");
-          if (req.method !== 'GET' || req.headers.host !== new URL(this.#redirect).host || new URL(req.url ?? '/', this.#redirect).pathname !== '/auth/callback') { res.writeHead(404).end(); return; }
+          if (req.method !== 'GET' || req.headers.host !== new URL(this.#redirect).host || (req.headers.origin !== undefined && req.headers.origin !== new URL(this.#redirect).origin) || (req.headers['sec-fetch-site'] !== undefined && !['none','same-origin','cross-site'].includes(String(req.headers['sec-fetch-site']))) || new URL(req.url ?? '/', this.#redirect).pathname !== '/auth/callback') { res.writeHead(404).end(); return; }
           if (consumed) { res.writeHead(410).end(); return; }
           consumed = true; const callback = new URL(req.url!, this.#redirect).href;
           res.writeHead(200).end('You may close this window.');
