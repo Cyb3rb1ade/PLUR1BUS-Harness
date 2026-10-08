@@ -1174,10 +1174,7 @@ mod tests {
             .map(|(k, q)| (k.to_string(), q.to_string()))
             .collect();
         assert_eq!(p.asked, expected);
-        assert!(
-            p.confirms.is_empty(),
-            "no NC question is ever asked"
-        );
+        assert!(p.confirms.is_empty(), "no NC question is ever asked");
         assert_eq!(
             a,
             ConfigAnswers {
