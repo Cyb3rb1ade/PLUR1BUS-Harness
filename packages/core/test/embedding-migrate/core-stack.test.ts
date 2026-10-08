@@ -27,6 +27,12 @@ describe("re-embedding over the real engine (in-process core)", () => {
     core = createCore({ home, testInternals: flatTestInternals() });
     await core.start();
     c = await connect({ address: core.address, token: core.token });
+    // The recall-path warm-up creates the memories table lazily (two Lance versions). A plan taken before it ends
+    // records version N and the run then finds N+1 (source-drift): the engine is right to refuse, so the test plans
+    // against a settled store. Slow runners (Windows CI) land the warm-up after the first plan.
+    const until = Date.now() + 30_000;
+    while (!core.status().engine.ready && Date.now() < until) await new Promise((r) => setTimeout(r, 25));
+    assert.equal(core.status().engine.ready, true, "the engine warm-up finished");
   });
   after(async () => { await c?.close(); await core?.stop({ budgetMs: 5000 }); });
 
