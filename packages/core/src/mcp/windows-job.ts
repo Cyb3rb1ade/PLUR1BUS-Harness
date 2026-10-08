@@ -29,7 +29,9 @@ public static class McpJob {
   [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)] static extern IntPtr CreateJobObject(IntPtr attributes,string name);
   [DllImport("kernel32.dll", SetLastError=true)] static extern bool SetInformationJobObject(IntPtr job,int info,ref EXTENDEDLIMIT limit,uint size);
   [DllImport("kernel32.dll", SetLastError=true)] static extern bool AssignProcessToJobObject(IntPtr job,IntPtr process);
+  [DllImport("kernel32.dll", SetLastError=true)] static extern bool DuplicateHandle(IntPtr sourceProcess,IntPtr sourceHandle,IntPtr targetProcess,out IntPtr targetHandle,uint access,bool inherit,uint options);
   [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)] static extern bool CreateProcess(string application,StringBuilder command,IntPtr pa,IntPtr ta,bool inherit,uint flags,IntPtr env,string cwd,ref STARTUPINFO startup,out PROCESSINFO process);
+  [DllImport("kernel32.dll")] static extern IntPtr GetCurrentProcess();
   [DllImport("kernel32.dll")] static extern IntPtr GetStdHandle(int id);
   [DllImport("kernel32.dll")] static extern uint ResumeThread(IntPtr thread);
   [DllImport("kernel32.dll")] static extern uint WaitForSingleObject(IntPtr handle,uint timeout);
@@ -39,18 +41,25 @@ public static class McpJob {
   public static int Run(string command) {
     IntPtr job=CreateJobObject(IntPtr.Zero,null); if(job==IntPtr.Zero) return 125;
     PROCESSINFO child=new PROCESSINFO();
+    IntPtr stdin=IntPtr.Zero,stdout=IntPtr.Zero,stderr=IntPtr.Zero;
     try {
       EXTENDEDLIMIT limits=new EXTENDEDLIMIT(); limits.basic.flags=0x2000;
       if(!SetInformationJobObject(job,9,ref limits,(uint)Marshal.SizeOf(typeof(EXTENDEDLIMIT)))) return 125;
+      IntPtr self=GetCurrentProcess();
+      // Ensure the PowerShell host's standard handles are inheritable by the suspended child.
+      if(!DuplicateHandle(self,GetStdHandle(-10),self,out stdin,0,true,2)
+        || !DuplicateHandle(self,GetStdHandle(-11),self,out stdout,0,true,2)
+        || !DuplicateHandle(self,GetStdHandle(-12),self,out stderr,0,true,2)) return 125;
       STARTUPINFO si=new STARTUPINFO(); si.cb=Marshal.SizeOf(typeof(STARTUPINFO)); si.flags=0x100;
-      si.stdin=GetStdHandle(-10); si.stdout=GetStdHandle(-11); si.stderr=GetStdHandle(-12);
+      si.stdin=stdin; si.stdout=stdout; si.stderr=stderr;
       if(!CreateProcess(null,new StringBuilder(command),IntPtr.Zero,IntPtr.Zero,true,4,IntPtr.Zero,null,ref si,out child)) return 125;
       if(!AssignProcessToJobObject(job,child.process)) { TerminateProcess(child.process,125); return 125; }
       if(ResumeThread(child.thread)==0xFFFFFFFF) { TerminateProcess(child.process,125); return 125; }
       WaitForSingleObject(child.process,0xFFFFFFFF); uint code; GetExitCodeProcess(child.process,out code); return (int)code;
     } finally {
       // Closing the last job handle kills every remaining descendant, including after a graceful server exit.
-      CloseHandle(job); if(child.thread!=IntPtr.Zero) CloseHandle(child.thread); if(child.process!=IntPtr.Zero) CloseHandle(child.process);
+      CloseHandle(job); if(stdin!=IntPtr.Zero) CloseHandle(stdin); if(stdout!=IntPtr.Zero) CloseHandle(stdout); if(stderr!=IntPtr.Zero) CloseHandle(stderr);
+      if(child.thread!=IntPtr.Zero) CloseHandle(child.thread); if(child.process!=IntPtr.Zero) CloseHandle(child.process);
     }
   }
 }
