@@ -7,13 +7,14 @@ import { makePng, makeJpeg, makeWebp, jpegXmp, jpegSegments, webpChunks, pngChun
 
 const payload = { prompt: 'a <red> fox & "friend" 🦊 – naïve', parameters: { seed: 42, n: 1 }, metadata: { adapter: 'fake', model: 'm-1', seed: 42, durationMs: 4 } };
 
-test('JPEG: prompt, model and seed round-trip through one XMP packet; old metadata is gone', () => {
+test('JPEG: prompt, model and seed round-trip through one XMP packet; an earlier XMP packet is replaced, the rest stays as delivered', () => {
   const original = makeJpeg({ exif: 6, xmp: '<x:xmpmeta>old-location</x:xmpmeta>', icc: true });
   const out = embedImage(original, 'jpeg', payload); const packets = jpegXmp(out);
   assert.equal(packets.length, 1); assert.match(packets[0]!, /^<\?xpacket begin=/); assert.match(packets[0]!, /<\?xpacket end="w"\?>$/);
   const read = xmpPayload(packets[0]!) as { prompt: string; metadata: { model: string; seed: number } };
   assert.equal(read.prompt, payload.prompt); assert.equal(read.metadata.model, 'm-1'); assert.equal(read.metadata.seed, 42);
-  assert.equal(Buffer.from(out).includes(SECRET_GPS), false); assert.equal(Buffer.from(out).includes('old-location'), false);
+  assert.equal(Buffer.from(out).includes('old-location'), false);
+  assert.equal(Buffer.from(out).includes(SECRET_GPS), true); // provider EXIF is not ours to rewrite, as with PNG
   assert.deepEqual(jpegSegments(out).map(s => s.marker), [0xe0, 0xe1, 0xe1, 0xe2, 0xdb, 0xc0, 0xda]); // JFIF, XMP, orientation-only EXIF, ICC, tables, frame, scan
   assert.deepEqual(out.subarray(out.length - 7), original.subarray(original.length - 7));
 });
@@ -35,11 +36,11 @@ test('WebP: a simple lossless file gains VP8X (canvas, alpha hint) and an XMP ch
   }
 });
 
-test('WebP: lossy canvas size is read from the VP8 frame header; extended files get EXIF/XMP replaced', () => {
+test('WebP: lossy canvas size is read from the VP8 frame header; extended files get their XMP replaced and keep the rest', () => {
   const lossy = embedImage(makeWebp({ lossy: true }), 'webp', payload); assert.equal(webpChunks(lossy).get('VP8X')!.readUIntLE(4, 3), 0);
   const extended = embedImage(makeWebp({ exif: true, xmp: '<x:xmpmeta>old-where</x:xmpmeta>' }), 'webp', payload);
-  const chunks = webpChunks(extended); assert.equal(chunks.has('EXIF'), false); assert.equal(Buffer.from(extended).includes('old-where'), false);
-  assert.equal(chunks.get('VP8X')![0]! & 0x0c, 0x04); assert.equal(chunks.get('VP8X')![0]! & 0x20, 0x20);
+  const chunks = webpChunks(extended); assert.equal(chunks.has('EXIF'), true); assert.equal(Buffer.from(extended).includes('old-where'), false);
+  assert.equal(chunks.get('VP8X')![0]! & 0x0c, 0x0c); assert.equal(chunks.get('VP8X')![0]! & 0x20, 0x20);
   assert.equal(Buffer.from(extended).readUInt32LE(4), extended.length - 8);
 });
 

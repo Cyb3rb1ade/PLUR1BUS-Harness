@@ -21,7 +21,7 @@ function stripPng(b: Buffer, bad: () => MediaError): Buffer {
     if (/^[A-Z]/.test(type) || PNG_KEEP.has(type)) out.push(b.subarray(i, end));
     i = end;
   }
-  if (!ended || i !== b.length) throw bad();
+  if (!ended) throw bad(); // anything after IEND is dropped, never carried along
   return Buffer.concat(out);
 }
 /** EXIF IFD0 orientation (1..8), or undefined when absent, default, or unreadable. */
@@ -43,28 +43,53 @@ function orientationSegment(value: number): Buffer {
   body.writeUInt16BE(1, 14); body.writeUInt16BE(0x0112, 16); body.writeUInt16BE(3, 18); body.writeUInt32BE(1, 20); body.writeUInt16BE(value, 24);
   const head = Buffer.alloc(4); head[0] = 0xff; head[1] = 0xe1; head.writeUInt16BE(body.length + 2, 2); return Buffer.concat([head, body]);
 }
-function stripJpeg(b: Buffer, bad: () => MediaError): Buffer {
-  const out: Buffer[] = [b.subarray(0, 2)]; let i = 2; let done = false;
-  while (i < b.length && !done) {
+const XMP_HEADER = 'http://ns.adobe.com/xap/1.0/\0';
+type JpegDecision = (marker: number, payload: Buffer, segment: Buffer) => Buffer[];
+/**
+ * Rewrites a JPEG segment by segment. Entropy-coded scan data is copied exactly (stuffed 0xFF00, restart markers and
+ * fill bytes included), segments between scans go through `decide` too, and everything after the end-of-image marker
+ * is dropped: a second picture or a video appended to the file must not carry its own metadata along.
+ */
+export function walkJpeg(b: Buffer, bad: () => MediaError, decide: JpegDecision): Buffer {
+  if (b[0] !== 0xff || b[1] !== 0xd8) throw bad();
+  const out: Buffer[] = [b.subarray(0, 2)]; let i = 2; let ended = false;
+  while (i < b.length) {
     if (b[i] !== 0xff) throw bad();
     while (b[i + 1] === 0xff) i++;
     const marker = b[i + 1]; if (marker === undefined) throw bad();
-    if (marker === 0xd9) { out.push(b.subarray(i)); done = true; break; }
+    if (marker === 0xd9) { out.push(b.subarray(i, i + 2)); ended = true; break; }
     if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) { out.push(b.subarray(i, i + 2)); i += 2; continue; }
     if (i + 4 > b.length) throw bad();
     const length = b.readUInt16BE(i + 2); const end = i + 2 + length;
     if (length < 2 || end > b.length) throw bad();
-    if (marker === 0xda) { out.push(b.subarray(i)); done = true; break; }
-    const payload = b.subarray(i + 4, end);
-    if (marker === 0xe1) { const o = exifOrientation(payload); if (o) out.push(orientationSegment(o)); }
-    else if (marker === 0xe2) { if (payload.toString('latin1', 0, 12) === 'ICC_PROFILE\0') out.push(b.subarray(i, end)); }
-    else if (marker === 0xee) { if (payload.toString('latin1', 0, 5) === 'Adobe') out.push(b.subarray(i, end)); }
-    else if (marker === 0xed || marker === 0xfe || (marker >= 0xe3 && marker <= 0xef)) { /* IPTC, comments, vendor blocks */ }
-    else out.push(b.subarray(i, end));
-    i = end;
+    const segment = b.subarray(i, end);
+    if (marker === 0xda) {
+      out.push(segment); let j = end;
+      while (j < b.length) {
+        if (b[j] !== 0xff) { j++; continue; }
+        const next = b[j + 1]; if (next === undefined) throw bad();
+        if (next === 0x00 || (next >= 0xd0 && next <= 0xd7)) j += 2; else if (next === 0xff) j++; else break;
+      }
+      out.push(b.subarray(end, j)); i = j; continue;
+    }
+    out.push(...decide(marker, b.subarray(i + 4, end), segment)); i = end;
   }
-  if (!done) throw bad();
+  if (!ended) throw bad();
   return Buffer.concat(out);
+}
+function stripJpeg(b: Buffer, bad: () => MediaError): Buffer {
+  return walkJpeg(b, bad, (marker, payload, segment) => {
+    if (marker === 0xe1) { const o = exifOrientation(payload); return o ? [orientationSegment(o)] : []; }
+    if (marker === 0xe0) return payload.toString('latin1', 0, 5) === 'JFXX\0' ? [] : [segment]; // JFXX carries an embedded thumbnail
+    if (marker === 0xe2) return payload.toString('latin1', 0, 12) === 'ICC_PROFILE\0' ? [segment] : [];
+    if (marker === 0xee) return payload.toString('latin1', 0, 5) === 'Adobe' ? [segment] : [];
+    if (marker === 0xed || marker === 0xfe || (marker >= 0xe3 && marker <= 0xef)) return []; // IPTC, comments, vendor and provenance blocks
+    return [segment];
+  });
+}
+/** Removes only XMP packets (used before a new one is written to an output); everything else stays as the provider delivered it. */
+export function dropJpegXmp(b: Buffer, bad: () => MediaError): Buffer {
+  return walkJpeg(b, bad, (marker, payload, segment) => marker === 0xe1 && payload.toString('latin1', 0, XMP_HEADER.length) === XMP_HEADER ? [] : [segment]);
 }
 interface RiffChunk { type: string; data: Buffer }
 export function readRiff(b: Buffer, bad: () => MediaError): RiffChunk[] {
@@ -85,9 +110,12 @@ export function writeRiff(chunks: RiffChunk[]): Buffer {
   const body = Buffer.concat(parts); const head = Buffer.alloc(8); head.write('RIFF', 0, 'ascii'); head.writeUInt32LE(body.length, 4); return Buffer.concat([head, body]);
 }
 const VP8X_EXIF = 0x08; const VP8X_XMP = 0x04;
+/** Chunks that describe pixels, colour or animation. Every other chunk (EXIF, XMP, C2PA, vendor data) is metadata or unknown. */
+const WEBP_KEEP = new Set(['VP8X', 'ICCP', 'ANIM', 'ANMF', 'ALPH', 'VP8 ', 'VP8L']);
 function stripWebp(b: Buffer, bad: () => MediaError): Buffer {
-  const chunks = readRiff(b, bad); const kept = chunks.filter(c => c.type !== 'EXIF' && c.type !== 'XMP ');
-  if (kept.length === chunks.length && !chunks.some(c => c.type === 'VP8X' && (c.data[0]! & (VP8X_EXIF | VP8X_XMP)))) return b;
+  const kept = readRiff(b, bad).filter(c => WEBP_KEEP.has(c.type));
+  if (!kept.some(c => c.type === 'VP8 ' || c.type === 'VP8L' || c.type === 'ANMF')) throw bad();
+  // Always rebuilt: bytes after the RIFF payload must not survive either.
   return writeRiff(kept.map(c => { if (c.type !== 'VP8X' || !c.data.length) return c; const data = Buffer.from(c.data); data[0] = data[0]! & ~(VP8X_EXIF | VP8X_XMP); return { type: c.type, data }; }));
 }
 /** Removes EXIF/GPS, XMP, IPTC, comments and textual chunks without touching pixel data. Format comes from magic bytes. */

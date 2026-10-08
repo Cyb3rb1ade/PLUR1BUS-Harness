@@ -82,7 +82,7 @@ Apple Silicon and macOS 13.1 or newer. Everywhere else the adapter exists but re
 ```sh
 cd tools/coreml-sd-helper
 swift build -c release        # produces .build/release/media-coreml
-swift test                    # 21 tests; needs the built binary for the CLI tests
+swift build && swift test     # 21 tests; the 3 CLI tests run the debug binary and skip themselves without it
 ```
 
 With only the Command Line Tools installed (no Xcode), Swift Testing needs its macro plugin path:
@@ -106,11 +106,12 @@ and restarts it for the next request after a crash.
 
 - **Nothing is embedded by default.** Prompt, model and seed enter a stored image only when the call, the agent or the global
   setting asks for it (call, then agent, then global, then off). PNG uses an iTXt chunk, JPEG and WebP a single XMP packet
-  (`plur1bus:payload`, the same JSON). Existing EXIF and XMP are removed first. A prompt too long for one JPEG segment is
-  truncated and the packet says so (`truncated: true`).
+  (`plur1bus:payload`, the same JSON). An XMP packet already in the file is replaced; everything else the provider delivered
+  stays as it came, as with PNG. A prompt too long for one JPEG segment is truncated and the packet says so (`truncated: true`).
 - **References and masks are cleaned before they leave.** EXIF (including GPS), XMP, IPTC, comments and PNG text chunks are
   removed from every reference image and mask before any adapter sends them, so a photo's location does not reach a provider
-  or a local model. Pixel data is untouched. A JPEG with a rotated orientation keeps a block holding only that one tag, so it
+  or a local model. So are JPEG thumbnails (JFXX), WebP chunks that are not image data, and anything appended after the
+  image's end marker (a second picture, a motion clip). Pixel data is untouched. A JPEG with a rotated orientation keeps a block holding only that one tag, so it
   stays upright. The type is read from the bytes, not from the declared format; unreadable or unknown images are refused.
 - **Provider output is checked by magic bytes.** A response that is not a PNG, JPEG or WebP is `invalid_response`, whatever
   content type it claims. Downloads are size-bounded, never receive the provider's authorization, and refuse redirects.

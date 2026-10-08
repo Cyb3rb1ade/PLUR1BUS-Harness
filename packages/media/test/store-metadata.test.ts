@@ -4,7 +4,7 @@ import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { OutputStore, MediaError } from '../src/index.ts';
-import { makePng, makeJpeg, makeWebp, jpegXmp, webpChunks, pngChunkTypes, xmpPayload, SECRET_GPS } from './adapters-fixtures.ts';
+import { makePng, makeJpeg, makeWebp, jpegXmp, webpChunks, pngChunkTypes, xmpPayload } from './adapters-fixtures.ts';
 
 const req = { prompt: 'a lighthouse at dawn', n: 1 };
 const metadata = { adapter: 'fake', model: 'sd-test', seed: 7, durationMs: 3 };
@@ -19,11 +19,11 @@ test('default is off for every format: stored bytes equal the provider bytes, no
   }
 });
 
-test('opt-in writes prompt, model and seed into JPEG and WebP XMP and PNG iTXt, and drops provider EXIF', async () => {
+test('opt-in writes prompt, model and seed into JPEG and WebP XMP and PNG iTXt', async () => {
   const root = await mkdtemp(join(tmpdir(), 'media-meta-on-')); const store = new OutputStore(root, { embedMetadata: true });
   const jpeg = await readFile(join(root, (await store.put('jpeg', req, resultOf('jpeg'))).id, '0.jpeg'));
   const jpegRead = xmpPayload(jpegXmp(jpeg)[0]!) as { prompt: string; metadata: { model: string; seed: number } };
-  assert.equal(jpegRead.prompt, req.prompt); assert.equal(jpegRead.metadata.model, 'sd-test'); assert.equal(jpegRead.metadata.seed, 7); assert.equal(jpeg.includes(SECRET_GPS), false);
+  assert.equal(jpegRead.prompt, req.prompt); assert.equal(jpegRead.metadata.model, 'sd-test'); assert.equal(jpegRead.metadata.seed, 7); assert.equal(jpegXmp(jpeg).length, 1);
   const webp = await readFile(join(root, (await store.put('webp', req, resultOf('webp'))).id, '0.webp'));
   assert.equal((xmpPayload(webpChunks(webp).get('XMP ')!.toString('utf8')) as { prompt: string }).prompt, req.prompt);
   const png = await readFile(join(root, (await store.put('png', req, resultOf('png'))).id, '0.png'));

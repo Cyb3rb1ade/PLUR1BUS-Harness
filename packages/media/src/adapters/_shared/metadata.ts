@@ -1,7 +1,7 @@
 import { MediaError } from '../../types.ts';
 import type { ImageFormat } from '../../types.ts';
 import { embedPng } from '../../png.ts';
-import { readRiff, sniffFormat, stripMetadata, writeRiff } from './images.ts';
+import { dropJpegXmp, readRiff, sniffFormat, writeRiff } from './images.ts';
 export interface EmbedPayload { prompt: string; parameters: unknown; metadata: unknown }
 const XMP_HEADER = Buffer.from('http://ns.adobe.com/xap/1.0/\0', 'latin1');
 const JPEG_APP1_MAX = 65533;
@@ -21,7 +21,7 @@ function fitPacket(payload: EmbedPayload, limit: number): Buffer {
   return packet;
 }
 function embedJpeg(bytes: Uint8Array): (payload: EmbedPayload) => Uint8Array {
-  const clean = Buffer.from(stripMetadata(bytes, 'invalid_response').bytes);
+  const clean = dropJpegXmp(Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength), () => new MediaError('invalid_response'));
   return payload => {
     const packet = fitPacket(payload, JPEG_APP1_MAX - XMP_HEADER.length);
     const body = Buffer.concat([XMP_HEADER, packet]); const head = Buffer.alloc(4); head[0] = 0xff; head[1] = 0xe1; head.writeUInt16BE(body.length + 2, 2);
@@ -47,13 +47,13 @@ function canvas(chunks: { type: string; data: Buffer }[]): { width: number; heig
   throw bad();
 }
 function embedWebp(bytes: Uint8Array, payload: EmbedPayload): Uint8Array {
-  const chunks = readRiff(Buffer.from(stripMetadata(bytes, 'invalid_response').bytes), () => new MediaError('invalid_response'));
-  const size = canvas(chunks); const out = chunks.filter(c => c.type !== 'VP8X');
+  const chunks = readRiff(Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength), () => new MediaError('invalid_response'));
+  const size = canvas(chunks); const out = chunks.filter(c => c.type !== 'VP8X' && c.type !== 'XMP ');
   const flagsOld = chunks.find(c => c.type === 'VP8X')?.data[0] ?? 0;
   const vp8x = Buffer.alloc(10); vp8x[0] = flagsOld | 0x04 | (size.alpha ? 0x10 : 0); vp8x.writeUIntLE(size.width - 1, 4, 3); vp8x.writeUIntLE(size.height - 1, 7, 3);
   return writeRiff([{ type: 'VP8X', data: vp8x }, ...out, { type: 'XMP ', data: Buffer.from(xmpPacket(payload), 'utf8') }]);
 }
-/** PNG: unchanged iTXt writer. JPEG/WebP: a single XMP packet; prior EXIF/XMP is removed first. Throws invalid_response on malformed bytes. */
+/** PNG: unchanged iTXt writer. JPEG/WebP: one XMP packet replaces any earlier one; the rest of what the provider delivered stays as it came. Throws invalid_response on malformed bytes. */
 export function embedImage(bytes: Uint8Array, format: ImageFormat, payload: EmbedPayload): Uint8Array {
   if (format === 'png') return embedPng(bytes, payload);
   if (format !== 'jpeg' && format !== 'webp') throw new MediaError('unsupported_parameter');

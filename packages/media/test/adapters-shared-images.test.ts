@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MediaError } from '../src/index.ts';
 import { sniffFormat, stripMetadata, sanitizeRequest } from '../src/adapters/_shared/images.ts';
-import { makePng, makeLeakyPng, makeJpeg, makeWebp, pngChunk, jpegSegments, pngChunkTypes, webpChunks, SECRET_GPS, SECRET_PROMPT_HINT } from './adapters-fixtures.ts';
+import { makePng, makeLeakyPng, makeJpeg, makeWebp, pngChunk, jpegSegments, pngChunkTypes, webpChunks, SECRET_GPS, SECRET_PROMPT_HINT, exifPayload, jpegSegment, riff, riffChunk, vp8lChunk } from './adapters-fixtures.ts';
 
 const has = (bytes: Uint8Array, text: string) => Buffer.from(bytes).includes(Buffer.from(text));
 
@@ -70,4 +70,37 @@ test('sanitizeRequest cleans every reference and the mask, keeps the declared-wr
   for (const bytes of [clean.referenceImages![0]!.bytes, clean.mask!.bytes]) assert.equal(has(bytes, SECRET_GPS), false);
   assert.equal(has(req.referenceImages[0]!.bytes, SECRET_GPS), true); assert.equal(req.referenceImages[0]!.format, 'jpeg');
   const plain = { prompt: 'tree' }; assert.equal(sanitizeRequest(plain), plain);
+});
+
+test('JPEG: nothing survives after the end-of-image marker, so an appended second picture or motion clip cannot carry its own metadata out', () => {
+  const trailer = makeJpeg({ exif: 1, comment: SECRET_PROMPT_HINT });
+  const clean = stripMetadata(Buffer.concat([makeJpeg(), trailer, Buffer.from('MOTION-PHOTO-VIDEO-BYTES')])).bytes;
+  assert.deepEqual(clean, stripMetadata(makeJpeg()).bytes); assert.equal(has(clean, SECRET_GPS), false); assert.equal(has(clean, 'MOTION-PHOTO'), false);
+  assert.throws(() => stripMetadata(makeJpeg().subarray(0, makeJpeg().length - 2)), MediaError); // no end marker: refused, not passed through
+});
+
+test('JPEG: thumbnails in JFXX extensions go; stuffed bytes, restart markers and later scans are copied exactly; metadata between scans goes', () => {
+  const seg = (marker: number, payload: Buffer) => jpegSegment(marker, payload);
+  const scan1 = Buffer.from([0x11, 0xff, 0x00, 0x22, 0xff, 0xd0, 0x33, 0xff, 0xff, 0xd1, 0x44]); // stuffed zero, RST0, fill byte + RST1
+  const scan2 = Buffer.from([0x55, 0xff, 0x00, 0x66]);
+  const file = Buffer.concat([Buffer.from([0xff, 0xd8]), seg(0xe0, Buffer.from('JFIF\0\x01\x01\0\0\x01\0\x01\0\0', 'binary')), seg(0xe0, Buffer.from('JFXX\0\x10thumbnail-with-gps-exif')), seg(0xdb, Buffer.alloc(65, 1)),
+    seg(0xc2, Buffer.from([8, 0, 1, 0, 1, 1, 1, 0x11, 0])), seg(0xda, Buffer.from([1, 1, 0, 0, 0x3f, 0])), scan1, seg(0xfe, Buffer.from(SECRET_PROMPT_HINT)), seg(0xe1, exifPayload(1)), seg(0xc4, Buffer.alloc(20, 2)),
+    seg(0xda, Buffer.from([1, 1, 0, 0, 0x3f, 0])), scan2, Buffer.from([0xff, 0xd9])]);
+  const clean = stripMetadata(file).bytes;
+  for (const secret of ['thumbnail-with-gps-exif', SECRET_PROMPT_HINT, SECRET_GPS]) assert.equal(has(clean, secret), false, secret);
+  assert.equal(has(clean, Buffer.from('JFIF').toString()), true); assert.ok(Buffer.from(clean).includes(scan1)); assert.ok(Buffer.from(clean).includes(scan2));
+  assert.deepEqual(jpegSegments(clean).map(s => s.marker), [0xe0, 0xdb, 0xc2, 0xda]); // jpegSegments stops at the first scan
+  assert.deepEqual(clean.subarray(clean.length - 2), Buffer.from([0xff, 0xd9])); assert.ok(clean.length < file.length);
+});
+
+test('WebP: bytes after the RIFF payload and chunks that are not image data are dropped even when no EXIF/XMP chunk exists', () => {
+  const plain = makeWebp(); const dirty = Buffer.concat([riff([vp8lChunk(1, 1), riffChunk('C2PA', Buffer.from(SECRET_PROMPT_HINT)), riffChunk('JUNK', Buffer.from(SECRET_GPS))]), Buffer.from(`TRAILER-${SECRET_GPS}`)]);
+  const clean = stripMetadata(dirty).bytes;
+  assert.equal(has(clean, SECRET_GPS), false); assert.equal(has(clean, SECRET_PROMPT_HINT), false); assert.deepEqual([...webpChunks(clean).keys()], ['VP8L']);
+  assert.equal(Buffer.from(clean).readUInt32LE(4), clean.length - 8); assert.deepEqual(stripMetadata(Buffer.concat([plain, Buffer.from('tail')])).bytes, plain);
+});
+
+test('PNG: bytes after IEND are dropped instead of being carried along', () => {
+  const clean = stripMetadata(Buffer.concat([makePng(), Buffer.from(`${SECRET_GPS}-appended`)])).bytes;
+  assert.deepEqual(clean, makePng()); assert.equal(has(clean, SECRET_GPS), false);
 });

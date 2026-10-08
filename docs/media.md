@@ -137,8 +137,8 @@ Embedding precedence is **call > agent > global > false**. The global setting is
 `OutputStore`'s `embedMetadata`; the agent value is `put(..., agentMetadata)`; the
 call value is `request.embedMetadata`. Manifest data is independent of this flag.
 PNG uses UTF-8 iTXt without re-encoding pixels. JPEG and WebP carry one XMP packet
-(`plur1bus:payload`, the same JSON), written without re-encoding; EXIF/XMP already in
-the file is removed first. Other formats are refused. Independent of embedding,
+(`plur1bus:payload`, the same JSON), written without re-encoding; an XMP packet already
+in the file is replaced, the rest stays as delivered. Other formats are refused. Independent of embedding,
 reference images and masks lose EXIF/GPS, XMP, IPTC, comments and PNG text chunks
 before any adapter sends them (see `docs/media-adapters.md`).
 

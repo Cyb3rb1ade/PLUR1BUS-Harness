@@ -95,7 +95,7 @@ test('a crash mid-request fails that request only; the supervisor restarts the h
 });
 
 test('helper failures map to stable codes and never leak helper text', async () => {
-  for (const [mode, expected] of [['policy', 'content_policy'], ['bad-code', 'unsupported_parameter'], ['garbage', 'invalid_response'], ['traversal', 'invalid_response'], ['symlink', 'too_large']] as const) {
+  for (const [mode, expected] of [['policy', 'content_policy'], ['bad-code', 'unsupported_parameter'], ['garbage', 'invalid_response'], ['traversal', 'invalid_response'], ...(process.platform === 'win32' ? [] : [['symlink', 'too_large'] as const])] as const) { // creating a symlink needs a privilege on Windows
     const { a } = await adapter(mode);
     try { await assert.rejects(a.generate({ prompt: 'tree' }), (e: unknown) => e instanceof MediaError && e.code === expected && !String(e).includes('secret-123') && !String(e).includes('/etc/hosts')); } finally { await a.close(); }
   }
