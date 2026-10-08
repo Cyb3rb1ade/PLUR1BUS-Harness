@@ -2,6 +2,7 @@ import { createConnection, type Socket } from "node:net";
 import { LineDecoder, encodeLine } from "./framing.ts";
 import { checkAddress, type TrustOptions } from "./trust.ts";
 
+/** An RPC or connection failure returned by {@link connect}, including the harness error metadata. */
 export class RpcCallError extends Error {
   code: number; error: string; reason?: string; detail?: string; ids?: Record<string, string>;
   constructor(code: number, error: string, message: string, reason?: string, detail?: string, ids?: Record<string, string>) {
@@ -19,8 +20,11 @@ function stringMap(v: unknown): Record<string, string> | undefined {
   return entries.length > 0 ? Object.fromEntries(entries) : undefined;
 }
 
+/** Deprecation schedule and replacement method declared by the RPC schema. */
 export interface Deprecation { since: string; removeAfter: string; replacement: string }
+/** Stability metadata advertised for one RPC method, notification, or extension point. */
 export interface CapabilityEntry { stability: "experimental" | "stable"; since: string; deprecated?: Deprecation }
+/** RPC capabilities advertised by a server during its authentication handshake. */
 export interface Capabilities {
   methods: Record<string, CapabilityEntry>;
   notifications: Record<string, CapabilityEntry>;
@@ -31,12 +35,16 @@ export interface Capabilities {
 /** The handshake result: `core.auth`'s (with `contract`), `supervisor.auth`'s (without) or `module.auth`'s (with
  *  `module`). */
 export interface Hello { contract?: string; rpc: string; instanceId: string; pid: number; module?: { name: string; version: string; apiVersion: string }; capabilities?: Capabilities }
+/** Authenticated JSON-RPC connection to a core, supervisor, or module endpoint. */
 export interface CoreClient {
   readonly hello: Hello;
+  /** Calls a schema-validated RPC method and resolves to its result. */
   call<T = unknown>(method: string, params?: object): Promise<T>;
+  /** Registers a notification listener and returns a function that removes it. */
   onNotification(handler: (method: string, params: unknown) => void): () => void;
   /** Called once when the connection ends (the peer closed it, an error, or close()). */
   onClose(handler: () => void): () => void;
+  /** Closes the RPC connection and rejects any calls still pending on it. */
   close(): Promise<void>;
   /** true when the connected core lacks `capabilities` (an older core answers for itself) or when
    *  `capabilities.methods` names this method. */
@@ -67,6 +75,7 @@ function untrusted(reason: string, message: string, detail?: string): RpcCallErr
 
 const SUPPORTED_RPC_MAJOR = 1;
 
+/** Connects to a trusted local harness RPC endpoint, authenticates, and returns its client. */
 export async function connect(opts: ConnectOptions): Promise<CoreClient> {
   const connectTimeoutMs = opts.connectTimeoutMs ?? 300;
   const callTimeoutMs = opts.callTimeoutMs ?? 30_000;
