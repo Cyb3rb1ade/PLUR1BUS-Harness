@@ -176,7 +176,7 @@ test('finding 2 (wiring) + 6: a denied action re-submitted is repeat-denied with
     await client.call<any>('session.submit', { caller, sessionId: session.id, text: 'write fixture', wait: false });
     let request: any;
     for (let i = 0; i < 300 && !request; i++) { request = (await client.call<any>('approval.list', {})).approvals[0]; if (!request) await new Promise(resolve => setTimeout(resolve, 10)); }
-    assert.ok(request); assert.equal(request.originSurface, 2, 'unattested local owner connection = derived T2, recorded on the request');
+    assert.ok(request); assert.equal(request.originSurface, 1, 'unattested local owner connection = derived T1 (#192), recorded on the request');
     await client.call('approval.decide', { id: request.id, decision: 'deny' });
     await settle(session.id);
     const second = await client.call<any>('session.submit', { caller, sessionId: session.id, text: 'write fixture again', wait: true });
