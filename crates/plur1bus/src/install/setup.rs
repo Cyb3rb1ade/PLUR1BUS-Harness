@@ -46,10 +46,9 @@ pub const PROMPTS: &[(&str, &str)] = &[
     ),
 ];
 
-/// The NC-licence confirmation, asked only when the use class is not `commercial` (HB11, ADR-006).
-pub const NC_QUESTION: &str =
-    "The default embedding and reranker models are licensed for non-commercial use only. \
-     Accept that licence";
+// No NC-licence question (ADR-006 amendment 2026-10-08): the default embedding model (EmbeddingGemma 2, Apache-2.0)
+// and the default reranker are both permissive, so nothing is asked by default. A non-commercial model (Jina) is
+// opt-in and is confirmed only through `--accept-nc-licence` (CLI) or the wizard's confirmation dialog (web).
 
 const DEFAULT_AGENT: &str = "main";
 const DEFAULT_USE_CLASS: &str = "general";
@@ -827,8 +826,9 @@ fn valid_agent_id(id: &str) -> bool {
 }
 
 /// Asks [`PROMPTS`] in order (flags give the defaults), or takes the flags and the defaults with
-/// `--non-interactive`, then the NC-licence gate: asked only when the use class is not `commercial`, and
-/// `--non-interactive` accepts only with `--accept-nc-licence` (HB11). Without `--use-class` the default is the
+/// `--non-interactive`. The NC licence is accepted only with an explicit `--accept-nc-licence` (opt-in for a
+/// non-commercial model such as Jina; never asked for the permissive defaults, ADR-006 amendment 2026-10-08, and
+/// never for the `commercial` use class). Without `--use-class` the default is the
 /// `recorded_use_class` of the existing configuration, so a re-run never switches the licence class silently (HM2
 /// F3); `general` only for a new home. The host profile creates no first agent unless `--agent` names one and never
 /// asks for it (HM2-R9).
@@ -879,8 +879,7 @@ pub fn answer_config(
             format!("agent id {agent:?} must match ^[a-z0-9][a-z0-9_-]{{0,63}}$"),
         ));
     }
-    let accept_nc = use_class != "commercial"
-        && (o.accept_nc || (!o.non_interactive && ask.confirm(NC_QUESTION)));
+    let accept_nc = use_class != "commercial" && o.accept_nc;
     Ok(ConfigAnswers {
         agent,
         use_class,
@@ -1177,7 +1176,7 @@ mod tests {
         assert_eq!(p.asked, expected);
         assert!(
             p.confirms.is_empty(),
-            "commercial never asks the NC question"
+            "no NC question is ever asked"
         );
         assert_eq!(
             a,
@@ -1190,15 +1189,24 @@ mod tests {
     }
 
     #[test]
-    fn the_nc_question_is_asked_unless_commercial_and_invalid_answers_are_asked_again() {
+    fn no_nc_question_is_asked_for_the_permissive_defaults_and_invalid_answers_are_asked_again() {
         let mut p = scripted(vec!["Not An Id", "anna", "sometimes", "research"], true);
         let a = answer_config(&opts(false), "full", None, &mut p).unwrap();
         assert_eq!(p.asked.len(), 4);
-        assert_eq!(p.confirms, [NC_QUESTION]);
+        assert!(
+            p.confirms.is_empty(),
+            "EmbeddingGemma 2 is Apache-2.0: no licence question for the default (ADR-006 amendment 2026-10-08)"
+        );
         assert_eq!(
             (a.agent.as_deref(), a.use_class.as_str(), a.accept_nc),
-            (Some("anna"), "research", true)
+            (Some("anna"), "research", false),
+            "an NC licence is accepted only through the explicit flag"
         );
+        let mut o = opts(false);
+        o.accept_nc = true;
+        let mut p = scripted(vec!["anna", "research"], false);
+        assert!(answer_config(&o, "full", None, &mut p).unwrap().accept_nc);
+        assert!(p.confirms.is_empty());
     }
 
     #[test]
