@@ -875,6 +875,624 @@
             }
           }
         },
+        "voice": {
+          "description": "Voice (D45): cloud voice providers, the local sherpa-onnx fallback, and the simulated local real-time mode. Cloud providers are off until enabled and given a secret reference.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "providers": {
+              "description": "Cloud voice providers. API keys are secret-store references (apiKeyRef), never values; Polly uses the AWS default credential chain.",
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "elevenlabs": {
+                  "description": "ElevenLabs: cloud text-to-speech and speech-to-text.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Whether ElevenLabs may be used. Off until enabled and given an apiKeyRef.",
+                      "type": "boolean",
+                      "default": false,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "apiKeyRef": {
+                      "description": "Secret-store reference holding the ElevenLabs API key.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "region": {
+                      "description": "Data-residency region: default (global), us, eu or in. Ignored when baseUrl is set.",
+                      "enum": [
+                        "default",
+                        "us",
+                        "eu",
+                        "in"
+                      ],
+                      "default": "default",
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "baseUrl": {
+                      "description": "Override of the API base URL (https only, or loopback for a local relay).",
+                      "type": "string",
+                      "maxLength": 300,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "defaultVoice": {
+                      "description": "Voice id used when a request names none.",
+                      "type": "string",
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "defaultModel": {
+                      "description": "Text-to-speech model id used when a request names none; discovery lists the available ones.",
+                      "type": "string",
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "defaultSttModel": {
+                      "description": "Speech-to-text model id used when a request names none.",
+                      "type": "string",
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "zeroRetention": {
+                      "description": "Ask ElevenLabs not to log or retain request content (enable_logging=false), where the account plan allows it.",
+                      "type": "boolean",
+                      "default": false,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "xai": {
+                  "description": "xAI Grok Voice: full-duplex realtime voice, server-side sessions only.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Whether Grok Voice may be used. Off until enabled and given an apiKeyRef.",
+                      "type": "boolean",
+                      "default": false,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "apiKeyRef": {
+                      "description": "Secret-store reference holding the xAI API key.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "baseUrl": {
+                      "description": "Override of the API base URL (https only, or loopback for a local relay).",
+                      "type": "string",
+                      "maxLength": 300,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "defaultVoice": {
+                      "description": "Voice used when a session names none.",
+                      "type": "string",
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "defaultModel": {
+                      "description": "Realtime model id used when a session names none; found by discovery when empty.",
+                      "type": "string",
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "gemini": {
+                  "description": "Google Gemini Live: native-audio realtime voice, server-side sessions only.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Whether Gemini Live may be used. Off until enabled and given an apiKeyRef.",
+                      "type": "boolean",
+                      "default": false,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "apiKeyRef": {
+                      "description": "Secret-store reference holding the Gemini API key.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "baseUrl": {
+                      "description": "Override of the API base URL (https only, or loopback for a local relay).",
+                      "type": "string",
+                      "maxLength": 300,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "defaultVoice": {
+                      "description": "Prebuilt voice name used when a session names none.",
+                      "type": "string",
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "defaultModel": {
+                      "description": "Live model id used when a session names none; native-audio models are found by discovery when empty.",
+                      "type": "string",
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "polly": {
+                  "description": "Amazon Polly text-to-speech through the AWS default credential chain (profile, SSO, environment). No keys in config.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Whether Polly may be used. Off until enabled.",
+                      "type": "boolean",
+                      "default": false,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "region": {
+                      "description": "AWS region for Polly; the SDK's own default applies when empty.",
+                      "type": "string",
+                      "maxLength": 64,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "credentials": {
+                      "description": "Which AWS credentials to use. Only a shared-config profile name is accepted; access keys are refused.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "default": {},
+                      "properties": {
+                        "profile": {
+                          "description": "Name of the AWS shared-config profile (including SSO profiles); the default chain applies when empty.",
+                          "type": "string",
+                          "maxLength": 128,
+                          "x-restart": "live",
+                          "x-tier": "advanced"
+                        }
+                      }
+                    },
+                    "defaultVoice": {
+                      "description": "Voice id used when a request names none.",
+                      "type": "string",
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "defaultModel": {
+                      "description": "Polly engine (standard, neural, long-form, generative) used when a request names none.",
+                      "type": "string",
+                      "maxLength": 64,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    }
+                  }
+                }
+              }
+            },
+            "local": {
+              "description": "Local voice fallback on sherpa-onnx (no account needed): language, quality tier, model directory and the non-commercial licence confirmation.",
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "language": {
+                  "description": "Language of the local voice (catalog code such as de or en). Empty: the system language when the catalog has it, else en.",
+                  "type": "string",
+                  "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]+)?$",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "profile": {
+                  "description": "Local model tier: fast (streaming recogniser, small voice) or quality (larger models).",
+                  "enum": [
+                    "fast",
+                    "quality"
+                  ],
+                  "default": "fast",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "perAgent": {
+                  "description": "Per-agent override of language and tier, keyed by agent identifier.",
+                  "type": "object",
+                  "default": {},
+                  "x-restart": "live",
+                  "x-tier": "advanced",
+                  "propertyNames": {
+                    "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  },
+                  "additionalProperties": {
+                    "description": "Language and tier for one agent.",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "language": {
+                        "description": "Language of the local voice for this agent.",
+                        "type": "string",
+                        "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]+)?$",
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      },
+                      "profile": {
+                        "description": "Local model tier for this agent.",
+                        "enum": [
+                          "fast",
+                          "quality"
+                        ],
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      }
+                    }
+                  }
+                },
+                "catalogOverride": {
+                  "description": "Data that adds or replaces catalog models and languages (adding a language is data, not code). Same shape as the built-in catalog.",
+                  "type": "object",
+                  "additionalProperties": true,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "modelsDir": {
+                  "description": "Directory for downloaded voice models. Empty: a directory under the harness data directory.",
+                  "type": "string",
+                  "maxLength": 500,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "acceptNcLicence": {
+                  "description": "Confirm that models under non-commercial or unconfirmed licences may be downloaded and used. Off by default; the licence text is shown first.",
+                  "type": "boolean",
+                  "default": false,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                }
+              }
+            },
+            "localRealtime": {
+              "description": "Simulated local real-time voice mode: which optional per-turn features may delay the first audio. Logic only until the voice pipeline is wired.",
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "enabled": {
+                  "description": "Whether the local real-time profile applies. When off, every feature runs without a time budget.",
+                  "type": "boolean",
+                  "default": false,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "endpointingMs": {
+                  "description": "Silence after speech, in milliseconds, before the user's turn counts as finished.",
+                  "type": "integer",
+                  "minimum": 50,
+                  "maximum": 5000,
+                  "default": 400,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "speculativeTurnStart": {
+                  "description": "Start the agent turn on the final transcript before the silence window ends, and cancel it if the user keeps talking.",
+                  "type": "boolean",
+                  "default": false,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "ackSound": {
+                  "description": "Play a short acknowledgement sound when the user's turn ends.",
+                  "type": "boolean",
+                  "default": false,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "sentenceChunking": {
+                  "description": "How streamed answer text is cut into speakable chunks.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "maxWords": {
+                      "description": "Maximum words in one spoken chunk; longer sentences are cut at a comma when possible.",
+                      "type": "integer",
+                      "minimum": 3,
+                      "maximum": 200,
+                      "default": 24,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "features": {
+                  "description": "Per-feature mode (on, deferred, off) and optional time budget in milliseconds for features that run before the first audio.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "autoRecall": {
+                      "description": "Automatic memory recall before the answer.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off"
+                          ]
+                        },
+                        "maxMs": {
+                          "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5000
+                        }
+                      },
+                      "default": {
+                        "mode": "on",
+                        "maxMs": 30
+                      },
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "reranker": {
+                      "description": "Reranking of recalled memories.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off"
+                          ]
+                        },
+                        "maxMs": {
+                          "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5000
+                        }
+                      },
+                      "default": {
+                        "mode": "off"
+                      },
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "recallMultiIdentity": {
+                      "description": "Recall across several linked identities.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off"
+                          ]
+                        },
+                        "maxMs": {
+                          "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5000
+                        }
+                      },
+                      "default": {
+                        "mode": "off"
+                      },
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "promptEnrichment": {
+                      "description": "Prompt enrichment with short context.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off"
+                          ]
+                        },
+                        "maxMs": {
+                          "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5000
+                        }
+                      },
+                      "default": {
+                        "mode": "on",
+                        "maxMs": 10
+                      },
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "decisionService": {
+                      "description": "Decision-model call before the answer.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off"
+                          ]
+                        },
+                        "maxMs": {
+                          "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5000
+                        }
+                      },
+                      "default": {
+                        "mode": "off"
+                      },
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "postTurnRefine": {
+                      "description": "Refinement work after the answer has been spoken.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off"
+                          ]
+                        },
+                        "maxMs": {
+                          "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5000
+                        }
+                      },
+                      "default": {
+                        "mode": "deferred"
+                      },
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "memoryWrite": {
+                      "description": "Memory capture of the turn.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off"
+                          ]
+                        },
+                        "maxMs": {
+                          "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5000
+                        }
+                      },
+                      "default": {
+                        "mode": "deferred"
+                      },
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "compaction": {
+                      "description": "Conversation compaction.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off"
+                          ]
+                        },
+                        "maxMs": {
+                          "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5000
+                        }
+                      },
+                      "default": {
+                        "mode": "deferred"
+                      },
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "toolSchemas": {
+                  "description": "Tool schemas given to the model in real-time turns: reduced (smaller prompt, faster) or full.",
+                  "enum": [
+                    "reduced",
+                    "full"
+                  ],
+                  "default": "reduced",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "auditDetail": {
+                  "description": "Detail of the audit record for real-time turns: minimal or full.",
+                  "enum": [
+                    "minimal",
+                    "full"
+                  ],
+                  "default": "minimal",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "perAgent": {
+                  "description": "Per-agent override of any localRealtime key (same shape, no defaults), keyed by agent identifier.",
+                  "type": "object",
+                  "default": {},
+                  "x-restart": "live",
+                  "x-tier": "advanced",
+                  "propertyNames": {
+                    "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  },
+                  "additionalProperties": {
+                    "description": "Overrides for one agent.",
+                    "type": "object",
+                    "additionalProperties": true,
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  }
+                }
+              }
+            }
+          }
+        },
         "modules": {
           "description": "Per-module settings, keyed by module name (B13). A change restarts only that module; `enabled: false` keeps it stopped.",
           "type": "object",

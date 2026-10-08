@@ -25,6 +25,37 @@ export interface HarnessConfig {
   secrets: { fileFallback: { enabled: boolean } };
   egress: { allowHosts: string[]; allowPorts: number[]; allowLoopback: boolean };
   modules: Record<string, Record<string, unknown> & { enabled: boolean }>;
+  voice: VoiceConfig;
+}
+
+export type VoiceFeatureMode = "on" | "deferred" | "off";
+export interface VoiceFeatureConfig { mode?: VoiceFeatureMode; maxMs?: number }
+export interface VoiceConfig {
+  providers: {
+    elevenlabs: { enabled: boolean; apiKeyRef?: string; region: "default" | "us" | "eu" | "in"; baseUrl?: string; defaultVoice?: string; defaultModel?: string; defaultSttModel?: string; zeroRetention: boolean };
+    xai: { enabled: boolean; apiKeyRef?: string; baseUrl?: string; defaultVoice?: string; defaultModel?: string };
+    gemini: { enabled: boolean; apiKeyRef?: string; baseUrl?: string; defaultVoice?: string; defaultModel?: string };
+    polly: { enabled: boolean; region?: string; credentials: { profile?: string }; defaultVoice?: string; defaultModel?: string };
+  };
+  local: {
+    language?: string;
+    profile: "fast" | "quality";
+    perAgent: Record<string, { language?: string; profile?: "fast" | "quality" }>;
+    catalogOverride?: Record<string, unknown>;
+    modelsDir?: string;
+    acceptNcLicence: boolean;
+  };
+  localRealtime: {
+    enabled: boolean;
+    endpointingMs: number;
+    speculativeTurnStart: boolean;
+    ackSound: boolean;
+    sentenceChunking: { maxWords: number };
+    features: Record<"autoRecall" | "reranker" | "recallMultiIdentity" | "promptEnrichment" | "decisionService" | "postTurnRefine" | "memoryWrite" | "compaction", VoiceFeatureConfig>;
+    toolSchemas: "reduced" | "full";
+    auditDetail: "minimal" | "full";
+    perAgent: Record<string, Record<string, unknown>>;
+  };
 }
 
 export interface ModelProfile {
