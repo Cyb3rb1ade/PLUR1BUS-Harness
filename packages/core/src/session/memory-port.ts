@@ -1,3 +1,4 @@
+import { deriveUserPrincipal } from '../identity/principals.ts';
 // The turn loop's one door to the engine (acceptance 4: no second memory loop). The loop calls `recall` once before a
 // turn and `capture` once after it; the engine-backed port below makes exactly the engine calls `memory.recall` and
 // `memory.capture` make (rpc/methods.ts), with the same identity, budgets and signals.
@@ -25,16 +26,29 @@ export interface EnginePortDeps {
   /** R19: the core's shutdown signal, the only abort a capture observes. */
   captureSignal: AbortSignal; isStopping: () => boolean;
   onStoredCapture?: (agentId: string) => void;
+  identity?: import("../identity/service.ts").IdentityService;
+  scope?: import("../identity/recall.ts").RecallScopeProvider;
 }
 
 export function engineTurnMemory(d: EnginePortDeps): TurnMemory {
-  const identity = (caller: CallerIdentity, agentId: string) => callerToPrincipal(caller, agentId, requireAgent(d.agents, agentId));
+  const identity = (caller: CallerIdentity, agentId: string) => {
+    const result = callerToPrincipal(caller, agentId, requireAgent(d.agents, agentId));
+    const linked = d.identity?.resolve(caller);
+    if (linked) result.principal.user = deriveUserPrincipal(linked.humanId);
+    return result;
+  };
   return {
     async recall({ agentId, caller, query, signal }) {
       const { principal, degraded } = identity(caller, agentId);
       const r = d.config().core.recall;
       const hard = AbortSignal.timeout(r.hardBudgetMs);
-      const res = await d.engine.recall({ query, principal, agent: AGENT_CONTEXT_CLI, budget: { softMs: r.softBudgetMs, hardMs: r.hardBudgetMs, capChars: r.capChars }, signal: AbortSignal.any([signal, hard]) });
+      const principals = principal.user?.startsWith('user:v2:') && d.scope ? d.scope.resolvePrincipals(principal.user) as NonNullable<typeof principal.user>[] : [principal.user];
+      const results = await Promise.all(principals.map(user => d.engine.recall({ query, principal: { ...principal, ...(user ? { user } : {}) }, agent: AGENT_CONTEXT_CLI, budget: { softMs: r.softBudgetMs, hardMs: r.hardBudgetMs, capChars: r.capChars }, signal: AbortSignal.any([signal, hard]) })));
+      signal.throwIfAborted();
+      const res = results[0]!;
+      // Union at the adapter boundary: shared workspace/agent blocks repeat across ACL reads, never across output.
+      const seen = new Set<string>();
+      res.blocks = results.flatMap(result => result.blocks).filter(block => { const key = `${block.name}:${block.text}`; if (seen.has(key)) return false; seen.add(key); return true; });
       const blocks = res.blocks.map((b) => ({ name: b.name, text: b.text, droppable: b.droppable, chars: b.chars }));
       const engineCap = Number.isFinite(res.capChars) ? res.capChars : null;
       const text = joinBlocks(blocks, engineCap === null ? r.capChars : Math.min(engineCap, r.capChars)).text;
@@ -44,6 +58,7 @@ export function engineTurnMemory(d: EnginePortDeps): TurnMemory {
     async capture({ agentId, caller, sessionId, turnId, messages, incognito }) {
       if (d.isStopping()) return; // the turn is already stored; a stopping core takes no new capture (the next start does not replay it: RULING, a lost capture is logged)
       const { principal } = identity(caller, agentId);
+      if (principal.user?.startsWith('user:v2:') && d.scope) principal.user = d.scope.capturePrincipal(principal.user) as NonNullable<typeof principal.user>;
       const handle = d.engine.capture({
         agentId, principal, agent: AGENT_CONTEXT_CLI, messages, incognito, signal: d.captureSignal, sessionKey: `session:${sessionId}`, runId: turnId,
       });

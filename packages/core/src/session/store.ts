@@ -88,6 +88,15 @@ export class SessionStore {
 
   close(): void { this.#db.close(); }
 
+  /** Incognito turns keep no separate persisted prompt snapshot. A remembered session freezes exactly once. */
+  freezePromptSnapshot(sessionId: string, memory: string): string {
+    const session = this.getSession(sessionId);
+    if (!session) throw new SessionError("not-found", "session not found");
+    if (session.memoryMode === "incognito") return memory;
+    this.#db.prepare("INSERT OR IGNORE INTO prompt_snapshots(session_id,memory) VALUES (?,?)").run(sessionId, memory);
+    return (this.#db.prepare("SELECT memory FROM prompt_snapshots WHERE session_id=?").get(sessionId) as { memory: string }).memory;
+  }
+
   #tx<T>(fn: () => T): T {
     this.#db.exec("BEGIN IMMEDIATE");
     try { const r = fn(); this.#db.exec("COMMIT"); return r; }

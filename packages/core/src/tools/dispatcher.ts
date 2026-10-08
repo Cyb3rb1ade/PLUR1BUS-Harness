@@ -42,7 +42,7 @@ export type ToolErrorCode =
   | "tool-unknown" | "tool-call-invalid" | "tool-denied" | "tool-not-approved" | "tool-timeout" | "tool-failed"
   | "tool-result-too-large" | "tool-result-invalid" | "aborted";
 
-export interface ToolError { code: ToolErrorCode; message: string; issues?: ValidationIssue[]; hint?: string }
+export interface ToolError { code: ToolErrorCode; message: string; issues?: ValidationIssue[]; hint?: string; sourceCode?: string }
 export type ToolDecisionMeta = "none" | "allow" | "approved" | "deny" | "ask-refused";
 
 interface Common { callId: string; tool: string; provenance: ToolProvenance; meta: { decision: ToolDecisionMeta; durationMs: number; bytes: number } }
@@ -121,7 +121,7 @@ export class ToolDispatcher {
 
       // 2. policy gate.
       let call: Call;
-      try { call = this.#buildCall(tool, args); }
+      try { call = await this.#buildCall(tool, args); }
       catch (e) { // RULING: a tool whose classify() throws is refused, never allowed
         this.#auditSoft("policy.decision", { ...this.#who(ctx, undefined), tool: tool.name, capability: tool.capability, outcome: "never", rule: "classify-failed" });
         return fail("tool-denied", `the call could not be classified: ${errMsg(e)}`, "deny");
@@ -164,7 +164,7 @@ export class ToolDispatcher {
       const ran = await this.#run(tool, args, ctx);
       if (ran.kind === "timeout") return out(fail("tool-timeout", `${tool.name} exceeded its ${tool.limits.timeoutMs} ms limit`, via, {}, true));
       if (ran.kind === "aborted") return out(fail("aborted", `${tool.name} was aborted`, via, {}, true));
-      if (ran.kind === "failed") return out(fail("tool-failed", `${tool.name} failed: ${ran.message}`, via, {}, true));
+      if (ran.kind === "failed") return out(fail("tool-failed", `${tool.name} failed: ${ran.message}`, via, ran.sourceCode ? { sourceCode: ran.sourceCode } : {}, true));
 
       // 4. bounded, serialisable result. RULING: over the limit is an error, never a cut-off JSON value.
       let json: string | undefined;
@@ -181,8 +181,8 @@ export class ToolDispatcher {
     }
   }
 
-  #buildCall(tool: RegisteredTool, args: unknown): Call {
-    const c = tool.classify?.(args);
+  async #buildCall(tool: RegisteredTool, args: unknown): Promise<Call> {
+    const c = await tool.classify?.(args);
     // RULING: absent an explicit classification the call counts as outside the roots (fail closed: approval for anything above a read).
     const flags: CallFlags = { outsideRoots: true, denyListHit: false, ...(c?.flags ?? {}) };
     const targets = c?.targets ? [...c.targets] : undefined;
@@ -263,7 +263,7 @@ export class ToolDispatcher {
     return r;
   }
 
-  #run(tool: RegisteredTool, args: unknown, ctx: DispatchContext): Promise<{ kind: "ok"; value: unknown } | { kind: "timeout" } | { kind: "aborted" } | { kind: "failed"; message: string }> {
+  #run(tool: RegisteredTool, args: unknown, ctx: DispatchContext): Promise<{ kind: "ok"; value: unknown } | { kind: "timeout" } | { kind: "aborted" } | { kind: "failed"; message: string; sourceCode?: string }> {
     const timers = this.#d.timers ?? realTimers;
     const ac = new AbortController();
     return new Promise((resolve) => {
@@ -272,8 +272,8 @@ export class ToolDispatcher {
       const onAbort = (): void => { finish({ kind: "aborted" }); ac.abort(ctx.signal.reason); };
       const cancel = timers.set(() => { finish({ kind: "timeout" }); ac.abort(new Error("timeout")); }, tool.limits.timeoutMs);
       ctx.signal.addEventListener("abort", onAbort, { once: true });
-      Promise.resolve().then(() => tool.execute(args, { signal: ac.signal, agentId: ctx.agentId, principal: ctx.principal, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}) }))
-        .then((value) => finish({ kind: "ok", value }), (e: unknown) => finish({ kind: "failed", message: errMsg(e) }));
+      Promise.resolve().then(() => tool.execute(args, { signal: ac.signal, agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}) }))
+        .then((value) => finish({ kind: "ok", value }), (e: unknown) => { const sourceCode = e && typeof e === "object" && "code" in e && typeof e.code === "string" && /^[a-z0-9_.-]{1,64}$/.test(e.code) ? e.code : undefined; finish({ kind: "failed", message: errMsg(e), ...(sourceCode ? { sourceCode } : {}) }); });
     });
   }
 }

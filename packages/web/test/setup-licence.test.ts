@@ -18,14 +18,30 @@ const jina5 = (p: Page) => p.getByRole("radio", { name: /Jina v5 Text Nano/ });
 const dialog = (p: Page) => p.getByRole("dialog", { name: "Accept a non-commercial licence?" });
 
 describe("setup wizard: NC licence gate", opts, () => {
-  test("permissive defaults are preselected; NC models are labelled and unchecked", async () => {
+  test("permissive defaults are preselected (EmbeddingGemma 2 and BGE); NC models are labelled and unchecked", async () => {
     await withApp({}, async (app) => {
       await toMemory(app); const { page } = app;
-      assert.equal(await page.getByRole("radio", { name: /Qwen3-Embedding-0.6B/ }).isChecked(), true);
+      assert.equal(await page.getByRole("radio", { name: /EmbeddingGemma 2/ }).isChecked(), true);
       assert.equal(await page.getByRole("radio", { name: /BGE-reranker-v2-m3/ }).isChecked(), true);
       assert.equal(await jina5(page).isChecked(), false);
       assert.match((await page.getByText("Jina v5 Text Nano").locator("..").textContent()) ?? "", /non-commercial licence/);
       assert.equal(await page.getByRole("radio", { name: "General, personal use" }).isChecked(), true);
+    });
+  });
+
+  test("the default (EmbeddingGemma 2, Apache-2.0) needs no licence dialog, for every use class", async () => {
+    await withApp({}, async (app) => {
+      await toMemory(app); const { page } = app;
+      for (const use of ["General, personal use", "Research, non-commercial", "Commercial"]) {
+        await page.getByRole("radio", { name: use, exact: true }).check();
+        assert.equal(await page.getByRole("radio", { name: /EmbeddingGemma 2/ }).isChecked(), true, use);
+        assert.equal(await page.getByRole("radio", { name: /EmbeddingGemma 2/ }).isDisabled(), false, use);
+        assert.equal(await dialog(page).count(), 0, use);
+      }
+      await next(page);
+      await stepHeading(page, /Backups/).waitFor();
+      const keys = changes(app).at(-1)!.map((c) => c.key);
+      assert.ok(!keys.includes("embedding.acceptedNcLicence"), "no licence flag is written for the default");
     });
   });
 
@@ -41,7 +57,7 @@ describe("setup wizard: NC licence gate", opts, () => {
       await page.keyboard.press("Escape");
       await d.waitFor({ state: "detached" });
       assert.equal(await jina5(page).isChecked(), false);
-      assert.equal(await page.getByRole("radio", { name: /Qwen3-Embedding-0.6B/ }).isChecked(), true);
+      assert.equal(await page.getByRole("radio", { name: /EmbeddingGemma 2/ }).isChecked(), true);
     });
   });
 
@@ -108,7 +124,7 @@ describe("setup wizard: NC licence gate", opts, () => {
       await page.getByRole("radio", { name: "Commercial", exact: true }).check();
       assert.equal(await jina5(page).isDisabled(), true);
       assert.equal(await jina5(page).isChecked(), false);
-      assert.equal(await page.getByRole("radio", { name: /Qwen3-Embedding-0.6B/ }).isChecked(), true);
+      assert.equal(await page.getByRole("radio", { name: /EmbeddingGemma 2/ }).isChecked(), true);
       assert.match((await page.locator("#setup-embedding-jina-v5-nano-d").textContent()) ?? "", /Not available for commercial use/);
       await next(page);
       await stepHeading(page, /Backups/).waitFor();
@@ -132,7 +148,7 @@ describe("setup wizard: NC licence gate", opts, () => {
       await next(page);
       await stepHeading(page, /Backups/).waitFor();
       await page.getByRole("button", { name: "Back", exact: true }).click();
-      await page.getByRole("radio", { name: /Qwen3-Embedding-0.6B/ }).check();
+      await page.getByRole("radio", { name: /EmbeddingGemma 2/ }).check();
       await next(page);
       await stepHeading(page, /Backups/).waitFor();
       assert.deepEqual(changes(app).at(-1)!, [
@@ -151,7 +167,7 @@ describe("setup wizard: NC licence gate", opts, () => {
       await page.reload();
       await stepHeading(page, /Memory/).waitFor();
       assert.equal(await jina5(page).isChecked(), false);
-      assert.equal(await page.getByRole("radio", { name: /Qwen3-Embedding-0.6B/ }).isChecked(), true);
+      assert.equal(await page.getByRole("radio", { name: /EmbeddingGemma 2/ }).isChecked(), true);
     });
   });
 });

@@ -95,11 +95,13 @@ describe("grant.* and approval.* in a running core: the owner's path", () => {
   const principals = new Map<string, Principal>();
   let core: Core; let c: CoreClient;
   const PERSON: Principal = { userId: "christian", kind: "person", role: "owner" };
+  // The server-side attestation seam (CoreOptions.rbac.attest); a request cannot reach it. Off = a plain token connection.
+  let attested = false;
   before(async () => {
     core = createCore({
       home, testInternals: flatTestInternals(),
       // A connection announces itself with its first call; the resolver is the core's own, so this is just a way to give two connections two principals.
-      rbac: { resolve: (ctx, _m, params: any) => { if (params?.agent === "as-agent") principals.set(ctx.connectionId, AGENT); else if (!principals.has(ctx.connectionId)) principals.set(ctx.connectionId, PERSON); return principals.get(ctx.connectionId) ?? null; }, audit: memoryAuditSink() },
+      rbac: { resolve: (ctx, _m, params: any) => { if (params?.agent === "as-agent") principals.set(ctx.connectionId, AGENT); else if (!principals.has(ctx.connectionId)) principals.set(ctx.connectionId, PERSON); return principals.get(ctx.connectionId) ?? null; }, audit: memoryAuditSink(), attest: () => (attested ? { kind: "desktop-app" } : undefined) },
     });
     await core.start();
     c = await connect({ address: core.address, token: core.token });
@@ -116,12 +118,23 @@ describe("grant.* and approval.* in a running core: the owner's path", () => {
   it("a grant is created, listed and revoked; the chain verifies", T, async () => {
     const g = await c.call<any>("grant.create", { capability: "fs.write", agent: "bernd", scope: "session", sessionId: "s1" });
     assert.equal(g.person, "christian");
-    assert.equal(g.surface, 2, "a token connection without attestation is T2");
+    assert.equal(g.surface, 1, "a token connection without attestation is T1 (#192)");
     assert.deepEqual((await c.call<any>("grant.list", {})).grants.map((x: any) => x.id), [g.id]);
     assert.equal((await c.call<any>("grant.revoke", { id: g.id })).state, "revoked");
     assert.equal((await c.call<any>("approval.verify", {})).ok, true);
     await assert.rejects(c.call("grant.create", { capability: "harness.admin", agent: "bernd", scope: "always" }), (e: any) => { assert.deepEqual(err(e), { error: "E_DENIED", reason: "policy-never" }); return true; });
     await assert.rejects(c.call("grant.create", { capability: "fs.write", agent: "nobody", scope: "always" }), (e: any) => e.error === "E_AGENT_UNKNOWN");
+  });
+
+  it("an unattested token connection cannot create a T2 grant (#192); with an attestation the same request succeeds", T, async () => {
+    const t2 = { capability: "shell.exec", agent: "bernd", scope: "always" };
+    await assert.rejects(c.call("grant.create", t2), (e: any) => { assert.deepEqual(err(e), { error: "E_DENIED", reason: "surface-untrusted" }); return true; });
+    attested = true;
+    try {
+      const g = await c.call<any>("grant.create", t2);
+      assert.ok(g.surface >= 2);
+      assert.equal((await c.call<any>("grant.revoke", { id: g.id })).state, "revoked");
+    } finally { attested = false; }
   });
 
   it("a parked request reaches a person's opted-in connection, is decided over RPC, and the call is released", T, async () => {

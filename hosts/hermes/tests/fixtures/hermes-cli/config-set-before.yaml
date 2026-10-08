@@ -1,0 +1,10 @@
+# Keep this user comment.
+model:
+  provider: custom
+  default: local-model
+memory:
+  # Keep the memory settings comment too.
+  provider: ''
+  memory_enabled: true
+terminal:
+  enabled: true

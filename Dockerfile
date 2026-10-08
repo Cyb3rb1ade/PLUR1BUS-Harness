@@ -13,6 +13,7 @@
 
 # ---- 1. the Rust CLI and supervisor ----------------------------------------------------------------------------------
 FROM rust:1.95-slim-bookworm@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082 AS rust-build
+ARG SOURCE_DATE_EPOCH=0
 WORKDIR /src
 COPY . .
 # The image's own toolchain (the digest above) is the pin; rust-toolchain.toml would make rustup resolve "1.95" again
@@ -21,7 +22,8 @@ RUN rm -f rust-toolchain.toml
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/src/target,sharing=locked \
     cargo build --release --locked -p plur1bus \
-    && install -D -m 0755 target/release/plur1bus /out/plur1bus
+    && install -D -m 0755 target/release/plur1bus /out/plur1bus \
+    && touch -m -d "@${SOURCE_DATE_EPOCH}" /out/plur1bus
 
 # ---- 2. the core: build, then `pnpm deploy` a self-contained production tree -----------------------------------------
 FROM node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS node-build

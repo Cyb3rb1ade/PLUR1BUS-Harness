@@ -39,9 +39,13 @@ import threading
 import time
 import uuid
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
-from agent.memory_provider import MemoryProvider, is_trivial_prompt, spawn_context_thread
+from agent.memory_provider import (
+    MemoryProvider,
+    is_trivial_prompt,
+    spawn_context_thread,
+)
 
 from ._client import pmc
 from .binding import Binding, BindingInvalid, read_binding, resolve_hermes_home
@@ -101,9 +105,9 @@ class _EntryRejected(Exception):
 class _Inflight:
     """The entry the worker is sending; whoever claims it first (worker or shutdown) journals it."""
 
-    __slots__ = ("entry", "claimed")
+    __slots__ = ("claimed", "entry")
 
-    def __init__(self, entry: dict) -> None:
+    def __init__(self, entry: dict[str, Any]) -> None:
         self.entry = entry
         self.claimed = False
 
@@ -112,7 +116,12 @@ class Plur1busMemoryProvider(MemoryProvider):
     """One instance per Hermes agent (per profile). ``client_factory(home)`` returns a ``MemoryClient``;
     tests pass one bound to a stub core. ``hermes_home`` overrides the home used before ``initialize``."""
 
-    def __init__(self, *, client_factory: ClientFactory | None = None, hermes_home: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        client_factory: ClientFactory | None = None,
+        hermes_home: str | None = None,
+    ) -> None:
         self._factory = client_factory or _default_factory
         self._home_hint = hermes_home
         self._initialized = False
@@ -130,7 +139,7 @@ class Plur1busMemoryProvider(MemoryProvider):
         self._warning_callback: Callable[[str], Any] | None = None
         # Worker state, guarded by _cv.
         self._cv = threading.Condition(threading.Lock())
-        self._items: collections.deque[dict] = collections.deque()
+        self._items: collections.deque[dict[str, Any]] = collections.deque()
         self._inflight: _Inflight | None = None
         self._worker: threading.Thread | None = None
         self._closing = False
@@ -167,7 +176,10 @@ class Plur1busMemoryProvider(MemoryProvider):
         try:
             b = read_binding(home)
         except BindingInvalid as e:
-            return False, f"the PLUR1BUS binding file is invalid ({e.reason}); {BIND_HINT}"
+            return (
+                False,
+                f"the PLUR1BUS binding file is invalid ({e.reason}); {BIND_HINT}",
+            )
         if b is None:
             return False, f"this Hermes home has no PLUR1BUS binding; {BIND_HINT}"
         token = pmc.core_token_path(b.home)
@@ -175,7 +187,10 @@ class Plur1busMemoryProvider(MemoryProvider):
             with open(token, "rb"):
                 pass
         except OSError:
-            return False, "the PLUR1BUS core is not running (no readable run/core.token); start it with `plur1bus daemon start`"
+            return (
+                False,
+                "the PLUR1BUS core is not running (no readable run/core.token); start it with `plur1bus daemon start`",
+            )
         return True, ""
 
     def is_available(self) -> bool:
@@ -199,10 +214,16 @@ class Plur1busMemoryProvider(MemoryProvider):
             self._binding = read_binding(self._hermes_home)
         except BindingInvalid as e:
             self._binding = None
-            self._warn("binding", f"plur1bus: the binding file is invalid ({e.reason}); memory is off for this session. {BIND_HINT}")
+            self._warn(
+                "binding",
+                f"plur1bus: the binding file is invalid ({e.reason}); memory is off for this session. {BIND_HINT}",
+            )
             return
         if self._binding is None:
-            self._warn("binding", f"plur1bus: no binding for this Hermes home; memory is off for this session. {BIND_HINT}")
+            self._warn(
+                "binding",
+                f"plur1bus: no binding for this Hermes home; memory is off for this session. {BIND_HINT}",
+            )
             return
         self._journal = CaptureJournal.for_home(self._hermes_home)  # no I/O until the worker uses it
         try:
@@ -210,7 +231,10 @@ class Plur1busMemoryProvider(MemoryProvider):
         except IdentityRefused:
             # Fail closed (audit M1): without a sender id there is no identity that is not shared with others.
             self._journal = None
-            self._warn("identity", "plur1bus: this platform supplied no user or chat id; memory is off for this session")
+            self._warn(
+                "identity",
+                "plur1bus: this platform supplied no user or chat id; memory is off for this session",
+            )
             return
         self._session_key = session_key_for(self._session_id, kwargs.get("gateway_session_key"))
         self._rclient = self._factory(self._binding.home)
@@ -218,12 +242,18 @@ class Plur1busMemoryProvider(MemoryProvider):
         try:
             self._rclient.connect(deadline_s=max(0.0, deadline - time.monotonic()))
             if self._rclient.supports("agent.open"):
-                self._rclient.agent_open(self._binding.agent_id, deadline_s=max(0.0, deadline - time.monotonic()))
+                self._rclient.agent_open(
+                    self._binding.agent_id,
+                    deadline_s=max(0.0, deadline - time.monotonic()),
+                )
         except Exception as e:  # noqa: BLE001 - warm-up is optional; the turn path reports failures
             code = _code(e)
             self._note_error(code)
             if code == "E_AGENT_UNKNOWN":
-                self._warn("agent-unknown", f"plur1bus: agent {self._binding.agent_id} is not registered with PLUR1BUS ({code}); {BIND_HINT}")
+                self._warn(
+                    "agent-unknown",
+                    f"plur1bus: agent {self._binding.agent_id} is not registered with PLUR1BUS ({code}); {BIND_HINT}",
+                )
             else:
                 log.info("plur1bus: warm-up at initialize failed (%s)", code)
 
@@ -232,11 +262,19 @@ class Plur1busMemoryProvider(MemoryProvider):
         return self._binding is not None and self._rclient is not None
 
     def system_prompt_block(self) -> str:
-        if not self._active:
+        if self._binding is None or self._rclient is None:
             return ""
         return SYSTEM_PROMPT_BLOCK if self._binding.memory_write_tools else READ_ONLY_PROMPT_BLOCK
 
-    def on_session_switch(self, new_session_id: str, *, parent_session_id: str = "", reset: bool = False, rewound: bool = False, **kwargs: Any) -> None:
+    def on_session_switch(
+        self,
+        new_session_id: str,
+        *,
+        parent_session_id: str = "",
+        reset: bool = False,
+        rewound: bool = False,
+        **kwargs: Any,
+    ) -> None:
         self._session_id = new_session_id or self._session_id
         self._session_key = session_key_for(self._session_id, kwargs.get("gateway_session_key"))
 
@@ -260,9 +298,15 @@ class Plur1busMemoryProvider(MemoryProvider):
             code = _code(e)
             self._note_error(code)
             if code == "E_AGENT_UNKNOWN":
-                self._warn("agent-unknown", f"plur1bus: agent {b.agent_id} is not registered with PLUR1BUS ({code}); {BIND_HINT}")
+                self._warn(
+                    "agent-unknown",
+                    f"plur1bus: agent {b.agent_id} is not registered with PLUR1BUS ({code}); {BIND_HINT}",
+                )
             else:
-                self._warn("recall", f"plur1bus: memory recall is unavailable ({code}); continuing without recalled memories")
+                self._warn(
+                    "recall",
+                    f"plur1bus: memory recall is unavailable ({code}); continuing without recalled memories",
+                )
             return ""
         self._note_error(None, drain=True)
         joined = result.get("joined") if isinstance(result, dict) else None
@@ -291,7 +335,14 @@ class Plur1busMemoryProvider(MemoryProvider):
             return
         # runId is minted here, once per turn, and travels with the entry (worker, journal, every replay): a replay
         # of this turn is the engine's `duplicate-turn`, while a genuinely repeated turn gets its own id and is kept.
-        entry = {"v": 1, "agentId": b.agent_id, "caller": self._caller.to_rpc(), "sessionKey": self._session_key, "runId": uuid.uuid4().hex, "messages": turn}
+        entry: dict[str, Any] = {
+            "v": 1,
+            "agentId": b.agent_id,
+            "caller": self._caller.to_rpc(),
+            "sessionKey": self._session_key,
+            "runId": uuid.uuid4().hex,
+            "messages": turn,
+        }
         with self._cv:
             if self._stopped:
                 return
@@ -377,13 +428,23 @@ class Plur1busMemoryProvider(MemoryProvider):
             self._set_error(code)
             if is_journal_error(e, code):
                 self._journal_inflight(inflight)
-                self._warn("capture", f"plur1bus: memory capture is unavailable ({code}); turns are kept in the local journal and sent later")
+                self._warn(
+                    "capture",
+                    f"plur1bus: memory capture is unavailable ({code}); turns are kept in the local journal and sent later",
+                )
             else:
                 if code == "E_AGENT_UNKNOWN":
-                    self._warn("agent-unknown", f"plur1bus: agent {entry['agentId']} is not registered with PLUR1BUS ({code}); {BIND_HINT}")
-                log.warning("plur1bus: the core refused a capture (%s); it was set aside in the dead-letter file", code)
+                    self._warn(
+                        "agent-unknown",
+                        f"plur1bus: agent {entry['agentId']} is not registered with PLUR1BUS ({code}); {BIND_HINT}",
+                    )
+                log.warning(
+                    "plur1bus: the core refused a capture (%s); it was set aside in the dead-letter file",
+                    code,
+                )
                 try:
-                    self._journal.dead_letter(entry, code)
+                    journal = cast(CaptureJournal, self._journal)
+                    journal.dead_letter(entry, code)
                 except Exception:  # noqa: BLE001 - counted below: it cannot be kept
                     self._lost += 1
                     log.warning("plur1bus: a refused capture could not be set aside and is lost")
@@ -392,7 +453,7 @@ class Plur1busMemoryProvider(MemoryProvider):
         self._set_error(None)
         self._flush_error()
 
-    def _send_entry(self, entry: dict) -> None:
+    def _send_entry(self, entry: dict[str, Any]) -> None:
         b = self._binding
         try:
             validate_entry(entry, b.agent_id if b is not None else "")
@@ -418,7 +479,13 @@ class Plur1busMemoryProvider(MemoryProvider):
             inflight.claimed = True
         self._journal_append([inflight.entry], timeout=10.0)
 
-    def _journal_append(self, entries: list[dict], *, timeout: float, deadline: float | None = None) -> None:
+    def _journal_append(
+        self,
+        entries: list[dict[str, Any]],
+        *,
+        timeout: float,
+        deadline: float | None = None,
+    ) -> None:
         """Append in order; whatever cannot be written is counted and logged (never lost silently)."""
         journal = self._journal
         assert journal is not None
@@ -437,8 +504,9 @@ class Plur1busMemoryProvider(MemoryProvider):
         self._lost += n
         log.warning("plur1bus: %d capture(s) could not be journaled (%s) and are lost", n, why)
         try:
-            self._journal.bump(timeout=timeout, lost=n)
-        except Exception:  # noqa: BLE001
+            journal = cast(CaptureJournal, self._journal)
+            journal.bump(timeout=timeout, lost=n)
+        except Exception:  # noqa: BLE001, S110 - loss counting must not take down the capture worker
             pass
 
     def _drain(self) -> None:
@@ -467,9 +535,15 @@ class Plur1busMemoryProvider(MemoryProvider):
         if not self._active:
             return ""
         self._wait_idle(PRE_COMPRESS_WAIT_S)
+        binding = cast(Binding, self._binding)
         if self._rclient.supports("memory.checkpoint"):
             try:
-                self._rclient.checkpoint(self._caller, self._binding.agent_id, "compaction", deadline_s=PRE_COMPRESS_CALL_S)
+                self._rclient.checkpoint(
+                    self._caller,
+                    binding.agent_id,
+                    "compaction",
+                    deadline_s=PRE_COMPRESS_CALL_S,
+                )
             except Exception as e:  # noqa: BLE001 - best effort (checkpoint API v1)
                 self._note_error(_code(e))
                 log.info("plur1bus: checkpoint before compression failed (%s)", _code(e))
@@ -480,11 +554,19 @@ class Plur1busMemoryProvider(MemoryProvider):
             return
         deadline = time.monotonic() + SESSION_END_BUDGET_S
         self._wait_idle(deadline - time.monotonic())
-        agent = self._binding.agent_id
-        for method, call in (
-            ("memory.checkpoint", lambda left: self._rclient.checkpoint(self._caller, agent, "session-end", deadline_s=left)),
-            ("agent.close", lambda left: self._rclient.agent_close(agent, deadline_s=left)),
-        ):
+        binding = cast(Binding, self._binding)
+        agent = binding.agent_id
+        calls: tuple[tuple[str, Callable[[float], Any]], ...] = (
+            (
+                "memory.checkpoint",
+                lambda left: self._rclient.checkpoint(self._caller, agent, "session-end", deadline_s=left),
+            ),
+            (
+                "agent.close",
+                lambda left: self._rclient.agent_close(agent, deadline_s=left),
+            ),
+        )
+        for method, call in calls:
             left = deadline - time.monotonic()
             if left <= 0.05 or not self._rclient.supports(method):
                 continue
@@ -512,7 +594,7 @@ class Plur1busMemoryProvider(MemoryProvider):
         if inflight is not None and self._wclient is not None:
             try:
                 self._wclient.close(deadline_s=0.0)  # the call in flight fails fast; the worker journals it
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001, S110 - shutdown is best-effort
                 pass
             worker = self._worker
             if worker is not None:
@@ -522,12 +604,16 @@ class Plur1busMemoryProvider(MemoryProvider):
                     inflight.claimed = True
                     leftover.insert(0, inflight.entry)
         if leftover:
-            self._journal_append(leftover, timeout=max(0.05, deadline - time.monotonic()), deadline=deadline)
+            self._journal_append(
+                leftover,
+                timeout=max(0.05, deadline - time.monotonic()),
+                deadline=deadline,
+            )
         for c in (self._rclient, self._wclient):
             if c is not None:
                 try:
                     c.close(deadline_s=max(0.0, min(1.0, deadline - time.monotonic())))
-                except Exception:  # noqa: BLE001
+                except Exception:  # noqa: BLE001, S110 - shutdown must continue after a close failure
                     pass
 
     # -- D21 tools --------------------------------------------------------------------------------
@@ -558,10 +644,17 @@ class Plur1busMemoryProvider(MemoryProvider):
             p = tool_params(tool_name, args)
         except ToolArgsError:
             return json.dumps({"error": "E_INVALID_PARAMS"})
-        c, agent, d = self._rclient, self._binding.agent_id, TOOL_DEADLINE_S
+        binding = cast(Binding, self._binding)
+        c, agent, d = self._rclient, binding.agent_id, TOOL_DEADLINE_S
         try:
             if method == "memory.list":
-                result = c.memory_list(self._caller, agent, topic=p.get("topic"), limit=p.get("limit", 20), deadline_s=d)
+                result = c.memory_list(
+                    self._caller,
+                    agent,
+                    topic=p.get("topic"),
+                    limit=p.get("limit", 20),
+                    deadline_s=d,
+                )
             elif method == "memory.show":
                 result = c.memory_show(self._caller, agent, p["id"], deadline_s=d)
             elif method == "memory.forget":
@@ -598,7 +691,7 @@ class Plur1busMemoryProvider(MemoryProvider):
         if cb is not None:
             try:
                 cb(message)
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001, S110 - warning callbacks must not disrupt provider work, S110 - close errors do not affect shutdown
                 pass
 
     def _set_error(self, code: str | None) -> bool:
@@ -618,7 +711,8 @@ class Plur1busMemoryProvider(MemoryProvider):
             self._error_dirty = False
             code = self._last_error
         try:
-            self._journal.note_error(code)
+            journal = cast(CaptureJournal, self._journal)
+            journal.note_error(code)
         except Exception as e:  # noqa: BLE001
             log.info("plur1bus: could not record the last error (%s)", type(e).__name__)
 
