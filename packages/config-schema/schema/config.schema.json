@@ -476,6 +476,7 @@
             "homeserverUrl": {
               "description": "Base URL of the Matrix homeserver. Must be https, or http for a loopback host.",
               "type": "string",
+              "pattern": "^(https://[^\\s/]+|http://(localhost|127\\.[0-9.]+|\\[::1\\])(:[0-9]+)?)(/[^\\s]*)?$",
               "maxLength": 512,
               "x-restart": "module:matrix",
               "x-tier": "advanced"
