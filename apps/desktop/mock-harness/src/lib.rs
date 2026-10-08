@@ -533,6 +533,7 @@ fn router(shared: Arc<Shared>, test_control: bool) -> Router {
         .route("/api/v1/session/check", post(browser_check));
     if test_control {
         let controls = Router::new()
+            .route("/__test/owner", post(test_owner))
             .route("/__test/pair", post(test_pair))
             .route("/__test/revoke", post(test_revoke))
             .route("/__test/failure", post(test_failure))
@@ -1281,6 +1282,15 @@ async fn spa_script() -> Response {
         .into_response()
 }
 
+// Stub-only provisioning. The control router is explicitly enabled and loopback-only.
+async fn test_owner(State(s): State<Arc<Shared>>) -> Response {
+    let mut store=s.store.lock().unwrap();
+    if store.provisioned { return Json(json!({"schema":"error/1","code":"E_EXISTS"})).into_response(); }
+    store.provisioned=true;
+    if s.save(&store).is_err() {return StatusCode::INTERNAL_SERVER_ERROR.into_response();}
+    Json(json!({"schema":"user.create/1","userId":"mock-owner"})).into_response()
+}
+
 #[cfg(test)]
 mod control_peer_tests {
     use super::*;
@@ -1341,3 +1351,4 @@ mod control_peer_tests {
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
     }
 }
+

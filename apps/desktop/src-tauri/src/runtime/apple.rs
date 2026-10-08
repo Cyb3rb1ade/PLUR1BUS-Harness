@@ -464,6 +464,24 @@ impl Runtime for AppleRuntime {
         args.push(name.into());
         check(self.cli.run(&args, None, Duration::from_secs(60)).await?).map(|_| ())
     }
+    async fn volume_remove_owned(&self, name: &str, labels: &Labels) -> Result<(), RuntimeError> {
+        let output = match self.checked(&["volume", "inspect", name]).await {
+            Ok(o) => o,
+            Err(RuntimeError::NotFoundObject(_)) => return Ok(()),
+            Err(e) => return Err(e),
+        };
+        let v: serde_json::Value = serde_json::from_slice(&output.stdout)
+            .map_err(|_| RuntimeError::Failed("apple-volume-shape".into()))?;
+        let owned = v
+            .get(0)
+            .and_then(|v| v.pointer("/configuration/labels"))
+            .and_then(|v| serde_json::from_value::<Labels>(v.clone()).ok())
+            .is_some_and(|l| labels.iter().all(|(k, value)| l.get(k) == Some(value)));
+        if !owned {
+            return Err(RuntimeError::Conflict("foreign-volume".into()));
+        }
+        self.volume_remove(name).await
+    }
     async fn volume_remove(&self, name: &str) -> Result<(), RuntimeError> {
         self.checked(&["volume", "delete", name]).await.map(|_| ())
     }
@@ -495,6 +513,114 @@ impl Runtime for AppleRuntime {
         }
         a.push(name);
         self.checked(&a).await.map(|_| ())
+    }
+
+    async fn network_ensure_labeled(
+        &self,
+        name: &str,
+        internal: bool,
+        labels: &Labels,
+    ) -> Result<(), RuntimeError> {
+        match self.checked(&["network", "inspect", name]).await {
+            Ok(o) => {
+                let v: serde_json::Value = serde_json::from_slice(&o.stdout)
+                    .map_err(|_| RuntimeError::Failed("apple-network-shape".into()))?;
+                let c = v
+                    .get(0)
+                    .and_then(|v| v.get("configuration"))
+                    .ok_or_else(|| RuntimeError::Failed("apple-network-shape".into()))?;
+                if c.pointer("/labels/app.plur1bus.role")
+                    .and_then(|v| v.as_str())
+                    == Some("network")
+                    && c.get("mode").and_then(|v| v.as_str())
+                        == Some(if internal { "hostOnly" } else { "nat" })
+                {
+                    return Ok(());
+                }
+                return Err(RuntimeError::Conflict("foreign-network".into()));
+            }
+            Err(RuntimeError::NotFoundObject(_)) => {}
+            Err(e) => return Err(e),
+        }
+        let mut argv = vec!["network".into(), "create".into()];
+        for (k, v) in labels {
+            argv.extend(["--label".into(), format!("{k}={v}")])
+        }
+        if internal {
+            argv.push("--internal".into())
+        }
+        argv.push(name.into());
+        check(self.cli.run(&argv, None, Duration::from_secs(30)).await?).map(|_| ())
+    }
+    async fn published_ports(
+        &self,
+        except: &str,
+    ) -> Result<std::collections::BTreeSet<u16>, RuntimeError> {
+        #[derive(Deserialize)]
+        struct Item {
+            configuration: PortConfiguration,
+        }
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct PortConfiguration {
+            id: String,
+            published_ports: Vec<Published>,
+        }
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Published {
+            host_port: u16,
+            #[serde(default = "one")]
+            count: u16,
+        }
+        fn one() -> u16 {
+            1
+        }
+        let o = check(
+            self.raw(
+                &["list", "--all", "--format", "json"],
+                Duration::from_secs(2),
+            )
+            .await?,
+        )?;
+        let list: Vec<Item> = serde_json::from_slice(&o.stdout)
+            .map_err(|_| RuntimeError::Failed("apple-ports-shape".into()))?;
+        let mut ports = std::collections::BTreeSet::new();
+        for c in list {
+            if c.configuration.id == except {
+                continue;
+            }
+            for p in c.configuration.published_ports {
+                if p.count == 0 {
+                    return Err(RuntimeError::Failed("apple-ports-shape".into()));
+                }
+                let last = p
+                    .host_port
+                    .checked_add(p.count - 1)
+                    .ok_or_else(|| RuntimeError::Failed("apple-ports-shape".into()))?;
+                ports.extend(p.host_port..=last)
+            }
+        }
+        Ok(ports)
+    }
+    async fn image_remove(&self, digest: &str) -> Result<(), RuntimeError> {
+        self.checked(&["image", "delete", digest]).await.map(|_| ())
+    }
+    async fn network_remove(&self, name: &str) -> Result<(), RuntimeError> {
+        let o = self.checked(&["network", "inspect", name]).await?;
+        let v: serde_json::Value = serde_json::from_slice(&o.stdout)
+            .map_err(|_| RuntimeError::Failed("apple-network-shape".into()))?;
+        if v.pointer("/0/configuration/labels/app.plur1bus.role")
+            .and_then(|v| v.as_str())
+            != Some("network")
+        {
+            return Err(RuntimeError::Conflict("foreign-network".into()));
+        }
+        self.checked(&["network", "delete", name]).await.map(|_| ())
+    }
+    async fn restart_system(&self) -> Result<(), RuntimeError> {
+        self.checked(&["system", "stop"]).await?;
+        self.checked(&["system", "start"]).await.map(|_| ())
     }
     async fn create(&self, spec: &ContainerSpec) -> Result<(), RuntimeError> {
         check(

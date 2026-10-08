@@ -224,7 +224,7 @@ fn response(
         }
         s.containers.insert(
             name.clone(),
-            json!({"Id":name,"Config":body,"State":{"Running":false,"ExitCode":0}}),
+            json!({"Id":name,"HostConfig":body["HostConfig"],"Config":body,"State":{"Running":false,"ExitCode":0}}),
         );
         return (201, json!({"Id":name,"Warnings":[]}));
     }

@@ -84,7 +84,34 @@ pub trait Runtime: Send + Sync {
         labels: &Labels,
     ) -> Result<(), RuntimeError>;
     async fn volume_remove(&self, name: &str) -> Result<(), RuntimeError>;
+    async fn volume_remove_owned(&self, name: &str, _labels: &Labels) -> Result<(), RuntimeError> {
+        self.volume_remove(name).await
+    }
     async fn network_ensure(&self, name: &str, internal: bool) -> Result<(), RuntimeError>;
+    async fn network_ensure_labeled(
+        &self,
+        name: &str,
+        internal: bool,
+        _labels: &Labels,
+    ) -> Result<(), RuntimeError> {
+        self.network_ensure(name, internal).await
+    }
+    async fn published_ports(
+        &self,
+        _except: &str,
+    ) -> Result<std::collections::BTreeSet<u16>, RuntimeError> {
+        Ok(std::collections::BTreeSet::new())
+    }
+    async fn image_remove(&self, _digest: &str) -> Result<(), RuntimeError> {
+        Err(RuntimeError::Failed("image-remove-unavailable".into()))
+    }
+    async fn network_remove(&self, _name: &str) -> Result<(), RuntimeError> {
+        Err(RuntimeError::Failed("network-remove-unavailable".into()))
+    }
+    async fn restart_system(&self) -> Result<(), RuntimeError> {
+        Err(RuntimeError::Stopped)
+    }
+
     async fn create(&self, spec: &ContainerSpec) -> Result<(), RuntimeError>;
     async fn start(&self, name: &str) -> Result<(), RuntimeError>;
     async fn stop(&self, name: &str, timeout: Duration) -> Result<(), RuntimeError>;

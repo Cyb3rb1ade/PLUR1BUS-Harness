@@ -31,7 +31,18 @@ impl ContainerSpec {
                 .is_some_and(|p| !(18700..=18799).contains(&p))
             || self.network.as_ref().is_some_and(|n| !safe(n))
             || self.volumes.iter().any(|(v, p, _)| {
-                !safe(v) || !matches!(p.as_str(), STATE_MOUNT | "/models" | "/backup")
+                !safe(v)
+                    || !matches!(
+                        p.as_str(),
+                        STATE_MOUNT
+                            | "/models"
+                            | "/backup"
+                            | "/var/lib/plur1bus"
+                            | "/var/lib/plur1bus-models"
+                            | "/src"
+                            | "/dst"
+                            | "/snap"
+                    )
             })
             || !valid_digest(&self.image_digest)
         {
@@ -63,5 +74,70 @@ pub fn oneshot_spec(
         network: Some("none".into()),
         cmd: Some(cmd),
         restart: false,
+    }
+}
+
+/// Canonical bundled harness policy, including the spec's native state roots.
+pub fn harness_spec(
+    b: &crate::controller::bundle::Bundle,
+    port: u16,
+    res: &crate::controller::Resources,
+    extra_env: &[(String, String)],
+) -> ContainerSpec {
+    let digest = b
+        .digest(crate::controller::bundle::Arch::host())
+        .unwrap_or_default()
+        .to_string();
+    let labels = Labels::from([
+        ("app.plur1bus.role".into(), "harness".into()),
+        ("app.plur1bus.version".into(), b.version.clone()),
+        ("app.plur1bus.image.digest".into(), digest.clone()),
+    ]);
+    let mut env = vec![
+        ("PLUR1BUS_CONTAINER".into(), "1".into()),
+        ("PLUR1BUS_HOME".into(), "/var/lib/plur1bus".into()),
+        (
+            "TZ".into(),
+            std::env::var("TZ")
+                .ok()
+                .filter(|v| {
+                    v.len() < 128
+                        && v.chars()
+                            .all(|c| c.is_ascii_alphanumeric() || "_/-+".contains(c))
+                })
+                .unwrap_or_else(|| "UTC".into()),
+        ),
+        (
+            "LANG".into(),
+            std::env::var("LANG")
+                .ok()
+                .filter(|v| {
+                    v.len() < 128
+                        && v.chars()
+                            .all(|c| c.is_ascii_alphanumeric() || "_.@-".contains(c))
+                })
+                .unwrap_or_else(|| "C.UTF-8".into()),
+        ),
+    ];
+    env.extend_from_slice(extra_env);
+    ContainerSpec {
+        name: crate::ids::CONTAINER.into(),
+        image_digest: digest,
+        host_port: Some(port),
+        memory_mib: res.memory_mib,
+        cpus: res.cpus,
+        volumes: vec![
+            ("plur1bus-state".into(), "/var/lib/plur1bus".into(), false),
+            (
+                "plur1bus-models".into(),
+                "/var/lib/plur1bus-models".into(),
+                false,
+            ),
+        ],
+        env,
+        labels,
+        network: Some("plur1bus".into()),
+        cmd: None,
+        restart: true,
     }
 }

@@ -69,11 +69,19 @@ pub fn run(kind: &str) -> ! {
         fail("E_ARGV", "unsupported container argv")
     }
     let result = match classified {
+        Some(Command::DaemonStatus) if env::var("PLUR1BUS_CONTAINER").as_deref()==Ok("1") => {
+            json!({"schema":"daemon.status/1","supervisor":{"process":{"state":"running"}},"children":[{"kind":"core","process":{"state":"ready"}}]})
+        }
         Some(Command::DaemonStatus) => {
             serde_json::from_str(include_str!("../fixtures/daemon-status.json")).unwrap()
         }
         Some(Command::FirstAidCheck) => {
             serde_json::from_str(include_str!("../fixtures/firstaid-check.json")).unwrap()
+        }
+        Some(Command::UserCreate) if env::var("PLUR1BUS_CONTAINER").as_deref()==Ok("1") => {
+            let value=mock_call("/__test/owner",json!({}));
+            if value["code"]=="E_EXISTS" {fail("E_EXISTS","owner already exists");}
+            value
         }
         Some(Command::UserCreate) => {
             json!({"schema":"user.create/1","userId":"mock-owner"})

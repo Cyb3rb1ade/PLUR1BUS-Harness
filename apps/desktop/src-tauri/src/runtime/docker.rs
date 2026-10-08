@@ -331,6 +331,22 @@ impl Runtime for DockerRuntime {
             .map(|_| ())
             .map_err(map_error)
     }
+    async fn volume_remove_owned(&self, name: &str, labels: &Labels) -> Result<(), RuntimeError> {
+        match self.client.inspect_volume(name).await {
+            Ok(v)
+                if labels
+                    .iter()
+                    .all(|(k, value)| v.labels.get(k) == Some(value)) =>
+            {
+                self.volume_remove(name).await
+            }
+            Ok(_) => Err(RuntimeError::Conflict("foreign-volume".into())),
+            Err(Error::DockerResponseServerError {
+                status_code: 404, ..
+            }) => Ok(()),
+            Err(e) => Err(map_error(e)),
+        }
+    }
     async fn volume_remove(&self, name: &str) -> Result<(), RuntimeError> {
         self.client
             .remove_volume(name, None::<RemoveVolumeOptions>)
@@ -365,6 +381,112 @@ impl Runtime for DockerRuntime {
             .await
             .map(|_| ())
             .map_err(map_error)
+    }
+
+    async fn network_ensure_labeled(
+        &self,
+        name: &str,
+        internal: bool,
+        labels: &Labels,
+    ) -> Result<(), RuntimeError> {
+        match self.client.inspect_network(name, None).await {
+            Ok(v) => {
+                if v.labels
+                    .as_ref()
+                    .and_then(|l| l.get("app.plur1bus.role"))
+                    .map(String::as_str)
+                    == Some("network")
+                    && v.internal == Some(internal)
+                {
+                    return Ok(());
+                }
+                return Err(RuntimeError::Conflict("foreign-network".into()));
+            }
+            Err(Error::DockerResponseServerError {
+                status_code: 404, ..
+            }) => {}
+            Err(e) => return Err(map_error(e)),
+        }
+        let body = serde_json::from_value(json!({"Name":name,"Internal":internal,"Labels":labels}))
+            .map_err(|_| RuntimeError::Failed("network-body".into()))?;
+        self.client
+            .create_network(body)
+            .await
+            .map(|_| ())
+            .map_err(map_error)
+    }
+    async fn published_ports(
+        &self,
+        except: &str,
+    ) -> Result<std::collections::BTreeSet<u16>, RuntimeError> {
+        tokio::time::timeout(Duration::from_secs(2), async {
+            let all = self
+                .client
+                .list_containers(Some(
+                    ListContainersOptionsBuilder::default().all(true).build(),
+                ))
+                .await
+                .map_err(map_error)?;
+            if all.len() > 512 {
+                return Err(RuntimeError::Failed("port-inventory-limit".into()));
+            }
+            let mut ports = std::collections::BTreeSet::new();
+            for c in all {
+                if c.names
+                    .as_ref()
+                    .is_some_and(|n| n.iter().any(|n| n.trim_start_matches('/') == except))
+                {
+                    continue;
+                }
+                let id =
+                    c.id.ok_or_else(|| RuntimeError::Failed("port-inventory-shape".into()))?;
+                let v = self
+                    .client
+                    .inspect_container(&id, None)
+                    .await
+                    .map_err(map_error)?;
+                let h = v
+                    .host_config
+                    .ok_or_else(|| RuntimeError::Failed("port-inventory-shape".into()))?;
+                for bindings in h.port_bindings.unwrap_or_default().into_values().flatten() {
+                    for b in bindings {
+                        if let Some(port) = b.host_port.and_then(|s| s.parse::<u16>().ok()) {
+                            ports.insert(port);
+                        }
+                    }
+                }
+            }
+            Ok(ports)
+        })
+        .await
+        .map_err(|_| RuntimeError::Timeout("port-inventory"))?
+    }
+    async fn image_remove(&self, digest: &str) -> Result<(), RuntimeError> {
+        self.client
+            .remove_image(
+                digest,
+                Some(RemoveImageOptionsBuilder::default().force(false).build()),
+                None,
+            )
+            .await
+            .map(|_| ())
+            .map_err(map_error)
+    }
+    async fn network_remove(&self, name: &str) -> Result<(), RuntimeError> {
+        let n = self
+            .client
+            .inspect_network(name, None)
+            .await
+            .map_err(map_error)?;
+        if n.labels
+            .as_ref()
+            .and_then(|l| l.get("app.plur1bus.role"))
+            .map(String::as_str)
+            != Some("network")
+        {
+            return Err(RuntimeError::Conflict("foreign-network".into()));
+        }
+        self.client.remove_network(name).await.map_err(map_error)
     }
     async fn create(&self, spec: &ContainerSpec) -> Result<(), RuntimeError> {
         self.client
