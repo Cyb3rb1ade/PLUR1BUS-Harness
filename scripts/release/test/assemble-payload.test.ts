@@ -109,6 +109,8 @@ describe("assemble-payload", () => {
       const a = join(root, "a.tar.gz");
       const b = join(root, "b.tar.gz");
       await writeTarGz(src, a);
+      put(join(src, "node_modules/.modules.yaml"), "changed install time and store path");
+      put(join(src, ".pnpm-workspace-state-v1.json"), "changed install timestamp");
       await writeTarGz(src, b);
       assert.equal(sha(a), sha(b), "same tree, same bytes");
       const entries = readTar(a);
@@ -211,7 +213,9 @@ describe("assemble-payload", () => {
       const meta = await assemble({ target: "win-x64", out, deployed: deployed(root), skills: join(root, "no-skills"), modules });
       assert.deepEqual(meta.modules, [{ name: "fixture", version: "0.1.0", apiVersion: "1" }]);
       assert.ok(list(out).includes("modules/fixture/module.json"));
-      await assert.rejects(assemble({ target: "darwin-x64", out: join(root, "y.tar.gz"), deployed: deployed(join(root, "other")) }), /not a release target/);
+      const intel = await assemble({ target: "darwin-x64", out: join(root, "intel.tar.gz"), deployed: deployed(join(root, "intel")), skills: join(root, "no-skills"), modules: join(root, "no-modules") });
+      assert.equal(intel.target, "darwin-x64");
+      await assert.rejects(assemble({ target: "linux-riscv64", out: join(root, "y.tar.gz"), deployed: deployed(join(root, "other")) }), /not a release target/);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
