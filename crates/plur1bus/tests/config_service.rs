@@ -619,10 +619,10 @@ fn requested_restarts_never_count_toward_give_up() {
     let home = dir.path().join("home");
     std::fs::create_dir_all(&home).unwrap();
     let events = dir.path().join("events.jsonl");
-    let _sup = common::start_with_core(&home, &events, "0.02", &[]);
+    let _sup = common::start_with_core(&home, &events, common::SCALE, &[]);
     let mut c = client(&home);
     let mut pid = ready_pid(&mut c);
-    // Six requested restarts well inside the 10 min × 0.02 window, where five crashes would give up.
+    // Six requested restarts well inside the 10 min × 0.2 window, where five crashes would give up.
     for i in 1..=6u64 {
         let r = set(
             &mut c,
