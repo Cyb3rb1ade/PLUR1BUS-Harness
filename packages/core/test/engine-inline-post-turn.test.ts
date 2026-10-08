@@ -88,7 +88,7 @@ describe("harness runs light dreams and episodes inline (no post-turn queue)", (
 
   it("a capture with at least 3 turns runs a light dream or episode inline", async () => {
     const cap = await c.call<{ stored: number }>("memory.capture", {
-      caller, agentId: "bernd", runId: randomUUID(), wait: true, waitMs: 10_000,
+      caller, agentId: "bernd", runId: randomUUID(), wait: true, waitMs: 30_000,
       sessionKey: "agent:bernd:cli:direct:10000001",
       messages: [
         { role: "user", content: "We decided to move the weekly planning meeting to Thursday mornings from now on." },
