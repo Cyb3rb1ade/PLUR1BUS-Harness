@@ -55,12 +55,27 @@ public static class McpJob {
   }
 }
 `;
-export function windowsJobCommand(command: string, args: string[], host: NodeJS.ProcessEnv): { command: string; args: string[] } {
+/**
+ * The launcher's own environment: the host's, overlaid with the server's allowlisted one (which wins, whatever the
+ * case of a name). Windows PowerShell hangs at start-up, with no output at all, when it is given only the minimal
+ * allowlist (observed on windows-2025 runners: no PSModulePath, or only the stock Windows PowerShell module paths,
+ * hangs; the host's own environment starts in ~4 s). The launcher removes everything the server did not declare before
+ * it starts the server (`keep` in windowsJobCommand), so the server still sees the allowlist and nothing else.
+ */
+export function windowsLauncherEnv(env: Record<string, string>, base: NodeJS.ProcessEnv = process.env): Record<string, string> {
+  const declared = new Set(Object.keys(env).map((k) => k.toLowerCase()));
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(base)) if (v !== undefined && !declared.has(k.toLowerCase())) out[k] = v;
+  return { ...out, ...env };
+}
+
+export function windowsJobCommand(command: string, args: string[], host: NodeJS.ProcessEnv, keep: string[] = []): { command: string; args: string[] } {
   if (/\.(cmd|bat|ps1)$/i.test(command)) throw new Error("MCP stdio requires a native executable on Windows");
   const systemRoot = host.SYSTEMROOT ?? host.SystemRoot ?? "C:\\Windows";
   const native = command.includes("\\") || command.includes("/") || /\.exe$/i.test(command) ? command : command + ".exe";
   const payload = Buffer.from([native, ...args].map(windowsArg).join(" "), "utf8").toString("base64");
-  const script = `$ErrorActionPreference='Stop'; try { Add-Type -TypeDefinition @'\n${source}\n'@; $command=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${payload}')); exit [McpJob]::Run($command) } catch { [Console]::Error.WriteLine('MCP Windows job launch failed'); exit 125 }`;
+  const names = Buffer.from(keep.join("\n"), "utf8").toString("base64");
+  const script = `$ErrorActionPreference='Stop'; try { Add-Type -TypeDefinition @'\n${source}\n'@; $command=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${payload}')); $keep=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${names}')).Split([char]10); foreach ($n in @([Environment]::GetEnvironmentVariables().Keys)) { if ($keep -notcontains $n) { [Environment]::SetEnvironmentVariable($n, $null) } }; exit [McpJob]::Run($command) } catch { [Console]::Error.WriteLine('MCP Windows job launch failed'); exit 125 }`;
   return { command: join(systemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
     args: ["-NoLogo", "-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")] };
 }
