@@ -136,6 +136,8 @@ importers:
 
   packages/providers: {}
 
+  packages/remote-access: {}
+
   packages/rpc-schema:
     dependencies:
       ajv:
