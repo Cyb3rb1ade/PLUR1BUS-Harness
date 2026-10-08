@@ -22,12 +22,21 @@ export type CallBudgetEvent =
   | { type: 'warn'; scope: CallScope; id: string; used: number; limit: number; metric: Metric }
   | { type: 'refuse'; refusal: CallRefusal }
   | { type: 'reserve'; reservationId: string; tokens: number; costMicros: number | null }
-  | { type: 'settle'; reservationId: string; tokens: number; costMicros: number | null; overages: CallRefusal[] };
+  | { type: 'settle'; reservationId: string; tokens: number; costMicros: number | null; overages: CallRefusal[] }
+  | { type: 'release'; reservationId: string }
+  | { type: 'expire'; reservationId: string; tokens: number; costMicros: number | null; reservedAt: number };
 export interface BudgetEmitter { emit(event: CallBudgetEvent): void }
 export interface CallBudgetOptions {
   path: string; clock: { now(): number }; prices: PriceBook; emitter?: BudgetEmitter; defaultTimeZone?: string;
   securePath?: (p: string, o?: { mode?: number }) => void; busyTimeoutMs?: number;
+  /**
+   * Safety net for a reservation nobody settles or releases (a crashed process, a caller bug): after `reservedAt + ttl` it no longer
+   * counts against any limit, and it is reconciled (released, with an `expire` event) on start and by `reconcileExpired()`.
+   * Default 30 minutes; it must exceed the longest provider call, since a reservation older than this stops holding capacity.
+   */
+  reservationTtlMs?: number;
 }
+export const DEFAULT_RESERVATION_TTL_MS = 30 * 60_000;
 export interface ActualCallUsage { inputTokens: number; outputTokens: number; cacheReadTokens?: number; cacheWriteTokens?: number; media?: readonly MediaUnits[] }
 export interface Settlement { recorded: boolean; costMicros: number | null; overages: CallRefusal[] }
 export class CallBudgetExceededError extends Error {
@@ -94,7 +103,22 @@ export function createCallBudget(o: CallBudgetOptions) {
       db.prepare("INSERT OR IGNORE INTO settings VALUES ('budget_call_schema','1')").run();
     });
   } catch (e) { db.close(); throw e; }
+  const ttl = o.reservationTtlMs ?? DEFAULT_RESERVATION_TTL_MS;
+  if (!Number.isSafeInteger(ttl) || ttl <= 0) { db.close(); throw new BudgetInputError('invalid reservation ttl'); }
   const emit = (e: CallBudgetEvent) => { try { o.emitter?.emit(e); } catch { /* audit availability must not corrupt committed accounting */ } };
+  /** Reserved rows at or before this instant are expired: ignored on read, released by reconciliation. */
+  const expiredBefore = () => o.clock.now() - ttl;
+  function reconcileExpired(): number {
+    const rows = transaction(db, () => {
+      const stale = db.prepare("SELECT id, tokens, cost, ts FROM budget_call WHERE state='reserved' AND ts < ?").all(expiredBefore()) as unknown as { id: string; tokens: number; cost: number | null; ts: number }[];
+      const del = db.prepare("DELETE FROM budget_call WHERE id=? AND state='reserved'");
+      for (const r of stale) del.run(r.id);
+      return stale;
+    });
+    for (const r of rows) emit({ type: 'expire', reservationId: r.id, tokens: Number(r.tokens), costMicros: r.cost === null ? null : Number(r.cost), reservedAt: Number(r.ts) });
+    return rows.length;
+  }
+  try { reconcileExpired(); } catch (e) { db.close(); throw e; }
   const zone = () => {
     const row = db.prepare("SELECT value FROM settings WHERE key='timezone'").get() as { value: string } | undefined;
     return validateTimeZone(row?.value ?? defaultZone);
@@ -112,8 +136,9 @@ export function createCallBudget(o: CallBudgetOptions) {
     const filter = col ? ` AND ${col} = ?` : '';
     const params = col ? [l.id] : [];
     const amount = l.metric === 'cost' ? 'cost' : 'tokens';
-    // All pending estimates count even across rollover, so a stalled request cannot free capacity.
-    const reserved = db.prepare(`SELECT COALESCE(SUM(${amount}),0) AS n, COALESCE(SUM(cost IS NULL),0) AS u FROM budget_call WHERE state='reserved'${filter}`).get(...params) as { n: number; u: number };
+    // Pending estimates count even across rollover, so a stalled request cannot free capacity; only past the reservation TTL
+    // (an orphan nobody will settle) does a reservation stop counting.
+    const reserved = db.prepare(`SELECT COALESCE(SUM(${amount}),0) AS n, COALESCE(SUM(cost IS NULL),0) AS u FROM budget_call WHERE state='reserved' AND ts >= ?${filter}`).get(expiredBefore(), ...params) as { n: number; u: number };
     let settled: { n: number; u: number };
     if (l.scope === 'global' || l.scope === 'agent') {
       const where = l.scope === 'agent' ? ' AND agent=?' : '';
@@ -192,7 +217,23 @@ export function createCallBudget(o: CallBudgetOptions) {
     return result;
   }
   return {
-    setLimit, checkBeforeCall, settle,
+    setLimit, checkBeforeCall, settle, reconcileExpired,
+    /** Only a caller that knows nothing billable was sent (no provider request, or one refused before any output) may release. */
+    releaseUnused(reservationId: string): void {
+      id(reservationId);
+      const r = db.prepare("DELETE FROM budget_call WHERE id=? AND state='reserved'").run(reservationId);
+      if (r.changes) emit({ type: 'release', reservationId });
+    },
+    /** Read-only view of one reservation (tests, diagnostics): its state, or null once released/expired. */
+    reservation(reservationId: string): { state: 'reserved' | 'settled'; tokens: number; cost: number | null; expired: boolean } | null {
+      const r = db.prepare('SELECT state, tokens, cost, ts FROM budget_call WHERE id=?').get(id(reservationId)) as { state: 'reserved' | 'settled'; tokens: number; cost: number | null; ts: number } | undefined;
+      return r ? { state: r.state, tokens: Number(r.tokens), cost: r.cost === null ? null : Number(r.cost), expired: r.state === 'reserved' && Number(r.ts) < expiredBefore() } : null;
+    },
+    /** Counts of reservations still pending (live) and expired-but-not-yet-reconciled. */
+    pendingReservations(): { live: number; expired: number } {
+      const r = db.prepare("SELECT COALESCE(SUM(ts >= ?),0) AS live, COALESCE(SUM(ts < ?),0) AS expired FROM budget_call WHERE state='reserved'").get(expiredBefore(), expiredBefore()) as { live: number; expired: number };
+      return { live: Number(r.live), expired: Number(r.expired) };
+    },
     clearLimit(l: Pick<CallLimit, 'scope' | 'id' | 'period' | 'metric'>): void { db.prepare('DELETE FROM budget_call_limit WHERE scope=? AND id=? AND period=? AND metric=?').run(l.scope, l.id, l.period, l.metric); },
     /** Convenience provider hook. On failure without authoritative usage, keep reservation until reconciled by settle. */
     async run<T>(request: CallRequest, invoke: () => Promise<{ value: T; usage: ActualCallUsage }>): Promise<T> {

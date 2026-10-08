@@ -52,6 +52,8 @@ interface Chain {
 
 export interface Collab {
   close(): void;
+  /** Aborts every chain, waits up to `budgetMs` (default 5 s) for in-flight runs, then abandons the rest (`chain.abandoned`). */
+  shutdown(budgetMs?: number): Promise<void>;
   createProject(principal: Principal, input: { name: string; settings?: Partial<CollabSettings> }): Project;
   getProject(principal: Principal, id: string): Project;
   listProjects(principal: Principal): Project[];
@@ -84,6 +86,8 @@ export function createCollab(o: CollabOptions): Collab {
   const provider = o.provider ?? new FakeChatProvider();
   const runner = o.runner ?? providerRunner(provider, scope);
   const chains = new Map<string, Chain>();
+  // Set once the store is closed: a run abandoned at shutdown that finishes later must not touch it (nor reject unobserved).
+  let storeClosed = false;
 
   const fire = (e: Omit<CollabEvent, "at">): void => {
     try { emit.emit({ ...e, at: store.now() }); } catch { /* emitter must not break collab */ }
@@ -195,7 +199,7 @@ export function createCollab(o: CollabOptions): Collab {
   };
 
   const endChainIfIdle = (chain: Chain, status: SpanStatus): void => {
-    if (chain.inflight.size > 0 || chain.ended) return;
+    if (storeClosed || chain.inflight.size > 0 || chain.ended) return;
     chain.ended = true;
     if (chain.timeout) clearTimeout(chain.timeout);
     store.finishTrace(chain.traceId, status);
@@ -204,6 +208,7 @@ export function createCollab(o: CollabOptions): Collab {
   const cancelChainInner = (chain: Chain): void => {
     if (!chain.abort.signal.aborted) chain.abort.abort(new Error("aborted"));
     for (const child of chain.inflight) { try { child.abort(new Error("aborted")); } catch { /* already */ } }
+    if (storeClosed) return;
     store.cancelOpenTasks(chain.traceId);
     const t = store.getTrace(chain.traceId);
     if (t) {
@@ -230,19 +235,38 @@ export function createCollab(o: CollabOptions): Collab {
     if (!b.allowed) refuse(chain, { agentId: i.toAgent, parentSpanId: i.parentSpanId, reason: b.reason, detail: `guardrail ${b.reason}` });
   };
 
-  const runTarget = async (chain: Chain, project: Project, toAgent: string, question: string, context: string, signal: AbortSignal): Promise<{ text: string; inputTokens: number; outputTokens: number }> => {
+  const runTarget = async (chain: Chain, project: Project, toAgent: string, question: string, context: string, signal: AbortSignal, principal?: Principal): Promise<{ text: string; inputTokens: number; outputTokens: number }> => {
     const sc = scopeFor(toAgent, project.id);
     return scope.run(sc, async () => {
       if (!scope.current() || scope.current()!.agentId !== toAgent) {
         throw new CollabError("no-scope", "AgentScope is required; unscoped access is refused");
       }
-      return runner.run({ agentId: toAgent, question, context, signal });
+      return runner.run({ agentId: toAgent, question, context, signal, ...(principal ? { principal } : {}) });
     });
   };
 
   const api: Collab = {
+    async shutdown(budgetMs = 5_000) {
+      for (const chain of chains.values()) chain.abort.abort(new Error("core stopping"));
+      const busy = () => [...chains.values()].filter(chain => chain.inflight.size > 0);
+      // Bounded like sessions.close: a runner that ignores its abort signal cannot hold core stop forever.
+      const deadline = Date.now() + Math.max(0, budgetMs);
+      while (busy().length > 0 && Date.now() < deadline) await new Promise<void>(resolve => { const t = setTimeout(resolve, 5); t.unref?.(); });
+      for (const chain of busy()) {
+        const inflight = chain.inflight.size;
+        try {
+          store.cancelOpenTasks(chain.traceId);
+          for (const s of store.getTrace(chain.traceId)?.spans ?? []) if (s.status === "running") store.finishSpan(s.spanId, { status: "cancelled", error: "abandoned at shutdown" });
+          if (!chain.ended) { chain.ended = true; store.finishTrace(chain.traceId, "cancelled"); }
+        } catch { /* best effort: the store is closing */ }
+        fire({ type: "chain.abandoned", projectId: chain.projectId, traceId: chain.traceId, data: { inflight, budgetMs } });
+        chain.inflight.clear();
+      }
+      api.close();
+    },
     close() {
       for (const c of chains.values()) { if (c.timeout) clearTimeout(c.timeout); }
+      storeClosed = true;
       store.close();
     },
 
@@ -327,7 +351,7 @@ export function createCollab(o: CollabOptions): Collab {
       const signal = chainSignal(chain, local.signal);
       if (input.signal?.aborted || chain.abort.signal.aborted) local.abort(new Error("aborted"));
       try {
-        const out = await runTarget(chain, project, input.toAgent, input.question, input.context, signal);
+        const out = await runTarget(chain, project, input.toAgent, input.question, input.context, signal, input.principal);
         chain.tokensUsed += out.inputTokens + out.outputTokens;
         budget.record({ tokens: out.inputTokens + out.outputTokens, cost: 0, projectId: project.id, agentId: input.toAgent, chainId: chain.traceId });
         store.finishSpan(spanId, {
@@ -345,6 +369,7 @@ export function createCollab(o: CollabOptions): Collab {
           traceId: chain.traceId,
         };
       } catch (e) {
+        if (storeClosed) throw new CollabError("aborted", "consult abandoned at shutdown", { reason: "aborted" });
         const aborted = signal.aborted || chain.abort.signal.aborted || input.signal?.aborted === true;
         const msg = aborted ? "aborted" : e instanceof Error ? e.message : String(e);
         store.finishSpan(spanId, { status: aborted ? "cancelled" : "failed", error: msg, outputPreview: "" });
@@ -399,7 +424,7 @@ export function createCollab(o: CollabOptions): Collab {
         fire({ type: "delegate.started", projectId: project.id, traceId: chain.traceId, agentId: input.toAgent, data: { taskId, spanId } });
         try {
           const prompt = `${input.task}\n\nAcceptance criteria:\n${input.acceptanceCriteria}`;
-          const out = await runTarget(chain, project, input.toAgent, prompt, "", signal);
+          const out = await runTarget(chain, project, input.toAgent, prompt, "", signal, input.principal);
           chain.tokensUsed += out.inputTokens + out.outputTokens;
           budget.record({ tokens: out.inputTokens + out.outputTokens, cost: 0, projectId: project.id, agentId: input.toAgent, chainId: chain.traceId });
           const art = artifacts.put({ projectId: project.id, body: out.text, contentType: "text/plain" });
@@ -415,6 +440,7 @@ export function createCollab(o: CollabOptions): Collab {
           fire({ type: "delegate.finished", projectId: project.id, traceId: chain.traceId, agentId: input.toAgent, data: { taskId, status: "succeeded", truncated: cap.truncated } });
           return finished;
         } catch (e) {
+          if (storeClosed) return { ...queued, status: "cancelled", error: "abandoned at shutdown" } as DelegateTask;
           const aborted = signal.aborted || chain.abort.signal.aborted || input.signal?.aborted === true;
           const msg = aborted ? "aborted" : e instanceof Error ? e.message : String(e);
           const finished = store.updateTask(taskId, { status: aborted ? "cancelled" : "failed", error: msg });

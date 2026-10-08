@@ -118,7 +118,7 @@ export const COLLAB_EVENT_TYPES = [
   "project.agent.added", "project.agent.removed",
   "consult.started", "consult.finished",
   "delegate.queued", "delegate.started", "delegate.finished", "delegate.cancelled",
-  "guardrail.refused",
+  "guardrail.refused", "chain.abandoned",
 ] as const;
 export type CollabEventType = (typeof COLLAB_EVENT_TYPES)[number];
 

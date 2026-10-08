@@ -6,7 +6,7 @@ export {
   type Breach, type BudgetEvent, type BudgetService, type BudgetServiceOptions, type BudgetStatus, type CheckDecision, type Limit, type LimitKey,
   type LimitScope, type Metric, type RecordResult, type UsageEstimate, type UsageEvent, type Warning,
 } from "./service.ts";
-export { createCallBudget, CallBudgetExceededError, CallUsagePendingError,
+export { createCallBudget, CallBudgetExceededError, CallUsagePendingError, DEFAULT_RESERVATION_TTL_MS,
   type CallBudget, type CallBudgetOptions, type CallRequest, type CallDecision, type CallAllowance, type CallRefusal,
   type CallScope, type CallLimit, type ActualCallUsage, type Settlement, type BudgetEmitter, type CallBudgetEvent,
 } from './calls.ts';
