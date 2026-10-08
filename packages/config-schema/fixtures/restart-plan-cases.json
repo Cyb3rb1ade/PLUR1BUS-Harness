@@ -65,6 +65,70 @@
         ],
         "allowLoopback": false
       },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
       "modules": {},
       "media": {
         "adapters": {
@@ -183,6 +247,70 @@
           443
         ],
         "allowLoopback": false
+      },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
       },
       "modules": {},
       "media": {
@@ -316,6 +444,70 @@
         ],
         "allowLoopback": false
       },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
       "modules": {},
       "media": {
         "adapters": {
@@ -436,6 +628,70 @@
           443
         ],
         "allowLoopback": false
+      },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
       },
       "modules": {},
       "media": {
@@ -569,6 +825,70 @@
         ],
         "allowLoopback": false
       },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
       "modules": {},
       "media": {
         "adapters": {
@@ -691,6 +1011,70 @@
           443
         ],
         "allowLoopback": false
+      },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
       },
       "modules": {},
       "media": {
@@ -830,6 +1214,70 @@
         ],
         "allowLoopback": false
       },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
       "modules": {},
       "media": {
         "adapters": {
@@ -948,6 +1396,70 @@
           443
         ],
         "allowLoopback": false
+      },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
       },
       "modules": {},
       "media": {
@@ -1087,6 +1599,70 @@
         ],
         "allowLoopback": false
       },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
       "modules": {},
       "media": {
         "adapters": {
@@ -1209,6 +1785,70 @@
           443
         ],
         "allowLoopback": false
+      },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
       },
       "modules": {},
       "media": {
@@ -1346,6 +1986,70 @@
         ],
         "allowLoopback": false
       },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
       "modules": {},
       "media": {
         "adapters": {
@@ -1468,6 +2172,70 @@
           443
         ],
         "allowLoopback": false
+      },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
       },
       "modules": {},
       "media": {
@@ -1603,6 +2371,70 @@
         ],
         "allowLoopback": false
       },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
       "modules": {},
       "media": {
         "adapters": {
@@ -1721,6 +2553,70 @@
           443
         ],
         "allowLoopback": false
+      },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
       },
       "modules": {},
       "media": {
@@ -1857,6 +2753,70 @@
         ],
         "allowLoopback": false
       },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
       "modules": {
         "fixture": {
           "enabled": true,
@@ -1980,6 +2940,70 @@
           443
         ],
         "allowLoopback": false
+      },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
       },
       "modules": {
         "fixture": {
@@ -2120,6 +3144,70 @@
         ],
         "allowLoopback": false
       },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
       "modules": {},
       "media": {
         "adapters": {
@@ -2238,6 +3326,70 @@
           443
         ],
         "allowLoopback": false
+      },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
       },
       "modules": {
         "fixture-b": {

@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "_comment": "Local voice catalog as DATA. Adding a language = adding entries here (or in voice.local.catalogOverride), no code. sha256 is null until pinned at integration; the downloader refuses unpinned downloads. Licence status 'unconfirmed' is gated like a non-commercial licence.",
+  "vad": "silero-vad",
+  "models": {
+    "silero-vad": {
+      "kind": "vad", "engine": "silero-vad", "displayName": "Silero VAD", "sampleRate": 16000,
+      "licence": { "id": "MIT", "name": "MIT", "url": "https://github.com/snakers4/silero-vad/blob/master/LICENSE", "commercial": true, "status": "confirmed" },
+      "download": [{ "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx", "sha256": null, "sizeBytes": 2327524, "path": "silero_vad.onnx" }],
+      "roles": { "model": "silero_vad.onnx" }
+    },
+    "kroko-de": {
+      "kind": "stt", "engine": "streaming-transducer", "streaming": true, "displayName": "Banafo Kroko-ASR (German, streaming)", "language": "de",
+      "licence": { "id": "see-model-card", "name": "Kroko-ASR community licence (terms to be confirmed)", "url": "https://huggingface.co/Banafo/Kroko-ASR", "commercial": null, "status": "unconfirmed", "notice": "The Kroko-ASR model card terms must be read and confirmed before commercial use." },
+      "download": [{ "url": null, "sha256": null, "sizeBytes": null, "archive": "tar.bz2", "stripComponents": 1 }],
+      "roles": { "encoder": "encoder.onnx", "decoder": "decoder.onnx", "joiner": "joiner.onnx", "tokens": "tokens.txt" },
+      "packageStatus": "unconfirmed: sherpa-onnx package name, file names and sha256 to be pinned at integration"
+    },
+    "parakeet-v3-int8": {
+      "kind": "stt", "engine": "nemo-transducer", "streaming": false, "displayName": "NVIDIA Parakeet TDT 0.6B v3 (multilingual incl. German, int8)", "language": "multi",
+      "licence": { "id": "CC-BY-4.0", "name": "Creative Commons Attribution 4.0", "url": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3", "commercial": true, "status": "confirmed" },
+      "download": [{ "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2", "sha256": null, "sizeBytes": null, "archive": "tar.bz2", "stripComponents": 1 }],
+      "roles": { "encoder": "encoder.int8.onnx", "decoder": "decoder.int8.onnx", "joiner": "joiner.int8.onnx", "tokens": "tokens.txt" }
+    },
+    "parakeet-110m-en": {
+      "kind": "stt", "engine": "nemo-transducer", "streaming": false, "displayName": "NVIDIA Parakeet TDT-CTC 110M (English, int8)", "language": "en",
+      "licence": { "id": "CC-BY-4.0", "name": "Creative Commons Attribution 4.0", "url": "https://huggingface.co/nvidia/parakeet_realtime_eou_120m-v1", "commercial": true, "status": "unconfirmed", "notice": "Confirm the exact checkpoint's licence when pinning the package." },
+      "download": [{ "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet_tdt_ctc_110m-en-36000-int8.tar.bz2", "sha256": null, "sizeBytes": null, "archive": "tar.bz2", "stripComponents": 1 }],
+      "roles": { "encoder": "model.int8.onnx", "decoder": "decoder.int8.onnx", "joiner": "joiner.int8.onnx", "tokens": "tokens.txt" },
+      "packageStatus": "unconfirmed: file names inside the package to be pinned at integration"
+    },
+    "zipformer-en-streaming": {
+      "kind": "stt", "engine": "streaming-transducer", "streaming": true, "displayName": "Streaming Zipformer (English)", "language": "en",
+      "licence": { "id": "Apache-2.0", "name": "Apache License 2.0", "url": "https://github.com/k2-fsa/icefall", "commercial": true, "status": "confirmed" },
+      "download": [{ "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-en-2023-06-26.tar.bz2", "sha256": null, "sizeBytes": null, "archive": "tar.bz2", "stripComponents": 1 }],
+      "roles": { "encoder": "encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx", "decoder": "decoder-epoch-99-avg-1-chunk-16-left-128.onnx", "joiner": "joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx", "tokens": "tokens.txt" }
+    },
+    "piper-de-thorsten-low": {
+      "kind": "tts", "engine": "vits", "displayName": "Piper Thorsten (German, low)", "language": "de", "sampleRate": 16000,
+      "licence": { "id": "CC0-1.0", "name": "CC0 1.0 (voice dataset)", "url": "https://github.com/thorstenMueller/Thorsten-Voice", "commercial": true, "status": "confirmed" },
+      "download": [{ "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-de_DE-thorsten-low.tar.bz2", "sha256": null, "sizeBytes": null, "archive": "tar.bz2", "stripComponents": 1 }],
+      "roles": { "model": "de_DE-thorsten-low.onnx", "tokens": "tokens.txt", "dataDir": "espeak-ng-data" }
+    },
+    "voice-martin-de": {
+      "kind": "tts", "engine": "vits", "displayName": "Martin (German voice, owner choice)", "language": "de",
+      "licence": { "id": "unknown", "name": "Licence unconfirmed", "commercial": null, "status": "unconfirmed", "notice": "The exact voice package and its licence are not confirmed (D45). Do not ship until confirmed." },
+      "download": [{ "url": null, "sha256": null, "sizeBytes": null, "archive": "tar.bz2", "stripComponents": 1 }],
+      "roles": { "model": "model.onnx", "tokens": "tokens.txt", "dataDir": "espeak-ng-data" },
+      "packageStatus": "unconfirmed: no package or URL yet"
+    },
+    "piper-en-lessac-low": {
+      "kind": "tts", "engine": "vits", "displayName": "Piper Lessac (English US, low)", "language": "en", "sampleRate": 16000,
+      "licence": { "id": "see-voice-card", "name": "Voice dataset licence to be confirmed", "url": "https://huggingface.co/rhasspy/piper-voices", "commercial": null, "status": "unconfirmed", "notice": "Confirm the dataset licence of this Piper voice before commercial use." },
+      "download": [{ "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-lessac-low.tar.bz2", "sha256": null, "sizeBytes": null, "archive": "tar.bz2", "stripComponents": 1 }],
+      "roles": { "model": "en_US-lessac-low.onnx", "tokens": "tokens.txt", "dataDir": "espeak-ng-data" }
+    },
+    "pocket-tts-en": {
+      "kind": "tts", "engine": "pocket-tts", "displayName": "Kyutai Pocket TTS (English)", "language": "en", "sampleRate": 24000,
+      "licence": { "id": "CC-BY-4.0", "name": "Creative Commons Attribution 4.0 (weights, to be confirmed)", "url": "https://github.com/kyutai-labs/pocket-tts", "commercial": true, "status": "unconfirmed", "notice": "Confirm the weights licence and the ONNX export package at integration." },
+      "download": [{ "url": null, "sha256": null, "sizeBytes": null, "archive": "tar.bz2", "stripComponents": 1 }],
+      "roles": { "model": "model.onnx", "tokens": "tokens.txt" },
+      "packageStatus": "unconfirmed: needs a sherpa-onnx build with Pocket TTS support and a pinned ONNX package"
+    },
+    "kokoro-multi": {
+      "kind": "tts", "engine": "kokoro", "displayName": "Kokoro multilingual TTS", "language": "multi", "sampleRate": 24000,
+      "licence": { "id": "Apache-2.0", "name": "Apache License 2.0", "url": "https://huggingface.co/hexgrad/Kokoro-82M", "commercial": true, "status": "confirmed" },
+      "download": [{ "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2", "sha256": null, "sizeBytes": null, "archive": "tar.bz2", "stripComponents": 1 }],
+      "roles": { "model": "model.onnx", "voices": "voices.bin", "tokens": "tokens.txt", "dataDir": "espeak-ng-data", "lexicon": "lexicon-us-en.txt" },
+      "speakers": { "af_heart": 3, "af_bella": 2, "am_michael": 16, "bf_emma": 21, "bm_george": 26 },
+      "defaultSpeaker": "af_heart"
+    }
+  },
+  "languages": {
+    "de": {
+      "name": "Deutsch",
+      "stt": { "fast": "kroko-de", "quality": "parakeet-v3-int8" },
+      "tts": { "fast": "piper-de-thorsten-low", "quality": "voice-martin-de" }
+    },
+    "en": {
+      "name": "English",
+      "stt": { "fast": "zipformer-en-streaming", "quality": "parakeet-110m-en" },
+      "tts": { "fast": "piper-en-lessac-low", "quality": "pocket-tts-en", "fallback": "kokoro-multi" }
+    }
+  }
+}

@@ -119,7 +119,7 @@ test('real RPC approval uses authenticated person and resumes exactly once', { t
   const home = await mkdtemp(join(tmpdir(), 'turn-approval-')); const cfg = defaults(); cfg.agents.bernd = {};
   await writeFile(join(home, 'config.json'), JSON.stringify(cfg));
   let executed = 0, rounds = 0;
-  const core = createCore({ home, testInternals: flatTestInternals(), composition: { providers: { profiles: { default: [{ provider: 'fixture', model: 'gpt-4.1', adapter: { async *stream() {
+  const core = createCore({ home, testInternals: flatTestInternals(), rbac: { attest: () => ({ kind: 'desktop-app' }) }, composition: { providers: { profiles: { default: [{ provider: 'fixture', model: 'gpt-4.1', adapter: { async *stream() {
     yield { type: 'done', result: rounds++ === 0 ? { text: '', toolCalls: [{ id: 'c1', name: 'fixture_write', arguments: {}, argumentsRaw: '{}' }], finishReason: 'tool_calls', rawFinishReason: 'tool_calls', usage: { inputTokens: 10, outputTokens: 1 }, meta: {} } : { text: 'approved write done', toolCalls: [], finishReason: 'stop', rawFinishReason: 'stop', usage: { inputTokens: 10, outputTokens: 1 }, meta: {} } };
   } } }] } }, tools: { extra: [{ name: 'fixture.write', description: 'write fixture', inputSchema: { type: 'object', properties: {}, additionalProperties: false }, capability: 'fs.write', effect: 'local-write', risk: 'low', trust: 'first-party', classify: () => ({ flags: { outsideRoots: true } }), execute: async () => { executed++; return 'written'; } }] } } });
   let client: Awaited<ReturnType<typeof connect>> | undefined;
