@@ -1,0 +1,9 @@
+{
+  "params": {
+    "embedMetadata": false
+  },
+  "result": {
+    "global": false,
+    "agents": {}
+  }
+}

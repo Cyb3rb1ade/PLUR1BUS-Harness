@@ -138,9 +138,10 @@ describe("palette: keyboard operation", opts, () => {
       await page.keyboard.press("ArrowDown");
       assert.equal(await options.first().getAttribute("aria-selected"), "true");
       assert.equal(await page.locator("dialog.palette [role=status]").getAttribute("aria-live"), "polite");
+      const previousAnnouncement = await page.locator("dialog.palette [role=status]").textContent();
       await c.fill("log");
       // The count is announced when the list has settled (rate limited), so wait for it.
-      await page.waitForFunction(() => /^\d+ results$/.test(document.querySelector("dialog.palette [role=status]")?.textContent ?? "") && document.querySelector("dialog.palette [role=status]")?.textContent !== "30 results");
+      await page.waitForFunction((previous) => /^\d+ results$/.test(document.querySelector("dialog.palette [role=status]")?.textContent ?? "") && document.querySelector("dialog.palette [role=status]")?.textContent !== previous, previousAnnouncement);
       assert.equal((await page.locator("dialog.palette [role=status]").textContent()) ?? "", `${await options.count()} results`);
       await c.fill("zzzzzz"); // an Owner still gets the "Search logs for ..." fallback, nothing else
       await options.first().waitFor();

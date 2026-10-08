@@ -4,13 +4,13 @@
 // of the shell stays around this for render errors.
 import { h } from "preact";
 import { useLayoutEffect, useEffect, useRef, useState } from "preact/hooks";
-import { Page } from "../components/page.ts";
+import { Page, type PageLayoutProps } from "../components/page.ts";
 import { PageLoading, PageState } from "../components/page-state.ts";
 import { t } from "../i18n.ts";
 import type { View } from "../view.ts";
 import type { PageComponent, PageProps } from "./registry.ts";
 
-export function lazyPage(load: () => Promise<PageComponent>): PageComponent {
+export function lazyPage(load: () => Promise<PageComponent>, width: PageLayoutProps["width"] = "full"): PageComponent {
   let loaded: PageComponent | undefined;
   let inflight: Promise<PageComponent> | undefined;
   const start = (): Promise<PageComponent> => {
@@ -52,7 +52,7 @@ export function lazyPage(load: () => Promise<PageComponent>): PageComponent {
 
     if (comp) return h(comp, props);
     const title = t(props.item.label);
-    return h(Page, { title, width: "full" },
+    return h(Page, { title, width },
       failed ? h(PageState, { state: "error", onRetry: () => { setAttempt((n) => n + 1); } }) : h(PageLoading, { label: t("state.loading") }));
   };
 }

@@ -16,7 +16,9 @@ const SecretsSection = lazySection<SectionProps>(() => import("./sections/secret
 const UsersSection = lazySection<SectionProps>(() => import("./sections/users.ts").then((m) => m.UsersSection));
 const DevicesSection = lazySection<SectionProps>(() => import("./sections/devices.ts").then((m) => m.DevicesSection));
 
-const BODY = { config: ConfigSection, secrets: SecretsSection, users: UsersSection, devices: DevicesSection } as const;
+const MediaSection = lazySection<SectionProps>(() => import("../surfaces/media.ts").then(m => m.MetadataPreference));
+
+const BODY = { media: MediaSection, config: ConfigSection, secrets: SecretsSection, users: UsersSection, devices: DevicesSection } as const;
 
 export function SettingsPage({ sub }: PageProps): View {
   const section = sectionById(sub) ?? sectionById(DEFAULT_SECTION)!;
@@ -25,6 +27,7 @@ export function SettingsPage({ sub }: PageProps): View {
   return h(Page, { title: t("settings.title"), width: "full" },
     h("div", { class: "settings-layout" },
       h("nav", { class: "settings-nav", "aria-label": t("settings.nav") },
+        h("a", { class: "settings-nav-link", href: "#/identities" }, t("nav.identities")),
         h("ul", null, SECTIONS.map((s) => h("li", { key: s.id },
           h("a", {
             href: `#/settings/${s.id}`, class: "settings-nav-link", ...(s.id === section.id ? { "aria-current": "true" } : {}),

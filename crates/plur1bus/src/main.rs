@@ -58,7 +58,10 @@ fn main() {
             commands::stubs::milestone(&out, "login", "M2", "API keys and OAuth templates (D16)")
         }
         Cmd::Channel(_) => commands::stubs::milestone(&out, "channel", "M4", "channels"),
-        Cmd::Project(_) => commands::stubs::milestone(&out, "project", "M3", "projects"),
+        Cmd::Project { sub } => commands::project::run(&out, &layout, sub),
+        Cmd::Trace { sub } => commands::project::trace(&out, &layout, sub),
+        Cmd::Media { sub } => commands::media::run(&out, &layout, sub),
+        Cmd::Identity { sub } => commands::identity::run(&out, &layout, sub),
         Cmd::Import(args) => commands::import::run(&out, &layout, args),
         Cmd::Uninstall(_) => commands::stubs::milestone(&out, "uninstall", "M8", "uninstaller"),
         Cmd::Agent { sub } => commands::agent::run(&out, &layout, sub),

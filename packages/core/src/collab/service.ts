@@ -55,6 +55,7 @@ export interface Collab {
   /** Aborts every chain, waits up to `budgetMs` (default 5 s) for in-flight runs, then abandons the rest (`chain.abandoned`). */
   shutdown(budgetMs?: number): Promise<void>;
   createProject(principal: Principal, input: { name: string; settings?: Partial<CollabSettings> }): Project;
+  updateProject(principal: Principal, id: string, name: string): Project;
   getProject(principal: Principal, id: string): Project;
   listProjects(principal: Principal): Project[];
   archiveProject(principal: Principal, id: string): Project;
@@ -276,6 +277,11 @@ export function createCollab(o: CollabOptions): Collab {
       const p = store.createProject({ name: input.name, owner: principal.userId, id, ...(input.settings ? { settings: input.settings } : {}) });
       fire({ type: "project.created", projectId: p.id, data: { name: p.name, owner: p.owner } });
       return p;
+    },
+
+    updateProject(principal, id, name) {
+      authz(principal, "project.manage", { kind: "project", projectId: id });
+      return store.updateProject(id, name);
     },
 
     getProject(principal, id) {

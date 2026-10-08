@@ -82,9 +82,8 @@ person proof, unauthenticated actors, cross-user non-admin writes and all agents
 an injected policy cannot authorize an agent. Back-fill is an admin operation (`users.manage`).
 The actor's role/kind must come from authentication, never request text.
 
-Existing experimental `identity.*` RPC methods retain their local token/CLI owner guard. No RPC
-method or schema is added. Service ports are internal and must be bound to authenticated callers
-before exposure through new surfaces.
+Existing experimental `identity.*` RPC methods retain their local token/CLI owner guard. That core-library slice added no RPC
+method or schema. The new surface bindings below use the authenticated central guard.
 
 Audit is an injected callback (`AuditEvent`). Existing `identity.*` events are retained, alongside
 `link.requested`, `link.approved`, `link.declined`, `link.removed`, `pairing.failed` and
@@ -154,3 +153,47 @@ Tests use synthetic identities, scratch SQLite databases, injected clocks and fa
 The RPC tests use a local Unix socket/named pipe; no external network or real user data is used.
 The fake recall acceptance asserts both scopes and zero memory writes. Metadata tests cover
 preview/apply/reversal, duplicate calls and recovery after an engine commit with a lost response.
+
+## Identity v2 surfaces
+
+New human-only RPC methods: `identity.link.request`, `identity.link.list`,
+`identity.link.approve`, `identity.link.decline`, `identity.link.remove`,
+`identity.principals`. The central guard supplies the authenticated Principal.
+Request fields never supply roles, principal kind or trust. Optional `humanId` on
+request/list/principals is an administrator target override; other people operate
+on their own authenticated user id. Approve/decline/remove derive the affected
+user from stored records and apply the same ownership check. Every agent principal
+is refused, including an agent carrying Owner role.
+
+Request returns `{id,code,expiresAt}` exactly once. Listing returns metadata and
+pending/claimed pairings without code hashes or plaintext codes. Union inspection
+returns the existing v2 plus active linked v1 principals. A human must already
+exist in the identity directory. Legacy local-owner RPC uses the `local-owner`
+principal: until the API binds a real directory user, CLI owners can explicitly
+select an existing human using `--human` (obtain/create one with `user ls/add`).
+
+```sh
+plur1bus identity link --channel telegram --human <human-id>
+plur1bus identity links --human <human-id>
+plur1bus identity approve <pairing-id>
+plur1bus identity decline <pairing-id>
+plur1bus identity unlink <link-id>
+plur1bus identity whoami --human <human-id>
+```
+
+All support global `--json`. “My identities” (`#/identities`) lists links, issues
+codes in transient page state, shows pending confirmation, approves/declines, and
+confirms unlink with the union-visibility consequence. Codes are never persisted
+in browser storage and disappear when leaving the page. Renewing issues a new
+proof subject to existing pending/issuance limits; it does not invalidate other
+live proofs or bypass rate limits.
+
+Telegram accepts `/link <code>` in private chats when the host injects the
+existing IdentityService.claim port. The bot's getMe id and authenticated sender
+id establish the complete triple; command text supplies only the code. The
+identity port owns durable guess lockouts. Uniform failure replies disclose no
+ownership, submitted codes never reach logs, and a successful claim still awaits
+human confirmation. Group chats never claim a proof. Production hosts must bind
+this optional port; the standalone adapter does not manufacture an identity
+service or automatically approve claims. The API-layer Web principal binding is
+outside this work package's allowed files.

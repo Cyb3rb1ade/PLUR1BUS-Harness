@@ -1,6 +1,7 @@
 # Collaboration (M5 core)
 
-Library: `packages/core/src/collab`. Projects, consult, delegate, guardrails and traces live here as a **core library with ports**. RPC (`project.*` / `collab.*`), the `plur1bus project` CLI, the web UI, and D92 “promote a chat to a project” are follow-ups.
+Library: `packages/core/src/collab`. Projects, consult, delegate, guardrails and traces live here as a **core library with ports**. RPC (`project.*` / `collab.*`), CLI and Web surfaces are documented below;
+D92 “promote a chat to a project” remains a follow-up.
 
 Authorities: [ADR-003](adr/ADR-003-agent-model-and-collaboration.md) (lifecycle, `AgentScope`, collaboration, Q4/Q5), [milestones.md §M5](milestones.md), [ADR-007](adr/ADR-007-users-roles-identity.md) (project roles `member`/`lead`, agent `use`/`manage`), [ADR-010 §4](adr/ADR-010-latency-and-caching.md) (subagent return ≈ 2 000 tokens).
 
@@ -100,9 +101,7 @@ Store: `node:sqlite`, `PRAGMA user_version` migrations, archive-first. Path `:me
 
 ## Follow-ups
 
-- RPC `project.*` / `collab.*` and generated schema (`rpc.schema.json` is out of this PR)
-- CLI `plur1bus project`
-- Web UI (board, who-asked-whom, cost)
+- Production Web API/principal binding; task/note board beyond the surfaces below
 - D92 promote a direct chat to a card or project (chat stays private; content moves only by explicit choice)
 - Wire M2 budget, audit log, D111 logs, session store (replayable hop sessions)
 - ACP / A2A / external coding-agent targets (M6)
@@ -110,3 +109,44 @@ Store: `node:sqlite`, `PRAGMA user_version` migrations, archive-first. Path `:me
 - Fan-out eval (≥20 cases, equal token budget) before any fan-out **default-on**
 - `project.create` RBAC action; identity resolver filling `projectRights` / `agentRights`
 - Process-wide `AgentScope` (M3) replacing the collab-local ALS
+
+## M5 RPC, CLI and Web surfaces
+
+Core registers `project.create/get/list/update/archive`,
+`project.member.add/remove/role`, `project.agent.add/remove`,
+`collab.trace.get/list`, and `collab.chain.cancel`.
+`project.update` renames an active project; it does not silently change guardrail
+settings. The project library remains the authority for archive-first semantics,
+member/lead management and chain cancellation. Membership rights are loaded from
+persisted projects. A member cannot promote themselves to lead; the owner remains
+lead. Assigning an agent additionally requires agent.use. Members/Viewers see
+projects they belong to; Owner/Admin/Operator retain role-level project reads.
+Surface RPCs are human-only; agent collaboration uses the existing internal ports.
+
+```sh
+plur1bus project create 'Research'
+plur1bus project list
+plur1bus project show <project-id>
+plur1bus project member add <project-id> <user-id> --role member
+plur1bus project member role <project-id> <user-id> lead
+plur1bus project member remove <project-id> <user-id>
+plur1bus project agent add <project-id> main
+plur1bus project agent remove <project-id> main
+plur1bus project archive <project-id>
+plur1bus trace list <project-id>
+plur1bus trace show <trace-id>
+```
+
+All support global `--json`. Projects (`#/projects`) provides list/detail,
+membership and agent forms, archive confirmation, and chain cancellation. Traces
+show parent-span relationships, timestamps, tokens, estimated cost/status and
+existing-port-redacted previews. Null costs remain unknown. The composition root
+opens the project store even without a chat provider; actual consult/delegate
+execution then refuses no-provider, and never switches to a synthetic provider.
+Existing composed runner/budget checks still handle configured collaboration.
+
+D92 “promote chat to project” remains a follow-up: current session kind/project
+association has no authorized mutation port, and this work package excludes new
+session behavior. The existing `/rpc` Web transport still needs the API-layer
+principal binding described in the media surface notes; browser mock tests are
+local UI evidence only.

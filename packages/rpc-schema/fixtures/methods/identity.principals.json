@@ -1,0 +1,9 @@
+{
+  "params": {},
+  "result": {
+    "humanId": "u",
+    "principals": [
+      "user:v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ]
+  }
+}

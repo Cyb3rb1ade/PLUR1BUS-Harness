@@ -58,6 +58,1506 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ## Methods
 
+### `media.preferences.set`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Persistent metadata embedding preference. Call overrides agent overrides global; default off. Writes need settings or agent manage rights.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "embedMetadata": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "embedMetadata"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "global": {
+      "type": "boolean"
+    },
+    "agents": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    }
+  },
+  "required": [
+    "global",
+    "agents"
+  ]
+}
+```
+
+### `media.preferences.get`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Persistent metadata embedding preference. Call overrides agent overrides global; default off. Writes need settings or agent manage rights.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "global": {
+      "type": "boolean"
+    },
+    "agents": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    }
+  },
+  "required": [
+    "global",
+    "agents"
+  ]
+}
+```
+
+### `media.generate`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Queue image generate after RBAC, D109 and budget admission. Returns a durable job id.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "adapter": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32000
+        },
+        "negativePrompt": {
+          "type": "string",
+          "maxLength": 32000
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "size": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8192
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8192
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ]
+        },
+        "format": {
+          "enum": [
+            "png",
+            "jpeg",
+            "webp"
+          ]
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "steps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "guidance": {
+          "type": "number"
+        },
+        "aspect": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "embedMetadata": {
+          "type": "boolean"
+        },
+        "referenceIds": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-f0-9-]{36}$"
+          }
+        },
+        "maskId": {
+          "type": "string",
+          "pattern": "^[a-f0-9-]{36}$"
+        }
+      },
+      "required": [
+        "prompt"
+      ]
+    }
+  },
+  "required": [
+    "agentId",
+    "request"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "jobId": {
+      "type": "string",
+      "pattern": "^[a-f0-9-]{36}$"
+    }
+  },
+  "required": [
+    "jobId"
+  ]
+}
+```
+
+### `media.edit`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Queue image edit after RBAC, D109 and budget admission. Returns a durable job id.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "adapter": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32000
+        },
+        "negativePrompt": {
+          "type": "string",
+          "maxLength": 32000
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "size": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8192
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8192
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ]
+        },
+        "format": {
+          "enum": [
+            "png",
+            "jpeg",
+            "webp"
+          ]
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "steps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "guidance": {
+          "type": "number"
+        },
+        "aspect": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "embedMetadata": {
+          "type": "boolean"
+        },
+        "referenceIds": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-f0-9-]{36}$"
+          }
+        },
+        "maskId": {
+          "type": "string",
+          "pattern": "^[a-f0-9-]{36}$"
+        }
+      },
+      "required": [
+        "prompt"
+      ]
+    }
+  },
+  "required": [
+    "agentId",
+    "request"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "jobId": {
+      "type": "string",
+      "pattern": "^[a-f0-9-]{36}$"
+    }
+  },
+  "required": [
+    "jobId"
+  ]
+}
+```
+
+### `media.job.get`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Read or cancel an authorized agent media job; never expose reference bytes or credentials.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-f0-9-]{36}$"
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `media.job.cancel`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Read or cancel an authorized agent media job; never expose reference bytes or credentials.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-f0-9-]{36}$"
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "cancelled": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "cancelled"
+  ]
+}
+```
+
+### `media.job.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+List only jobs readable by this principal.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  },
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "jobs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
+  },
+  "required": [
+    "jobs"
+  ]
+}
+```
+
+### `media.output.get`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Get a private manifest and optionally one bounded base64 image for display or download.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-f0-9-]{36}$"
+    },
+    "file": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "manifest": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "data": {
+      "type": "string"
+    },
+    "mimeType": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "canShare": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "manifest",
+    "canShare"
+  ]
+}
+```
+
+### `media.output.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+List visible output manifests, filtered by agent, adapter and creation date.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "adapter": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "after": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "before": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
+  },
+  "required": [
+    "outputs"
+  ]
+}
+```
+
+### `media.output.delete`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Delete an output after object authorization.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-f0-9-]{36}$"
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "deleted": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "deleted"
+  ]
+}
+```
+
+### `media.adapters.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Discover configured adapter capabilities; secrets are never returned.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "adapters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
+  },
+  "required": [
+    "adapters"
+  ]
+}
+```
+
+### `project.create`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Authenticated project create using ADR-007 object rights.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `project.get`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Authenticated project get using ADR-007 object rights.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "projectId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `project.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Authenticated project list using ADR-007 object rights.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
+  },
+  "required": [
+    "projects"
+  ]
+}
+```
+
+### `project.update`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Authenticated project update using ADR-007 object rights.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "projectId",
+    "name"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `project.archive`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Authenticated project archive using ADR-007 object rights.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "projectId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `project.member.add`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Authenticated project member.add using ADR-007 object rights.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "role": {
+      "enum": [
+        "member",
+        "lead"
+      ]
+    }
+  },
+  "required": [
+    "projectId",
+    "userId",
+    "role"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `project.member.remove`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Authenticated project member.remove using ADR-007 object rights.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "projectId",
+    "userId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `project.member.role`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Authenticated project member.role using ADR-007 object rights.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "role": {
+      "enum": [
+        "member",
+        "lead"
+      ]
+    }
+  },
+  "required": [
+    "projectId",
+    "userId",
+    "role"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `project.agent.add`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Authenticated project agent.add using ADR-007 object rights.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  },
+  "required": [
+    "projectId",
+    "agentId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `project.agent.remove`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Authenticated project agent.remove using ADR-007 object rights.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  },
+  "required": [
+    "projectId",
+    "agentId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `collab.trace.get`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Authorized collaboration trace.get; previews are redacted by the existing port.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "traceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "traceId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `collab.trace.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Authorized collaboration trace.list; previews are redacted by the existing port.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "projectId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "traces": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
+  },
+  "required": [
+    "traces"
+  ]
+}
+```
+
+### `collab.chain.cancel`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Authorized collaboration chain.cancel; previews are redacted by the existing port.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "traceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "traceId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "cancelled": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "cancelled"
+  ]
+}
+```
+
+### `identity.link.request`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Human-only link.request; self or authenticated administrator, codes revealed only once.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "humanId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "channel": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "channel"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "id",
+    "code",
+    "expiresAt"
+  ]
+}
+```
+
+### `identity.link.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Human-only link.list; self or authenticated administrator, codes revealed only once.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "humanId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "links": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "pairings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "humanId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "links",
+    "pairings",
+    "humanId"
+  ]
+}
+```
+
+### `identity.link.approve`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Human-only link.approve; self or authenticated administrator, codes revealed only once.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "pairingId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "pairingId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `identity.link.decline`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Human-only link.decline; self or authenticated administrator, codes revealed only once.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "pairingId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "pairingId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `identity.link.remove`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Human-only link.remove; self or authenticated administrator, codes revealed only once.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "linkId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "linkId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `identity.principals`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Human-only principals; self or authenticated administrator, codes revealed only once.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "humanId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "humanId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "principals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    }
+  },
+  "required": [
+    "humanId",
+    "principals"
+  ]
+}
+```
+
 ### `core.auth`
 
 **Stability:** stable · since 1.0.0
@@ -6996,6 +8496,98 @@ D109 §6: verifies the HMAC-SHA256 chain of the approval store (the `1staid chec
 ## Notifications
 
 Delivered on the same connection to clients that called `events.subscribe`.
+
+### `media.job.progress`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Authorized connection receives job progress.
+
+```json
+{
+  "description": "Authorized connection receives job progress.",
+  "x-server": "core",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "jobId": {
+      "type": "string",
+      "pattern": "^[a-f0-9-]{36}$"
+    },
+    "agentId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "state": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "fraction": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  },
+  "required": [
+    "jobId",
+    "agentId",
+    "state",
+    "fraction"
+  ]
+}
+```
+
+### `media.job.finished`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Authorized connection receives job finished.
+
+```json
+{
+  "description": "Authorized connection receives job finished.",
+  "x-server": "core",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "jobId": {
+      "type": "string",
+      "pattern": "^[a-f0-9-]{36}$"
+    },
+    "agentId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "state": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "fraction": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  },
+  "required": [
+    "jobId",
+    "agentId",
+    "state",
+    "fraction"
+  ]
+}
+```
 
 ### `core.state`
 

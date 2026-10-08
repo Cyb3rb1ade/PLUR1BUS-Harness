@@ -1,3 +1,5 @@
+import { outputAttachment, type OutputPort } from "./outputs.ts";
+import type { IdentityService } from "../../core/src/identity/service.ts";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Channel, ChannelHost, OutboundMessage } from "../../core/src/channels/types.ts";
 import { TelegramApi, TelegramApiError, type TelegramUpdate, type TelegramMessage } from "./api.ts";
@@ -21,6 +23,9 @@ import type {
 } from "./port.ts";
 
 export interface TelegramChannelOptions {
+  /** Host-supplied private pairing port; authenticated sender triple comes from Telegram, never command text. */
+  pairing?: Pick<IdentityService, "claim">;
+  outputs?: OutputPort;
   tokenSecret: string;
   secrets: SecretReader;
   /** Empty allows nobody, inbound and outbound. */
@@ -222,6 +227,12 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
   }
   prompt(chatId: string, text: string, buttons: readonly (readonly Button[])[]): Promise<readonly string[]> {
     return this.sendTurn({ chatId, text, buttons });
+  }
+  async sendOutput(chatId: string, outputId: string, index = 0): Promise<readonly string[]> {
+    this.#target(chatId);
+    if (!this.#o.outputs) throw new Error("media output store unavailable");
+    const attachment = await outputAttachment(this.#o.outputs, outputId, chatId, index);
+    return this.sendTurn({ chatId, text: "", attachments: [attachment] });
   }
   async sendTurn(turn: OutboundTurn): Promise<readonly string[]> {
     if (!this.#api || !this.#ac) throw new Error("telegram channel is not started");
@@ -565,6 +576,17 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
       }
       return;
     }
+    if (message.command?.name === "link") {
+      let reply = "Pairing failed. Request a new code in My identities.";
+      if (message.chatKind === "direct" && this.#o.pairing && this.#botId !== undefined) {
+        try {
+          this.#o.pairing.claim({ code: message.command.argument, identity: { channel: "telegram", accountId: String(this.#botId), userId: message.senderId } });
+          reply = "Pairing claimed. Confirm this link in My identities.";
+        } catch { /* Uniform message; the identity port owns durable rate limits. Never log the submitted code. */ }
+      }
+      await this.send(chatId, reply);
+      return;
+    }
     if (message.command?.name === "help") {
       try {
         await this.send(
@@ -683,6 +705,7 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
       const commands = new Map(
         ["start", "help", "new", "web"].map((command, i) => [command, { command, description: descriptions[i]! }]),
       );
+      if (this.#o.pairing) commands.set("link", { command: "link", description: language_code === "de" ? "Kanalidentität verknüpfen" : "Link channel identity" });
       for (const c of this.#o.commands ?? []) commands.set(c.command, c);
       for (const scope of scopes)
         await this.#api!.call("setMyCommands", { commands: [...commands.values()], scope, language_code }, signal);

@@ -28,6 +28,10 @@ export class OutputStore {
     for (const e of entries) if (e.isDirectory() && !e.name.startsWith('.')) out.push(JSON.parse(await readFile(join(this.root, e.name, 'manifest.json'), 'utf8')) as Manifest);
     return out;
   }
+  async delete(id: string): Promise<void> {
+    safeId(id);
+    await this.locked(async () => { await rm(join(this.root, id), { recursive: true, force: true }); });
+  }
   async get(id: string): Promise<Manifest | null> {
     try { return JSON.parse(await readFile(join(this.root, safeId(id), 'manifest.json'), 'utf8')) as Manifest; }
     catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null; throw e; }

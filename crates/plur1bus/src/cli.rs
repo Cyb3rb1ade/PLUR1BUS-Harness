@@ -156,8 +156,26 @@ pub enum Cmd {
     Login(StubArgs),
     /// Channels — M4
     Channel(StubArgs),
-    /// Projects — M3
-    Project(StubArgs),
+    /// [experimental] Projects, members and agents (M5)
+    Project {
+        #[command(subcommand)]
+        sub: crate::commands::project::ProjectCmd,
+    },
+    /// [experimental] Collaboration traces
+    Trace {
+        #[command(subcommand)]
+        sub: crate::commands::project::TraceCmd,
+    },
+    /// [experimental] Image jobs and private outputs (MG-3)
+    Media {
+        #[command(subcommand)]
+        sub: crate::commands::media::MediaCmd,
+    },
+    /// [experimental] My channel identities and pairing (Identity v2)
+    Identity {
+        #[command(subcommand)]
+        sub: crate::commands::identity::IdentityCmd,
+    },
     /// [experimental] Import from OpenClaw/Hermes: read-only --detect and the --skills import now; the full import is M7
     Import(ImportArgs),
     /// Uninstall — M8
