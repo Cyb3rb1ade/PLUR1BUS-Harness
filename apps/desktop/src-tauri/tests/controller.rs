@@ -410,6 +410,7 @@ async fn only_everything_removes_the_affected_bundled_token_account() {
             "hint".into(),
         );
         row.credential_provenance = CredentialProvenance::MemoryOnly;
+        row.pending_keychain_cleanup = false;
         row.bundled = Some(BundledRef {
             runtime: ConnRuntime::Docker,
             endpoint: i.endpoint,

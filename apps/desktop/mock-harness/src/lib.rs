@@ -1284,10 +1284,14 @@ async fn spa_script() -> Response {
 
 // Stub-only provisioning. The control router is explicitly enabled and loopback-only.
 async fn test_owner(State(s): State<Arc<Shared>>) -> Response {
-    let mut store=s.store.lock().unwrap();
-    if store.provisioned { return Json(json!({"schema":"error/1","code":"E_EXISTS"})).into_response(); }
-    store.provisioned=true;
-    if s.save(&store).is_err() {return StatusCode::INTERNAL_SERVER_ERROR.into_response();}
+    let mut store = s.store.lock().unwrap();
+    if store.provisioned {
+        return Json(json!({"schema":"error/1","code":"E_EXISTS"})).into_response();
+    }
+    store.provisioned = true;
+    if s.save(&store).is_err() {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    }
     Json(json!({"schema":"user.create/1","userId":"mock-owner"})).into_response()
 }
 
@@ -1351,4 +1355,3 @@ mod control_peer_tests {
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
     }
 }
-
