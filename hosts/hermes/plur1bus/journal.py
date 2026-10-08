@@ -35,12 +35,21 @@ import time
 import uuid
 import zlib
 from collections.abc import Callable
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from ._filelock import FileLock, LockTimeout
 from .binding import atomic_write_text
 
-__all__ = ["CaptureJournal", "JOURNAL_CODES", "JOURNAL_DIR", "JOURNAL_FILE", "LockTimeout", "clean_code", "is_journal_code", "is_journal_error"]
+__all__ = [
+    "JOURNAL_CODES",
+    "JOURNAL_DIR",
+    "JOURNAL_FILE",
+    "CaptureJournal",
+    "LockTimeout",
+    "clean_code",
+    "is_journal_code",
+    "is_journal_error",
+]
 
 log = logging.getLogger("plur1bus")
 log.addHandler(logging.NullHandler())  # records reach Hermes' handlers by propagation; no stderr fallback
@@ -122,7 +131,11 @@ def _unframe(line: bytes) -> bytes | None:
 
 _T = TypeVar("_T")
 _WINDOWS = os.name == "nt"
-_SHARING_WINERRORS = (5, 32, 33)  # ERROR_ACCESS_DENIED, ERROR_SHARING_VIOLATION, ERROR_LOCK_VIOLATION
+_SHARING_WINERRORS = (
+    5,
+    32,
+    33,
+)  # ERROR_ACCESS_DENIED, ERROR_SHARING_VIOLATION, ERROR_LOCK_VIOLATION
 _SHARING_ERRNOS = (errno.EACCES, errno.EPERM, errno.EBUSY)
 SHARING_RETRY_S = 2.0
 
@@ -162,17 +175,24 @@ def _read_shared_nt(path: str) -> bytes:
     import msvcrt
     from ctypes import wintypes
 
-    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
     k32.CreateFileW.restype = wintypes.HANDLE
     k32.CreateFileW.argtypes = (
-        wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE,
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
     )
     generic_read, share_all, open_existing, normal = 0x80000000, 0x7, 3, 0x80
     h = k32.CreateFileW(path, generic_read, share_all, None, open_existing, normal, None)
     if h is None or h == wintypes.HANDLE(-1).value:
-        err = ctypes.get_last_error()
-        raise OSError(None, ctypes.FormatError(err).strip(), path, err)  # winerror -> errno and subclass
-    fd = msvcrt.open_osfhandle(h, os.O_RDONLY)  # owns h from here on
+        err = ctypes.get_last_error()  # type: ignore[attr-defined]
+        message = ctypes.FormatError(err).strip()  # type: ignore[attr-defined]
+        raise OSError(None, message, path, err)  # winerror -> errno and subclass
+    fd = msvcrt.open_osfhandle(h, os.O_RDONLY)  # type: ignore[attr-defined]  # owns h from here on
     with os.fdopen(fd, "rb") as f:
         return f.read()
 
@@ -184,7 +204,7 @@ def _code_of(exc: BaseException) -> str | None:
 class CaptureJournal:
     def __init__(
         self,
-        dir: str,  # noqa: A002
+        dir: str,
         *,
         max_entries: int = 1000,
         max_bytes: int = 4 * 1024 * 1024,
@@ -215,7 +235,11 @@ class CaptureJournal:
         os.makedirs(self.dir, mode=0o700, exist_ok=True)
         st = os.lstat(self.dir)
         if not stat.S_ISDIR(st.st_mode) or st.st_uid != os.geteuid():
-            raise PermissionError(errno.EACCES, "the journal directory is not a directory owned by this user", self.dir)
+            raise PermissionError(
+                errno.EACCES,
+                "the journal directory is not a directory owned by this user",
+                self.dir,
+            )
         if st.st_mode & 0o077:
             os.chmod(self.dir, 0o700)
         for f in (self.path, self.state_path, self.dead_letter_path):
@@ -284,7 +308,7 @@ class CaptureJournal:
         except OSError:
             return False
 
-    def _read_state(self, *, strict: bool = False) -> dict:
+    def _read_state(self, *, strict: bool = False) -> dict[str, Any]:
         """The counters. A missing or corrupt file is ``{}``. Any other read error past the sharing retries is
         ``{}`` for readers, but raised when ``strict`` (a read-modify-write must not reset the counters)."""
         try:
@@ -308,7 +332,7 @@ class CaptureJournal:
 
     # -- API --------------------------------------------------------------------------------------
 
-    def append(self, entry: dict, *, timeout: float = DEFAULT_LOCK_TIMEOUT_S) -> None:
+    def append(self, entry: dict[str, Any], *, timeout: float = DEFAULT_LOCK_TIMEOUT_S) -> None:
         """Queue one capture (``entry`` is JSON-serialisable). Enforces the bounds, oldest dropped first.
         Raises ``LockTimeout`` (nothing written) when the lock stays busy past ``timeout``."""
         entry = dict(entry)
@@ -336,7 +360,11 @@ class CaptureJournal:
                 self._write_lines(lines)
                 self._bump_locked(dropped=dropped)
         if dropped:
-            log.warning("plur1bus: capture journal full, dropped %d oldest entr%s", dropped, "y" if dropped == 1 else "ies")
+            log.warning(
+                "plur1bus: capture journal full, dropped %d oldest entr%s",
+                dropped,
+                "y" if dropped == 1 else "ies",
+            )
 
     def bump(self, *, timeout: float = DEFAULT_LOCK_TIMEOUT_S, **counts: int) -> None:
         """Add to the counters in ``state.json`` (``rejected``, ``lost``, ...)."""
@@ -344,7 +372,13 @@ class CaptureJournal:
             self._secure()
             self._bump_locked(**counts)
 
-    def dead_letter(self, entry: dict, code: str | None, *, timeout: float = DEFAULT_LOCK_TIMEOUT_S) -> None:
+    def dead_letter(
+        self,
+        entry: dict[str, Any],
+        code: str | None,
+        *,
+        timeout: float = DEFAULT_LOCK_TIMEOUT_S,
+    ) -> None:
         """Keep a capture the core refused for good (audit M3), with its error code, in the bounded 0600
         dead-letter file instead of blocking the queue; counted as ``deadLettered`` and ``rejected``."""
         with self._lock.hold(timeout):
@@ -352,18 +386,28 @@ class CaptureJournal:
             self._dead_letter_locked([(entry, code)])
             self._bump_locked(deadLettered=1, rejected=1)
 
-    def _dead_letter_locked(self, items: list[tuple[dict, str | None]]) -> None:
+    def _dead_letter_locked(self, items: list[tuple[dict[str, Any], str | None]]) -> None:
         records, _ = self._scan_file(self.dead_letter_path)
         now = int(time.time() * 1000)
         for entry, code in items:
-            records.append(json.dumps({"at": now, "code": clean_code(code) or "E_UNKNOWN", "entry": entry}, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+            records.append(
+                json.dumps(
+                    {
+                        "at": now,
+                        "code": clean_code(code) or "E_UNKNOWN",
+                        "entry": entry,
+                    },
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            )
         total = sum(len(_frame(r)) + 1 for r in records)
         while records and (len(records) > self.dead_letter_max_entries or total > self.dead_letter_max_bytes):
             total -= len(_frame(records[0])) + 1
             records.pop(0)
         self._write_file(self.dead_letter_path, records)
 
-    def dead_letters(self) -> list[dict]:
+    def dead_letters(self) -> list[dict[str, Any]]:
         """The dead-letter records (``{at, code, entry}``), oldest first."""
         out = []
         for raw in self._scan_file(self.dead_letter_path)[0]:
@@ -375,11 +419,14 @@ class CaptureJournal:
                 out.append(doc)
         return out
 
-    def details(self) -> dict:
+    def details(self) -> dict[str, Any]:
         """Counters beyond ``counts()``: ``deadLettered`` (permanent refusals kept aside) and ``damaged``
         (journal records skipped because their frame did not check out)."""
         state = self._read_state()
-        return {"deadLettered": _int(state.get("deadLettered")), "damaged": _int(state.get("damaged"))}
+        return {
+            "deadLettered": _int(state.get("deadLettered")),
+            "damaged": _int(state.get("damaged")),
+        }
 
     def reject(self, n: int = 1, *, timeout: float = DEFAULT_LOCK_TIMEOUT_S) -> None:
         """Count a capture the core refused for a permanent reason (never queued, F5)."""
@@ -400,7 +447,7 @@ class CaptureJournal:
     def last_error(self) -> str | None:
         return clean_code(self._read_state().get("lastError"))
 
-    def counts(self) -> dict:
+    def counts(self) -> dict[str, int]:
         """``{"queued", "dropped", "rejected", "lost"}``: entries waiting, entries dropped by the bounds,
         captures the core refused for good, captures that could not be journaled at all. Lock-free read
         (a rewrite is an atomic rename); never raises: a journal still unreadable after the Windows sharing
@@ -418,7 +465,13 @@ class CaptureJournal:
             "lost": _int(state.get("lost")),
         }
 
-    def drain(self, send: Callable[[dict], None], *, batch: int = DRAIN_BATCH, timeout: float = DEFAULT_LOCK_TIMEOUT_S) -> int:
+    def drain(
+        self,
+        send: Callable[[dict[str, Any]], None],
+        *,
+        batch: int = DRAIN_BATCH,
+        timeout: float = DEFAULT_LOCK_TIMEOUT_S,
+    ) -> int:
         """Replay queued entries oldest first with ``send``. Stops at the first transport-class failure
         (that entry stays); a permanent failure drops the entry, counts it and goes on. The file is
         rewritten once per batch of ``batch`` entries, and ``send`` runs without the lock, so appends
@@ -436,7 +489,7 @@ class CaptureJournal:
                         self._bump_locked(damaged=damaged)
                 return sent
             done: list[bytes] = []
-            dead: list[tuple[dict, str | None]] = []
+            dead: list[tuple[dict[str, Any], str | None]] = []
             rejected = 0
             stop = False
             for raw in snapshot:
@@ -455,7 +508,10 @@ class CaptureJournal:
                     if is_journal_error(e, code):
                         stop = True
                         break
-                    log.warning("plur1bus: set aside a journaled capture the core refused (%s)", code or type(e).__name__)
+                    log.warning(
+                        "plur1bus: set aside a journaled capture the core refused (%s)",
+                        code or type(e).__name__,
+                    )
                     done.append(raw)
                     dead.append((entry, code or type(e).__name__))
                     continue

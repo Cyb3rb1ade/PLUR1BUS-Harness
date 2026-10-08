@@ -1,0 +1,29 @@
+[tool.ruff]
+line-length = 160
+target-version = "py311"
+include = ["plur1bus/**/*.py"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "BLE", "RUF", "UP", "S"]
+ignore = ["E501", "S101"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["plur1bus"]
+mypy_path = "$MYPY_CONFIG_FILE_DIR/tests/stubs"
+
+[[tool.mypy.overrides]]
+module = ["agent.memory_provider"]
+# Hermes supplies this API at runtime; its test fixture intentionally mirrors signatures, not strict typing.
+disable_error_code = ["no-untyped-def", "type-arg"]
+
+[[tool.mypy.overrides]]
+module = [
+  "plur1bus._vendor",
+  "plur1bus._vendor.*",
+  "plur1bus_memory_client",
+  "plur1bus_memory_client.*",
+]
+# The client is vendored by the installer and is not present in a source checkout.
+ignore_missing_imports = true
