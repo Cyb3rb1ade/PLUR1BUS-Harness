@@ -56,28 +56,30 @@ No real credentials or external network are used by tests. Fake servers bind onl
 | Adapter | Implemented profile | Generate | Edit | Mask | Resume | Status |
 |---|---|---|---|---|---|---|
 | OpenRouter | Chat completions, image/text modalities | yes | references | no | no | verified protocol; live unverified |
-| Replicate | FLUX schnell model prediction input | yes | no | no | yes | verified protocol; live unverified |
-| fal | FLUX schnell queue API | yes | no | no | yes | verified protocol; live unverified |
+| Replicate | Predictions API, input mapped from the model's published schema (FLUX schnell fallback) | yes | references and mask, if the model declares them | model-dependent | yes | verified protocol; live unverified |
+| fal | Queue API, `image_url` / `mask_url` for edit and inpainting endpoints | yes | one reference | yes | yes | verified protocol; live unverified |
 | Together | Images generations | yes | no | no | no | verified protocol; live unverified |
 | OpenAI | GPT Image generations and multipart edits | yes | yes | yes | no | verified protocol; live unverified |
 | Google | Gemini generateContent image output | yes | references | no | no | verified protocol; live unverified |
 | xAI | Grok image generations | yes | no | no | no | verified protocol; live unverified |
-| Draw Things | HTTP txt2img / img2img | yes | one reference | no | no | verified protocol; live unverified |
-| Core ML | Apple's StableDiffusionPipeline, SD model folders | yes | no | no | no | fake-helper protocol verified; native build verified on macOS arm64; model run unverified |
+| Draw Things | HTTP txt2img / img2img (the app ignores masks, so none are accepted) | yes | one reference | no | no | verified protocol; live unverified |
+| Core ML | Apple's StableDiffusionPipeline, SD model folders, one-shot or JSON-Lines (`--jsonl`) helper | yes | one reference (JSON-Lines helper) | no | no | fake-helper protocol and native protocol verified; model run unverified |
 
-Replicate/fal parameter mapping is for FLUX schnell, not arbitrary model schemas.
-Use `black-forest-labs/flux-schnell` and `fal-ai/flux/schnell` respectively. Google
-uses Gemini; an Imagen-specific adapter is a follow-up. Core ML dimensions come
+Replicate reads the model's published input schema and maps the request onto it; a
+model without one falls back to the FLUX schnell profile. fal passes edit and
+inpainting images as `image_url` / `mask_url`. Google uses Gemini; Imagen is not
+implemented because Google has shut it down in the Gemini API. Core ML dimensions come
 from the compiled model, so explicit size/aspect and formats other than PNG are
 refused. Draw Things' HTTP handler does not apply an inpainting mask; it is not
-advertised. OpenRouter and Gemini implement `n` through sequential one-image
+advertised. Per-adapter setup, defaults and limits: `docs/media-adapters.md`. OpenRouter and Gemini implement `n` through sequential one-image
 calls, with aggregate progress. A later transport failure can return a partial
 batch; moderation and caller cancellation always fail the batch.
 
 Errors expose only stable codes: `content_policy`, `quota`, `too_large`,
 `unsupported_parameter`, `backend_unavailable`, `timeout`, `cancelled`,
 `invalid_response`, `interrupted`. Provider text, authorization and signed URLs
-never enter errors. Moderation is never disabled or retried elsewhere. Registry
+never enter errors. A 401/403 is `backend_unavailable` with `error.reason`
+`auth_invalid` / `auth_forbidden`. Moderation is never disabled or retried elsewhere. Registry
 fallback only handles `backend_unavailable`; policy/quota/timeout/cancellation
 stop immediately. Polling cancellation attempts the provider cancel endpoint;
 remote completion/billing may still occur.
@@ -134,8 +136,11 @@ the host must schedule it. No background scheduler is installed.
 Embedding precedence is **call > agent > global > false**. The global setting is
 `OutputStore`'s `embedMetadata`; the agent value is `put(..., agentMetadata)`; the
 call value is `request.embedMetadata`. Manifest data is independent of this flag.
-PNG uses UTF-8 iTXt without re-encoding pixels. JPEG/WebP embedding is currently
-unsupported and an enabled request is refused; EXIF support is a follow-up.
+PNG uses UTF-8 iTXt without re-encoding pixels. JPEG and WebP carry one XMP packet
+(`plur1bus:payload`, the same JSON), written without re-encoding; EXIF/XMP already in
+the file is removed first. Other formats are refused. Independent of embedding,
+reference images and masks lose EXIF/GPS, XMP, IPTC, comments and PNG text chunks
+before any adapter sends them (see `docs/media-adapters.md`).
 
 ## Core ML helper
 
@@ -156,9 +161,12 @@ checker). Existing Mochi model folders are usable only if compatible with this
 layout; SDXL/SD3 pipelines are follow-ups. No models are downloaded automatically.
 `CoreMLAdapter.listModels()` asks the helper to enumerate compatible folders.
 
-stdin contains one JSON object and is closed after writing. stdout is newline
-JSON: progress messages, then one result with relative PNG filenames, or a stable
-error. The TS adapter gives the child a private temporary output directory and
+Without flags, stdin contains one JSON object and is closed after writing. stdout is
+newline JSON: progress messages, then one result with relative PNG filenames, or a
+stable error. With `--jsonl` the helper serves `generate`, `img2img`, `list-models`
+and `cancel` requests over JSON lines until stdin closes and keeps the model loaded;
+`--capabilities` announces `jsonl/1` and the TS adapter falls back to the one-shot
+protocol for a binary that does not. See `docs/media-adapters.md`. The TS adapter gives the child a private temporary output directory and
 an empty environment (no inherited provider keys), reads bounded output, checks
 filenames and symlinks, then removes the temporary directory. SIGTERM/SIGINT
 stop at a diffusion step; the parent escalates to SIGKILL after one second.
@@ -176,8 +184,9 @@ retention, metadata precedence and sanitized failures.
 
 Remaining follow-ups: the D109 media policy/API gates described below, production
 channel host/compression binding, ComfyUI workflows and progress,
-A1111/Forge, model-specific gateway edit profiles, Imagen, xAI edits, EXIF,
-SDXL/SD3, helper CI/model acceptance, host scheduling and Video (MG-2).
+A1111/Forge, model-specific gateway edit profiles, xAI edits (documented by xAI,
+response shape unverified), OpenRouter's dedicated images endpoint, SDXL/SD3, helper
+CI/model acceptance, host scheduling and Video (v0.2).
 
 ## Licenses and sources
 
