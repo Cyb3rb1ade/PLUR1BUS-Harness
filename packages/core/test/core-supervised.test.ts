@@ -165,6 +165,11 @@ describe("core supervised mode", () => {
 describe("core supervised mode during the journal replay (B2)", () => {
   const jline = (id: string) => ({ v: 1 as const, id, at: 1, agentId: "bernd", sessionKey: "s1", caller, messages: [{ role: "user" as const, content: "Please remember that the boiler service is on Tuesday." }, { role: "assistant" as const, content: "Noted." }] as [any, any] });
 
+  // Generous: both tests need the replay to still be running after start() resolves, a connect, an adoption and a
+  // GRACE_MS sleep, each of which takes seconds on a loaded Windows runner. Neither test waits for the replay to end
+  // (stop() abandons it after min(5000, budgetMs / 2)), so a long replay costs only the stop's wait.
+  const REPLAY_MS = GRACE_MS * 8;
+
   /** A core whose journal replay embeds one line for `replayMs`; start() resolves ready before it is replayed. */
   function slowReplay(replayMs: number) {
     const home = newHome(); const l = layout(home); const lifeline = new PassThrough(); let expired = 0;
@@ -175,7 +180,7 @@ describe("core supervised mode during the journal replay (B2)", () => {
   }
 
   it("a lifeline lost before ready orphans the core at ready, and an adoption during the replay re-attaches it", async () => {
-    const s = slowReplay(GRACE_MS * 2);
+    const s = slowReplay(REPLAY_MS);
     s.lifeline.end(); // supervisor A is gone before the core is ready
     let c: CoreClient | null = null;
     try {
@@ -189,12 +194,12 @@ describe("core supervised mode during the journal replay (B2)", () => {
       await sleep(GRACE_MS + 200);
       assert.equal(s.core.status().process.state, "ready"); assert.equal(s.expired(), 0);
       await c.close(); c = null;
-      await until(() => s.core.status().process.state === "orphaned");
+      await until(() => s.core.status().process.state === "orphaned", 10_000);
     } finally { await c?.close(); await s.core.stop({ budgetMs: 5000 }); }
   });
 
   it("a lifeline lost before ready whose grace runs out during the replay stops the core once", async () => {
-    const s = slowReplay(GRACE_MS * 3);
+    const s = slowReplay(REPLAY_MS);
     s.lifeline.end();
     try {
       await s.core.start();
