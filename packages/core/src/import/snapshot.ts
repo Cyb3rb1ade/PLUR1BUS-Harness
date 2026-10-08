@@ -219,6 +219,21 @@ class TarStreamReader {
       remaining -= take;
     }
   }
+
+  async drain(): Promise<void> {
+    this.buf = Buffer.alloc(0);
+    while (!this.done) {
+      const next = await this.chunks.next();
+      if (next.done) {
+        this.done = true;
+        break;
+      }
+      this.totalStreamBytes += next.value.length;
+      if (this.totalStreamBytes > this.maxBytes + 16 * 1024 * 1024) {
+        throw new ImportError("E_LIMIT_EXCEEDED", "too-large", `Tar stream exceeded max bytes limit (${this.maxBytes})`, 3);
+      }
+    }
+  }
 }
 
 /**
@@ -461,6 +476,7 @@ export async function extractTarStream(
       if (pad > 0) await reader.skip(pad);
     }
 
+    await reader.drain();
     return { filesCount: totalFiles, bytesCount: totalBytes };
   } catch (err) {
     // On error, clean up staging dir immediately

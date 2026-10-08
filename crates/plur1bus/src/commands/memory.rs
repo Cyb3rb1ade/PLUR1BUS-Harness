@@ -21,7 +21,7 @@ pub(crate) fn connect(layout: &Layout, call_timeout: Duration) -> Result<Client,
         ),
         token.trim(),
         ConnectOptions {
-            connect_timeout: Duration::from_millis(300),
+            connect_timeout: Duration::from_secs(2),
             call_timeout,
             ..ConnectOptions::default()
         },

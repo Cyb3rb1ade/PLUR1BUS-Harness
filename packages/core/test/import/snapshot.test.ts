@@ -133,6 +133,20 @@ describe("snapshot — tar extractor security and boundaries (G6)", { timeout: 1
     );
   });
 
+  it("drains the stream after the tar EOF marker", async () => {
+    const staging = tempDir("p1b-snap-test-");
+    const tar = packTarBuffer([{ path: "valid.txt", content: "hello" }]);
+    let drained = false;
+    async function* stream() {
+      yield tar;
+      yield Buffer.alloc(512);
+      drained = true;
+    }
+
+    await extractTarStream(stream(), staging);
+    assert.equal(drained, true);
+  });
+
   it("rejects unsupported or unknown typeflags (I1)", async () => {
     const staging = tempDir("p1b-snap-test-");
     // Typeflag '7' is contiguous file, 'S' is GNU sparse
