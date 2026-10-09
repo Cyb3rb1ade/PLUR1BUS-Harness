@@ -17,12 +17,11 @@ mod repair;
 mod service;
 mod supervisor;
 mod update;
-use clap::Parser;
 use cli::{Cli, Cmd};
 use output::Out;
 
 fn main() {
-    let cli = Cli::parse();
+    let cli = cli::parse();
     let out = Out { json: cli.json };
     let home = paths::resolve_home_from_process(cli.home.as_deref());
     let layout = paths::Layout::new(home);
@@ -36,6 +35,8 @@ fn main() {
         Cmd::Markdown => {
             output::say_raw(&clap_markdown::help_markdown::<Cli>());
         }
+        Cmd::Completions { shell } => commands::completions::run(shell),
+        Cmd::Manpages { dir } => commands::completions::manpages(&out, &dir),
         Cmd::Setup(args) => commands::setup::run(&out, &layout, args),
         Cmd::FirstAid {
             sub: cli::FirstAidCmd::Repair(args),

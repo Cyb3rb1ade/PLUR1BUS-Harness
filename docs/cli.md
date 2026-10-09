@@ -182,6 +182,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus ext inspect`↴](#plur1bus-ext-inspect)
 * [`plur1bus ext pack`↴](#plur1bus-ext-pack)
 * [`plur1bus ext verify`↴](#plur1bus-ext-verify)
+* [`plur1bus completions`↴](#plur1bus-completions)
 
 ## `plur1bus`
 
@@ -225,11 +226,24 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `skill` — Skills from packages, folders or archives: list, show, install, uninstall, restore, enable, disable
 * `plugin` — Plugins (modules and channels) from packages: list, show, install, uninstall, restore, enable, disable
 * `ext` — Extension packages (`.p1x`): inspect, pack, verify
+* `completions` — [experimental] Print a shell completion script to stdout
 
 ###### **Options:**
 
 * `--home <PATH>` — State root (default: ~/.plur1bus, %LOCALAPPDATA%\PLUR1BUS, or $PLUR1BUS_HOME)
 * `--json` — Machine-readable output (stable shape, see docs/cli.md)
+* `--color <WHEN>` — When to colour output: auto (a terminal, unless `NO_COLOR` is set and non-empty), always, never
+
+  Default value: `auto`
+
+  Possible values:
+  - `auto`:
+    Colour only when the stream is a terminal and `NO_COLOR` is unset or empty
+  - `always`:
+    Always colour, even into a pipe or with `NO_COLOR` set
+  - `never`:
+    Never colour
+
 
 
 
@@ -2816,6 +2830,29 @@ Trusts only the pinned keys, checks no revocations and no installed names. Exit 
 ###### **Arguments:**
 
 * `<FILE>`
+
+
+
+## `plur1bus completions`
+
+[experimental] Print a shell completion script to stdout
+
+Supported shells: bash, zsh, fish, powershell, elvish. Install it where your shell loads completions from (see the examples).
+
+**Usage:** `plur1bus completions <SHELL>`
+
+Examples:
+  plur1bus completions bash > ~/.local/share/bash-completion/completions/plur1bus
+  plur1bus completions zsh > "${fpath[1]}/_plur1bus"
+  plur1bus completions fish > ~/.config/fish/completions/plur1bus.fish
+  plur1bus completions powershell | Out-String | Invoke-Expression
+
+###### **Arguments:**
+
+* `<SHELL>` — Shell to generate the script for
+
+  Possible values: `bash`, `elvish`, `fish`, `powershell`, `zsh`
+
 
 
 
