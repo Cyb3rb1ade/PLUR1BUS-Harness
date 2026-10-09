@@ -12,6 +12,7 @@ struct Fake {
     gate_err: Option<String>,
     start_err_once: RefCell<Option<String>>,
     alive: bool,
+    disable_err: Option<String>,
 }
 
 impl Host for Fake {
@@ -35,6 +36,30 @@ impl Host for Fake {
     }
     fn alive(&self, _: u32) -> bool {
         self.alive
+    }
+    fn disable_addons(
+        &self,
+        _: &Layout,
+        plan: &addons::AddonPlan,
+        _: &str,
+        _: &str,
+    ) -> Result<(), String> {
+        self.calls
+            .borrow_mut()
+            .push(format!("disable:{}", plan.disable.join(",")));
+        self.disable_err.clone().map_or(Ok(()), Err)
+    }
+    fn restore_addons(&self, _: &Layout, names: &[String]) -> Vec<String> {
+        self.calls
+            .borrow_mut()
+            .push(format!("restore:{}", names.join(",")));
+        Vec::new()
+    }
+    fn reenable_addons(&self, _: &Layout, names: &[String]) -> Vec<(String, String)> {
+        self.calls
+            .borrow_mut()
+            .push(format!("reenable:{}", names.join(",")));
+        Vec::new()
     }
 }
 
@@ -95,8 +120,11 @@ fn env() -> Env {
         binary: Asset {
             url: new_bin.to_string_lossy().into(),
             sha256: sha(&new_bin),
+            size: None,
         },
         core: None,
+        addons: Default::default(),
+        record_seen: false,
     };
     Env {
         _d: d,
@@ -122,6 +150,7 @@ fn with_core(e: &mut Env) {
         Asset {
             url: tar.to_string_lossy().into(),
             sha256: sha(&tar),
+            size: None,
         },
         manifest::ReleaseCore {
             version: "0.2.0".into(),
@@ -389,4 +418,130 @@ fn manual_rollback_without_an_update_says_so() {
             .reason,
         "nothing-to-roll-back"
     );
+}
+
+fn with_addons(e: &mut Env, disable: &[&str], reenable: &[&str]) {
+    e.plan.addons = addons::AddonPlan {
+        disable: disable.iter().map(|s| s.to_string()).collect(),
+        reenable: reenable.iter().map(|s| s.to_string()).collect(),
+        ..Default::default()
+    };
+}
+
+#[test]
+fn incompatible_addons_are_disabled_after_the_swap_and_before_the_start() {
+    let mut e = env();
+    with_addons(&mut e, &["fancy", "other"], &["back"]);
+    let host = Fake {
+        running: true,
+        ..Default::default()
+    };
+    let st = apply(&e.layout, &host, &e.plan, &e.bin).unwrap();
+    assert_eq!(st.phase, Phase::Committed);
+    assert_eq!(
+        *host.calls.borrow(),
+        [
+            "stop",
+            "disable:fancy,other",
+            "start:new-binary",
+            "gate",
+            "reenable:back"
+        ],
+        "re-enabled only once the new version is healthy"
+    );
+    assert_eq!(st.addons_disabled, ["fancy", "other"]);
+}
+
+#[test]
+fn a_rollback_puts_the_addons_back_and_a_failed_disable_is_a_rollback() {
+    let mut e = env();
+    with_addons(&mut e, &["fancy"], &["back"]);
+    let before = originals(&e);
+    let host = Fake {
+        running: true,
+        gate_err: Some("nope".into()),
+        ..Default::default()
+    };
+    let st = apply(&e.layout, &host, &e.plan, &e.bin).unwrap();
+    assert_eq!(st.phase, Phase::RolledBack);
+    assert_eq!(originals(&e), before);
+    let calls = host.calls.borrow();
+    assert!(calls.contains(&"restore:fancy".to_string()), "{calls:?}");
+    assert!(
+        !calls.iter().any(|c| c.starts_with("reenable")),
+        "{calls:?}"
+    );
+    drop(calls);
+
+    let mut e = env();
+    with_addons(&mut e, &["fancy"], &[]);
+    let host = Fake {
+        running: true,
+        disable_err: Some("fancy: config.json is invalid".into()),
+        ..Default::default()
+    };
+    let st = apply(&e.layout, &host, &e.plan, &e.bin).unwrap();
+    assert_eq!(
+        (st.phase, st.reason.as_deref()),
+        (Phase::RolledBack, Some("addon-disable-failed"))
+    );
+    assert!(st.message.unwrap().contains("config.json is invalid"));
+    assert_eq!(fs::read(&e.bin).unwrap(), b"old-binary");
+    assert!(
+        !host
+            .calls
+            .borrow()
+            .iter()
+            .any(|c| c.starts_with("start:new")),
+        "the new version never started"
+    );
+}
+
+#[test]
+fn a_manual_rollback_re_enables_what_the_update_disabled() {
+    let mut e = env();
+    with_addons(&mut e, &["fancy"], &[]);
+    let host = Fake {
+        running: true,
+        ..Default::default()
+    };
+    apply(&e.layout, &host, &e.plan, &e.bin).unwrap();
+    host.calls.borrow_mut().clear();
+    rollback_manual(&e.layout, &host).unwrap();
+    assert!(host.calls.borrow().contains(&"restore:fancy".to_string()));
+}
+
+#[test]
+fn the_highest_seen_version_is_recorded_once_the_artefacts_verified_and_not_before() {
+    let mut e = env();
+    e.plan.record_seen = true;
+    let host = Fake::default();
+    // A download that fails the digest records nothing.
+    let good = e.plan.binary.sha256.clone();
+    e.plan.binary.sha256 = "0".repeat(64);
+    assert!(apply(&e.layout, &host, &e.plan, &e.bin).is_err());
+    assert!(guard::load(&e.layout).unwrap().highest_seen.is_empty());
+    e.plan.binary.sha256 = good;
+    apply(&e.layout, &host, &e.plan, &e.bin).unwrap();
+    assert_eq!(
+        guard::load(&e.layout).unwrap().highest_seen["stable"],
+        "0.2.0"
+    );
+}
+
+#[test]
+fn a_declared_size_must_match_exactly() {
+    let mut e = env();
+    let real = fs::metadata(&e.plan.binary.url).unwrap().len();
+    e.plan.binary.size = Some(real + 1);
+    let err = apply(&e.layout, &Fake::default(), &e.plan, &e.bin).unwrap_err();
+    assert!(
+        matches!(err.reason, "size-mismatch" | "digest-mismatch"),
+        "{err:?}"
+    );
+    e.plan.binary.size = Some(real - 1);
+    let err = apply(&e.layout, &Fake::default(), &e.plan, &e.bin).unwrap_err();
+    assert_eq!(err.reason, "download-too-large");
+    e.plan.binary.size = Some(real);
+    assert!(apply(&e.layout, &Fake::default(), &e.plan, &e.bin).is_ok());
 }

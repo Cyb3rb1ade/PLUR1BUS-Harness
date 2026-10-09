@@ -151,6 +151,24 @@ impl Host for SystemHost {
     fn alive(&self, pid: u32) -> bool {
         crate::proc::pid_alive(pid)
     }
+
+    fn disable_addons(
+        &self,
+        layout: &Layout,
+        plan: &super::addons::AddonPlan,
+        from: &str,
+        to: &str,
+    ) -> Result<(), String> {
+        super::addons::disable_for_update(layout, &plan.items, &plan.disable, from, to)
+    }
+
+    fn restore_addons(&self, layout: &Layout, names: &[String]) -> Vec<String> {
+        super::addons::restore_after_rollback(layout, names)
+    }
+
+    fn reenable_addons(&self, layout: &Layout, names: &[String]) -> Vec<(String, String)> {
+        super::addons::reenable(layout, names)
+    }
 }
 
 /// One pass: the core child is `ready`, and `1staid check` has no `fail`.
