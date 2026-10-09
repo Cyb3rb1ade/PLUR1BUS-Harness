@@ -131,6 +131,14 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus login list`↴](#plur1bus-login-list)
 * [`plur1bus login logout`↴](#plur1bus-login-logout)
 * [`plur1bus channel`↴](#plur1bus-channel)
+* [`plur1bus channel list`↴](#plur1bus-channel-list)
+* [`plur1bus channel show`↴](#plur1bus-channel-show)
+* [`plur1bus channel enable`↴](#plur1bus-channel-enable)
+* [`plur1bus channel disable`↴](#plur1bus-channel-disable)
+* [`plur1bus channel set`↴](#plur1bus-channel-set)
+* [`plur1bus channel test`↴](#plur1bus-channel-test)
+* [`plur1bus channel status`↴](#plur1bus-channel-status)
+* [`plur1bus channel link-help`↴](#plur1bus-channel-link-help)
 * [`plur1bus project`↴](#plur1bus-project)
 * [`plur1bus project create`↴](#plur1bus-project-create)
 * [`plur1bus project list`↴](#plur1bus-project-list)
@@ -219,7 +227,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `grant` — [experimental] Standing permissions: list, add and revoke grants (D109)
 * `approval` — [experimental] Approval requests: the pending queue, approve, deny and verify the chain (D109)
 * `login` — [experimental] Provider sign-in: OAuth (ChatGPT) or an API key from stdin; `login status|list|logout`
-* `channel` — Channels — M4
+* `channel` — [experimental] Channels (switchboard): list, show, enable, disable, set, test, status, link-help
 * `project` — [experimental] Projects, members and agents (M5)
 * `trace` — [experimental] Collaboration traces
 * `media` — [experimental] Image jobs and private outputs (MG-3)
@@ -2034,13 +2042,123 @@ Examples:
 
 ## `plur1bus channel`
 
-Channels — M4
+[experimental] Channels (switchboard): list, show, enable, disable, set, test, status, link-help
 
-**Usage:** `plur1bus channel`
+Generic over the channel registry and the `channels.*` config. A key ending in `Secret` takes the name of a secret, never its value (`plur1bus secret set <name>` reads the value from stdin). Writes need a running core under a supervisor; the channel's module restarts per the key's restart class.
+
+**Usage:** `plur1bus channel <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List the channels: enabled, configured, state and health
+* `show` — [experimental] Show one channel: effective configuration (secrets as names), health and its last error
+* `enable` — [experimental] Enable a channel (writes channels.<id>.enabled; its module restarts)
+* `disable` — [experimental] Disable a channel (writes channels.<id>.enabled; its module restarts)
+* `set` — [experimental] Set one key of a channel, validated against the config schema
+* `test` — [experimental] Check a channel's health; --send-owner also sends a test message to your own linked identity
+* `status` — [experimental] All channels, compact
+* `link-help` — [experimental] How /link pairing works on a channel
+
+
+
+## `plur1bus channel list`
+
+[experimental] List the channels: enabled, configured, state and health
+
+**Usage:** `plur1bus channel list`
+
+
+
+## `plur1bus channel show`
+
+[experimental] Show one channel: effective configuration (secrets as names), health and its last error
+
+**Usage:** `plur1bus channel show <ID>`
 
 ###### **Arguments:**
 
-* `<REST>`
+* `<ID>` — the channel id, as `channel list` prints it
+
+
+
+## `plur1bus channel enable`
+
+[experimental] Enable a channel (writes channels.<id>.enabled; its module restarts)
+
+**Usage:** `plur1bus channel enable <ID>`
+
+###### **Arguments:**
+
+* `<ID>` — the channel id
+
+
+
+## `plur1bus channel disable`
+
+[experimental] Disable a channel (writes channels.<id>.enabled; its module restarts)
+
+**Usage:** `plur1bus channel disable <ID>`
+
+###### **Arguments:**
+
+* `<ID>` — the channel id
+
+
+
+## `plur1bus channel set`
+
+[experimental] Set one key of a channel, validated against the config schema
+
+The key is the path under channels.<id> (for example `allowlist` or `imap.host`); lists and objects are JSON. A key ending in `Secret` takes the NAME of a secret, never its value: store the value with `plur1bus secret set <name>` (it is read from stdin) and pass the name here.
+
+**Usage:** `plur1bus channel set <ID> <KEY> <VALUE>`
+
+Examples:
+  plur1bus channel set discord allowlist '["123456789012345678"]'
+  plur1bus channel set discord replyPolicy mention
+  plur1bus channel set discord tokenSecret channels.discord.token
+
+###### **Arguments:**
+
+* `<ID>` — the channel id
+* `<KEY>` — the key path under channels.<id>
+* `<VALUE>` — the new value (a secret NAME for a `*Secret` key)
+
+
+
+## `plur1bus channel test`
+
+[experimental] Check a channel's health; --send-owner also sends a test message to your own linked identity
+
+**Usage:** `plur1bus channel test [OPTIONS] <ID>`
+
+###### **Arguments:**
+
+* `<ID>` — the channel id
+
+###### **Options:**
+
+* `--send-owner` — send one fixed test message to your own linked identity on this channel (never to anyone else)
+
+
+
+## `plur1bus channel status`
+
+[experimental] All channels, compact
+
+**Usage:** `plur1bus channel status`
+
+
+
+## `plur1bus channel link-help`
+
+[experimental] How /link pairing works on a channel
+
+**Usage:** `plur1bus channel link-help <ID>`
+
+###### **Arguments:**
+
+* `<ID>` — the channel id
 
 
 
