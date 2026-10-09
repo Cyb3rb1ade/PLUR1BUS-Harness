@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createAdapter, MediaError, egressHosts, AdapterRegistry } from '../src/index.ts';
-const b64 = Buffer.from('image').toString('base64');
+import { makePng, makeJpeg } from './adapters-fixtures.ts';
+const png = makePng(); const b64 = png.toString('base64');
 const ids = ['openrouter', 'replicate', 'fal', 'together', 'openai', 'google', 'xai', 'draw-things'] as const;
 async function server(body: unknown, status = 200, delay = 0) {
   const calls: { path: string; body: string; auth: string | undefined }[] = [];
@@ -31,7 +32,7 @@ for (const id of ids) {
       const a = createAdapter({ id, model: 'test', baseUrl: s.url, pollMs: 1 });
       const checkpoints: unknown[] = [];
       const out = await a.generate({ prompt: 'tree', n: 2 }, { onCheckpoint: async t => { checkpoints.push(t); } });
-      assert.equal(Buffer.from(out.files[0]!.bytes).toString(), 'image'); assert.equal(out.partial, !['openrouter', 'google'].includes(id));
+      assert.deepEqual(Buffer.from(out.files[0]!.bytes), png); assert.equal(out.partial, !['openrouter', 'google'].includes(id));
       assert.equal(out.metadata.adapter, id); assert.equal(s.calls[0]!.auth, undefined);
       assert.match(s.calls[0]!.body, /tree/);
       if (id === 'replicate' || id === 'fal') assert.equal(checkpoints.length, 1);
@@ -62,7 +63,7 @@ test('registry capability selection and egress are configuration driven', () => 
 });
 for (const id of ['openai', 'google', 'openrouter', 'draw-things'] as const) {
   test(`${id}: edit references and capability refusals`, async () => {
-    const s = await server(response(id)); const ref = { bytes: Buffer.from('reference'), format: 'png' as const };
+    const s = await server(response(id)); const ref = { bytes: png, format: 'png' as const };
     try {
       const a = createAdapter({ id, model: 'test', baseUrl: s.url });
       await a.edit({ prompt: 'edit tree', referenceImages: [ref], ...(id === 'openai' ? { mask: ref, format: 'jpeg' as const, size: { width: 1024, height: 1024 } } : {}) });
@@ -85,7 +86,8 @@ test('polling restart, failures and cancellation never submit twice', async () =
       assert.ok(s.calls.every(c => !c.path.endsWith('predictions') && c.path !== '/test'));
       await assert.rejects(a.resume!({ prompt: 'tree' }, { resume: { id: '../bad', model: 'test' } }));
       await assert.rejects(a.resume!({ prompt: 'tree' }, { resume: { id: 'existing', model: 'different' } }));
-      await assert.rejects(a.edit({ prompt: 'tree', referenceImages: [{ bytes: Buffer.from('ref'), format: 'png' }] }));
+      // Without a published input schema Replicate has no image input; fal edit models are addressed through image_url (see adapters-fal.test.ts).
+      if (id === 'replicate') await assert.rejects(a.edit({ prompt: 'tree', referenceImages: [{ bytes: png, format: 'png' }] }));
     } finally { await s.close(); }
     const pending = await server({ id: 'remote', request_id: 'remote', status: 'IN_PROGRESS' });
     try {
@@ -108,7 +110,7 @@ test('download URLs never receive authorization, deny redirects and unlisted hos
   const s = createServer(async (req, res) => {
     calls.push(req.url!); assert.equal(req.headers.authorization, undefined);
     if (req.url === '/images/generations') { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ data: [{ url: `${url}/image` }] })); }
-    else { res.setHeader('content-type', 'image/jpeg'); res.end('image'); }
+    else { res.setHeader('content-type', 'image/jpeg'); res.end(makeJpeg()); }
   });
   await new Promise<void>(r => s.listen(0, '127.0.0.1', r)); url = `http://127.0.0.1:${(s.address() as AddressInfo).port}`;
   try { const out = await createAdapter({ id: 'openai', model: 'test', baseUrl: url }).generate({ prompt: 'tree' }); assert.equal(out.files[0]!.format, 'jpeg'); assert.equal(calls.length, 2); } finally { s.closeAllConnections(); await new Promise<void>(r => s.close(() => r())); }
