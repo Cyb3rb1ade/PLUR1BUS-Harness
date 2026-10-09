@@ -409,6 +409,9 @@ pub(crate) fn atomic_json<T: Serialize>(dir: &Path, name: &str, value: &T) -> Re
         // Create the temporary through OwnedDirectory so it gets that DACL before any content is
         // written; MoveFileEx keeps the security descriptor on rename. The handle is closed first
         // because OwnedDirectory opens without FILE_SHARE_DELETE.
+        use std::os::windows::ffi::OsStrExt;
+        use windows_sys::Win32::Storage::FileSystem::{MoveFileExW, MOVEFILE_REPLACE_EXISTING};
+
         let temp_name = format!("{name}.{}.tmp", uuid::Uuid::now_v7().simple());
         let temp = owned.path().join(&temp_name);
         let written = (|| -> std::io::Result<()> {
@@ -417,7 +420,19 @@ pub(crate) fn atomic_json<T: Serialize>(dir: &Path, name: &str, value: &T) -> Re
             file.sync_all()?;
             drop(file);
             owned.check()?;
-            std::fs::rename(&temp, &target)
+            let from_wide: Vec<u16> = temp.as_os_str().encode_wide().chain(Some(0)).collect();
+            let to_wide: Vec<u16> = target.as_os_str().encode_wide().chain(Some(0)).collect();
+            let ok = unsafe {
+                MoveFileExW(
+                    from_wide.as_ptr(),
+                    to_wide.as_ptr(),
+                    MOVEFILE_REPLACE_EXISTING,
+                )
+            };
+            if ok == 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(())
         })();
         if written.is_err() {
             let _ = std::fs::remove_file(&temp);
