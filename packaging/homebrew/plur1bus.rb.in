@@ -26,6 +26,10 @@ class Plur1bus < Formula
   depends_on "node@24"
   def install
     bin.install "bin/plur1bus"
+    generate_completions_from_executable(bin/"plur1bus", "completions", shells: [:bash, :zsh, :fish, :pwsh])
+    mkdir "man"
+    system bin/"plur1bus", "__manpages", "man"
+    man1.install Dir["man/*.1"]
     pkgshare.install "runtime", "licenses", "README.txt"
   end
   def caveats

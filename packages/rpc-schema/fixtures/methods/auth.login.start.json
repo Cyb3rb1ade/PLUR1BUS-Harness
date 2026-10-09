@@ -1,0 +1,4 @@
+{
+  "params": { "provider": "openai" },
+  "result": { "attemptId": "00000000-0000-4000-8000-000000000001", "authorizeUrl": "https://auth.example.invalid/authorize?state=fixture", "callbackPort": 49152 }
+}

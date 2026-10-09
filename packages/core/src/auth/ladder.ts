@@ -3,6 +3,7 @@ import { deviceUrl, type AuthProfile } from "./profile.ts";
 
 export type LoginMethod =
   | "enter_key"        // api_key: the person pastes a key (or a user-obtained token)
+  | "federated_token" // configured external supplier, no interactive flow
   | "adc"              // adc: discover the ambient Google credential, nothing to log in to
   | "delegated_cli"    // external_cli: the person runs the vendor's own login, then attaches
   | "device_code"
@@ -32,6 +33,7 @@ export function planLogin(profile: AuthProfile, snap: EnvSnapshot, opts: PlanOpt
   const hint = (port: number) => `ssh -L ${port}:127.0.0.1:${port} <this-host>`;
   switch (profile.kind) {
     case "api_key": return { method: "enter_key", fallbacks: [], headless };
+    case "federated_token": return { method: "federated_token", fallbacks: [], headless };
     case "adc": return { method: "adc", fallbacks: [], headless };
     case "external_cli": return { method: "delegated_cli", fallbacks: [], headless };
     case "device_code": return { method: "device_code", fallbacks: [], headless };

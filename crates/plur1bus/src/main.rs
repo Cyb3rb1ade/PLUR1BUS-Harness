@@ -17,12 +17,11 @@ mod repair;
 mod service;
 mod supervisor;
 mod update;
-use clap::Parser;
 use cli::{Cli, Cmd};
 use output::Out;
 
 fn main() {
-    let cli = Cli::parse();
+    let cli = cli::parse();
     let out = Out { json: cli.json };
     let home = paths::resolve_home_from_process(cli.home.as_deref());
     let layout = paths::Layout::new(home);
@@ -36,6 +35,8 @@ fn main() {
         Cmd::Markdown => {
             output::say_raw(&clap_markdown::help_markdown::<Cli>());
         }
+        Cmd::Completions { shell } => commands::completions::run(shell),
+        Cmd::Manpages { dir } => commands::completions::manpages(&out, &dir),
         Cmd::Setup(args) => commands::setup::run(&out, &layout, args),
         Cmd::FirstAid {
             sub: cli::FirstAidCmd::Repair(args),
@@ -54,16 +55,14 @@ fn main() {
         Cmd::Secret { sub } => commands::secret::run(&out, &layout, sub),
         Cmd::Grant { sub } => commands::grant::run(&out, &layout, sub),
         Cmd::Approval { sub } => commands::approval::run(&out, &layout, sub),
-        Cmd::Login(_) => {
-            commands::stubs::milestone(&out, "login", "M2", "API keys and OAuth templates (D16)")
-        }
+        Cmd::Login(args) => commands::login::run(&out, &layout, args),
         Cmd::Channel(_) => commands::stubs::milestone(&out, "channel", "M4", "channels"),
         Cmd::Project { sub } => commands::project::run(&out, &layout, sub),
         Cmd::Trace { sub } => commands::project::trace(&out, &layout, sub),
         Cmd::Media { sub } => commands::media::run(&out, &layout, sub),
         Cmd::Identity { sub } => commands::identity::run(&out, &layout, sub),
         Cmd::Import(args) => commands::import::run(&out, &layout, args),
-        Cmd::Uninstall(_) => commands::stubs::milestone(&out, "uninstall", "M8", "uninstaller"),
+        Cmd::Uninstall(args) => commands::uninstall::run(&out, &layout, args),
         Cmd::Agent { sub } => commands::agent::run(&out, &layout, sub),
         Cmd::Config { sub } => commands::config::run(&out, &layout, sub),
         Cmd::Memory { sub } => commands::memory::run(&out, &layout, sub),

@@ -70,6 +70,10 @@ const toSummary = (r: Row): SummaryRecord => ({
 });
 
 export class SessionStore {
+  readonly #archiveListeners = new Set<(id: string) => void>();
+  /** Observe committed archive/replacement; resource observers cannot roll back or fail a stored session change. */
+  onArchived(listener: (id: string) => void): () => void { this.#archiveListeners.add(listener); return () => { this.#archiveListeners.delete(listener); }; }
+  #archived(id: string): void { for (const listener of this.#archiveListeners) { try { listener(id); } catch { /* Post-commit observer only; resource owners report their own errors. */ } } }
   readonly #db: DatabaseSync;
   readonly #clock: () => number;
   readonly #newId: (prefix: string) => string;
@@ -116,11 +120,13 @@ export class SessionStore {
     if (i.kind !== "channel" && i.chatKey !== undefined) throw new SessionError("invalid", "only a channel session has a chatKey", "chat-key");
     const title = (i.title ?? "").slice(0, MAX_TITLE);
     const now = this.#clock(); const id = this.#newId("ses");
-    return this.#tx(() => {
+    let archivedId: string | undefined;
+    const result = this.#tx(() => {
       if (i.chatKey !== undefined) {
         const active = this.#get("SELECT id FROM sessions WHERE chat_key = ? AND archived_at IS NULL", i.chatKey);
         if (active) {
           if (!i.replaceActive) throw new SessionError("conflict", `chat ${i.chatKey} already has an active session`, "active-chat-session");
+          archivedId = active.id as string;
           this.#run("UPDATE sessions SET archived_at = ?, updated_at = ? WHERE id = ?", now, now, active.id as string);
         }
       }
@@ -130,6 +136,8 @@ export class SessionStore {
       );
       return toSession(this.#get("SELECT * FROM sessions WHERE id = ?", id)!);
     });
+    if (archivedId) this.#archived(archivedId);
+    return result;
   }
 
   getSession(id: string): SessionRecord | null {
@@ -198,15 +206,19 @@ export class SessionStore {
 
   /** Archive-first deletion: archiving is the only delete a normal path has. Idempotent. A running turn blocks it. */
   archiveSession(id: string): SessionRecord {
-    return this.#tx(() => {
+    let changed = false;
+    const result = this.#tx(() => {
       const s = this.getSession(id);
       if (!s) throw new SessionError("not-found", `session ${id} not found`, "session");
       if (s.archivedAt !== null) return s;
       if (this.runningTurn(id)) throw new SessionError("conflict", `session ${id} has a running turn`, "turn-in-progress");
+      changed = true;
       const now = this.#clock();
       this.#run("UPDATE sessions SET archived_at = ?, updated_at = ? WHERE id = ?", now, now, id);
       return toSession(this.#get("SELECT * FROM sessions WHERE id = ?", id)!);
     });
+    if (changed) this.#archived(id);
+    return result;
   }
 
   /** The explicit erasure path (stub, no RPC): refuses a session that is not archived, removes everything of it and

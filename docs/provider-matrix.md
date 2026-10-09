@@ -272,3 +272,17 @@ Every item the research notes flagged as unverified, carried forward for the ADR
 | Nous Portal machine-readable model listing | §2 | Ask Nous Research directly or watch for a documented `/v1/models`-equivalent |
 | OpenCode Go subscription/pricing details sourced only from a secondary aggregator (DeepWiki) | §2 | Re-verify against `opencode.ai` primary docs |
 | oMLX canonical repo/provenance (community project, fork exists) | §2, §5a | Confirm which of `tbro0815/omlx` / `jundot/omlx` is canonical before pinning a version in the harness |
+
+---
+
+## 9. Voice providers (AL1, additive)
+
+Voice is a separate capability from `chat`, `embedding` and `rerank`. Details, setup and the endpoints to verify are in `docs/voice-providers.md`; the local tier is in `docs/voice-local.md`.
+
+| Provider | tts | asr | realtime | Auth kind |
+|---|---|---|---|---|
+| ElevenLabs | yes (HTTP, text-streaming WebSocket) | yes (batch, realtime) | no | `api-key` |
+| xAI Grok Voice | no | no | yes | `api-key` |
+| Gemini Live | no | no | yes | `api-key` |
+| Amazon Polly | yes | no | no | AWS default credential chain |
+| Local (sherpa-onnx) | yes | yes | no | none |

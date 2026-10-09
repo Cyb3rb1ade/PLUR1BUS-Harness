@@ -8,6 +8,7 @@ export const SCHEMA_VERSION = 1 as const;
 export interface HarnessConfig {
   $schema?: string;
   schemaVersion: 1;
+  tools: { hostctl: { enabled: boolean; shell: { allowed: boolean; default: "bash" | "zsh" | "pwsh" }; exec: { timeoutMs: number }; output: { maxBytes: number }; env: { allow: string[] }; denyPatterns: string[]; search: { maxResults: number } } };
   core: { logLevel: "debug" | "info" | "warn" | "error"; recall: { softBudgetMs: number; hardBudgetMs: number; capChars: number }; capture: { waitMs: number }; shutdownBudgetMs: number };
   supervisor: { graceMs: number; healthIntervalMs: number };
   logs: { maxBytes: number; keep: number };
@@ -16,6 +17,7 @@ export interface HarnessConfig {
   embedding: { useClass: "general" | "research" | "commercial"; acceptedNcLicence: boolean; acceptedNcLicenceAt?: string };
   engine: Record<string, unknown> & { baseDbPathOverride?: string };
   providers: Record<string, unknown>;
+  auth?: { openai: { clientRegistration: "dynamic_on_authorize"; storeBackend: "auto" | "keyring"; loopbackTimeoutMs: number; httpTimeoutMs: number; refreshSkewSeconds: number; liveHandleTtlSeconds: number; voiceDailySeconds: number; voiceCapacity: number; federated: { command?: string; file?: string; args: string[]; environment: Record<string, string> } } };
   oauth: Record<string, unknown>;
   decision: Record<string, unknown>;
   modelRoles: Record<string, string>;
@@ -35,6 +37,37 @@ export interface HarnessConfig {
     };
   };
   modules: Record<string, Record<string, unknown> & { enabled: boolean }>;
+  voice: VoiceConfig;
+}
+
+export type VoiceFeatureMode = "on" | "deferred" | "off";
+export interface VoiceFeatureConfig { mode?: VoiceFeatureMode; maxMs?: number }
+export interface VoiceConfig {
+  providers: {
+    elevenlabs: { enabled: boolean; apiKeyRef?: string; region: "default" | "us" | "eu" | "in"; baseUrl?: string; defaultVoice?: string; defaultModel?: string; defaultSttModel?: string; zeroRetention: boolean };
+    xai: { enabled: boolean; apiKeyRef?: string; baseUrl?: string; defaultVoice?: string; defaultModel?: string };
+    gemini: { enabled: boolean; apiKeyRef?: string; baseUrl?: string; defaultVoice?: string; defaultModel?: string };
+    polly: { enabled: boolean; region?: string; credentials: { profile?: string }; defaultVoice?: string; defaultModel?: string };
+  };
+  local: {
+    language?: string;
+    profile: "fast" | "quality";
+    perAgent: Record<string, { language?: string; profile?: "fast" | "quality" }>;
+    catalogOverride?: Record<string, unknown>;
+    modelsDir?: string;
+    acceptNcLicence: boolean;
+  };
+  localRealtime: {
+    enabled: boolean;
+    endpointingMs: number;
+    speculativeTurnStart: boolean;
+    ackSound: boolean;
+    sentenceChunking: { maxWords: number };
+    features: Record<"autoRecall" | "reranker" | "recallMultiIdentity" | "promptEnrichment" | "decisionService" | "postTurnRefine" | "memoryWrite" | "compaction", VoiceFeatureConfig>;
+    toolSchemas: "reduced" | "full";
+    auditDetail: "minimal" | "full";
+    perAgent: Record<string, Record<string, unknown>>;
+  };
 }
 
 /** Keys every chat channel shares (`channels.<id>.*`); secrets are referenced by name, never held here. */

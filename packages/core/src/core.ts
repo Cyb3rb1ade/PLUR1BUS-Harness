@@ -31,6 +31,7 @@ import { RpcError } from "./rpc/errors.ts";
 import { buildMethods } from "./rpc/methods.ts";
 import { buildCollabSurface } from "./rpc/collab-surface.ts";
 import { buildIdentitySurface } from "./rpc/identity-surface.ts";
+import { buildAuthSurface } from "./rpc/auth-surface.ts";
 import { openTurnComposition, type TurnComposition, type CompositionOptions } from "./composition/index.ts";
 import type { ChatProvider } from "./session/provider.ts";
 import { createLogsMethods } from "./logs/index.ts";
@@ -545,6 +546,7 @@ export function createCore(o: CoreOptions): Core {
         ...(turnComposition?.surfaceMethods ?? {}),
         ...buildCollabSurface(() => turnComposition?.collab ?? null, id => registry.has(id)),
         ...buildIdentitySurface(() => identity),
+        ...buildAuthSurface(() => turnComposition?.openai.auth ?? null),
         // D4: logs.query / logs.tail over <home>/logs; RBAC-guarded below (RPC_RULES).
         ...createLogsMethods({ dir: l.logs, signal: shutdown.signal }),
       }, { resolve: resolvePrincipal, audit: rbacAudit, now: clock });

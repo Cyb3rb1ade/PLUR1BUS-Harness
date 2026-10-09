@@ -1,0 +1,76 @@
+{
+  "version": "0.2.0",
+  "channel": "stable",
+  "kind": "minor",
+  "security": false,
+  "date": "2026-10-01",
+  "notes": {
+    "de": "Beispiel-Release (unsigniert, nur für Tests).",
+    "en": "Example release (unsigned, tests only)."
+  },
+  "minFromVersion": "0.1.0",
+  "bundle": "sha256:5b5f50f89c1b609a0eaba46ed6196fada5da329c2e763eacbf1a0c6da1d63358",
+  "tauri": "sha256:2f1afa1a6344057fa998df2da6646089e26b56889fb7e353beb1da3a77d138d9",
+  "native": {
+    "binary": {
+      "linux-x64": {
+        "url": "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/releases/download/v0.2.0/plur1bus-linux-x64",
+        "sha256": "dd8ba46bcc0a379de112df0d68306bc923992474d201166d95e210c8b4b9c08c"
+      },
+      "linux-arm64": {
+        "url": "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/releases/download/v0.2.0/plur1bus-linux-arm64",
+        "sha256": "7832859096bc45c2da4cc0092610fff9f885b4b32b76a5f3f158ae305d942ed6"
+      },
+      "darwin-arm64": {
+        "url": "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/releases/download/v0.2.0/plur1bus-darwin-arm64",
+        "sha256": "c8db4057dfa103e390a5ebc28c22c6d91d9b9f9f34cda66f3ce14007ab31d6b5"
+      },
+      "win-x64": {
+        "url": "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/releases/download/v0.2.0/plur1bus-win-x64.exe",
+        "sha256": "6821e58acf4a755b11f3685b4bdfdd315ba9e3f6d82000df8c78c4149b721fc2"
+      },
+      "win-arm64": {
+        "url": "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/releases/download/v0.2.0/plur1bus-win-arm64.exe",
+        "sha256": "62f91223f4b47db537b028db815cc3135e7d58f2aa93007a0aeb84c02871fee6"
+      }
+    },
+    "core": {
+      "version": "0.2.0",
+      "contract": "1.10.0",
+      "rpc": "1.3.0",
+      "payload": {
+        "linux-x64": {
+          "url": "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/releases/download/v0.2.0/core-0.2.0-linux-x64.tar.gz",
+          "sha256": "74ae41a0cf057e80677767cb306e945fed15f5e02e347353f22a78b3e9fa9938"
+        },
+        "linux-arm64": {
+          "url": "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/releases/download/v0.2.0/core-0.2.0-linux-arm64.tar.gz",
+          "sha256": "080faf4c10a352c9f542533a911b4e3de5ccc5a3a7c446c75e7c3872c179ac81"
+        },
+        "darwin-arm64": {
+          "url": "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/releases/download/v0.2.0/core-0.2.0-darwin-arm64.tar.gz",
+          "sha256": "aaf08d297dc9b667c480833ec404f2647eb326283734d28f3ebbc635698311d7"
+        },
+        "win-x64": {
+          "url": "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/releases/download/v0.2.0/core-0.2.0-win-x64.tar.gz",
+          "sha256": "38275abc04a464f0b2df589f0acae9a088714527e70cfb784f68eaacb5f5e32a"
+        },
+        "win-arm64": {
+          "url": "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/releases/download/v0.2.0/core-0.2.0-win-arm64.tar.gz",
+          "sha256": "212ad947fdf5994faad864932151b0f172c98e33ec43009db7a0f8d3da1174a9"
+        }
+      }
+    },
+    "node": {
+      "version": "24.21.0"
+    },
+    "modules": [
+      {
+        "name": "fixture",
+        "version": "0.1.0",
+        "apiVersion": "1"
+      }
+    ],
+    "configSchemaVersion": 1
+  }
+}

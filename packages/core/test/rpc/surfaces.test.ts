@@ -41,6 +41,12 @@ export const methods = [
   "identity.link.decline",
   "identity.link.remove",
   "identity.principals",
+  "auth.login.start",
+  "auth.login.await",
+  "auth.login.cancel",
+  "auth.credentials.list",
+  "auth.logout",
+  "auth.status",
 ];
 const ctx: CallContext = {
   requestId: "r",

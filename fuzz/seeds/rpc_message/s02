@@ -1,0 +1,1 @@
+{"jsonrpc": "2.0", "id": "a", "error": {"code": -32600, "message": "bad", "data": {"error": "E_INVALID_PARAMS"}}}

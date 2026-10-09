@@ -1,0 +1,1 @@
+{"jsonrpc": "2.0", "method": "core.event", "params": {"x": 1}}

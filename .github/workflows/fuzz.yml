@@ -1,0 +1,80 @@
+name: fuzz
+# Nightly cargo-fuzz run of every parser target (docs/fuzzing.md). Not a merge gate: findings are reported as workflow
+# failures with the crashing input attached, never fixed here. The seed corpora are committed under fuzz/seeds/; the
+# evolving corpora are not (a run starts from the seeds).
+on:
+  schedule:
+    - cron: "43 2 * * *"
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: Seconds of fuzzing per target
+        default: "300"
+        type: string
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+permissions:
+  contents: read
+env:
+  CARGO_TERM_COLOR: always
+  FUZZ_SECONDS: ${{ inputs.seconds || '300' }}
+jobs:
+  seeds:
+    # The same target bodies over the seed corpus and deterministic mutations, on stable: proves the targets still
+    # build and the seeds still pass before the nightly toolchain spends an hour on them. (rust-toolchain.toml pins 1.95,
+    # so every nightly invocation below names `+nightly` explicitly.)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
+        with:
+          toolchain: "1.95"
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+        with:
+          workspaces: fuzz
+      - run: cargo test --manifest-path fuzz/Cargo.toml --test seeds
+  fuzz:
+    needs: seeds
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - client_response_line
+          - rpc_message
+          - config_parse
+          - backup_manifest
+          - install_manifest
+          - ext_manifest
+          - log_record
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
+        with:
+          toolchain: nightly
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+        with:
+          workspaces: fuzz
+      - name: Install cargo-fuzz
+        run: cargo +nightly install cargo-fuzz --locked --version 0.13.2
+      - name: Fuzz ${{ matrix.target }}
+        working-directory: fuzz
+        run: |
+          mkdir -p "corpus/${{ matrix.target }}"
+          seeds=""
+          if [ -d "seeds/${{ matrix.target }}" ]; then seeds="seeds/${{ matrix.target }}"; fi
+          dict=""
+          if [ -f "dicts/${{ matrix.target }}.dict" ]; then dict="-dict=dicts/${{ matrix.target }}.dict"; fi
+          cargo +nightly fuzz run "${{ matrix.target }}" "corpus/${{ matrix.target }}" $seeds -- \
+            -max_total_time="$FUZZ_SECONDS" -max_len=65536 -rss_limit_mb=2048 -timeout=10 $dict
+      - name: Upload crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: fuzz-crash-${{ matrix.target }}
+          path: fuzz/artifacts/${{ matrix.target }}/
+          if-no-files-found: warn
+          retention-days: 30

@@ -23,6 +23,84 @@ fn document(schema: &str, mut value: Value) -> Value {
     value
 }
 
+/// `--color` (global flag): when output carries ANSI colour.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, clap::ValueEnum)]
+pub enum ColorChoice {
+    /// Colour only when the stream is a terminal and `NO_COLOR` is unset or empty
+    #[default]
+    Auto,
+    /// Always colour, even into a pipe or with `NO_COLOR` set
+    Always,
+    /// Never colour
+    Never,
+}
+
+/// The colour decision as a pure function. `no_color` is the value of the `NO_COLOR` variable (`None` when unset): any
+/// non-empty value disables colour in `auto` mode (https://no-color.org). An explicit `--color=always` or
+/// `--color=never` wins over the environment, `auto` colours only a terminal.
+pub(crate) fn color_decision(choice: ColorChoice, no_color: Option<&str>, is_tty: bool) -> bool {
+    match choice {
+        ColorChoice::Always => true,
+        ColorChoice::Never => false,
+        ColorChoice::Auto => is_tty && matches!(no_color, None | Some("")),
+    }
+}
+
+/// The `--color` choice in raw process arguments, read before clap parses so that `--help` and parse errors honour it.
+/// The last occurrence wins, `--` ends the scan, and an unusable value is ignored (clap then reports it).
+pub(crate) fn color_from_args<I, S>(args: I) -> ColorChoice
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<std::ffi::OsStr>,
+{
+    use clap::ValueEnum;
+    let args: Vec<String> = args
+        .into_iter()
+        .map(|a| a.as_ref().to_string_lossy().into_owned())
+        .collect();
+    let mut choice = ColorChoice::Auto;
+    let mut i = 0;
+    while i < args.len() {
+        let value = match args[i].as_str() {
+            "--" => break,
+            "--color" => {
+                i += 1;
+                args.get(i).map(String::as_str)
+            }
+            a => a.strip_prefix("--color="),
+        };
+        if let Some(c) = value.and_then(|v| ColorChoice::from_str(v, false).ok()) {
+            choice = c;
+        }
+        i += 1;
+    }
+    choice
+}
+
+/// Whether error text on stderr is coloured; set once by [`init_color`].
+static STDERR_COLOR: AtomicBool = AtomicBool::new(false);
+
+/// Applies `--color` and `NO_COLOR` to this process's own diagnostics (stderr). Called once, right after parsing.
+pub(crate) fn init_color(choice: ColorChoice) {
+    use std::io::IsTerminal;
+    let no_color = std::env::var_os("NO_COLOR");
+    let on = color_decision(
+        choice,
+        no_color.as_deref().map(|v| v.to_str().unwrap_or("set")),
+        std::io::stderr().is_terminal(),
+    );
+    STDERR_COLOR.store(on, Ordering::Relaxed);
+}
+
+/// `plur1bus:` prefix of a human error line, bold red when stderr is coloured.
+fn error_prefix() -> &'static str {
+    if STDERR_COLOR.load(Ordering::Relaxed) {
+        "\x1b[1;31mplur1bus:\x1b[0m"
+    } else {
+        "plur1bus:"
+    }
+}
+
 /// Exit code for a mapped RPC error code (per G18/carry-over from Task 4 review):
 /// `E_LOCKED` → 3, `E_NOT_AVAILABLE` and `E_APPROVAL_REQUIRED` → 2 (a script run that hits
 /// `E_APPROVAL_REQUIRED` must not report success), everything else → 1.
@@ -147,7 +225,7 @@ impl Out {
             }
             say(&document("error/1", v).to_string());
         } else {
-            say_err(&format!("plur1bus: {message}"));
+            say_err(&format!("{} {message}", error_prefix()));
             if let Some(line) = ids_line(&extra) {
                 say_err(&line);
             }
@@ -318,5 +396,77 @@ mod tests {
         emit_to(&mut buf, "a", true).unwrap();
         emit_to(&mut buf, "b", false).unwrap();
         assert_eq!(buf, b"a\nb");
+    }
+
+    #[test]
+    fn color_decision_follows_the_flag_then_no_color_then_the_terminal() {
+        use ColorChoice::{Always, Auto, Never};
+        // auto: a terminal and no non-empty NO_COLOR
+        assert!(color_decision(Auto, None, true));
+        assert!(!color_decision(Auto, None, false));
+        assert!(!color_decision(Auto, Some("1"), true));
+        assert!(
+            !color_decision(Auto, Some("0"), true),
+            "any non-empty value disables colour"
+        );
+        assert!(!color_decision(Auto, Some("false"), true));
+        assert!(
+            color_decision(Auto, Some(""), true),
+            "an empty NO_COLOR is ignored"
+        );
+        assert!(!color_decision(Auto, Some(""), false));
+        // an explicit flag wins over the environment and the terminal
+        assert!(color_decision(Always, Some("1"), false));
+        assert!(color_decision(Always, None, false));
+        assert!(!color_decision(Never, None, true));
+        assert!(!color_decision(Never, Some(""), true));
+    }
+
+    #[test]
+    fn color_flag_is_found_in_raw_arguments() {
+        use ColorChoice::{Always, Auto, Never};
+        assert_eq!(color_from_args(["memory", "--color=never"]), Never);
+        assert_eq!(color_from_args(["--color", "always", "setup"]), Always);
+        assert_eq!(
+            color_from_args(["--color=always", "--color=never"]),
+            Never,
+            "the last one wins"
+        );
+        assert_eq!(
+            color_from_args(["--", "--color=always"]),
+            Auto,
+            "`--` ends the scan"
+        );
+        assert_eq!(
+            color_from_args(["--color=purple"]),
+            Auto,
+            "an unusable value is clap's to report"
+        );
+        assert_eq!(color_from_args(["--color"]), Auto);
+        assert_eq!(color_from_args(Vec::<&str>::new()), Auto);
+    }
+
+    #[test]
+    fn documented_exit_codes_match_the_mapping() {
+        let doc =
+            std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/errors.md"))
+                .unwrap();
+        let mut seen = 0;
+        for line in doc.lines().filter_map(|l| l.strip_prefix("| `E_")) {
+            let mut cols = line.split('|').map(str::trim);
+            let code = format!("E_{}", cols.next().unwrap().trim_end_matches('`'));
+            let exit: i32 = cols.next().unwrap().parse().unwrap();
+            // Raised by the CLI itself with an explicit exit code, not mapped from an RPC error.
+            let cli_local = matches!(code.as_str(), "E_IMPORT_FAILED" | "E_CANCELLED");
+            if !cli_local {
+                assert_eq!(
+                    exit_code_for(&code),
+                    exit,
+                    "docs/errors.md says {code} exits {exit}"
+                );
+            }
+            seen += 1;
+        }
+        assert!(seen >= 15, "sanity: saw {seen} documented codes");
     }
 }
