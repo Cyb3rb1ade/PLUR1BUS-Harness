@@ -33,6 +33,7 @@ pub mod setup;
 pub mod skill;
 pub mod stubs;
 pub(crate) mod surfaces;
+pub mod uninstall;
 pub mod update;
 pub(crate) mod update_apply;
 pub mod user;
