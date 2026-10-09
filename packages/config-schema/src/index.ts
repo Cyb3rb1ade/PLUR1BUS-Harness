@@ -17,6 +17,7 @@ export interface HarnessConfig {
   embedding: { useClass: "general" | "research" | "commercial"; acceptedNcLicence: boolean; acceptedNcLicenceAt?: string };
   engine: Record<string, unknown> & { baseDbPathOverride?: string };
   providers: Record<string, unknown>;
+  auth?: { openai: { clientRegistration: "dynamic_on_authorize"; storeBackend: "auto" | "keyring"; loopbackTimeoutMs: number; httpTimeoutMs: number; refreshSkewSeconds: number; liveHandleTtlSeconds: number; voiceDailySeconds: number; voiceCapacity: number; federated: { command?: string; file?: string; args: string[]; environment: Record<string, string> } } };
   oauth: Record<string, unknown>;
   decision: Record<string, unknown>;
   modelRoles: Record<string, string>;
