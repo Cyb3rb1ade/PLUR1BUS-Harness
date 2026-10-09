@@ -1,74 +1,113 @@
-# D110 OpenAI auth core library
+# D110 OpenAI authentication
 
-Contract: [D110 design](superpowers/specs/2026-09-30-openai-auth-design.md), which wins over older ADR language. These are in-process libraries; RPC, CLI, UI and production port wiring are follow-ups. Tests use a synthetic in-process endpoint dispatcher, never network sockets or real credentials.
+The [D110 design](superpowers/specs/2026-09-30-openai-auth-design.md) and ADR-005 define the policy. The Core composition registers `AuthService`, the OpenAI provider binding and voice services. The in-process API is unchanged. The RPC surface (`auth.*`) and the `plur1bus login` CLI on top of it are described in [CLI and RPC login](#cli-and-rpc-login); Web login is a follow-up.
 
-## Y1: Spec section → implementation → test
+## Spec vs. main inventory
 
-Inventory on origin/main at 661ad75f: generic auth, secrets, egress and token budgets exist; no D110 auth or voice implementation. Generic auth's closed validator does not accept D110 kinds. Every row below is implemented through new libraries and explicit ports, without modifying the generic engine.
+Baseline: `origin/main` at `f250d8f5`, including merged #293 and the D110 libraries.
 
-| Spec / requirement | Implementation | Test |
-|---|---|---|
-| §2.1–2.3 registration, account isolation, entry ID never stored | `ChatGPTPlan.login`, secret account record | Acceptance 15 |
-| §2.1 RFC 9278/7638 stable Ed25519 host, no silent rotation | `HostIdentity.id` under refresh-owner lock | host identity |
-| §2.3 discovery, public client, resource, scopes, nonce, S256 | discovery + `PkcePort`, `LoopbackPkce` | Acceptance 15, loopback tests |
-| §2.3 iss/aud/exp/nonce, JWKS cache, scope gate | `JwksVerifier`, login gate | OIDC rejection matrix, scope test |
-| §2.1/2.3/§5.3 single-use refresh, owner, restart, logout | durable consume marker + `RefreshPort`, revoke | Acceptance 15, refresh failure tests |
-| §2.3 responses only, forced fields, unsupported fields/tools/audio/files/system refused | `guardSiwc`, models from `/v1/models` | siwc matrix, Acceptance 15 |
-| §2.3 subscription errors, required UI texts and usage link | closed error codes, `UI_TEXT` | Acceptance 15, UI constants |
-| §2.1/2.3 workload, no refresh/persistent bearer, headless source | `WorkloadIdentity`, subject port | workload tests |
-| §2.3 API key expiry 14/3 days, expired never retried, hashed safety identifier | `keyStatus`, `ApiKeyCredential`, broker headers | expiry tests, voice request tests |
-| §2.3 region global/us/eu, plan global only, EU setup notice | `endpoint`, profile data, voice routing | regional tests |
-| §2.5.4 billing path policy, recorded cross-billing, usage-limit stop | `chooseFailover` | billing tests, Acceptance 15 |
-| §2.4/2.5.1–3 foreign IDs/fingerprints/backend-api/credential stores never used | closed endpoints; canonical deny port; CLI metadata | Acceptance 17 |
-| §2.5.5/2.7 person-bound owner-only; hosted approval required | principal gate | owner-only tests |
-| §2.5.6–8 no client project credential, no secret logging, store false | `Sensitive`, fixed errors/events, broker DTO | Acceptance 16, redaction |
-| §2.1/2.3/2.9 ephemeral desktop WebRTC only, T2+, 60/600 s, one session, no persistence | `VoiceBroker.mint`, `EphemeralSecret` | ephemeral tests |
-| §2.1/2.3 Realtime default broker, unified interface; Live client delegation, fixed model, store false | `VoiceBroker.create`, sideband port | Acceptance 16, Realtime broker |
-| §2.3 sideband tools, instructions, tracing off, usage + backend, session closure/cap | policy/sideband/session ports, event handling | voice policy, usage/cap/expiry tests |
-| §2.6 before/during budgets, notice, beyond-budget money.spend | atomic reservation + accounting BudgetPort, PolicyPort | Acceptance 16, budget tests |
-| §2.5/§3/§5 disabled D13 metadata, no token import | `importedProfile`, deny before read | Acceptance 17 |
-| §2.8 SSH loopback, transfer keeps destination host, no paste-back without spike | `LoopbackPkce`; transfer uses account records only | loopback, transfer tests |
-| §2.9 no MCP DCR/device grant, SIP/desktop integration deferred | no registration/device endpoint, explicit unsupported SIP | profile + transport tests |
-| §5 synthetic fixtures, no live tests by default | in-process fake; explicit live gate | Acceptance 15/16/17, gated smoke |
+| Gap on main | This change |
+|---|---|
+| PKCE/OIDC and rotating plan records existed behind ports | Production egress-checked HTTP, actual loopback listener, AuthService, durable metadata index and serialized refresh ownership |
+| No UI-facing Core auth API | `startLogin`, `awaitLogin`, `cancelLogin`, `listCredentials`, `logout`, `status`; typed composition registration callbacks |
+| Responses adapter had an unused plan switch | Dynamic registration profiles use Responses only, credential-specific model list, forced SIWC fields, `billingPath: plan` and existing #293 budget admission |
+| No subscription-unit ledger | Durable `plan_tokens` ledger alongside existing token-budget accounting; no guessed USD prices |
+| Workload exchange was a library-only port | External file/binary bearer suppliers with expiry, single-flight, bounded execution and explicit environment |
+| Voice broker had no production transport or client delivery binding | Authenticated pinned WebSockets, PCM relay, Live handles, Realtime delivery binding, existing budget admission, voice-seconds ledger and lifecycle cleanup |
+| No corrected AE5 handles | Random 256-bit Harness handles, hashed server-side entries, person/session/model/surface binding, TTL/replay/revocation errors and audit |
+| No auth config/manual entry | Closed `auth.openai.*` schema, generated config reference and opt-in development script |
 
-Dedicated voice project model allow-list/spend limit and EU Modified Retention amendment are setup requirements (the library cannot verify org contracts). Concurrent capacity and prices are supplied by setup, never guessed by the library. Tokens are accessible only through explicit sensitive getters at the transport/secret boundary; generic JSON/inspection is redacted. No secret records belong in exports or backups.
+Existing Keychain/DPAPI/libsecret and encrypted-file backends are reused. No foreign credential file, including Codex's login, is opened, imported or shared. The superseded `openai:chatgpt-oauth-restricted` ID is refused by the profile loader and points to a fresh plan login. Codex CLI remains an unchanged delegated binary. Optional existence-only Codex login hints are not added.
 
-## Profiles and ports
+## Login and account selection
 
-`profiles` describes `openai:api-key`, `openai:chatgpt-plan`, `openai:workload-identity`, `openai:realtime`, `openai:gpt-live` and the existing `openai:codex-cli` lane. The plan route is global-only, person-bound, available only to the installation owner's agents on local/single-owner self-hosted installs. Other users and hosted multi-user deployments are refused. Codex is labelled **personal/local only**, spawned unmodified in a follow-up; this library never owns its login or credential files.
+A trusted Core surface obtains the service through `CompositionOptions.onOpenAI` (or `TurnComposition.openai.auth`). It supplies `PlanPrincipal` from its authenticated person and agent ownership, never from an agent message or request body. Plan use is owner-only on local/single-owner self-hosted deployments.
 
-`HostIdentity` generates one Ed25519 key in the SecretPort, derives the RFC 7638 canonical public JWK thumbprint and returns the RFC 9278 URN. Corrupt stored identity is refused, never replaced. Configuration wiring stores the non-secret URN in the install config; account transfer never touches the destination key.
-
-`ChatGPTPlan.login(account, principal)` reads OIDC discovery, requests the full documented scopes/resource with S256/state/nonce through the PKCE port, validates the callback and cryptographic ID-token signature/claims through cached JWKS, checks direct-use scope, and stores the issued client ID with that account's tokens/subject/workspace only. The entry ID is used only at first authorization. Reauthorization cannot silently switch an existing account slot's identity. `LoopbackPkce` binds an ephemeral port on 127.0.0.1, closes after one callback/abort, and is injectable for socket-free tests. The caller's browser port may print an SSH forwarding hint `ssh -L <port>:127.0.0.1:<port> <host>`; no credential entry is automated and no paste-callback fallback is enabled.
-
-`RefreshPort.exclusive` is a mutex with per-key serialization, **not** a result-sharing cache across arbitrary login/logout/lease operations. The core must supply one authority shared by all library instances. Lease calls reread durable state under this mutex; two concurrent turns cause one rotating refresh. A durable spent marker precedes token exchange. After unknown network outcomes or failed persistence the old token is never retried, including after restart; reauthentication restores availability. Logout revokes remotely and deletes the local record. Transfer is a person-run authenticated SSH move through a sensitive port, never a disk export or an agent tool.
-
-`WorkloadIdentity` exchanges OIDC subjects from file/env/metadata via a source port. `audience` and `principal` describe the configured external identity/mapping; `identity_provider_id` and `service_account_id` are the explicit OpenAI mapping identifiers. The wire uses JSON at `https://auth.openai.com/oauth/token` with the documented grant and subject type. Regional API hosts apply to later API calls, not the auth endpoint. The bearer is in memory only, has no refresh token and is re-exchanged before expiration; absolute expiry is honoured. Kubernetes and GitHub Actions source templates are included. X.509 uses the same kind with an explicitly configured certificate HTTP port at `https://mtls.auth.openai.com/oauth/token`, omits the subject token and never falls back to OIDC. Production certificate transport wiring remains a follow-up; this library does not read certificate/private-key files. Later X.509 API calls also require the configured mTLS transport. Wire reference: [OpenAI workload token exchange](https://developers.openai.com/api/reference/workload-identity-federation).
-
-`ApiKeyCredential` checks expiry before reading a secret, reports 14-day and 3-day warning states, and refuses expired keys without retry. `endpoint` selects global/us/eu API hosts. Setup must state the EU Modified Retention requirement; it cannot be inferred from a bearer. Dedicated service-account keys and voice project limits are recommended.
-
-## SIWC, errors, billing and Never list
-
-`guardSiwc` forces `store:false`/`stream:true`, refuses every unknown or unsupported top-level field, system items, hosted tools and audio, and admits only function tools. There is no Files, embedding, voice or backend-api entry point on the plan client. Models come from `/v1/models` using the same lease. Inference payloads have explicit sensitive in-process access and redacted generic JSON/inspection; never export a raw transport payload.
-
-Subscription-sharing errors use closed typed codes and constant messages, never vendor-provided diagnostic text. Usage-limit errors stop the turn and expose the usage link through `UI_TEXT`. `chooseFailover` skips differing billing paths unless policy explicitly names `from`/`to`, and never turns usage-limit exhaustion into key failover. Selected decisions are audit events. UI constants and their source are [OpenAI UI/UX guidelines](https://developers.openai.com/siwc/ui-ux-guidelines).
-
-Never send another app's client ID or fingerprint; never set a vendor login-client override; never read/copy/refresh Codex, OpenClaw or Hermes credentials, including OS keychain entries, custom HOME roots, Windows local app data and another app's issued registration. `FOREIGN_CREDENTIAL_STORES` supplies deny metadata; `createCredentialDenyPort` checks platform-canonical roots/items and foreign-registration metadata before any read. Production D109 owns canonicalization including home/env aliases and symlinks. Imported D13 route-3 metadata is visibly disabled and points to a new plan sign-in; no token value enters that API.
-
-Neither tokens, issued client IDs, ephemeral values nor ID-token hints belong in logs, events, errors, generic JSON, exports, backups or fixtures. Authorization URLs and token-bearing requests redact generic serialization/inspection. Fixtures generate sensitive markers at runtime only; tests inspect all observable audit/error/output boundaries. No foreign credential path is opened by this library.
-
-## Follow-ups and verification
-
-RPC/schema exposure, CLI `plur1bus login openai`, automatic background refresh scheduling, real auth/secret/egress/D109/budget port wiring, install-config URN storage, SSH transfer endpoint authentication, preferred Codex app-server plan-token feed, Desktop WebRTC, SIP with M3/D1, web UI texts, setup/recheck UX and real vendor acceptance are separate integration work. The library is not advertised as an already wired login command.
-
-Run with Node 24.21:
-
-```sh
-node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 packages/core/test/openai-auth/*.test.ts packages/core/test/voice/*.test.ts
-pnpm typecheck
-pnpm lint
+```ts
+const principal = { owner, user: owner, agentOwner: owner, deployment: 'local' as const };
+const { authorizeUrl, loginId } = await auth.startLogin({ principal });
+// Explicit browser delivery only; never log the URL or serialize it to diagnostics.
+openBrowser(authorizeUrl.value());
+const credential = await auth.awaitLogin(loginId, principal);
+const saved = await auth.listCredentials(principal);
+await auth.logout(credential.id, principal);
 ```
 
-The optional read-only live model smoke requires both `PLUR1BUS_LIVE_OPENAI=1` and an owner-supplied `PLUR1BUS_LIVE_OPENAI_KEY`; otherwise it is skipped. It was not enabled for local verification. No workflow change enables it.
+`authorizeUrl` is a redacted `Sensitive` value. Every attempt gets a new S256 verifier, state and OIDC nonce. The listener binds only `127.0.0.1` on a random port at `/auth/callback`, checks Host and Origin when present, consumes one callback and closes on callback, cancellation or timeout. Constant errors include `state-mismatch`, `access-denied`, `port-in-use`, `login-timeout` and `login-cancelled`. Callback HTML/text has no external resources and forbids caching/referrers.
 
-Local verification (2026-10-08, Node 24.21.0): 43 D110 tests passed; 1 explicitly gated live smoke skipped. Named Acceptance 15, 16 and 17 passed. Full workspace typecheck and lint passed, including hygiene and all 94 lint-script tests. This is library/port acceptance against synthetic fixtures; no real OpenAI acceptance, RPC/CLI integration, CI result or merge is claimed.
+First authorization uses `dynamic_agent_client`. The callback-issued registration belongs to the verified subject and workspace; it is stored only in the secret service. Returning login selects a saved `credentialId`, reuses that registration and refuses a different subject/workspace. New workspace selection happens in OpenAI's browser flow; the Core's returned metadata lists saved workspace registrations for subsequent selection. No invented workspace-selection endpoint is called. See [OpenAI registration/sign-in](https://developers.openai.com/siwc/token-sharing-open-source/sign-in).
+
+The per-install Ed25519 key and its RFC 9278 host identifier survive restart. OIDC verification checks signature, issuer, issued-client audience, expiry and nonce; inference additionally requires `chatgpt.tokens.use.direct`.
+
+## CLI and RPC login
+
+`plur1bus login <provider>` signs in over the core's experimental `auth.*` RPC; the API-key route uses `secret.set`. Every command takes `--json`. No command, document, error or log line ever carries an access token, refresh token, issued client id, code verifier, authorization code or API key.
+
+| Command | What it does |
+|---|---|
+| `plur1bus login openai` | OpenAI "Sign in with ChatGPT": loopback PKCE through `AuthService.startLogin` / `awaitLogin`. Prints the authorize URL, tries to open a browser, waits (default 600 s, `--timeout`), stores the credential in the secret service, prints its id, workspace and expiry. |
+| `plur1bus login <provider> [--api-key]` | Any other provider (anthropic, google, gemini, xai, openrouter, together, fal, replicate, elevenlabs), or `openai --api-key`: the key is read from **stdin** (`printf %s "$KEY" \| plur1bus login anthropic`), stored with `secret.set` as `<provider>/api-key` (`--name` overrides) and only that secret **name** is printed. Reference it from config as `apiKeyRef`. A key in an argument (`--api-key=…`, `--key …`, a stray word) is refused with `E_INVALID_PARAMS reason=value-in-argument` and the value is never echoed. |
+| `plur1bus login status` | Saved sign-ins and the number of logins in progress (`auth.status`). |
+| `plur1bus login list` | Saved sign-ins: id, owner, workspace, expiry, `needsLogin` (`auth.credentials.list`). |
+| `plur1bus login logout <id>` | Removes the sign-in and its local token state (`auth.logout`); the id may be any unique prefix of at least 8 characters. |
+
+Flags of the OAuth route: `--no-browser` (print the URL only), `--paste`, `--timeout <seconds>`. Ctrl-C calls `auth.login.cancel` and exits 130 with `E_CANCELLED reason=login-cancelled`; if the CLI is killed outright the core cancels the login itself when the waiting connection closes. With `--json` the authorize URL is printed first as a `login.started/1` document, the result is `login.done/1`.
+
+### Headless machines and the paste flow
+
+A browser is not opened when `--no-browser` is given, over SSH (`SSH_CONNECTION`/`SSH_TTY`), in the container image (`PLUR1BUS_CONTAINER=1`) or on Linux without `DISPLAY`/`WAYLAND_DISPLAY`. The CLI then prints the forwarding command for the callback port, to run on the machine that has the browser:
+
+```sh
+ssh -L 49152:127.0.0.1:49152 user@this-host
+```
+
+Without port forwarding the browser lands on an unreachable `http://127.0.0.1:49152/auth/callback?...` page. With `--paste` the CLI reads that full address from stdin and replays it, as a local `GET`, to the core's own loopback listener (only the exact `http://127.0.0.1:<this login's port>/auth/callback` is accepted; the address carries the authorization code and is never printed or stored). The callback stays single-use and the state check stays in the service, so a wrong or foreign address ends as `state-mismatch`. No provider offers a device-code grant here, so the headless route is port forwarding or `--paste`.
+
+### RPC
+
+`auth.login.start` (returns `attemptId`, `authorizeUrl`, `callbackPort`), `auth.login.await`, `auth.login.cancel`, `auth.credentials.list`, `auth.logout`, `auth.status`; see [rpc.md](rpc.md). Authorization is the authenticated human owner only ([rbac.md](rbac.md#provider-login-auth)); the `PlanPrincipal` is built from the guard's principal, never from params. Failures keep the service's closed code as `reason`:
+
+| `reason` | Error | Meaning |
+|---|---|---|
+| `state-mismatch`, `access-denied`, `scope-denied`, `id-token-invalid` | `E_DENIED` | The callback or token did not verify, or the person declined. Nothing is stored. |
+| `login-timeout`, `login-cancelled`, `port-in-use` | `E_CONFLICT` | The login ended without a credential. |
+| `login-unknown` | `E_NOT_FOUND` | No such pending login for this person. |
+| `auth-required` | `E_NOT_FOUND` | No such saved sign-in (logout), or it needs a new login. |
+| `persist-failed` | `E_STORAGE` | The secret service refused the write. |
+| `transport-failed`, `endpoint-rejected`, `discovery-invalid`, `siwc-unsupported` | `E_NOT_AVAILABLE` | OpenAI could not be reached or answered something unexpected. |
+
+## Storage, refresh and logout
+
+Tokens, issued client IDs and refresh state are encrypted/keyring records. The separate secret-store index contains credential IDs, person/workspace metadata and expiry, never tokens. Public lists/status and object inspection contain no token or issued client ID. The existing secret service supplies auditing, atomic encrypted-file writes and owner-only permissions/Windows ACL handling. File fallback remains opt-in through `secrets.fileFallback.enabled`; `auth.openai.storeBackend: keyring` refuses fallback. `auto` reuses the secret service's configured selection.
+
+Refresh happens on demand before expiry, with configurable lead time and up to 15 seconds of jitter. One Core owner serializes login, refresh and logout for each credential; ten parallel turns share one rotation. Before exchange, a durable spent marker prevents refresh-token reuse after an ambiguous failure or crash. Failure requires a new login rather than an endless retry loop. Login/refresh/logout/refresh_failed events contain fixed kinds/codes only. Logout removes local state even if discovery or provider revocation fails; provider revoke failure is still reported.
+
+## Provider and billing
+
+A configured provider definition uses `wireFormat: codex_responses`, profile kind `oauth_pkce`, `client_registration: dynamic_on_authorize`, `billingPath: plan`, and `openai: { credentialId, person, deployment? }`. The profile must belong to the authenticated turn person. Each model is checked using `/v1/models` with the same credential; configured API-key adapters retain their existing behavior.
+
+Plan inference uses public `/v1/responses`, forces `store:false` and `stream:true`, hoists instructions and refuses unsupported sampling options/hosted tools/audio. The harness's `maxTokens` admission estimate is omitted from SIWC's wire body. Chat Completions is rejected explicitly. `subscription_sharing_usage_limit_exceeded` preserves Retry-After and stops retries/fallback. Other rate limits retain normal bounded router handling.
+
+The existing turn budget still admits and settles each attempt, including retries and fallback; #293's `allowCrossBilling` policy remains unchanged. Plan input/output counts additionally enter `state/openai-plan-usage.sqlite`, exposed as `plan_tokens` through `TurnComposition.openai.usage.total(person)`. Unknown counts remain unknown. There is no fabricated subscription USD price: the shipped price table leaves plan calls unpriced, so an applicable hard cost limit retains the existing fail-closed `unpriced-model` behavior. The separate ledger is not a new `budget.*` RPC field.
+
+## Federated suppliers
+
+Kind `federated_token` uses `openai.federated` on the provider binding. The supplier is either a file or an executable plus literal argument array. It returns `{ "access_token": "…", "expires_at": <epoch seconds> }`. The bearer lives in memory; expiry triggers a single new supplier invocation. Binary execution has no shell, inherits no ambient environment, uses only configured environment entries, caps output at 64 KiB and has a deadline. File suppliers check the existing foreign-store deny roots before opening contents, including canonical aliases; reads are bounded to 64 KiB. Missing, expired, oversized or failed output yields a constant `auth-required` error. The existing `WorkloadIdentity` exchange library and its Kubernetes/GitHub/X.509 ports remain available; production cloud-metadata/mTLS wiring is separate from this external-supplier path.
+
+## Configuration and manual test
+
+The generated [config reference](config.md) contains client registration, login/HTTP deadlines, refresh lead time, backend selection, Live handle TTL, voice daily seconds/capacity and federated supplier defaults. Auth config changes restart Core. Source-generated config fixtures are deliberately excluded from this PR as requested; they belong to package AD.
+
+The development-only script uses a dedicated home and the existing keyring. It prints only the explicit first-registration URL and safe credential/model metadata. It never runs in tests or installers:
+
+```sh
+PLUR1BUS_OPENAI_LOGIN_LIVE=1 node --experimental-strip-types --conditions=source scripts/dev/openai-login.ts /absolute/path/to/test-home
+```
+
+`auth-required`: sign in again. `scope-denied`: authorize plan-use scope or select an allowed model. `owner-only`: check the authenticated person/deployment and configured credential. Plan exhaustion: show the plan limit/reset instead of switching billing. Keyring unavailable: enable the existing encrypted fallback explicitly or restore the keyring.
+
+## Tests and remaining delivery work
+
+The library conformance tests remain, extended with local HTTP OAuth/Responses and WebSocket Live servers. A started Core performs AuthService login → authenticated `session.submit` → Responses → durable plan/budget usage, with token-free logs. Tests cover ten-way refresh, failure/restart/logout, supplier execution, callback rejection, handle binding/replay/expiry/revoke and Realtime single-use delivery.
+
+Follow-ups after AC: Web login UI (RPC and CLI landed with R2), model/usage presentation, desktop media client, SIP, cloud metadata/mTLS transports and setup-provided vendor price/capacity discovery. Owner questions Q1–Q11 use D110's documented defaults; corrected AE5 explicitly chooses the Live Harness-handle relay. Local synthetic acceptance is not real-provider or native Windows/Linux acceptance. No CI result is claimed.

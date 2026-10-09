@@ -1,0 +1,4 @@
+{
+  "params": {},
+  "result": { "credentials": [{ "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "person": "local-owner", "workspace": "Personal", "kind": "oauth_pkce", "billingPath": "plan", "expiresAt": 1000, "needsLogin": false }], "pendingLogins": 0 }
+}

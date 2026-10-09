@@ -23,23 +23,22 @@ fn help_lists_the_2a_commands() {
 
 #[test]
 fn stubs_exit_2_and_name_their_milestone() {
-    for (cmd, milestone) in [("login", "M2"), ("channel", "M4"), ("uninstall", "M8")] {
-        bin()
-            .arg(cmd)
-            .assert()
-            .code(2)
-            .stderr(predicate::str::contains(milestone));
-        let out = bin()
-            .args(["--json", cmd])
-            .assert()
-            .code(2)
-            .get_output()
-            .stdout
-            .clone();
-        let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
-        assert_eq!(v["error"], "E_NOT_AVAILABLE");
-        assert_eq!(v["milestone"], milestone);
-    }
+    let (cmd, milestone) = ("channel", "M4");
+    bin()
+        .arg(cmd)
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains(milestone));
+    let out = bin()
+        .args(["--json", cmd])
+        .assert()
+        .code(2)
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["error"], "E_NOT_AVAILABLE");
+    assert_eq!(v["milestone"], milestone);
 }
 
 fn json_code(args: &[&str], env: &[(&str, &str)], code: i32) -> serde_json::Value {

@@ -40,6 +40,14 @@ fn pair<P: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize>(name: 
 fn method_fixture(name: &str, f: &Value) {
     use types::*;
     match name {
+        "auth.login.start" => pair::<AuthLoginStartParams, AuthLoginStartResult>(name, f),
+        "auth.login.await" => pair::<AuthLoginAwaitParams, AuthLoginAwaitResult>(name, f),
+        "auth.login.cancel" => pair::<AuthLoginCancelParams, AuthLoginCancelResult>(name, f),
+        "auth.credentials.list" => {
+            pair::<AuthCredentialsListParams, AuthCredentialsListResult>(name, f)
+        }
+        "auth.logout" => pair::<AuthLogoutParams, AuthLogoutResult>(name, f),
+        "auth.status" => pair::<AuthStatusParams, AuthStatusResult>(name, f),
         "media.generate" => pair::<MediaGenerateParams, MediaGenerateResult>(name, f),
         "media.edit" => pair::<MediaEditParams, MediaEditResult>(name, f),
         "media.job.get" => pair::<MediaJobGetParams, MediaJobGetResult>(name, f),

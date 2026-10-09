@@ -1,8 +1,8 @@
 import { AuthError } from "./errors.ts";
 
 /** ADR-005 "Auth kinds". `external_cli` is the delegated-binary pattern (a vendor CLI owns the login; the harness
- *  holds no credential). D110's `federated_token`/`minted_ephemeral` are not part of this engine yet. */
-export const AUTH_KINDS = ["api_key", "oauth_pkce", "device_code", "adc", "external_cli"] as const;
+ *  holds no credential). D110's federated supplier is dispatched through openai-auth; minted_ephemeral is derived by voice, never a stored profile. */
+export const AUTH_KINDS = ["api_key", "oauth_pkce", "device_code", "adc", "external_cli", "federated_token"] as const;
 export type AuthKind = (typeof AUTH_KINDS)[number];
 export const POLICY_STATUSES = ["allowed", "restricted", "prohibited"] as const;
 export type PolicyStatus = (typeof POLICY_STATUSES)[number];
@@ -27,7 +27,7 @@ export interface AuthProfile {
   device_authorization_endpoint?: string;
   revocation_endpoint?: string;
   scopes?: string[];
-  client_registration?: "none" | "static" | "dynamic";
+  client_registration?: "none" | "static" | "dynamic" | "dynamic_on_authorize";
   client_id?: string;
   redirect?: { type: "loopback"; port?: number };
   pkce?: "S256";
@@ -65,6 +65,7 @@ export function validateProfile(input: unknown): AuthProfile {
   const p = input as Record<string, unknown>;
   const id = p.id;
   if (!isStr(id) || !ID_RE.test(id)) bad(id, "id must match " + ID_RE.source);
+  if (id === 'openai:chatgpt-oauth-restricted') bad(id, 'superseded by openai:chatgpt-plan; sign in with ChatGPT again');
   for (const k of Object.keys(p)) if (!KEYS.has(k)) bad(id, "unknown field");
   if (!isStr(p.display_name)) bad(id, "display_name missing");
   if (!AUTH_KINDS.includes(p.kind as AuthKind)) bad(id, "kind must be one of " + AUTH_KINDS.join("|"));
@@ -87,7 +88,7 @@ export function validateProfile(input: unknown): AuthProfile {
   }
   if (p.scopes !== undefined && (!Array.isArray(p.scopes) || !p.scopes.every(s => typeof s === "string" && /^[\x21\x23-\x5b\x5d-\x7e]+$/.test(s)))) bad(id, "scopes must be OAuth scope tokens");
   for (const f of ["client_id", "audience", "secret_ref"]) if (p[f] !== undefined && (!isStr(p[f]) || /[\r\n]/.test(p[f] as string))) bad(id, "invalid identifier");
-  if (p.client_registration !== undefined && !["none", "static", "dynamic"].includes(p.client_registration as string)) bad(id, "invalid client_registration");
+  if (p.client_registration !== undefined && !["none", "static", "dynamic", "dynamic_on_authorize"].includes(p.client_registration as string)) bad(id, "invalid client_registration");
   if (p.person_bound !== undefined && typeof p.person_bound !== "boolean") bad(id, "person_bound must be boolean");
   if (p.redirect !== undefined) {
     const r = p.redirect as Record<string, unknown>;

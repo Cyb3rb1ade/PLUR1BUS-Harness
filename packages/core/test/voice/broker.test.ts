@@ -49,3 +49,16 @@ test('agent budgets stay isolated and a ceiling prevents another session for tha
 });
 test('concurrent ephemeral sideband claims allow exactly one call', async () => { const s = setup(); const secret = await s.broker.mint({ ...s.request, provider: 'openai:realtime' }); const result = await Promise.allSettled([s.broker.attachEphemeral(secret.reservation, 'first'), s.broker.attachEphemeral(secret.reservation, 'second')]); assert.equal(result.filter(r => r.status === 'fulfilled').length, 1); await s.broker.dispose(); });
 test('sideband events arriving during attach are buffered until session registration', async () => { const s = setup(); s.ports.sideband.attach = async r => { await r.onEvent({ type: 'tool.call', callId: 'early', name: 'fixture', arguments: {} }); return { send: async () => {}, close: async () => {} }; }; await s.broker.create(s.request); assert.equal(s.toolCalls(), 1); await s.broker.dispose(); });
+test('Realtime delivery binds session/person/model/surface and revokes an unconsumed secret',async()=>{
+  const {RealtimeService}=await import('../../src/voice/realtime.ts');const s=setup();const service=new RealtimeService(s.broker);
+  const client={authenticated:true,person:'owner',session:'chat',model:'fixture-realtime',surface:'desktop:paired',trust:2 as const,receive:async()=>{},closed:async()=>{}};
+  const request={...s.request,provider:'openai:realtime' as const,model:client.model};const delivery=await service.mint(request,client);
+  assert.throws(()=>delivery.deliver({...client,person:'other'}),{code:'handle-binding'});assert.throws(()=>delivery.deliver({...client,session:'other'}),{code:'handle-binding'});
+  await service.endSession(client);assert.throws(()=>delivery.deliver(client),{code:'ephemeral-consumed'});
+  await s.broker.dispose();
+});
+test('a slow Live backend cannot block cumulative usage or emit results after the session closes',async()=>{
+  const s=setup();let finish!:(value:string)=>void;s.ports.policy.delegate=()=>new Promise(resolve=>{finish=resolve;});const session=await s.broker.create(s.request);
+  await s.broker.event(session.sessionId,{type:'delegation.request',requestId:'slow',payload:{text:'hello'}});
+  await s.broker.event(session.sessionId,{type:'session.usage.updated',eventId:'while-reasoning',seconds:60});assert.deepEqual(s.closed,[session.sessionId]);finish('late result');await Promise.resolve();await Promise.resolve();assert.equal(s.sends.some((v:any)=>v.type==='delegation.result'),false);
+});

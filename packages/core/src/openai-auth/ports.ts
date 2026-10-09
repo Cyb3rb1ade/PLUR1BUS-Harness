@@ -10,11 +10,11 @@ export interface HttpResponse { status: number; body: unknown }
 /** Egress-approved, pinned, bounded transport. Never follow redirects or log request/response payloads. */
 export interface HttpPort { request(request: HttpRequest): Promise<HttpResponse> }
 export interface PkcePort { redirect(): Promise<string>; close(): Promise<void>; authorize(request: { url: Sensitive; redirectUri: string; signal: AbortSignal }): Promise<string> }
-export interface AuditEvent { kind: 'login' | 'logout' | 'refresh' | 'failover' | 'mint' | 'session-start' | 'session-close'; provider?: 'openai:realtime' | 'openai:gpt-live'; ttlSeconds?: number; from?: BillingPath; to?: BillingPath; crossBilling?: boolean; agentRef?: string; surface?: 'desktop' | 'web' | 'channel' | 'group'; sessionRef?: string }
+export interface AuditEvent { kind: 'login' | 'logout' | 'refresh' | 'failover' | 'mint' | 'session-start' | 'session-close' | 'refresh_failed' | 'handle-issued' | 'handle-denied' | 'handle-redeemed' | 'handle-revoked'; code?: ErrorCode; provider?: 'openai:realtime' | 'openai:gpt-live'; ttlSeconds?: number; from?: BillingPath; to?: BillingPath; crossBilling?: boolean; agentRef?: string; surface?: 'desktop' | 'web' | 'channel' | 'group'; sessionRef?: string }
 export type AuditPort = (event: AuditEvent) => void;
 export type BillingPath = 'api_key' | 'chatgpt_plan' | 'workload' | 'cli_login';
 export type Region = 'global' | 'us' | 'eu';
-export const ERROR_CODES = ['invalid-request', 'transport-failed', 'endpoint-rejected', 'discovery-invalid', 'state-mismatch', 'id-token-invalid', 'scope-denied', 'auth-required', 'owner-only', 'persist-failed', 'siwc-unsupported', 'credential-denied', 'surface-denied', 'ephemeral-consumed', 'budget-exceeded', 'capacity-exceeded', 'transport-unavailable', 'policy-denied', 'session-unknown', 'subscription_sharing_usage_limit_exceeded', 'subscription_sharing_authentication_required', 'subscription_sharing_not_enabled', 'subscription_sharing_workspace_not_allowed', 'subscription_sharing_invalid_token', 'subscription_sharing_user_not_eligible', 'subscription_sharing_usage_unavailable', 'subscription_sharing_unsupported_capability', 'subscription_sharing_route_not_supported', 'subscription_sharing_invalid_user', 'subscription_sharing_user_unavailable', 'chatpass_v2_scope_not_authorized', 'chatpass_v2_invalid_authorization_context'] as const;
+export const ERROR_CODES = ['login-timeout', 'login-cancelled', 'access-denied', 'port-in-use', 'handle-unknown', 'handle-expired', 'handle-replay', 'handle-binding', 'handle-revoked', 'invalid-request', 'transport-failed', 'endpoint-rejected', 'discovery-invalid', 'state-mismatch', 'id-token-invalid', 'scope-denied', 'auth-required', 'owner-only', 'persist-failed', 'siwc-unsupported', 'credential-denied', 'surface-denied', 'ephemeral-consumed', 'budget-exceeded', 'capacity-exceeded', 'transport-unavailable', 'policy-denied', 'session-unknown', 'subscription_sharing_usage_limit_exceeded', 'subscription_sharing_authentication_required', 'subscription_sharing_not_enabled', 'subscription_sharing_workspace_not_allowed', 'subscription_sharing_invalid_token', 'subscription_sharing_user_not_eligible', 'subscription_sharing_usage_unavailable', 'subscription_sharing_unsupported_capability', 'subscription_sharing_route_not_supported', 'subscription_sharing_invalid_user', 'subscription_sharing_user_unavailable', 'chatpass_v2_scope_not_authorized', 'chatpass_v2_invalid_authorization_context'] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 /** Constant messages and closed codes: vendor payloads and foreign exceptions never escape. */
 export class OpenAIError extends Error {
@@ -52,7 +52,7 @@ export async function boundary<T>(action: () => Promise<T>, fallback: ErrorCode 
 /** Abort a hung port independently of whether that port honours its signal. */
 export function bounded<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
   return new Promise((resolve, reject) => {
-    const abort = () => reject(new OpenAIError('auth-required'));
+    const abort = () => reject(new OpenAIError(signal.reason?.name === 'TimeoutError' ? 'login-timeout' : 'login-cancelled'));
     if (signal.aborted) { abort(); return; }
     signal.addEventListener('abort', abort, { once: true });
     work.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort));

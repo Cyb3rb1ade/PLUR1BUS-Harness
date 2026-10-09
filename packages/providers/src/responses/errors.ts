@@ -61,7 +61,7 @@ function patch(base: ProviderError, p: { retryAfterMs?: number; retryable?: bool
 export function classifyResponsesHttp(status: number, headers: Headers, bodyText: string, nowMs: number, redact: (s: string) => string): ProviderError {
   const base = classifyHttpError(status, headers, bodyText, nowMs, redact);
   if (base.kind === "rate_limit") {
-    const usageLimit = base.providerType === "usage_limit_reached" || base.code === "usage_limit_reached";
+    const usageLimit = base.code === 'subscription_sharing_usage_limit_exceeded' || base.providerType === "usage_limit_reached" || base.code === "usage_limit_reached";
     const p: { retryAfterMs?: number; retryable?: boolean } = {};
     const wait = base.retryAfterMs ?? limitHeaderReset(headers) ?? (usageLimit ? bodyResetMs(bodyText) : undefined);
     if (wait !== undefined && base.retryAfterMs === undefined) p.retryAfterMs = wait;

@@ -221,3 +221,12 @@ still narrow role rights; the service's existing object checks remain additive.
 All new methods reject unauthenticated and agent callers before invoking handlers.
 The guard passes its resolved principal to the invocation through a private
 context map; params cannot forge it. Existing method authorization is unchanged.
+
+## Provider login (`auth.*`)
+
+The R2 methods are declared in RPC_RULES and are human-only; the two actions are granted to **Owner only** (ChatGPT-plan credentials are the installation owner's own, and the D110 `AuthService` enforces `requireOwner` a second time). Admin, Operator, Member and Viewer are denied with `role-denied`, an agent principal with `agent-principal`, an unauthenticated call with `E_UNAUTHORIZED`; the handler never runs in any of those cases.
+
+| RPC | Coarse action | Notes |
+|---|---|---|
+| auth.credentials.list, auth.status | auth.credentials.read | Ids, workspace and expiry only |
+| auth.login.start, auth.login.await, auth.login.cancel, auth.logout | auth.credentials.write | The login is bound to the authenticated person; an `await` whose connection closes cancels the login |

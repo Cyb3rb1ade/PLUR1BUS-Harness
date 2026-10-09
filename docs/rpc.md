@@ -7017,6 +7017,277 @@ Secret names and metadata, never values. Owner only (M2, ADR-005).
 }
 ```
 
+### `auth.login.start`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Begins a provider OAuth login (OpenAI: Sign in with ChatGPT, PKCE on a 127.0.0.1 loopback listener). Returns the authorize URL, the loopback port and a login id for `auth.login.await` / `auth.login.cancel`. Human principals only; the Owner's own credentials (D110, ADR-005). The URL is single-use and is never logged.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "provider": {
+      "type": "string",
+      "enum": [
+        "openai"
+      ]
+    },
+    "credentialId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "attemptId",
+    "authorizeUrl",
+    "callbackPort"
+  ],
+  "properties": {
+    "attemptId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "authorizeUrl": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "callbackPort": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    }
+  }
+}
+```
+
+### `auth.login.await`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Waits for a started login to finish (callback, timeout or cancel) and returns the stored credential's metadata. A login whose awaiting connection closes is cancelled. Failures carry `reason`: `state-mismatch`, `access-denied`, `login-timeout`, `login-cancelled`, `port-in-use` and the other closed login codes. Human principals only; Owner only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "attemptId"
+  ],
+  "properties": {
+    "attemptId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/AuthCredential"
+}
+```
+
+### `auth.login.cancel`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Cancels a pending login started by the caller; a waiting `auth.login.await` fails with reason `login-cancelled`. Human principals only; Owner only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "attemptId"
+  ],
+  "properties": {
+    "attemptId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "cancelled"
+  ],
+  "properties": {
+    "cancelled": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `auth.credentials.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+The caller's saved provider logins: ids, workspace and expiry, never a token or client id. Human principals only; Owner only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "credentials"
+  ],
+  "properties": {
+    "credentials": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/AuthCredential"
+      }
+    }
+  }
+}
+```
+
+### `auth.logout`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Removes a saved provider login and its local token state (provider revocation is attempted). An unknown id is E_NOT_FOUND. Human principals only; Owner only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "loggedOut"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "loggedOut": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `auth.status`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Saved provider logins plus the number of logins in progress. Human principals only; Owner only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "credentials",
+    "pendingLogins"
+  ],
+  "properties": {
+    "credentials": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/AuthCredential"
+      }
+    },
+    "pendingLogins": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
 ### `secret.set`
 
 **Stability:** experimental · since 1.5.0
@@ -13382,6 +13653,63 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "file",
     "memory"
   ]
+}
+```
+
+### `AuthCredential`
+
+```json
+{
+  "description": "Experimental (1.5.0). A saved provider login (D110): opaque id, owner, workspace, expiry. Never a token, refresh token or issued client id.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "person",
+    "workspace",
+    "kind",
+    "billingPath",
+    "expiresAt",
+    "needsLogin"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "person": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "workspace": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "oauth_pkce"
+      ]
+    },
+    "billingPath": {
+      "type": "string",
+      "enum": [
+        "plan"
+      ]
+    },
+    "expiresAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "needsLogin": {
+      "type": "boolean"
+    }
+  }
 }
 ```
 

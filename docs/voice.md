@@ -1,37 +1,42 @@
-# D110 voice session broker
+# D110 voice broker and client delivery
 
-`packages/core/src/voice/index.ts` exports the in-process `VoiceBroker` and its ports. This PR adds no RPC, CLI, UI, network listener or production credential wiring.
+[OpenAI auth](openai-auth.md) describes credentials and billing; the [D110 design](superpowers/specs/2026-09-30-openai-auth-design.md) amends ADR-005 and D45. Core registers the services additively. Trusted in-process surfaces obtain `VoiceRuntime` through `CompositionOptions.onVoice` or `TurnComposition.voice`. No voice RPC, CLI or Web UI is added.
 
-## Session creation
+## Two separate paths
 
-The caller supplies an authenticated server-derived principal and surface, agent, provider, discovered model, parent profile (`api_key` or `federated_token`) and region (`global`, `us`, `eu`). Never accept these identity/trust values directly from an untrusted request body. Plan profiles cannot parent voice credentials.
+| Path | Client receives | Provider credential |
+|---|---|---|
+| Realtime, direct paired desktop WebRTC | Short-lived provider ephemeral secret via `RealtimeService` | API key/federated bearer stays in Core |
+| GPT-Live, `gpt-live-1` | Random Harness handle, then Core PCM relay | Credential and provider session remain in Core |
 
-`create(request)` reserves budget before asking for a project credential. Realtime defaults to the unified WebRTC `/v1/realtime/calls` broker; GPT-Live uses `/v1/live/sessions` with `gpt-live-1`, `delegation.type: client` and `store:false`. Responses delegation is explicit per agent. The selected model/delegation is fixed for the session. The public result contains only `sessionId` and optional `sdpAnswer`.
+Plan OAuth cannot parent either voice path. `providers.openaiVoice` selects a trusted server-side `secretRef` or external `federated` supplier. The runtime checks model availability with that parent. Egress decisions pin HTTP/WebSocket connections while retaining the original TLS name and refusing redirects. Regional hosts follow the configured parent. Realtime WebRTC uses multipart `/v1/realtime/calls`; Live uses `/v1/live/sessions` and its separate sideband. See [OpenAI Live](https://developers.openai.com/api/docs/guides/live) and [Live WebSockets](https://developers.openai.com/api/docs/guides/voice-websockets?api=live).
 
-WebSocket creation uses the server-only WebSocket port; GPT-Live sends `session.start` first. That port relays audio/events inside the core. No bearer reaches a client. Realtime WebRTC encoding (multipart SDP + session JSON), actual socket transport and vendor-event normalization are HttpPort/sideband responsibilities to wire in the next integration PR.
+## GPT-Live handle and relay
 
-The broker attaches a regional server sideband to Live `/{id}/attach` or Realtime `?call_id=`. Instructions are enforced there and tracing is off. Tool calls go through the D109 policy port before execution; duplicate call IDs do not execute twice. Live client delegation calls the agent backend through a policy port so memory, routing and tools stay in the harness. Raw tools/agent content is never sent to an audit sink.
+`live.issue(request, client)` returns `{ handle: Sensitive, expiresAt }`. The caller's authenticated server-side context contains person, chat session, model, unique connection surface (`desktop:<binding>` or `web:<binding>`) and T2/T3 trust. These are trusted adapter facts, never request/body assertions.
 
-## Direct desktop Realtime
+The handle is 256 random bits, unrelated to any provider secret. Only its SHA-256 digest and bound server-side entry are retained. `auth.openai.liveHandleTtlSeconds` defaults to 60 seconds until redemption, with a 600-second ceiling. `live.redeem(handle, client)` checks all bindings and claims the entry before asynchronous provider/budget work. Foreign attempts cannot consume the owner's handle. Errors are `handle-unknown`, `handle-binding`, `handle-expired`, `handle-replay` and `handle-revoked`; refusal events contain the fixed code, never the handle or credential.
 
-`mint(request)` is an explicit alternative for an authenticated paired desktop using WebRTC, T2+. It refuses T1, unauthenticated surfaces, web/channel/group delivery and GPT-Live. The TTL is 60 seconds by default, with the harness cap of 600 seconds and the vendor floor of 10 seconds. Each call makes one secret for one reservation. A secret's `consume()` method is single-use and refuses expired delivery. JSON/inspection are redacted; there is no persistence API for ephemeral values.
+Redemption opens a WebSocket-backed provider session and sideband only after budget admission. It returns a Core `MediaChannel`, with `send(Uint8Array)` and `close()`. Audio is PCM16 mono at 24 kHz: Core encodes client frames as `session.input_audio.append` and decodes only `session.output_audio.delta` into client audio. Control events, vendor errors, session IDs, credentials and arbitrary vendor payloads are never forwarded to the client. This is a relay through Core; browser WebRTC capture/playback and media resampling are follow-up surface work.
 
-The server-authenticated connection notification calls `attachEphemeral(reservation, callId)` exactly once. The integration must authenticate vendor call ownership before invoking it; never trust a client-submitted call ID. An expired unused reservation is released by `sweep`. Secret-attached config is **not a security boundary**. Require sideband enforcement plus a dedicated voice project with model allow-list and spend cap. The explicit delivery getter is the only boundary allowed to return an ephemeral value to the paired desktop.
+`live.endSession(session, client)` revokes both unused handles and active channels for that authenticated person/session. It requests graceful provider closure, records the final usage, closes primary and sideband connections, aborts active delegated turns and releases budget reservations. A missing final event after five seconds causes a hard close and an explicit final-usage-unconfirmed diagnostic; the latest observed usage is retained. Revocation while opening closes any channel that finishes late. Provider/session/accounting failures close media; `sweep` expires unused entries and enforces session lifetime. Core schedules sweep and disposes the services at shutdown.
+
+Live defaults to client delegation. Input transcript deltas remain in bounded memory; `session.delegation.created` starts the existing turn provider under the authenticated person. Its tools still traverse D109 and its model calls still traverse budget admission. Results return as bounded `session.commentary.append` with the original delegation ID. Backend work does not block media/usage event processing. No direct sideband tool bypass exists; unsupported direct tool calls are denied. Responses-delegation configuration and richer transcript/task revision handling remain explicit integration work.
+
+## Realtime ephemeral delivery
+
+`realtime.mint(request, client)` is restricted to the authenticated paired desktop WebRTC path, T2+. The returned `EphemeralDelivery` serializes only redacted metadata. `deliver(client)` checks person/session/model/connection surface and extracts the secret once. TTL is 60 seconds by default, vendor minimum 10 and harness maximum 600. Expired/consumed/revoked delivery is refused. `realtime.endSession(client)` revokes local delivery entries and closes attached sessions.
+
+The server-authenticated connection notification calls `broker.attachEphemeral(reservation, callId)`. A client-supplied call ID must never be trusted as ownership proof. Local single-use delivery is not a claim that OpenAI cryptographically binds a secret to one model or prevents reuse after extraction. Provider-side ephemeral config can be overridden; short TTL, a dedicated project/model allow-list/spend cap and server sideband enforcement remain required by D110. No provider ephemeral-secret revocation endpoint is invented.
 
 ## Budgets and lifecycle
 
-The `VoiceBudgetPort` owns durable, atomic per-agent/per-user/per-installation day and month limits, minutes and cost ceilings, and concurrent-session reservations. The broker checks `reserve` before every create/mint and `record` on every usage event; at a ceiling it closes the provider session and sends a spoken and written notice. A denied start produces a D109 `money.spend` request (`once`, T3), then remains refused until the approval workflow applies a permitted budget change.
+Every opening/mint uses the existing `CallBudget.checkBeforeCall`. Voice seconds and provider-reported cost figures are recorded separately in `state/voice-usage.sqlite`; `auth.openai.voiceDailySeconds` guards per-person/per-agent daily use. Provider usage updates/final totals are cumulative; backend token events are deltas. Duplicate event IDs are idempotent. Existing hard token/cost limits retain their semantics, including refusal of unpriced models. Vendor pricing is not inferred from duration.
 
-Live usage updates and final figures are cumulative: the broker subtracts the last provider totals. Delegated backend token/cost events and Realtime `response.done` are deltas. Both feed the same budget port, which prices from the setup-provided price table; prices are never guessed here. Normalization into `VoiceEvent` is a transport-port obligation. Rate-limit updates are accepted through the same path. Duplicate event IDs are idempotent. Accounting failure stops the session rather than allowing unmetered spend.
+At a ceiling, the broker stops the provider and records a notice. An overbudget opening calls the existing D109 evaluator and records a `money.spend` request with its existing once/T3 requirements, then remains refused. Approval alone neither raises a limit nor authorizes a paid fallback. Spoken/media notice UX and configuring more detailed monthly/install voice ceilings require the follow-up surface/setup integration.
 
-Capacity comes from the vendor tier at setup and applies to active and pending sessions. Realtime sessions close at the 60-minute cap. Runtime integration must call `sweep()` periodically and `dispose()` at shutdown. Closing the provider comes before budget release; if that fails the session is retained for retry.
+`auth.openai.voiceCapacity` defaults conservatively to one session and must not exceed the vendor tier. SIP is refused as `transport-unavailable`; browser media capture, SIP hooks, monthly/install voice settings, price/capacity discovery and provider-native platform acceptance remain follow-ups.
 
-## Safety and follow-ups
+## Validation
 
-All project credentials stay behind the credential/transport ports. `OpenAI-Safety-Identifier` hashes the principal. Audit records contain fixed kinds, hashed agent/session references, surface and TTL, never token values. Backend exceptions become constant typed errors.
-
-Follow-ups: `voice.session.create` RPC and schemas, CLI, real auth/secret/egress/refresh/budget/D109 wiring, vendor payload normalization and audio relay, Desktop WebRTC client, SIP incoming hooks and session accept/reject/refer/hangup with M3/D1, EU Modified Retention setup confirmation, vendor capacity/price discovery, budget approval UX, and the prescribed UI texts on the web. SIP currently returns `transport-unavailable` explicitly.
-
-Tests: `packages/core/test/voice/broker.test.ts`; synthetic dispatcher in `packages/core/test/fixtures/openai/server.ts`. Acceptance 16 covers credential-free SDP, mint TTL/trust, policy tools, budget closure and redaction. No ordinary test opens a network connection.
-
-Local verification (2026-10-08): all voice tests passed as part of the 43-test D110 suite, including early sideband events, concurrent ephemeral claims, per-agent budget isolation and provider/backend accounting. No real vendor sessions were created.
+Tests use only synthetic fixtures and loopback HTTP/WebSocket servers. They cover budget denial before provider I/O, a real PCM relay, no provider credential/session in client results/errors/logs, TTL, replay, foreign person/session/model/surface, revocation during opening and active relay, and Realtime delivery binding. These results do not establish real OpenAI or microphone/device acceptance.

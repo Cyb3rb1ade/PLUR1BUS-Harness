@@ -5,6 +5,15 @@ import ImageIO
 import UniformTypeIdentifiers
 import StableDiffusion
 import Darwin
+import MediaCoreMLCore
+
+// Mode switch. Without a flag the process speaks the original one-shot protocol (v1) below, unchanged.
+//   --capabilities  print the supported protocol and exit     --version  print the build and exit
+//   --jsonl         serve the JSON-Lines protocol jsonl/1 (see MediaCoreMLCore/Session.swift)
+let flags = CommandLine.arguments.dropFirst()
+if flags.contains("--capabilities") { print(capabilitiesJSON); exit(0) }
+if flags.contains("--version") { print("media-coreml 2 (protocols: oneshot/1, jsonl/1)"); exit(0) }
+if flags.contains("--jsonl") { runJSONL() }
 
 // Protocol v1. Apple pipeline API checked 2026-10-07, pinned in Package.swift (MIT).
 // Signal handlers do no allocation, I/O or locking. The next diffusion step observes cancellation.

@@ -26,8 +26,33 @@ pub struct Cli {
     /// Machine-readable output (stable shape, see docs/cli.md)
     #[arg(long, global = true)]
     pub json: bool,
+    /// When to colour output: auto (a terminal, unless `NO_COLOR` is set and non-empty), always, never
+    #[arg(long, global = true, value_enum, value_name = "WHEN", default_value_t)]
+    pub color: crate::output::ColorChoice,
     #[command(subcommand)]
     pub cmd: Cmd,
+}
+
+/// The full command tree: the derived definition plus an example in the long help of every command that has none
+/// (see `commands::help_examples`). Completions, manpages and `--help` all use this one definition.
+pub fn command() -> clap::Command {
+    use clap::CommandFactory;
+    crate::commands::help_examples::decorate(Cli::command())
+}
+
+/// Parses the process arguments. Like `Cli::parse()`, but `--color` is read first so it also shapes `--help` and
+/// parse errors, and `NO_COLOR`/`--color` are applied to the CLI's own diagnostics.
+pub fn parse() -> Cli {
+    use clap::FromArgMatches;
+    let choice = crate::output::color_from_args(std::env::args_os().skip(1));
+    crate::output::init_color(choice);
+    let clap_choice = match choice {
+        crate::output::ColorChoice::Auto => clap::ColorChoice::Auto,
+        crate::output::ColorChoice::Always => clap::ColorChoice::Always,
+        crate::output::ColorChoice::Never => clap::ColorChoice::Never,
+    };
+    let mut matches = command().color(clap_choice).get_matches();
+    Cli::from_arg_matches_mut(&mut matches).unwrap_or_else(|e| e.exit())
 }
 
 #[derive(Subcommand, Debug)]
@@ -152,8 +177,20 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: ApprovalCmd,
     },
-    /// Provider login (API keys, OAuth) — M2
-    Login(StubArgs),
+    /// [experimental] Provider sign-in: OAuth (ChatGPT) or an API key from stdin; `login status|list|logout`
+    ///
+    /// `login openai` signs in with ChatGPT in a browser (loopback PKCE); on a machine without one it prints the
+    /// `ssh -L` command for the callback port, and `--paste` accepts the address the browser was sent to. Any other
+    /// provider (or `login openai --api-key`) stores an API key read from stdin, never from an argument, as a secret and
+    /// prints only its name. No token or key is ever printed.
+    #[command(after_long_help = "\
+Examples:
+  plur1bus login openai
+  plur1bus login openai --no-browser --paste
+  printf %s \"$ANTHROPIC_API_KEY\" | plur1bus login anthropic
+  plur1bus login status
+  plur1bus login logout 3fa9c2d1")]
+    Login(crate::commands::login::LoginArgs),
     /// Channels — M4
     Channel(StubArgs),
     /// [experimental] Projects, members and agents (M5)
@@ -178,8 +215,10 @@ pub enum Cmd {
     },
     /// [experimental] Import from OpenClaw/Hermes: read-only --detect and the --skills import now; the full import is M7
     Import(ImportArgs),
-    /// Uninstall — M8
-    Uninstall(StubArgs),
+    /// [experimental] Remove the installation (service, daemon, binary, runtime); the data stays unless --purge
+    ///
+    /// Shows the plan first and asks (`--yes` skips the question); `--dry-run` shows the same plan and changes nothing. Stops the daemon, removes the service unit, the `plur1bus` binary, `runtime/`, `update/`, the install manifest and `run/`. Config, agents, stores, skills, modules and logs are kept. `--purge` removes the whole home and writes a backup next to it first (`--no-backup` skips that, `--backup-out` chooses where it goes). On Windows the running program is removed by a script right after this process exits.
+    Uninstall(crate::commands::uninstall::UninstallArgs),
     /// Skills from packages, folders or archives: list, show, install, uninstall, restore, enable, disable
     Skill {
         #[command(subcommand)]
@@ -198,6 +237,28 @@ pub enum Cmd {
     /// Print the CLI reference as Markdown (used by scripts/gen-docs.mjs)
     #[command(hide = true, name = "__markdown")]
     Markdown,
+    /// [experimental] Print a shell completion script to stdout
+    ///
+    /// Supported shells: bash, zsh, fish, powershell, elvish. Install it where your shell loads completions from (see
+    /// the examples).
+    #[command(after_long_help = "\
+Examples:
+  plur1bus completions bash > ~/.local/share/bash-completion/completions/plur1bus
+  plur1bus completions zsh > \"${fpath[1]}/_plur1bus\"
+  plur1bus completions fish > ~/.config/fish/completions/plur1bus.fish
+  plur1bus completions powershell | Out-String | Invoke-Expression")]
+    Completions {
+        /// Shell to generate the script for
+        #[arg(value_enum)]
+        shell: clap_complete::Shell,
+    },
+    /// Write one manpage per command (root and every subcommand) into a directory (used by the release pipeline)
+    #[command(hide = true, name = "__manpages")]
+    Manpages {
+        /// Target directory (created when missing)
+        #[arg(value_name = "DIR")]
+        dir: PathBuf,
+    },
     /// Run the supervisor in the foreground (internal: started by the OS service or `daemon start`)
     #[command(hide = true)]
     Supervise {
@@ -329,6 +390,32 @@ pub struct UpdateArgs {
     /// Release channel (default: the installed one)
     #[arg(long, value_name = "CHANNEL", value_parser = ["stable", "beta"])]
     pub channel: Option<String>,
+    /// Apply an offline bundle (.tar.zst or .zip with manifest.json, manifest.json.minisig and the artefacts) instead of the online feed
+    ///
+    /// Verified like the online feed: the manifest signature, then every artefact's SHA-256 and size. Same snapshot, swap, health gate and rollback.
+    #[arg(long, value_name = "BUNDLE", conflicts_with_all = ["manifest", "check", "rollback"])]
+    pub from: Option<PathBuf>,
+    /// Print the update plan (versions, notes, breaking changes, restarts, migrations, add-ons, download size) and change nothing
+    #[arg(long, conflicts_with_all = ["check", "rollback"])]
+    pub plan: bool,
+    /// Language of the plan: en or de (default: from LC_ALL, LC_MESSAGES, LANG; German if it starts with "de")
+    #[arg(long, value_name = "LANG", value_parser = ["en", "de"])]
+    pub lang: Option<String>,
+    /// Accept a release older than the installed one, or older than the newest this install already accepted
+    #[arg(long)]
+    pub allow_downgrade: bool,
+    /// Update even though a required add-on is incompatible with the new version (it is disabled)
+    #[arg(long)]
+    pub force: bool,
+    /// Mark an installed add-on as required for updates; remembered (repeatable)
+    #[arg(long = "require-addon", value_name = "NAME")]
+    pub require_addon: Vec<String>,
+    /// Forget that an add-on is required (repeatable)
+    #[arg(long = "unrequire-addon", value_name = "NAME")]
+    pub unrequire_addon: Vec<String>,
+    /// PEM file of CA certificates for https downloads (a corporate CA); replaces the OS store. Env: PLUR1BUS_CA_BUNDLE
+    #[arg(long, value_name = "PEM")]
+    pub ca_bundle: Option<PathBuf>,
 }
 
 #[derive(Subcommand, Debug)]
