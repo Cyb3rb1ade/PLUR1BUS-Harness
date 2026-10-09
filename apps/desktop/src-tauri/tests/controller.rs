@@ -425,7 +425,7 @@ async fn only_everything_removes_the_affected_bundled_token_account() {
                 &SecretString::new("synthetic-private-device-token-p1t".into()),
             )
             .unwrap();
-        let other = uuid::Uuid::new_v4();
+        let other = uuid::Uuid::now_v7();
         tokens
             .set(
                 &token_account(other),
