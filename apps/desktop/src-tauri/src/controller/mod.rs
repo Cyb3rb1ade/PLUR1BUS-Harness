@@ -386,19 +386,44 @@ pub(crate) fn atomic_json<T: Serialize>(dir: &Path, name: &str, value: &T) -> Re
     {
         return Err(CtlError::Storage);
     }
-    let mut file = tempfile::NamedTempFile::new_in(owned.path()).map_err(|_| CtlError::Storage)?;
+    let bytes = serde_json::to_vec_pretty(value).map_err(|_| CtlError::Storage)?;
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
-        file.as_file()
-            .set_permissions(std::fs::Permissions::from_mode(0o600))
-            .map_err(|_| CtlError::Storage)?;
+        let mut file =
+            tempfile::NamedTempFile::new_in(owned.path()).map_err(|_| CtlError::Storage)?;
+        {
+            use std::os::unix::fs::PermissionsExt;
+            file.as_file()
+                .set_permissions(std::fs::Permissions::from_mode(0o600))
+                .map_err(|_| CtlError::Storage)?;
+        }
+        file.write_all(&bytes).map_err(|_| CtlError::Storage)?;
+        file.as_file().sync_all().map_err(|_| CtlError::Storage)?;
+        owned.check().map_err(|_| CtlError::Storage)?;
+        file.persist(target).map_err(|_| CtlError::Storage)?;
     }
-    file.write_all(&serde_json::to_vec_pretty(value).map_err(|_| CtlError::Storage)?)
-        .map_err(|_| CtlError::Storage)?;
-    file.as_file().sync_all().map_err(|_| CtlError::Storage)?;
-    owned.check().map_err(|_| CtlError::Storage)?;
-    file.persist(target).map_err(|_| CtlError::Storage)?;
+    #[cfg(windows)]
+    {
+        // A tempfile::NamedTempFile carries the directory's inherited DACL, which
+        // OwnedDirectory::read rightly refuses (it requires the protected user+SYSTEM DACL).
+        // Create the temporary through OwnedDirectory so it gets that DACL before any content is
+        // written; MoveFileEx keeps the security descriptor on rename. The handle is closed first
+        // because OwnedDirectory opens without FILE_SHARE_DELETE.
+        let temp_name = format!("{name}.{}.tmp", uuid::Uuid::now_v7().simple());
+        let temp = owned.path().join(&temp_name);
+        let written = (|| -> std::io::Result<()> {
+            let mut file = owned.create(&temp_name)?;
+            file.write_all(&bytes)?;
+            file.sync_all()?;
+            drop(file);
+            owned.check()?;
+            std::fs::rename(&temp, &target)
+        })();
+        if written.is_err() {
+            let _ = std::fs::remove_file(&temp);
+            return Err(CtlError::Storage);
+        }
+    }
     owned.sync().map_err(|_| CtlError::Storage)
 }
 

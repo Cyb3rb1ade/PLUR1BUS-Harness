@@ -3,10 +3,20 @@ use plur1bus_desktop::{
     install::target_json::{self, Target},
     runtime::RuntimeKind,
 };
+// `unix://` endpoints are only valid where `/p1t/engine.sock` is an absolute path; on Windows the
+// Docker endpoint is a named pipe and the forwarder receives the bare pipe path.
+#[cfg(not(windows))]
+const ENDPOINT: &str = "unix:///p1t/engine.sock";
+#[cfg(not(windows))]
+const FORWARDED: &str = "/p1t/engine.sock";
+#[cfg(windows)]
+const ENDPOINT: &str = "npipe:////./pipe/p1t_engine";
+#[cfg(windows)]
+const FORWARDED: &str = "//./pipe/p1t_engine";
 fn installed() -> Installed {
     Installed {
         runtime: RuntimeKind::Docker,
-        endpoint: "unix:///p1t/engine.sock".into(),
+        endpoint: ENDPOINT.into(),
         container: "p1t-harness".into(),
         port: 18700,
         image_digest: format!("sha256:{}", "a".repeat(64)),
@@ -25,7 +35,7 @@ fn target_has_only_the_forwarder_contract_and_private_permissions() {
     let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(
         value,
-        serde_json::json!({"version":1,"mode":"container","runtime":"docker","endpoint":"/p1t/engine.sock","container":"p1t-harness"})
+        serde_json::json!({"version":1,"mode":"container","runtime":"docker","endpoint":FORWARDED,"container":"p1t-harness"})
     );
     #[cfg(unix)]
     {
