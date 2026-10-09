@@ -203,8 +203,10 @@ pub enum Cmd {
     },
     /// [experimental] Import from OpenClaw/Hermes: read-only --detect and the --skills import now; the full import is M7
     Import(ImportArgs),
-    /// Uninstall — M8
-    Uninstall(StubArgs),
+    /// [experimental] Remove the installation (service, daemon, binary, runtime); the data stays unless --purge
+    ///
+    /// Shows the plan first and asks (`--yes` skips the question); `--dry-run` shows the same plan and changes nothing. Stops the daemon, removes the service unit, the `plur1bus` binary, `runtime/`, `update/`, the install manifest and `run/`. Config, agents, stores, skills, modules and logs are kept. `--purge` removes the whole home and writes a backup next to it first (`--no-backup` skips that, `--backup-out` chooses where it goes). On Windows the running program is removed by a script right after this process exits.
+    Uninstall(crate::commands::uninstall::UninstallArgs),
     /// Skills from packages, folders or archives: list, show, install, uninstall, restore, enable, disable
     Skill {
         #[command(subcommand)]

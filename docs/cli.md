@@ -222,7 +222,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `media` — [experimental] Image jobs and private outputs (MG-3)
 * `identity` — [experimental] My channel identities and pairing (Identity v2)
 * `import` — [experimental] Import from OpenClaw/Hermes: read-only --detect and the --skills import now; the full import is M7
-* `uninstall` — Uninstall — M8
+* `uninstall` — [experimental] Remove the installation (service, daemon, binary, runtime); the data stays unless --purge
 * `skill` — Skills from packages, folders or archives: list, show, install, uninstall, restore, enable, disable
 * `plugin` — Plugins (modules and channels) from packages: list, show, install, uninstall, restore, enable, disable
 * `ext` — Extension packages (`.p1x`): inspect, pack, verify
@@ -2497,13 +2497,19 @@ Assigned project agents
 
 ## `plur1bus uninstall`
 
-Uninstall — M8
+[experimental] Remove the installation (service, daemon, binary, runtime); the data stays unless --purge
 
-**Usage:** `plur1bus uninstall`
+Shows the plan first and asks (`--yes` skips the question); `--dry-run` shows the same plan and changes nothing. Stops the daemon, removes the service unit, the `plur1bus` binary, `runtime/`, `update/`, the install manifest and `run/`. Config, agents, stores, skills, modules and logs are kept. `--purge` removes the whole home and writes a backup next to it first (`--no-backup` skips that, `--backup-out` chooses where it goes). On Windows the running program is removed by a script right after this process exits.
 
-###### **Arguments:**
+**Usage:** `plur1bus uninstall [OPTIONS]`
 
-* `<REST>`
+###### **Options:**
+
+* `-y`, `--yes` — Do not ask; apply the plan
+* `--dry-run` — Print the plan and change nothing
+* `--purge` — Also remove the data: the whole home (config, agents, stores, logs, ...). Writes a backup first unless --no-backup
+* `--no-backup` — With --purge: do not write a backup first
+* `--backup-out <FILE>` — With --purge: where the backup goes (default: next to the home, never inside it)
 
 
 

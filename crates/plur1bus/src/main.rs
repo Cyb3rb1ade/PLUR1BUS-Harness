@@ -64,7 +64,7 @@ fn main() {
         Cmd::Media { sub } => commands::media::run(&out, &layout, sub),
         Cmd::Identity { sub } => commands::identity::run(&out, &layout, sub),
         Cmd::Import(args) => commands::import::run(&out, &layout, args),
-        Cmd::Uninstall(_) => commands::stubs::milestone(&out, "uninstall", "M8", "uninstaller"),
+        Cmd::Uninstall(args) => commands::uninstall::run(&out, &layout, args),
         Cmd::Agent { sub } => commands::agent::run(&out, &layout, sub),
         Cmd::Config { sub } => commands::config::run(&out, &layout, sub),
         Cmd::Memory { sub } => commands::memory::run(&out, &layout, sub),
