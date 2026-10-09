@@ -1,0 +1,10 @@
+{
+  "name": "slack",
+  "version": "0.1.0",
+  "kind": "channel",
+  "apiVersion": "1",
+  "displayName": "Slack",
+  "chatKinds": ["direct", "group"],
+  "startDelayMs": 0,
+  "maxRestarts": 8
+}

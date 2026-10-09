@@ -25,6 +25,17 @@ export interface HarnessConfig {
   models: { scan: { enabled: boolean; intervalHours: number } };
   secrets: { fileFallback: { enabled: boolean } };
   egress: { allowHosts: string[]; allowPorts: number[]; allowLoopback: boolean };
+  channels: {
+    discord: ChannelCommonConfig & { tokenSecret: string; applicationId?: string; intents: string[] };
+    slack: ChannelCommonConfig & { botTokenSecret: string; appTokenSecret: string; teamId?: string };
+    matrix: ChannelCommonConfig & { homeserverUrl?: string; userId?: string; accessTokenSecret: string; deviceId?: string; autoJoin: "allowlist" | "never" };
+    signal: ChannelCommonConfig & { account?: string; endpoint: { socketPath?: string; host?: string; port?: number }; allowRemoteEndpoint: boolean };
+    email: {
+      enabled: boolean; address?: string; displayName?: string; dmAllowlist: string[]; maxAttachmentBytes: number; requireAuthPass: boolean; locale: "en" | "de";
+      imap: MailServerConfig & { folder: string; idle: boolean; pollIntervalSec: number };
+      smtp: MailServerConfig;
+    };
+  };
   modules: Record<string, Record<string, unknown> & { enabled: boolean }>;
   voice: VoiceConfig;
 }
@@ -58,6 +69,19 @@ export interface VoiceConfig {
     perAgent: Record<string, Record<string, unknown>>;
   };
 }
+
+/** Keys every chat channel shares (`channels.<id>.*`); secrets are referenced by name, never held here. */
+export interface ChannelCommonConfig {
+  enabled: boolean;
+  allowlist: string[];
+  dmAllowlist: string[];
+  userAllowlist?: string[];
+  replyPolicy: "mention" | "always" | "allowlist";
+  maxMediaBytes: number;
+  locale: "en" | "de";
+}
+
+export interface MailServerConfig { host?: string; port: number; security: "tls" | "starttls"; user?: string; passwordSecret: string }
 
 export interface ModelProfile {
   displayName?: string;

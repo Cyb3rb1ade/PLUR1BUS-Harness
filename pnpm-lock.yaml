@@ -63,6 +63,16 @@ importers:
         specifier: workspace:*
         version: link:../rpc-schema
 
+  packages/channels-discord: {}
+
+  packages/channels-email: {}
+
+  packages/channels-matrix: {}
+
+  packages/channels-signal: {}
+
+  packages/channels-slack: {}
+
   packages/channels-telegram: {}
 
   packages/config-schema:

@@ -501,6 +501,779 @@
         }
       }
     },
+    "channels": {
+      "description": "Switchboard channel adapters. Every channel is off by default and takes effect when its module restarts. Tokens and passwords are secret names, never values.",
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "properties": {
+        "discord": {
+          "description": "Discord channel adapter (Gateway + REST, slash commands, button approvals).",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "enabled": {
+              "description": "Whether the discord channel is started. Off by default; nothing connects until this is true.",
+              "type": "boolean",
+              "default": false,
+              "x-restart": "module:discord",
+              "x-tier": "advanced"
+            },
+            "tokenSecret": {
+              "description": "Name of the secret holding the Discord bot token. The value never appears in config or logs.",
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+              "default": "channels.discord.token",
+              "x-restart": "module:discord",
+              "x-tier": "advanced"
+            },
+            "applicationId": {
+              "description": "Discord application id (needed to register slash commands). Taken from the gateway READY event when omitted.",
+              "type": "string",
+              "pattern": "^[0-9]{5,25}$",
+              "x-restart": "module:discord",
+              "x-tier": "advanced"
+            },
+            "intents": {
+              "description": "Gateway intents to request. MESSAGE_CONTENT is privileged and must also be enabled in the developer portal.",
+              "type": "array",
+              "uniqueItems": true,
+              "minItems": 1,
+              "items": {
+                "enum": [
+                  "GUILDS",
+                  "GUILD_MESSAGES",
+                  "DIRECT_MESSAGES",
+                  "MESSAGE_CONTENT",
+                  "GUILD_MESSAGE_REACTIONS",
+                  "DIRECT_MESSAGE_REACTIONS"
+                ]
+              },
+              "default": [
+                "GUILDS",
+                "GUILD_MESSAGES",
+                "DIRECT_MESSAGES",
+                "MESSAGE_CONTENT"
+              ],
+              "x-restart": "module:discord",
+              "x-tier": "advanced"
+            },
+            "allowlist": {
+              "description": "Guild channel, thread or DM channel ids that may talk to the bot. Empty allows nothing, inbound and outbound.",
+              "type": "array",
+              "maxItems": 1024,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "default": [],
+              "x-restart": "module:discord",
+              "x-tier": "advanced"
+            },
+            "dmAllowlist": {
+              "description": "Sender ids that may write to the bot in a direct message. Empty allows no direct messages.",
+              "type": "array",
+              "maxItems": 1024,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "default": [],
+              "x-restart": "module:discord",
+              "x-tier": "advanced"
+            },
+            "userAllowlist": {
+              "description": "When present, only these senders are heard in groups. Also names the senders that need no mention under replyPolicy `allowlist`.",
+              "type": "array",
+              "maxItems": 1024,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "x-restart": "module:discord",
+              "x-tier": "advanced"
+            },
+            "replyPolicy": {
+              "description": "When the bot answers in a group: `mention` only when addressed or replied to, `always` every message of an allowed chat, `allowlist` every message from userAllowlist members and the rest only when addressed. Direct messages are always answered when allowed.",
+              "enum": [
+                "mention",
+                "always",
+                "allowlist"
+              ],
+              "default": "mention",
+              "x-restart": "module:discord",
+              "x-tier": "advanced"
+            },
+            "maxMediaBytes": {
+              "description": "Largest attachment accepted or sent, in bytes (checked before and during download and before upload).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 26214400,
+              "default": 10485760,
+              "x-restart": "module:discord",
+              "x-tier": "advanced"
+            },
+            "locale": {
+              "description": "Language of the bot's own messages (pairing replies, refusals, approval prompts).",
+              "enum": [
+                "en",
+                "de"
+              ],
+              "default": "en",
+              "x-restart": "module:discord",
+              "x-tier": "advanced"
+            }
+          }
+        },
+        "slack": {
+          "description": "Slack channel adapter (Socket Mode, Web API, Block Kit approvals). No public endpoint is needed.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "enabled": {
+              "description": "Whether the slack channel is started. Off by default; nothing connects until this is true.",
+              "type": "boolean",
+              "default": false,
+              "x-restart": "module:slack",
+              "x-tier": "advanced"
+            },
+            "botTokenSecret": {
+              "description": "Name of the secret holding the Slack bot token (xoxb-…).",
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+              "default": "channels.slack.bot-token",
+              "x-restart": "module:slack",
+              "x-tier": "advanced"
+            },
+            "appTokenSecret": {
+              "description": "Name of the secret holding the Slack app-level token (xapp-…) with the connections:write scope, used for Socket Mode.",
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+              "default": "channels.slack.app-token",
+              "x-restart": "module:slack",
+              "x-tier": "advanced"
+            },
+            "teamId": {
+              "description": "Slack workspace id; events from other workspaces are ignored when set.",
+              "type": "string",
+              "pattern": "^[A-Z0-9]{5,16}$",
+              "x-restart": "module:slack",
+              "x-tier": "advanced"
+            },
+            "allowlist": {
+              "description": "Slack channel, group or conversation ids that may talk to the bot. Empty allows nothing, inbound and outbound.",
+              "type": "array",
+              "maxItems": 1024,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "default": [],
+              "x-restart": "module:slack",
+              "x-tier": "advanced"
+            },
+            "dmAllowlist": {
+              "description": "Sender ids that may write to the bot in a direct message. Empty allows no direct messages.",
+              "type": "array",
+              "maxItems": 1024,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "default": [],
+              "x-restart": "module:slack",
+              "x-tier": "advanced"
+            },
+            "userAllowlist": {
+              "description": "When present, only these senders are heard in groups. Also names the senders that need no mention under replyPolicy `allowlist`.",
+              "type": "array",
+              "maxItems": 1024,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "x-restart": "module:slack",
+              "x-tier": "advanced"
+            },
+            "replyPolicy": {
+              "description": "When the bot answers in a group: `mention` only when addressed or replied to, `always` every message of an allowed chat, `allowlist` every message from userAllowlist members and the rest only when addressed. Direct messages are always answered when allowed.",
+              "enum": [
+                "mention",
+                "always",
+                "allowlist"
+              ],
+              "default": "mention",
+              "x-restart": "module:slack",
+              "x-tier": "advanced"
+            },
+            "maxMediaBytes": {
+              "description": "Largest attachment accepted or sent, in bytes (checked before and during download and before upload).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 26214400,
+              "default": 10485760,
+              "x-restart": "module:slack",
+              "x-tier": "advanced"
+            },
+            "locale": {
+              "description": "Language of the bot's own messages (pairing replies, refusals, approval prompts).",
+              "enum": [
+                "en",
+                "de"
+              ],
+              "default": "en",
+              "x-restart": "module:slack",
+              "x-tier": "advanced"
+            }
+          }
+        },
+        "matrix": {
+          "description": "Matrix channel adapter (client-server API, sync loop, reactions as approvals). Rooms with end-to-end encryption are refused in this version.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "enabled": {
+              "description": "Whether the matrix channel is started. Off by default; nothing connects until this is true.",
+              "type": "boolean",
+              "default": false,
+              "x-restart": "module:matrix",
+              "x-tier": "advanced"
+            },
+            "homeserverUrl": {
+              "description": "Base URL of the Matrix homeserver. Must be https, or http for a loopback host.",
+              "type": "string",
+              "pattern": "^(https://[^\\s/]+|http://(localhost|127\\.[0-9.]+|\\[::1\\])(:[0-9]+)?)(/[^\\s]*)?$",
+              "maxLength": 512,
+              "x-restart": "module:matrix",
+              "x-tier": "advanced"
+            },
+            "userId": {
+              "description": "Matrix id of the bot account, for example @bot:example.org.",
+              "type": "string",
+              "pattern": "^@[^:\\s]+:[^\\s]+$",
+              "maxLength": 255,
+              "x-restart": "module:matrix",
+              "x-tier": "advanced"
+            },
+            "accessTokenSecret": {
+              "description": "Name of the secret holding the bot account's access token.",
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+              "default": "channels.matrix.access-token",
+              "x-restart": "module:matrix",
+              "x-tier": "advanced"
+            },
+            "deviceId": {
+              "description": "Device id of the access token, when the homeserver requires it to be stated.",
+              "type": "string",
+              "maxLength": 128,
+              "x-restart": "module:matrix",
+              "x-tier": "advanced"
+            },
+            "autoJoin": {
+              "description": "Which room invites the bot accepts: `allowlist` joins only invites from allowed rooms or senders, `never` joins nothing.",
+              "enum": [
+                "allowlist",
+                "never"
+              ],
+              "default": "allowlist",
+              "x-restart": "module:matrix",
+              "x-tier": "advanced"
+            },
+            "allowlist": {
+              "description": "Room ids that may talk to the bot. Empty allows nothing, inbound and outbound.",
+              "type": "array",
+              "maxItems": 1024,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "default": [],
+              "x-restart": "module:matrix",
+              "x-tier": "advanced"
+            },
+            "dmAllowlist": {
+              "description": "Sender ids that may write to the bot in a direct message. Empty allows no direct messages.",
+              "type": "array",
+              "maxItems": 1024,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "default": [],
+              "x-restart": "module:matrix",
+              "x-tier": "advanced"
+            },
+            "userAllowlist": {
+              "description": "When present, only these senders are heard in groups. Also names the senders that need no mention under replyPolicy `allowlist`.",
+              "type": "array",
+              "maxItems": 1024,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "x-restart": "module:matrix",
+              "x-tier": "advanced"
+            },
+            "replyPolicy": {
+              "description": "When the bot answers in a group: `mention` only when addressed or replied to, `always` every message of an allowed chat, `allowlist` every message from userAllowlist members and the rest only when addressed. Direct messages are always answered when allowed.",
+              "enum": [
+                "mention",
+                "always",
+                "allowlist"
+              ],
+              "default": "mention",
+              "x-restart": "module:matrix",
+              "x-tier": "advanced"
+            },
+            "maxMediaBytes": {
+              "description": "Largest attachment accepted or sent, in bytes (checked before and during download and before upload).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 26214400,
+              "default": 10485760,
+              "x-restart": "module:matrix",
+              "x-tier": "advanced"
+            },
+            "locale": {
+              "description": "Language of the bot's own messages (pairing replies, refusals, approval prompts).",
+              "enum": [
+                "en",
+                "de"
+              ],
+              "default": "en",
+              "x-restart": "module:matrix",
+              "x-tier": "advanced"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "enabled": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "enabled"
+                ]
+              },
+              "then": {
+                "required": [
+                  "homeserverUrl",
+                  "userId"
+                ],
+                "properties": {
+                  "homeserverUrl": {},
+                  "userId": {}
+                }
+              }
+            }
+          ]
+        },
+        "signal": {
+          "description": "Signal channel adapter (signal-cli JSON-RPC daemon, reply-code approvals).",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "enabled": {
+              "description": "Whether the signal channel is started. Off by default; nothing connects until this is true.",
+              "type": "boolean",
+              "default": false,
+              "x-restart": "module:signal",
+              "x-tier": "advanced"
+            },
+            "account": {
+              "description": "The bot's Signal number in E.164 form, as registered in signal-cli.",
+              "type": "string",
+              "pattern": "^\\+[1-9][0-9]{6,14}$",
+              "x-restart": "module:signal",
+              "x-tier": "advanced"
+            },
+            "endpoint": {
+              "description": "Where the signal-cli JSON-RPC daemon listens. The channel only connects; it never starts signal-cli.",
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "socketPath": {
+                  "description": "Unix socket path of the signal-cli daemon. Use this or host and port.",
+                  "type": "string",
+                  "maxLength": 1024,
+                  "x-restart": "module:signal",
+                  "x-tier": "advanced"
+                },
+                "host": {
+                  "description": "TCP host of the signal-cli daemon. Non-loopback hosts need allowRemoteEndpoint because the protocol is plaintext.",
+                  "type": "string",
+                  "maxLength": 253,
+                  "x-restart": "module:signal",
+                  "x-tier": "advanced"
+                },
+                "port": {
+                  "description": "TCP port of the signal-cli daemon.",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 65535,
+                  "x-restart": "module:signal",
+                  "x-tier": "advanced"
+                }
+              }
+            },
+            "allowRemoteEndpoint": {
+              "description": "Allow a non-loopback TCP endpoint. The JSON-RPC link is unencrypted; only use it on a trusted network.",
+              "type": "boolean",
+              "default": false,
+              "x-restart": "module:signal",
+              "x-tier": "advanced"
+            },
+            "allowlist": {
+              "description": "Signal group (base64 group id) or number ids that may talk to the bot. Empty allows nothing, inbound and outbound.",
+              "type": "array",
+              "maxItems": 1024,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "default": [],
+              "x-restart": "module:signal",
+              "x-tier": "advanced"
+            },
+            "dmAllowlist": {
+              "description": "Sender ids that may write to the bot in a direct message. Empty allows no direct messages.",
+              "type": "array",
+              "maxItems": 1024,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "default": [],
+              "x-restart": "module:signal",
+              "x-tier": "advanced"
+            },
+            "userAllowlist": {
+              "description": "When present, only these senders are heard in groups. Also names the senders that need no mention under replyPolicy `allowlist`.",
+              "type": "array",
+              "maxItems": 1024,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "x-restart": "module:signal",
+              "x-tier": "advanced"
+            },
+            "replyPolicy": {
+              "description": "When the bot answers in a group: `mention` only when addressed or replied to, `always` every message of an allowed chat, `allowlist` every message from userAllowlist members and the rest only when addressed. Direct messages are always answered when allowed.",
+              "enum": [
+                "mention",
+                "always",
+                "allowlist"
+              ],
+              "default": "mention",
+              "x-restart": "module:signal",
+              "x-tier": "advanced"
+            },
+            "maxMediaBytes": {
+              "description": "Largest attachment accepted or sent, in bytes (checked before and during download and before upload).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 26214400,
+              "default": 10485760,
+              "x-restart": "module:signal",
+              "x-tier": "advanced"
+            },
+            "locale": {
+              "description": "Language of the bot's own messages (pairing replies, refusals, approval prompts).",
+              "enum": [
+                "en",
+                "de"
+              ],
+              "default": "en",
+              "x-restart": "module:signal",
+              "x-tier": "advanced"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "enabled": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "enabled"
+                ]
+              },
+              "then": {
+                "required": [
+                  "account",
+                  "endpoint"
+                ],
+                "properties": {
+                  "account": {},
+                  "endpoint": {}
+                }
+              }
+            }
+          ]
+        },
+        "email": {
+          "description": "E-mail channel adapter (IMAP/SMTP, reply-code approvals). Addresses and servers are required when enabled.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "enabled": {
+              "description": "Whether the email channel is started. Off by default; nothing connects until this is true.",
+              "type": "boolean",
+              "default": false,
+              "x-restart": "module:email",
+              "x-tier": "advanced"
+            },
+            "address": {
+              "description": "Mailbox address of the bot; used as From and to recognise its own mail.",
+              "type": "string",
+              "maxLength": 320,
+              "x-restart": "module:email",
+              "x-tier": "advanced"
+            },
+            "displayName": {
+              "description": "Display name used in the From header.",
+              "type": "string",
+              "maxLength": 128,
+              "x-restart": "module:email",
+              "x-tier": "advanced"
+            },
+            "imap": {
+              "description": "IMAP server settings.",
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "host": {
+                  "description": "IMAP server host name.",
+                  "type": "string",
+                  "maxLength": 253,
+                  "x-restart": "module:email",
+                  "x-tier": "advanced"
+                },
+                "port": {
+                  "description": "IMAP server port.",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 65535,
+                  "default": 993,
+                  "x-restart": "module:email",
+                  "x-tier": "advanced"
+                },
+                "security": {
+                  "description": "Transport security: `tls` for implicit TLS, `starttls` for an upgrade before any credential is sent. Plain text is not offered.",
+                  "enum": [
+                    "tls",
+                    "starttls"
+                  ],
+                  "default": "tls",
+                  "x-restart": "module:email",
+                  "x-tier": "advanced"
+                },
+                "user": {
+                  "description": "IMAP login name.",
+                  "type": "string",
+                  "maxLength": 320,
+                  "x-restart": "module:email",
+                  "x-tier": "advanced"
+                },
+                "passwordSecret": {
+                  "description": "Name of the secret holding the IMAP password or app password.",
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                  "default": "channels.email.imap-password",
+                  "x-restart": "module:email",
+                  "x-tier": "advanced"
+                },
+                "folder": {
+                  "description": "IMAP folder to watch.",
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 255,
+                  "default": "INBOX",
+                  "x-restart": "module:email",
+                  "x-tier": "advanced"
+                },
+                "idle": {
+                  "description": "Use IMAP IDLE when the server offers it; otherwise, or when false, poll.",
+                  "type": "boolean",
+                  "default": true,
+                  "x-restart": "module:email",
+                  "x-tier": "advanced"
+                },
+                "pollIntervalSec": {
+                  "description": "Seconds between polls when IDLE is not used.",
+                  "type": "integer",
+                  "minimum": 10,
+                  "maximum": 3600,
+                  "default": 60,
+                  "x-restart": "module:email",
+                  "x-tier": "advanced"
+                }
+              }
+            },
+            "smtp": {
+              "description": "SMTP server settings.",
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "host": {
+                  "description": "SMTP server host name.",
+                  "type": "string",
+                  "maxLength": 253,
+                  "x-restart": "module:email",
+                  "x-tier": "advanced"
+                },
+                "port": {
+                  "description": "SMTP server port.",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 65535,
+                  "default": 465,
+                  "x-restart": "module:email",
+                  "x-tier": "advanced"
+                },
+                "security": {
+                  "description": "Transport security: `tls` for implicit TLS, `starttls` for an upgrade before any credential is sent. Plain text is not offered.",
+                  "enum": [
+                    "tls",
+                    "starttls"
+                  ],
+                  "default": "tls",
+                  "x-restart": "module:email",
+                  "x-tier": "advanced"
+                },
+                "user": {
+                  "description": "SMTP login name.",
+                  "type": "string",
+                  "maxLength": 320,
+                  "x-restart": "module:email",
+                  "x-tier": "advanced"
+                },
+                "passwordSecret": {
+                  "description": "Name of the secret holding the SMTP password or app password.",
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                  "default": "channels.email.smtp-password",
+                  "x-restart": "module:email",
+                  "x-tier": "advanced"
+                }
+              }
+            },
+            "dmAllowlist": {
+              "description": "Sender addresses that may write to the bot: an exact address or `*@domain`. Empty allows nobody.",
+              "type": "array",
+              "maxItems": 1024,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "default": [],
+              "x-restart": "module:email",
+              "x-tier": "advanced"
+            },
+            "maxAttachmentBytes": {
+              "description": "Largest attachment accepted or sent, in bytes.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 26214400,
+              "default": 10485760,
+              "x-restart": "module:email",
+              "x-tier": "advanced"
+            },
+            "authServId": {
+              "description": "Authserv-id of the mail server that delivers into the bot mailbox. Only Authentication-Results headers from this server are read; without it every SPF/DKIM/DMARC result counts as none.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253,
+              "x-restart": "module:email",
+              "x-tier": "advanced"
+            },
+                        "requireAuthPass": {
+              "description": "Drop mail whose Authentication-Results do not show a pass (dmarc, or spf and dkim). The channel only reads the verdict; it does not verify mail itself.",
+              "type": "boolean",
+              "default": false,
+              "x-restart": "module:email",
+              "x-tier": "advanced"
+            },
+            "locale": {
+              "description": "Language of the bot's own messages (pairing replies, refusals, approval prompts).",
+              "enum": [
+                "en",
+                "de"
+              ],
+              "default": "en",
+              "x-restart": "module:email",
+              "x-tier": "advanced"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "enabled": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "enabled"
+                ]
+              },
+              "then": {
+                "required": [
+                  "address",
+                  "imap",
+                  "smtp"
+                ],
+                "properties": {
+                  "address": {},
+                  "imap": {},
+                  "smtp": {}
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
     "voice": {
       "description": "Voice (D45): cloud voice providers, the local sherpa-onnx fallback, and the simulated local real-time mode. Cloud providers are off until enabled and given a secret reference.",
       "type": "object", "additionalProperties": false, "default": {},
