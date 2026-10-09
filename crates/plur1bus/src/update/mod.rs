@@ -4,7 +4,11 @@
 //! the service manager goes through [`Host`], so the machine itself is unit-tested with a fake one.
 //!
 //! Reached only from `update` and `daemon start` (the recovery hook), never from `supervisor/`.
+pub mod addons;
+pub mod bundle;
+pub mod guard;
 pub mod host;
+pub mod plan;
 pub mod snapshot;
 pub mod state;
 
@@ -32,6 +36,26 @@ pub trait Host {
     fn gate(&self, layout: &Layout, bin: &Path, version: &str) -> Result<(), String>;
     /// Whether the process that owned an update is still running.
     fn alive(&self, pid: u32) -> bool;
+    /// Disables the add-ons that are incompatible with the new version (the daemon is stopped, the swap is done) and
+    /// records them. On an `Err` nothing stays disabled. The default does nothing (a [`Host`] without ext access).
+    fn disable_addons(
+        &self,
+        _layout: &Layout,
+        _plan: &addons::AddonPlan,
+        _from: &str,
+        _to: &str,
+    ) -> Result<(), String> {
+        Ok(())
+    }
+    /// After a rollback: puts back what [`Host::disable_addons`] disabled. Returns the names it could not.
+    fn restore_addons(&self, _layout: &Layout, _names: &[String]) -> Vec<String> {
+        Vec::new()
+    }
+    /// After the new version is healthy: re-enables add-ons an earlier update disabled that are compatible now.
+    /// Returns `(name, why)` for the ones that refused.
+    fn reenable_addons(&self, _layout: &Layout, _names: &[String]) -> Vec<(String, String)> {
+        Vec::new()
+    }
 }
 
 /// A refusal or failure before anything was written (`reason` is a frozen string, `message` for people).
@@ -55,6 +79,8 @@ impl UpdateError {
 pub struct Asset {
     pub url: String,
     pub sha256: String,
+    /// The size the signed manifest states: the download may not exceed it and must equal it.
+    pub size: Option<u64>,
 }
 
 /// What a verified feed asks this install to become.
@@ -66,6 +92,10 @@ pub struct Plan {
     pub binary: Asset,
     /// The core payload and its release unit, when the core changes.
     pub core: Option<(Asset, manifest::ReleaseCore)>,
+    /// What the new version means for installed add-ons.
+    pub addons: addons::AddonPlan,
+    /// Raise the channel's highest-seen version to `to` once the artefacts verified (replay protection).
+    pub record_seen: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -98,6 +128,22 @@ fn enter(layout: &Layout, s: &mut State, phase: Phase) -> Result<(), String> {
     Ok(())
 }
 
+/// A file whose manifest states a size must have exactly that many bytes.
+fn size_matches(p: &Path, declared: Option<u64>) -> Result<(), String> {
+    let Some(want) = declared else { return Ok(()) };
+    let got = fs::metadata(p)
+        .map_err(|e| format!("{}: {e}", p.display()))?
+        .len();
+    if got == want {
+        Ok(())
+    } else {
+        Err(format!(
+            "{} has {got} bytes, the signed manifest says {want}",
+            p.display()
+        ))
+    }
+}
+
 /// Downloads and verifies the new binary (and core payload) into `update/staging/`. Nothing outside it changes, and a
 /// previous snapshot stays untouched, so a refused download costs nothing.
 fn download(layout: &Layout, plan: &Plan) -> Result<(), UpdateError> {
@@ -114,10 +160,16 @@ fn download(layout: &Layout, plan: &Plan) -> Result<(), UpdateError> {
         &plan.binary.url,
         &bin,
         &plan.binary.sha256,
-        BINARY_MAX_BYTES,
+        plan.binary
+            .size
+            .map_or(BINARY_MAX_BYTES, |s| s.min(BINARY_MAX_BYTES)),
         DOWNLOAD_DEADLINE,
     )
     .map_err(fail)?;
+    size_matches(&bin, plan.binary.size).map_err(|m| {
+        state::remove_dir(&staging);
+        UpdateError::new("size-mismatch", m)
+    })?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -130,10 +182,14 @@ fn download(layout: &Layout, plan: &Plan) -> Result<(), UpdateError> {
             &asset.url,
             &tar,
             &asset.sha256,
-            CORE_MAX_BYTES,
+            asset.size.map_or(CORE_MAX_BYTES, |s| s.min(CORE_MAX_BYTES)),
             DOWNLOAD_DEADLINE,
         )
         .map_err(fail)?;
+        size_matches(&tar, asset.size).map_err(|m| {
+            state::remove_dir(&staging);
+            UpdateError::new("size-mismatch", m)
+        })?;
         let into = staging.join("core-extract");
         let extracted = archive::verify_and_extract(&tar, &asset.sha256, &into, 0);
         let _ = fs::remove_file(&tar);
@@ -180,6 +236,8 @@ fn fresh_state(plan: &Plan, target_bin: &Path, trigger: &str) -> State {
         },
         reason: None,
         message: None,
+        addons_disabled: Vec::new(),
+        addons_reenable: plan.addons.reenable.clone(),
     }
 }
 
@@ -233,6 +291,11 @@ pub fn apply(
         ));
     }
     download(layout, plan)?;
+    if plan.record_seen {
+        // Every artefact matches the signed manifest: from here on an older manifest is a replay, whatever happens next.
+        guard::record_seen(layout, &plan.channel, &plan.to)
+            .map_err(|m| UpdateError::new("guard-unreadable", m))?;
+    }
 
     let mut st = fresh_state(plan, target_bin, "update");
     let io = |m: String| UpdateError::new("io", m);
@@ -263,6 +326,13 @@ pub fn apply(
         enter(layout, &mut st, Phase::Swapping).map_err(|m| ("io", m))?;
         swap(layout, plan, target_bin, &mut st).map_err(|m| ("swap-failed", m))?;
         enter(layout, &mut st, Phase::Swapped).map_err(|m| ("io", m))?;
+        if !plan.addons.disable.is_empty() {
+            // Written first: a crash between here and the end of the disabling must still be undone by recovery.
+            st.addons_disabled = plan.addons.disable.clone();
+            state::save(layout, &mut st).map_err(|e| ("io", e.to_string()))?;
+            host.disable_addons(layout, &plan.addons, &plan.from, &plan.to)
+                .map_err(|m| ("addon-disable-failed", m))?;
+        }
         host.start(layout, target_bin)
             .map_err(|m| ("start-failed", m))?;
         enter(layout, &mut st, Phase::Started).map_err(|m| ("io", m))?;
@@ -311,6 +381,13 @@ fn commit(layout: &Layout, host: &dyn Host, st: &mut State) -> Result<(), String
     }
     m.updated_at = state::now_ms();
     manifest::write(layout, &m).map_err(|e| format!("cannot write manifest.json: {e}"))?;
+    if !st.addons_reenable.is_empty() {
+        let refused = host.reenable_addons(layout, &st.addons_reenable);
+        if !refused.is_empty() {
+            let list: Vec<String> = refused.iter().map(|(n, w)| format!("{n} ({w})")).collect();
+            st.message = Some(format!("add-ons not re-enabled: {}", list.join("; ")));
+        }
+    }
     enter(layout, st, Phase::Committed)?;
     state::remove_dir(&state::staging_dir(layout));
     if !st.was_running {
@@ -336,6 +413,15 @@ fn rollback(layout: &Layout, host: &dyn Host, mut st: State, reason: &str, messa
         .and_then(|meta| snapshot::restore(layout, &st.target_bin, &meta).map(|_| meta));
     match restored {
         Ok(_) => {
+            if !st.addons_disabled.is_empty() {
+                let failed = host.restore_addons(layout, &st.addons_disabled);
+                if !failed.is_empty() {
+                    st.message = Some(format!(
+                        "{message}; add-ons that stayed disabled: {}",
+                        failed.join(", ")
+                    ));
+                }
+            }
             if st.was_running {
                 if let Err(m) = host.start(layout, &st.target_bin) {
                     st.message = Some(format!(
@@ -405,6 +491,7 @@ pub fn rollback_manual(layout: &Layout, host: &dyn Host) -> Result<State, Update
             )
         })?;
     let meta = snapshot::verify(layout).map_err(|m| UpdateError::new("snapshot-invalid", m))?;
+    let undo_addons = last.addons_disabled.clone();
     let mut st = State {
         id: state::new_id(),
         trigger: "manual-rollback".into(),
@@ -415,6 +502,8 @@ pub fn rollback_manual(layout: &Layout, host: &dyn Host) -> Result<State, Update
         started_at: state::now_ms(),
         reason: Some("manual".into()),
         message: None,
+        addons_disabled: Vec::new(),
+        addons_reenable: Vec::new(),
         ..last
     };
     let io = |m: String| UpdateError::new("io", m);
@@ -431,6 +520,16 @@ pub fn rollback_manual(layout: &Layout, host: &dyn Host) -> Result<State, Update
         if let Err(m) = host.start(layout, &st.target_bin) {
             st.message = Some(format!(
                 "restored, but the previous version did not start: {m}"
+            ));
+        }
+    }
+    if !undo_addons.is_empty() {
+        // The previous version is back: the add-ons its successor disabled were fine with it.
+        let failed = host.restore_addons(layout, &undo_addons);
+        if !failed.is_empty() {
+            st.message = Some(format!(
+                "add-ons that stayed disabled: {}",
+                failed.join(", ")
             ));
         }
     }

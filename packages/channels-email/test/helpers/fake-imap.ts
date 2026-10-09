@@ -68,6 +68,7 @@ export class FakeImap {
   }
 
   #accept(s: Socket): void {
+    s.setNoDelay(true);
     this.#sockets.add(s);
     s.on("close", () => this.#sockets.delete(s));
     s.on("error", () => {});

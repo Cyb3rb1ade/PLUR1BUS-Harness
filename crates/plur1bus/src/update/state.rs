@@ -67,6 +67,12 @@ pub struct State {
     pub release: Target,
     pub reason: Option<String>,
     pub message: Option<String>,
+    /// Add-ons this update disabled (recovery and rollback put them back).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub addons_disabled: Vec<String>,
+    /// Add-ons an earlier update disabled that this one re-enables once healthy.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub addons_reenable: Vec<String>,
 }
 
 pub fn now_ms() -> u64 {
@@ -160,6 +166,8 @@ mod tests {
             },
             reason: None,
             message: None,
+            addons_disabled: Vec::new(),
+            addons_reenable: Vec::new(),
         }
     }
 
