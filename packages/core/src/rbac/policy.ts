@@ -76,6 +76,9 @@ export const POLICY: readonly ActionSpec[] = Object.freeze([
   humanOnly(spec("project.create", "system", OA)),
   humanOnly(spec("identity.self.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A })),
   humanOnly(spec("identity.self.write", "system", { owner: A, admin: A, operator: A, member: A })),
+  // R2 provider login: ChatGPT-plan credentials are owner-only by the D110 AuthService (requireOwner); the gate says the same, for people only.
+  humanOnly(spec("auth.credentials.read", "system", { owner: A })),
+  humanOnly(spec("auth.credentials.write", "system", { owner: A })),
 
   // My area and projects.
   spec("my.read", "user", { owner: O, admin: O, operator: O, member: O, viewer: O }),

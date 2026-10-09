@@ -43,6 +43,7 @@ const params: Record<string, unknown> = {
   "identity.link.decline": {},
   "identity.link.remove": {},
   "identity.principals": {},
+  "auth.login.start": {}, "auth.login.await": {}, "auth.login.cancel": {}, "auth.credentials.list": {}, "auth.logout": {}, "auth.status": {},
   "memory.forget": { caller, agentId: "bernd", id: "m1" },
   "agent.status": { agentId: "bernd" },
   "jobs.run": { job: "light", agentId: "bernd" },
@@ -85,7 +86,7 @@ describe("rpc guard: rules", () => {
     }
   });
   it("every surface method is secured", () => {
-    for (const name of Object.keys(findMethods(SCHEMA)).filter(n => /^(media|project|collab|identity)\./.test(n))) assert.ok(RPC_RULES[name], name);
+    for (const name of Object.keys(findMethods(SCHEMA)).filter(n => /^(media|project|collab|identity|auth)\./.test(n))) assert.ok(RPC_RULES[name], name);
   });
   it("every admin.* method in the schema is guarded (an `admin.*` is never left open)", () => {
     const admin = Object.keys(findMethods(SCHEMA)).filter((m) => m.startsWith("admin."));
