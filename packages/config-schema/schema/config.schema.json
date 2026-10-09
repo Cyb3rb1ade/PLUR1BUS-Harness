@@ -111,6 +111,144 @@
       "additionalProperties": true
     },
     "providers": { "description": "Reserved namespace for model-provider configuration.", "type": "object", "default": {}, "x-restart": "live", "x-tier": "basic", "x-reserved": "M2 (D15)", "additionalProperties": true },
+    "auth": {
+      "description": "Provider sign-in and credential lifecycle (D110): OAuth/PKCE login, federated tokens, refresh and the credential store.",
+      "type": "object",
+      "default": {},
+      "additionalProperties": false,
+      "properties": {
+        "openai": {
+          "description": "Sign in with ChatGPT and the other OpenAI credential routes (D110).",
+          "type": "object",
+          "default": {},
+          "additionalProperties": false,
+          "properties": {
+            "loopbackTimeoutMs": {
+              "type": "integer",
+              "default": 600000,
+              "minimum": 1000,
+              "maximum": 600000,
+              "description": "Loopback login deadline.",
+              "x-restart": "core",
+              "x-tier": "advanced"
+            },
+            "httpTimeoutMs": {
+              "type": "integer",
+              "default": 30000,
+              "minimum": 100,
+              "maximum": 120000,
+              "description": "Bounded OpenAI HTTP deadline.",
+              "x-restart": "core",
+              "x-tier": "advanced"
+            },
+            "refreshSkewSeconds": {
+              "type": "integer",
+              "default": 120,
+              "minimum": 0,
+              "maximum": 600,
+              "description": "Refresh before expiration, plus up to 15 seconds of jitter.",
+              "x-restart": "core",
+              "x-tier": "advanced"
+            },
+            "liveHandleTtlSeconds": {
+              "type": "integer",
+              "default": 60,
+              "minimum": 1,
+              "maximum": 600,
+              "description": "GPT-Live Harness handle redemption lifetime.",
+              "x-restart": "core",
+              "x-tier": "advanced"
+            },
+            "voiceDailySeconds": {
+              "type": "integer",
+              "default": 3600,
+              "minimum": 0,
+              "maximum": 86400,
+              "description": "Per-person and per-agent daily voice ceiling.",
+              "x-restart": "core",
+              "x-tier": "advanced"
+            },
+            "voiceCapacity": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Maximum concurrent voice sessions, no greater than the provider tier.",
+              "x-restart": "core",
+              "x-tier": "advanced"
+            },
+            "clientRegistration": {
+              "type": "string",
+              "enum": [
+                "dynamic_on_authorize"
+              ],
+              "default": "dynamic_on_authorize",
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "description": "OpenAI-issued registration per person and workspace; no borrowed client IDs."
+            },
+            "storeBackend": {
+              "type": "string",
+              "enum": [
+                "keyring",
+                "auto"
+              ],
+              "default": "auto",
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "description": "Use the existing secret service. auto permits only its explicitly enabled encrypted-file fallback."
+            },
+            "federated": {
+              "description": "External bearer supplier: one executable or file, explicit arguments and environment.",
+              "type": "object",
+              "default": {},
+              "additionalProperties": false,
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "properties": {
+                "command": {
+                  "description": "Executable that prints a fresh federated token as JSON on stdout (run without a shell). Mutually exclusive with file.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "file": {
+                  "description": "File holding the federated token and its expiry, re-read on refresh. Mutually exclusive with command.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "args": {
+                  "description": "Arguments passed to command, one array element per argument (no shell interpolation).",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": []
+                },
+                "environment": {
+                  "description": "Extra environment variables for command; only these and the built-in allowlist are passed.",
+                  "type": "object",
+                  "propertyNames": {
+                    "pattern": "^[A-Z_][A-Z0-9_]*$"
+                  },
+                  "additionalProperties": {
+                    "description": "Value of the environment variable.",
+                    "type": "string"
+                  },
+                  "default": {}
+                }
+              },
+              "not": {
+                "properties": { "command": {}, "file": {} },
+                "required": [
+                  "command",
+                  "file"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "oauth":     { "description": "Reserved namespace for OAuth configuration.", "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced", "x-reserved": "M2 (D16)", "additionalProperties": true },
     "decision":  { "description": "Reserved namespace for decision model configuration.", "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced", "x-reserved": "M2 (D18)", "additionalProperties": true },
     "modelRoles": {

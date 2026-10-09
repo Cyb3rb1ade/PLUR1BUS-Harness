@@ -47,6 +47,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -238,6 +254,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -429,6 +461,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -620,6 +668,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -811,6 +875,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -1002,6 +1082,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -1193,6 +1289,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -1384,6 +1496,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -1575,6 +1703,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -1766,6 +1910,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -1957,6 +2117,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -2148,6 +2324,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -2339,6 +2531,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -2530,6 +2738,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -2721,6 +2945,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -2912,6 +3152,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -3103,6 +3359,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -3294,6 +3566,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -3485,6 +3773,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -3676,6 +3980,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -3867,6 +4187,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -4058,6 +4394,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -4249,6 +4601,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -4440,6 +4808,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -4631,6 +5015,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -4822,6 +5222,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -5013,6 +5429,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -5204,6 +5636,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -5395,6 +5843,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -5583,6 +6047,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -5771,6 +6251,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},

@@ -5,3 +5,7 @@ export * from './plan.ts';
 export * from './workload.ts';
 export * from './wire.ts';
 export * from './loopback.ts';
+export * from './service.ts';
+export * from './http.ts';
+export * from './federated.ts';
+export * from './usage.ts';

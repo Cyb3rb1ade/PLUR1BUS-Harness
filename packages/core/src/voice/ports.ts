@@ -11,7 +11,7 @@ export interface VoiceUsage { seconds: number; costMicros: number; inputTokens: 
 /** reserve is atomic for agent/user/installation daily+monthly ceilings, including concurrent session reservations.
  * record is idempotent by eventId, accounts deltas and returns false AT the ceiling, not only after it. */
 export interface VoiceBudgetPort {
-  reserve(request: { agent: string; user: string; reservation: string }): Promise<boolean>;
+  reserve(request: { agent: string; user: string; reservation: string; model?: string; provider?: VoiceProvider }): Promise<boolean>;
   record(request: { agent: string; user: string; reservation: string; eventId: string; usage: VoiceUsage }): Promise<boolean>;
   release(reservation: string): Promise<void>;
 }
@@ -30,12 +30,12 @@ export interface VoicePorts {
     authorize(request: { agent: string; user: string; callId: string; name: string; arguments: unknown }): Promise<boolean>;
     tool(request: { agent: string; user: string; name: string; arguments: unknown }): Promise<unknown>;
     /** Returns no implicit permission to overspend. Approval workflow owns once/T3 money.spend separately. */
-    spend(request: { effect: 'money.spend'; agent: string; user: string; trust: 3; approval: 'once' }): Promise<void>;
-    delegate?: (request: { agent: string; user: string; event: unknown }) => Promise<unknown>;
+    spend(request: { effect: 'money.spend'; agent: string; user: string; trust: 3; approval: 'once'; originTrust?: 0 | 1 | 2 | 3 }): Promise<void>;
+    delegate?: (request: { agent: string; user: string; event: unknown; sessionId?: string }) => Promise<unknown>;
   };
   sideband: { attach(request: { url: string; authorization: Sensitive; instructions?: string; tracing: false; onEvent: (event: VoiceEvent) => Promise<void> }): Promise<SidebandConnection> };
   websocket?: { start(request: { url: string; authorization: Sensitive; firstMessage: { type: 'session.start'; session: Record<string, unknown> } }): Promise<{ id: string }> };
-  sessions: { close(sessionId: string, provider: VoiceProvider, parent: VoiceRequest['parent']): Promise<void> };
+  sessions: { close(sessionId: string, provider: VoiceProvider, parent: VoiceRequest['parent']): Promise<void | { eventId: string; usage: VoiceUsage }> };
   audit: AuditPort;
   notice(request: { agent: string; user: string; spoken: string; written: string }): Promise<void>;
   /** Installation cap read at setup from vendor tier, never inferred from defaults. */

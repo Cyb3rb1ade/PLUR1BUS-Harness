@@ -38,6 +38,15 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `embedding.acceptedNcLicence` | boolean | `false` | core | Whether the owner has accepted the model's non-commercial licence terms. |
 | `embedding.acceptedNcLicenceAt` | string |  | core | Date-time when the non-commercial licence was accepted. |
 | `engine` | object | `{}` | core | Pass-through to the engine's EngineConfig — [57 engine keys, all advanced and core](config-engine-keys.md). |
+| `auth.openai.loopbackTimeoutMs` | integer | `600000` | core | Loopback login deadline. |
+| `auth.openai.httpTimeoutMs` | integer | `30000` | core | Bounded OpenAI HTTP deadline. |
+| `auth.openai.refreshSkewSeconds` | integer | `120` | core | Refresh before expiration, plus up to 15 seconds of jitter. |
+| `auth.openai.liveHandleTtlSeconds` | integer | `60` | core | GPT-Live Harness handle redemption lifetime. |
+| `auth.openai.voiceDailySeconds` | integer | `3600` | core | Per-person and per-agent daily voice ceiling. |
+| `auth.openai.voiceCapacity` | integer | `1` | core | Maximum concurrent voice sessions, no greater than the provider tier. |
+| `auth.openai.clientRegistration` | string | `"dynamic_on_authorize"` | core | OpenAI-issued registration per person and workspace; no borrowed client IDs. |
+| `auth.openai.storeBackend` | string | `"auto"` | core | Use the existing secret service. auto permits only its explicitly enabled encrypted-file fallback. |
+| `auth.openai.federated` | object | `{}` | core | External bearer supplier: one executable or file, explicit arguments and environment. |
 | `oauth` | object | `{}` | live | Reserved namespace for OAuth configuration. |
 | `decision` | object | `{}` | live | Reserved namespace for decision model configuration. |
 | `modelProfiles` | object | `{}` | live | Named model profiles (C4): an ordered candidate list with weights for fallback or mixture-of-agents (moa) use, plus sampling parameters and cache hints. Data only; selection is the router's job. List order is priority order. |
