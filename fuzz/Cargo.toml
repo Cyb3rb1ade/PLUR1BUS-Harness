@@ -7,15 +7,72 @@ publish = false
 [package.metadata]
 cargo-fuzz = true
 
+[lib]
+name = "plur1bus_fuzz"
+path = "src/lib.rs"
+
 [dependencies]
 libfuzzer-sys = "0.4"
+arbitrary = "1"
 plur1bus-rpc = { path = "../crates/plur1bus-rpc" }
+plur1bus-config = { path = "../crates/plur1bus-config" }
+plur1bus-ext = { path = "../crates/plur1bus-ext" }
+plur1bus-log-schema = { path = "../crates/plur1bus-log-schema" }
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tempfile = "3"
+# The backup and install parsers live in the `plur1bus` binary crate (no lib target), so src/shim.rs includes their
+# source files by path; these are the dependencies those files use (versions as in crates/plur1bus/Cargo.toml).
+sha2 = "0.10"
+flate2 = "1"
+tar = { version = "0.4", default-features = false }
+jsonschema = { version = "0.26", default-features = false }
 
 [[bin]]
 name = "client_response_line"
 path = "fuzz_targets/client_response_line.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rpc_message"
+path = "fuzz_targets/rpc_message.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "config_parse"
+path = "fuzz_targets/config_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "backup_manifest"
+path = "fuzz_targets/backup_manifest.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "install_manifest"
+path = "fuzz_targets/install_manifest.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ext_manifest"
+path = "fuzz_targets/ext_manifest.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "log_record"
+path = "fuzz_targets/log_record.rs"
 test = false
 doc = false
 bench = false
