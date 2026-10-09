@@ -26,8 +26,33 @@ pub struct Cli {
     /// Machine-readable output (stable shape, see docs/cli.md)
     #[arg(long, global = true)]
     pub json: bool,
+    /// When to colour output: auto (a terminal, unless `NO_COLOR` is set and non-empty), always, never
+    #[arg(long, global = true, value_enum, value_name = "WHEN", default_value_t)]
+    pub color: crate::output::ColorChoice,
     #[command(subcommand)]
     pub cmd: Cmd,
+}
+
+/// The full command tree: the derived definition plus an example in the long help of every command that has none
+/// (see `commands::help_examples`). Completions, manpages and `--help` all use this one definition.
+pub fn command() -> clap::Command {
+    use clap::CommandFactory;
+    crate::commands::help_examples::decorate(Cli::command())
+}
+
+/// Parses the process arguments. Like `Cli::parse()`, but `--color` is read first so it also shapes `--help` and
+/// parse errors, and `NO_COLOR`/`--color` are applied to the CLI's own diagnostics.
+pub fn parse() -> Cli {
+    use clap::FromArgMatches;
+    let choice = crate::output::color_from_args(std::env::args_os().skip(1));
+    crate::output::init_color(choice);
+    let clap_choice = match choice {
+        crate::output::ColorChoice::Auto => clap::ColorChoice::Auto,
+        crate::output::ColorChoice::Always => clap::ColorChoice::Always,
+        crate::output::ColorChoice::Never => clap::ColorChoice::Never,
+    };
+    let mut matches = command().color(clap_choice).get_matches();
+    Cli::from_arg_matches_mut(&mut matches).unwrap_or_else(|e| e.exit())
 }
 
 #[derive(Subcommand, Debug)]
@@ -198,6 +223,28 @@ pub enum Cmd {
     /// Print the CLI reference as Markdown (used by scripts/gen-docs.mjs)
     #[command(hide = true, name = "__markdown")]
     Markdown,
+    /// [experimental] Print a shell completion script to stdout
+    ///
+    /// Supported shells: bash, zsh, fish, powershell, elvish. Install it where your shell loads completions from (see
+    /// the examples).
+    #[command(after_long_help = "\
+Examples:
+  plur1bus completions bash > ~/.local/share/bash-completion/completions/plur1bus
+  plur1bus completions zsh > \"${fpath[1]}/_plur1bus\"
+  plur1bus completions fish > ~/.config/fish/completions/plur1bus.fish
+  plur1bus completions powershell | Out-String | Invoke-Expression")]
+    Completions {
+        /// Shell to generate the script for
+        #[arg(value_enum)]
+        shell: clap_complete::Shell,
+    },
+    /// Write one manpage per command (root and every subcommand) into a directory (used by the release pipeline)
+    #[command(hide = true, name = "__manpages")]
+    Manpages {
+        /// Target directory (created when missing)
+        #[arg(value_name = "DIR")]
+        dir: PathBuf,
+    },
     /// Run the supervisor in the foreground (internal: started by the OS service or `daemon start`)
     #[command(hide = true)]
     Supervise {
