@@ -59,10 +59,60 @@ describe("encrypted file backend", () => {
     await assert.rejects(() => b.put("c", "x", now), corrupt);
     assert.ok(!existsSync(key)); assert.ok(Object.keys(readStore(store).entries).includes("a"));
   });
+  it("treats an empty store file as corrupt without exposing the stored value", async () => {
+    const { b, store } = setup();
+    await b.put("a", MARKER, now);
+    writeFileSync(store, "");
+    await assert.rejects(() => b.get("a"), (e) => {
+      assert.ok(corrupt(e));
+      assert.ok(!String(e).includes(MARKER));
+      assert.ok(!String((e as Error).stack).includes(MARKER));
+      return true;
+    });
+  });
   it("probe reports a corrupt store as unavailable instead of throwing", async () => {
     const { b, store } = setup();
     await b.put("a", MARKER, now); writeFileSync(store, "{not json");
     assert.deepEqual(await b.probe(), { available: false, reason: "corrupt" });
+  });
+  it("rejects a Unicode name in the persisted store", async () => {
+    const { b, store } = setup();
+    await b.put("a", MARKER, now);
+    const doc = readStore(store);
+    doc.entries["秘密"] = doc.entries.a;
+    writeFileSync(store, JSON.stringify(doc));
+    await assert.rejects(() => b.list(), (e) => {
+      assert.ok(corrupt(e));
+      assert.ok(!String(e).includes(MARKER));
+      return true;
+    });
+  });
+  it("serializes concurrent writes without losing entries or leaving temporary files", async () => {
+    const { b, dir } = setup();
+    const count = 24;
+    await Promise.all(Array.from({ length: count }, (_, i) => b.put(`key-${i}`, `${MARKER}-${i}`, now)));
+    assert.equal((await b.list()).length, count);
+    for (let i = 0; i < count; i++) assert.equal(await b.get(`key-${i}`), `${MARKER}-${i}`);
+    assert.equal(readdirSync(dir).filter((name) => name.endsWith(".tmp")).length, 0);
+  });
+  it("keeps the old store intact until a complete replacement is atomically renamed", async () => {
+    let inspectReplacement = false;
+    let storePath = "";
+    let previousCiphertext = "";
+    const { b, store } = setup({ rename: (from, to) => {
+      if (inspectReplacement) {
+        assert.equal(to, storePath);
+        assert.equal(readStore(storePath).entries.a.ct, previousCiphertext);
+        assert.notEqual(readStore(from).entries.a.ct, previousCiphertext);
+      }
+      renameSync(from, to);
+    } });
+    storePath = store;
+    await b.put("a", `${MARKER}-old`, now);
+    previousCiphertext = readStore(store).entries.a.ct;
+    inspectReplacement = true;
+    await b.put("a", `${MARKER}-new`, now);
+    assert.equal(await b.get("a"), `${MARKER}-new`);
   });
   it("a failed rename leaves the old store intact and no temp file behind", async () => {
     let fail = false;

@@ -1,7 +1,9 @@
 # @plur1bus/webmcp
 
-WebMCP mapping in both directions (spec D55). Platform-neutral: no Node or DOM imports, no runtime
-dependencies. The M3 web GUI and the browser bridge (D37, D39) both use it.
+Platform-neutral mapping between PLUR1BUS RPC methods and browser WebMCP tools (spec D55). The M3 web
+GUI uses it to expose selected RPC methods to browser agents; the browser bridge uses it to offer
+page-registered tools to PLUR1BUS agents (D37, D39). It has no Node or DOM imports and no runtime
+dependencies.
 
 WebMCP is a W3C Web Machine Learning CG draft (https://webmachinelearning.github.io/webmcp/). This
 package targets the Draft CG Report of 2026-09-26, where a page calls
@@ -9,6 +11,16 @@ package targets the Draft CG Report of 2026-09-26, where a page calls
 signal. It also supports the earlier shape that Chrome 146 ships behind a flag
 (`navigator.modelContext`, `unregisterTool`, `provideContext`, and `execute(input, client)` with
 `client.requestUserInteraction`). All handling of the two shapes is in `src/adapter.ts`.
+
+## Public API
+
+- Provider: `buildWebMcpTools` creates tools from RPC capabilities and schema;
+  `getModelContext` detects browser support, and `registerPlur1busTools` registers the tools and
+  returns an idempotent `unregister()` handle.
+- Consumer: `pageToolsToMcp` maps page tools to MCP descriptors, `isOriginAllowed` checks origins
+  against an allowlist, and `parseWebMcpToolName` parses a descriptor name.
+- Adapter helpers: `normalizeExecuteContext` and `normalizePageToolResult` normalize the two browser
+  API shapes and page-tool results.
 
 ## Provider (web GUI → browser agents)
 
@@ -53,6 +65,16 @@ const reg = registerPlur1busTools(getModelContext(), tools); // no-op without We
   current draft) into an MCP tool result.
 
 The approval policy (D30) and output sanitising are applied by the bridge, not by this package.
+
+## Scope and limits
+
+- This package maps tool descriptions, schemas, annotations, and calls; it does not provide an RPC
+  transport, authenticate callers, or authorize page origins.
+- The bridge must check `isOriginAllowed` before offering page tools. It must also apply its own
+  approval policy and sanitize results; the provider side should receive an authenticated RPC
+  client and a human-confirmation callback for data-changing methods.
+- Browser registration is feature-detected. Without a supported `ModelContext`, registration is a
+  no-op; this package does not polyfill WebMCP.
 
 ## Test
 

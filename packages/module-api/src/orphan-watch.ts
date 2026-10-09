@@ -18,6 +18,7 @@ export interface OrphanWatch {
   dispose(): void;
 }
 
+/** Callbacks and timing policy used by {@link createOrphanWatch}. */
 export interface OrphanWatchOptions {
   graceMs: number; clock?: () => number;
   onOrphaned(since: number): void; onReattached(): void; onGraceExpired(): void;
@@ -25,6 +26,7 @@ export interface OrphanWatchOptions {
 
 type Source = { kind: "stream" } | { kind: "connection"; id: string };
 
+/** Creates a lifeline watcher that applies a grace period after its current source is lost. */
 export function createOrphanWatch(o: OrphanWatchOptions): OrphanWatch {
   const clock = o.clock ?? Date.now;
   let source: Source | null = null;

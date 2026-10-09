@@ -1,0 +1,11 @@
+{
+  "params": {
+    "projectId": "prj_example",
+    "userId": "u",
+    "role": "member"
+  },
+  "result": {
+    "id": "prj_example",
+    "name": "Example"
+  }
+}

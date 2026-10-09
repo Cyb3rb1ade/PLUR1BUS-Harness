@@ -160,10 +160,12 @@ risk (low T1, medium and high T2, critical T3); `always` for `fs.write` or `shel
 
 - A connection that passed `core.auth` proved one thing: its peer could read `run/core.token`, a file of the owning OS user. The
   core cannot tell from the socket whether a human sits at a terminal, whether the peer is the desktop app, or whether it is a
-  process an agent started as the same OS user. So a **person principal on a token connection without attestation is T2**
-  (`UNATTESTED_LOCAL_SURFACE`), not T3.
+  process an agent started as the same OS user. So a **person principal on a token connection without attestation is T1**
+  (`UNATTESTED_LOCAL_SURFACE`; owner decision 2026-10-08, #192): only low-risk requests (`fs.read`, `fs.write` within roots,
+  `clipboard.read`) are decidable, and no standing grant above T1 – in particular no long-lived blanket grant – can be created
+  without attestation. OS-backed attestation (Touch ID / Windows Hello / UAC / polkit, bound to the request) is the follow-up.
 - **T3 needs a server-side attestation**: `CoreOptions.rbac.attest` returns `desktop-app`, `cli` with TTY and owner, or
-  `web-step-up`, and runs inside the core process; no request field reaches it. An attestation can only raise a person above T2.
+  `web-step-up`, and runs inside the core process; no request field reaches it. An attestation can only raise a person above T1.
   Nothing in this repository supplies one yet, so **no T3 decision is possible over RPC today**: `money.spend`, `os.privilege`,
   `remote.control`, a public `net.publish`, `os.grant`, and `always` for outside-roots `fs.write` or `shell.exec` cannot be
   approved or granted yet. The CLI's own TTY check (chapter 6) is a client-side guard against accidents, not a trust level the
@@ -172,12 +174,11 @@ risk (low T1, medium and high T2, critical T3); `always` for `fs.write` or `shel
 - The T1 (ACP editor) and channel (T2 by nonce) paths exist as pure functions and as `ApprovalService.decide` with a nonce; no
   editor or channel module is connected to them yet.
 
-**Known limit.** An agent that can run shell commands as the same OS user could read `run/core.token`, connect as the local
-owner and decide medium and high risk requests at T2 itself. D109 does not close this inside the core. The mitigation lies
-outside `decide()`: the exec sandbox must deny `run/` and `state/` to agent processes, and no tool may ever hand out the token.
-Until that holds, T2 over a local token is only as strong as the separation between the agent's processes and the owner's
-files. A stricter default (an unattested connection at T1) would close it for everything above low risk, at the price that no
-medium-risk request could be decided over RPC before an attestation exists; that choice is open with the owner.
+**Known limit.** An agent that can run shell commands as the same OS user can read `run/core.token` and connect as the local
+owner. Since #192 that connection is only T1, so it can decide low-risk requests but not medium or high ones, and cannot mint
+a standing grant above T1. The remaining exposure is the low-risk set itself; the exec sandbox should still deny `run/` and
+`state/` to agent processes, and no tool may ever hand out the token. The price of T1: no medium-risk request can be decided
+over RPC or the CLI before an attestation exists.
 
 ### 3.3 Timeouts and the absent person
 
@@ -303,7 +304,7 @@ Behaviour worth knowing:
   (exit 2, reason `confirmation-required`). With no `--scope` it uses the narrowest option the request offers; a scope the
   request does not offer is refused (reason `scope-not-offered`). There is no password path and no nonce argument.
 - `grant revoke --reason` is echoed in the output only; `grant.revoke` takes just an id.
-- The CLI sends no attestation, so the core sees the CLI as T2 (3.2). Requests that need T3 cannot be approved from the CLI yet.
+- The CLI sends no attestation, so the core sees the CLI as T1 (3.2). Requests that need T2 or T3 cannot be approved from the CLI yet.
 - Exit codes: **0** success. **1** the core refused or reported an error (`E_DENIED`, `E_NOT_FOUND`, `E_CONFLICT` for a request
   that is no longer pending, and so on), and `approval verify` when the chain is broken (it prints the first broken position and
   the reason). **2** a usage error found before any call (a missing `--task-id` or `--session-id`, `--limit` out of 1-500, `approve`
@@ -460,17 +461,17 @@ Scope) oder mit `plur1bus grant add` (`task`, `session`, `always`).
   die Sitzung gestartet hat (nur `low`: `fs.read`, `fs.write`, `clipboard.read`); T0 Gruppenchats, MCP-Clients, A2A-Peers,
   Agenten, Modellausgabe, Tool-Ergebnisse: darf nichts entscheiden. Die nötige Stufe ist das Maximum aus dem Minimum der
   Fähigkeit und der Stufe des Risikos (low T1, medium und high T2, critical T3).
-- **Was der Core tatsächlich ableitet:** eine tokenauthentifizierte lokale Verbindung einer Person ohne Attestation ist **T2**.
+- **Was der Core tatsächlich ableitet:** eine tokenauthentifizierte lokale Verbindung einer Person ohne Attestation ist **T1** (Owner-Entscheidung 2026-10-08, #192): nur `low` ist entscheidbar, und ohne Attestation entsteht keine Dauerfreigabe oberhalb T1.
   Der Core kann am Socket nicht erkennen, ob ein Mensch am Terminal sitzt, ob es die Desktop-App ist oder ein Prozess, den ein
   Agent als derselbe OS-Nutzer gestartet hat. **T3 gibt es nur mit serverseitiger Attestation** (`CoreOptions.rbac.attest`, läuft
-  im Core, kein Request-Feld erreicht sie). Heute liefert nichts eine solche Attestation; deshalb sind T3-Anfragen (`money.spend`,
+  im Core, kein Request-Feld erreicht sie). Heute liefert nichts eine solche Attestation; deshalb sind T2- und T3-Anfragen (mittleres und hohes Risiko, `money.spend`,
   `os.privilege`, `remote.control`, öffentliches `net.publish`, `always` für `fs.write` oder `shell.exec` außerhalb der Roots)
   über RPC noch nicht entscheidbar, auch nicht per CLI. Agent-Principals und fehlende Principals sind immer T0.
-- **Bekannte Grenze:** Ein Agent mit Shell als derselbe OS-Nutzer kann `run/core.token` lesen, sich als lokaler Besitzer
-  verbinden und Anfragen mittleren und hohen Risikos auf T2 selbst entscheiden. D109 schließt das im Core nicht. Gegenmaßnahme
-  außerhalb von `decide()`: Die Exec-Sandbox muss `run/` und `state/` für Agent-Prozesse sperren, und kein Tool darf das Token
-  herausgeben. Ein strengerer Standard (unattestiert = T1) würde es schließen, kostet aber jede Entscheidung mittleren Risikos
-  über RPC; das ist offen beim Owner.
+- **Bekannte Grenze:** Ein Agent mit Shell als derselbe OS-Nutzer kann `run/core.token` lesen und sich als lokaler Besitzer
+  verbinden. Seit #192 ist diese Verbindung nur T1: er kann Anfragen niedrigen Risikos entscheiden, aber weder mittleres oder
+  hohes Risiko noch eine Dauerfreigabe oberhalb T1 erzeugen. Die Exec-Sandbox sollte `run/` und `state/` weiterhin für
+  Agent-Prozesse sperren, und kein Tool darf das Token herausgeben. Preis: Ohne Attestation ist über RPC und CLI keine
+  Entscheidung mittleren Risikos möglich.
 - **Zeitlimits:** Der Vordergrund wartet 10 Minuten, dann bekommt der Aufruf "nicht genehmigt, geparkt" und der Agent arbeitet
   an anderem weiter; die Anfrage bleibt entscheidbar. Nach 24 Stunden (ab Erstellung) ist sie `expired`, und das gilt als
   Ablehnung (`approval-expired`). Wird eine geparkte `once`-Anfrage später genehmigt, gilt der Grant 10 Minuten; der Agent muss
@@ -521,7 +522,7 @@ Befehle: `grant list|add|revoke`, `approval list|pending|approve|deny|verify`, j
 und `--home`; Beispiele im englischen Teil. `approval approve` zeigt die Anfrage zuerst (stderr) und fragt am Terminal `[y/N]`;
 ohne Terminal oder mit `--json` ist `--yes` Pflicht, sonst Abbruch vor dem Verbindungsaufbau (Exit 2). Exit-Codes: 0 Erfolg;
 1 Ablehnung oder Fehler des Core und gebrochene Kette bei `verify`; 2 Aufruffehler vor jedem Call, `E_NOT_AVAILABLE`,
-`E_APPROVAL_REQUIRED`; 3 `E_LOCKED`. Die CLI sendet keine Attestation, der Core sieht sie als T2.
+`E_APPROVAL_REQUIRED`; 3 `E_LOCKED`. Die CLI sendet keine Attestation, der Core sieht sie als T1.
 
 RPC: `grant.list`, `grant.create`, `grant.revoke`, `approval.list`, `approval.get`, `approval.verify`, `approval.decide`,
 `approval.cancel`; nur für Personen, Person und Oberfläche stammen aus der Verbindung, nie aus Parametern; eine fremde Anfrage ist

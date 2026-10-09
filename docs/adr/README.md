@@ -49,23 +49,26 @@ The recommendation, stated in one paragraph, then the details.
 
 ## Index
 
-| ADR | Title | File | Status |
-|-----|-------|------|--------|
-| 001 | Base architecture: TypeScript monorepo (Variant B) vs Hermes distribution (Variant A) | `ADR-001-base-architecture.md` | Accepted (2026-09-22) |
-| 002 | PLUR1BUS engine extraction and the harness as native host | `ADR-002-plur1bus-engine-and-host.md` | Accepted (2026-09-22) |
-| 003 | Agent model, collaboration, group vs 1:1 behaviour | `ADR-003-agent-model-and-collaboration.md` | Accepted (2026-09-22, amendment D14) |
-| 004 | Harness API and web UI | `ADR-004-harness-api-and-web-ui.md` | Accepted (2026-09-22) |
-| 005 | Authentication policy and secret storage | `ADR-005-auth-policy-and-secrets.md` | Accepted (2026-09-22, amendments D12–D13) |
-| 006 | Embedding and reranking service | `ADR-006-embedding-and-reranking.md` | Accepted (2026-09-22) |
-| 007 | Users, roles, identity linking | `ADR-007-users-roles-identity.md` | Accepted (2026-09-22) |
-| 008 | Protocols — MCP, ACP, A2A | `ADR-008-protocols-mcp-acp-a2a.md` | Accepted (2026-09-22) |
-| 009 | Dreaming scheduler | `ADR-009-dreaming-scheduler.md` | Accepted (2026-09-22, amendment D15) |
-| 010 | Latency and caching | `ADR-010-latency-and-caching.md` | Accepted (2026-09-22) |
-| 011 | External coding agents | `ADR-011-external-coding-agents.md` | Accepted (2026-09-22) |
-| 012 | Process model, languages, RPC contract and the core lock (amends ADR-001's single-stack wording) | `ADR-012-process-model-and-languages.md` | Accepted (2026-09-24, D6, D7; H1 record 2026-09-25) |
-| 013 | Configuration and restart classes | `ADR-013-configuration-and-restart-classes.md` | Accepted (2026-09-24, D3, D5; H1 record 2026-09-25) |
-| 014 | MCP host adapter and trust-routing provenance (D17, D19) | `ADR-014-mcp-host-adapter.md` | Proposed (2026-10-06) |
-| 016 | API stability and versioning | `ADR-016-api-stability-and-versioning.md` | Accepted (2026-09-25, D26) |
+| ADR | Title | File | Status | Summary |
+|-----|-------|------|--------|---------|
+| 001 | Base architecture: TypeScript monorepo (Variant B) vs Hermes distribution (Variant A) | `ADR-001-base-architecture.md` | Accepted | Chooses a TypeScript monorepo as the harness architecture instead of distributing through Hermes. |
+| 002 | PLUR1BUS engine extraction and the harness as native host | `ADR-002-plur1bus-engine-and-host.md` | Accepted | Separates the PLUR1BUS memory engine from a native harness that owns host integration. |
+| 003 | Agent model, collaboration, group vs 1:1 behaviour | `ADR-003-agent-model-and-collaboration.md` | Accepted | Defines agent identity and how agents collaborate in group and one-to-one conversations. |
+| 004 | Harness API and web UI | `ADR-004-harness-api-and-web-ui.md` | Accepted | Establishes the harness API and web UI as the user-facing integration surface. |
+| 005 | Authentication policy and secret storage | `ADR-005-auth-policy-and-secrets.md` | Accepted | Sets authentication policy and the handling and storage of credentials and secrets. |
+| 006 | Embedding and reranking service | `ADR-006-embedding-and-reranking.md` | Accepted | Defines the embedding and reranking service boundary and its licensing constraints. |
+| 007 | Users, roles, identity linking | `ADR-007-users-roles-identity.md` | Accepted | Defines user roles and how identities are linked across channels. |
+| 008 | Protocols — MCP, ACP, A2A | `ADR-008-protocols-mcp-acp-a2a.md` | Accepted | Specifies the harness's approach to MCP, ACP, and A2A protocol support. |
+| 009 | Dreaming scheduler | `ADR-009-dreaming-scheduler.md` | Accepted | Assigns scheduled dreaming and its execution policy to the harness's scheduler. |
+| 010 | Latency and caching | `ADR-010-latency-and-caching.md` | Accepted | Sets latency targets and caching strategies for responsive operation. |
+| 011 | External coding agents | `ADR-011-external-coding-agents.md` | Accepted | Defines how external coding agents connect through supported agent interfaces. |
+| 012 | Process model, languages, RPC contract and the core lock (amends ADR-001's single-stack wording) | `ADR-012-process-model-and-languages.md` | Accepted | Defines process boundaries, implementation languages, RPC contracts, and core locking. |
+| 013 | Configuration and restart classes | `ADR-013-configuration-and-restart-classes.md` | Accepted | Defines configuration ownership and which changes require process restarts. |
+| 014 | MCP host adapter and trust-routing provenance (D17, D19) | `ADR-014-mcp-host-adapter.md` | Proposed | Proposes an MCP host adapter with provenance-aware trust routing. |
+| 015 | Not assigned | — | — | No ADR-015 has been assigned. |
+| 016 | API stability and versioning | `ADR-016-api-stability-and-versioning.md` | Accepted | Defines API stability levels, compatibility expectations, and versioning policy. |
+
+ADR-017 is a draft on media generation; it has not yet been added to this repository.
 
 ## Open-question numbering
 

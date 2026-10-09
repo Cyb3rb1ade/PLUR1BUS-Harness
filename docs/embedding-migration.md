@@ -20,10 +20,16 @@ pinned revision, dimensions, endpoint, query/passage prefix, pooling, normalisat
 
 Missing evidence is never `compatible` (fail closed). The probe never contains a credential or a store path.
 
+## Default model and existing stores
+
+The unified local default is EmbeddingGemma 2 (text-only, 768 dimensions, Apache-2.0; ADR-006 amendment 2026-10-08). Existing stores keep their recorded identity: nothing is re-embedded implicitly, and a store created with `intfloat/multilingual-e5-small` (384) or any other model stays valid. To move it, run `plur1bus memory reembed --plan` first (below). The engine-side default switch is a follow-up (see the amendment's "What stays open").
+
 ## Commands
 
 ```bash
 plur1bus memory reembed --plan --model intfloat/multilingual-e5-small [--dimensions N] [--throttle-ms 250]
+# e.g. the unified local default of ADR-006 (amendment 2026-10-08), once the engine supports it:
+# plur1bus memory reembed --plan --model onnx-community/embeddinggemma-2-ONNX --dimensions 768
 plur1bus memory reembed --run [--yes] [--no-switch] [--no-wait]
 plur1bus memory reembed --status
 plur1bus memory reembed --abort

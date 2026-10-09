@@ -1,69 +1,261 @@
 name: release
-# The only entry point for a real harness release (HM2 Task 7). It calls harness-release.yml with `dry-run: false`
-# and then attests the Hermes artefacts (provider tarball, client wheel and sdist; HM2-R4, R21) with GitHub's
-# build-provenance attestation. The `attest` job is the only job in either workflow with `id-token: write` and
-# `attestations: write`: GitHub validates a called workflow's job permissions against the caller's grant when the run
-# is created, before job conditions, so harness-release.yml asks for `contents: read` only and stays callable and
-# dispatchable as a dry run without these permissions. Dry runs never come here: dispatch harness-release.yml
-# directly (it refuses a direct real run). This workflow publishes nothing; merging release-native.json into
-# release.json, signing and publishing stay the owner steps of docs/manual-release.md until D78 automates them.
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       version:
-        description: Release version; must equal the Cargo workspace version.
+        description: 'Version (empty: Cargo workspace version); dispatch is always a dry run'
         type: string
-        required: true
-      channel:
-        description: Release channel.
-        type: choice
-        options: [stable, beta]
-        default: stable
-
+        required: false
+      legacy-hm2:
+        description: 'Also exercise the existing Hermes/native workflow as a dry run'
+        type: boolean
+        default: false
 permissions:
   contents: read
-
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
-
 jobs:
-  harness:
-    permissions:
-      contents: read
+  meta:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      epoch: ${{ steps.meta.outputs.epoch }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0, persist-credentials: false }
+      - id: meta
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          workspace="$(sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"/\1/p' Cargo.toml)"
+          if [ "$GITHUB_EVENT_NAME" = push ]; then version="${GITHUB_REF_NAME#v}"; else version="${INPUT_VERSION:-$workspace}"; fi
+          node --input-type=module -e 'import {version} from "./scripts/release/common.mjs"; version(process.argv[1])' "$version"
+          # The version embedded by Cargo must match, including rc/beta suffixes.
+          [ "$version" = "$workspace" ] || { echo 'Tag does not match Cargo workspace version' >&2; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "epoch=$(git log -1 --format=%ct HEAD)" >> "$GITHUB_OUTPUT"
+          case "$version" in *-rc*|*-beta*) echo 'prerelease=true' >> "$GITHUB_OUTPUT" ;; *) echo 'prerelease=false' >> "$GITHUB_OUTPUT" ;; esac
+
+  # Optional compatibility check; the previous native-feed publication remains an owner step.
+  legacy-hm2:
+    if: github.event_name == 'workflow_dispatch' && inputs.legacy-hm2
+    needs: meta
     uses: ./.github/workflows/harness-release.yml
     with:
-      version: ${{ inputs.version }}
-      channel: ${{ inputs.channel }}
-      dry-run: false
+      version: ${{ needs.meta.outputs.version }}
+      channel: stable
+      dry-run: true
     secrets:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
 
-  attest:
-    needs: harness
-    runs-on: ubuntu-24.04
+  build:
+    needs: meta
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-15, target: darwin-arm64, triple: aarch64-apple-darwin, core: darwin-arm64 }
+          - { os: macos-15-intel, target: darwin-x64, triple: x86_64-apple-darwin, core: darwin-x64 }
+          - { os: ubuntu-24.04, target: linux-x64, triple: x86_64-unknown-linux-gnu, core: linux-x64 }
+          - { os: ubuntu-24.04-arm, target: linux-arm64, triple: aarch64-unknown-linux-gnu, core: linux-arm64 }
+          - { os: ubuntu-24.04, target: linux-x64-musl, triple: x86_64-unknown-linux-musl, core: linux-x64 }
+          - { os: windows-2025, target: win-x64, triple: x86_64-pc-windows-msvc, core: win-x64 }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    env:
+      SOURCE_DATE_EPOCH: ${{ needs.meta.outputs.epoch }}
+      GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+      TARGET: ${{ matrix.target }}
+      TRIPLE: ${{ matrix.triple }}
+      CORE_TARGET: ${{ matrix.core }}
+      VERSION: ${{ needs.meta.outputs.version }}
+      CARGO_INCREMENTAL: '0'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - name: fixed toolchain from repository
+        run: |
+          toolchain="$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml)"
+          test -n "$toolchain"
+          rustup toolchain install "$toolchain" --profile minimal
+          rustup target add --toolchain "$toolchain" "$TRIPLE"
+      - name: musl linker
+        if: matrix.target == 'linux-x64-musl'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: engine git access over https
+        run: |
+          if [ -n "$GH_ENGINE_READ_TOKEN" ]; then
+            base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"
+            git config --global --add "url.${base}.insteadOf" "https://github.com/"
+          else
+            base="https://github.com/"
+          fi
+          git config --global --add "url.${base}.insteadOf" "git@github.com:"
+          git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
+      - run: pnpm install --frozen-lockfile
+      - run: node packages/config-schema/src/gen-defaults.mjs --check && pnpm gen && pnpm build
+      - name: native core payload (two independent deployments)
+        run: |
+          set -euo pipefail
+          node scripts/release/assemble-payload.mjs --target "$CORE_TARGET" --out "out/core-$VERSION-$TARGET.tar.gz"
+          node scripts/release/assemble-payload.mjs --target "$CORE_TARGET" --out "$RUNNER_TEMP/core-repeat.tar.gz"
+          cmp "out/core-$VERSION-$TARGET.tar.gz" "$RUNNER_TEMP/core-repeat.tar.gz"
+      - name: build CLI twice in distinct directories and compare
+        run: |
+          set -euo pipefail
+          export PLUR1BUS_CORE_SHA256="$(node -e 'const fs=require("node:fs"); console.log(fs.readFileSync(process.argv[1],"utf8").split(" ")[0])' "out/core-$VERSION-$TARGET.tar.gz.sha256")"
+          export PLUR1BUS_RELEASE_BASE_URL="https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/releases/download/v$VERSION"
+          workspace="$(pwd -W 2>/dev/null || pwd)"
+          cargo_home="$(node -e 'console.log((process.env.CARGO_HOME || require("node:path").join(require("node:os").homedir(), ".cargo")).replaceAll("\\", "/"))')"
+          suffix=''; if [ "$RUNNER_OS" = Windows ]; then suffix=.exe; fi
+          for pass in first second; do
+            export CARGO_TARGET_DIR="$GITHUB_WORKSPACE/target-$pass"
+            target_dir="$(node -e 'console.log(require("node:path").resolve(process.argv[1]).replaceAll("\\", "/"))' "$CARGO_TARGET_DIR")"
+            export RUSTFLAGS="--remap-path-prefix=$workspace=/source --remap-path-prefix=$target_dir=/target --remap-path-prefix=$cargo_home=/cargo"
+            if [ "$RUNNER_OS" = macOS ]; then export RUSTFLAGS="$RUSTFLAGS -C link-arg=-Wl,-no_uuid"; fi
+            if [ "$RUNNER_OS" = Windows ]; then export RUSTFLAGS="$RUSTFLAGS -C link-arg=/Brepro"; fi
+            cargo build --locked --release -p plur1bus --target "$TRIPLE"
+          done
+          cmp "target-first/$TRIPLE/release/plur1bus$suffix" "target-second/$TRIPLE/release/plur1bus$suffix"
+          mkdir -p native
+          cp "target-first/$TRIPLE/release/plur1bus$suffix" "native/plur1bus-$TARGET$suffix"
+          ext=tar.gz; if [ "$RUNNER_OS" = Windows ]; then ext=zip; fi
+          scripts/release/package.sh "$VERSION" "$TARGET" "native/plur1bus-$TARGET$suffix" "out/core-$VERSION-$TARGET.tar.gz" "out/plur1bus-$VERSION-$TARGET.$ext"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: release-${{ matrix.target }}
+          path: out/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: startsWith(matrix.target, 'darwin-')
+        with:
+          name: native-${{ matrix.target }}
+          path: native/
+          if-no-files-found: error
+
+  universal:
+    needs: [meta, build]
+    runs-on: macos-15
     timeout-minutes: 10
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      SOURCE_DATE_EPOCH: ${{ needs.meta.outputs.epoch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 24.21.0 }
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with: { pattern: 'native-darwin-*', path: native, merge-multiple: true }
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with: { pattern: 'release-darwin-*', path: payload, merge-multiple: true }
+      - name: Universal CLI with both architecture-specific Core payloads
+        run: |
+          set -euo pipefail
+          lipo -create native/plur1bus-darwin-arm64 native/plur1bus-darwin-x64 -output plur1bus-universal
+          lipo -verify_arch arm64 x86_64 plur1bus-universal
+          lipo -create native/plur1bus-darwin-arm64 native/plur1bus-darwin-x64 -output universal-repeat
+          cmp plur1bus-universal universal-repeat
+          mkdir -p cores out
+          cp "payload/core-$VERSION-darwin-arm64.tar.gz" cores/darwin-arm64.tar.gz
+          cp "payload/core-$VERSION-darwin-x64.tar.gz" cores/darwin-x64.tar.gz
+          node --input-type=module -e 'import {writeTarGz} from "./scripts/release/archive.mjs"; await writeTarGz("cores", "universal-core.tar.gz")'
+          scripts/release/package.sh "$VERSION" darwin-universal plur1bus-universal universal-core.tar.gz "out/plur1bus-$VERSION-darwin-universal.tar.gz"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with: { name: release-universal, path: out/, if-no-files-found: error }
+
+  prepare:
+    needs: [meta, build, universal]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      RELEASE_VERSION: ${{ needs.meta.outputs.version }}
+      SOURCE_DATE_EPOCH: ${{ needs.meta.outputs.epoch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 24.21.0 }
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with: { pattern: 'release-*', path: artifacts, merge-multiple: true }
+      - name: SBOM tool setup (version and checksum pinned)
+        run: scripts/release/install-syft.sh "$RUNNER_TEMP/tools"
+      - name: SBOMs, packaging templates, notes and checksums
+        run: |
+          set -euo pipefail
+          export PATH="$RUNNER_TEMP/tools:$PATH"
+          scripts/release/sbom.sh artifacts
+          scripts/release/checksums.sh artifacts
+          node scripts/release/render.mjs "$RELEASE_VERSION" artifacts/SHA256SUMS "$RUNNER_TEMP/packaging"
+          PACKAGING_DIR="$RUNNER_TEMP/packaging" node --input-type=module -e 'import {writeTarGz} from "./scripts/release/archive.mjs"; await writeTarGz(process.env.PACKAGING_DIR, "artifacts/packaging-templates.tar.gz")'
+          previous="$(git describe --tags --match 'v*' --abbrev=0 HEAD^ 2>/dev/null || true)"
+          node scripts/release/notes.mjs "${previous:---initial}" HEAD "$RELEASE_VERSION" > artifacts/RELEASE_NOTES.md
+          scripts/release/checksums.sh artifacts
+          scripts/release/checksums.sh --verify artifacts
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with: { name: release-prepared, path: artifacts/, if-no-files-found: error }
+
+  # Only tag pushes can mint an OIDC identity or a GitHub attestation. Dispatch has no write jobs.
+  sign:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: read
       id-token: write
       attestations: write
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: hermes-artefacts
-          path: hermes
-      - name: the three Hermes artefacts of this version
-        shell: bash
-        env:
-          INPUT_VERSION: ${{ inputs.version }}
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with: { name: release-prepared, path: artifacts }
+      - uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+        with: { cosign-release: v2.5.0 }
+      - name: keyless signature of the complete checksum manifest
         run: |
-          version="${INPUT_VERSION#v}"
-          for f in "plur1bus-hermes-provider-${version}.tar.gz" "plur1bus_memory_client-${version}-py3-none-any.whl" "plur1bus_memory_client-${version}.tar.gz"; do
-            [ -f "hermes/$f" ] || { echo "::error::missing hermes/$f"; ls -l hermes; exit 1; }
-          done
-      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          subject-path: |
-            hermes/plur1bus-hermes-provider-*.tar.gz
-            hermes/plur1bus_memory_client-*.whl
-            hermes/plur1bus_memory_client-*.tar.gz
+          cosign sign-blob --yes --new-bundle-format \
+            --bundle artifacts/SHA256SUMS.sigstore.json \
+            --output-signature artifacts/SHA256SUMS.sig \
+            --output-certificate artifacts/SHA256SUMS.pem artifacts/SHA256SUMS
+      - id: provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with: { subject-path: 'artifacts/**' }
+      - name: retain verification material for local verification
+        env:
+          BUNDLE_PATH: ${{ steps.provenance.outputs.bundle-path }}
+        run: cp "$BUNDLE_PATH" artifacts/provenance.intoto.jsonl
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with: { name: release-signed, path: artifacts/, if-no-files-found: error }
+
+  draft:
+    needs: [meta, sign]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with: { name: release-signed, path: artifacts }
+      - name: draft only; never publish or push to package registries
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          PRERELEASE: ${{ needs.meta.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          args=(--draft --verify-tag --title "$TAG" --notes-file artifacts/RELEASE_NOTES.md)
+          if [ "$PRERELEASE" = true ]; then args+=(--prerelease); fi
+          gh release create "$TAG" "${args[@]}" artifacts/*

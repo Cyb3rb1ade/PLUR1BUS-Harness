@@ -94,6 +94,7 @@
       "additionalProperties": false,
       "properties": {
         "agents": {
+          "description": "Per-agent settings keyed by a lowercase agent identifier.",
           "type": "object",
           "default": {},
           "x-restart": "live",
@@ -102,14 +103,17 @@
             "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
           },
           "additionalProperties": {
+            "description": "Settings for one agent.",
             "type": "object",
             "additionalProperties": false,
             "properties": {
               "createdAt": {
+                "description": "Timestamp when the agent was created, in date-time format.",
                 "type": "string",
                 "format": "date-time"
               },
               "displayName": {
+                "description": "Optional human-readable name for the agent.",
                 "type": "string",
                 "maxLength": 128
               },
@@ -121,6 +125,7 @@
                 "x-tier": "advanced",
                 "properties": {
                   "blocked": {
+                    "description": "Skill names this agent must not receive, even when enabled installation-wide.",
                     "type": "array",
                     "items": {
                       "type": "string"
@@ -128,6 +133,7 @@
                     "default": []
                   },
                   "pinned": {
+                    "description": "Skill names pinned for this agent; currently stored and displayed but not interpreted.",
                     "type": "array",
                     "items": {
                       "type": "string"
@@ -135,6 +141,7 @@
                     "default": []
                   },
                   "applyAt": {
+                    "description": "When a changed skill selection takes effect for a running agent.",
                     "enum": [
                       "next-turn",
                       "next-session"
@@ -147,11 +154,13 @@
           }
         },
         "embedding": {
+          "description": "Embedding model use classification and non-commercial licence acknowledgement.",
           "type": "object",
           "additionalProperties": false,
           "default": {},
           "properties": {
             "useClass": {
+              "description": "Intended use of the embedding model: general, research, or commercial.",
               "enum": [
                 "general",
                 "research",
@@ -164,6 +173,7 @@
           }
         },
         "providers": {
+          "description": "Reserved namespace for model-provider configuration.",
           "type": "object",
           "default": {},
           "x-restart": "live",
@@ -172,6 +182,7 @@
           "additionalProperties": true
         },
         "modelRoles": {
+          "description": "Model identifiers assigned to the supported functional roles.",
           "type": "object",
           "default": {},
           "x-restart": "live",
@@ -189,6 +200,7 @@
             ]
           },
           "additionalProperties": {
+            "description": "Model identifier assigned to the role.",
             "type": "string"
           }
         }
@@ -203,21 +215,168 @@
       "additionalProperties": false,
       "properties": {
         "$schema": {
+          "description": "URI identifying the JSON Schema used to validate this configuration.",
           "type": "string",
           "x-restart": "live",
           "x-tier": "advanced"
         },
         "schemaVersion": {
+          "description": "Configuration format version; this schema supports version 1.",
           "const": 1,
           "x-restart": "core",
           "x-tier": "advanced"
         },
+        "tools": {
+          "description": "Local tool configuration.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "hostctl": {
+              "description": "Local computer-control tools, gated by D109. No remote listener.",
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "enabled": {
+                  "description": "Register local hostctl tools.",
+                  "type": "boolean",
+                  "default": true,
+                  "x-tier": "advanced",
+                  "x-restart": "core"
+                },
+                "shell": {
+                  "description": "Explicit shell opt-in.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "allowed": {
+                      "description": "Allow proc.shell after normal D109 approval.",
+                      "type": "boolean",
+                      "default": false,
+                      "x-tier": "advanced",
+                      "x-restart": "core"
+                    },
+                    "default": {
+                      "description": "Shell executable; set pwsh on Windows.",
+                      "type": "string",
+                      "default": "bash",
+                      "enum": [
+                        "bash",
+                        "zsh",
+                        "pwsh"
+                      ],
+                      "x-tier": "advanced",
+                      "x-restart": "core"
+                    }
+                  }
+                },
+                "exec": {
+                  "description": "Process execution limits.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "timeoutMs": {
+                      "description": "Maximum process lifetime in milliseconds.",
+                      "type": "integer",
+                      "default": 30000,
+                      "minimum": 1,
+                      "maximum": 300000,
+                      "x-tier": "advanced",
+                      "x-restart": "core"
+                    }
+                  }
+                },
+                "output": {
+                  "description": "Read and process output limits.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "maxBytes": {
+                      "description": "Maximum file content or retained process output bytes.",
+                      "type": "integer",
+                      "default": 65536,
+                      "minimum": 32,
+                      "maximum": 1048576,
+                      "x-tier": "advanced",
+                      "x-restart": "core"
+                    }
+                  }
+                },
+                "env": {
+                  "description": "Environment inheritance allowlist.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "allow": {
+                      "description": "Environment names eligible for inheritance; secrets and injection variables remain blocked.",
+                      "type": "array",
+                      "default": [
+                        "PATH",
+                        "LANG",
+                        "LC_ALL",
+                        "TZ",
+                        "TERM",
+                        "SystemRoot",
+                        "PATHEXT",
+                        "TEMP",
+                        "TMP"
+                      ],
+                      "items": {
+                        "type": "string"
+                      },
+                      "maxItems": 128,
+                      "uniqueItems": true,
+                      "x-tier": "advanced",
+                      "x-restart": "core"
+                    }
+                  }
+                },
+                "denyPatterns": {
+                  "description": "Additional case-insensitive literal command substrings to refuse.",
+                  "type": "array",
+                  "default": [],
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "maxItems": 128,
+                  "x-tier": "advanced",
+                  "x-restart": "core"
+                },
+                "search": {
+                  "description": "Bounded local search.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "maxResults": {
+                      "description": "Maximum matches per search.",
+                      "type": "integer",
+                      "default": 100,
+                      "minimum": 1,
+                      "maximum": 1000,
+                      "x-tier": "advanced",
+                      "x-restart": "core"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "core": {
+          "description": "Settings for the core process, including logging, memory operation budgets, and shutdown.",
           "type": "object",
           "additionalProperties": false,
           "default": {},
           "properties": {
             "logLevel": {
+              "description": "Minimum severity written to the core log.",
               "enum": [
                 "debug",
                 "info",
@@ -229,11 +388,13 @@
               "x-tier": "advanced"
             },
             "recall": {
+              "description": "Time and response-size limits for memory recall.",
               "type": "object",
               "additionalProperties": false,
               "default": {},
               "properties": {
                 "softBudgetMs": {
+                  "description": "Soft target duration for a recall, in milliseconds.",
                   "type": "integer",
                   "minimum": 50,
                   "default": 400,
@@ -241,6 +402,7 @@
                   "x-tier": "advanced"
                 },
                 "hardBudgetMs": {
+                  "description": "Maximum duration allowed for a recall before it is aborted, in milliseconds.",
                   "type": "integer",
                   "minimum": 100,
                   "default": 600,
@@ -248,6 +410,7 @@
                   "x-tier": "advanced"
                 },
                 "capChars": {
+                  "description": "Maximum number of characters returned by a recall.",
                   "type": "integer",
                   "minimum": 1000,
                   "default": 17000,
@@ -257,11 +420,13 @@
               }
             },
             "capture": {
+              "description": "Limits for waiting on memory capture after a turn.",
               "type": "object",
               "additionalProperties": false,
               "default": {},
               "properties": {
                 "waitMs": {
+                  "description": "Maximum time to wait for a memory capture, in milliseconds.",
                   "type": "integer",
                   "minimum": 1000,
                   "default": 60000,
@@ -271,6 +436,7 @@
               }
             },
             "shutdownBudgetMs": {
+              "description": "Maximum time the core spends on graceful shutdown, in milliseconds.",
               "type": "integer",
               "minimum": 1000,
               "default": 30000,
@@ -280,11 +446,13 @@
           }
         },
         "supervisor": {
+          "description": "Timing settings used by the process supervisor.",
           "type": "object",
           "additionalProperties": false,
           "default": {},
           "properties": {
             "graceMs": {
+              "description": "Grace period given to a child process to exit during shutdown, in milliseconds.",
               "type": "integer",
               "minimum": 1000,
               "default": 60000,
@@ -292,6 +460,7 @@
               "x-tier": "advanced"
             },
             "healthIntervalMs": {
+              "description": "Interval between child-process health checks, in milliseconds.",
               "type": "integer",
               "minimum": 1000,
               "default": 5000,
@@ -307,12 +476,14 @@
           "default": {},
           "properties": {
             "enabled": {
+              "description": "Whether to expose the read-only Prometheus metrics endpoint.",
               "type": "boolean",
               "default": false,
               "x-restart": "core",
               "x-tier": "advanced"
             },
             "port": {
+              "description": "Loopback port used by the metrics endpoint.",
               "type": "integer",
               "minimum": 1024,
               "maximum": 65535,
@@ -323,11 +494,13 @@
           }
         },
         "logs": {
+          "description": "Retention limits for rotating harness log files.",
           "type": "object",
           "additionalProperties": false,
           "default": {},
           "properties": {
             "maxBytes": {
+              "description": "Maximum size of each log file before rotation, in bytes.",
               "type": "integer",
               "minimum": 1048576,
               "default": 20971520,
@@ -335,6 +508,7 @@
               "x-tier": "advanced"
             },
             "keep": {
+              "description": "Number of rotated log files to retain.",
               "type": "integer",
               "minimum": 1,
               "default": 5,
@@ -350,12 +524,14 @@
           "default": {},
           "properties": {
             "allowUnsigned": {
+              "description": "Whether unsigned extension packages may be installed.",
               "type": "boolean",
               "default": true,
               "x-restart": "live",
               "x-tier": "advanced"
             },
             "trashDays": {
+              "description": "Number of days uninstalled extensions are retained in the trash.",
               "type": "integer",
               "minimum": 1,
               "maximum": 365,
@@ -364,11 +540,13 @@
               "x-tier": "advanced"
             },
             "limits": {
+              "description": "Maximum unpacked sizes for extension packages and skill folders.",
               "type": "object",
               "additionalProperties": false,
               "default": {},
               "properties": {
                 "packageBytes": {
+                  "description": "Maximum size of an extension package, in bytes.",
                   "type": "integer",
                   "minimum": 1048576,
                   "maximum": 1073741824,
@@ -377,6 +555,7 @@
                   "x-tier": "advanced"
                 },
                 "skillBytes": {
+                  "description": "Maximum size of an installed skill folder, in bytes.",
                   "type": "integer",
                   "minimum": 1048576,
                   "maximum": 1073741824,
@@ -389,17 +568,20 @@
           }
         },
         "embedding": {
+          "description": "Embedding model use classification and non-commercial licence acknowledgement.",
           "type": "object",
           "additionalProperties": false,
           "default": {},
           "properties": {
             "acceptedNcLicence": {
+              "description": "Whether the owner has accepted the model's non-commercial licence terms.",
               "type": "boolean",
               "default": false,
               "x-restart": "core",
               "x-tier": "advanced"
             },
             "acceptedNcLicenceAt": {
+              "description": "Date-time when the non-commercial licence was accepted.",
               "type": "string",
               "format": "date-time",
               "x-restart": "core",
@@ -423,7 +605,149 @@
           },
           "additionalProperties": true
         },
+        "auth": {
+          "description": "Provider sign-in and credential lifecycle (D110): OAuth/PKCE login, federated tokens, refresh and the credential store.",
+          "type": "object",
+          "default": {},
+          "additionalProperties": false,
+          "properties": {
+            "openai": {
+              "description": "Sign in with ChatGPT and the other OpenAI credential routes (D110).",
+              "type": "object",
+              "default": {},
+              "additionalProperties": false,
+              "properties": {
+                "loopbackTimeoutMs": {
+                  "type": "integer",
+                  "default": 600000,
+                  "minimum": 1000,
+                  "maximum": 600000,
+                  "description": "Loopback login deadline.",
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "httpTimeoutMs": {
+                  "type": "integer",
+                  "default": 30000,
+                  "minimum": 100,
+                  "maximum": 120000,
+                  "description": "Bounded OpenAI HTTP deadline.",
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "refreshSkewSeconds": {
+                  "type": "integer",
+                  "default": 120,
+                  "minimum": 0,
+                  "maximum": 600,
+                  "description": "Refresh before expiration, plus up to 15 seconds of jitter.",
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "liveHandleTtlSeconds": {
+                  "type": "integer",
+                  "default": 60,
+                  "minimum": 1,
+                  "maximum": 600,
+                  "description": "GPT-Live Harness handle redemption lifetime.",
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "voiceDailySeconds": {
+                  "type": "integer",
+                  "default": 3600,
+                  "minimum": 0,
+                  "maximum": 86400,
+                  "description": "Per-person and per-agent daily voice ceiling.",
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "voiceCapacity": {
+                  "type": "integer",
+                  "default": 1,
+                  "minimum": 1,
+                  "maximum": 500,
+                  "description": "Maximum concurrent voice sessions, no greater than the provider tier.",
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "clientRegistration": {
+                  "type": "string",
+                  "enum": [
+                    "dynamic_on_authorize"
+                  ],
+                  "default": "dynamic_on_authorize",
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "description": "OpenAI-issued registration per person and workspace; no borrowed client IDs."
+                },
+                "storeBackend": {
+                  "type": "string",
+                  "enum": [
+                    "keyring",
+                    "auto"
+                  ],
+                  "default": "auto",
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "description": "Use the existing secret service. auto permits only its explicitly enabled encrypted-file fallback."
+                },
+                "federated": {
+                  "description": "External bearer supplier: one executable or file, explicit arguments and environment.",
+                  "type": "object",
+                  "default": {},
+                  "additionalProperties": false,
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "properties": {
+                    "command": {
+                      "description": "Executable that prints a fresh federated token as JSON on stdout (run without a shell). Mutually exclusive with file.",
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "file": {
+                      "description": "File holding the federated token and its expiry, re-read on refresh. Mutually exclusive with command.",
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "args": {
+                      "description": "Arguments passed to command, one array element per argument (no shell interpolation).",
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "default": []
+                    },
+                    "environment": {
+                      "description": "Extra environment variables for command; only these and the built-in allowlist are passed.",
+                      "type": "object",
+                      "propertyNames": {
+                        "pattern": "^[A-Z_][A-Z0-9_]*$"
+                      },
+                      "additionalProperties": {
+                        "description": "Value of the environment variable.",
+                        "type": "string"
+                      },
+                      "default": {}
+                    }
+                  },
+                  "not": {
+                    "properties": {
+                      "command": {},
+                      "file": {}
+                    },
+                    "required": [
+                      "command",
+                      "file"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
         "oauth": {
+          "description": "Reserved namespace for OAuth configuration.",
           "type": "object",
           "default": {},
           "x-restart": "live",
@@ -432,6 +756,7 @@
           "additionalProperties": true
         },
         "decision": {
+          "description": "Reserved namespace for decision model configuration.",
           "type": "object",
           "default": {},
           "x-restart": "live",
@@ -449,6 +774,7 @@
             "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
           },
           "additionalProperties": {
+            "description": "Configuration for one named model profile.",
             "type": "object",
             "additionalProperties": false,
             "required": [
@@ -456,11 +782,13 @@
             ],
             "properties": {
               "displayName": {
+                "description": "Optional human-readable profile name.",
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 120
               },
               "strategy": {
+                "description": "How candidates are used: try in priority order (fallback) or combine them (moa).",
                 "enum": [
                   "fallback",
                   "moa"
@@ -468,10 +796,12 @@
                 "default": "fallback"
               },
               "candidates": {
+                "description": "Ordered model candidates; the first candidate has the highest priority.",
                 "type": "array",
                 "minItems": 1,
                 "maxItems": 16,
                 "items": {
+                  "description": "A candidate model and its optional mixture weight.",
                   "type": "object",
                   "additionalProperties": false,
                   "required": [
@@ -479,11 +809,13 @@
                   ],
                   "properties": {
                     "model": {
+                      "description": "Model identifier for this candidate.",
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 200
                     },
                     "weight": {
+                      "description": "Relative contribution of this candidate when the moa strategy is used.",
                       "type": "number",
                       "exclusiveMinimum": 0,
                       "maximum": 100,
@@ -493,26 +825,31 @@
                 }
               },
               "aggregator": {
+                "description": "Model identifier used to aggregate moa candidate outputs.",
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 200
               },
               "params": {
+                "description": "Sampling and output-size parameters for this profile.",
                 "type": "object",
                 "additionalProperties": false,
                 "default": {},
                 "properties": {
                   "temperature": {
+                    "description": "Sampling temperature, from 0 to 2.",
                     "type": "number",
                     "minimum": 0,
                     "maximum": 2
                   },
                   "topP": {
+                    "description": "Nucleus-sampling probability threshold, greater than 0 and at most 1.",
                     "type": "number",
                     "exclusiveMinimum": 0,
                     "maximum": 1
                   },
                   "maxTokens": {
+                    "description": "Maximum number of output tokens.",
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 2000000
@@ -520,11 +857,13 @@
                 }
               },
               "cache": {
+                "description": "Provider prompt-cache preference and optional time-to-live.",
                 "type": "object",
                 "additionalProperties": false,
                 "default": {},
                 "properties": {
                   "hint": {
+                    "description": "Whether to use prompt caching automatically, never, or when preferred.",
                     "enum": [
                       "auto",
                       "none",
@@ -533,6 +872,7 @@
                     "default": "auto"
                   },
                   "ttlSeconds": {
+                    "description": "Maximum cache lifetime, in seconds.",
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 86400
@@ -585,22 +925,26 @@
           }
         },
         "models": {
+          "description": "Model discovery settings.",
           "type": "object",
           "additionalProperties": false,
           "default": {},
           "properties": {
             "scan": {
+              "description": "Schedule for periodic local model discovery scans.",
               "type": "object",
               "additionalProperties": false,
               "default": {},
               "properties": {
                 "enabled": {
+                  "description": "Whether periodic model discovery scans are enabled.",
                   "type": "boolean",
                   "default": true,
                   "x-restart": "live",
                   "x-tier": "advanced"
                 },
                 "intervalHours": {
+                  "description": "Hours between periodic model discovery scans.",
                   "type": "integer",
                   "minimum": 1,
                   "maximum": 168,
@@ -619,6 +963,7 @@
           "default": {},
           "properties": {
             "fileFallback": {
+              "description": "Settings for the encrypted-file secret-store fallback.",
               "type": "object",
               "additionalProperties": false,
               "default": {},
@@ -655,6 +1000,7 @@
               "x-tier": "advanced"
             },
             "allowPorts": {
+              "description": "Destination ports allowed for outgoing requests.",
               "type": "array",
               "minItems": 1,
               "maxItems": 64,
@@ -679,6 +1025,624 @@
             }
           }
         },
+        "voice": {
+          "description": "Voice (D45): cloud voice providers, the local sherpa-onnx fallback, and the simulated local real-time mode. Cloud providers are off until enabled and given a secret reference.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "providers": {
+              "description": "Cloud voice providers. API keys are secret-store references (apiKeyRef), never values; Polly uses the AWS default credential chain.",
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "elevenlabs": {
+                  "description": "ElevenLabs: cloud text-to-speech and speech-to-text.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Whether ElevenLabs may be used. Off until enabled and given an apiKeyRef.",
+                      "type": "boolean",
+                      "default": false,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "apiKeyRef": {
+                      "description": "Secret-store reference holding the ElevenLabs API key.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "region": {
+                      "description": "Data-residency region: default (global), us, eu or in. Ignored when baseUrl is set.",
+                      "enum": [
+                        "default",
+                        "us",
+                        "eu",
+                        "in"
+                      ],
+                      "default": "default",
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "baseUrl": {
+                      "description": "Override of the API base URL (https only, or loopback for a local relay).",
+                      "type": "string",
+                      "maxLength": 300,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "defaultVoice": {
+                      "description": "Voice id used when a request names none.",
+                      "type": "string",
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "defaultModel": {
+                      "description": "Text-to-speech model id used when a request names none; discovery lists the available ones.",
+                      "type": "string",
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "defaultSttModel": {
+                      "description": "Speech-to-text model id used when a request names none.",
+                      "type": "string",
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "zeroRetention": {
+                      "description": "Ask ElevenLabs not to log or retain request content (enable_logging=false), where the account plan allows it.",
+                      "type": "boolean",
+                      "default": false,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "xai": {
+                  "description": "xAI Grok Voice: full-duplex realtime voice, server-side sessions only.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Whether Grok Voice may be used. Off until enabled and given an apiKeyRef.",
+                      "type": "boolean",
+                      "default": false,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "apiKeyRef": {
+                      "description": "Secret-store reference holding the xAI API key.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "baseUrl": {
+                      "description": "Override of the API base URL (https only, or loopback for a local relay).",
+                      "type": "string",
+                      "maxLength": 300,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "defaultVoice": {
+                      "description": "Voice used when a session names none.",
+                      "type": "string",
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "defaultModel": {
+                      "description": "Realtime model id used when a session names none; found by discovery when empty.",
+                      "type": "string",
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "gemini": {
+                  "description": "Google Gemini Live: native-audio realtime voice, server-side sessions only.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Whether Gemini Live may be used. Off until enabled and given an apiKeyRef.",
+                      "type": "boolean",
+                      "default": false,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "apiKeyRef": {
+                      "description": "Secret-store reference holding the Gemini API key.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "baseUrl": {
+                      "description": "Override of the API base URL (https only, or loopback for a local relay).",
+                      "type": "string",
+                      "maxLength": 300,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "defaultVoice": {
+                      "description": "Prebuilt voice name used when a session names none.",
+                      "type": "string",
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "defaultModel": {
+                      "description": "Live model id used when a session names none; native-audio models are found by discovery when empty.",
+                      "type": "string",
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "polly": {
+                  "description": "Amazon Polly text-to-speech through the AWS default credential chain (profile, SSO, environment). No keys in config.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Whether Polly may be used. Off until enabled.",
+                      "type": "boolean",
+                      "default": false,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "region": {
+                      "description": "AWS region for Polly; the SDK's own default applies when empty.",
+                      "type": "string",
+                      "maxLength": 64,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "credentials": {
+                      "description": "Which AWS credentials to use. Only a shared-config profile name is accepted; access keys are refused.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "default": {},
+                      "properties": {
+                        "profile": {
+                          "description": "Name of the AWS shared-config profile (including SSO profiles); the default chain applies when empty.",
+                          "type": "string",
+                          "maxLength": 128,
+                          "x-restart": "live",
+                          "x-tier": "advanced"
+                        }
+                      }
+                    },
+                    "defaultVoice": {
+                      "description": "Voice id used when a request names none.",
+                      "type": "string",
+                      "maxLength": 200,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "defaultModel": {
+                      "description": "Polly engine (standard, neural, long-form, generative) used when a request names none.",
+                      "type": "string",
+                      "maxLength": 64,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    }
+                  }
+                }
+              }
+            },
+            "local": {
+              "description": "Local voice fallback on sherpa-onnx (no account needed): language, quality tier, model directory and the non-commercial licence confirmation.",
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "language": {
+                  "description": "Language of the local voice (catalog code such as de or en). Empty: the system language when the catalog has it, else en.",
+                  "type": "string",
+                  "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]+)?$",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "profile": {
+                  "description": "Local model tier: fast (streaming recogniser, small voice) or quality (larger models).",
+                  "enum": [
+                    "fast",
+                    "quality"
+                  ],
+                  "default": "fast",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "perAgent": {
+                  "description": "Per-agent override of language and tier, keyed by agent identifier.",
+                  "type": "object",
+                  "default": {},
+                  "x-restart": "live",
+                  "x-tier": "advanced",
+                  "propertyNames": {
+                    "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  },
+                  "additionalProperties": {
+                    "description": "Language and tier for one agent.",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "language": {
+                        "description": "Language of the local voice for this agent.",
+                        "type": "string",
+                        "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]+)?$",
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      },
+                      "profile": {
+                        "description": "Local model tier for this agent.",
+                        "enum": [
+                          "fast",
+                          "quality"
+                        ],
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      }
+                    }
+                  }
+                },
+                "catalogOverride": {
+                  "description": "Data that adds or replaces catalog models and languages (adding a language is data, not code). Same shape as the built-in catalog.",
+                  "type": "object",
+                  "additionalProperties": true,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "modelsDir": {
+                  "description": "Directory for downloaded voice models. Empty: a directory under the harness data directory.",
+                  "type": "string",
+                  "maxLength": 500,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "acceptNcLicence": {
+                  "description": "Confirm that models under non-commercial or unconfirmed licences may be downloaded and used. Off by default; the licence text is shown first.",
+                  "type": "boolean",
+                  "default": false,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                }
+              }
+            },
+            "localRealtime": {
+              "description": "Simulated local real-time voice mode: which optional per-turn features may delay the first audio. Logic only until the voice pipeline is wired.",
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "enabled": {
+                  "description": "Whether the local real-time profile applies. When off, every feature runs without a time budget.",
+                  "type": "boolean",
+                  "default": false,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "endpointingMs": {
+                  "description": "Silence after speech, in milliseconds, before the user's turn counts as finished.",
+                  "type": "integer",
+                  "minimum": 50,
+                  "maximum": 5000,
+                  "default": 400,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "speculativeTurnStart": {
+                  "description": "Start the agent turn on the final transcript before the silence window ends, and cancel it if the user keeps talking.",
+                  "type": "boolean",
+                  "default": false,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "ackSound": {
+                  "description": "Play a short acknowledgement sound when the user's turn ends.",
+                  "type": "boolean",
+                  "default": false,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "sentenceChunking": {
+                  "description": "How streamed answer text is cut into speakable chunks.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "maxWords": {
+                      "description": "Maximum words in one spoken chunk; longer sentences are cut at a comma when possible.",
+                      "type": "integer",
+                      "minimum": 3,
+                      "maximum": 200,
+                      "default": 24,
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "features": {
+                  "description": "Per-feature mode (on, deferred, off) and optional time budget in milliseconds for features that run before the first audio.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "autoRecall": {
+                      "description": "Automatic memory recall before the answer.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off"
+                          ]
+                        },
+                        "maxMs": {
+                          "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5000
+                        }
+                      },
+                      "default": {
+                        "mode": "on",
+                        "maxMs": 30
+                      },
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "reranker": {
+                      "description": "Reranking of recalled memories.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off"
+                          ]
+                        },
+                        "maxMs": {
+                          "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5000
+                        }
+                      },
+                      "default": {
+                        "mode": "off"
+                      },
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "recallMultiIdentity": {
+                      "description": "Recall across several linked identities.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off"
+                          ]
+                        },
+                        "maxMs": {
+                          "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5000
+                        }
+                      },
+                      "default": {
+                        "mode": "off"
+                      },
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "promptEnrichment": {
+                      "description": "Prompt enrichment with short context.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off"
+                          ]
+                        },
+                        "maxMs": {
+                          "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5000
+                        }
+                      },
+                      "default": {
+                        "mode": "on",
+                        "maxMs": 10
+                      },
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "decisionService": {
+                      "description": "Decision-model call before the answer.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off"
+                          ]
+                        },
+                        "maxMs": {
+                          "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5000
+                        }
+                      },
+                      "default": {
+                        "mode": "off"
+                      },
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "postTurnRefine": {
+                      "description": "Refinement work after the answer has been spoken.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off"
+                          ]
+                        },
+                        "maxMs": {
+                          "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5000
+                        }
+                      },
+                      "default": {
+                        "mode": "deferred"
+                      },
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "memoryWrite": {
+                      "description": "Memory capture of the turn.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off"
+                          ]
+                        },
+                        "maxMs": {
+                          "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5000
+                        }
+                      },
+                      "default": {
+                        "mode": "deferred"
+                      },
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "compaction": {
+                      "description": "Conversation compaction.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                          "enum": [
+                            "on",
+                            "deferred",
+                            "off"
+                          ]
+                        },
+                        "maxMs": {
+                          "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5000
+                        }
+                      },
+                      "default": {
+                        "mode": "deferred"
+                      },
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "toolSchemas": {
+                  "description": "Tool schemas given to the model in real-time turns: reduced (smaller prompt, faster) or full.",
+                  "enum": [
+                    "reduced",
+                    "full"
+                  ],
+                  "default": "reduced",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "auditDetail": {
+                  "description": "Detail of the audit record for real-time turns: minimal or full.",
+                  "enum": [
+                    "minimal",
+                    "full"
+                  ],
+                  "default": "minimal",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "perAgent": {
+                  "description": "Per-agent override of any localRealtime key (same shape, no defaults), keyed by agent identifier.",
+                  "type": "object",
+                  "default": {},
+                  "x-restart": "live",
+                  "x-tier": "advanced",
+                  "propertyNames": {
+                    "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  },
+                  "additionalProperties": {
+                    "description": "Overrides for one agent.",
+                    "type": "object",
+                    "additionalProperties": true,
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  }
+                }
+              }
+            }
+          }
+        },
         "modules": {
           "description": "Per-module settings, keyed by module name (B13). A change restarts only that module; `enabled: false` keeps it stopped.",
           "type": "object",
@@ -686,16 +1650,554 @@
           "x-restart": "live",
           "x-tier": "advanced",
           "additionalProperties": {
+            "description": "Settings for one installed module; unknown module-specific keys are retained.",
             "type": "object",
             "x-restart": "module:$key",
             "x-tier": "advanced",
             "properties": {
               "enabled": {
+                "description": "Whether the module is allowed to run.",
                 "type": "boolean",
                 "default": true
               }
             },
             "additionalProperties": true
+          }
+        },
+        "media": {
+          "description": "Image generation and editing (MG-2). Every adapter is off by default; remote adapters turn on once their key reference resolves. Nothing here holds key material.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "adapters": {
+              "description": "Per-adapter settings keyed by adapter.",
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "openai": {
+                  "description": "OpenAI Images API (generate; edit with mask). Off until `apiKeyRef` resolves; `enabled: false` always turns it off.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.",
+                      "type": "boolean",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "apiKeyRef": {
+                      "description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "baseUrl": {
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
+                      "type": "string",
+                      "maxLength": 2048,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "model": {
+                      "description": "Model identifier sent to the provider.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "default": "gpt-image-2.5-sunburst",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "timeoutMs": {
+                      "description": "Upper bound for one generation, including polling, in milliseconds.",
+                      "type": "integer",
+                      "minimum": 1000,
+                      "maximum": 3600000,
+                      "default": 120000,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "maxConcurrent": {
+                      "description": "How many requests this adapter runs at once; further jobs wait.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16,
+                      "default": 2,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "google": {
+                  "description": "Google Gemini image models via generateContent (generate; edit with input images). Off until `apiKeyRef` resolves; `enabled: false` always turns it off.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.",
+                      "type": "boolean",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "apiKeyRef": {
+                      "description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "baseUrl": {
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
+                      "type": "string",
+                      "maxLength": 2048,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "model": {
+                      "description": "Model identifier sent to the provider.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "default": "gemini-nano-banana-2.1",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "timeoutMs": {
+                      "description": "Upper bound for one generation, including polling, in milliseconds.",
+                      "type": "integer",
+                      "minimum": 1000,
+                      "maximum": 3600000,
+                      "default": 120000,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "maxConcurrent": {
+                      "description": "How many requests this adapter runs at once; further jobs wait.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16,
+                      "default": 2,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "xai": {
+                  "description": "xAI Grok image generation (generate only; the edits endpoint is not wired yet). Off until `apiKeyRef` resolves; `enabled: false` always turns it off.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.",
+                      "type": "boolean",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "apiKeyRef": {
+                      "description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "baseUrl": {
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
+                      "type": "string",
+                      "maxLength": 2048,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "model": {
+                      "description": "Model identifier sent to the provider.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "default": "grok-imagine-image-2.0",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "timeoutMs": {
+                      "description": "Upper bound for one generation, including polling, in milliseconds.",
+                      "type": "integer",
+                      "minimum": 1000,
+                      "maximum": 3600000,
+                      "default": 120000,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "maxConcurrent": {
+                      "description": "How many requests this adapter runs at once; further jobs wait.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16,
+                      "default": 2,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "openrouter": {
+                  "description": "OpenRouter chat completions with image output (generate; edit with input images). Off until `apiKeyRef` resolves; `enabled: false` always turns it off.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.",
+                      "type": "boolean",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "apiKeyRef": {
+                      "description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "baseUrl": {
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
+                      "type": "string",
+                      "maxLength": 2048,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "model": {
+                      "description": "Model identifier sent to the provider.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "default": "google/gemini-2.5-flash-image",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "timeoutMs": {
+                      "description": "Upper bound for one generation, including polling, in milliseconds.",
+                      "type": "integer",
+                      "minimum": 1000,
+                      "maximum": 3600000,
+                      "default": 120000,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "maxConcurrent": {
+                      "description": "How many requests this adapter runs at once; further jobs wait.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16,
+                      "default": 2,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "replicate": {
+                  "description": "Replicate predictions API. Parameters are mapped onto the model's published input schema; `owner/name` or `owner/name:version`. Off until `apiKeyRef` resolves; `enabled: false` always turns it off.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.",
+                      "type": "boolean",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "apiKeyRef": {
+                      "description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "baseUrl": {
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
+                      "type": "string",
+                      "maxLength": 2048,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "model": {
+                      "description": "Model identifier sent to the provider.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "default": "black-forest-labs/flux-schnell",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "timeoutMs": {
+                      "description": "Upper bound for one generation, including polling, in milliseconds.",
+                      "type": "integer",
+                      "minimum": 1000,
+                      "maximum": 3600000,
+                      "default": 120000,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "maxConcurrent": {
+                      "description": "How many requests this adapter runs at once; further jobs wait.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16,
+                      "default": 2,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "fal": {
+                  "description": "fal queue API. The model is the endpoint id; edit and inpainting endpoints take image_url and mask_url. Off until `apiKeyRef` resolves; `enabled: false` always turns it off.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.",
+                      "type": "boolean",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "apiKeyRef": {
+                      "description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "baseUrl": {
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
+                      "type": "string",
+                      "maxLength": 2048,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "model": {
+                      "description": "Model identifier sent to the provider.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "default": "fal-ai/flux/schnell",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "timeoutMs": {
+                      "description": "Upper bound for one generation, including polling, in milliseconds.",
+                      "type": "integer",
+                      "minimum": 1000,
+                      "maximum": 3600000,
+                      "default": 120000,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "maxConcurrent": {
+                      "description": "How many requests this adapter runs at once; further jobs wait.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16,
+                      "default": 2,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "together": {
+                  "description": "Together Images API (generate). Off until `apiKeyRef` resolves; `enabled: false` always turns it off.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.",
+                      "type": "boolean",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "apiKeyRef": {
+                      "description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "baseUrl": {
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
+                      "type": "string",
+                      "maxLength": 2048,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "model": {
+                      "description": "Model identifier sent to the provider.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "default": "black-forest-labs/FLUX.2-dev",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "timeoutMs": {
+                      "description": "Upper bound for one generation, including polling, in milliseconds.",
+                      "type": "integer",
+                      "minimum": 1000,
+                      "maximum": 3600000,
+                      "default": 120000,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "maxConcurrent": {
+                      "description": "How many requests this adapter runs at once; further jobs wait.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16,
+                      "default": 2,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "drawthings": {
+                  "description": "Draw Things, local HTTP API (A1111-compatible txt2img/img2img). Switch on the app's HTTP API server first. Masks are not applied by the app and are refused.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Use Draw Things for image generation.",
+                      "type": "boolean",
+                      "default": false,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "host": {
+                      "description": "Host of the Draw Things API. A host other than loopback also needs `allowLan`.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 253,
+                      "default": "127.0.0.1",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "port": {
+                      "description": "Port of the Draw Things API.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 65535,
+                      "default": 7860,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "allowLan": {
+                      "description": "Allow a private-network host (LAN, Tailscale). The traffic is plain http and carries no key.",
+                      "type": "boolean",
+                      "default": false,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "model": {
+                      "description": "Model file name as shown in Draw Things.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "timeoutMs": {
+                      "description": "Upper bound for one generation in milliseconds.",
+                      "type": "integer",
+                      "minimum": 1000,
+                      "maximum": 3600000,
+                      "default": 300000,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "maxConcurrent": {
+                      "description": "How many requests run at once; the app renders one at a time.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16,
+                      "default": 1,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "coreml": {
+                  "description": "Core ML Stable Diffusion through the `media-coreml` helper (macOS, Apple silicon only; build instructions in docs/media-adapters.md).",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Use the Core ML helper for image generation.",
+                      "type": "boolean",
+                      "default": false,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "binary": {
+                      "description": "Absolute path of the `media-coreml` executable.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1024,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "modelsDir": {
+                      "description": "Directory with compiled Core ML model folders (split-einsum or original).",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1024,
+                      "default": "~/MochiDiffusion/models/",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "model": {
+                      "description": "Name of a model folder inside `modelsDir`.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "computeUnits": {
+                      "description": "Where inference runs. `auto` lets the helper choose from the model's attention variant (split-einsum: Neural Engine, original: GPU).",
+                      "type": "string",
+                      "enum": [
+                        "auto",
+                        "cpuAndNeuralEngine",
+                        "all",
+                        "cpuAndGPU"
+                      ],
+                      "default": "auto",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "scheduler": {
+                      "description": "Diffusion scheduler name understood by the helper; unset uses the helper default.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_.-]{1,64}$",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "timeoutMs": {
+                      "description": "Upper bound for one generation in milliseconds.",
+                      "type": "integer",
+                      "minimum": 1000,
+                      "maximum": 3600000,
+                      "default": 300000,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       },

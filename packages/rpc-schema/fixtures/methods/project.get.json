@@ -1,0 +1,9 @@
+{
+  "params": {
+    "projectId": "prj_example"
+  },
+  "result": {
+    "id": "prj_example",
+    "name": "Example"
+  }
+}

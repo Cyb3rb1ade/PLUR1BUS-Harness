@@ -124,9 +124,11 @@ test("the catalogue is well-formed and self-consistent", () => {
     assert.ok(nameRe.test(probe), `${e.event}: name rule`);
     assert.ok(!names.has(e.event), `${e.event}: unique`);
     names.add(e.event);
+    assert.ok(typeof e.note === "string" && e.note.trim().length > 0, `${e.event}: description`);
     assert.ok(CATALOGUE.streams.includes(e.stream), `${e.event}: stream`);
     if (e.stream === "audit") assert.ok(e.level === undefined && e.levels === undefined && e.msg === undefined, `${e.event}: an audit entry has no level or msg`);
     else {
+      assert.ok(e.level, `${e.event}: default level`);
       assert.ok(e.levels!.includes(e.level!), `${e.event}: default level is allowed`);
       for (const l of e.levels!) assert.ok(LEVELS.some((x) => x.name === l), `${e.event}: level ${l}`);
       assert.ok(e.msg!.length > 0 && e.msg!.length <= LIMITS.msgBytes, `${e.event}: msg`);

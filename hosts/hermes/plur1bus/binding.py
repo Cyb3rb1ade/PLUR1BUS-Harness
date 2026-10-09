@@ -28,6 +28,8 @@ import sys
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
+from types import ModuleType
+from typing import Any
 
 from ._filelock import ExclusiveLockFile
 
@@ -36,12 +38,12 @@ __all__ = [
     "AGENT_ID_RE",
     "BINDING_FILE",
     "BINDING_SCHEMA",
-    "Binding",
-    "BindingConflict",
-    "BindingInvalid",
     "DEFAULT_RECALL_HARD_MS",
     "REGISTRY_FILE",
     "REGISTRY_SCHEMA",
+    "Binding",
+    "BindingConflict",
+    "BindingInvalid",
     "agent_id_for",
     "atomic_write_text",
     "binding_path",
@@ -99,7 +101,7 @@ class Binding:
     installed_by: str | None = None
     schema: str = field(default=BINDING_SCHEMA)
 
-    def to_json(self) -> dict:
+    def to_json(self) -> dict[str, Any]:
         doc = {
             "schema": self.schema,
             "version": self.version,
@@ -157,7 +159,11 @@ def binding_path(hermes_home: str) -> str:
     return os.path.join(hermes_home, BINDING_FILE)
 
 
-def default_hermes_root(env: Mapping[str, str] | None = None, platform: str = sys.platform, homedir: str | None = None) -> str:
+def default_hermes_root(
+    env: Mapping[str, str] | None = None,
+    platform: str = sys.platform,
+    homedir: str | None = None,
+) -> str:
     """Hermes' default root: ``~/.hermes``; on Windows ``%LOCALAPPDATA%\\hermes``, else
     ``%USERPROFILE%\\AppData\\Local\\hermes`` (``packages/core/src/import/sources/hermes.ts``
     ``defaultHermesHome``)."""
@@ -194,7 +200,7 @@ def _same_path(a: str, b: str, platform: str) -> bool:
     return a == b
 
 
-def _pathmod(platform: str):  # noqa: ANN202
+def _pathmod(platform: str) -> ModuleType:
     return ntpath if platform == "win32" else posixpath
 
 
@@ -287,7 +293,11 @@ def atomic_write_text(
                 os.replace(tmp, path)
                 break
             except PermissionError as e:
-                transient = getattr(e, "winerror", None) in (5, 32, 33) or e.errno in (errno.EACCES, errno.EPERM, errno.EBUSY)
+                transient = getattr(e, "winerror", None) in (5, 32, 33) or e.errno in (
+                    errno.EACCES,
+                    errno.EPERM,
+                    errno.EBUSY,
+                )
                 if not transient or time.monotonic() >= deadline:
                     raise
                 time.sleep(delay)
@@ -357,7 +367,12 @@ def read_registry(plur1bus_home: str) -> dict[str, str]:
     return out
 
 
-def registry_add(bindings: Mapping[str, str], agent_id: str, real_home: str, platform: str = sys.platform) -> dict[str, str]:
+def registry_add(
+    bindings: Mapping[str, str],
+    agent_id: str,
+    real_home: str,
+    platform: str = sys.platform,
+) -> dict[str, str]:
     """``bindings`` plus ``agent_id -> real_home`` (pure). The same pair again is unchanged; an id held
     by another home raises ``BindingConflict`` naming both."""
     other = bindings.get(agent_id)

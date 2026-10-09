@@ -26,6 +26,7 @@ const TRANSIENT: ReadonlySet<ProviderErrorKind> = new Set(["rate_limit", "overlo
  */
 export function classifyFailure(err: unknown): Classification {
   if (!(err instanceof ProviderError)) return { kind: "unknown", retryable: false, fallback: false, breaker: false };
+  if (err.code === 'subscription_sharing_usage_limit_exceeded') return { kind: err.kind, retryable: false, fallback: false, breaker: false };
   if (TRANSIENT.has(err.kind)) return { kind: err.kind, retryable: err.retryable, fallback: true, breaker: true };
   return { kind: err.kind, retryable: false, fallback: false, breaker: false };
 }

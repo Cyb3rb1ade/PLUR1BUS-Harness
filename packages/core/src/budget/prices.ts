@@ -2,7 +2,7 @@
 // at record time, from the table in force at the event's own time, and keeps that cost and version forever.
 
 /** USD per million tokens. A missing cache price means the model has none declared (cache tokens then make the call unpriced). */
-export interface ModelPrice { input: number; output: number; cacheRead?: number; cacheWrite?: number }
+export interface ModelPrice { input: number; output: number; cacheRead?: number; cacheWrite?: number; media?: MediaPrices }
 export interface PriceTable { version: string; effectiveFrom: number; models: Record<string, ModelPrice> }
 export interface TokenCounts { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number }
 
@@ -15,7 +15,23 @@ export class PriceBook {
       if (seen.has(t.version)) throw new RangeError(`duplicate price table version ${t.version}`);
       seen.add(t.version);
     }
-    this.tables = [...tables].sort((a, b) => b.effectiveFrom - a.effectiveFrom);
+    const copied = structuredClone(tables);
+    for (const table of copied) {
+      if (!table.version || !Number.isSafeInteger(table.effectiveFrom) || table.effectiveFrom < 0) throw new RangeError("invalid price table");
+      for (const price of Object.values(table.models)) {
+        for (const rate of [price.input, price.output, price.cacheRead ?? 0, price.cacheWrite ?? 0]) {
+          if (!Number.isFinite(rate) || rate < 0) throw new RangeError("invalid token price");
+        }
+        for (const units of Object.values(price.media ?? {})) {
+          for (const rate of Object.values(units) as number[]) if (!Number.isSafeInteger(rate) || rate < 0) throw new RangeError("invalid media price");
+          Object.freeze(units);
+        }
+        if (price.media) Object.freeze(price.media);
+        Object.freeze(price);
+      }
+      Object.freeze(table.models); Object.freeze(table);
+    }
+    this.tables = Object.freeze([...copied].sort((a, b) => b.effectiveFrom - a.effectiveFrom));
   }
   /** The newest table effective at `ts`, or null before the first one. */
   at(ts: number): PriceTable | null { return this.tables.find((t) => t.effectiveFrom <= ts) ?? null; }
@@ -45,3 +61,21 @@ export const SHIPPED_PRICE_TABLES: readonly PriceTable[] = [
     },
   },
 ];
+
+/** Integer micro-USD per image or video second, keyed by an explicit resolution tier. ADR-017 adapter follows separately. */
+export interface MediaPrices { image?: Record<string, number>; videoSecond?: Record<string, number> }
+export interface MediaUnits { kind: "image" | "videoSecond"; resolution: string; quantity: number }
+export function mediaCostMicros(table: PriceTable, model: string, provider: string | undefined, units: readonly MediaUnits[]): number | null {
+  let total = 0;
+  let unpriced = false;
+  for (const u of units) {
+    if (!["image", "videoSecond"].includes(u.kind) || !Number.isFinite(u.quantity) || u.quantity < 0 || (u.kind === "image" && !Number.isSafeInteger(u.quantity))) throw new RangeError("invalid media units");
+    if (u.quantity === 0) continue;
+    const price = lookupPrice(table, model, provider)?.media?.[u.kind]?.[u.resolution];
+    if (price === undefined) { unpriced = true; continue; }
+    if (!Number.isSafeInteger(price) || price < 0) throw new RangeError("invalid media price");
+    total += Math.ceil(price * u.quantity);
+    if (!Number.isSafeInteger(total)) throw new RangeError("media cost overflow");
+  }
+  return unpriced ? null : total;
+}

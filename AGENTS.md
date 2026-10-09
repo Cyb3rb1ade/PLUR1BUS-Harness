@@ -4,6 +4,13 @@ The harness edition of "how does an agent build, test and find things here." (Th
 `openclaw-plur1bus-memory`, has its own `AGENTS.md`; this one is for `PLUR1BUS-Harness`.)
 The HM1/HM2 installers, bootstraps, install feed, `hermes-sidecar.lock.json` and `node-pins.json` live in a third repository, `Cyb3rb1ade/PLUR1BUS-Host-Addons`.
 
+## Arbeitsablauf für Agenten
+
+- Pro Paket genau einen Pull Request öffnen. Nach dem Push den PR öffnen und dessen Nummer melden.
+- CI nicht aktiv pollen; insbesondere keine Schleifen mit `gh pr checks` oder `gh run`. Das
+  Zusammenführen übernimmt der Controller.
+- Lange lokale Testläufe im Hintergrund starten und ihre Ausgabe in eine Logdatei schreiben.
+
 ## What this repo is
 
 `PLUR1BUS-Harness` is the harness: a Rust CLI + supervisor (`crates/plur1bus`), a TypeScript core

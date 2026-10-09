@@ -1,0 +1,42 @@
+name: Aufgabe
+description: Eine klar abgegrenzte Änderung vorschlagen.
+title: "task: "
+labels: ["task"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Ziel
+      description: Was soll geändert oder erreicht werden?
+    validations:
+      required: true
+  - type: textarea
+    id: allowed_files
+    attributes:
+      label: Erlaubte Dateien
+      description: Welche Dateien oder Bereiche dürfen geändert werden?
+      placeholder: "- packages/…"
+    validations:
+      required: true
+  - type: textarea
+    id: forbidden_files
+    attributes:
+      label: Verbotene Dateien
+      description: Welche Dateien oder Bereiche müssen unangetastet bleiben?
+      placeholder: "- packages/…"
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Akzeptanz
+      description: Welche überprüfbaren Bedingungen müssen erfüllt sein?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Kontext
+      description: Ergänzende Informationen, Abhängigkeiten oder Einschränkungen.
+    validations:
+      required: false

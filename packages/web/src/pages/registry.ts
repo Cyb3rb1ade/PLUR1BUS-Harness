@@ -8,6 +8,9 @@ export type PageProps = { item: NavItem; sub?: string };
 export type PageComponent = (props: PageProps) => View | null;
 
 // Real pages are loaded on first use (dynamic import(), one chunk each; see lazy.ts). The placeholder is tiny and static.
+const MediaPage = lazyPage(() => import("./surfaces/media.ts").then(m => m.MediaPage));
+const ProjectsPage = lazyPage(() => import("./surfaces/projects.ts").then(m => m.ProjectsPage), "settings");
+const IdentitiesPage = lazyPage(() => import("./surfaces/identities.ts").then(m => m.IdentitiesPage));
 const ChatPage = lazyPage(() => import("./chat/page.ts").then((m) => m.ChatPage));
 const MemoriesPage = lazyPage(() => import("./memory/index.ts").then((m) => m.MemoriesPage));
 const ModelsPage = lazyPage(() => import("./models/page.ts").then((m) => m.ModelsPage));
@@ -23,11 +26,13 @@ const SetupPage = lazyPage(() => import("./setup/page.ts").then((m) => m.SetupPa
  * Pages render inside the shell's <main> and an ErrorBoundary; they own their <h1> (use `Page` from components/page.ts). */
 export const PAGES: Readonly<Record<string, PageComponent>> = {
   chat: ChatPage,
-  projects: PlaceholderPage,
+  projects: ProjectsPage,
+  media: MediaPage,
+  identities: IdentitiesPage,
   agents: AgentsPage,
   inbox: PlaceholderPage,
   memories: MemoriesPage,
-  library: PlaceholderPage,
+  library: MediaPage,
   skills: PlaceholderPage,
   plugins: PlaceholderPage,
   models: ModelsPage,

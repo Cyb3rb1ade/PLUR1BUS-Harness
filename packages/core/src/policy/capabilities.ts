@@ -89,6 +89,11 @@ const TABLE: readonly CapabilityDef[] = [
   def({ id: "secrets.use", covers: "leasing a secret slot into a tool or script", intrinsicEffect: "read", base: same(A), ceiling: null, minSurface: null, baseRisk: "low" }),
   def({ id: "agent.delegate", covers: "delegate/handoff, MoA", intrinsicEffect: "read", base: same(A), ceiling: null, minSurface: null, baseRisk: "low" }),
   def({ id: "remote.control", covers: "D108 session start", intrinsicEffect: "external", base: same(P), ceiling: "always", minSurface: 3, baseRisk: "critical" }),
+  // Hostctl-only additions; D106 file/exec/clipboard/app/sys operations reuse their existing capabilities.
+  def({ id: "hostctl.fs.trash", covers: "hostctl.fs.trash inside roots, native Trash only", intrinsicEffect: "local-destructive", base: same(P), ceiling: "task", minSurface: 2, baseRisk: "medium" }),
+  def({ id: "hostctl.proc.session.read", covers: "owned process-session list/output", intrinsicEffect: "read", base: same(A), ceiling: "session", minSurface: 1, baseRisk: "low" }),
+  def({ id: "hostctl.proc.session.write", covers: "stdin of an owned process session", intrinsicEffect: "local-write", base: same(P), ceiling: "session", minSurface: 2, baseRisk: "medium" }),
+  def({ id: "hostctl.proc.kill_foreign", covers: "signal foreign PID, separate approval", intrinsicEffect: "local-destructive", base: same(P), ceiling: "once", minSurface: 2, baseRisk: "high" }),
   // never: a floor nobody lowers
   def({ id: "harness.admin", covers: "config writes, extension install/enable, grants and approvals themselves", intrinsicEffect: "local-write", base: same(N), ceiling: null, minSurface: null, baseRisk: "critical" }),
   def({ id: "credential.entry", covers: "typing passwords or OTPs into any UI", intrinsicEffect: "external", base: same(N), ceiling: null, minSurface: null, baseRisk: "critical" }),

@@ -15,6 +15,7 @@ export type PrincipalResolver = (ctx: CallContext, method: string, params: unkno
 
 export interface RpcRule {
   action: string;
+  humanOnly?: boolean;
   /** Builds the resource from the params. Whatever is missing or mistyped becomes "" and `authorize` denies it. */
   resource: (params: unknown) => Resource;
 }
@@ -28,7 +29,52 @@ const agent = (params: unknown): Resource => ({ kind: "agent", agentId: field(pa
 const system = (): Resource => ({ kind: "system" });
 const rule = (action: string, resource: RpcRule["resource"]): RpcRule => ({ action, resource });
 
+const authenticated = new WeakMap<CallContext, Principal>();
+/** Identity established by this invocation's guard, never supplied in request text. */
+export function authenticatedPrincipal(ctx: CallContext): Principal {
+  const principal = authenticated.get(ctx);
+  if (!principal) throw new RpcError("E_UNAUTHORIZED", "authentication required");
+  return principal;
+}
+
 export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
+  "media.preferences.get": rule("media.read", system),
+  "media.preferences.set": rule("media.write", system),
+  "media.generate": rule("media.write", system),
+  "media.edit": rule("media.write", system),
+  "media.job.get": rule("media.read", system),
+  "media.job.cancel": rule("media.write", system),
+  "media.job.list": rule("media.read", system),
+  "media.output.get": rule("media.read", system),
+  "media.output.list": rule("media.read", system),
+  "media.output.delete": rule("media.write", system),
+  "media.adapters.list": rule("media.read", system),
+  "project.create": rule("project.create", system),
+  "project.get": rule("project.surface.read", system),
+  "project.list": rule("project.surface.read", system),
+  "project.update": rule("project.surface.write", system),
+  "project.archive": rule("project.surface.write", system),
+  "project.member.add": rule("project.surface.write", system),
+  "project.member.remove": rule("project.surface.write", system),
+  "project.member.role": rule("project.surface.write", system),
+  "project.agent.add": rule("project.surface.write", system),
+  "project.agent.remove": rule("project.surface.write", system),
+  "collab.trace.get": rule("project.surface.read", system),
+  "collab.trace.list": rule("project.surface.read", system),
+  "collab.chain.cancel": rule("project.surface.write", system),
+  "identity.link.request": rule("identity.self.write", system),
+  "identity.link.list": rule("identity.self.read", system),
+  "identity.link.approve": rule("identity.self.write", system),
+  "identity.link.decline": rule("identity.self.write", system),
+  "identity.link.remove": rule("identity.self.write", system),
+  "identity.principals": rule("identity.self.read", system),
+  // R2 provider login (D110 AuthService): the installation owner's own credentials, people only.
+  "auth.login.start": rule("auth.credentials.write", system),
+  "auth.login.await": rule("auth.credentials.write", system),
+  "auth.login.cancel": rule("auth.credentials.write", system),
+  "auth.logout": rule("auth.credentials.write", system),
+  "auth.credentials.list": rule("auth.credentials.read", system),
+  "auth.status": rule("auth.credentials.read", system),
   "memory.forget": rule("memory.forget", agent),
   "agent.status": rule("agent.read", agent),
   "jobs.run": rule("jobs.run", system),
@@ -56,13 +102,13 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "logs.tail": rule("logs.query", system),
   "audit.verify": rule("audit.read", system),
   // M3 identity (humans, linked channel identities, pairing): classified by the nearest existing pattern, `users.*` on the system resource.
-  "identity.list": rule("users.read", system),
-  "identity.human.create": rule("users.manage", system),
-  "identity.link": rule("users.manage", system),
-  "identity.unlink": rule("users.manage", system),
-  "identity.pair.start": rule("users.manage", system),
-  "identity.pair.claim": rule("users.manage", system),
-  "identity.pair.confirm": rule("users.manage", system),
+  "identity.list": { ...rule("users.read", system), humanOnly: true },
+  "identity.human.create": { ...rule("users.manage", system), humanOnly: true },
+  "identity.link": { ...rule("users.manage", system), humanOnly: true },
+  "identity.unlink": { ...rule("users.manage", system), humanOnly: true },
+  "identity.pair.start": { ...rule("users.manage", system), humanOnly: true },
+  "identity.pair.claim": { ...rule("users.manage", system), humanOnly: true },
+  "identity.pair.confirm": { ...rule("users.manage", system), humanOnly: true },
   // D109 grants and approvals (spec 2026-09-28 §4): human-only actions, so an agent principal is refused in every state.
   "grant.list": rule("grant.read", system),
   "grant.create": rule("grant.write", system),
@@ -104,13 +150,17 @@ export function guardMethods(handlers: Record<string, Handler>, o: GuardOptions)
         record("rbac.unauthenticated", "anonymous", method, { action: r.action, reason: "no-principal" });
         throw new RpcError("E_UNAUTHORIZED", "authentication required", { reason: "no-principal" });
       }
-      const d = authorize(principal, r.action, r.resource(params), { now: o.now() });
+      const d = r.humanOnly && principal.kind !== "person"
+        ? { effect: "deny" as const, reason: "agent-principal" as const }
+        : authorize(principal, r.action, r.resource(params), { now: o.now() });
       if (d.effect === "deny") {
         record("rbac.denied", typeof principal.userId === "string" && principal.userId !== "" ? principal.userId : "anonymous", method,
           { action: r.action, reason: d.reason, role: String(principal.role) });
         throw new RpcError("E_DENIED", `not permitted: ${r.action}`, { reason: d.reason });
       }
-      return inner(params, ctx);
+      authenticated.set(ctx, principal);
+      try { return await inner(params, ctx); }
+      finally { authenticated.delete(ctx); }
     };
   }
   return out;

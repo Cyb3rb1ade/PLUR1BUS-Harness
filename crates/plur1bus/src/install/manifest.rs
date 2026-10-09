@@ -174,6 +174,20 @@ pub struct ReleaseHead {
 pub struct ReleaseAsset {
     pub url: String,
     pub sha256: String,
+    /// Download size in bytes, when the release says (additive, optional).
+    #[serde(default)]
+    pub size: Option<u64>,
+}
+
+/// What a release offers add-ons (`native.provides`, additive and optional).
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReleaseProvides {
+    /// The module API majors the release speaks.
+    #[serde(default)]
+    pub module_api: Option<Vec<String>>,
+    #[serde(default)]
+    pub rpc: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -209,6 +223,8 @@ pub struct ReleaseNative {
     pub node: ReleaseNode,
     pub modules: Vec<ReleaseModule>,
     pub config_schema_version: u32,
+    #[serde(default)]
+    pub provides: Option<ReleaseProvides>,
 }
 
 /// Validates a release manifest and returns its head and its `native` object (absent in an app-only release).
@@ -432,5 +448,46 @@ mod tests {
             parse_release(d.to_string().as_bytes()).is_err(),
             "hash pattern"
         );
+    }
+
+    #[test]
+    fn asset_size_and_native_provides_are_optional_additions() {
+        let base: Value = serde_json::from_str(RELEASE_FIXTURE).unwrap();
+        // The committed fixture has neither: older manifests keep validating.
+        let (_, native) = parse_release(base.to_string().as_bytes()).unwrap();
+        let native = native.unwrap();
+        assert_eq!(native.provides, None);
+        assert_eq!(native.binary["linux-x64"].size, None);
+
+        let mut d = base.clone();
+        d["native"]["binary"]["linux-x64"]["size"] = json!(1234);
+        d["native"]["provides"] = json!({ "moduleApi": ["1", "2"], "rpc": "1.5.0" });
+        let (_, native) = parse_release(d.to_string().as_bytes()).unwrap();
+        let native = native.unwrap();
+        assert_eq!(native.binary["linux-x64"].size, Some(1234));
+        let p = native.provides.unwrap();
+        assert_eq!(p.module_api, Some(vec!["1".to_string(), "2".to_string()]));
+        assert_eq!(p.rpc.as_deref(), Some("1.5.0"));
+
+        for (ptr, bad) in [
+            ("/native/binary/linux-x64/size", json!(-1)),
+            ("/native/binary/linux-x64/size", json!("big")),
+            ("/native/provides/moduleApi", json!([])),
+            ("/native/provides/moduleApi", json!(["01"])),
+            ("/native/provides/moduleApi", json!(["1", "1"])),
+            ("/native/provides/extra", json!(true)),
+        ] {
+            let mut d = base.clone();
+            d["native"]["provides"] = json!({ "moduleApi": ["1"] });
+            d["native"]["binary"]["linux-x64"]["size"] = json!(1);
+            let parts: Vec<&str> = ptr.trim_start_matches('/').split('/').collect();
+            let (last, dirs) = parts.split_last().unwrap();
+            let mut node = &mut d;
+            for p in dirs {
+                node = node.get_mut(*p).unwrap();
+            }
+            node[*last] = bad;
+            assert!(parse_release(d.to_string().as_bytes()).is_err(), "{ptr}");
+        }
     }
 }

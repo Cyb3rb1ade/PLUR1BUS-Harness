@@ -14,7 +14,7 @@ describe("grant.create", () => {
     const g = await r.call("grant.create", create({ scope: "session", sessionId: "s1", person: "mallory", surface: 3, createdBy: "mallory" }), { validate: false });
     assert.equal(g.person, "christian");
     assert.equal(g.createdBy, "christian");
-    assert.equal(g.surface, 2);
+    assert.equal(g.surface, 1, "an unattested token connection is T1 (#192)");
     assert.equal(g.scope, "session");
     assert.equal(g.state, "active");
     assert.equal(g.capability, "fs.write");
@@ -27,7 +27,7 @@ describe("grant.create", () => {
     const line = r.audit.events.find((e) => e.action === "grant.created")!;
     assert.equal(line.actor.user, "christian");
     assert.equal(line.target, `grant:${g.id}`);
-    assert.equal(line.detail.decisionSurface, 2);
+    assert.equal(line.detail.decisionSurface, 1);
   });
 
   it("a path match and an expiry are mapped to the store's shapes", T, async () => {
@@ -67,7 +67,7 @@ describe("grant.create", () => {
     assert.equal(r.grantChanged.length, 0);
   });
 
-  it("the surface decides: T2 cannot create what needs T3, an attested T3 connection can", T, async () => {
+  it("the surface decides: an unattested T1 connection cannot create what needs T3, an attested T3 connection can", T, async () => {
     const r = await rpcRig();
     // os.grant needs T3 (minSurface); always-grants of fs.write for a path need T3 as well (outside roots, D109 §5).
     assert.deepEqual(await refused(r.call("grant.create", create({ capability: "os.grant" }))), { error: "E_DENIED", reason: "surface-untrusted" });
@@ -80,6 +80,32 @@ describe("grant.create", () => {
     const g = await r.call("grant.create", create({ capability: "os.grant" }));
     assert.equal(g.surface, 3);
     assert.ok(await r.call("grant.create", create({ match: { kind: "path", path: abs("/elsewhere"), access: "write", recursive: true } })));
+  });
+
+  // #192: reading run/core.token proves only same-OS-user access, which an agent process also has.
+  it("an unattested person (T1) cannot create a T2 standing grant; an attested person can; a T1 grant stays possible", T, async () => {
+    const r = await rpcRig();
+    const t2Grants: Record<string, unknown>[] = [
+      { capability: "shell.exec", scope: "always" },
+      { capability: "shell.exec", scope: "task", taskId: "t1" },
+      { capability: "proc.signal", scope: "session", sessionId: "s1" },
+      { capability: "net.submit", scope: "session", sessionId: "s1" },
+    ];
+    for (const g of t2Grants) {
+      assert.deepEqual(await refused(r.call("grant.create", create(g))), { error: "E_DENIED", reason: "surface-untrusted" }, JSON.stringify(g));
+    }
+    assert.equal(r.stores.grants.inspect().length, 0);
+    assert.equal(r.grantChanged.length, 0);
+    // The same request is still a T1 request for low-risk capabilities.
+    const low = await r.call("grant.create", create({ capability: "fs.read", scope: "session", sessionId: "s1" }));
+    assert.equal(low.surface, 1);
+    // With an attestation the very same T2 request succeeds.
+    r.attestation = { kind: "desktop-app" };
+    const g = await r.call("grant.create", create({ capability: "shell.exec" }));
+    assert.equal(g.capability, "shell.exec");
+    assert.ok(g.surface >= 2);
+    r.attestation = { kind: "cli", tty: true, osUserIsOwner: true };
+    assert.ok((await r.call("grant.create", create({ capability: "proc.signal", scope: "session", sessionId: "s1" }))).surface >= 2);
   });
 });
 

@@ -55,7 +55,7 @@ describe("grant.* / approval.* policy actions (D6)", () => {
 
   it("no role entry of an agent-capable action leaks: humanOnly is the only way these actions are reached", () => {
     const humanOnly = POLICY.filter((s) => s.humanOnly).map((s) => s.action).sort();
-    assert.deepEqual(humanOnly, [...ACTIONS].sort());
+    assert.deepEqual(humanOnly, [...ACTIONS,"media.read","media.write","project.create","project.surface.read","project.surface.write","identity.self.read","identity.self.write","auth.credentials.read","auth.credentials.write"].sort());
   });
 
   it("persons get exactly the roles written down, nothing else", () => {

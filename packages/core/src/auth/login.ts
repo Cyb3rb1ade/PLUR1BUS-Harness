@@ -165,6 +165,7 @@ async function device(o: LoginOptions, signal: AbortSignal): Promise<TokenRespon
 /** In-process engine API only. Callers explicitly retry a selected fallback; denial/state failures never silently
  *  start another login. No credential leaves this function's result. */
 export async function login(o: LoginOptions): Promise<LoginResult> {
+  if (o.profile.client_registration === 'dynamic_on_authorize' || o.profile.kind === 'federated_token') throw error('login_failed'); // D110 owns these flows; never persist a legacy record for them.
   const profile = validateProfile(o.profile); // policy gate before side effects, including direct callers
   const log = o.log ?? noLog;
   const timeoutMs = o.timeoutMs ?? 600_000;

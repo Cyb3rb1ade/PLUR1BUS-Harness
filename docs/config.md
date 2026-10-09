@@ -8,43 +8,161 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 
 | Key | Type | Default | Restart | Description |
 |---|---|---|---|---|
-| `agents` | object | `{}` | live |  |
-| `embedding.useClass` | enum | `"general"` | core |  |
-| `providers` | object | `{}` | live |  |
-| `modelRoles` | object | `{}` | live |  |
+| `agents` | object | `{}` | live | Per-agent settings keyed by a lowercase agent identifier. |
+| `embedding.useClass` | enum | `"general"` | core | Intended use of the embedding model: general, research, or commercial. |
+| `providers` | object | `{}` | live | Reserved namespace for model-provider configuration. |
+| `modelRoles` | object | `{}` | live | Model identifiers assigned to the supported functional roles. |
 
 ## Advanced settings
 
 | Key | Type | Default | Restart | Description |
 |---|---|---|---|---|
-| `$schema` | string |  | live |  |
-| `schemaVersion` | const |  | core |  |
-| `core.logLevel` | enum | `"info"` | live |  |
-| `core.recall.softBudgetMs` | integer | `400` | core |  |
-| `core.recall.hardBudgetMs` | integer | `600` | live |  |
-| `core.recall.capChars` | integer | `17000` | core |  |
-| `core.capture.waitMs` | integer | `60000` | live |  |
-| `core.shutdownBudgetMs` | integer | `30000` | live |  |
-| `supervisor.graceMs` | integer | `60000` | live |  |
-| `supervisor.healthIntervalMs` | integer | `5000` | live |  |
-| `metrics.enabled` | boolean | `false` | core |  |
-| `metrics.port` | integer | `9464` | core |  |
-| `logs.maxBytes` | integer | `20971520` | live |  |
-| `logs.keep` | integer | `5` | live |  |
-| `extensions.allowUnsigned` | boolean | `true` | live |  |
-| `extensions.trashDays` | integer | `14` | live |  |
-| `extensions.limits.packageBytes` | integer | `268435456` | live |  |
-| `extensions.limits.skillBytes` | integer | `16777216` | live |  |
-| `embedding.acceptedNcLicence` | boolean | `false` | core |  |
-| `embedding.acceptedNcLicenceAt` | string |  | core |  |
+| `$schema` | string |  | live | URI identifying the JSON Schema used to validate this configuration. |
+| `schemaVersion` | const |  | core | Configuration format version; this schema supports version 1. |
+| `tools.hostctl.enabled` | boolean | `true` | core | Register local hostctl tools. |
+| `tools.hostctl.shell.allowed` | boolean | `false` | core | Allow proc.shell after normal D109 approval. |
+| `tools.hostctl.shell.default` | string | `"bash"` | core | Shell executable; set pwsh on Windows. |
+| `tools.hostctl.exec.timeoutMs` | integer | `30000` | core | Maximum process lifetime in milliseconds. |
+| `tools.hostctl.output.maxBytes` | integer | `65536` | core | Maximum file content or retained process output bytes. |
+| `tools.hostctl.env.allow` | array | `["PATH","LANG","LC_ALL","TZ","TERM","SystemRoot","PATHEXT","TEMP","TMP"]` | core | Environment names eligible for inheritance; secrets and injection variables remain blocked. |
+| `tools.hostctl.denyPatterns` | array | `[]` | core | Additional case-insensitive literal command substrings to refuse. |
+| `tools.hostctl.search.maxResults` | integer | `100` | core | Maximum matches per search. |
+| `core.logLevel` | enum | `"info"` | live | Minimum severity written to the core log. |
+| `core.recall.softBudgetMs` | integer | `400` | core | Soft target duration for a recall, in milliseconds. |
+| `core.recall.hardBudgetMs` | integer | `600` | live | Maximum duration allowed for a recall before it is aborted, in milliseconds. |
+| `core.recall.capChars` | integer | `17000` | core | Maximum number of characters returned by a recall. |
+| `core.capture.waitMs` | integer | `60000` | live | Maximum time to wait for a memory capture, in milliseconds. |
+| `core.shutdownBudgetMs` | integer | `30000` | live | Maximum time the core spends on graceful shutdown, in milliseconds. |
+| `supervisor.graceMs` | integer | `60000` | live | Grace period given to a child process to exit during shutdown, in milliseconds. |
+| `supervisor.healthIntervalMs` | integer | `5000` | live | Interval between child-process health checks, in milliseconds. |
+| `metrics.enabled` | boolean | `false` | core | Whether to expose the read-only Prometheus metrics endpoint. |
+| `metrics.port` | integer | `9464` | core | Loopback port used by the metrics endpoint. |
+| `logs.maxBytes` | integer | `20971520` | live | Maximum size of each log file before rotation, in bytes. |
+| `logs.keep` | integer | `5` | live | Number of rotated log files to retain. |
+| `extensions.allowUnsigned` | boolean | `true` | live | Whether unsigned extension packages may be installed. |
+| `extensions.trashDays` | integer | `14` | live | Number of days uninstalled extensions are retained in the trash. |
+| `extensions.limits.packageBytes` | integer | `268435456` | live | Maximum size of an extension package, in bytes. |
+| `extensions.limits.skillBytes` | integer | `16777216` | live | Maximum size of an installed skill folder, in bytes. |
+| `embedding.acceptedNcLicence` | boolean | `false` | core | Whether the owner has accepted the model's non-commercial licence terms. |
+| `embedding.acceptedNcLicenceAt` | string |  | core | Date-time when the non-commercial licence was accepted. |
 | `engine` | object | `{}` | core | Pass-through to the engine's EngineConfig — [57 engine keys, all advanced and core](config-engine-keys.md). |
-| `oauth` | object | `{}` | live |  |
-| `decision` | object | `{}` | live |  |
+| `auth.openai.loopbackTimeoutMs` | integer | `600000` | core | Loopback login deadline. |
+| `auth.openai.httpTimeoutMs` | integer | `30000` | core | Bounded OpenAI HTTP deadline. |
+| `auth.openai.refreshSkewSeconds` | integer | `120` | core | Refresh before expiration, plus up to 15 seconds of jitter. |
+| `auth.openai.liveHandleTtlSeconds` | integer | `60` | core | GPT-Live Harness handle redemption lifetime. |
+| `auth.openai.voiceDailySeconds` | integer | `3600` | core | Per-person and per-agent daily voice ceiling. |
+| `auth.openai.voiceCapacity` | integer | `1` | core | Maximum concurrent voice sessions, no greater than the provider tier. |
+| `auth.openai.clientRegistration` | string | `"dynamic_on_authorize"` | core | OpenAI-issued registration per person and workspace; no borrowed client IDs. |
+| `auth.openai.storeBackend` | string | `"auto"` | core | Use the existing secret service. auto permits only its explicitly enabled encrypted-file fallback. |
+| `auth.openai.federated` | object | `{}` | core | External bearer supplier: one executable or file, explicit arguments and environment. |
+| `oauth` | object | `{}` | live | Reserved namespace for OAuth configuration. |
+| `decision` | object | `{}` | live | Reserved namespace for decision model configuration. |
 | `modelProfiles` | object | `{}` | live | Named model profiles (C4): an ordered candidate list with weights for fallback or mixture-of-agents (moa) use, plus sampling parameters and cache hints. Data only; selection is the router's job. List order is priority order. |
-| `models.scan.enabled` | boolean | `true` | live |  |
-| `models.scan.intervalHours` | integer | `24` | live |  |
+| `models.scan.enabled` | boolean | `true` | live | Whether periodic model discovery scans are enabled. |
+| `models.scan.intervalHours` | integer | `24` | live | Hours between periodic model discovery scans. |
 | `secrets.fileFallback.enabled` | boolean | `false` | live | Use the encrypted file store (AES-256-GCM, machine-bound key file next to it) when the OS keyring is unavailable. Off until the owner decides ADR-005 Q3. |
 | `egress.allowHosts` | array | `[]` | live | Exact names, `*.suffix` (subdomains of any depth, not the apex), `*` (any name, never an IP literal) or an exact canonical IP literal (IPv6 in brackets). |
-| `egress.allowPorts` | array | `[443]` | live |  |
+| `egress.allowPorts` | array | `[443]` | live | Destination ports allowed for outgoing requests. |
 | `egress.allowLoopback` | boolean | `false` | live | Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused. |
+| `voice.providers.elevenlabs.enabled` | boolean | `false` | live | Whether ElevenLabs may be used. Off until enabled and given an apiKeyRef. |
+| `voice.providers.elevenlabs.apiKeyRef` | string |  | live | Secret-store reference holding the ElevenLabs API key. |
+| `voice.providers.elevenlabs.region` | enum | `"default"` | live | Data-residency region: default (global), us, eu or in. Ignored when baseUrl is set. |
+| `voice.providers.elevenlabs.baseUrl` | string |  | live | Override of the API base URL (https only, or loopback for a local relay). |
+| `voice.providers.elevenlabs.defaultVoice` | string |  | live | Voice id used when a request names none. |
+| `voice.providers.elevenlabs.defaultModel` | string |  | live | Text-to-speech model id used when a request names none; discovery lists the available ones. |
+| `voice.providers.elevenlabs.defaultSttModel` | string |  | live | Speech-to-text model id used when a request names none. |
+| `voice.providers.elevenlabs.zeroRetention` | boolean | `false` | live | Ask ElevenLabs not to log or retain request content (enable_logging=false), where the account plan allows it. |
+| `voice.providers.xai.enabled` | boolean | `false` | live | Whether Grok Voice may be used. Off until enabled and given an apiKeyRef. |
+| `voice.providers.xai.apiKeyRef` | string |  | live | Secret-store reference holding the xAI API key. |
+| `voice.providers.xai.baseUrl` | string |  | live | Override of the API base URL (https only, or loopback for a local relay). |
+| `voice.providers.xai.defaultVoice` | string |  | live | Voice used when a session names none. |
+| `voice.providers.xai.defaultModel` | string |  | live | Realtime model id used when a session names none; found by discovery when empty. |
+| `voice.providers.gemini.enabled` | boolean | `false` | live | Whether Gemini Live may be used. Off until enabled and given an apiKeyRef. |
+| `voice.providers.gemini.apiKeyRef` | string |  | live | Secret-store reference holding the Gemini API key. |
+| `voice.providers.gemini.baseUrl` | string |  | live | Override of the API base URL (https only, or loopback for a local relay). |
+| `voice.providers.gemini.defaultVoice` | string |  | live | Prebuilt voice name used when a session names none. |
+| `voice.providers.gemini.defaultModel` | string |  | live | Live model id used when a session names none; native-audio models are found by discovery when empty. |
+| `voice.providers.polly.enabled` | boolean | `false` | live | Whether Polly may be used. Off until enabled. |
+| `voice.providers.polly.region` | string |  | live | AWS region for Polly; the SDK's own default applies when empty. |
+| `voice.providers.polly.credentials.profile` | string |  | live | Name of the AWS shared-config profile (including SSO profiles); the default chain applies when empty. |
+| `voice.providers.polly.defaultVoice` | string |  | live | Voice id used when a request names none. |
+| `voice.providers.polly.defaultModel` | string |  | live | Polly engine (standard, neural, long-form, generative) used when a request names none. |
+| `voice.local.language` | string |  | live | Language of the local voice (catalog code such as de or en). Empty: the system language when the catalog has it, else en. |
+| `voice.local.profile` | enum | `"fast"` | live | Local model tier: fast (streaming recogniser, small voice) or quality (larger models). |
+| `voice.local.perAgent` | object | `{}` | live | Per-agent override of language and tier, keyed by agent identifier. |
+| `voice.local.catalogOverride` | object |  | live | Data that adds or replaces catalog models and languages (adding a language is data, not code). Same shape as the built-in catalog. |
+| `voice.local.modelsDir` | string |  | live | Directory for downloaded voice models. Empty: a directory under the harness data directory. |
+| `voice.local.acceptNcLicence` | boolean | `false` | live | Confirm that models under non-commercial or unconfirmed licences may be downloaded and used. Off by default; the licence text is shown first. |
+| `voice.localRealtime.enabled` | boolean | `false` | live | Whether the local real-time profile applies. When off, every feature runs without a time budget. |
+| `voice.localRealtime.endpointingMs` | integer | `400` | live | Silence after speech, in milliseconds, before the user's turn counts as finished. |
+| `voice.localRealtime.speculativeTurnStart` | boolean | `false` | live | Start the agent turn on the final transcript before the silence window ends, and cancel it if the user keeps talking. |
+| `voice.localRealtime.ackSound` | boolean | `false` | live | Play a short acknowledgement sound when the user's turn ends. |
+| `voice.localRealtime.sentenceChunking.maxWords` | integer | `24` | live | Maximum words in one spoken chunk; longer sentences are cut at a comma when possible. |
+| `voice.localRealtime.features.autoRecall` | object | `{"mode":"on","maxMs":30}` | live | Automatic memory recall before the answer. |
+| `voice.localRealtime.features.reranker` | object | `{"mode":"off"}` | live | Reranking of recalled memories. |
+| `voice.localRealtime.features.recallMultiIdentity` | object | `{"mode":"off"}` | live | Recall across several linked identities. |
+| `voice.localRealtime.features.promptEnrichment` | object | `{"mode":"on","maxMs":10}` | live | Prompt enrichment with short context. |
+| `voice.localRealtime.features.decisionService` | object | `{"mode":"off"}` | live | Decision-model call before the answer. |
+| `voice.localRealtime.features.postTurnRefine` | object | `{"mode":"deferred"}` | live | Refinement work after the answer has been spoken. |
+| `voice.localRealtime.features.memoryWrite` | object | `{"mode":"deferred"}` | live | Memory capture of the turn. |
+| `voice.localRealtime.features.compaction` | object | `{"mode":"deferred"}` | live | Conversation compaction. |
+| `voice.localRealtime.toolSchemas` | enum | `"reduced"` | live | Tool schemas given to the model in real-time turns: reduced (smaller prompt, faster) or full. |
+| `voice.localRealtime.auditDetail` | enum | `"minimal"` | live | Detail of the audit record for real-time turns: minimal or full. |
+| `voice.localRealtime.perAgent` | object | `{}` | live | Per-agent override of any localRealtime key (same shape, no defaults), keyed by agent identifier. |
 | `modules` | object | `{}` | live | Per-module settings, keyed by module name (B13). A change restarts only that module; `enabled: false` keeps it stopped. |
+| `media.adapters.openai.enabled` | boolean |  | core | Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key. |
+| `media.adapters.openai.apiKeyRef` | string |  | core | Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin. |
+| `media.adapters.openai.baseUrl` | string |  | core | Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers. |
+| `media.adapters.openai.model` | string | `"gpt-image-2.5-sunburst"` | core | Model identifier sent to the provider. |
+| `media.adapters.openai.timeoutMs` | integer | `120000` | core | Upper bound for one generation, including polling, in milliseconds. |
+| `media.adapters.openai.maxConcurrent` | integer | `2` | core | How many requests this adapter runs at once; further jobs wait. |
+| `media.adapters.google.enabled` | boolean |  | core | Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key. |
+| `media.adapters.google.apiKeyRef` | string |  | core | Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin. |
+| `media.adapters.google.baseUrl` | string |  | core | Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers. |
+| `media.adapters.google.model` | string | `"gemini-nano-banana-2.1"` | core | Model identifier sent to the provider. |
+| `media.adapters.google.timeoutMs` | integer | `120000` | core | Upper bound for one generation, including polling, in milliseconds. |
+| `media.adapters.google.maxConcurrent` | integer | `2` | core | How many requests this adapter runs at once; further jobs wait. |
+| `media.adapters.xai.enabled` | boolean |  | core | Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key. |
+| `media.adapters.xai.apiKeyRef` | string |  | core | Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin. |
+| `media.adapters.xai.baseUrl` | string |  | core | Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers. |
+| `media.adapters.xai.model` | string | `"grok-imagine-image-2.0"` | core | Model identifier sent to the provider. |
+| `media.adapters.xai.timeoutMs` | integer | `120000` | core | Upper bound for one generation, including polling, in milliseconds. |
+| `media.adapters.xai.maxConcurrent` | integer | `2` | core | How many requests this adapter runs at once; further jobs wait. |
+| `media.adapters.openrouter.enabled` | boolean |  | core | Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key. |
+| `media.adapters.openrouter.apiKeyRef` | string |  | core | Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin. |
+| `media.adapters.openrouter.baseUrl` | string |  | core | Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers. |
+| `media.adapters.openrouter.model` | string | `"google/gemini-2.5-flash-image"` | core | Model identifier sent to the provider. |
+| `media.adapters.openrouter.timeoutMs` | integer | `120000` | core | Upper bound for one generation, including polling, in milliseconds. |
+| `media.adapters.openrouter.maxConcurrent` | integer | `2` | core | How many requests this adapter runs at once; further jobs wait. |
+| `media.adapters.replicate.enabled` | boolean |  | core | Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key. |
+| `media.adapters.replicate.apiKeyRef` | string |  | core | Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin. |
+| `media.adapters.replicate.baseUrl` | string |  | core | Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers. |
+| `media.adapters.replicate.model` | string | `"black-forest-labs/flux-schnell"` | core | Model identifier sent to the provider. |
+| `media.adapters.replicate.timeoutMs` | integer | `120000` | core | Upper bound for one generation, including polling, in milliseconds. |
+| `media.adapters.replicate.maxConcurrent` | integer | `2` | core | How many requests this adapter runs at once; further jobs wait. |
+| `media.adapters.fal.enabled` | boolean |  | core | Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key. |
+| `media.adapters.fal.apiKeyRef` | string |  | core | Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin. |
+| `media.adapters.fal.baseUrl` | string |  | core | Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers. |
+| `media.adapters.fal.model` | string | `"fal-ai/flux/schnell"` | core | Model identifier sent to the provider. |
+| `media.adapters.fal.timeoutMs` | integer | `120000` | core | Upper bound for one generation, including polling, in milliseconds. |
+| `media.adapters.fal.maxConcurrent` | integer | `2` | core | How many requests this adapter runs at once; further jobs wait. |
+| `media.adapters.together.enabled` | boolean |  | core | Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key. |
+| `media.adapters.together.apiKeyRef` | string |  | core | Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin. |
+| `media.adapters.together.baseUrl` | string |  | core | Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers. |
+| `media.adapters.together.model` | string | `"black-forest-labs/FLUX.2-dev"` | core | Model identifier sent to the provider. |
+| `media.adapters.together.timeoutMs` | integer | `120000` | core | Upper bound for one generation, including polling, in milliseconds. |
+| `media.adapters.together.maxConcurrent` | integer | `2` | core | How many requests this adapter runs at once; further jobs wait. |
+| `media.adapters.drawthings.enabled` | boolean | `false` | core | Use Draw Things for image generation. |
+| `media.adapters.drawthings.host` | string | `"127.0.0.1"` | core | Host of the Draw Things API. A host other than loopback also needs `allowLan`. |
+| `media.adapters.drawthings.port` | integer | `7860` | core | Port of the Draw Things API. |
+| `media.adapters.drawthings.allowLan` | boolean | `false` | core | Allow a private-network host (LAN, Tailscale). The traffic is plain http and carries no key. |
+| `media.adapters.drawthings.model` | string |  | core | Model file name as shown in Draw Things. |
+| `media.adapters.drawthings.timeoutMs` | integer | `300000` | core | Upper bound for one generation in milliseconds. |
+| `media.adapters.drawthings.maxConcurrent` | integer | `1` | core | How many requests run at once; the app renders one at a time. |
+| `media.adapters.coreml.enabled` | boolean | `false` | core | Use the Core ML helper for image generation. |
+| `media.adapters.coreml.binary` | string |  | core | Absolute path of the `media-coreml` executable. |
+| `media.adapters.coreml.modelsDir` | string | `"~/MochiDiffusion/models/"` | core | Directory with compiled Core ML model folders (split-einsum or original). |
+| `media.adapters.coreml.model` | string |  | core | Name of a model folder inside `modelsDir`. |
+| `media.adapters.coreml.computeUnits` | string | `"auto"` | core | Where inference runs. `auto` lets the helper choose from the model's attention variant (split-einsum: Neural Engine, original: GPU). |
+| `media.adapters.coreml.scheduler` | string |  | core | Diffusion scheduler name understood by the helper; unset uses the helper default. |
+| `media.adapters.coreml.timeoutMs` | integer | `300000` | core | Upper bound for one generation in milliseconds. |

@@ -1,14 +1,29 @@
-import { writeFileSync, mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CONFIG_SCHEMA, defaults, filterConfigByTier, filterSchemaByTier, restartPlan, tierOf, validate } from "./index.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const outDir = join(here, "..", "fixtures");
-mkdirSync(outDir, { recursive: true });
+const args = process.argv.slice(2);
+let outDir = join(here, "..", "fixtures");
+let check = false;
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === "--check") check = true;
+  else if (args[i] === "--out" && args[i + 1] && !args[i + 1].startsWith("--")) outDir = resolve(args[++i]);
+  else throw new Error("usage: gen-defaults.mjs [--check] [--out directory]");
+}
+if (!check) mkdirSync(outDir, { recursive: true });
+function emit(name, value) {
+  const bytes = `${JSON.stringify(value, null, 2)}\n`;
+  const path = join(outDir, name);
+  if (check) {
+    let current;
+    try { current = readFileSync(path, "utf8"); } catch { /* Missing is also drift. */ }
+    if (current !== bytes) { console.error(`config-schema: drift in ${name}; run pnpm gen`); process.exitCode = 1; }
+  } else writeFileSync(path, bytes);
+}
 
-writeFileSync(join(outDir, "defaults.json"), `${JSON.stringify(defaults(), null, 2)}\n`);
-console.log("config-schema: fixtures/defaults.json written");
+emit("defaults.json", defaults());
 
 function withAgent(cfg, id, value) {
   const c = structuredClone(cfg);
@@ -85,8 +100,7 @@ const cases = [
 ];
 
 const out = cases.map(({ name, before, after }) => ({ name, before, after, expected: restartPlan(before, after) }));
-writeFileSync(join(outDir, "restart-plan-cases.json"), `${JSON.stringify(out, null, 2)}\n`);
-console.log("config-schema: fixtures/restart-plan-cases.json written");
+emit("restart-plan-cases.json", out);
 
 // `format` parity: the Rust validator (crates/plur1bus-config) must accept exactly the date-time values the
 // core's ajv-formats accepts, or the CLI writes a config the core refuses. `valid` is what ajv says.
@@ -108,8 +122,7 @@ for (const value of ["2026-09-24T00:00:00Z", "yesterday"]) {
   const c = structuredClone(base); c.embedding.acceptedNcLicenceAt = value;
   formatCases.push({ name: `embedding.acceptedNcLicenceAt = ${JSON.stringify(value)}`, config: c, valid: validate(c).ok });
 }
-writeFileSync(join(outDir, "format-cases.json"), `${JSON.stringify(formatCases, null, 2)}\n`);
-console.log("config-schema: fixtures/format-cases.json written");
+emit("format-cases.json", formatCases);
 
 const tierKeys = [
   "$schema", "schemaVersion", "core.logLevel", "core.recall.capChars", "supervisor.graceMs",
@@ -121,5 +134,4 @@ const tierOut = {
   cases: tierKeys.map((key) => ({ key, tier: tierOf(key) })),
   filtered: { basic: filterSchemaByTier(CONFIG_SCHEMA, "basic"), advanced: filterSchemaByTier(CONFIG_SCHEMA, "advanced") },
 };
-writeFileSync(join(outDir, "tier-cases.json"), `${JSON.stringify(tierOut, null, 2)}\n`);
-console.log("config-schema: fixtures/tier-cases.json written");
+emit("tier-cases.json", tierOut);

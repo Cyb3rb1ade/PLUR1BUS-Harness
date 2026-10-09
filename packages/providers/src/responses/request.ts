@@ -93,7 +93,7 @@ export function buildResponsesBody(req: ResponsesRequest, opts: ResponsesBuildOp
   if (summary !== undefined && !SUMMARIES.has(summary)) throw bad("reasoningSummary must be auto, concise or detailed");
   const plan = opts.profile === "chatgpt_plan";
   if (plan) {
-    // RULING (from the request shape the Codex client itself sends; not verified against the live backend): the
+    // D110 public Sign in with ChatGPT wire constraints: the
     // ChatGPT-plan backend takes instructions, input, tools, tool_choice, parallel_tool_calls, reasoning and text, and
     // only with store:false and stream:true. Fields it does not take are refused here rather than discovered as a 400.
     if (req.maxTokens !== undefined) throw bad("maxTokens is not accepted by the chatgpt_plan profile");

@@ -1,5 +1,6 @@
 // Transcript state of one chat: the persisted messages plus the live events of the session's stream. Pure functions on an
 // immutable value, so the page (and the tests) can replace the whole transcript on every change.
+import { outputReference } from "../surfaces/data.ts";
 import type { SessionEvent, SessionMessage, TurnState } from "./rpc-types.ts";
 
 export type Entry = {
@@ -10,6 +11,7 @@ export type Entry = {
   /** Assistant entries of a turn seen live only (history entries carry no state: they are simply finished). */
   state?: TurnState;
   error?: string;
+  outputId?: string;
 };
 
 export type Transcript = {
@@ -78,8 +80,13 @@ export function applyEvent(tr: Transcript, ev: SessionEvent): Applied {
         next = { ...next, entries: withTurn(tr, turnId, (e) => ({ ...e, state: "failed", error })), runningTurnId: tr.runningTurnId === turnId ? null : tr.runningTurnId };
         break;
       }
-      case "tool.result":
+      case "tool.result": {
+        let value = ev.data.result ?? ev.data.value;
+        if (typeof ev.data.output === "string") { try { value = JSON.parse(ev.data.output); } catch { /* text-only tool result */ } }
+        const outputId = outputReference(value);
+        if (outputId) next = { ...next, entries: [...next.entries, { id: `output:${ev.seq}`, role: "tool", text: "", turnId, outputId }] };
         break;
+      }
     }
   }
   return { tr: next, gap: false };

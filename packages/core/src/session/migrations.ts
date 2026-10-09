@@ -114,6 +114,8 @@ export const MIGRATIONS: readonly string[] = [
     INSERT INTO sessions_fts(sessions_fts, rowid, title) VALUES ('delete', OLD.rowid, OLD.title);
   END;
   `,
+  // v2: the first recall snapshot remains frozen across Core restarts for a remembered session.
+  `CREATE TABLE prompt_snapshots (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, memory TEXT NOT NULL);`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

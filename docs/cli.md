@@ -127,8 +127,42 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus approval deny`↴](#plur1bus-approval-deny)
 * [`plur1bus approval verify`↴](#plur1bus-approval-verify)
 * [`plur1bus login`↴](#plur1bus-login)
+* [`plur1bus login status`↴](#plur1bus-login-status)
+* [`plur1bus login list`↴](#plur1bus-login-list)
+* [`plur1bus login logout`↴](#plur1bus-login-logout)
 * [`plur1bus channel`↴](#plur1bus-channel)
 * [`plur1bus project`↴](#plur1bus-project)
+* [`plur1bus project create`↴](#plur1bus-project-create)
+* [`plur1bus project list`↴](#plur1bus-project-list)
+* [`plur1bus project show`↴](#plur1bus-project-show)
+* [`plur1bus project archive`↴](#plur1bus-project-archive)
+* [`plur1bus project member`↴](#plur1bus-project-member)
+* [`plur1bus project member add`↴](#plur1bus-project-member-add)
+* [`plur1bus project member remove`↴](#plur1bus-project-member-remove)
+* [`plur1bus project member role`↴](#plur1bus-project-member-role)
+* [`plur1bus project agent`↴](#plur1bus-project-agent)
+* [`plur1bus project agent add`↴](#plur1bus-project-agent-add)
+* [`plur1bus project agent remove`↴](#plur1bus-project-agent-remove)
+* [`plur1bus trace`↴](#plur1bus-trace)
+* [`plur1bus trace show`↴](#plur1bus-trace-show)
+* [`plur1bus trace list`↴](#plur1bus-trace-list)
+* [`plur1bus media`↴](#plur1bus-media)
+* [`plur1bus media generate`↴](#plur1bus-media-generate)
+* [`plur1bus media edit`↴](#plur1bus-media-edit)
+* [`plur1bus media jobs`↴](#plur1bus-media-jobs)
+* [`plur1bus media job`↴](#plur1bus-media-job)
+* [`plur1bus media cancel`↴](#plur1bus-media-cancel)
+* [`plur1bus media outputs`↴](#plur1bus-media-outputs)
+* [`plur1bus media output`↴](#plur1bus-media-output)
+* [`plur1bus media rm`↴](#plur1bus-media-rm)
+* [`plur1bus media adapters`↴](#plur1bus-media-adapters)
+* [`plur1bus identity`↴](#plur1bus-identity)
+* [`plur1bus identity link`↴](#plur1bus-identity-link)
+* [`plur1bus identity links`↴](#plur1bus-identity-links)
+* [`plur1bus identity approve`↴](#plur1bus-identity-approve)
+* [`plur1bus identity decline`↴](#plur1bus-identity-decline)
+* [`plur1bus identity unlink`↴](#plur1bus-identity-unlink)
+* [`plur1bus identity whoami`↴](#plur1bus-identity-whoami)
 * [`plur1bus import`↴](#plur1bus-import)
 * [`plur1bus uninstall`↴](#plur1bus-uninstall)
 * [`plur1bus skill`↴](#plur1bus-skill)
@@ -151,6 +185,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus ext inspect`↴](#plur1bus-ext-inspect)
 * [`plur1bus ext pack`↴](#plur1bus-ext-pack)
 * [`plur1bus ext verify`↴](#plur1bus-ext-verify)
+* [`plur1bus completions`↴](#plur1bus-completions)
 
 ## `plur1bus`
 
@@ -183,19 +218,35 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
 * `grant` — [experimental] Standing permissions: list, add and revoke grants (D109)
 * `approval` — [experimental] Approval requests: the pending queue, approve, deny and verify the chain (D109)
-* `login` — Provider login (API keys, OAuth) — M2
+* `login` — [experimental] Provider sign-in: OAuth (ChatGPT) or an API key from stdin; `login status|list|logout`
 * `channel` — Channels — M4
-* `project` — Projects — M3
+* `project` — [experimental] Projects, members and agents (M5)
+* `trace` — [experimental] Collaboration traces
+* `media` — [experimental] Image jobs and private outputs (MG-3)
+* `identity` — [experimental] My channel identities and pairing (Identity v2)
 * `import` — [experimental] Import from OpenClaw/Hermes: read-only --detect and the --skills import now; the full import is M7
-* `uninstall` — Uninstall — M8
+* `uninstall` — [experimental] Remove the installation (service, daemon, binary, runtime); the data stays unless --purge
 * `skill` — Skills from packages, folders or archives: list, show, install, uninstall, restore, enable, disable
 * `plugin` — Plugins (modules and channels) from packages: list, show, install, uninstall, restore, enable, disable
 * `ext` — Extension packages (`.p1x`): inspect, pack, verify
+* `completions` — [experimental] Print a shell completion script to stdout
 
 ###### **Options:**
 
 * `--home <PATH>` — State root (default: ~/.plur1bus, %LOCALAPPDATA%\PLUR1BUS, or $PLUR1BUS_HOME)
 * `--json` — Machine-readable output (stable shape, see docs/cli.md)
+* `--color <WHEN>` — When to colour output: auto (a terminal, unless `NO_COLOR` is set and non-empty), always, never
+
+  Default value: `auto`
+
+  Possible values:
+  - `auto`:
+    Colour only when the stream is a terminal and `NO_COLOR` is unset or empty
+  - `always`:
+    Always colour, even into a pipe or with `NO_COLOR` set
+  - `never`:
+    Never colour
+
 
 
 
@@ -210,7 +261,7 @@ Downloads the pinned Node runtime and the core payload and verifies their SHA-25
 ###### **Options:**
 
 * `--non-interactive` — Never prompt: answers come from the flags and the defaults (agent `main`, use class `general`)
-* `--accept-nc-licence` — Accept the non-commercial licence of the default models (asked for unless the use class is commercial)
+* `--accept-nc-licence` — Accept a non-commercial model licence (only needed when you opt into a CC BY-NC model such as Jina; the defaults are permissive)
 * `--no-service` — Do not register the OS service (the supervisor is still started for this session)
 * `--core-from <DIR|TAR.GZ>` — Install the core from this directory or .tar.gz instead of the release payload
 * `--channel <CHANNEL>` — Release channel recorded in the install manifest
@@ -1377,6 +1428,19 @@ Needs a verified release feed. Stops the daemon, snapshots the binary, `config.j
 
   Possible values: `stable`, `beta`
 
+* `--from <BUNDLE>` — Apply an offline bundle (.tar.zst or .zip with manifest.json, manifest.json.minisig and the artefacts) instead of the online feed
+
+   Verified like the online feed: the manifest signature, then every artefact's SHA-256 and size. Same snapshot, swap, health gate and rollback.
+* `--plan` — Print the update plan (versions, notes, breaking changes, restarts, migrations, add-ons, download size) and change nothing
+* `--lang <LANG>` — Language of the plan: en or de (default: from LC_ALL, LC_MESSAGES, LANG; German if it starts with "de")
+
+  Possible values: `en`, `de`
+
+* `--allow-downgrade` — Accept a release older than the installed one, or older than the newest this install already accepted
+* `--force` — Update even though a required add-on is incompatible with the new version (it is disabled)
+* `--require-addon <NAME>` — Mark an installed add-on as required for updates; remembered (repeatable)
+* `--unrequire-addon <NAME>` — Forget that an add-on is required (repeatable)
+* `--ca-bundle <PEM>` — PEM file of CA certificates for https downloads (a corporate CA); replaces the OS store. Env: PLUR1BUS_CA_BUNDLE
 
 
 
@@ -1917,13 +1981,67 @@ The request (command line or diff summary, targets, risk) is printed first. In a
 
 ## `plur1bus login`
 
-Provider login (API keys, OAuth) — M2
+[experimental] Provider sign-in: OAuth (ChatGPT) or an API key from stdin; `login status|list|logout`
 
-**Usage:** `plur1bus login`
+`login openai` signs in with ChatGPT in a browser (loopback PKCE); on a machine without one it prints the `ssh -L` command for the callback port, and `--paste` accepts the address the browser was sent to. Any other provider (or `login openai --api-key`) stores an API key read from stdin, never from an argument, as a secret and prints only its name. No token or key is ever printed.
+
+**Usage:** `plur1bus login [OPTIONS] [PROVIDER]
+       login <COMMAND>`
+
+Examples:
+  plur1bus login openai
+  plur1bus login openai --no-browser --paste
+  printf %s "$ANTHROPIC_API_KEY" | plur1bus login anthropic
+  plur1bus login status
+  plur1bus login logout 3fa9c2d1
+
+###### **Subcommands:**
+
+* `status` — [experimental] Saved sign-ins and logins in progress
+* `list` — [experimental] List saved sign-ins (ids, workspace, expiry; never a token)
+* `logout` — [experimental] Remove a saved sign-in and its local token state; the id may be a unique prefix
 
 ###### **Arguments:**
 
-* `<REST>`
+* `<PROVIDER>` — the provider to sign in to: openai (ChatGPT sign-in, or an API key), anthropic, google, gemini, xai, openrouter, together, fal, replicate, elevenlabs
+* `<REST>` — refused: a key never goes in an argument (kept only so the refusal does not echo it)
+
+###### **Options:**
+
+* `--api-key <VALUE>` — store an API key for the provider: the key is read from stdin and this flag takes no value (a value is refused)
+* `--oauth` — sign in with the provider's OAuth flow (the default for providers that have one)
+* `--no-browser` — do not try to open a browser; print the URL only
+* `--paste` — on a machine without a browser: after signing in elsewhere, paste the address the browser was sent to
+* `--timeout <SECONDS>` — give up after this many seconds (default 600)
+* `--name <NAME>` — the secret name for an API key (default <provider>/api-key)
+
+
+
+## `plur1bus login status`
+
+[experimental] Saved sign-ins and logins in progress
+
+**Usage:** `plur1bus login status`
+
+
+
+## `plur1bus login list`
+
+[experimental] List saved sign-ins (ids, workspace, expiry; never a token)
+
+**Usage:** `plur1bus login list`
+
+
+
+## `plur1bus login logout`
+
+[experimental] Remove a saved sign-in and its local token state; the id may be a unique prefix
+
+**Usage:** `plur1bus login logout <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
 
 
 
@@ -1941,13 +2059,468 @@ Channels — M4
 
 ## `plur1bus project`
 
-Projects — M3
+[experimental] Projects, members and agents (M5)
 
-**Usage:** `plur1bus project`
+**Usage:** `plur1bus project <COMMAND>`
+
+###### **Subcommands:**
+
+* `create` — [experimental] Create a project
+* `list` — [experimental] List records
+* `show` — [experimental] Show a record
+* `archive` — [experimental] Archive a project
+* `member` — Project membership and roles
+* `agent` — Assigned project agents
+
+
+
+## `plur1bus project create`
+
+[experimental] Create a project
+
+**Usage:** `plur1bus project create <NAME>`
 
 ###### **Arguments:**
 
-* `<REST>`
+* `<NAME>`
+
+
+
+## `plur1bus project list`
+
+[experimental] List records
+
+**Usage:** `plur1bus project list`
+
+
+
+## `plur1bus project show`
+
+[experimental] Show a record
+
+**Usage:** `plur1bus project show <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus project archive`
+
+[experimental] Archive a project
+
+**Usage:** `plur1bus project archive <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus project member`
+
+Project membership and roles
+
+**Usage:** `plur1bus project member <COMMAND>`
+
+###### **Subcommands:**
+
+* `add` — [experimental] Add a member or agent
+* `remove` — [experimental] Remove a member or agent
+* `role` — [experimental] Change a member role
+
+
+
+## `plur1bus project member add`
+
+[experimental] Add a member or agent
+
+**Usage:** `plur1bus project member add [OPTIONS] <PROJECT> <USER>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+* `<USER>`
+
+###### **Options:**
+
+* `--role <ROLE>`
+
+  Default value: `member`
+
+  Possible values: `member`, `lead`
+
+
+
+
+## `plur1bus project member remove`
+
+[experimental] Remove a member or agent
+
+**Usage:** `plur1bus project member remove <PROJECT> <USER>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+* `<USER>`
+
+
+
+## `plur1bus project member role`
+
+[experimental] Change a member role
+
+**Usage:** `plur1bus project member role <PROJECT> <USER> <ROLE>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+* `<USER>`
+* `<ROLE>`
+
+  Possible values: `member`, `lead`
+
+
+
+
+## `plur1bus project agent`
+
+Assigned project agents
+
+**Usage:** `plur1bus project agent <COMMAND>`
+
+###### **Subcommands:**
+
+* `add` — [experimental] Add a member or agent
+* `remove` — [experimental] Remove a member or agent
+
+
+
+## `plur1bus project agent add`
+
+[experimental] Add a member or agent
+
+**Usage:** `plur1bus project agent add <PROJECT> <AGENT>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+* `<AGENT>`
+
+
+
+## `plur1bus project agent remove`
+
+[experimental] Remove a member or agent
+
+**Usage:** `plur1bus project agent remove <PROJECT> <AGENT>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+* `<AGENT>`
+
+
+
+## `plur1bus trace`
+
+[experimental] Collaboration traces
+
+**Usage:** `plur1bus trace <COMMAND>`
+
+###### **Subcommands:**
+
+* `show` — [experimental] Show a record
+* `list` — [experimental] List records
+
+
+
+## `plur1bus trace show`
+
+[experimental] Show a record
+
+**Usage:** `plur1bus trace show <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus trace list`
+
+[experimental] List records
+
+**Usage:** `plur1bus trace list <PROJECT>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+
+
+
+## `plur1bus media`
+
+[experimental] Image jobs and private outputs (MG-3)
+
+**Usage:** `plur1bus media <COMMAND>`
+
+###### **Subcommands:**
+
+* `generate` — [experimental] Queue an image generation
+* `edit` — [experimental] Edit a stored image
+* `jobs` — [experimental] List visible media jobs
+* `job` — [experimental] Read a media job
+* `cancel` — [experimental] Cancel a media job
+* `outputs` — [experimental] List visible media outputs
+* `output` — [experimental] Read or download a media output
+* `rm` — [experimental] Delete a media output
+* `adapters` — [experimental] List adapter capabilities
+
+
+
+## `plur1bus media generate`
+
+[experimental] Queue an image generation
+
+**Usage:** `plur1bus media generate [OPTIONS] <PROMPT>`
+
+###### **Arguments:**
+
+* `<PROMPT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+  Default value: `main`
+* `--adapter <ADAPTER>`
+* `--count <COUNT>`
+
+  Default value: `1`
+* `--width <WIDTH>`
+* `--height <HEIGHT>`
+* `--reference <REFERENCE>`
+* `--mask <MASK>`
+* `--embed-metadata <EMBED_METADATA>`
+
+  Possible values: `true`, `false`
+
+* `--wait`
+* `--out <OUT>`
+
+
+
+## `plur1bus media edit`
+
+[experimental] Edit a stored image
+
+**Usage:** `plur1bus media edit [OPTIONS] <PROMPT>`
+
+###### **Arguments:**
+
+* `<PROMPT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+  Default value: `main`
+* `--adapter <ADAPTER>`
+* `--count <COUNT>`
+
+  Default value: `1`
+* `--width <WIDTH>`
+* `--height <HEIGHT>`
+* `--reference <REFERENCE>`
+* `--mask <MASK>`
+* `--embed-metadata <EMBED_METADATA>`
+
+  Possible values: `true`, `false`
+
+* `--wait`
+* `--out <OUT>`
+
+
+
+## `plur1bus media jobs`
+
+[experimental] List visible media jobs
+
+**Usage:** `plur1bus media jobs [OPTIONS]`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+
+
+## `plur1bus media job`
+
+[experimental] Read a media job
+
+**Usage:** `plur1bus media job <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus media cancel`
+
+[experimental] Cancel a media job
+
+**Usage:** `plur1bus media cancel <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus media outputs`
+
+[experimental] List visible media outputs
+
+**Usage:** `plur1bus media outputs [OPTIONS]`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+* `--adapter <ADAPTER>`
+
+
+
+## `plur1bus media output`
+
+[experimental] Read or download a media output
+
+**Usage:** `plur1bus media output [OPTIONS] <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+###### **Options:**
+
+* `--out <OUT>`
+* `--file <FILE>`
+
+  Default value: `0`
+
+
+
+## `plur1bus media rm`
+
+[experimental] Delete a media output
+
+**Usage:** `plur1bus media rm <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus media adapters`
+
+[experimental] List adapter capabilities
+
+**Usage:** `plur1bus media adapters`
+
+
+
+## `plur1bus identity`
+
+[experimental] My channel identities and pairing (Identity v2)
+
+**Usage:** `plur1bus identity <COMMAND>`
+
+###### **Subcommands:**
+
+* `link` — [experimental] Issue a one-time pairing code
+* `links` — [experimental] List my identity links
+* `approve` — [experimental] Approve a claimed pairing
+* `decline` — [experimental] Decline a claimed pairing
+* `unlink` — [experimental] Unlink a channel identity
+* `whoami` — [experimental] Show my principal union
+
+
+
+## `plur1bus identity link`
+
+[experimental] Issue a one-time pairing code
+
+**Usage:** `plur1bus identity link [OPTIONS]`
+
+###### **Options:**
+
+* `--channel <CHANNEL>`
+
+  Default value: `telegram`
+* `--human <HUMAN>`
+
+
+
+## `plur1bus identity links`
+
+[experimental] List my identity links
+
+**Usage:** `plur1bus identity links [OPTIONS]`
+
+###### **Options:**
+
+* `--human <HUMAN>`
+
+
+
+## `plur1bus identity approve`
+
+[experimental] Approve a claimed pairing
+
+**Usage:** `plur1bus identity approve <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus identity decline`
+
+[experimental] Decline a claimed pairing
+
+**Usage:** `plur1bus identity decline <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus identity unlink`
+
+[experimental] Unlink a channel identity
+
+**Usage:** `plur1bus identity unlink <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus identity whoami`
+
+[experimental] Show my principal union
+
+**Usage:** `plur1bus identity whoami [OPTIONS]`
+
+###### **Options:**
+
+* `--human <HUMAN>`
 
 
 
@@ -1994,13 +2567,19 @@ Projects — M3
 
 ## `plur1bus uninstall`
 
-Uninstall — M8
+[experimental] Remove the installation (service, daemon, binary, runtime); the data stays unless --purge
 
-**Usage:** `plur1bus uninstall`
+Shows the plan first and asks (`--yes` skips the question); `--dry-run` shows the same plan and changes nothing. Stops the daemon, removes the service unit, the `plur1bus` binary, `runtime/`, `update/`, the install manifest and `run/`. Config, agents, stores, skills, modules and logs are kept. `--purge` removes the whole home and writes a backup next to it first (`--no-backup` skips that, `--backup-out` chooses where it goes). On Windows the running program is removed by a script right after this process exits.
 
-###### **Arguments:**
+**Usage:** `plur1bus uninstall [OPTIONS]`
 
-* `<REST>`
+###### **Options:**
+
+* `-y`, `--yes` — Do not ask; apply the plan
+* `--dry-run` — Print the plan and change nothing
+* `--purge` — Also remove the data: the whole home (config, agents, stores, logs, ...). Writes a backup first unless --no-backup
+* `--no-backup` — With --purge: do not write a backup first
+* `--backup-out <FILE>` — With --purge: where the backup goes (default: next to the home, never inside it)
 
 
 
@@ -2327,6 +2906,29 @@ Trusts only the pinned keys, checks no revocations and no installed names. Exit 
 ###### **Arguments:**
 
 * `<FILE>`
+
+
+
+## `plur1bus completions`
+
+[experimental] Print a shell completion script to stdout
+
+Supported shells: bash, zsh, fish, powershell, elvish. Install it where your shell loads completions from (see the examples).
+
+**Usage:** `plur1bus completions <SHELL>`
+
+Examples:
+  plur1bus completions bash > ~/.local/share/bash-completion/completions/plur1bus
+  plur1bus completions zsh > "${fpath[1]}/_plur1bus"
+  plur1bus completions fish > ~/.config/fish/completions/plur1bus.fish
+  plur1bus completions powershell | Out-String | Invoke-Expression
+
+###### **Arguments:**
+
+* `<SHELL>` — Shell to generate the script for
+
+  Possible values: `bash`, `elvish`, `fish`, `powershell`, `zsh`
+
 
 
 

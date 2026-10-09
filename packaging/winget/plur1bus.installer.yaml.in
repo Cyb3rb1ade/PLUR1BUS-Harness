@@ -1,0 +1,13 @@
+PackageIdentifier: Cyb3rb1ade.PLUR1BUS
+PackageVersion: @VERSION@
+InstallerType: zip
+NestedInstallerType: portable
+NestedInstallerFiles:
+  - RelativeFilePath: bin/plur1bus.exe
+    PortableCommandAlias: plur1bus
+Installers:
+  - Architecture: x64
+    InstallerUrl: @BASE@/plur1bus-@VERSION@-win-x64.zip
+    InstallerSha256: @SHA_win-x64@
+ManifestType: installer
+ManifestVersion: 1.9.0

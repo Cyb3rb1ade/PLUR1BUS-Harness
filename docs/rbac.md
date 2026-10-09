@@ -61,6 +61,10 @@ unlisted or malformed is T0. `surfaceSatisfies(have, required)`: T0 satisfies no
 | T1 | `acp-editor` that started the session |
 | T0 | group chats, unlinked identities, MCP clients, A2A peers, agents, model output, tool results, a CLI without TTY, everything else |
 
+A person on a local token-authenticated RPC connection (`connectionSurface`, `connection-surface.ts`) is **T1** unless the embedder
+supplies a server-side attestation that raises it to T3 (#192): reading `run/core.token` proves only same-OS-user access, which an
+agent process has too. So without attestation only low-risk requests are decidable and no standing grant above T1 can be created.
+
 ## Privacy (ADR-007 §Privacy)
 
 * `user`-scope cards: only the owning user. Owner and Admin can read **another** user's cards only through break-glass;
@@ -194,3 +198,35 @@ needed, `bg` = a live break-glass grant, `–` = denied). The matrix test compar
 | `admin.reembed.status` | system | ✔ | ✔ | – | – | – |
 | `admin.reembed.abort` | system | ✔ | ✔ | – | – | – |
 | `admin.backup.snapshot` | system | ✔ | ✔ | – | – | – |
+
+## Media, project/collaboration and own-identity surfaces
+
+Every new method is declared in RPC_RULES and is human-only at the surface gate:
+
+| RPC family | Coarse action | Additional stored-object check |
+|---|---|---|
+| media.generate/edit, media.job.cancel, media.output.delete | media.write | agent.use |
+| media.job.get/list, media.output.get/list | media.read | agent.read; lists filter inaccessible agents |
+| media.adapters.list, media.preferences.get | media.read | no credentials returned |
+| media.preferences.set | media.write | settings.write globally, agent.manage per agent |
+| project.create | project.create | Owner/Admin |
+| project.get/list, collab.trace.get/list | project.surface.read | role-level readers or actual project membership |
+| project.update/archive, project.member.add/remove/role | project.surface.write | project.manage (lead) |
+| project.agent.add/remove, collab.chain.cancel | project.surface.write | project.write (member); add also agent.use |
+| identity.link.list, identity.principals | identity.self.read | self or Owner/Admin target override |
+| identity.link.request/approve/decline/remove | identity.self.write | self or Owner/Admin; service authorization remains |
+
+Read gates include all human roles. Write gates exclude Viewer. Token scopes
+still narrow role rights; the service's existing object checks remain additive.
+All new methods reject unauthenticated and agent callers before invoking handlers.
+The guard passes its resolved principal to the invocation through a private
+context map; params cannot forge it. Existing method authorization is unchanged.
+
+## Provider login (`auth.*`)
+
+The R2 methods are declared in RPC_RULES and are human-only; the two actions are granted to **Owner only** (ChatGPT-plan credentials are the installation owner's own, and the D110 `AuthService` enforces `requireOwner` a second time). Admin, Operator, Member and Viewer are denied with `role-denied`, an agent principal with `agent-principal`, an unauthenticated call with `E_UNAUTHORIZED`; the handler never runs in any of those cases.
+
+| RPC | Coarse action | Notes |
+|---|---|---|
+| auth.credentials.list, auth.status | auth.credentials.read | Ids, workspace and expiry only |
+| auth.login.start, auth.login.await, auth.login.cancel, auth.logout | auth.credentials.write | The login is bound to the authenticated person; an `await` whose connection closes cancels the login |

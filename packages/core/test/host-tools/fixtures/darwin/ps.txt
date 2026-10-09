@@ -1,0 +1,5 @@
+    1     0 root      0.0  0.1 /sbin/launchd
+   88     1 alice     1.5  2.0 /Applications/Safari.app/Contents/MacOS/Safari
+  400     1 alice     0.1  0.3 /usr/local/bin/plur1bus
+  424   400 alice     0.2  0.4 /usr/local/bin/node --token=sk-live-abcdefghijklmnopqrstuv /Users/alice/.ssh/id_ed25519
+  512   400 bob       0.0  0.1 /usr/bin/sleep 90

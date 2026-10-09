@@ -26,9 +26,32 @@ pub(super) struct Feed {
     pub head: install::manifest::ReleaseHead,
     pub native: Option<install::manifest::ReleaseNative>,
     pub verified: bool,
+    /// The extracted offline bundle (`--from`), whose files the artefact URLs resolve to.
+    pub bundle: Option<std::path::PathBuf>,
 }
 
-fn load_feed(out: &Out, layout: &Layout, args: &UpdateArgs) -> Feed {
+/// Fails the command; an extracted bundle is removed first.
+fn fail_feed(out: &Out, layout: &Layout, reason: &str, message: &str) -> ! {
+    crate::update::bundle::cleanup(layout);
+    out.fail("E_NOT_AVAILABLE", message, json!({ "reason": reason }), 1)
+}
+
+/// `--ca-bundle` is the same as `PLUR1BUS_CA_BUNDLE`: checked now, so a bad file is one clear refusal.
+fn apply_ca_bundle(out: &Out, args: &UpdateArgs) {
+    let Some(p) = &args.ca_bundle else { return };
+    if let Err(e) = install::fetch::load_ca_bundle(p) {
+        out.fail(
+            "E_INVALID_PARAMS",
+            &e.to_string(),
+            json!({ "reason": "ca-bundle-invalid" }),
+            2,
+        );
+    }
+    std::env::set_var(install::fetch::CA_BUNDLE_ENV, p);
+}
+
+fn load_feed(out: &Out, layout: &Layout, args: &UpdateArgs, persist: bool) -> Feed {
+    apply_ca_bundle(out, args);
     let manifest = match install::manifest::read(layout) {
         Ok(Some(m)) => m,
         Ok(None) => out.fail(
@@ -45,37 +68,64 @@ fn load_feed(out: &Out, layout: &Layout, args: &UpdateArgs) -> Feed {
         ),
     };
 
-    let channel = args
+    let bundle = args.from.as_ref().map(|path| {
+        crate::update::bundle::open(layout, path).unwrap_or_else(|e| {
+            out.fail(
+                "E_NOT_AVAILABLE",
+                &e.message,
+                json!({ "reason": e.reason }),
+                1,
+            )
+        })
+    });
+
+    let mut channel = args
         .channel
         .clone()
         .unwrap_or_else(|| manifest.channel.clone());
     let src = release_source(args, &channel);
 
-    let raw = match install::fetch::fetch_bytes(&src, MAX_MANIFEST_BYTES, DEADLINE) {
-        Ok(b) => b,
-        Err(e) => out.fail(
-            "E_NOT_AVAILABLE",
-            &format!("could not read the release manifest: {e}"),
-            json!({ "reason": e.reason() }),
-            1,
-        ),
+    let raw = match &bundle {
+        Some(b) => b.manifest.clone(),
+        None => match install::fetch::fetch_bytes(&src, MAX_MANIFEST_BYTES, DEADLINE) {
+            Ok(b) => b,
+            Err(e) => out.fail(
+                "E_NOT_AVAILABLE",
+                &format!("could not read the release manifest: {e}"),
+                json!({ "reason": e.reason() }),
+                1,
+            ),
+        },
     };
 
     let (head, native) = match install::manifest::parse_release(&raw) {
         Ok(v) => v,
-        Err(errs) => out.fail(
-            "E_NOT_AVAILABLE",
+        Err(errs) => fail_feed(
+            out,
+            layout,
+            "release-malformed",
             &format!("the release manifest is malformed: {}", errs.join("; ")),
-            json!({ "reason": "release-malformed" }),
-            1,
         ),
     };
-
-    let verified = match verify_release(&raw, &channel, &src) {
-        Ok(v) => v,
-        Err((reason, message)) => {
-            out.fail("E_NOT_AVAILABLE", &message, json!({ "reason": reason }), 1)
+    if bundle.is_some() {
+        // A bundle names its own channel; it may not quietly move the install to another one.
+        if head.channel != channel {
+            fail_feed(
+                out,
+                layout,
+                "channel-mismatch",
+                &format!(
+                    "the bundle is for the {} channel, this install follows {channel}: pass --channel {} to switch",
+                    head.channel, head.channel
+                ),
+            );
         }
+        channel = head.channel.clone();
+    }
+
+    let verified = match verify_release(layout, &raw, &channel, &src, bundle.as_ref(), persist) {
+        Ok(v) => v,
+        Err((reason, message)) => fail_feed(out, layout, reason, &message),
     };
     Feed {
         manifest,
@@ -84,6 +134,7 @@ fn load_feed(out: &Out, layout: &Layout, args: &UpdateArgs) -> Feed {
         head,
         native,
         verified,
+        bundle: bundle.map(|b| b.dir),
     }
 }
 
@@ -99,7 +150,7 @@ pub fn run(out: &Out, layout: &Layout, args: UpdateArgs) -> ! {
     if !args.check {
         super::refuse_in_container(out, "update");
         super::update_apply::recover_at_start(layout);
-        let feed = load_feed(out, layout, &args);
+        let feed = load_feed(out, layout, &args, true);
         super::update_apply::apply(out, layout, &args, feed);
     }
     super::refuse_in_container(out, "update --check");
@@ -111,7 +162,8 @@ pub fn run(out: &Out, layout: &Layout, args: UpdateArgs) -> ! {
         head,
         native,
         verified: verified_flag,
-    } = load_feed(out, layout, &args);
+        bundle: _,
+    } = load_feed(out, layout, &args, false);
 
     let doc: Value = serde_json::from_slice(&raw).unwrap_or(json!({}));
     let installed_modules = installed_modules(layout);
@@ -211,42 +263,71 @@ fn release_source(args: &UpdateArgs, channel: &str) -> String {
 }
 
 /// `Ok(true)` verified, `Ok(false)` no key baked (dev build), `Err((reason, message))` a bad signature or an
-/// unreachable/malformed one.
-fn verify_release(raw: &[u8], channel: &str, src: &str) -> Result<bool, (&'static str, String)> {
-    let Some(pk_b64) = install::pins::release_pubkey_for(channel) else {
-        return Ok(false);
+/// unreachable/malformed one. The baked key, a rotated key and the key list that announces one are all handled by
+/// `update::guard`; this only says where the signature and the key list come from.
+fn verify_release(
+    layout: &Layout,
+    raw: &[u8],
+    channel: &str,
+    src: &str,
+    bundle: Option<&crate::update::bundle::Bundle>,
+    persist: bool,
+) -> Result<bool, (&'static str, String)> {
+    let fetch_sig = || -> Result<String, (&'static str, String)> {
+        if let Some(b) = bundle {
+            return Ok(b.sig.clone());
+        }
+        let sig_src = format!("{src}.minisig");
+        let sig_raw =
+            install::fetch::fetch_bytes(&sig_src, MAX_SIG_BYTES, DEADLINE).map_err(|e| {
+                (
+                    e.reason(),
+                    format!("could not read the release signature: {e}"),
+                )
+            })?;
+        String::from_utf8(sig_raw).map_err(|_| {
+            (
+                "release-signature-invalid",
+                "the release signature is not valid UTF-8".to_string(),
+            )
+        })
     };
-    let pk = minisign_verify::PublicKey::from_base64(pk_b64).map_err(|e| {
-        (
-            "release-signature-invalid",
-            format!("the baked release public key is invalid: {e}"),
+    let fetch_keys = || -> Option<(Vec<u8>, String)> {
+        if let Some(b) = bundle {
+            return b.keys.clone();
+        }
+        let keys_src = key_list_source(src);
+        let list = install::fetch::fetch_bytes(
+            &keys_src,
+            crate::update::guard::MAX_KEY_LIST_BYTES,
+            DEADLINE,
         )
-    })?;
-    let sig_src = format!("{src}.minisig");
-    let sig_raw = install::fetch::fetch_bytes(&sig_src, MAX_SIG_BYTES, DEADLINE).map_err(|e| {
-        (
-            e.reason(),
-            format!("could not read the release signature: {e}"),
-        )
-    })?;
-    let sig_text = String::from_utf8(sig_raw).map_err(|_| {
-        (
-            "release-signature-invalid",
-            "the release signature is not valid UTF-8".to_string(),
-        )
-    })?;
-    let sig = minisign_verify::Signature::decode(&sig_text).map_err(|e| {
-        (
-            "release-signature-invalid",
-            format!("the release signature is malformed: {e}"),
-        )
-    })?;
-    pk.verify(raw, &sig, false).map(|()| true).map_err(|e| {
-        (
-            "release-signature-invalid",
-            format!("the release signature does not match: {e}"),
-        )
-    })
+        .ok()?;
+        let sig =
+            install::fetch::fetch_bytes(&format!("{keys_src}.minisig"), MAX_SIG_BYTES, DEADLINE)
+                .ok()?;
+        Some((list, String::from_utf8(sig).ok()?))
+    };
+    crate::update::guard::verify_release(
+        layout,
+        raw,
+        &crate::update::guard::Ctx {
+            channel,
+            baked: install::pins::release_pubkey_for(channel),
+            persist,
+            now: crate::update::guard::now_secs(),
+            fetch_sig: &fetch_sig,
+            fetch_keys: &fetch_keys,
+        },
+    )
+}
+
+/// Where the key list of the feed at `src` lives: `stable.json` -> `stable.keys.json`.
+pub(super) fn key_list_source(src: &str) -> String {
+    match src.strip_suffix(".json") {
+        Some(base) => format!("{base}.keys.json"),
+        None => format!("{src}.keys.json"),
+    }
 }
 
 /// The installed modules (`{name, version, apiVersion}`), read from `<home>/modules/*/module.json`, the on-disk

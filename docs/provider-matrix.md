@@ -153,6 +153,7 @@ Resolved for Anthropic by ADR-005's 2026-09-22 amendment and its D12 amendment t
 
 | Model | HF id | Type | Dim | Matryoshka | Max tokens | Prefix/task scheme | Normalisation | License (verbatim) | ONNX in Transformers.js | Source |
 |---|---|---|---|---|---|---|---|---|---|---|
+| EmbeddingGemma 2 (text-only) | `google/embeddinggemma-2` | Embedding | 768 | Yes — 512/256/128 (re-normalise) | 8192 | query `task: search result \| query: `, document `title: none \| text: ` (task-specific query prefixes per card) | Mean pooling, L2 | `apache-2.0` | Yes, `onnx-community/embeddinggemma-2-ONNX` (needs transformers.js ≥ 4.3.1) | [HF model card](https://huggingface.co/google/embeddinggemma-2), checked 2026-10-08; ADR-006 amendment 2026-10-08 |
 | multilingual-e5-small | `intfloat/multilingual-e5-small` | Embedding | 384 | No | 512 | `query: `/`passage: ` prefixes required | Not stated in card excerpt (unverified) | `mit` | Yes, `onnx/model.onnx` in repo | [HF model card](https://huggingface.co/intfloat/multilingual-e5-small) |
 | Jina v3 | `jinaai/jina-embeddings-v3` | Embedding | unverified (commonly 1024 per public docs, not re-confirmed) | Yes, task LoRA + Matryoshka (not re-confirmed) | 8192 (not re-confirmed this pass) | `task=` param (`retrieval.query`, `retrieval.passage`, `separation`, `classification`, `text-matching`) | Not stated (unverified) | `cc-by-nc-4.0` | Yes, ONNX tag present; full README too large to fetch | [HF model card](https://huggingface.co/jinaai/jina-embeddings-v3) |
 | Jina v5-text-nano | `jinaai/jina-embeddings-v5-text-nano` | Embedding | 768 | Yes — 32/64/128/256/512/768 | 8192 | `task=` + `prompt_name` (`retrieval`+`query`/`document`; also `text-matching`, `classification`, `clustering`) | Not stated (unverified) | `cc-by-nc-4.0` (commercial use requires contacting sales@jina.ai) | Yes, ONNX weights in `onnx/` per task variant | [HF model card](https://huggingface.co/jinaai/jina-embeddings-v5-text-nano) |
@@ -271,3 +272,17 @@ Every item the research notes flagged as unverified, carried forward for the ADR
 | Nous Portal machine-readable model listing | §2 | Ask Nous Research directly or watch for a documented `/v1/models`-equivalent |
 | OpenCode Go subscription/pricing details sourced only from a secondary aggregator (DeepWiki) | §2 | Re-verify against `opencode.ai` primary docs |
 | oMLX canonical repo/provenance (community project, fork exists) | §2, §5a | Confirm which of `tbro0815/omlx` / `jundot/omlx` is canonical before pinning a version in the harness |
+
+---
+
+## 9. Voice providers (AL1, additive)
+
+Voice is a separate capability from `chat`, `embedding` and `rerank`. Details, setup and the endpoints to verify are in `docs/voice-providers.md`; the local tier is in `docs/voice-local.md`.
+
+| Provider | tts | asr | realtime | Auth kind |
+|---|---|---|---|---|
+| ElevenLabs | yes (HTTP, text-streaming WebSocket) | yes (batch, realtime) | no | `api-key` |
+| xAI Grok Voice | no | no | yes | `api-key` |
+| Gemini Live | no | no | yes | `api-key` |
+| Amazon Polly | yes | no | no | AWS default credential chain |
+| Local (sherpa-onnx) | yes | yes | no | none |

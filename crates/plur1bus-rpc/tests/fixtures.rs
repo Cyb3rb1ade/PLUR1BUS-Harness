@@ -40,6 +40,62 @@ fn pair<P: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize>(name: 
 fn method_fixture(name: &str, f: &Value) {
     use types::*;
     match name {
+        "auth.login.start" => pair::<AuthLoginStartParams, AuthLoginStartResult>(name, f),
+        "auth.login.await" => pair::<AuthLoginAwaitParams, AuthLoginAwaitResult>(name, f),
+        "auth.login.cancel" => pair::<AuthLoginCancelParams, AuthLoginCancelResult>(name, f),
+        "auth.credentials.list" => {
+            pair::<AuthCredentialsListParams, AuthCredentialsListResult>(name, f)
+        }
+        "auth.logout" => pair::<AuthLogoutParams, AuthLogoutResult>(name, f),
+        "auth.status" => pair::<AuthStatusParams, AuthStatusResult>(name, f),
+        "media.generate" => pair::<MediaGenerateParams, MediaGenerateResult>(name, f),
+        "media.edit" => pair::<MediaEditParams, MediaEditResult>(name, f),
+        "media.job.get" => pair::<MediaJobGetParams, MediaJobGetResult>(name, f),
+        "media.job.cancel" => pair::<MediaJobCancelParams, MediaJobCancelResult>(name, f),
+        "media.job.list" => pair::<MediaJobListParams, MediaJobListResult>(name, f),
+        "media.output.get" => pair::<MediaOutputGetParams, MediaOutputGetResult>(name, f),
+        "media.output.list" => pair::<MediaOutputListParams, MediaOutputListResult>(name, f),
+        "media.output.delete" => pair::<MediaOutputDeleteParams, MediaOutputDeleteResult>(name, f),
+        "media.adapters.list" => pair::<MediaAdaptersListParams, MediaAdaptersListResult>(name, f),
+        "project.create" => pair::<ProjectCreateParams, ProjectCreateResult>(name, f),
+        "project.get" => pair::<ProjectGetParams, ProjectGetResult>(name, f),
+        "project.list" => pair::<ProjectListParams, ProjectListResult>(name, f),
+        "project.update" => pair::<ProjectUpdateParams, ProjectUpdateResult>(name, f),
+        "project.archive" => pair::<ProjectArchiveParams, ProjectArchiveResult>(name, f),
+        "project.member.add" => pair::<ProjectMemberAddParams, ProjectMemberAddResult>(name, f),
+        "project.member.remove" => {
+            pair::<ProjectMemberRemoveParams, ProjectMemberRemoveResult>(name, f)
+        }
+        "project.member.role" => pair::<ProjectMemberRoleParams, ProjectMemberRoleResult>(name, f),
+        "project.agent.add" => pair::<ProjectAgentAddParams, ProjectAgentAddResult>(name, f),
+        "project.agent.remove" => {
+            pair::<ProjectAgentRemoveParams, ProjectAgentRemoveResult>(name, f)
+        }
+        "collab.trace.get" => pair::<CollabTraceGetParams, CollabTraceGetResult>(name, f),
+        "collab.trace.list" => pair::<CollabTraceListParams, CollabTraceListResult>(name, f),
+        "collab.chain.cancel" => pair::<CollabChainCancelParams, CollabChainCancelResult>(name, f),
+        "identity.link.request" => {
+            pair::<IdentityLinkRequestParams, IdentityLinkRequestResult>(name, f)
+        }
+        "identity.link.list" => pair::<IdentityLinkListParams, IdentityLinkListResult>(name, f),
+        "identity.link.approve" => {
+            pair::<IdentityLinkApproveParams, IdentityLinkApproveResult>(name, f)
+        }
+        "identity.link.decline" => {
+            pair::<IdentityLinkDeclineParams, IdentityLinkDeclineResult>(name, f)
+        }
+        "identity.link.remove" => {
+            pair::<IdentityLinkRemoveParams, IdentityLinkRemoveResult>(name, f)
+        }
+        "identity.principals" => {
+            pair::<IdentityPrincipalsParams, IdentityPrincipalsResult>(name, f)
+        }
+        "media.preferences.get" => {
+            pair::<MediaPreferencesGetParams, MediaPreferencesGetResult>(name, f)
+        }
+        "media.preferences.set" => {
+            pair::<MediaPreferencesSetParams, MediaPreferencesSetResult>(name, f)
+        }
         "core.auth" => pair::<CoreAuthParams, CoreAuthResult>(name, f),
         "core.status" => pair::<CoreStatusParams, CoreStatusResult>(name, f),
         "core.shutdown" => pair::<CoreShutdownParams, CoreShutdownResult>(name, f),
@@ -305,6 +361,8 @@ fn every_notification_fixture_round_trips() {
     assert!(!files.is_empty());
     for (name, v) in &files {
         match name.as_str() {
+            "media.job.progress" => round_trip::<types::MediaJobProgressNotification>(v, name),
+            "media.job.finished" => round_trip::<types::MediaJobFinishedNotification>(v, name),
             "engine.event" => round_trip::<types::EngineEventNotification>(v, name),
             "agent.activity" => round_trip::<types::AgentActivityNotification>(v, name),
             "core.state" => round_trip::<types::CoreStateNotification>(v, name),

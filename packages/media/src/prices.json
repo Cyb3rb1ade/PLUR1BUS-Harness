@@ -1,0 +1,7 @@
+{
+  "asOf": "2026-10-07",
+  "currency": "USD",
+  "disclaimer": "Illustrative estimates only, not a quote. Token-based or unknown models have no fixed estimate. Verify provider billing before use.",
+  "perImage": { "together:stabilityai/stable-diffusion-xl-base-1.0": 0.0019 },
+  "sources": ["https://www.together.ai/pricing"]
+}

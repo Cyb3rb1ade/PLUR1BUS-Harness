@@ -1,5 +1,125 @@
 {
   "methods": {
+    "media.preferences.set": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "media.preferences.get": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "media.generate": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "media.edit": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "media.job.get": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "media.job.cancel": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "media.job.list": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "media.output.get": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "media.output.list": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "media.output.delete": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "media.adapters.list": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "project.create": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "project.get": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "project.list": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "project.update": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "project.archive": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "project.member.add": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "project.member.remove": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "project.member.role": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "project.agent.add": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "project.agent.remove": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "collab.trace.get": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "collab.trace.list": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "collab.chain.cancel": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "identity.link.request": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "identity.link.list": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "identity.link.approve": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "identity.link.decline": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "identity.link.remove": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "identity.principals": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "core.auth": {
       "stability": "stable",
       "since": "1.0.0"
@@ -228,6 +348,30 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "auth.login.start": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "auth.login.await": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "auth.login.cancel": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "auth.credentials.list": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "auth.logout": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "auth.status": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "secret.set": {
       "stability": "experimental",
       "since": "1.5.0"
@@ -334,6 +478,14 @@
     }
   },
   "notifications": {
+    "media.job.progress": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "media.job.finished": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "core.state": {
       "stability": "stable",
       "since": "1.0.0"

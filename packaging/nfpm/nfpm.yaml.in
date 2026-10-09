@@ -1,0 +1,29 @@
+# Run from an extracted Linux archive; render separately for amd64 and arm64.
+name: plur1bus
+arch: @ARCH@
+platform: linux
+version: @VERSION@
+maintainer: Cyb3rb1ade <84099452+Cyb3rb1ade@users.noreply.github.com>
+description: PLUR1BUS CLI and memory harness
+homepage: https://github.com/Cyb3rb1ade/PLUR1BUS-Harness
+license: MIT
+contents:
+  - src: bin/plur1bus
+    dst: /usr/bin/plur1bus
+  - src: licenses/LICENSE
+    dst: /usr/share/licenses/plur1bus/LICENSE
+  - src: runtime/core.tar.gz
+    dst: /usr/share/plur1bus/core.tar.gz
+  - src: README.txt
+    dst: /usr/share/doc/plur1bus/README.txt
+# Completions and manpages come from the binary itself and are not in the archive yet. To ship them, have the packaging
+# step run `plur1bus completions bash|zsh|fish` and `plur1bus __manpages man/` next to bin/ (the release pipeline's
+# archive step, outside packaging/), then add these entries to `contents`:
+#   - src: completions/plur1bus.bash
+#     dst: /usr/share/bash-completion/completions/plur1bus
+#   - src: completions/_plur1bus
+#     dst: /usr/share/zsh/vendor-completions/_plur1bus
+#   - src: completions/plur1bus.fish
+#     dst: /usr/share/fish/vendor_completions.d/plur1bus.fish
+#   - src: man/*.1   # gzip them first; nfpm does not compress manpages
+#     dst: /usr/share/man/man1/

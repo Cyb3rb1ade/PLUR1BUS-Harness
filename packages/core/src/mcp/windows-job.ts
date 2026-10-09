@@ -29,7 +29,9 @@ public static class McpJob {
   [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)] static extern IntPtr CreateJobObject(IntPtr attributes,string name);
   [DllImport("kernel32.dll", SetLastError=true)] static extern bool SetInformationJobObject(IntPtr job,int info,ref EXTENDEDLIMIT limit,uint size);
   [DllImport("kernel32.dll", SetLastError=true)] static extern bool AssignProcessToJobObject(IntPtr job,IntPtr process);
+  [DllImport("kernel32.dll", SetLastError=true)] static extern bool DuplicateHandle(IntPtr sourceProcess,IntPtr sourceHandle,IntPtr targetProcess,out IntPtr targetHandle,uint access,bool inherit,uint options);
   [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)] static extern bool CreateProcess(string application,StringBuilder command,IntPtr pa,IntPtr ta,bool inherit,uint flags,IntPtr env,string cwd,ref STARTUPINFO startup,out PROCESSINFO process);
+  [DllImport("kernel32.dll")] static extern IntPtr GetCurrentProcess();
   [DllImport("kernel32.dll")] static extern IntPtr GetStdHandle(int id);
   [DllImport("kernel32.dll")] static extern uint ResumeThread(IntPtr thread);
   [DllImport("kernel32.dll")] static extern uint WaitForSingleObject(IntPtr handle,uint timeout);
@@ -39,28 +41,50 @@ public static class McpJob {
   public static int Run(string command) {
     IntPtr job=CreateJobObject(IntPtr.Zero,null); if(job==IntPtr.Zero) return 125;
     PROCESSINFO child=new PROCESSINFO();
+    IntPtr stdin=IntPtr.Zero,stdout=IntPtr.Zero,stderr=IntPtr.Zero;
     try {
       EXTENDEDLIMIT limits=new EXTENDEDLIMIT(); limits.basic.flags=0x2000;
       if(!SetInformationJobObject(job,9,ref limits,(uint)Marshal.SizeOf(typeof(EXTENDEDLIMIT)))) return 125;
+      IntPtr self=GetCurrentProcess();
+      // Ensure the PowerShell host's standard handles are inheritable by the suspended child.
+      if(!DuplicateHandle(self,GetStdHandle(-10),self,out stdin,0,true,2)
+        || !DuplicateHandle(self,GetStdHandle(-11),self,out stdout,0,true,2)
+        || !DuplicateHandle(self,GetStdHandle(-12),self,out stderr,0,true,2)) return 125;
       STARTUPINFO si=new STARTUPINFO(); si.cb=Marshal.SizeOf(typeof(STARTUPINFO)); si.flags=0x100;
-      si.stdin=GetStdHandle(-10); si.stdout=GetStdHandle(-11); si.stderr=GetStdHandle(-12);
+      si.stdin=stdin; si.stdout=stdout; si.stderr=stderr;
       if(!CreateProcess(null,new StringBuilder(command),IntPtr.Zero,IntPtr.Zero,true,4,IntPtr.Zero,null,ref si,out child)) return 125;
       if(!AssignProcessToJobObject(job,child.process)) { TerminateProcess(child.process,125); return 125; }
       if(ResumeThread(child.thread)==0xFFFFFFFF) { TerminateProcess(child.process,125); return 125; }
       WaitForSingleObject(child.process,0xFFFFFFFF); uint code; GetExitCodeProcess(child.process,out code); return (int)code;
     } finally {
       // Closing the last job handle kills every remaining descendant, including after a graceful server exit.
-      CloseHandle(job); if(child.thread!=IntPtr.Zero) CloseHandle(child.thread); if(child.process!=IntPtr.Zero) CloseHandle(child.process);
+      CloseHandle(job); if(stdin!=IntPtr.Zero) CloseHandle(stdin); if(stdout!=IntPtr.Zero) CloseHandle(stdout); if(stderr!=IntPtr.Zero) CloseHandle(stderr);
+      if(child.thread!=IntPtr.Zero) CloseHandle(child.thread); if(child.process!=IntPtr.Zero) CloseHandle(child.process);
     }
   }
 }
 `;
-export function windowsJobCommand(command: string, args: string[], host: NodeJS.ProcessEnv): { command: string; args: string[] } {
+/**
+ * The launcher's own environment: the host's, overlaid with the server's allowlisted one (which wins, whatever the
+ * case of a name). Windows PowerShell hangs at start-up, with no output at all, when it is given only the minimal
+ * allowlist (observed on windows-2025 runners: no PSModulePath, or only the stock Windows PowerShell module paths,
+ * hangs; the host's own environment starts in ~4 s). The launcher removes everything the server did not declare before
+ * it starts the server (`keep` in windowsJobCommand), so the server still sees the allowlist and nothing else.
+ */
+export function windowsLauncherEnv(env: Record<string, string>, base: NodeJS.ProcessEnv = process.env): Record<string, string> {
+  const declared = new Set(Object.keys(env).map((k) => k.toLowerCase()));
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(base)) if (v !== undefined && !declared.has(k.toLowerCase())) out[k] = v;
+  return { ...out, ...env };
+}
+
+export function windowsJobCommand(command: string, args: string[], host: NodeJS.ProcessEnv, keep: string[] = []): { command: string; args: string[] } {
   if (/\.(cmd|bat|ps1)$/i.test(command)) throw new Error("MCP stdio requires a native executable on Windows");
   const systemRoot = host.SYSTEMROOT ?? host.SystemRoot ?? "C:\\Windows";
   const native = command.includes("\\") || command.includes("/") || /\.exe$/i.test(command) ? command : command + ".exe";
   const payload = Buffer.from([native, ...args].map(windowsArg).join(" "), "utf8").toString("base64");
-  const script = `$ErrorActionPreference='Stop'; try { Add-Type -TypeDefinition @'\n${source}\n'@; $command=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${payload}')); exit [McpJob]::Run($command) } catch { [Console]::Error.WriteLine('MCP Windows job launch failed'); exit 125 }`;
+  const names = Buffer.from(keep.join("\n"), "utf8").toString("base64");
+  const script = `$ErrorActionPreference='Stop'; try { Add-Type -TypeDefinition @'\n${source}\n'@; $command=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${payload}')); $keep=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${names}')).Split([char]10); foreach ($n in @([Environment]::GetEnvironmentVariables().Keys)) { if ($keep -notcontains $n) { [Environment]::SetEnvironmentVariable($n, $null) } }; exit [McpJob]::Run($command) } catch { [Console]::Error.WriteLine('MCP Windows job launch failed'); exit 125 }`;
   return { command: join(systemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
     args: ["-NoLogo", "-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")] };
 }

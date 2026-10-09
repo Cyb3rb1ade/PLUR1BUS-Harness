@@ -4,6 +4,38 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -43,6 +75,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -65,11 +113,160 @@
         ],
         "allowLoopback": false
       },
-      "modules": {}
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -109,6 +306,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -131,7 +344,124 @@
         ],
         "allowLoopback": false
       },
-      "modules": {}
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "expected": {
       "changed": [
@@ -149,6 +479,38 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -188,6 +550,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -210,11 +588,160 @@
         ],
         "allowLoopback": false
       },
-      "modules": {}
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -256,6 +783,22 @@
         "recallMinScore": 0.5
       },
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -278,7 +821,124 @@
         ],
         "allowLoopback": false
       },
-      "modules": {}
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "expected": {
       "changed": [
@@ -296,6 +956,38 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -335,6 +1027,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -357,11 +1065,160 @@
         ],
         "allowLoopback": false
       },
-      "modules": {}
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -405,6 +1262,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -427,7 +1300,124 @@
         ],
         "allowLoopback": false
       },
-      "modules": {}
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "expected": {
       "changed": [
@@ -447,6 +1437,38 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -490,6 +1512,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -512,11 +1550,160 @@
         ],
         "allowLoopback": false
       },
-      "modules": {}
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -556,6 +1743,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -578,7 +1781,124 @@
         ],
         "allowLoopback": false
       },
-      "modules": {}
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "expected": {
       "changed": [
@@ -598,6 +1918,38 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -641,6 +1993,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -663,11 +2031,160 @@
         ],
         "allowLoopback": false
       },
-      "modules": {}
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -711,6 +2228,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -733,7 +2266,124 @@
         ],
         "allowLoopback": false
       },
-      "modules": {}
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "expected": {
       "changed": [
@@ -755,6 +2405,38 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -794,6 +2476,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -816,11 +2514,160 @@
         ],
         "allowLoopback": false
       },
-      "modules": {}
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -864,6 +2711,22 @@
           "apiKey": "x"
         }
       },
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -886,7 +2749,124 @@
         ],
         "allowLoopback": false
       },
-      "modules": {}
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "expected": {
       "changed": [
@@ -906,6 +2886,38 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -945,6 +2957,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -967,11 +2995,160 @@
         ],
         "allowLoopback": false
       },
-      "modules": {}
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "debug",
         "recall": {
@@ -1011,6 +3188,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -1033,7 +3226,124 @@
         ],
         "allowLoopback": false
       },
-      "modules": {}
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "expected": {
       "changed": [
@@ -1054,6 +3364,38 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -1093,6 +3435,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -1114,17 +3472,166 @@
           443
         ],
         "allowLoopback": false
+      },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
       },
       "modules": {
         "fixture": {
           "enabled": true,
           "greeting": "hello"
         }
+      },
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
       }
     },
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -1164,6 +3671,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -1186,10 +3709,127 @@
         ],
         "allowLoopback": false
       },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
       "modules": {
         "fixture": {
           "enabled": true,
           "greeting": "hi"
+        }
+      },
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
         }
       }
     },
@@ -1211,6 +3851,38 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -1250,6 +3922,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -1272,11 +3960,160 @@
         ],
         "allowLoopback": false
       },
-      "modules": {}
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
+      "modules": {},
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
+        }
+      }
     },
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -1316,6 +4153,22 @@
       },
       "engine": {},
       "providers": {},
+      "auth": {
+        "openai": {
+          "loopbackTimeoutMs": 600000,
+          "httpTimeoutMs": 30000,
+          "refreshSkewSeconds": 120,
+          "liveHandleTtlSeconds": 60,
+          "voiceDailySeconds": 3600,
+          "voiceCapacity": 1,
+          "clientRegistration": "dynamic_on_authorize",
+          "storeBackend": "auto",
+          "federated": {
+            "args": [],
+            "environment": {}
+          }
+        }
+      },
       "oauth": {},
       "decision": {},
       "modelRoles": {},
@@ -1338,9 +4191,126 @@
         ],
         "allowLoopback": false
       },
+      "voice": {
+        "providers": {
+          "elevenlabs": {
+            "enabled": false,
+            "region": "default",
+            "zeroRetention": false
+          },
+          "xai": {
+            "enabled": false
+          },
+          "gemini": {
+            "enabled": false
+          },
+          "polly": {
+            "enabled": false,
+            "credentials": {}
+          }
+        },
+        "local": {
+          "profile": "fast",
+          "perAgent": {},
+          "acceptNcLicence": false
+        },
+        "localRealtime": {
+          "enabled": false,
+          "endpointingMs": 400,
+          "speculativeTurnStart": false,
+          "ackSound": false,
+          "sentenceChunking": {
+            "maxWords": 24
+          },
+          "features": {
+            "autoRecall": {
+              "mode": "on",
+              "maxMs": 30
+            },
+            "reranker": {
+              "mode": "off"
+            },
+            "recallMultiIdentity": {
+              "mode": "off"
+            },
+            "promptEnrichment": {
+              "mode": "on",
+              "maxMs": 10
+            },
+            "decisionService": {
+              "mode": "off"
+            },
+            "postTurnRefine": {
+              "mode": "deferred"
+            },
+            "memoryWrite": {
+              "mode": "deferred"
+            },
+            "compaction": {
+              "mode": "deferred"
+            }
+          },
+          "toolSchemas": "reduced",
+          "auditDetail": "minimal",
+          "perAgent": {}
+        }
+      },
       "modules": {
         "fixture-b": {
           "enabled": true
+        }
+      },
+      "media": {
+        "adapters": {
+          "openai": {
+            "model": "gpt-image-2.5-sunburst",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "google": {
+            "model": "gemini-nano-banana-2.1",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "xai": {
+            "model": "grok-imagine-image-2.0",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "openrouter": {
+            "model": "google/gemini-2.5-flash-image",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "replicate": {
+            "model": "black-forest-labs/flux-schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "fal": {
+            "model": "fal-ai/flux/schnell",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "together": {
+            "model": "black-forest-labs/FLUX.2-dev",
+            "timeoutMs": 120000,
+            "maxConcurrent": 2
+          },
+          "drawthings": {
+            "enabled": false,
+            "host": "127.0.0.1",
+            "port": 7860,
+            "allowLan": false,
+            "timeoutMs": 300000,
+            "maxConcurrent": 1
+          },
+          "coreml": {
+            "enabled": false,
+            "modelsDir": "~/MochiDiffusion/models/",
+            "computeUnits": "auto",
+            "timeoutMs": 300000
+          }
         }
       }
     },

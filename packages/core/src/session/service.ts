@@ -5,7 +5,7 @@ import type { HarnessLogger } from "../logger.ts";
 import type { Handler } from "../rpc/server.ts";
 import { Compactor, defaultCompaction, type CompactionConfig } from "./compaction.ts";
 import type { TurnMemory } from "./memory-port.ts";
-import { buildSessionMethods, toWireEvent } from "./methods.ts";
+import { buildSessionMethods, toWireEvent, type SessionMethodDeps } from "./methods.ts";
 import type { ChatProvider } from "./provider.ts";
 import { SessionStore } from "./store.ts";
 import { TurnRunner } from "./turn-loop.ts";
@@ -13,19 +13,23 @@ import { TurnRunner } from "./turn-loop.ts";
 export interface SessionServiceDeps {
   dbPath: string; clock: () => number; logger: HarnessLogger; agents: AgentRegistry; isStopping: () => boolean;
   memory: TurnMemory;
-  /** null: none configured; the real adapters (packages/providers) plug in here later. */
+  /** null: none configured; composition supplies the routed provider pipeline. */
   provider: () => ChatProvider | null;
   /** `session.event` fan-out (opt-in notification; the core binds it to its RPC server). */
   notify: (method: string, params: object, opts: { optIn: true }) => void;
   /** The core's shutdown signal. */
   signal: AbortSignal;
   compaction?: CompactionConfig;
+  /** Local resources owned by an archived session; observes committed archive/replacement only. */
+  onSessionEnd?: (id: string) => void;
+  approver?: SessionMethodDeps["approver"];
 }
 
 export interface SessionService { store: SessionStore; runner: TurnRunner; methods: Record<string, Handler>; recovered: number; close(budgetMs?: number): Promise<void> }
 
 export function openSessionService(d: SessionServiceDeps): SessionService {
   const store = new SessionStore({ path: d.dbPath, clock: d.clock });
+  if (d.onSessionEnd) store.onArchived(d.onSessionEnd);
   // Acceptance 7: a turn that was running when the previous core died is marked failed before anything is served.
   const recovered = store.recoverRunningTurns().length;
   if (recovered > 0) d.logger.warn("session turns recovered as failed", { count: recovered });
@@ -43,7 +47,7 @@ export function openSessionService(d: SessionServiceDeps): SessionService {
     logger: { info: (m, f) => d.logger.info(m, f), warn: (m, f) => d.logger.warn(m, f) },
     notify: (e, s) => d.notify("session.event", { agentId: s.agentId, event: toWireEvent(e) }, { optIn: true }),
   });
-  const methods = buildSessionMethods({ store, runner, agents: d.agents, isStopping: d.isStopping });
+  const methods = buildSessionMethods({ store, runner, agents: d.agents, isStopping: d.isStopping, ...(d.approver ? { approver: d.approver } : {}) });
   return {
     store, runner, methods, recovered,
     // A turn that ignores the shutdown abort is not waited for beyond the budget: it stays `running` in the file and the

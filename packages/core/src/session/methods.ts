@@ -8,12 +8,14 @@ import type { AgentRegistry } from "../agents.ts";
 import { requireAgent } from "../memory-ops.ts";
 import { userPrincipalHash, validIdentity } from "../principal.ts";
 import { RpcError } from "../rpc/errors.ts";
+import type { CallContext } from "@plur1bus/module-api";
 import type { Handler } from "../rpc/server.ts";
 import type { SessionStore } from "./store.ts";
 import { NoProviderError, type TurnRunner } from "./turn-loop.ts";
 import { SessionError, type EventRecord, type MessageRecord, type SessionRecord } from "./types.ts";
 
-export interface SessionMethodDeps { store: SessionStore; runner: TurnRunner; agents: AgentRegistry; isStopping: () => boolean }
+export interface SessionMethodDeps { store: SessionStore; runner: TurnRunner; agents: AgentRegistry; isStopping: () => boolean; /** Resolves the submitting connection's approver; never refuses (a non-person is refused only when a tool needs approval). */
+  approver?: (ctx: CallContext, params: unknown) => Promise<import("./provider.ts").TurnApprover> }
 
 /** The session owner: the engine's own user-principal hash of the caller. An identity that would not give the engine a
  *  proved user (G8) owns nothing: sessions are principal-scoped, so every session.* call fails closed. */
@@ -50,8 +52,8 @@ const toWireMessage = (m: MessageRecord): SessionMessage => ({ id: m.id, seq: m.
 const stopping = (): RpcError => new RpcError("E_CORE_UNAVAILABLE", "core is stopping", { reason: "core-stopping" });
 
 export function buildSessionMethods(d: SessionMethodDeps): Record<string, Handler> {
-  const wrap = <P extends { caller: CallerIdentity }>(fn: (p: P, owner: string, signal: AbortSignal) => Promise<unknown> | unknown): Handler =>
-    async (p: P, ctx) => { try { return await fn(p, ownerOf(p.caller), ctx.signal); } catch (e) { return mapSessionError(e); } };
+  const wrap = <P extends { caller: CallerIdentity }>(fn: (p: P, owner: string, signal: AbortSignal, ctx: CallContext) => Promise<unknown> | unknown): Handler =>
+    async (p: P, ctx) => { try { return await fn(p, ownerOf(p.caller), ctx.signal, ctx); } catch (e) { return mapSessionError(e); } };
 
   return {
     "session.create": wrap(async (p: SessionCreateParams, owner) => {
@@ -95,11 +97,11 @@ export function buildSessionMethods(d: SessionMethodDeps): Record<string, Handle
       return { session: toWireSession(d.store.archiveSession(p.sessionId)) };
     }),
 
-    "session.submit": wrap(async (p: SessionSubmitParams, owner, signal) => {
+    "session.submit": wrap(async (p: SessionSubmitParams, owner, signal, ctx) => {
       if (d.isStopping()) throw stopping();
       const s = d.store.getOwned(p.sessionId, owner);
       requireAgent(d.agents, s.agentId);
-      const h = d.runner.submit({ session: s, caller: p.caller, text: p.text });
+      const h = d.runner.submit({ session: s, caller: p.caller, text: p.text, ...(d.approver ? { approver: await d.approver(ctx, p) } : {}) });
       if (p.wait !== true) return { sessionId: s.id, turnId: h.turnId, messageId: h.messageId, state: "running" as const };
       // The turn is the core's, not the connection's: a client that hangs up does not cancel it (it is replayable by session.events).
       const out = await Promise.race([h.done, new Promise<never>((_, rej) => signal.addEventListener("abort", () => rej(signal.reason), { once: true }))]);
