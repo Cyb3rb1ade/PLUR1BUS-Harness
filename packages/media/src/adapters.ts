@@ -1,9 +1,19 @@
 import { setTimeout as delay } from 'node:timers/promises';
-import { HttpTransport, privateHost, checkedUrl, classify } from './http.ts';
+import { privateHost, checkedUrl, classify } from './http.ts';
+import { ResilientTransport } from './adapters/_shared/transport.ts';
+import type { RetryPolicy } from './adapters/_shared/retry.ts';
+import { sanitizeRequest, verifyOutput } from './adapters/_shared/images.ts';
+import { Limiter } from './adapters/_shared/limiter.ts';
+import { DetailedMediaError } from './adapters/_shared/errors.ts';
+import { parseModelRef, parseInputSchema, mapReplicateInput } from './adapters/replicate-schema.ts';
+import type { InputSchema } from './adapters/replicate-schema.ts';
+import { ModelCatalog } from './adapters/openrouter-models.ts';
+import type { ImageModel } from './adapters/openrouter-models.ts';
+import { probeDrawThings } from './adapters/drawthings-probe.ts';
 import { MediaError, validateRequest, failure } from './types.ts';
 import type { ImageAdapter, ImageRequest, ImageResult, GenerationContext, Capabilities, ReferenceImage } from './types.ts';
 export type HttpAdapterId = 'openrouter' | 'replicate' | 'fal' | 'together' | 'openai' | 'google' | 'xai' | 'draw-things';
-export interface HttpAdapterConfig { id: HttpAdapterId; model: string; baseUrl?: string; apiKey?: string; timeoutMs?: number; pollMs?: number; downloadHosts?: string[]; allowLan?: boolean }
+export interface HttpAdapterConfig { id: HttpAdapterId; model: string; baseUrl?: string; apiKey?: string; timeoutMs?: number; pollMs?: number; downloadHosts?: string[]; allowLan?: boolean; retry?: RetryPolicy; maxConcurrent?: number; modelListTtlMs?: number }
 export const defaults: Record<HttpAdapterId, string> = { openrouter: 'https://openrouter.ai/api/v1', replicate: 'https://api.replicate.com/v1', fal: 'https://queue.fal.run', together: 'https://api.together.ai/v1', openai: 'https://api.openai.com/v1', google: 'https://generativelanguage.googleapis.com/v1beta', xai: 'https://api.x.ai/v1', 'draw-things': 'http://127.0.0.1:7860' };
 const dataUrl = (i: ReferenceImage) => `data:image/${i.format};base64,${Buffer.from(i.bytes).toString('base64')}`;
 const omitUnsupported = (req: ImageRequest, fields: (keyof ImageRequest)[]) => { if (fields.some(f => req[f] !== undefined)) throw new MediaError('unsupported_parameter'); };
@@ -20,16 +30,25 @@ const omitUnsupported = (req: ImageRequest, fields: (keyof ImageRequest)[]) => {
  * Draw Things ignores masks in HTTPAPI: inpaint is intentionally false. Model-specific gateway profiles are narrow; unknown parameters are refused.
  */
 export class HttpImageAdapter implements ImageAdapter {
-  readonly id: HttpAdapterId; readonly model: string; readonly config: Omit<HttpAdapterConfig, 'apiKey'>; private readonly http: HttpTransport;
+  readonly id: HttpAdapterId; readonly model: string; readonly config: Omit<HttpAdapterConfig, 'apiKey'>; private readonly http: ResilientTransport; private readonly limiter: Limiter | undefined; private readonly catalog: ModelCatalog | undefined; private schema: Promise<InputSchema | undefined> | undefined;
   constructor(config: HttpAdapterConfig) {
     this.id = config.id; this.model = config.model; const { apiKey: _apiKey, ...publicConfig } = config; this.config = publicConfig;
     if (!config.model || /[?#]/.test(config.model) || config.model.split('/').some(p => p === '.' || p === '..' || !p)) throw new MediaError('unsupported_parameter');
     const base = config.baseUrl ?? defaults[config.id]; const url = checkedUrl(base);
     if (config.id === 'draw-things' && (!privateHost(url.hostname) || config.apiKey || (url.hostname !== 'localhost' && !['127.0.0.1', '[::1]'].includes(url.hostname) && !config.allowLan))) throw new MediaError('unsupported_parameter');
-    this.http = new HttpTransport(base, config.apiKey, config.timeoutMs, config.downloadHosts, config.id === 'fal' ? 'Key' : config.id === 'google' ? 'google' : 'Bearer');
+    this.http = new ResilientTransport(base, config.apiKey, { adapter: config.id, ...(config.timeoutMs === undefined ? {} : { timeoutMs: config.timeoutMs }), ...(config.downloadHosts ? { downloadHosts: config.downloadHosts } : {}), authKind: config.id === 'fal' ? 'Key' : config.id === 'google' ? 'google' : 'Bearer', ...(config.retry ? { retry: config.retry } : {}) });
+    this.limiter = config.maxConcurrent === undefined ? undefined : new Limiter(config.maxConcurrent);
+    this.catalog = config.id === 'openrouter' ? new ModelCatalog(signal => this.http.json('models?output_modalities=image', undefined, signal), config.modelListTtlMs === undefined ? {} : { ttlMs: config.modelListTtlMs }) : undefined;
     if (config.pollMs !== undefined && (!Number.isFinite(config.pollMs) || config.pollMs < 1)) throw new MediaError('unsupported_parameter');
   }
-  capabilities(): Capabilities { return { generate: true, edit: ['openai', 'google', 'openrouter', 'draw-things'].includes(this.id), inpaint: this.id === 'openai' }; }
+  capabilities(): Capabilities { return { generate: true, edit: ['openai', 'google', 'openrouter', 'draw-things', 'fal', 'replicate'].includes(this.id), inpaint: ['openai', 'fal', 'replicate'].includes(this.id) }; }
+  /** OpenRouter only: image-output models from the models endpoint, cached for `modelListTtlMs` (default one hour). */
+  async listModels(signal: AbortSignal = AbortSignal.timeout(this.config.timeoutMs ?? 120000)): Promise<ImageModel[]> {
+    if (!this.catalog) throw new MediaError('unsupported_parameter');
+    try { return await this.catalog.list(signal); } catch (e) { throw failure(e, signal); }
+  }
+  /** Draw Things only: running / API switched off / app not installed, with a stable reason for the latter two. */
+  probe(): ReturnType<typeof probeDrawThings> { if (this.id !== 'draw-things') return Promise.reject(new MediaError('unsupported_parameter')); return probeDrawThings(this.http.base.origin); }
   generate(req: ImageRequest, context: GenerationContext = {}): Promise<ImageResult> { return this.batch(req, context, false); }
   edit(req: ImageRequest, context: GenerationContext = {}): Promise<ImageResult> {
     if (!this.capabilities().edit || !req.referenceImages?.length) return Promise.reject(new MediaError('unsupported_parameter'));
@@ -39,8 +58,8 @@ export class HttpImageAdapter implements ImageAdapter {
     if (!['replicate', 'fal'].includes(this.id) || !context.resume || context.resume.model !== this.model || !/^[a-zA-Z0-9_-]+$/.test(context.resume.id)) return Promise.reject(new MediaError('unsupported_parameter'));
     return this.perform(req, context, false);
   }
-  private async batch(req: ImageRequest, context: GenerationContext, edit: boolean): Promise<ImageResult> {
-    validateRequest(req);
+  private async batch(input: ImageRequest, context: GenerationContext, edit: boolean): Promise<ImageResult> {
+    validateRequest(input); const req = sanitizeRequest(input); // references and mask leave without EXIF/GPS or textual metadata
     // Chat/Gemini endpoints do not expose a reliable image-count field. Submit one image per call.
     if (!['openrouter', 'google'].includes(this.id) || (req.n ?? 1) === 1) return this.perform(req, context, edit);
     const start = Date.now(); const files: ImageResult['files'] = []; let metadata: ImageResult['metadata'] | undefined; let cost = 0; let knownCost = true;
@@ -58,7 +77,7 @@ export class HttpImageAdapter implements ImageAdapter {
   }
   private payload(req: ImageRequest, edit: boolean): { path: string; body: unknown } {
     const n = req.n ?? 1; const refs = req.referenceImages ?? [];
-    if (req.mask && !this.capabilities().inpaint) throw new MediaError('unsupported_parameter');
+    if (req.mask && (!this.capabilities().inpaint || !refs.length)) throw new MediaError('unsupported_parameter');
     if (!edit && (refs.length || req.mask)) throw new MediaError('unsupported_parameter');
     if (this.id === 'openai') {
       omitUnsupported(req, ['seed', 'steps', 'guidance', 'negativePrompt', 'aspect']);
@@ -94,8 +113,13 @@ export class HttpImageAdapter implements ImageAdapter {
     omitUnsupported(req, this.id === 'replicate' ? ['negativePrompt', 'guidance', 'size'] : ['negativePrompt', 'aspect']);
     if (this.id === 'fal' && req.format === 'webp') throw new MediaError('unsupported_parameter');
     const input = { prompt: req.prompt, ...(req.seed === undefined ? {} : { seed: req.seed }), ...(req.steps === undefined ? {} : { num_inference_steps: req.steps }), ...(req.aspect ? { aspect_ratio: req.aspect } : {}), output_format: req.format ?? 'png' };
-    if (this.id === 'replicate') return { path: `models/${this.model}/predictions`, body: { input: { ...input, output_format: req.format === 'jpeg' ? 'jpg' : req.format ?? 'png', num_outputs: n } } };
-    return { path: this.model, body: { ...input, num_images: n, enable_safety_checker: true, ...(req.size ? { image_size: { width: req.size.width, height: req.size.height } } : {}), ...(req.guidance === undefined ? {} : { guidance_scale: req.guidance }) } };
+    if (this.id === 'replicate') {
+      if (edit) throw new MediaError('unsupported_parameter'); // the FLUX schnell fallback profile has no image input; a published input schema enables edits
+      const pinned = parseModelRef(this.model);
+      return { path: pinned?.version ? 'predictions' : `models/${this.model}/predictions`, body: { ...(pinned?.version ? { version: pinned.version } : {}), input: { ...input, output_format: req.format === 'jpeg' ? 'jpg' : req.format ?? 'png', num_outputs: n } } };
+    }
+    if (edit && refs.length > 1) throw new MediaError('unsupported_parameter');
+    return { path: this.model, body: { ...input, num_images: n, enable_safety_checker: true, ...(req.size ? { image_size: { width: req.size.width, height: req.size.height } } : {}), ...(req.guidance === undefined ? {} : { guidance_scale: req.guidance }), ...(edit ? { image_url: dataUrl(refs[0]!), ...(req.mask ? { mask_url: dataUrl(req.mask) } : {}) } : {}) } };
   }
   private async poll(id: string, signal: AbortSignal, context: GenerationContext): Promise<Record<string, unknown>> {
     const path = this.id === 'replicate' ? `predictions/${id}` : `${this.model}/requests/${id}`;
@@ -105,11 +129,27 @@ export class HttpImageAdapter implements ImageAdapter {
       if (status.status === 'failed') throw classify(500, status);
       if (status.status === 'succeeded') return status;
       if (status.status === 'COMPLETED') return this.http.json(path, undefined, signal);
-      await context.onProgress?.({ fraction: 0.5, stage: 'running' }); await delay(this.config.pollMs ?? 1000, undefined, { signal });
+      const queued = status.status === 'IN_QUEUE' || status.status === 'starting';
+      await context.onProgress?.(queued ? { fraction: 0.1, stage: 'queued' } : { fraction: 0.5, stage: 'running' }); await delay(this.config.pollMs ?? 1000, undefined, { signal });
     }
   }
-  private async perform(req: ImageRequest, context: GenerationContext, edit: boolean): Promise<ImageResult> {
-    validateRequest(req); const payload = this.payload(req, edit); const started = Date.now();
+  /** Model input schema, fetched once per adapter instance; a failed fetch is not cached. */
+  private replicateSchema(signal: AbortSignal): Promise<InputSchema | undefined> {
+    const ref = parseModelRef(this.model); if (!ref) return Promise.resolve(undefined);
+    this.schema ??= this.http.json(ref.version ? `models/${ref.owner}/${ref.name}/versions/${ref.version}` : `models/${ref.owner}/${ref.name}`, undefined, signal).then(parseInputSchema, (e: unknown) => { this.schema = undefined; throw e; });
+    return this.schema;
+  }
+  private async replicatePayload(req: ImageRequest, edit: boolean, signal: AbortSignal): Promise<{ path: string; body: unknown }> {
+    const schema = await this.replicateSchema(signal); if (!schema) return this.payload(req, edit); // no published schema: FLUX schnell fallback profile
+    if (!edit && (req.referenceImages?.length || req.mask)) throw new MediaError('unsupported_parameter');
+    const input = mapReplicateInput(req, schema, edit); const ref = parseModelRef(this.model)!;
+    return ref.version ? { path: 'predictions', body: { version: ref.version, input } } : { path: `models/${ref.owner}/${ref.name}/predictions`, body: { input } };
+  }
+  private perform(req: ImageRequest, context: GenerationContext, edit: boolean): Promise<ImageResult> {
+    return this.limiter ? this.limiter.run(context.signal ?? new AbortController().signal, () => this.execute(req, context, edit)) : this.execute(req, context, edit);
+  }
+  private async execute(req: ImageRequest, context: GenerationContext, edit: boolean): Promise<ImageResult> {
+    validateRequest(req); const payload = this.id === 'replicate' ? undefined : this.payload(req, edit); const started = Date.now();
     const timeout = AbortSignal.timeout(this.config.timeoutMs ?? 120000); const signal = context.signal ? AbortSignal.any([context.signal, timeout]) : timeout;
     let externalId: string | undefined;
     try {
@@ -117,7 +157,8 @@ export class HttpImageAdapter implements ImageAdapter {
       let json: Record<string, unknown>;
       if (context.resume) { externalId = context.resume.id; json = await this.poll(externalId, signal, context); }
       else {
-        json = await this.http.json(payload.path, payload.body, signal);
+        const submission = payload ?? await this.replicatePayload(req, edit, signal);
+        json = await this.http.json(submission.path, submission.body, signal);
         if (this.id === 'replicate' || this.id === 'fal') {
           const id = json[this.id === 'replicate' ? 'id' : 'request_id']; if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(id)) throw new MediaError('invalid_response');
           externalId = id; await context.onCheckpoint?.({ id, model: this.model });
@@ -143,15 +184,20 @@ export class HttpImageAdapter implements ImageAdapter {
       else for (const item of (json.data ?? []) as { b64_json?: string; url?: string }[]) { const v = item.b64_json ?? item.url; if (v) values.push(v); }
       if (!values.length || values.length > 10) throw new MediaError('invalid_response');
       await context.onProgress?.({ fraction: 0.9, stage: 'downloading' });
-      const files = []; for (const value of values) files.push(await this.http.image(value, req.format ?? (this.id === 'xai' ? 'jpeg' : 'png'), signal));
-      return { files, metadata: { adapter: this.id, model: this.model, durationMs: Date.now() - started, ...(typeof json.seed === 'number' ? { seed: json.seed } : req.seed === undefined ? {} : { seed: req.seed }), origin: this.http.base.origin, ...(typeof (json.usage as { cost?: unknown } | undefined)?.cost === 'number' ? { costUsd: (json.usage as { cost: number }).cost } : {}) }, partial: files.length < (req.n ?? 1) };
+      const files = []; for (const value of values) files.push(verifyOutput(await this.http.image(value, req.format ?? (this.id === 'xai' ? 'jpeg' : 'png'), signal)));
+      return { files, metadata: { adapter: this.id, model: this.model, durationMs: Date.now() - started, ...(typeof json.seed === 'number' ? { seed: json.seed } : req.seed === undefined ? {} : { seed: req.seed }), origin: this.http.base.origin, ...(this.id === 'draw-things' ? { costUsd: 0 } : {}), ...(typeof (json.usage as { cost?: unknown } | undefined)?.cost === 'number' ? { costUsd: (json.usage as { cost: number }).cost } : {}) }, partial: files.length < (req.n ?? 1) };
     } catch (error) {
       if (signal.aborted && externalId) {
         // Best effort remote cancellation, independently bounded; never bypass moderation or resubmit.
         try { await this.http.json(this.id === 'replicate' ? `predictions/${externalId}/cancel` : `${this.model}/requests/${externalId}/cancel`, {}, AbortSignal.timeout(2000), this.id === 'fal' ? 'PUT' : 'POST'); } catch { /* preserve original failure */ }
       }
       if (timeout.aborted && !context.signal?.aborted) throw new MediaError('timeout');
-      throw failure(error, context.signal);
+      const mapped = failure(error, context.signal);
+      if (this.id === 'draw-things' && mapped.code === 'backend_unavailable' && !(mapped instanceof DetailedMediaError)) {
+        const state = await this.probe();
+        if (state.state !== 'running') throw new DetailedMediaError('backend_unavailable', state.reason, state.state === 'not_installed' ? 'Draw Things is not installed on this Mac. Install it, open it and switch on its HTTP API server.' : 'Draw Things is not reachable. Open the app and switch on its HTTP API server, or check host and port.');
+      }
+      throw mapped;
     }
   }
 }

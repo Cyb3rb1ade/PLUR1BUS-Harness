@@ -1522,6 +1522,542 @@
             },
             "additionalProperties": true
           }
+        },
+        "media": {
+          "description": "Image generation and editing (MG-2). Every adapter is off by default; remote adapters turn on once their key reference resolves. Nothing here holds key material.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "adapters": {
+              "description": "Per-adapter settings keyed by adapter.",
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "openai": {
+                  "description": "OpenAI Images API (generate; edit with mask). Off until `apiKeyRef` resolves; `enabled: false` always turns it off.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.",
+                      "type": "boolean",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "apiKeyRef": {
+                      "description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "baseUrl": {
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
+                      "type": "string",
+                      "maxLength": 2048,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "model": {
+                      "description": "Model identifier sent to the provider.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "default": "gpt-image-2.5-sunburst",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "timeoutMs": {
+                      "description": "Upper bound for one generation, including polling, in milliseconds.",
+                      "type": "integer",
+                      "minimum": 1000,
+                      "maximum": 3600000,
+                      "default": 120000,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "maxConcurrent": {
+                      "description": "How many requests this adapter runs at once; further jobs wait.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16,
+                      "default": 2,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "google": {
+                  "description": "Google Gemini image models via generateContent (generate; edit with input images). Off until `apiKeyRef` resolves; `enabled: false` always turns it off.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.",
+                      "type": "boolean",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "apiKeyRef": {
+                      "description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "baseUrl": {
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
+                      "type": "string",
+                      "maxLength": 2048,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "model": {
+                      "description": "Model identifier sent to the provider.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "default": "gemini-nano-banana-2.1",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "timeoutMs": {
+                      "description": "Upper bound for one generation, including polling, in milliseconds.",
+                      "type": "integer",
+                      "minimum": 1000,
+                      "maximum": 3600000,
+                      "default": 120000,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "maxConcurrent": {
+                      "description": "How many requests this adapter runs at once; further jobs wait.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16,
+                      "default": 2,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "xai": {
+                  "description": "xAI Grok image generation (generate only; the edits endpoint is not wired yet). Off until `apiKeyRef` resolves; `enabled: false` always turns it off.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.",
+                      "type": "boolean",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "apiKeyRef": {
+                      "description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "baseUrl": {
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
+                      "type": "string",
+                      "maxLength": 2048,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "model": {
+                      "description": "Model identifier sent to the provider.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "default": "grok-imagine-image-2.0",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "timeoutMs": {
+                      "description": "Upper bound for one generation, including polling, in milliseconds.",
+                      "type": "integer",
+                      "minimum": 1000,
+                      "maximum": 3600000,
+                      "default": 120000,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "maxConcurrent": {
+                      "description": "How many requests this adapter runs at once; further jobs wait.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16,
+                      "default": 2,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "openrouter": {
+                  "description": "OpenRouter chat completions with image output (generate; edit with input images). Off until `apiKeyRef` resolves; `enabled: false` always turns it off.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.",
+                      "type": "boolean",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "apiKeyRef": {
+                      "description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "baseUrl": {
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
+                      "type": "string",
+                      "maxLength": 2048,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "model": {
+                      "description": "Model identifier sent to the provider.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "default": "google/gemini-2.5-flash-image",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "timeoutMs": {
+                      "description": "Upper bound for one generation, including polling, in milliseconds.",
+                      "type": "integer",
+                      "minimum": 1000,
+                      "maximum": 3600000,
+                      "default": 120000,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "maxConcurrent": {
+                      "description": "How many requests this adapter runs at once; further jobs wait.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16,
+                      "default": 2,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "replicate": {
+                  "description": "Replicate predictions API. Parameters are mapped onto the model's published input schema; `owner/name` or `owner/name:version`. Off until `apiKeyRef` resolves; `enabled: false` always turns it off.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.",
+                      "type": "boolean",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "apiKeyRef": {
+                      "description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "baseUrl": {
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
+                      "type": "string",
+                      "maxLength": 2048,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "model": {
+                      "description": "Model identifier sent to the provider.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "default": "black-forest-labs/flux-schnell",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "timeoutMs": {
+                      "description": "Upper bound for one generation, including polling, in milliseconds.",
+                      "type": "integer",
+                      "minimum": 1000,
+                      "maximum": 3600000,
+                      "default": 120000,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "maxConcurrent": {
+                      "description": "How many requests this adapter runs at once; further jobs wait.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16,
+                      "default": 2,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "fal": {
+                  "description": "fal queue API. The model is the endpoint id; edit and inpainting endpoints take image_url and mask_url. Off until `apiKeyRef` resolves; `enabled: false` always turns it off.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.",
+                      "type": "boolean",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "apiKeyRef": {
+                      "description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "baseUrl": {
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
+                      "type": "string",
+                      "maxLength": 2048,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "model": {
+                      "description": "Model identifier sent to the provider.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "default": "fal-ai/flux/schnell",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "timeoutMs": {
+                      "description": "Upper bound for one generation, including polling, in milliseconds.",
+                      "type": "integer",
+                      "minimum": 1000,
+                      "maximum": 3600000,
+                      "default": 120000,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "maxConcurrent": {
+                      "description": "How many requests this adapter runs at once; further jobs wait.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16,
+                      "default": 2,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "together": {
+                  "description": "Together Images API (generate). Off until `apiKeyRef` resolves; `enabled: false` always turns it off.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key.",
+                      "type": "boolean",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "apiKeyRef": {
+                      "description": "Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "baseUrl": {
+                      "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
+                      "type": "string",
+                      "maxLength": 2048,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "model": {
+                      "description": "Model identifier sent to the provider.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "default": "black-forest-labs/FLUX.2-dev",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "timeoutMs": {
+                      "description": "Upper bound for one generation, including polling, in milliseconds.",
+                      "type": "integer",
+                      "minimum": 1000,
+                      "maximum": 3600000,
+                      "default": 120000,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "maxConcurrent": {
+                      "description": "How many requests this adapter runs at once; further jobs wait.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16,
+                      "default": 2,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "drawthings": {
+                  "description": "Draw Things, local HTTP API (A1111-compatible txt2img/img2img). Switch on the app's HTTP API server first. Masks are not applied by the app and are refused.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Use Draw Things for image generation.",
+                      "type": "boolean",
+                      "default": false,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "host": {
+                      "description": "Host of the Draw Things API. A host other than loopback also needs `allowLan`.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 253,
+                      "default": "127.0.0.1",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "port": {
+                      "description": "Port of the Draw Things API.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 65535,
+                      "default": 7860,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "allowLan": {
+                      "description": "Allow a private-network host (LAN, Tailscale). The traffic is plain http and carries no key.",
+                      "type": "boolean",
+                      "default": false,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "model": {
+                      "description": "Model file name as shown in Draw Things.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "timeoutMs": {
+                      "description": "Upper bound for one generation in milliseconds.",
+                      "type": "integer",
+                      "minimum": 1000,
+                      "maximum": 3600000,
+                      "default": 300000,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "maxConcurrent": {
+                      "description": "How many requests run at once; the app renders one at a time.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 16,
+                      "default": 1,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "coreml": {
+                  "description": "Core ML Stable Diffusion through the `media-coreml` helper (macOS, Apple silicon only; build instructions in docs/media-adapters.md).",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "enabled": {
+                      "description": "Use the Core ML helper for image generation.",
+                      "type": "boolean",
+                      "default": false,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "binary": {
+                      "description": "Absolute path of the `media-coreml` executable.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1024,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "modelsDir": {
+                      "description": "Directory with compiled Core ML model folders (split-einsum or original).",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1024,
+                      "default": "~/MochiDiffusion/models/",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "model": {
+                      "description": "Name of a model folder inside `modelsDir`.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "computeUnits": {
+                      "description": "Where inference runs. `auto` lets the helper choose from the model's attention variant (split-einsum: Neural Engine, original: GPU).",
+                      "type": "string",
+                      "enum": [
+                        "auto",
+                        "cpuAndNeuralEngine",
+                        "all",
+                        "cpuAndGPU"
+                      ],
+                      "default": "auto",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "scheduler": {
+                      "description": "Diffusion scheduler name understood by the helper; unset uses the helper default.",
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_.-]{1,64}$",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "timeoutMs": {
+                      "description": "Upper bound for one generation in milliseconds.",
+                      "type": "integer",
+                      "minimum": 1000,
+                      "maximum": 3600000,
+                      "default": 300000,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       },
       "required": [
