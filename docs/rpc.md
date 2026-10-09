@@ -7288,6 +7288,369 @@ Saved provider logins plus the number of logins in progress. Human principals on
 }
 ```
 
+### `channel.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Every known channel (the config schema's `channels.*` plus any registered with the switchboard): id, whether it is enabled, whether its secrets are all stored (`configured`), and its state and health. `host` is false while the core runs no switchboard, in which case every state is `not-registered`. Owner/Admin, people only (R3).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "host",
+    "channels"
+  ],
+  "properties": {
+    "host": {
+      "type": "boolean"
+    },
+    "channels": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ChannelSummary"
+      }
+    }
+  }
+}
+```
+
+### `channel.get`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+One channel in detail: effective configuration with every `*Secret` key shown as `{ secret: <name>, present }` (never a value), missing secrets, state, last error, a live health probe when it runs, the key's restart class and how `/link` pairing works on it. Unknown id is E_NOT_FOUND `unknown-channel`. Owner/Admin, people only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/ChannelId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/ChannelDetail"
+}
+```
+
+### `channel.enable`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Sets `channels.<id>.enabled` to true through the supervisor's `config.set`; the channel's module restarts per the key's restart class. Enabling a channel whose secrets are not stored succeeds and lists them in `missing`. A change that is already in effect writes nothing (`changed: false`). `reason`: `unknown-channel`, `not-configurable`, `config-not-writable` (no supervisor). Owner/Admin, people only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/ChannelId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/ChannelToggle"
+}
+```
+
+### `channel.disable`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Sets `channels.<id>.enabled` to false through the supervisor's `config.set`; the channel's module restarts (stops) per the key's restart class. Same errors as `channel.enable`. Owner/Admin, people only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/ChannelId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/ChannelToggle"
+}
+```
+
+### `channel.set`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Sets one key of a channel (`key` is the path under `channels.<id>`, e.g. `allowlist` or `imap.host`). Give exactly one of `value` (a JSON value) or `text` (the raw text, interpreted by the key's schema type so ids with leading zeros or 25 digits survive). The result is validated against the config schema before anything is written. A `*Secret` key takes a secret NAME: a value that looks like a credential is refused with `reason: secret-value` and is never echoed or stored. `reason`: `invalid-key`, `unknown-key`, `invalid-value` (`detail` names the schema complaint), `value-required`, `secret-value`, `unknown-channel`, `not-configurable`, `config-not-writable`. Owner/Admin, people only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "key"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/ChannelId"
+    },
+    "key": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9]{0,63}(\\.[A-Za-z][A-Za-z0-9]{0,63}){0,3}$"
+    },
+    "value": {},
+    "text": {
+      "type": "string",
+      "maxLength": 8192
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "key",
+    "changed",
+    "restart"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/ChannelId"
+    },
+    "key": {
+      "type": "string"
+    },
+    "changed": {
+      "type": "boolean"
+    },
+    "restart": {
+      "$ref": "#/$defs/ChannelRestart"
+    },
+    "value": {},
+    "secret": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "present"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "present": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
+```
+
+### `channel.test`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Health check of one channel (a live probe when it runs). With `sendOwner: true` it also sends one fixed test text to the caller's own linked identity on that channel (never to a recipient the caller names); that needs the write action. `reason`: `channel-not-running`, `owner-not-linked`, `send-failed`. Owner/Admin, people only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/ChannelId"
+    },
+    "sendOwner": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "ok",
+    "state",
+    "sent"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/ChannelId"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "state": {
+      "type": "string"
+    },
+    "detail": {
+      "type": "string"
+    },
+    "sent": {
+      "type": "boolean"
+    },
+    "sentTo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "linkId"
+      ],
+      "properties": {
+        "linkId": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+```
+
+### `channel.status`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+All channels, compact: id, enabled, state, health and the last error. Owner/Admin, people only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "host",
+    "channels"
+  ],
+  "properties": {
+    "host": {
+      "type": "boolean"
+    },
+    "channels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "enabled",
+          "state",
+          "health"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/ChannelId"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "state": {
+            "type": "string"
+          },
+          "health": {
+            "$ref": "#/$defs/ChannelHealth"
+          },
+          "lastError": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
 ### `secret.set`
 
 **Stability:** experimental · since 1.5.0
@@ -13638,6 +14001,290 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "error": {
       "$ref": "#/$defs/ModelScanErrorInfo"
+    }
+  }
+}
+```
+
+### `ChannelId`
+
+```json
+{
+  "type": "string",
+  "pattern": "^[a-z][a-z0-9-]{1,31}$"
+}
+```
+
+### `ChannelHealth`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "ok",
+    "failing",
+    "unknown"
+  ]
+}
+```
+
+### `ChannelRestart`
+
+```json
+{
+  "description": "Experimental (1.5.0). The restart plan of a config change: live keys, whether the core restarts and which modules restart.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "live",
+    "core",
+    "modules"
+  ],
+  "properties": {
+    "live": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "core": {
+      "type": "boolean"
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
+```
+
+### `ChannelSummary`
+
+```json
+{
+  "description": "Experimental (1.5.0). One channel in a listing. `configured` is true when the channel has a configuration here and every secret it references is stored.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "displayName",
+    "enabled",
+    "configured",
+    "state",
+    "health"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/ChannelId"
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "configured": {
+      "type": "boolean"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "not-registered",
+        "stopped",
+        "waiting",
+        "starting",
+        "running",
+        "backoff",
+        "failed"
+      ]
+    },
+    "health": {
+      "$ref": "#/$defs/ChannelHealth"
+    }
+  }
+}
+```
+
+### `ChannelDetail`
+
+```json
+{
+  "description": "Experimental (1.5.0). One channel: summary plus effective configuration (secrets as names), missing secrets, status, probe and pairing help. Never a secret value.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "displayName",
+    "enabled",
+    "configured",
+    "state",
+    "health",
+    "configurable",
+    "restart",
+    "missing",
+    "secrets",
+    "config",
+    "attempts",
+    "linkHelp"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/ChannelId"
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "configured": {
+      "type": "boolean"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "not-registered",
+        "stopped",
+        "waiting",
+        "starting",
+        "running",
+        "backoff",
+        "failed"
+      ]
+    },
+    "health": {
+      "$ref": "#/$defs/ChannelHealth"
+    },
+    "configurable": {
+      "type": "boolean"
+    },
+    "description": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "chatKinds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "direct",
+          "group",
+          "broadcast"
+        ]
+      }
+    },
+    "restart": {
+      "type": "string"
+    },
+    "missing": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "secrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "name",
+          "present"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "present": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "config": {
+      "type": "object"
+    },
+    "attempts": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "lastError": {
+      "type": "string"
+    },
+    "startedAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ok"
+      ],
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "detail": {
+          "type": "string"
+        }
+      }
+    },
+    "linkHelp": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `ChannelToggle`
+
+```json
+{
+  "description": "Experimental (1.5.0). The outcome of `channel.enable` / `channel.disable`.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "enabled",
+    "changed",
+    "restart",
+    "missing"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/ChannelId"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "changed": {
+      "type": "boolean"
+    },
+    "restart": {
+      "$ref": "#/$defs/ChannelRestart"
+    },
+    "missing": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     }
   }
 }

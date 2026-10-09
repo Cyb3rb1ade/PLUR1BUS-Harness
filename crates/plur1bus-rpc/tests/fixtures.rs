@@ -48,6 +48,13 @@ fn method_fixture(name: &str, f: &Value) {
         }
         "auth.logout" => pair::<AuthLogoutParams, AuthLogoutResult>(name, f),
         "auth.status" => pair::<AuthStatusParams, AuthStatusResult>(name, f),
+        "channel.list" => pair::<ChannelListParams, ChannelListResult>(name, f),
+        "channel.get" => pair::<ChannelGetParams, ChannelGetResult>(name, f),
+        "channel.enable" => pair::<ChannelEnableParams, ChannelEnableResult>(name, f),
+        "channel.disable" => pair::<ChannelDisableParams, ChannelDisableResult>(name, f),
+        "channel.set" => pair::<ChannelSetParams, ChannelSetResult>(name, f),
+        "channel.test" => pair::<ChannelTestParams, ChannelTestResult>(name, f),
+        "channel.status" => pair::<ChannelStatusParams, ChannelStatusResult>(name, f),
         "media.generate" => pair::<MediaGenerateParams, MediaGenerateResult>(name, f),
         "media.edit" => pair::<MediaEditParams, MediaEditResult>(name, f),
         "media.job.get" => pair::<MediaJobGetParams, MediaJobGetResult>(name, f),

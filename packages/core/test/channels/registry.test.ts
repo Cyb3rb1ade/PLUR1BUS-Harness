@@ -257,3 +257,27 @@ test("crashing channel does not take the test process down (uncaught async error
   await clock.advance(20_000);
   assert.equal(registry.status("lb")?.state, "running");
 });
+
+test("read accessors for channel.*: manifestOf, probe and sendTo never change the channel's state", async () => {
+  const { registry, clock } = setup();
+  const ch = new Scripted();
+  registry.register({ manifest: manifest({ displayName: "LB", linkHelp: "Send /link CODE." }), factory: () => ch });
+  assert.equal(registry.manifestOf("lb")?.displayName, "LB");
+  assert.equal(registry.manifestOf("lb")?.linkHelp, "Send /link CODE.");
+  assert.equal(registry.manifestOf("nope"), undefined);
+  assert.equal(registry.register({ manifest: manifest({ name: "x1", linkHelp: "" }), factory: () => new Scripted("x1") }).ok, false);
+  assert.equal(await registry.probe("nope"), undefined);
+  assert.deepEqual(await registry.probe("lb"), { ok: false, detail: "not running" });
+  assert.equal(await registry.sendTo("lb", { chatId: "1", text: "hi" }), false);
+  registry.start("lb");
+  await clock.advance(0);
+  ch.healthPlan = [{ ok: false, detail: "gateway closed" }, "throw", { ok: true }];
+  assert.deepEqual(await registry.probe("lb"), { ok: false, detail: "gateway closed" });
+  assert.deepEqual(await registry.probe("lb"), { ok: false, detail: "health boom" });
+  assert.deepEqual(await registry.probe("lb"), { ok: true });
+  assert.equal(registry.status("lb")?.state, "running");
+  assert.equal(await registry.sendTo("lb", { chatId: "1", text: "hi" }), true);
+  assert.deepEqual(ch.sentOut, [{ chatId: "1", text: "hi" }]);
+  await registry.stop("lb");
+  assert.equal(await registry.sendTo("lb", { chatId: "1", text: "again" }), false);
+});

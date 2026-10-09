@@ -47,6 +47,13 @@ export const methods = [
   "auth.credentials.list",
   "auth.logout",
   "auth.status",
+  "channel.list",
+  "channel.get",
+  "channel.status",
+  "channel.test",
+  "channel.enable",
+  "channel.disable",
+  "channel.set",
 ];
 const ctx: CallContext = {
   requestId: "r",

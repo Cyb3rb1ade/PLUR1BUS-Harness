@@ -372,6 +372,34 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "channel.list": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "channel.get": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "channel.enable": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "channel.disable": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "channel.set": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "channel.test": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "channel.status": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "secret.set": {
       "stability": "experimental",
       "since": "1.5.0"

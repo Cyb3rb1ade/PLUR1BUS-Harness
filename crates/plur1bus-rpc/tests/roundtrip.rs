@@ -126,6 +126,44 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "channel.list" => check_pair::<types::ChannelListParams, types::ChannelListResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "channel.get" => check_pair::<types::ChannelGetParams, types::ChannelGetResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "channel.enable" => {
+                check_pair::<types::ChannelEnableParams, types::ChannelEnableResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "channel.disable" => check_pair::<
+                types::ChannelDisableParams,
+                types::ChannelDisableResult,
+            >(name, fixture, &root_schema),
+            "channel.set" => check_pair::<types::ChannelSetParams, types::ChannelSetResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "channel.test" => check_pair::<types::ChannelTestParams, types::ChannelTestResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "channel.status" => {
+                check_pair::<types::ChannelStatusParams, types::ChannelStatusResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
             "media.generate" => {
                 check_pair::<types::MediaGenerateParams, types::MediaGenerateResult>(
                     name,

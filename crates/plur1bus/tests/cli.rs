@@ -22,23 +22,43 @@ fn help_lists_the_2a_commands() {
 }
 
 #[test]
-fn stubs_exit_2_and_name_their_milestone() {
-    let (cmd, milestone) = ("channel", "M4");
+fn channel_is_a_real_command_and_no_milestone_stub() {
+    // No stub is left (`channel` was the last one): a bare `channel` is a usage error, not a milestone message.
     bin()
-        .arg(cmd)
+        .arg("channel")
         .assert()
         .code(2)
-        .stderr(predicate::str::contains(milestone));
+        .stderr(predicate::str::contains("M4").not());
+    for sub in [
+        "list",
+        "show",
+        "enable",
+        "disable",
+        "set",
+        "test",
+        "status",
+        "link-help",
+    ] {
+        bin()
+            .args(["channel", sub, "--help"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("experimental").or(predicate::str::contains("Usage")));
+    }
+    // Without a core it fails as every core-backed command does, naming no milestone.
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().to_str().unwrap();
     let out = bin()
-        .args(["--json", cmd])
+        .env_remove("PLUR1BUS_CONTAINER")
+        .args(["--home", home, "--json", "channel", "list"])
         .assert()
-        .code(2)
+        .code(1)
         .get_output()
         .stdout
         .clone();
     let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
-    assert_eq!(v["error"], "E_NOT_AVAILABLE");
-    assert_eq!(v["milestone"], milestone);
+    assert_eq!(v["error"], "E_CORE_UNAVAILABLE");
+    assert!(v.get("milestone").is_none());
 }
 
 fn json_code(args: &[&str], env: &[(&str, &str)], code: i32) -> serde_json::Value {
