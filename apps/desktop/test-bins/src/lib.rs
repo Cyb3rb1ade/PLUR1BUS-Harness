@@ -69,9 +69,6 @@ pub fn run(kind: &str) -> ! {
         fail("E_ARGV", "unsupported container argv")
     }
     let result = match classified {
-        Some(Command::DaemonStatus) if env::var("PLUR1BUS_CONTAINER").as_deref() == Ok("1") => {
-            json!({"schema":"daemon.status/1","supervisor":{"process":{"state":"running"}},"children":[{"kind":"core","process":{"state":"ready"}}]})
-        }
         Some(Command::DaemonStatus) => {
             serde_json::from_str(include_str!("../fixtures/daemon-status.json")).unwrap()
         }

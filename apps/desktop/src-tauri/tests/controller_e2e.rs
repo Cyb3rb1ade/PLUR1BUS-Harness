@@ -50,12 +50,18 @@ async fn run(engine: &str) {
         );
     }
     let client = match &endpoint {
+        #[cfg(unix)]
         Endpoint::Unix(path) => bollard::Docker::connect_with_unix(
             path.to_str().unwrap(),
             2,
             bollard::API_DEFAULT_VERSION,
         )
         .unwrap(),
+        #[cfg(not(unix))]
+        Endpoint::Unix(path) => {
+            let _ = path;
+            panic!("unix socket requires Unix")
+        }
         Endpoint::Pipe(path) => {
             #[cfg(windows)]
             {
