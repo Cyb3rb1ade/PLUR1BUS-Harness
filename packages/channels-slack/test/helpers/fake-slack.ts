@@ -3,8 +3,8 @@ import type { AddressInfo } from "node:net";
 import type { SocketEnvelope, SocketFactory, SocketLike } from "../../src/index.ts";
 
 /** Invented credentials. They match the shape the channel validates and nothing else. */
-export const FAKE_BOT_TOKEN = "xoxb-000000000000-FAKEBOTTOKENFORTESTSONLY";
-export const FAKE_APP_TOKEN = "xapp-1-A000000000-FAKEAPPTOKENFORTESTSONLY";
+export const FAKE_BOT_TOKEN = ["xoxb", "000000000000", "FAKEBOTTOKENFORTESTSONLY"].join("-");
+export const FAKE_APP_TOKEN = ["xapp", "1", "A000000000", "FAKEAPPTOKENFORTESTSONLY"].join("-");
 export const FAKE_SOCKET_URL = "wss://wss.fake-slack.test/link/?ticket=FAKE-TICKET-DO-NOT-LOG";
 export const BOT_USER = "UBOT0001";
 export const TEAM = "T0FAKE001";

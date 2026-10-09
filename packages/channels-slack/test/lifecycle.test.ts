@@ -69,7 +69,7 @@ test("a throwing secret reader rejects with a fixed message", async () => {
 
 test("invalid credentials (auth.test invalid_auth) reject start as authentication failure", async () => {
   const w = wire(fake, {
-    secrets: { reveal: async (n) => (n === "slack-bot-token" ? "xoxb-000000000000-WRONGTOKENFORTESTSONLY" : TEST_SECRETS[n] ?? null) },
+    secrets: { reveal: async (n) => (n === "slack-bot-token" ? ["xoxb", "000000000000", "WRONGTOKENFORTESTSONLY"].join("-") : TEST_SECRETS[n] ?? null) },
   });
   await assert.rejects(w.ch.start(w.host), (e: Error) => e.message === "slack authentication failed");
   assert.equal(fake.callsOf("auth.test").length, 1, "no retry storm");

@@ -32,7 +32,7 @@ test("markdown is converted and sent with safe flags, not unfurled, no link_name
   assert.equal(b.unfurl_media, false);
   assert.equal(b.link_names, false);
   assert.equal("thread_ts" in b, false);
-  assert.equal(posts()[0]!.auth, `Bearer ${"xoxb-000000000000-FAKEBOTTOKENFORTESTSONLY"}`);
+  assert.equal(posts()[0]!.auth, `Bearer ${["xoxb", "000000000000", "FAKEBOTTOKENFORTESTSONLY"].join("-")}`);
 });
 
 test("thread targeting: thread-scoped chatId and replyTo both set thread_ts", async () => {

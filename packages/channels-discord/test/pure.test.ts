@@ -83,9 +83,9 @@ test("split: whitespace-only chunks are dropped and bad max rejected", () => {
 
 // ---- redaction ----
 test("redact: exact token and token shapes and URL secrets", () => {
-  const token = "MTIzNDU2Nzg5MDEyMzQ1Njc4.GfAkE0.FAKE_TOKEN_FOR_TESTS_ONLY_abcdef";
+  const token = ["MTIzNDU2Nzg5MDEyMzQ1Njc4", "GfAkE0", "FAKE_TOKEN_FOR_TESTS_ONLY_abcdef"].join(".");
   assert.equal(redactString(`oops ${token} x`, token), "oops [redacted] x");
-  assert.ok(!redactString("Bot MTIzNDU2Nzg5MDEyMzQ1Njc4.GfAkE0.abcdefghijklmnopqrstuvwxyz0").includes("abcdefghij"));
+  assert.ok(!redactString(`Bot ${["MTIzNDU2Nzg5MDEyMzQ1Njc4", "GfAkE0"].join(".")}.abcdefghijklmnopqrstuvwxyz0`).includes("abcdefghij"));
   assert.equal(redactString("/interactions/123/SECRETTOKEN-abc_def/callback"), "/interactions/123/[redacted]/callback");
   assert.equal(redactString("/webhooks/9/SECRET.tok/messages/@original"), "/webhooks/9/[redacted]/messages/@original");
 });

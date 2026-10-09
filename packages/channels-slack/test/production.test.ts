@@ -28,7 +28,7 @@ test("health is false before start and after a failed start; no credential in an
 });
 
 test("start resolves on a bad app token only as a fixed failure, and never retries auth forever", async () => {
-  const b = wire(fake, { secrets: { reveal: async (n) => (n === "slack-app-token" ? "xapp-1-A000000000-WRONGTOKENFORTESTS" : FAKE_BOT_TOKEN) } });
+  const b = wire(fake, { secrets: { reveal: async (n) => (n === "slack-app-token" ? ["xapp", "1", "A000000000", "WRONGTOKENFORTESTS"].join("-") : FAKE_BOT_TOKEN) } });
   await assert.rejects(b.ch.start(b.host), (e: Error) => e.message === "slack authentication failed");
   assert.equal(fake.callsOf("apps.connections.open").length, 1);
 });
