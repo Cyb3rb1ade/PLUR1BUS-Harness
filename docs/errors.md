@@ -59,6 +59,23 @@ the core sent. The last two are raised by the CLI itself.
 | `login-cancelled` | `E_CANCELLED` | 130 | Ctrl-C during the sign-in; the login was cancelled in the core. |
 | `login-unknown`, `credential-unknown`, `auth-required` | `E_NOT_FOUND` | 1 | No such pending login or saved sign-in. |
 
+## Channel reasons (`plur1bus channel`)
+
+`plur1bus channel` adds no error code; it reports the closed codes above with a `reason`. A script should branch on these:
+
+| `reason` | Code | Exit | Meaning |
+|---|---|---|---|
+| `secret-value` | `E_INVALID_PARAMS` | 2 | A value that looks like a credential was given for a `*Secret` key (or a recognisable token for any key). It is not echoed, stored or logged; treat what was typed as exposed and rotate it. Store secrets with `plur1bus secret set <name>` and pass the name. |
+| `invalid-id`, `invalid-key`, `unknown-key`, `value-required`, `invalid-params` | `E_INVALID_PARAMS` | 1 | Usage: the id or key is not well formed, the key does not exist for that channel, or the value is missing. Nothing was written. |
+| `invalid-value` | `E_INVALID_PARAMS` | 1 | The value does not validate against the config schema; `detail` names the schema complaint (never the value). Nothing was written. |
+| `unknown-channel` | `E_NOT_FOUND` | 1 | No such channel in the config schema or the registry. |
+| `owner-not-linked` | `E_NOT_FOUND` | 1 | `channel test --send-owner`: you have no linked identity on that channel (see `plur1bus identity link`). |
+| `not-configurable` | `E_NOT_AVAILABLE` | 2 | The channel is registered but has no `channels.<id>` configuration in this version. |
+| `config-not-writable` | `E_NOT_AVAILABLE` | 2 | No supervisor owns the configuration, so the core cannot write it. |
+| `channel-not-running` | `E_NOT_AVAILABLE` | 2 | `--send-owner` needs a running channel. |
+| `send-failed` | `E_NOT_AVAILABLE` | 2 | The channel refused or failed the test message; `detail` is its (redacted) error. |
+| `config-refused` | `E_CONFIG_INVALID` | 1 | The supervisor refused the change; nothing was written. |
+
 ## Update reasons (`plur1bus update`)
 
 `plur1bus update` reports `E_NOT_AVAILABLE` (exit 1; `confirmation-required` is `E_INVALID_PARAMS`, exit 2) with a `reason`. Nothing was changed for any of them, except where the table says otherwise. See [updates.md](updates.md).

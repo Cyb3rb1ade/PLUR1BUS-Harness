@@ -5,6 +5,7 @@ pub mod approval;
 pub mod audit;
 pub mod backup;
 pub mod budget;
+pub mod channel;
 pub mod completions;
 pub mod config;
 pub mod core;

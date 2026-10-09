@@ -56,7 +56,7 @@ fn main() {
         Cmd::Grant { sub } => commands::grant::run(&out, &layout, sub),
         Cmd::Approval { sub } => commands::approval::run(&out, &layout, sub),
         Cmd::Login(args) => commands::login::run(&out, &layout, args),
-        Cmd::Channel(_) => commands::stubs::milestone(&out, "channel", "M4", "channels"),
+        Cmd::Channel { sub } => commands::channel::run(&out, &layout, sub),
         Cmd::Project { sub } => commands::project::run(&out, &layout, sub),
         Cmd::Trace { sub } => commands::project::trace(&out, &layout, sub),
         Cmd::Media { sub } => commands::media::run(&out, &layout, sub),

@@ -19,6 +19,8 @@ export const CHANNEL_MANIFEST_SCHEMA = {
     chatKinds: { type: "array", items: { enum: ["direct", "group", "broadcast"] }, minItems: 1, uniqueItems: true, default: ["direct"] },
     startDelayMs: { type: "integer", minimum: 0, maximum: 600_000, default: 0 },
     maxRestarts: { type: "integer", minimum: 0, maximum: 100, default: 8 },
+    /** How `/link` pairing works on this channel (shown by `plur1bus channel link-help`); plain text, no secrets. */
+    linkHelp: { type: "string", minLength: 1, maxLength: 1000 },
   },
 } as const;
 
@@ -31,6 +33,7 @@ export interface ChannelManifest {
   chatKinds: ("direct" | "group" | "broadcast")[];
   startDelayMs: number;
   maxRestarts: number;
+  linkHelp?: string;
 }
 
 type S = Record<string, any>;

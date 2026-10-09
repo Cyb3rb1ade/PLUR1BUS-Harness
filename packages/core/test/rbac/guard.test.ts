@@ -44,6 +44,7 @@ const params: Record<string, unknown> = {
   "identity.link.remove": {},
   "identity.principals": {},
   "auth.login.start": {}, "auth.login.await": {}, "auth.login.cancel": {}, "auth.credentials.list": {}, "auth.logout": {}, "auth.status": {},
+  "channel.list": {}, "channel.get": { id: "discord" }, "channel.status": {}, "channel.test": { id: "discord" }, "channel.enable": { id: "discord" }, "channel.disable": { id: "discord" }, "channel.set": { id: "discord", key: "locale", text: "de" },
   "memory.forget": { caller, agentId: "bernd", id: "m1" },
   "agent.status": { agentId: "bernd" },
   "jobs.run": { job: "light", agentId: "bernd" },
@@ -86,7 +87,7 @@ describe("rpc guard: rules", () => {
     }
   });
   it("every surface method is secured", () => {
-    for (const name of Object.keys(findMethods(SCHEMA)).filter(n => /^(media|project|collab|identity|auth)\./.test(n))) assert.ok(RPC_RULES[name], name);
+    for (const name of Object.keys(findMethods(SCHEMA)).filter(n => /^(media|project|collab|identity|auth|channel)\./.test(n))) assert.ok(RPC_RULES[name], name);
   });
   it("every admin.* method in the schema is guarded (an `admin.*` is never left open)", () => {
     const admin = Object.keys(findMethods(SCHEMA)).filter((m) => m.startsWith("admin."));

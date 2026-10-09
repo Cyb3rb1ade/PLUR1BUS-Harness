@@ -1,0 +1,45 @@
+{
+  "params": {
+    "id": "discord"
+  },
+  "result": {
+    "id": "discord",
+    "displayName": "Discord",
+    "enabled": true,
+    "configured": true,
+    "state": "running",
+    "health": "ok",
+    "configurable": true,
+    "description": "Discord channel adapter.",
+    "version": "0.1.0",
+    "chatKinds": [
+      "direct",
+      "group"
+    ],
+    "restart": "module:discord",
+    "missing": [],
+    "secrets": [
+      {
+        "key": "tokenSecret",
+        "name": "channels.discord.token",
+        "present": true
+      }
+    ],
+    "config": {
+      "enabled": true,
+      "tokenSecret": {
+        "secret": "channels.discord.token",
+        "present": true
+      },
+      "allowlist": [
+        "123456789012345678"
+      ]
+    },
+    "attempts": 0,
+    "startedAt": 1000,
+    "probe": {
+      "ok": true
+    },
+    "linkHelp": "Send /link <code> to the bot in a direct message."
+  }
+}

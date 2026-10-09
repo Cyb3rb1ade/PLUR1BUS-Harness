@@ -1,0 +1,21 @@
+{
+  "params": {},
+  "result": {
+    "host": true,
+    "channels": [
+      {
+        "id": "discord",
+        "enabled": true,
+        "state": "running",
+        "health": "ok"
+      },
+      {
+        "id": "slack",
+        "enabled": true,
+        "state": "backoff",
+        "health": "failing",
+        "lastError": "connection refused"
+      }
+    ]
+  }
+}

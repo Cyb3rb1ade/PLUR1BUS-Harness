@@ -191,8 +191,15 @@ Examples:
   plur1bus login status
   plur1bus login logout 3fa9c2d1")]
     Login(crate::commands::login::LoginArgs),
-    /// Channels — M4
-    Channel(StubArgs),
+    /// [experimental] Channels (switchboard): list, show, enable, disable, set, test, status, link-help
+    ///
+    /// Generic over the channel registry and the `channels.*` config. A key ending in `Secret` takes the name of a
+    /// secret, never its value (`plur1bus secret set <name>` reads the value from stdin). Writes need a running core
+    /// under a supervisor; the channel's module restarts per the key's restart class.
+    Channel {
+        #[command(subcommand)]
+        sub: crate::commands::channel::ChannelCmd,
+    },
     /// [experimental] Projects, members and agents (M5)
     Project {
         #[command(subcommand)]
@@ -450,6 +457,7 @@ pub struct BundleArgs {
 }
 
 #[derive(Args, Debug)]
+#[allow(dead_code)] // every milestone stub has become a real command; kept for the next one
 pub struct StubArgs {
     #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
     pub rest: Vec<String>,

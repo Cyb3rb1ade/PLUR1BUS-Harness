@@ -1,0 +1,22 @@
+{
+  "params": {
+    "id": "discord",
+    "key": "allowlist",
+    "text": "[\"123456789012345678\"]"
+  },
+  "result": {
+    "id": "discord",
+    "key": "allowlist",
+    "changed": true,
+    "restart": {
+      "live": [],
+      "core": false,
+      "modules": [
+        "discord"
+      ]
+    },
+    "value": [
+      "123456789012345678"
+    ]
+  }
+}
