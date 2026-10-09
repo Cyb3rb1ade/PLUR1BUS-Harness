@@ -55,9 +55,7 @@ fn main() {
         Cmd::Secret { sub } => commands::secret::run(&out, &layout, sub),
         Cmd::Grant { sub } => commands::grant::run(&out, &layout, sub),
         Cmd::Approval { sub } => commands::approval::run(&out, &layout, sub),
-        Cmd::Login(_) => {
-            commands::stubs::milestone(&out, "login", "M2", "API keys and OAuth templates (D16)")
-        }
+        Cmd::Login(args) => commands::login::run(&out, &layout, args),
         Cmd::Channel(_) => commands::stubs::milestone(&out, "channel", "M4", "channels"),
         Cmd::Project { sub } => commands::project::run(&out, &layout, sub),
         Cmd::Trace { sub } => commands::project::trace(&out, &layout, sub),

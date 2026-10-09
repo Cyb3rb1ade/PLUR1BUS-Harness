@@ -18,6 +18,7 @@ that maps an error to an exit code.
 | 2 | The command cannot run here: `E_NOT_AVAILABLE` (also every milestone stub), or it needs an approval first (`E_APPROVAL_REQUIRED`). Usage errors (an unknown flag, a missing argument) also exit 2, before any command runs. |
 | 3 | `E_LOCKED`: the store is locked by another process. Retry later. |
 | 70 | Internal: the supervisor ended on a panic. Only seen from `plur1bus supervise` (the OS service), never from an interactive command. |
+| 130 | `plur1bus login` was interrupted with Ctrl-C (`E_CANCELLED`, `reason=login-cancelled`); the login was cancelled and nothing was saved. |
 | 1..255 | `plur1bus import` passes through the exit code of the importer (`E_IMPORT_FAILED` and the importer's own errors), 1 when it names none. |
 
 ## Error codes
@@ -44,3 +45,16 @@ the core sent. The last two are raised by the CLI itself.
 | `E_STORAGE` | 1 | A storage operation failed; `ids` may carry the ids needed to recover a half-finished step. |
 | `E_IMPORT_FAILED` | 1 | `plur1bus import` could not run or finish the importer (`reason`: `importer-missing`, `node-unavailable`, `importer-crashed`). The importer's own errors keep the exit code it reports. |
 | `E_CANCELLED` | 1 | The user declined a confirmation prompt; nothing was changed. |
+
+## Sign-in reasons (`plur1bus login`)
+
+`plur1bus login` adds no error code; it reports the closed codes above with a `reason` (see [openai-auth.md](openai-auth.md#cli-and-rpc-login) for the full table). A script should branch on these:
+
+| `reason` | Code | Exit | Meaning |
+|---|---|---|---|
+| `value-in-argument` | `E_INVALID_PARAMS` | 2 | A key was typed as an argument; it is not echoed. Treat it as exposed and rotate it. |
+| `provider-required`, `unknown-provider`, `unsupported-route`, `invalid-name`, `value-from-stdin`, `stdin-unreadable` | `E_INVALID_PARAMS` | 2 | Usage: nothing was sent to the core. |
+| `state-mismatch`, `access-denied`, `scope-denied`, `id-token-invalid` | `E_DENIED` | 1 | The sign-in did not verify or was declined; nothing was saved. |
+| `login-timeout`, `login-cancelled`, `port-in-use` | `E_CONFLICT` | 1 | The sign-in ended without a credential. |
+| `login-cancelled` | `E_CANCELLED` | 130 | Ctrl-C during the sign-in; the login was cancelled in the core. |
+| `login-unknown`, `credential-unknown`, `auth-required` | `E_NOT_FOUND` | 1 | No such pending login or saved sign-in. |

@@ -1,6 +1,6 @@
 # D110 OpenAI authentication
 
-The [D110 design](superpowers/specs/2026-09-30-openai-auth-design.md) and ADR-005 define the policy. The Core composition registers `AuthService`, the OpenAI provider binding and voice services. Login remains an in-process API; RPC, CLI and Web login are the follow-up package after AC. No RPC schema or RBAC policy is changed.
+The [D110 design](superpowers/specs/2026-09-30-openai-auth-design.md) and ADR-005 define the policy. The Core composition registers `AuthService`, the OpenAI provider binding and voice services. The in-process API is unchanged. The RPC surface (`auth.*`) and the `plur1bus login` CLI on top of it are described in [CLI and RPC login](#cli-and-rpc-login); Web login is a follow-up.
 
 ## Spec vs. main inventory
 
@@ -39,6 +39,43 @@ First authorization uses `dynamic_agent_client`. The callback-issued registratio
 
 The per-install Ed25519 key and its RFC 9278 host identifier survive restart. OIDC verification checks signature, issuer, issued-client audience, expiry and nonce; inference additionally requires `chatgpt.tokens.use.direct`.
 
+## CLI and RPC login
+
+`plur1bus login <provider>` signs in over the core's experimental `auth.*` RPC; the API-key route uses `secret.set`. Every command takes `--json`. No command, document, error or log line ever carries an access token, refresh token, issued client id, code verifier, authorization code or API key.
+
+| Command | What it does |
+|---|---|
+| `plur1bus login openai` | OpenAI "Sign in with ChatGPT": loopback PKCE through `AuthService.startLogin` / `awaitLogin`. Prints the authorize URL, tries to open a browser, waits (default 600 s, `--timeout`), stores the credential in the secret service, prints its id, workspace and expiry. |
+| `plur1bus login <provider> [--api-key]` | Any other provider (anthropic, google, gemini, xai, openrouter, together, fal, replicate, elevenlabs), or `openai --api-key`: the key is read from **stdin** (`printf %s "$KEY" \| plur1bus login anthropic`), stored with `secret.set` as `<provider>/api-key` (`--name` overrides) and only that secret **name** is printed. Reference it from config as `apiKeyRef`. A key in an argument (`--api-key=…`, `--key …`, a stray word) is refused with `E_INVALID_PARAMS reason=value-in-argument` and the value is never echoed. |
+| `plur1bus login status` | Saved sign-ins and the number of logins in progress (`auth.status`). |
+| `plur1bus login list` | Saved sign-ins: id, owner, workspace, expiry, `needsLogin` (`auth.credentials.list`). |
+| `plur1bus login logout <id>` | Removes the sign-in and its local token state (`auth.logout`); the id may be any unique prefix of at least 8 characters. |
+
+Flags of the OAuth route: `--no-browser` (print the URL only), `--paste`, `--timeout <seconds>`. Ctrl-C calls `auth.login.cancel` and exits 130 with `E_CANCELLED reason=login-cancelled`; if the CLI is killed outright the core cancels the login itself when the waiting connection closes. With `--json` the authorize URL is printed first as a `login.started/1` document, the result is `login.done/1`.
+
+### Headless machines and the paste flow
+
+A browser is not opened when `--no-browser` is given, over SSH (`SSH_CONNECTION`/`SSH_TTY`), in the container image (`PLUR1BUS_CONTAINER=1`) or on Linux without `DISPLAY`/`WAYLAND_DISPLAY`. The CLI then prints the forwarding command for the callback port, to run on the machine that has the browser:
+
+```sh
+ssh -L 49152:127.0.0.1:49152 user@this-host
+```
+
+Without port forwarding the browser lands on an unreachable `http://127.0.0.1:49152/auth/callback?...` page. With `--paste` the CLI reads that full address from stdin and replays it, as a local `GET`, to the core's own loopback listener (only the exact `http://127.0.0.1:<this login's port>/auth/callback` is accepted; the address carries the authorization code and is never printed or stored). The callback stays single-use and the state check stays in the service, so a wrong or foreign address ends as `state-mismatch`. No provider offers a device-code grant here, so the headless route is port forwarding or `--paste`.
+
+### RPC
+
+`auth.login.start` (returns `attemptId`, `authorizeUrl`, `callbackPort`), `auth.login.await`, `auth.login.cancel`, `auth.credentials.list`, `auth.logout`, `auth.status`; see [rpc.md](rpc.md). Authorization is the authenticated human owner only ([rbac.md](rbac.md#provider-login-auth)); the `PlanPrincipal` is built from the guard's principal, never from params. Failures keep the service's closed code as `reason`:
+
+| `reason` | Error | Meaning |
+|---|---|---|
+| `state-mismatch`, `access-denied`, `scope-denied`, `id-token-invalid` | `E_DENIED` | The callback or token did not verify, or the person declined. Nothing is stored. |
+| `login-timeout`, `login-cancelled`, `port-in-use` | `E_CONFLICT` | The login ended without a credential. |
+| `login-unknown` | `E_NOT_FOUND` | No such pending login for this person. |
+| `auth-required` | `E_NOT_FOUND` | No such saved sign-in (logout), or it needs a new login. |
+| `persist-failed` | `E_STORAGE` | The secret service refused the write. |
+| `transport-failed`, `endpoint-rejected`, `discovery-invalid`, `siwc-unsupported` | `E_NOT_AVAILABLE` | OpenAI could not be reached or answered something unexpected. |
+
 ## Storage, refresh and logout
 
 Tokens, issued client IDs and refresh state are encrypted/keyring records. The separate secret-store index contains credential IDs, person/workspace metadata and expiry, never tokens. Public lists/status and object inspection contain no token or issued client ID. The existing secret service supplies auditing, atomic encrypted-file writes and owner-only permissions/Windows ACL handling. File fallback remains opt-in through `secrets.fileFallback.enabled`; `auth.openai.storeBackend: keyring` refuses fallback. `auto` reuses the secret service's configured selection.
@@ -73,4 +110,4 @@ PLUR1BUS_OPENAI_LOGIN_LIVE=1 node --experimental-strip-types --conditions=source
 
 The library conformance tests remain, extended with local HTTP OAuth/Responses and WebSocket Live servers. A started Core performs AuthService login → authenticated `session.submit` → Responses → durable plan/budget usage, with token-free logs. Tests cover ten-way refresh, failure/restart/logout, supplier execution, callback rejection, handle binding/replay/expiry/revoke and Realtime single-use delivery.
 
-Follow-ups after AC: auth RPC/CLI/Web UI, model/usage presentation, desktop media client, SIP, cloud metadata/mTLS transports and setup-provided vendor price/capacity discovery. Owner questions Q1–Q11 use D110's documented defaults; corrected AE5 explicitly chooses the Live Harness-handle relay. Local synthetic acceptance is not real-provider or native Windows/Linux acceptance. No CI result is claimed.
+Follow-ups after AC: Web login UI (RPC and CLI landed with R2), model/usage presentation, desktop media client, SIP, cloud metadata/mTLS transports and setup-provided vendor price/capacity discovery. Owner questions Q1–Q11 use D110's documented defaults; corrected AE5 explicitly chooses the Live Harness-handle relay. Local synthetic acceptance is not real-provider or native Windows/Linux acceptance. No CI result is claimed.

@@ -68,6 +68,13 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "identity.link.decline": rule("identity.self.write", system),
   "identity.link.remove": rule("identity.self.write", system),
   "identity.principals": rule("identity.self.read", system),
+  // R2 provider login (D110 AuthService): the installation owner's own credentials, people only.
+  "auth.login.start": rule("auth.credentials.write", system),
+  "auth.login.await": rule("auth.credentials.write", system),
+  "auth.login.cancel": rule("auth.credentials.write", system),
+  "auth.logout": rule("auth.credentials.write", system),
+  "auth.credentials.list": rule("auth.credentials.read", system),
+  "auth.status": rule("auth.credentials.read", system),
   "memory.forget": rule("memory.forget", agent),
   "agent.status": rule("agent.read", agent),
   "jobs.run": rule("jobs.run", system),
