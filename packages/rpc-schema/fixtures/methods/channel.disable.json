@@ -1,0 +1,18 @@
+{
+  "params": {
+    "id": "discord"
+  },
+  "result": {
+    "id": "discord",
+    "enabled": false,
+    "changed": true,
+    "restart": {
+      "live": [],
+      "core": false,
+      "modules": [
+        "discord"
+      ]
+    },
+    "missing": []
+  }
+}

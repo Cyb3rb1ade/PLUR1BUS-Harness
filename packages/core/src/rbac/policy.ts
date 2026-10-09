@@ -80,6 +80,11 @@ export const POLICY: readonly ActionSpec[] = Object.freeze([
   humanOnly(spec("auth.credentials.read", "system", { owner: A })),
   humanOnly(spec("auth.credentials.write", "system", { owner: A })),
 
+  // R3 channel management (`channel.*` RPC): the channel admin surface is Owner/Admin and people only; it can start a platform
+  // connection and (with --send-owner) send a message, so it is narrower than the catalogue's `channels.read` (Operator/Viewer).
+  humanOnly(spec("channel.read", "system", OA)),
+  humanOnly(spec("channel.write", "system", OA)),
+
   // My area and projects.
   spec("my.read", "user", { owner: O, admin: O, operator: O, member: O, viewer: O }),
   spec("my.write", "user", { owner: O, admin: O, operator: O, member: O }),

@@ -230,3 +230,13 @@ The R2 methods are declared in RPC_RULES and are human-only; the two actions are
 |---|---|---|
 | auth.credentials.list, auth.status | auth.credentials.read | Ids, workspace and expiry only |
 | auth.login.start, auth.login.await, auth.login.cancel, auth.logout | auth.credentials.write | The login is bound to the authenticated person; an `await` whose connection closes cancels the login |
+
+## Channel management (`channel.*`)
+
+The R3 methods are declared in RPC_RULES and are human-only; both actions are granted to **Owner and Admin** (the catalogue's `channels.read` stays the Operator/Viewer page gate and is not used by these methods). Operator, Member and Viewer are denied with `role-denied`, an agent principal with `agent-principal`, an unauthenticated call with `E_UNAUTHORIZED`; the handler never runs in any of those cases.
+
+| RPC | Coarse action | Notes |
+|---|---|---|
+| channel.list, channel.get, channel.status | channel.read | Secrets appear as names only (`{ secret, present }`), never a value |
+| channel.test | channel.read | `sendOwner: true` additionally requires `channel.write` (checked in the handler) and sends one fixed text to the caller's own linked identity on that channel |
+| channel.enable, channel.disable, channel.set | channel.write | A write is a `config.set` through the supervisor, so the per-key restart class applies; `channel.set` refuses secret values |

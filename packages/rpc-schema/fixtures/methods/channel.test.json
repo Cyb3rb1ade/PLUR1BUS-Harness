@@ -1,0 +1,15 @@
+{
+  "params": {
+    "id": "discord",
+    "sendOwner": true
+  },
+  "result": {
+    "id": "discord",
+    "ok": true,
+    "state": "running",
+    "sent": true,
+    "sentTo": {
+      "linkId": "link-1"
+    }
+  }
+}

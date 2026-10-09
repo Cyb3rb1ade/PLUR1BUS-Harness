@@ -2,7 +2,7 @@ import { backoffDelay, DEFAULT_BACKOFF, type BackoffPolicy } from "./backoff.ts"
 import { withTimeout, type Clock, type Timer } from "./clock.ts";
 import { validateChannelManifest, type ChannelManifest } from "./manifest.ts";
 import type { ChannelRouter } from "./router.ts";
-import type { Channel, ChannelFactory, ChannelHost, ChannelLogger, InboundMessage } from "./types.ts";
+import type { Channel, ChannelFactory, ChannelHealth, ChannelHost, ChannelLogger, InboundMessage, OutboundMessage } from "./types.ts";
 
 export type ChannelState = "stopped" | "waiting" | "starting" | "running" | "backoff" | "failed";
 
@@ -63,6 +63,36 @@ export class ChannelRegistry {
   }
 
   list(): ChannelStatus[] { return [...this.#entries.values()].map(snapshot); }
+
+  /** The validated manifest of a registered channel (read-only accessor for `channel.*`). */
+  manifestOf(name: string): ChannelManifest | undefined { return this.#entries.get(name)?.manifest; }
+
+  /**
+   * One health probe of the running channel, bounded by the call timeout. A channel that is not up answers
+   * `{ ok: false, detail: "not running" }`; an unknown name answers `undefined`. A failed probe never changes the
+   * channel's state (the periodic watch owns restarts).
+   */
+  async probe(name: string): Promise<ChannelHealth | undefined> {
+    const e = this.#entries.get(name);
+    if (!e) return undefined;
+    const ch = e.channel;
+    if (!ch || e.state !== "running") return { ok: false, detail: "not running" };
+    try {
+      const h = await withTimeout(this.#o.clock, () => ch.health(), this.#o.callTimeoutMs, `${name}.health`);
+      return h && typeof h.ok === "boolean" ? { ok: h.ok, ...(h.detail !== undefined ? { detail: String(h.detail) } : {}) } : { ok: false, detail: "malformed health answer" };
+    } catch (err) {
+      return { ok: false, detail: errText(err) };
+    }
+  }
+
+  /** Deliver one outbound message through a running channel. `false` when the channel is unknown or not running; a send failure rejects. */
+  async sendTo(name: string, msg: OutboundMessage): Promise<boolean> {
+    const e = this.#entries.get(name);
+    const ch = e?.channel;
+    if (!e || !ch || e.state !== "running") return false;
+    await withTimeout(this.#o.clock, () => ch.send(msg), this.#o.callTimeoutMs, `${name}.send`);
+    return true;
+  }
 
   /** Schedule a start (after the manifest's `startDelayMs`). Returns at once; never throws. */
   start(name: string): void {

@@ -103,6 +103,8 @@ export const ENTRIES: readonly Entry[] = [
   { action: "identity.self.read", page: "My area, Projects", verb: "read" },
   { action: "identity.self.write", page: "My area, Projects", verb: "write" },
   { action: "auth.credentials.read", page: "Models, Providers & logins, Channels, Plugins, MCP/ACP/A2A", verb: "read", cells: owner }, // R2: plan credentials are the installation owner's
+  { action: "channel.read", page: "Models, Providers & logins, Channels, Plugins, MCP/ACP/A2A", verb: "read", cells: ownerAdmin }, // R3: channel.* RPC, people only
+  { action: "channel.write", page: "Models, Providers & logins, Channels, Plugins, MCP/ACP/A2A", verb: "write", cells: ownerAdmin },
   { action: "auth.credentials.write", page: "Models, Providers & logins, Channels, Plugins, MCP/ACP/A2A", verb: "write", cells: owner },
   { action: "my.read", page: "My area, Projects", verb: "read", gate: ALL_O },
   { action: "my.write", page: "My area, Projects", verb: "write", gate: { owner: "O", admin: "O", operator: "O", member: "O" } },

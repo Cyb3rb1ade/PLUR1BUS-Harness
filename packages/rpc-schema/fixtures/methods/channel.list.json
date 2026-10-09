@@ -1,0 +1,24 @@
+{
+  "params": {},
+  "result": {
+    "host": true,
+    "channels": [
+      {
+        "id": "discord",
+        "displayName": "Discord",
+        "enabled": true,
+        "configured": true,
+        "state": "running",
+        "health": "ok"
+      },
+      {
+        "id": "slack",
+        "displayName": "Slack",
+        "enabled": false,
+        "configured": false,
+        "state": "not-registered",
+        "health": "unknown"
+      }
+    ]
+  }
+}
