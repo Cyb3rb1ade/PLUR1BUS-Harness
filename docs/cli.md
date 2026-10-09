@@ -1428,6 +1428,19 @@ Needs a verified release feed. Stops the daemon, snapshots the binary, `config.j
 
   Possible values: `stable`, `beta`
 
+* `--from <BUNDLE>` — Apply an offline bundle (.tar.zst or .zip with manifest.json, manifest.json.minisig and the artefacts) instead of the online feed
+
+   Verified like the online feed: the manifest signature, then every artefact's SHA-256 and size. Same snapshot, swap, health gate and rollback.
+* `--plan` — Print the update plan (versions, notes, breaking changes, restarts, migrations, add-ons, download size) and change nothing
+* `--lang <LANG>` — Language of the plan: en or de (default: from LC_ALL, LC_MESSAGES, LANG; German if it starts with "de")
+
+  Possible values: `en`, `de`
+
+* `--allow-downgrade` — Accept a release older than the installed one, or older than the newest this install already accepted
+* `--force` — Update even though a required add-on is incompatible with the new version (it is disabled)
+* `--require-addon <NAME>` — Mark an installed add-on as required for updates; remembered (repeatable)
+* `--unrequire-addon <NAME>` — Forget that an add-on is required (repeatable)
+* `--ca-bundle <PEM>` — PEM file of CA certificates for https downloads (a corporate CA); replaces the OS store. Env: PLUR1BUS_CA_BUNDLE
 
 
 

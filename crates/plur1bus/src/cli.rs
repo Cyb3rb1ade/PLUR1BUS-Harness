@@ -390,6 +390,32 @@ pub struct UpdateArgs {
     /// Release channel (default: the installed one)
     #[arg(long, value_name = "CHANNEL", value_parser = ["stable", "beta"])]
     pub channel: Option<String>,
+    /// Apply an offline bundle (.tar.zst or .zip with manifest.json, manifest.json.minisig and the artefacts) instead of the online feed
+    ///
+    /// Verified like the online feed: the manifest signature, then every artefact's SHA-256 and size. Same snapshot, swap, health gate and rollback.
+    #[arg(long, value_name = "BUNDLE", conflicts_with_all = ["manifest", "check", "rollback"])]
+    pub from: Option<PathBuf>,
+    /// Print the update plan (versions, notes, breaking changes, restarts, migrations, add-ons, download size) and change nothing
+    #[arg(long, conflicts_with_all = ["check", "rollback"])]
+    pub plan: bool,
+    /// Language of the plan: en or de (default: from LC_ALL, LC_MESSAGES, LANG; German if it starts with "de")
+    #[arg(long, value_name = "LANG", value_parser = ["en", "de"])]
+    pub lang: Option<String>,
+    /// Accept a release older than the installed one, or older than the newest this install already accepted
+    #[arg(long)]
+    pub allow_downgrade: bool,
+    /// Update even though a required add-on is incompatible with the new version (it is disabled)
+    #[arg(long)]
+    pub force: bool,
+    /// Mark an installed add-on as required for updates; remembered (repeatable)
+    #[arg(long = "require-addon", value_name = "NAME")]
+    pub require_addon: Vec<String>,
+    /// Forget that an add-on is required (repeatable)
+    #[arg(long = "unrequire-addon", value_name = "NAME")]
+    pub unrequire_addon: Vec<String>,
+    /// PEM file of CA certificates for https downloads (a corporate CA); replaces the OS store. Env: PLUR1BUS_CA_BUNDLE
+    #[arg(long, value_name = "PEM")]
+    pub ca_bundle: Option<PathBuf>,
 }
 
 #[derive(Subcommand, Debug)]
