@@ -177,8 +177,20 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: ApprovalCmd,
     },
-    /// Provider login (API keys, OAuth) — M2
-    Login(StubArgs),
+    /// [experimental] Provider sign-in: OAuth (ChatGPT) or an API key from stdin; `login status|list|logout`
+    ///
+    /// `login openai` signs in with ChatGPT in a browser (loopback PKCE); on a machine without one it prints the
+    /// `ssh -L` command for the callback port, and `--paste` accepts the address the browser was sent to. Any other
+    /// provider (or `login openai --api-key`) stores an API key read from stdin, never from an argument, as a secret and
+    /// prints only its name. No token or key is ever printed.
+    #[command(after_long_help = "\
+Examples:
+  plur1bus login openai
+  plur1bus login openai --no-browser --paste
+  printf %s \"$ANTHROPIC_API_KEY\" | plur1bus login anthropic
+  plur1bus login status
+  plur1bus login logout 3fa9c2d1")]
+    Login(crate::commands::login::LoginArgs),
     /// Channels — M4
     Channel(StubArgs),
     /// [experimental] Projects, members and agents (M5)

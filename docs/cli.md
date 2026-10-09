@@ -127,6 +127,9 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus approval deny`↴](#plur1bus-approval-deny)
 * [`plur1bus approval verify`↴](#plur1bus-approval-verify)
 * [`plur1bus login`↴](#plur1bus-login)
+* [`plur1bus login status`↴](#plur1bus-login-status)
+* [`plur1bus login list`↴](#plur1bus-login-list)
+* [`plur1bus login logout`↴](#plur1bus-login-logout)
 * [`plur1bus channel`↴](#plur1bus-channel)
 * [`plur1bus project`↴](#plur1bus-project)
 * [`plur1bus project create`↴](#plur1bus-project-create)
@@ -215,7 +218,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
 * `grant` — [experimental] Standing permissions: list, add and revoke grants (D109)
 * `approval` — [experimental] Approval requests: the pending queue, approve, deny and verify the chain (D109)
-* `login` — Provider login (API keys, OAuth) — M2
+* `login` — [experimental] Provider sign-in: OAuth (ChatGPT) or an API key from stdin; `login status|list|logout`
 * `channel` — Channels — M4
 * `project` — [experimental] Projects, members and agents (M5)
 * `trace` — [experimental] Collaboration traces
@@ -1965,13 +1968,67 @@ The request (command line or diff summary, targets, risk) is printed first. In a
 
 ## `plur1bus login`
 
-Provider login (API keys, OAuth) — M2
+[experimental] Provider sign-in: OAuth (ChatGPT) or an API key from stdin; `login status|list|logout`
 
-**Usage:** `plur1bus login`
+`login openai` signs in with ChatGPT in a browser (loopback PKCE); on a machine without one it prints the `ssh -L` command for the callback port, and `--paste` accepts the address the browser was sent to. Any other provider (or `login openai --api-key`) stores an API key read from stdin, never from an argument, as a secret and prints only its name. No token or key is ever printed.
+
+**Usage:** `plur1bus login [OPTIONS] [PROVIDER]
+       login <COMMAND>`
+
+Examples:
+  plur1bus login openai
+  plur1bus login openai --no-browser --paste
+  printf %s "$ANTHROPIC_API_KEY" | plur1bus login anthropic
+  plur1bus login status
+  plur1bus login logout 3fa9c2d1
+
+###### **Subcommands:**
+
+* `status` — [experimental] Saved sign-ins and logins in progress
+* `list` — [experimental] List saved sign-ins (ids, workspace, expiry; never a token)
+* `logout` — [experimental] Remove a saved sign-in and its local token state; the id may be a unique prefix
 
 ###### **Arguments:**
 
-* `<REST>`
+* `<PROVIDER>` — the provider to sign in to: openai (ChatGPT sign-in, or an API key), anthropic, google, gemini, xai, openrouter, together, fal, replicate, elevenlabs
+* `<REST>` — refused: a key never goes in an argument (kept only so the refusal does not echo it)
+
+###### **Options:**
+
+* `--api-key <VALUE>` — store an API key for the provider: the key is read from stdin and this flag takes no value (a value is refused)
+* `--oauth` — sign in with the provider's OAuth flow (the default for providers that have one)
+* `--no-browser` — do not try to open a browser; print the URL only
+* `--paste` — on a machine without a browser: after signing in elsewhere, paste the address the browser was sent to
+* `--timeout <SECONDS>` — give up after this many seconds (default 600)
+* `--name <NAME>` — the secret name for an API key (default <provider>/api-key)
+
+
+
+## `plur1bus login status`
+
+[experimental] Saved sign-ins and logins in progress
+
+**Usage:** `plur1bus login status`
+
+
+
+## `plur1bus login list`
+
+[experimental] List saved sign-ins (ids, workspace, expiry; never a token)
+
+**Usage:** `plur1bus login list`
+
+
+
+## `plur1bus login logout`
+
+[experimental] Remove a saved sign-in and its local token state; the id may be a unique prefix
+
+**Usage:** `plur1bus login logout <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
 
 
 

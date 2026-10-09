@@ -100,6 +100,32 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
 
     for (name, fixture) in &fixtures {
         match name.as_str() {
+            "auth.login.start" => check_pair::<
+                types::AuthLoginStartParams,
+                types::AuthLoginStartResult,
+            >(name, fixture, &root_schema),
+            "auth.login.await" => check_pair::<
+                types::AuthLoginAwaitParams,
+                types::AuthLoginAwaitResult,
+            >(name, fixture, &root_schema),
+            "auth.login.cancel" => check_pair::<
+                types::AuthLoginCancelParams,
+                types::AuthLoginCancelResult,
+            >(name, fixture, &root_schema),
+            "auth.credentials.list" => check_pair::<
+                types::AuthCredentialsListParams,
+                types::AuthCredentialsListResult,
+            >(name, fixture, &root_schema),
+            "auth.logout" => check_pair::<types::AuthLogoutParams, types::AuthLogoutResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "auth.status" => check_pair::<types::AuthStatusParams, types::AuthStatusResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "media.generate" => {
                 check_pair::<types::MediaGenerateParams, types::MediaGenerateResult>(
                     name,

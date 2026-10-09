@@ -2517,7 +2517,7 @@
           "type": "object", "additionalProperties": false,
           "required": [],
           "properties": {
-            "provider": { "type": "string", "enum": ["openai"], "default": "openai" },
+            "provider": { "type": "string", "enum": ["openai"] },
             "credentialId": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
           }
         },
