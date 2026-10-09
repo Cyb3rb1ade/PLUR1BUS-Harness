@@ -280,8 +280,26 @@ describe("streaming over HTTP", () => {
     const ctrl = new AbortController();
     const r = await fetch(`${url}/a2a/bernd/`, { method: "POST", headers: { ...auth, "content-type": "application/json" }, body: rpcBody("message/stream", msg("x")), signal: ctrl.signal });
     const reader = r.body!.getReader();
-    const first = await reader.read();
-    const taskId = JSON.parse(Buffer.from(first.value!).toString("utf8").slice(6)).result.id as string;
+    let buffer = "";
+    let taskId!: string;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += Buffer.from(value!).toString("utf8");
+      const events = buffer.split("\n\n");
+      buffer = events.pop() ?? "";
+      for (const ev of events) {
+        if (ev.startsWith("data: ")) {
+          const parsed = JSON.parse(ev.slice(6));
+          if (parsed.result?.id) {
+            taskId = parsed.result.id as string;
+            break;
+          }
+        }
+      }
+      if (taskId) break;
+    }
+    assert.ok(taskId, "expected taskId in initial stream event");
     ctrl.abort();
     await reader.cancel().catch(() => {});
     release();
