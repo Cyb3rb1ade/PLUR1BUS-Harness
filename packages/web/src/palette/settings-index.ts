@@ -12,6 +12,14 @@
 export type SettingSpec = { readonly key: string; readonly type: string; readonly tier: "basic" | "advanced"; readonly help?: string };
 
 export const SETTINGS: readonly SettingSpec[] = [
+  { key: "tools.hostctl.enabled", type: "boolean", tier: "advanced", help: "Register local hostctl tools." },
+  { key: "tools.hostctl.shell.allowed", type: "boolean", tier: "advanced", help: "Allow proc.shell after normal D109 approval." },
+  { key: "tools.hostctl.shell.default", type: "string", tier: "advanced", help: "Shell executable; set pwsh on Windows." },
+  { key: "tools.hostctl.exec.timeoutMs", type: "integer", tier: "advanced", help: "Maximum process lifetime in milliseconds." },
+  { key: "tools.hostctl.output.maxBytes", type: "integer", tier: "advanced", help: "Maximum file content or retained process output bytes." },
+  { key: "tools.hostctl.env.allow", type: "array", tier: "advanced", help: "Environment names eligible for inheritance; secrets and injection variables remain blocked." },
+  { key: "tools.hostctl.denyPatterns", type: "array", tier: "advanced", help: "Additional case-insensitive literal command substrings to refuse." },
+  { key: "tools.hostctl.search.maxResults", type: "integer", tier: "advanced", help: "Maximum matches per search." },
   { key: "core.logLevel", type: "enum", tier: "advanced", help: "Minimum severity written to the core log." },
   { key: "core.recall.softBudgetMs", type: "integer", tier: "advanced", help: "Soft target duration for a recall, in milliseconds." },
   { key: "core.recall.hardBudgetMs", type: "integer", tier: "advanced", help: "Maximum duration allowed for a recall before it is aborted, in milliseconds." },

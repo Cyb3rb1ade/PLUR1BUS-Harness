@@ -19,6 +19,14 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 |---|---|---|---|---|
 | `$schema` | string |  | live | URI identifying the JSON Schema used to validate this configuration. |
 | `schemaVersion` | const |  | core | Configuration format version; this schema supports version 1. |
+| `tools.hostctl.enabled` | boolean | `true` | core | Register local hostctl tools. |
+| `tools.hostctl.shell.allowed` | boolean | `false` | core | Allow proc.shell after normal D109 approval. |
+| `tools.hostctl.shell.default` | string | `"bash"` | core | Shell executable; set pwsh on Windows. |
+| `tools.hostctl.exec.timeoutMs` | integer | `30000` | core | Maximum process lifetime in milliseconds. |
+| `tools.hostctl.output.maxBytes` | integer | `65536` | core | Maximum file content or retained process output bytes. |
+| `tools.hostctl.env.allow` | array | `["PATH","LANG","LC_ALL","TZ","TERM","SystemRoot","PATHEXT","TEMP","TMP"]` | core | Environment names eligible for inheritance; secrets and injection variables remain blocked. |
+| `tools.hostctl.denyPatterns` | array | `[]` | core | Additional case-insensitive literal command substrings to refuse. |
+| `tools.hostctl.search.maxResults` | integer | `100` | core | Maximum matches per search. |
 | `core.logLevel` | enum | `"info"` | live | Minimum severity written to the core log. |
 | `core.recall.softBudgetMs` | integer | `400` | core | Soft target duration for a recall, in milliseconds. |
 | `core.recall.hardBudgetMs` | integer | `600` | live | Maximum duration allowed for a recall before it is aborted, in milliseconds. |

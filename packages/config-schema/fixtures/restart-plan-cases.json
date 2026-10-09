@@ -4,6 +4,38 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -203,6 +235,38 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -415,6 +479,38 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -614,6 +710,38 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -828,6 +956,38 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -1027,6 +1187,38 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -1245,6 +1437,38 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -1448,6 +1672,38 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -1662,6 +1918,38 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -1865,6 +2153,38 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -2085,6 +2405,38 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -2284,6 +2636,38 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -2502,6 +2886,38 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -2701,6 +3117,38 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "debug",
         "recall": {
@@ -2916,6 +3364,38 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -3120,6 +3600,38 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -3339,6 +3851,38 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {
@@ -3538,6 +4082,38 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "tools": {
+        "hostctl": {
+          "enabled": true,
+          "shell": {
+            "allowed": false,
+            "default": "bash"
+          },
+          "exec": {
+            "timeoutMs": 30000
+          },
+          "output": {
+            "maxBytes": 65536
+          },
+          "env": {
+            "allow": [
+              "PATH",
+              "LANG",
+              "LC_ALL",
+              "TZ",
+              "TERM",
+              "SystemRoot",
+              "PATHEXT",
+              "TEMP",
+              "TMP"
+            ]
+          },
+          "denyPatterns": [],
+          "search": {
+            "maxResults": 100
+          }
+        }
+      },
       "core": {
         "logLevel": "info",
         "recall": {

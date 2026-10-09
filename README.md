@@ -10,6 +10,7 @@ Phase 0 produced analysis and decision records only. The owner approved all elev
 
 | Document | What it is |
 |---|---|
+| [`docs/hostctl.md`](docs/hostctl.md) | Local computer-control tools, D109 capabilities, process sessions and platform limits |
 | [`docs/ci.md`](docs/ci.md) | CI jobs, failure semantics, retries and local verification |
 | [`docs/release.md`](docs/release.md) | Signed M8a release drafts, verification and packaging templates |
 | [`docs/phase0/brief.md`](docs/phase0/brief.md) | The binding Phase-0 brief: decisions D1–D11, the deliverable list, the working rules |

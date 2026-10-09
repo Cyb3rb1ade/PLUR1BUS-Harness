@@ -9,6 +9,149 @@
   "properties": {
     "$schema": { "description": "URI identifying the JSON Schema used to validate this configuration.", "type": "string", "x-restart": "live", "x-tier": "advanced" },
     "schemaVersion": { "description": "Configuration format version; this schema supports version 1.", "const": 1, "x-restart": "core", "x-tier": "advanced" },
+    "tools": {
+      "description": "Local tool configuration.",
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "properties": {
+        "hostctl": {
+          "description": "Local computer-control tools, gated by D109. No remote listener.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "enabled": {
+              "description": "Register local hostctl tools.",
+              "type": "boolean",
+              "default": true,
+              "x-tier": "advanced",
+              "x-restart": "core"
+            },
+            "shell": {
+              "description": "Explicit shell opt-in.",
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "allowed": {
+                  "description": "Allow proc.shell after normal D109 approval.",
+                  "type": "boolean",
+                  "default": false,
+                  "x-tier": "advanced",
+                  "x-restart": "core"
+                },
+                "default": {
+                  "description": "Shell executable; set pwsh on Windows.",
+                  "type": "string",
+                  "default": "bash",
+                  "enum": [
+                    "bash",
+                    "zsh",
+                    "pwsh"
+                  ],
+                  "x-tier": "advanced",
+                  "x-restart": "core"
+                }
+              }
+            },
+            "exec": {
+              "description": "Process execution limits.",
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "timeoutMs": {
+                  "description": "Maximum process lifetime in milliseconds.",
+                  "type": "integer",
+                  "default": 30000,
+                  "minimum": 1,
+                  "maximum": 300000,
+                  "x-tier": "advanced",
+                  "x-restart": "core"
+                }
+              }
+            },
+            "output": {
+              "description": "Read and process output limits.",
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "maxBytes": {
+                  "description": "Maximum file content or retained process output bytes.",
+                  "type": "integer",
+                  "default": 65536,
+                  "minimum": 32,
+                  "maximum": 1048576,
+                  "x-tier": "advanced",
+                  "x-restart": "core"
+                }
+              }
+            },
+            "env": {
+              "description": "Environment inheritance allowlist.",
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "allow": {
+                  "description": "Environment names eligible for inheritance; secrets and injection variables remain blocked.",
+                  "type": "array",
+                  "default": [
+                    "PATH",
+                    "LANG",
+                    "LC_ALL",
+                    "TZ",
+                    "TERM",
+                    "SystemRoot",
+                    "PATHEXT",
+                    "TEMP",
+                    "TMP"
+                  ],
+                  "items": {
+                    "type": "string"
+                  },
+                  "maxItems": 128,
+                  "uniqueItems": true,
+                  "x-tier": "advanced",
+                  "x-restart": "core"
+                }
+              }
+            },
+            "denyPatterns": {
+              "description": "Additional case-insensitive literal command substrings to refuse.",
+              "type": "array",
+              "default": [],
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "maxItems": 128,
+              "x-tier": "advanced",
+              "x-restart": "core"
+            },
+            "search": {
+              "description": "Bounded local search.",
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "maxResults": {
+                  "description": "Maximum matches per search.",
+                  "type": "integer",
+                  "default": 100,
+                  "minimum": 1,
+                  "maximum": 1000,
+                  "x-tier": "advanced",
+                  "x-restart": "core"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "core": {
       "description": "Settings for the core process, including logging, memory operation budgets, and shutdown.",
       "type": "object", "additionalProperties": false, "default": {},
