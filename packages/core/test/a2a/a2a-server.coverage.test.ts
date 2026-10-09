@@ -277,6 +277,8 @@ describe("streaming over HTTP", () => {
       run: async function* () { yield { type: "delta", text: "a" }; await gate; yield { type: "delta", text: "b" }; },
     };
     const { s, url, port } = await start({ turns });
+    // Server-side signal that the client socket is gone, so release() cannot run before the disconnect was observed.
+    const socketClosed = new Promise<void>((resolve) => { s.server.once("connection", (sock) => { sock.once("close", () => resolve()); }); });
     const ctrl = new AbortController();
     const r = await fetch(`${url}/a2a/bernd/`, { method: "POST", headers: { ...auth, "content-type": "application/json" }, body: rpcBody("message/stream", msg("x")), signal: ctrl.signal });
     const reader = r.body!.getReader();
@@ -302,6 +304,7 @@ describe("streaming over HTTP", () => {
     assert.ok(taskId, "expected taskId in initial stream event");
     ctrl.abort();
     await reader.cancel().catch(() => {});
+    await socketClosed;
     release();
     await s.handler!.tasks.settled(taskId);
     const got = await post(url, rpcBody("tasks/get", { id: taskId }));
