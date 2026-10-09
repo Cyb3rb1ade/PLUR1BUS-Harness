@@ -276,7 +276,11 @@ pub(super) fn apply(out: &Out, layout: &Layout, args: &UpdateArgs, feed: Feed) -
         Ok(None) => {
             bundle::cleanup(layout);
             out.ok(
-                "update.apply/1",
+                if args.plan {
+                    "update.plan/1"
+                } else {
+                    "update.apply/1"
+                },
                 &json!({ "outcome": "up-to-date", "version": feed.manifest.binary.version }),
                 || "up to date".to_string(),
             );

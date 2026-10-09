@@ -441,7 +441,7 @@ mod tests {
         assert_eq!(FetchError::Io(String::new()).reason(), "io");
     }
 
-    const TEST_CA: &str = include_str!("../../tests/fixtures/ca/test-ca.pem");
+    const TEST_CA: &str = include_str!("../../tests/fixtures/ca/test-ca.crt");
 
     /// The environment is process-wide: the tests that set proxy variables or the CA bundle run one at a time.
     static ENV: std::sync::Mutex<()> = std::sync::Mutex::new(());

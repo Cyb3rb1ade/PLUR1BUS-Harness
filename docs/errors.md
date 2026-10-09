@@ -58,3 +58,24 @@ the core sent. The last two are raised by the CLI itself.
 | `login-timeout`, `login-cancelled`, `port-in-use` | `E_CONFLICT` | 1 | The sign-in ended without a credential. |
 | `login-cancelled` | `E_CANCELLED` | 130 | Ctrl-C during the sign-in; the login was cancelled in the core. |
 | `login-unknown`, `credential-unknown`, `auth-required` | `E_NOT_FOUND` | 1 | No such pending login or saved sign-in. |
+
+## Update reasons (`plur1bus update`)
+
+`plur1bus update` reports `E_NOT_AVAILABLE` (exit 1; `confirmation-required` is `E_INVALID_PARAMS`, exit 2) with a `reason`. Nothing was changed for any of them, except where the table says otherwise. See [updates.md](updates.md).
+
+| `reason` | Meaning |
+|---|---|
+| `release-unverified` | This build has no release key baked in; it will not apply what it cannot verify. |
+| `release-signature-invalid` | The manifest signature does not match any key this install trusts (also: malformed, or the baked key is invalid). |
+| `release-key-expired` | The release is signed by a rotated key whose expiry has passed. |
+| `key-list-invalid` | A key list is not signed by a trusted key, is for another channel, or is malformed. |
+| `release-unreachable`, `download-too-large`, `digest-mismatch`, `size-mismatch`, `io` | Fetching or verifying a file failed (a declared `size` must match exactly). |
+| `release-malformed`, `min-from-version`, `no-native-release`, `target-unsupported`, `unit-unsupported` | The release cannot be applied to this install (`unit-unsupported`: it also changes the Node runtime or modules, run `plur1bus setup`). |
+| `downgrade-refused` | The release is older than the installed version; `--allow-downgrade` overrides. |
+| `release-replay` | The release is older than the newest one this install accepted on the channel; `--allow-downgrade` overrides. |
+| `release-version-invalid` | A version that is not `major.minor.patch` cannot be ordered against the other. |
+| `guard-unreadable`, `addons-unreadable`, `state-unreadable` | A file under `<home>/update/` does not parse; it is never treated as empty. |
+| `addon-incompatible` | A required add-on would be incompatible with the new version; `--force` disables it and updates anyway. |
+| `addon-disable-failed` | (Outcome `rolled-back`.) An add-on could not be disabled after the swap; the update was rolled back. |
+| `bundle-unreadable`, `bundle-invalid`, `archive-unsupported`, `archive-unsafe-entry`, `channel-mismatch` | An offline bundle (`--from`) is missing, lacks `manifest.json`, `manifest.json.minisig` or an artefact, is not a `.tar.zst`/`.zip`, holds an entry that is not a plain file or directory (traversal, absolute name, link, duplicate), or is for another channel. |
+| `ca-bundle-invalid` | `--ca-bundle` / `PLUR1BUS_CA_BUNDLE` is unreadable or holds no certificate (`E_INVALID_PARAMS`, exit 2). |
