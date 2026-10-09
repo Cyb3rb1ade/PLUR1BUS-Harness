@@ -527,3 +527,75 @@ test("harness: the shared contract helper wires a working channel", async () => 
     await hx.dispose();
   }
 });
+
+// ---- Identity-bearing actions (/link, approvals) need a trusted DMARC pass, whatever requireAuthPass says ----
+const IDENTITY_CASES: { name: string; auth: string | null; noAuthServId?: boolean; allowed: boolean }[] = [
+  { name: "forged From, no Authentication-Results", auth: null, allowed: false },
+  { name: "dmarc=pass from the trusted authserv-id", auth: "mx.test; dmarc=pass", allowed: true },
+  {
+    name: "spf and dkim pass without dmarc",
+    auth: "mx.test; spf=pass smtp.mailfrom=x.example; dkim=pass header.d=x.example",
+    allowed: false,
+  },
+  { name: "dmarc=fail", auth: "mx.test; dmarc=fail", allowed: false },
+  { name: "dmarc=pass from a foreign authserv-id", auth: "attacker.example; dmarc=pass", allowed: false },
+  { name: "dmarc=pass but no authServId configured", auth: "mx.test; dmarc=pass", noAuthServId: true, allowed: false },
+];
+for (const c of IDENTITY_CASES) {
+  test(`identity actions: ${c.name}`, async () => {
+    const claims: unknown[] = [];
+    const pairing = {
+      claim: (p: unknown) => {
+        claims.push(p);
+        return { pairingId: "p", state: "awaiting-confirmation", confirmBy: 0 };
+      },
+    } as unknown as Pick<IdentityService, "claim">;
+    const fx = await makeEmailFixture();
+    const ch = fx.make(false, { pairing, noAuthServId: c.noAuthServId ?? false });
+    const h = hostRec();
+    const decisions: ApprovalDecision[] = [];
+    let chatId = "";
+    let root = "";
+    ch.onMessage((m) => {
+      chatId = m.chatId;
+      root = m.rootMessageId;
+    });
+    ch.onDecision((d) => void decisions.push(d));
+    try {
+      await ch.start(h.host);
+      await fx.deliverRaw(fixtureMail({ from: ALLOWED, body: "start", messageId: "idc-root@x" }));
+      const { promptId } = await ch.prompt({
+        chatId,
+        text: "ok?",
+        choices: [{ id: "once", label: "once" }],
+        approverIds: [ALLOWED],
+      });
+      const promptMail = parseMessage(fx.smtp.received.at(-1)!.data);
+      const code = /\[approval ([0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4})\]/.exec(promptMail.subject)![1]!;
+      await fx.deliverRaw(
+        fixtureMail({
+          from: ALLOWED,
+          body: `${code} 1`,
+          messageId: "idc-approve@x",
+          auth: c.auth,
+          extraHeaders: [`References: <${root}> <${promptMail.messageId}>`],
+        }),
+      );
+      await fx.deliverRaw(fixtureMail({ from: ALLOWED, body: "link LINKCODE1", messageId: "idc-link@x", auth: c.auth }));
+      if (c.allowed) {
+        assert.equal(claims.length, 1);
+        assert.equal(decisions.length, 1);
+        assert.equal(decisions[0]!.promptId, promptId);
+        assert.equal(decisions[0]!.choiceId, "once");
+      } else {
+        assert.equal(claims.length, 0, "forged or unaligned mail must not bind an identity");
+        assert.equal(decisions.length, 0, "forged or unaligned mail must not approve");
+        assert.ok(!JSON.stringify(fx.logs).includes("LINKCODE1"), "code never logged");
+        assert.ok(!JSON.stringify(fx.logs).includes(code), "approval code never logged");
+      }
+    } finally {
+      await ch.stop();
+      await fx.dispose();
+    }
+  });
+}

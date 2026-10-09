@@ -107,18 +107,18 @@ To answer, reply to this email with one line:
 The code works once and expires in about 5 minutes.
 ```
 
-A reply is accepted only when all of these hold: the sender is one of the prompt's approvers, the code matches an unexpired and unused prompt, the reply is in the prompt's thread, and the choice number is valid. Otherwise the reply is refused politely (rate-limited) and is never emitted as a decision.
+A reply is accepted only when all of these hold: the trusted authentication result is `dmarc=pass`, the sender is one of the prompt's approvers, the code matches an unexpired and unused prompt, the reply is in the prompt's thread, and the choice number is valid. Otherwise the reply is refused politely (rate-limited) and is never emitted as a decision.
 
 Caveats:
 
-- Email is not an authenticated channel by default. A From address can be forged on a mailbox that does not enforce DMARC. Enable `authServId` and `requireAuthPass`, and make sure the receiving server enforces DMARC for your domain, before relying on approvals.
+- Approval replies and `/link` are accepted only with a trusted `dmarc=pass` from the configured `authServId`, whatever `requireAuthPass` says. Without `authServId` they are refused. The rule protects only as far as the sender's domain publishes an enforcing DMARC policy (`p=quarantine` or `p=reject`). A domain with no DMARC record, or with `p=none`, gives a forger no obstacle at the receiving server, so such senders must not be approvers.
 - Anyone who can read the approver's mailbox can read the code. Treat approval prompts as sensitive, and do not approve from shared mailboxes.
 - Codes are single-use and expire after `ttlMs` (default five minutes, at most 24 hours).
 - Approvals grant nothing by themselves. The host decides what a decision means.
 
 ## 6. `/link`
 
-In a reply or new mail, put `link <code>` or `/link <code>` on the first line of the body, or in the subject. The channel calls `pairing.claim` with the bot's address as the account and the sender address as the user. Replies are uniform: one message on success, another on any failure. The code is never logged or echoed. Without a `pairing` port, the line is ordinary text.
+In a reply or new mail, put `link <code>` or `/link <code>` on the first line of the body, or in the subject. The sender must have a trusted `dmarc=pass` (see section 3); otherwise the request is refused with the uniform failure reply and no identity is bound. The channel calls `pairing.claim` with the bot's address as the account and the sender address as the user. Replies are uniform: one message on success, another on any failure. The code is never logged or echoed. Without a `pairing` port, the line is ordinary text.
 
 ## 7. Health and failures
 

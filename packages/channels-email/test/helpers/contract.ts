@@ -34,14 +34,16 @@ export interface FixtureMail {
   body: string;
   messageId: string;
   extraHeaders?: string[];
-  /** Authentication-Results value; defaults to a trusted mx.test pass. */
-  auth?: string;
+  /** Authentication-Results value; defaults to a trusted mx.test pass. null omits the header. */
+  auth?: string | null;
 }
 
 /** Test-only fixture mail. Lines are CRLF. */
 export function fixtureMail(opts: FixtureMail): Buffer {
   const lines = [
-    `Authentication-Results: ${opts.auth ?? "mx.test; spf=pass smtp.mailfrom=sender; dkim=pass header.d=sender; dmarc=pass"}`,
+    ...(opts.auth === null
+      ? []
+      : [`Authentication-Results: ${opts.auth ?? "mx.test; spf=pass smtp.mailfrom=sender; dkim=pass header.d=sender; dmarc=pass"}`]),
     `From: ${opts.from}`,
     `To: ${BOT}`,
     `Subject: ${opts.subject ?? "hello"}`,

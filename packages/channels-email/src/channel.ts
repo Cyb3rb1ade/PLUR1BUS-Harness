@@ -515,6 +515,12 @@ export class EmailChannel implements Channel {
 
     const link = parseLinkCommand(first) ?? parseLinkCommand(msg.subject.replace(/^(\s*re:\s*)+/i, ""));
     if (link !== undefined && this.#o.pairing) {
+      // Identity binding needs a trusted DMARC pass; the From address alone is forgeable.
+      if (!authPasses(auth)) {
+        this.#log("warn", "channel.email.link-refused", { reason: "auth" });
+        await this.#replyQuietly(key, this.#msgs.linkFail);
+        return;
+      }
       let ok = false;
       try {
         this.#o.pairing.claim({ code: link, identity: { channel: "email", accountId: this.#cfg.address, userId: from } });
@@ -598,7 +604,7 @@ export class EmailChannel implements Channel {
     else if (p.chatId !== key) reason = "wrong-thread";
     else if (!p.approverIds.includes(from)) reason = "not-approver";
     else if (choice < 1 || choice > p.choices.length) reason = "bad-choice";
-    else if (!authPasses(auth) && this.#cfg.requireAuthPass) reason = "auth";
+    else if (!authPasses(auth)) reason = "auth";
     if (reason) {
       this.#log("warn", "channel.email.approval-refused", { reason });
       if (this.#refusals.take(from)) void this.#replyQuietly(key, this.#msgs.approvalRefused);
