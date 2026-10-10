@@ -253,11 +253,17 @@ test("local TTS provider: pcm16 at the model rate, resampling, speakers by name,
   } finally { await vendor.close(); await rm(dir, { recursive: true, force: true }); }
 });
 
-test("the shipped catalog cannot be downloaded until sha256 is pinned: setLanguage says so, nothing is fetched", async () => {
+test("the shipped catalog: verified packages are downloadable, the entry without a package (Martin) is not, and says why", async () => {
   const dir = await mkdtemp(join(tmpdir(), "voice-local-"));
   try {
-    const v = new LocalVoice({ config: { acceptedLicences: Object.fromEntries(Object.values(builtinCatalog().models).map((m) => [licenceKey(m), "2026-10-10T00:00:00Z"])) }, modelsDir: dir, engine: new FakeEngine(), catalog: builtinCatalog(), fetch: async () => { throw new Error("must not fetch"); } });
-    await assert.rejects(v.setLanguage("en", { download: true }), (e) => isVoiceProviderError(e) && e.code === "catalog");
+    const v = new LocalVoice({ modelsDir: dir, engine: new FakeEngine(), catalog: builtinCatalog(), fetch: async () => { throw new Error("must not fetch"); } });
+    const de = (await v.getLanguage("de"))!;
+    assert.equal(de.profiles.fast.stt.downloadable, true);
+    assert.equal(de.profiles.fast.tts.downloadable, true);
+    assert.equal(de.profiles.quality.tts.downloadable, false);
+    assert.match(de.profiles.quality.tts.reason ?? "", /no package/);
+    const en = (await v.getLanguage("en"))!;
+    assert.equal(en.profiles.fast.stt.downloadable && en.profiles.fast.tts.downloadable && en.profiles.quality.stt.downloadable, true);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 

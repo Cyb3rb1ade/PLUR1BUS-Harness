@@ -17,6 +17,7 @@ test("engine kinds: which catalog engines the sherpa adapter can run", () => {
   const e = createSherpaEngine();
   assert.equal(e.supports("stt", "streaming-transducer"), true);
   assert.equal(e.supports("stt", "nemo-transducer"), true);
+  assert.equal(e.supports("stt", "nemo-ctc"), true);
   assert.equal(e.supports("tts", "vits"), true);
   assert.equal(e.supports("tts", "kokoro"), true);
   assert.equal(e.supports("tts", "pocket-tts"), false);
@@ -74,4 +75,17 @@ test("dispose frees native objects where the binding offers a free/delete/destro
   assert.ok(freed.includes("tts"));
   const vad = await engine.loadVad(resolveModel(c.models["silero-vad"]!, "/m/v"));
   assert.doesNotThrow(() => vad.dispose());
+});
+
+test("the Parakeet 110M entry runs as a single-file CTC model, not a transducer", async () => {
+  const seen: Record<string, any> = {};
+  class Offline { constructor(cfg: any) { seen["offline"] = cfg; } createStream() { return { acceptWaveform() {} }; } async decodeAsync() {} getResult() { return { text: "ok" }; } }
+  const engine = createSherpaEngine({ loadModule: async () => ({ OfflineRecognizer: Offline }) });
+  const m = builtinCatalog().models["parakeet-110m-en"]!;
+  assert.equal(m.engine, "nemo-ctc");
+  const asr = await engine.loadAsr(resolveModel(m, "/m/p110"));
+  assert.equal(asr.streaming, false);
+  assert.equal(seen["offline"].modelConfig.nemoCtc.model, "/m/p110/model.int8.onnx");
+  assert.equal(seen["offline"].modelConfig.tokens, "/m/p110/tokens.txt");
+  assert.equal(seen["offline"].modelConfig.transducer, undefined);
 });

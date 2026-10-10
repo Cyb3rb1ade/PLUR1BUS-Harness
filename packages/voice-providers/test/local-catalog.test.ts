@@ -39,7 +39,8 @@ test("licence gate: confirmed commercial licences pass, non-commercial and uncon
     assert.throws(() => assertLicenceAccepted(c.models[id]!, []), (e) => isVoiceProviderError(e) && e.code === "licence_required" && /UNCONFIRMED/.test(e.message));
     assert.doesNotThrow(() => assertLicenceAccepted(c.models[id]!, [licenceKey(c.models[id]!)]));
   }
-  assert.match(licenceNotice(c.models["kroko-de"]!), /commercial use not confirmed/);
+  assert.match(licenceNotice(c.models["voice-martin-de"]!), /commercial use not confirmed/);
+  assert.match(licenceNotice(c.models["piper-en-lessac-low"]!), /NON-COMMERCIAL/);
 });
 
 test("adding a language is data only: an override adds models and a language, and the result validates", () => {
@@ -77,11 +78,11 @@ test("licence confirmation is per model and licence id: accepting one does not a
   const c = builtinCatalog();
   const kroko = c.models["kroko-de"]!;
   const martin = c.models["voice-martin-de"]!;
-  assert.equal(licenceKey(kroko), "kroko-de@see-model-card");
+  assert.equal(licenceKey(kroko), "kroko-de@CC-BY-SA");
   assert.throws(() => assertLicenceAccepted(martin, [licenceKey(kroko)]), (e) => isVoiceProviderError(e) && e.code === "licence_required" && /voice-martin-de@unknown/.test(e.message));
   assert.doesNotThrow(() => assertLicenceAccepted(kroko, new Set([licenceKey(kroko)])));
-  const updated = { ...kroko, licence: { ...kroko.licence, id: "see-model-card-v2" } };
-  assert.throws(() => assertLicenceAccepted(updated, new Set([licenceKey(kroko)])), (e) => isVoiceProviderError(e) && e.code === "licence_required" && /kroko-de@see-model-card-v2/.test(e.message));
+  const updated = { ...kroko, licence: { ...kroko.licence, id: "CC-BY-SA-v2" } };
+  assert.throws(() => assertLicenceAccepted(updated, new Set([licenceKey(kroko)])), (e) => isVoiceProviderError(e) && e.code === "licence_required" && /kroko-de@CC-BY-SA-v2/.test(e.message));
   assert.throws(() => assertLicenceAccepted({ ...kroko, id: "kroko-new" }, [licenceKey(kroko)]), (e) => isVoiceProviderError(e) && e.code === "licence_required");
 });
 

@@ -93,7 +93,7 @@ function freeNative(x: unknown): void {
   }
 }
 
-const STT_ENGINES = new Set(["streaming-transducer", "nemo-transducer"]);
+const STT_ENGINES = new Set(["streaming-transducer", "nemo-transducer", "nemo-ctc"]);
 const TTS_ENGINES = new Set(["vits", "kokoro"]);
 
 /**
@@ -153,7 +153,9 @@ export function createSherpaEngine(o: SherpaEngineOptions = {}): LocalEngine {
           dispose() { for (const st of live) freeNative(st); live.clear(); freeNative(rec); },
         };
       }
-      const rec = new s.OfflineRecognizer({ featConfig: { sampleRate: 16000, featureDim: 80 }, modelConfig: { transducer, ...common, modelType: "nemo_transducer" } });
+      // "nemo-ctc" is a single-file CTC export (Parakeet TDT-CTC 110M); VERIFY the nemoCtc key against the pinned binding.
+      const nemoCtc = m.model.engine === "nemo-ctc";
+      const rec = new s.OfflineRecognizer({ featConfig: { sampleRate: 16000, featureDim: 80 }, modelConfig: nemoCtc ? { nemoCtc: { model: p["model"] }, ...common } : { transducer, ...common, modelType: "nemo_transducer" } });
       const run = async (samples: Float32Array, sampleRate: number) => {
         const st = rec.createStream();
         st.acceptWaveform({ sampleRate, samples });
