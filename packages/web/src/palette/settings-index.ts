@@ -12,6 +12,13 @@
 export type SettingSpec = { readonly key: string; readonly type: string; readonly tier: "basic" | "advanced"; readonly help?: string };
 
 export const SETTINGS: readonly SettingSpec[] = [
+  { key: "containers", type: "object", tier: "advanced", help: "Container distribution library settings. Installer/runtime wiring is separate from the core." },
+  { key: "containers.runtime", type: "enum", tier: "advanced", help: "Preferred runtime; auto prefers Apple container on supported Apple Silicon macOS." },
+  { key: "containers.image", type: "string", tier: "advanced", help: "Harness image reference; production installations should use an immutable digest." },
+  { key: "containers.stateVolume", type: "string", tier: "advanced", help: "Runtime-managed state volume; never use a macOS virtiofs bind for SQLite state." },
+  { key: "containers.bindAddress", type: "string", tier: "advanced", help: "Explicit loopback or private LAN API host binding; the runtime refuses public/wildcard addresses and publishes no API by default." },
+  { key: "containers.healthTimeoutMs", type: "integer", tier: "advanced", help: "Time allowed for a stack service to pass its health gate." },
+  { key: "sidecars", type: "object", tier: "advanced", help: "Optional sidecars keyed by id. Core consumers read configuration only; runtime wiring is separate." },
   { key: "tools.hostctl.enabled", type: "boolean", tier: "advanced", help: "Register local hostctl tools." },
   { key: "tools.hostctl.shell.allowed", type: "boolean", tier: "advanced", help: "Allow proc.shell after normal D109 approval." },
   { key: "tools.hostctl.shell.default", type: "string", tier: "advanced", help: "Shell executable; set pwsh on Windows." },
