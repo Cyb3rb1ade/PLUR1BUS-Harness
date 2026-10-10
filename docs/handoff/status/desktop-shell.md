@@ -1821,3 +1821,64 @@ consent, online/offline variants, tiered uninstall, signing hooks and Store/Flat
 configuration remain open. Existing artwork/configuration are inherited from the
 base; no WP13 completion is claimed. Real Apple pkg, vendor checksums and release
 OCI tarballs remain placeholders under the handoff Scope rule.
+
+## WP14 — CI extension, Apple scaffold and advisory canary (2026-10-11)
+
+Status: IMPLEMENTED; local checks below, first new workflow runs pending owner review.
+Branch: `codex/desktop-wp14-15`.
+Base: `origin/codex/desktop-wp11-13` at `81511ef6`; #368 and #375 were OPEN
+when work began. Exactly one combined WP14/WP15 PR against main, stacked on #375.
+Implementation head: the `feat(desktop): WP14` commit immediately preceding WP15
+in this branch; report included in that commit. No CI status queried.
+
+### Done and interfaces
+
+- `container-shell.yml`: Linux x64/ARM64 × Docker rootful, Docker rootless,
+  Podman rootless. Fixture setup separated from offline/local acceptance.
+- `scripts/container-e2e.mjs`: explicit local socket, prebuilt stub images,
+  controller_e2e, upgrade_e2e, preloaded loopback `registry:2` pull-by-digest;
+  missing digest refused. Per-run synthetic namespace; registry aliases removed
+  before uninstall and on failure. No engine prune or real release image pull.
+- Stub Dockerfile copies all five workspace members; duplicate host-helper COPY
+  removed. Controller fixture is debug-only. An inherited release-only reference
+  to renamed `window` is removed from runtime_commands.rs.
+- Unsigned Tauri configuration disables updater artifacts; the separate
+  `tauri.release.conf.json` overlay alone enables signed release artifacts.
+- `apple-container.yml`: dispatch-only self-hosted macOS/ARM64/macos-26-container;
+  versioned JSON report, explicit skip reason or availability scaffold, optional.
+- Nightly actual-shell Tauri 3/CEF compile patch and twice-built Linux `.deb`
+  comparison are advisory and allowed to fail. No promotion/release gate.
+- All actions use the exact desktop.yml SHAs; contents:read, no secrets,
+  no pull_request_target. New offline policy regression: 4 PASS (red first).
+
+### Verification and acceptance
+
+- PASS: Docker/Podman dry-run plans without runtime/network/mutation.
+- PASS: actionlint for all three workflows, allowing only the declared custom
+  Apple runner label and pre-existing desktop.yml SC2016/SC2129 diagnostics.
+- PASS: `git apply --check apps/desktop/canary/tauri3.patch`.
+- PASS: Docker 29.4.0 (OrbStack/macOS arm64), controller install/restart/stop/
+  uninstall and host non-loopback refusal; upgrade A → B → failing B′ → B,
+  same synthetic device token/installation state; local registry digest pull
+  and missing-digest refusal. No image published.
+- PASS: Apple availability scaffold locally, CLI 1.5.0. Real Apple container
+  acceptance is Not run: this scaffold needs the owner's real image/hardware gate.
+- Not run: Podman local acceptance (not installed); six Linux CI variants,
+  Tauri 3/CEF compile and Linux `.deb` repro (Linux runner needed; first runs
+  happen after push). No CI green claim.
+- PASS: debug all-targets and production release workspace Clippy with
+  `-D warnings`; placeholder-key override explicit for unsigned release check.
+  Release all-targets attempt fails in inherited debug-only fixture examples;
+  these are excluded from the production release gate, not exposed in release.
+- §8 rows 1/4/5: stub/controller boundaries only; row 2: fake/scaffold only;
+  row 13: workflows prepared, new matrix/canary execution still pending.
+- Logs: `/tmp/wp14-{policy,actionlint,container,docker-setup}.log`.
+
+### Deviations / next
+
+No new business-policy default. One combined PR and worktree supersede the old
+one-PR-per-WP wording, as explicitly requested. Initial full parallel Rust run
+hit the existing proxy p95 bound under concurrent compilation; the unchanged
+serial acceptance run passed without changing its budget. Registry setup accepts
+OCI/Docker manifest indexes as well as manifests; temporary aliases cannot block
+the controller's image uninstall. WP15 follows in its own commit.

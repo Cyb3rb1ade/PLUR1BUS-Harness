@@ -1,0 +1,23 @@
+--- a/apps/desktop/src-tauri/Cargo.toml
++++ b/apps/desktop/src-tauri/Cargo.toml
+@@ -29,7 +29,8 @@
+ tokio-util = { version = "=0.7.19", features = ["io"] }
+ bollard = { version = "=0.21.1", default-features = false, features = ["pipe"] }
+ plur1bus-desktop-contract = { path = "../desktop-contract", version = "=0.1.0" }
+-tauri = { version = "=2.12.0", features = ["tray-icon", "image-png"] }
++tauri = { version = "=3.0.0-alpha.3", features = ["tray-icon", "image-png"] }
++tauri-runtime-cef = "=3.0.0-alpha.5"
+ tauri-plugin-single-instance = "=2.5.0"
+ tauri-plugin-autostart = "=2.6.0"
+ tauri-plugin-notification = "=2.5.0"
+--- a/apps/desktop/src-tauri/src/lib.rs
++++ b/apps/desktop/src-tauri/src/lib.rs
+@@ -93,7 +93,7 @@
+         context.config_mut().identifier =
+             lifecycle::fixture_identifier(ids::BUNDLE_ID, &root.to_string_lossy());
+     }
+-    let builder = tauri::Builder::default();
++    let builder = tauri::Builder::default().runtime(tauri_runtime_cef::Cef::default());
+     #[cfg(all(feature = "direct-updater", not(feature = "store")))]
+     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+     builder

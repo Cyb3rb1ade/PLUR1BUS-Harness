@@ -1,0 +1,69 @@
+name: container shell
+on:
+  pull_request:
+    paths: ["apps/desktop/**", ".github/workflows/container-shell.yml"]
+  push:
+    branches: [main]
+    paths: ["apps/desktop/**", ".github/workflows/container-shell.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  container-e2e:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
+        mode: [docker-rootful, docker-rootless, podman-rootless]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    env:
+      GIT_CONFIG_COUNT: "1"
+      GIT_CONFIG_KEY_0: url.https://github.com/.insteadOf
+      GIT_CONFIG_VALUE_0: "git@github.com:"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with: { node-version: 24.21.0 }
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with: { toolchain: "1.95" }
+      - name: Build dependencies and runtime
+        run: sudo apt-get update && sudo apt-get install -y podman uidmap dbus-user-session slirp4netns libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libsecret-1-dev
+      - name: Select isolated runtime
+        env:
+          MODE: ${{ matrix.mode }}
+        run: |
+          if [[ "$MODE" == docker-rootless ]]; then
+            sudo apt-get install -y docker-ce-rootless-extras
+            sudo systemctl stop docker.service docker.socket
+            dockerd-rootless-setuptool.sh install
+            echo "DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock" >> "$GITHUB_ENV"
+            echo "PLUR1BUS_DESKTOP_E2E_ENDPOINT=unix://$XDG_RUNTIME_DIR/docker.sock" >> "$GITHUB_ENV"
+          fi
+          if [[ "$MODE" == podman-rootless ]]; then
+            echo 'PLUR1BUS_DESKTOP_E2E_RUNTIME=podman' >> "$GITHUB_ENV"
+            mkdir -p "$HOME/.config/containers/registries.conf.d"
+            printf '[[registry]]\nlocation = "127.0.0.1"\ninsecure = true\n' > "$HOME/.config/containers/registries.conf.d/p1t.conf"
+          else
+            echo 'PLUR1BUS_DESKTOP_E2E_RUNTIME=docker' >> "$GITHUB_ENV"
+          fi
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @plur1bus/desktop-ui build
+      - name: Offline policy regressions
+        run: node --test apps/desktop/scripts/wp14.test.mjs
+      - name: Prepare local fixtures (network allowed only during setup)
+        run: |
+          engine="$PLUR1BUS_DESKTOP_E2E_RUNTIME"
+          "$engine" pull docker.io/library/registry:2
+          "$engine" tag docker.io/library/registry:2 registry:2
+          for version in 0.1.0 0.1.1 0.1.2; do
+            failure=0
+            if [[ "$version" == 0.1.2 ]]; then failure=1; fi
+            "$engine" build --file stub-image/Dockerfile --build-arg "STUB_VERSION=$version" --build-arg "STUB_FAIL_SMOKE=$failure" --tag "p1t-stub-harness:wp11-$version" .
+          done
+          cargo test --locked -p plur1bus-desktop --test controller_e2e --test upgrade_e2e --no-run
+        working-directory: apps/desktop
+      - name: Controller, pairing, upgrade, rollback and local registry digest pull
+        run: node apps/desktop/scripts/container-e2e.mjs "$PLUR1BUS_DESKTOP_E2E_RUNTIME"

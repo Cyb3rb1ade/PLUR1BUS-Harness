@@ -22,10 +22,10 @@ try{
  const digests=[];
  for(const [version,failure]of [['0.1.0','0'],['0.1.1','0'],['0.1.2','1']]){
   const tag=`p1t-stub-harness:wp11-${version}`;
-  cli(['build','--file','stub-image/Dockerfile','--build-arg',`STUB_VERSION=${version}`,'--build-arg',`STUB_FAIL_SMOKE=${failure}`,'--tag',tag,'.'],900000);
+  if(!process.argv.includes('--prebuilt'))cli(['build','--file','stub-image/Dockerfile','--build-arg',`STUB_VERSION=${version}`,'--build-arg',`STUB_FAIL_SMOKE=${failure}`,'--tag',tag,'.'],900000);
   digests.push(cli(['image','inspect','--format','{{.Id}}',tag]));
  }
- const result=spawnSync('cargo',['test','--locked','-p','plur1bus-desktop','--test','upgrade_e2e',`upgrade_e2e_${engine}`,'--','--ignored','--exact','--nocapture'],{cwd:root,stdio:'inherit',timeout:900000,env:{...process.env,PLUR1BUS_DESKTOP_E2E_ENDPOINT:endpoint,PLUR1BUS_DESKTOP_UPGRADE_DIGESTS:digests.join(',')}});
+ const result=spawnSync('cargo',['test','--offline','--locked','-p','plur1bus-desktop','--test','upgrade_e2e',`upgrade_e2e_${engine}`,'--','--ignored','--exact','--nocapture'],{cwd:root,stdio:'inherit',timeout:900000,env:{...process.env,PLUR1BUS_DESKTOP_E2E_ENDPOINT:endpoint,PLUR1BUS_DESKTOP_UPGRADE_DIGESTS:digests.join(',')}});
  if(result.error)throw result.error;if(result.status!==0)throw new Error('upgrade acceptance failed; synthetic evidence is retained');
  console.log(`PASS: ${engine} A → B → failing B′ → rollback to B; device token and synthetic persisted state survive`);
 }finally{if(ownedService)ownedService.kill('SIGTERM');if(scratch)rmSync(scratch,{recursive:true,force:true});}
