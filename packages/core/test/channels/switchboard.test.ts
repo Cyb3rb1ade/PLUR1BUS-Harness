@@ -359,7 +359,7 @@ test("a press by someone who is not the person's handle, or from another chat, d
   rig.close();
 });
 
-test("a group chat decides on the lower surface", async () => {
+test("a group chat gets no approval prompt (it would show the request to the whole room)", async () => {
   const rig = await running();
   const { humanId } = rig.link("discord", "bot-1", "sender-1");
   const a = rig.adapter();
@@ -367,9 +367,7 @@ test("a group chat decides on the lower surface", async () => {
   const session = rig.store.listSessions({ owner: deriveUserPrincipal(humanId), kind: "channel" }).sessions[0]!;
   rig.switchboard.approvalEvents.emit("approval.requested", { approval: approvalFor(rig, humanId, session.id), nonce: "n", foregroundUntil: 1 });
   await flush(10);
-  await a.decide({ promptId: "prompt-1", chatId: "room-1", senderId: "sender-1", choiceId: "approve" });
-  await flush(5);
-  assert.equal(rig.approvals.decisions[0]?.surface, 1);
+  assert.equal(a.prompts.length, 0);
   rig.close();
 });
 
@@ -435,3 +433,63 @@ test("createSwitchboard is exported with the channel framework", () => {
 });
 
 export type { ApprovalDecisionLike };
+
+test("a channel cannot be pointed at another credential: secret names outside channels.<id>. park it", async () => {
+  const rig = makeRig();
+  rig.secrets.put("provider.openai.key", ["sk", "live", "should-never-leave"].join("-"));
+  rig.config.set("discord", { enabled: true, tokenSecret: "provider.openai.key" });
+  await rig.switchboard.start();
+  const s = rig.switchboard.view.status("discord");
+  assert.equal(s?.state, "misconfigured");
+  assert.match(s?.lastError ?? "", /must start with channels\.discord\./);
+  assert.deepEqual(rig.secrets.reads, [], "the foreign secret was not even read");
+  assert.equal(rig.made.length, 0);
+  rig.close();
+});
+
+test("the deps' secret reader refuses a name outside the channel's own namespace", async () => {
+  const rig = await running();
+  const reveal = (rig.adapter().deps.secrets as { reveal(n: string): Promise<string | null> }).reveal;
+  await assert.rejects(reveal("channels.slack.bot-token"), /only read its own secrets/);
+  rig.close();
+});
+
+test("a link made for another bot account does not answer: the configured account is part of the identity (matrix)", async () => {
+  const rig = makeRig({ ids: ["matrix"] });
+  rig.secrets.put("channels.matrix.access-token", "matrix-access-token-0123456789");
+  rig.config.set("matrix", { enabled: true, homeserverUrl: "https://matrix.example.org", userId: "@bot:example.org" });
+  rig.link("matrix", "@old-bot:example.org", "@pat:example.org");
+  await rig.switchboard.start();
+  await rig.clock.advance(0);
+  await rig.adapter("matrix").inbound({ senderId: "@pat:example.org" });
+  assert.equal(rig.provider.requests.length, 0);
+  rig.link("matrix", "@bot:example.org", "@pat:example.org", "Pat again");
+  await rig.adapter("matrix").inbound({ senderId: "@pat:example.org" });
+  assert.equal(rig.provider.requests.length, 1);
+  rig.close();
+});
+
+const IMG = "123e4567-e89b-42d3-a456-426614174000";
+
+test("an image a turn produced follows the text reply into the same chat, and only that chat may be sent it", async () => {
+  const rig = makeRig({ switchboard: { outputs: { store: () => ({}) } } });
+  rig.secrets.put("channels.discord.token", TOKEN);
+  rig.config.set("discord", { enabled: true });
+  await rig.switchboard.start();
+  await rig.clock.advance(0);
+  rig.link("discord", "bot-1", "sender-1");
+  const a = rig.adapter();
+  const out = a.deps.outputs as { authorize(o: string, c: string): Promise<boolean> };
+  assert.equal(await out.authorize(IMG, "chat-1"), false, "nothing is sendable before a turn produced it");
+  rig.provider.script = () => [
+    { type: "tool.result", id: "t1", output: JSON.stringify({ id: IMG, files: [{ path: "0.png", format: "png", bytes: 1, sha256: "x" }] }) },
+    { type: "delta", text: "here" },
+  ];
+  await a.inbound({ text: "draw" });
+  assert.deepEqual(a.sent.map((m) => m.text), ["here"]);
+  assert.deepEqual(a.outputs, [{ chatId: "chat-1", outputId: IMG }]);
+  assert.equal(await out.authorize(IMG, "chat-1"), true);
+  assert.equal(await out.authorize(IMG, "chat-2"), false);
+  assert.equal(await out.authorize("123e4567-e89b-42d3-a456-426614174999", "chat-1"), false);
+  rig.close();
+});

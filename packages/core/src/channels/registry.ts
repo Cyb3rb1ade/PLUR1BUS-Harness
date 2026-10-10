@@ -29,6 +29,8 @@ export interface RegistryOptions {
   healthIntervalMs?: number;
   /** A run this long counts as stable and resets the backoff. */
   stableAfterMs?: number;
+  /** Applied to every error text before it is kept as `lastError` or logged (the host masks secret values here). */
+  redact?: (text: string) => string;
 }
 
 interface Entry {
@@ -46,7 +48,7 @@ interface Entry {
 }
 
 export class ChannelRegistry {
-  readonly #o: Required<Omit<RegistryOptions, "router" | "clock" | "log">> & Pick<RegistryOptions, "router" | "clock" | "log">;
+  readonly #o: Required<Omit<RegistryOptions, "router" | "clock" | "log" | "redact">> & Pick<RegistryOptions, "router" | "clock" | "log" | "redact">;
   readonly #entries = new Map<string, Entry>();
 
   constructor(o: RegistryOptions) {
@@ -68,6 +70,8 @@ export class ChannelRegistry {
 
   list(): ChannelStatus[] { return [...this.#entries.values()].map(snapshot); }
 
+  #err(e: unknown): string { const t = errText(e); return this.#o.redact ? this.#o.redact(t) : t; }
+
   /** The validated manifest of a registered channel (read-only accessor for `channel.*`). */
   manifestOf(name: string): ChannelManifest | undefined { return this.#entries.get(name)?.manifest; }
 
@@ -85,7 +89,7 @@ export class ChannelRegistry {
       const h = await withTimeout(this.#o.clock, () => ch.health(), this.#o.callTimeoutMs, `${name}.health`);
       return h && typeof h.ok === "boolean" ? { ok: h.ok, ...(h.detail !== undefined ? { detail: String(h.detail) } : {}) } : { ok: false, detail: "malformed health answer" };
     } catch (err) {
-      return { ok: false, detail: errText(err) };
+      return { ok: false, detail: this.#err(err) };
     }
   }
 
@@ -163,8 +167,8 @@ export class ChannelRegistry {
       if (ch.name !== name) throw new Error(`channel reports name "${ch.name}", manifest says "${name}"`);
     } catch (err) {
       // A factory that cannot build its channel, or builds the wrong one, will not get better by retrying.
-      this.#o.log.error("channel.factory.failed", { channel: name, error: errText(err) });
-      e.lastError = errText(err);
+      this.#o.log.error("channel.factory.failed", { channel: name, error: this.#err(err) });
+      e.lastError = this.#err(err);
       e.state = "failed";
       return;
     }
@@ -203,7 +207,7 @@ export class ChannelRegistry {
     e.gen++; // everything of the failed run (timers, host callbacks, late messages) is now stale
     gen = e.gen;
     this.#clearTimers(e);
-    e.lastError = errText(err);
+    e.lastError = this.#err(err);
     delete e.startedAt;
     const ch = e.channel;
     delete e.channel;
@@ -224,7 +228,7 @@ export class ChannelRegistry {
     try {
       await withTimeout(this.#o.clock, () => ch.stop(), this.#o.callTimeoutMs, `${name}.stop`);
     } catch (err) {
-      this.#o.log.warn("channel.stop.failed", { channel: name, error: errText(err) });
+      this.#o.log.warn("channel.stop.failed", { channel: name, error: this.#err(err) });
     }
   }
 

@@ -67,6 +67,7 @@ export class FakeAdapter implements HostedChannel {
   host?: ChannelHost;
   sent: OutboundMessage[] = [];
   turns: unknown[] = [];
+  outputs: { chatId: string; outputId: string }[] = [];
   prompts: { chatId: string; text: string; choices: readonly { id: string; label: string }[]; approverIds: readonly string[]; ttlMs?: number }[] = [];
   healthAnswer: ChannelHealth = { ok: true };
   startPlan: ("ok" | "throw")[] = [];
@@ -82,6 +83,7 @@ export class FakeAdapter implements HostedChannel {
   async health(): Promise<ChannelHealth> { return this.healthAnswer; }
   async send(msg: OutboundMessage): Promise<void> { this.sent.push(msg); }
   async sendTurn(turn: unknown): Promise<unknown[]> { this.turns.push(turn); return []; }
+  async sendOutput(chatId: string, outputId: string): Promise<unknown[]> { this.outputs.push({ chatId, outputId }); return []; }
   async prompt(req: FakeAdapter["prompts"][number]): Promise<{ promptId: string; refs: unknown[] }> {
     this.prompts.push(req);
     return { promptId: `prompt-${this.prompts.length}`, refs: [] };

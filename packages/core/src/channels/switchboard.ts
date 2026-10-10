@@ -124,6 +124,8 @@ export interface Switchboard {
 
 const REDACTED = "[redacted]";
 const MAX_REMEMBERED_CHATS = 5000;
+const MAX_ALLOWED_CHATS = 1000;
+const MAX_PROMPTS = 1000;
 const MAX_OUTPUTS_PER_TURN = 4;
 const MIN_REDACTED_SECRET = 6;
 const OUTPUT_ID = /^[a-f0-9-]{36}$/;
@@ -134,6 +136,9 @@ const DEFAULT_APPROVAL_TTL_MS = 10 * 60_000;
 const MAX_APPROVAL_TTL_MS = 24 * 60 * 60_000;
 const APPROVE = "approve";
 const DENY = "deny";
+
+/** Where the bot's own account id sits in a channel's configuration, for adapters that do not name it on inbound messages. */
+const ACCOUNT_KEY: Readonly<Record<string, string>> = { matrix: "userId", signal: "account", email: "address" };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const errText = (e: unknown): string => (e instanceof Error ? e.message : String(e));
@@ -190,7 +195,7 @@ class Host implements Switchboard {
   constructor(o: SwitchboardOptions) {
     this.#o = o;
     const router = new ChannelRouter({ identity: this.#identityPort(), sessions: this.#sessionPort(), clock: o.clock, log: o.log });
-    this.#registry = new ChannelRegistry({ clock: o.clock, router, log: o.log, ...o.registry });
+    this.#registry = new ChannelRegistry({ clock: o.clock, router, log: o.log, redact: (t) => this.#redact(t), ...o.registry });
     for (const b of o.bindings) this.#bindings.set(b.id, b);
     const r = this.#registry;
     this.view = {
@@ -265,14 +270,25 @@ class Host implements Switchboard {
     }
     try { await mkdir(this.#stateDirOf(id), { recursive: true, mode: 0o700 }); }
     catch (e) { reg.markMisconfigured(id, `the state directory cannot be created: ${this.#redact(errText(e))}`); this.#scheduleRecheck(); return; }
+    // A channel reads only its own secrets: a configuration cannot point an adapter (and so a remote server) at another credential.
+    const foreign = secretNamesOf(cfg).filter((n) => !n.startsWith(`channels.${id}.`));
+    if (foreign.length > 0) {
+      reg.markMisconfigured(id, `secret names must start with channels.${id}. (not allowed: ${foreign.join(", ")})`);
+      this.#o.log.warn("channel.misconfigured", { channel: id, reason: "secret-namespace" });
+      this.#scheduleRecheck();
+      return;
+    }
     const missing: string[] = [];
+    let storeError: string | undefined;
     for (const name of secretNamesOf(cfg)) {
       let present = false;
-      try { present = await this.#o.secrets.has(name); } catch { present = false; }
+      try { present = await this.#o.secrets.has(name); } catch (e) { storeError = this.#redact(errText(e)); }
       if (!present) missing.push(name);
     }
     if (missing.length > 0) {
-      reg.markMisconfigured(id, `secret not found: ${missing.join(", ")} (store it with \`plur1bus secret set\`)`);
+      reg.markMisconfigured(id, storeError !== undefined
+        ? `secret not readable: ${missing.join(", ")} (secret store: ${storeError})`
+        : `secret not found: ${missing.join(", ")} (store it with \`plur1bus secret set\`)`);
       this.#o.log.warn("channel.misconfigured", { channel: id, reason: "secret-missing", secrets: missing.join(",") });
       this.#scheduleRecheck();
       return;
@@ -325,6 +341,7 @@ class Host implements Switchboard {
     return {
       secrets: {
         reveal: async (name) => {
+          if (!name.startsWith(`channels.${id}.`)) throw new Error("a channel may only read its own secrets");
           const v = await o.secrets.read(name);
           if (v !== null && v.length >= MIN_REDACTED_SECRET) this.#secretValues.add(v);
           return v;
@@ -386,11 +403,14 @@ class Host implements Switchboard {
     const find = (s: SenderRef): { humanId: string } | null => {
       const svc = this.#o.identity();
       if (!svc) return null;
-      if (s.accountId !== undefined) {
-        const r = svc.resolve({ channel: s.channel, accountId: s.accountId, userId: s.senderId });
+      const key = ACCOUNT_KEY[s.channel];
+      const configured = key ? channelConfigOf(this.#o.config.current(), s.channel)[key] : undefined;
+      const accountId = s.accountId ?? (typeof configured === "string" ? configured : undefined);
+      if (accountId !== undefined) {
+        const r = svc.resolve({ channel: s.channel, accountId, userId: s.senderId });
         return r ? { humanId: r.humanId } : null;
       }
-      // Some adapters do not name their own account on inbound messages. The sender's handle alone must then pick exactly one human.
+      // An adapter that does not name its account (Slack learns its bot id at runtime): the sender's handle alone must pick exactly one human.
       const humans = new Set<string>();
       for (const h of svc.list({}).humans) {
         for (const l of h.identities) if (l.channel === s.channel && l.userId === s.senderId && l.revokedAt === null) humans.add(h.id);
@@ -471,7 +491,11 @@ class Host implements Switchboard {
     if (unique.length === 0) { this.#pendingMedia.delete(chatKey); return; }
     const allowed = this.#allowed.get(chatKey) ?? new Set<string>();
     for (const id of unique) allowed.add(id);
+    while (allowed.size > MAX_ALLOWED_CHATS) allowed.delete(allowed.values().next().value as string);
+    this.#allowed.delete(chatKey); // re-insert: the least recently used chat is first
     this.#allowed.set(chatKey, allowed);
+    while (this.#allowed.size > MAX_ALLOWED_CHATS) this.#allowed.delete(this.#allowed.keys().next().value as string);
+    while (this.#pendingMedia.size > MAX_ALLOWED_CHATS) this.#pendingMedia.delete(this.#pendingMedia.keys().next().value as string);
     this.#pendingMedia.set(chatKey, unique);
   }
 
@@ -493,7 +517,9 @@ class Host implements Switchboard {
       if (!human) return;
       const approverIds = human.identities.filter((l) => l.channel === chat.channel && l.revokedAt === null).map((l) => l.userId);
       if (approverIds.length === 0) return;
-      const kind = this.#kinds.get(session.chatKey) ?? "group";
+      // A prompt shows what is being asked, so it goes to a private chat only; in a group the request waits for another surface.
+      if (this.#kinds.get(session.chatKey) !== "direct") return;
+      const kind: ChatKind = "direct";
       const ttl = Math.min(Math.max(approval.expiresAt - this.#o.clock.now(), 1_000), MAX_APPROVAL_TTL_MS);
       const sent = await adapter.prompt({
         chatId: chat.chatId,
@@ -502,6 +528,7 @@ class Host implements Switchboard {
         approverIds,
         ttlMs: Number.isFinite(ttl) ? ttl : DEFAULT_APPROVAL_TTL_MS,
       });
+      while (this.#prompts.size >= MAX_PROMPTS) this.#prompts.delete(this.#prompts.keys().next().value as string);
       this.#prompts.set(`${chat.channel}\0${sent.promptId}`, {
         channel: chat.channel, requestId: approval.id, nonce, person: approval.principal, chatId: chat.chatId, chatKind: kind, approverIds: new Set(approverIds),
       });
@@ -521,7 +548,7 @@ class Host implements Switchboard {
     const approvals = this.#o.approvals();
     if (!approvals) return;
     this.#prompts.delete(key);
-    const surface = p.chatKind === "direct" ? 2 : 1;
+    const surface = 2; // D109 §5: a private chat with a linked person
     const res = approvals.decide({ requestId: p.requestId, nonce: p.nonce, decision, person: p.person, surface });
     if (!res.ok) this.#o.log.warn("channel.approval.refused", { channel, reason: res.reason });
   }
