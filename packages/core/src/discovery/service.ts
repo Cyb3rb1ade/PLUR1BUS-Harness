@@ -72,7 +72,7 @@ export interface ProviderScanResult {
   error?: ScanErrorInfo;
 }
 
-export interface ModelEntry extends Omit<CatalogModel, "api"> {}
+export interface ModelEntry extends Omit<CatalogModel, "api"> { new?: boolean }
 
 export interface ListQuery {
   provider?: string;
@@ -544,7 +544,7 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
     const cleanModels: ModelEntry[] = models.map((m) => {
       const { api: _api, ...rest } = m;
       void _api;
-      return rest;
+      return { ...rest, new: m.status === "available" && m.source !== "manual" && (cat.acknowledgedAt === undefined || m.firstSeen > cat.acknowledgedAt) };
     });
 
     const newCount = cat.models.filter(
