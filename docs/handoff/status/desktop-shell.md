@@ -1597,13 +1597,113 @@ This is **mock stack evidence, not Docker-container or production acceptance**.
 - Logs: `/tmp/desktop-wp09-{rust-release-check,clippy-release-check,
   ui-release-check,lint-final,ui-typecheck,tauri-final,staged-hygiene}.log`.
 
-## WP10 — NOT STARTED (remaining work)
+## WP10 — Signed update feed, policy, dialog and app updater
 
-Status: Not run. Head: no implementation head.
-Signed feed/schema/render script, harness-feed compatibility verification,
-channel key policy, updater artifact/digest gate, update policy/dialog/Settings,
-Store build and all named acceptance tests remain open. No claim about current
-Rust updater compatibility is made because this WP has not been implemented.
+Branch: `codex/desktop-wp10-12`. Base: `origin/codex/desktop-wp09-12`
+(`#367` OPEN at start, base commit `4216f909`); PR targets `main`, with the
+controller required to merge #367 first. PR/head: recorded after publication.
+Target exercised locally: macOS arm64, Node 24.21.0, Rust 1.95.
+
+Delivered:
+
+- `src-tauri/src/updates.rs`: channel-separated minisign verification before
+  schema parsing; version/minimum-version policy, hold, later, timestamped skip,
+  seven-day security reminder, patch-only quiet-hour decisions, preserved opt-out.
+- `src-tauri/src/update_commands.rs`: origin/label-checked shell-only IPC, private
+  atomic preferences/pending records, persistent six-hour attempt reservation,
+  bounded feed requests, no redirects on metadata, no identifiers or credentials.
+- `bundle/release.schema.json`, `scripts/render-feed.mjs`: bilingual release
+  metadata with native assets retained and exact bundle/latest byte hashes.
+- `tauri-plugin-updater =2.13.0`: separate selected-channel payload key, manifest
+  digest/version gate, second-response equality gate, verified download before
+  installer invocation, pending persisted before an installer exit/restart.
+  Public placeholder keys only; release guard and unsigned-PR override.
+- Store feature omits plugin registration; no-default-feature Store checks pass.
+  `tauri.store.conf.json` disables updater artifacts. Store notes use a fixed
+  native search URI until packaging supplies the actual listing URI.
+- `ui/src/models/update-model.ts` and `views/settings-updates.ts`: guarded model,
+  Updates preferences and notes dialog, EN/DE, text-only paragraphs/lists, no
+  rendered HTML or anchors; hold/later/skip, intermediate-version guidance,
+  failure keeps the dialog available; native tray Update opens Updates settings.
+
+Compatibility with #314: the current root release-manifest validator accepts
+this desktop feed (including the unchanged optional native extension). The
+compatibility test embeds the actual owning root schema read-only. The schema
+is unchanged between the stacked base and origin/main; #314 is merged as
+`30f536bf4d0ea6439bea797839cf4c82fa30641c`. No Rust root updater changes.
+Native #314 additionally supports signed channel keys.json rotation chains and
+persisted highest-seen replay guards. This desktop WP10 verifies its baked
+channel feed key and refuses versions not newer than the running app; it does
+not adopt the native guard store or its separate key-list protocol. Publisher
+rotation must first deliver a desktop binary containing the replacement key. G7/G8 applied: shared feed keys and independent Tauri archive
+keys; a separate pinned latest.json with string notes and static platforms,
+validated against the exact pinned plugin's RemoteRelease deserializer.
+
+Named acceptance tests (macOS arm64, offline; generated minisign keys):
+
+| Name | Result |
+| --- | --- |
+| a_signed_release_is_offered | PASS |
+| a_bad_signature_is_refused | PASS |
+| a_key_from_another_channel_is_refused | PASS |
+| a_lower_or_equal_version_is_not_offered | PASS |
+| min_from_version_asks_for_the_intermediate_release | PASS |
+| held_offers_nothing | PASS |
+| later_waits_24h_or_next_start | PASS |
+| skip_never_offers_that_version_again | PASS |
+| a_skipped_security_release_returns_after_7_days | PASS |
+| auto_patch_is_on_by_default_for_a_fresh_install | PASS |
+| auto_patch_turned_off_stays_off_after_an_update | PASS |
+| auto_patch_never_installs_minor_or_major | PASS |
+| auto_patch_waits_for_quiet_hours_and_no_active_run | PASS (policy) |
+| leaving_beta_never_downgrades | PASS |
+| schema_invalid_release_json_is_refused | PASS |
+| a_correctly_signed_update_is_accepted | PASS (offline signature verifier) |
+| a_tampered_payload_is_refused | PASS (offline signature verifier) |
+| a_manifest_digest_mismatch_is_refused | PASS |
+| pending_is_written_before_restart | PASS (installer closure) |
+| release_build_refuses_the_placeholder_key | PASS (same build-script guard) |
+| store_build_has_no_updater_plugin | PASS (+ Store feature clippy) |
+| update-model transitions | PASS |
+| notes renderer strips HTML and never creates links | PASS |
+
+Additional tests cover root feed compatibility, malformed persisted settings,
+mislabelled minor, endpoint restrictions, key-file encoding, actual plugin config
+loading, the bundled controller's real installed.json location, isolated IPC
+callers, artifact hashing, held/stale model transitions, dialog failures, Store
+notes, and update-dialog axe WCAG 2.1 AA. Existing WP6 log-redaction tests remain
+in the full passing suite.
+
+Local verification: fmt, clippy --locked --workspace --all-targets -D warnings,
+cargo test --locked --workspace --no-fail-fast: 408 pass / 0 fail / 3 ignored.
+Final focused tests after the last policy/refusal edits: 31 pass / 0 fail,
+including two additional refusal tests. UI build/tests: 76 pass / 0 fail;
+strict UI typecheck and hygiene PASS. Tauri debug build --no-bundle PASS.
+Store feature clippy --locked --no-default-features --features store PASS.
+Isolated start smoke: app survives 12 seconds, native diagnostic setup completes,
+HOME/XDG_CONFIG_HOME/XDG_DATA_HOME/XDG_CACHE_HOME/XDG_RUNTIME_DIR/TMPDIR and app
+config point at a canonical private temporary tree; no bundled runtime created.
+The first smoke fixture used macOS's /var symlink and was rejected by the
+existing diagnostic ancestry guard; resolving the fixture path fixed it.
+Early restarts preserve Later's 24-hour floor (§6.16.3).
+Three existing opt-in Rust tests stay ignored with explicit reasons: real
+keychain forbidden; Docker/Podman controller E2E requires a verified supplied
+stub manifest and endpoint. No real runtime objects or services were changed.
+
+WP boundary / limitations:
+
+- WP11 and WP12 are not started. Bundled app-only installation is deliberately
+  blocked until the shared WP11 upgrade/rollback controller exists. Its exact
+  `bundled/installed.json` location is covered by a refusal test.
+- Automatic patch policy is implemented/tested, but native automatic execution
+  is held back: the provisional contract has no proven active-run signal and
+  WP11's shared upgrade path does not exist. No unattended install is claimed.
+- Live signed-archive installation, OS-signed acceptance, screen-reader checks
+  and five-platform acceptance are Not run. No owner keys/releases are available;
+  no consumer installation was touched. UI browser checks use synthetic data.
+- `upgrade_e2e`: Not run because WP11's state machine/test is not implemented.
+  Docker CLI is installed; Podman is absent. No workflow changes were needed.
+- CI was not queried. No merge, rebase, amend or force-push.
 
 ## WP11 — NOT STARTED (remaining work)
 

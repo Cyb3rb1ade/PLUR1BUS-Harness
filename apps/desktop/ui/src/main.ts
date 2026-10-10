@@ -20,6 +20,7 @@ if(window.location.hash==="#/approvals") {
   });
 } else {
   createShell(shellRoot, nativeTransport);
+  void nativeTransport.updateCheck?.(true).catch(()=>{});
 }
 if(window.location.hash!=="#/approvals") {
 const offerQuit = (offer: QuitOffer) => openQuitDialog(offer, {

@@ -14,6 +14,12 @@ export type Paired = { connection: Connection; tokenStore: TokenStoreKind };
 export type HelperStatus={ready:boolean;restarting:boolean;capabilities:string[];grants:string[]};
 export type BridgeSettings={enabled:boolean;memoryOnly:boolean;secretsLocked:boolean;secretsState?:"locked"|"unlocked"|"unknown"};
 export type DesktopTransport = {
+  updateSettings?(request?:import("./models/update-model.ts").UpdatePreferences):Promise<import("./models/update-model.ts").UpdateSnapshot>;
+  updateCheck?(startup?:boolean):Promise<import("./models/update-model.ts").UpdateSnapshot>;
+  updateInstall?():Promise<void>;
+  updateSkip?():Promise<import("./models/update-model.ts").UpdateSnapshot>;
+  updateLater?():Promise<import("./models/update-model.ts").UpdateSnapshot>;
+  updateStoreOpen?():Promise<void>;
   helperStatus?():Promise<HelperStatus>;
   bridgeSettings?(enabled?:boolean):Promise<BridgeSettings>;
   bundleProgress?(onStep:(step:string)=>void):Promise<()=>void>;
@@ -39,6 +45,12 @@ export type DesktopTransport = {
 };
 
 export const nativeTransport: DesktopTransport = {
+ updateSettings:request=>invoke("update_settings",{request:request??null}),
+ updateCheck:startup=>invoke("update_check",{startup:startup??false}),
+ updateInstall:()=>invoke("update_install"),
+ updateSkip:()=>invoke("update_skip"),
+ updateLater:()=>invoke("update_later"),
+ updateStoreOpen:()=>invoke("update_store_open"),
   helperStatus:()=>invoke("helper_status"),
   bridgeSettings:enabled=>invoke("bridge_settings",{request:{enabled:enabled??null}}),
   bundleProgress: onStep => listen<string>("desktop-bundle-progress",event=>onStep(event.payload)),

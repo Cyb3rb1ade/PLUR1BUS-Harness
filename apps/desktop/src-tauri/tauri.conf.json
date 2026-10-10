@@ -34,7 +34,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "createUpdaterArtifacts": false,
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -53,5 +53,13 @@
     "externalBin": [
       "binaries/plur1bus-host"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "windows": {
+        "installMode": "passive"
+      },
+      "pubkey": "PLACEHOLDER: selected channel updater key is supplied from Rust"
+    }
   }
 }

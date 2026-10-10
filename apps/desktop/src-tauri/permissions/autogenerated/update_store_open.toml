@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-update-store-open"
+description = "Enables the update_store_open command without any pre-configured scope."
+commands.allow = ["update_store_open"]
+
+[[permission]]
+identifier = "deny-update-store-open"
+description = "Denies the update_store_open command without any pre-configured scope."
+commands.deny = ["update_store_open"]
