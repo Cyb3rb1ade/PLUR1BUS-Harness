@@ -1,0 +1,10 @@
+{
+  "params": {
+    "userId": "person-fixture",
+    "role": "member"
+  },
+  "result": {
+    "userId": "person-fixture",
+    "role": "member"
+  }
+}

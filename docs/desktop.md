@@ -355,3 +355,12 @@ process restart, empty native cookie stores, no cookie databases, and no bearer,
 ticket, launch carrier, cookie, or browser CSRF on disk. No external browser or
 real keychain is opened. Production acceptance on the other four targets remains
 a separate CI gate; Step0 measurements are not production acceptance.
+
+
+### Runtime adapter development (WP7)
+
+The native adapters use Apple’s signed `/usr/local/bin/container` executable or a local Docker-compatible Unix socket / Windows named pipe. TCP Docker endpoints are ignored. Docker Desktop, Engine, Podman, Colima, OrbStack and Rancher use the same Engine API path; an existing chosen endpoint is never replaced automatically. WSL-backed Docker/Podman are supported through that API; a standalone WSL distribution is D2.
+
+Tests use synthetic Apple fixtures and `test-bins/fake-container`, plus a local wire fixture for the Engine API. Synthetic Apple data is explicitly unrecorded. The Owner recorder requires an isolated `p1t-` HOME and matching `CFFIXED_USER_HOME`; it records public version/status only and does not start services or enumerate user objects.
+
+WP7 is not yet accepted: Apple has no rename CLI command, full Apple/real-engine contract evidence remains open, and Docker offline archives without repository manifest digests are refused. See the WP7 acceptance matrix in `docs/handoff/status/desktop-shell.md`. CI is not polled under the Owner instruction.

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-bundle-install"
+description = "Enables the bundle_install command without any pre-configured scope."
+commands.allow = ["bundle_install"]
+
+[[permission]]
+identifier = "deny-bundle-install"
+description = "Denies the bundle_install command without any pre-configured scope."
+commands.deny = ["bundle_install"]

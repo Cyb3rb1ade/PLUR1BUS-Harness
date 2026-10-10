@@ -178,6 +178,39 @@ export class SessionStore {
     return { sessions: rows.slice(0, limit).map(toSession), truncated: rows.length > limit };
   }
 
+  /** F42 metadata listing; omitting owner is allowed only by the admin RPC's role gate.
+   * Own-session listing/search keeps the original query semantics. No message or event payload leaves this method. */
+  listOverview(f: Omit<ListFilter, "owner"> & { owner?: string; owners?: string[] }): { sessions: (SessionRecord & { model: string | null; usage: { inputTokens: number; outputTokens: number; costMicros: number | null } })[]; truncated: boolean } {
+    const limit = Math.min(Math.max(f.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
+    const where = ["1=1"], args: (string | number | null)[] = [];
+    if (f.owner) { where.push("s.owner=?"); args.push(f.owner); }
+    else if (f.owners) { if (!f.owners.length) return { sessions: [], truncated: false }; where.push(`s.owner IN (${f.owners.map(() => "?").join(",")})`); args.push(...f.owners); }
+    if (f.kind) { where.push("s.kind=?"); args.push(f.kind); }
+    if (f.agentId) { where.push("s.agent_id=?"); args.push(f.agentId); }
+    const archived = f.archived ?? "exclude";
+    if (archived === "exclude") where.push("s.archived_at IS NULL"); else if (archived === "only") where.push("s.archived_at IS NOT NULL");
+    if (f.search !== undefined) {
+      const q = ftsQuery(f.search);
+      where.push("(s.rowid IN (SELECT rowid FROM sessions_fts WHERE sessions_fts MATCH ?) OR s.id IN (SELECT m.session_id FROM messages m WHERE m.rowid IN (SELECT rowid FROM messages_fts WHERE messages_fts MATCH ?)))"); args.push(q,q);
+    }
+    const rows = this.#all(`SELECT s.* FROM sessions s WHERE ${where.join(" AND ")} ORDER BY s.pinned DESC,COALESCE(s.last_turn_at,s.created_at) DESC,s.created_at DESC,s.id LIMIT ?`, ...args, limit+1);
+    return { truncated: rows.length > limit, sessions: rows.slice(0,limit).map(row => {
+      const s = toSession(row);
+      // Existing turn.completed records contain provider/usage. Costs not recorded per session stay null, never a false zero.
+      const events = this.#all("SELECT data FROM events WHERE session_id=? AND type='turn.completed' ORDER BY seq", s.id);
+      let model: string | null = null, inputTokens=0, outputTokens=0, costMicros: number | null = events.length ? 0 : null;
+      for (const e of events) {
+        const d = JSON.parse(e.data as string);
+        if (typeof d.model === "string") model=d.model; else if (typeof d.provider === "string") model=d.provider;
+        const count = (v: unknown) => typeof v === "number" && Number.isSafeInteger(v) && v>=0 ? v : 0;
+        inputTokens += count(d.usage?.inputTokens); outputTokens += count(d.usage?.outputTokens);
+        if (typeof d.usage?.costMicros !== "number" || !Number.isSafeInteger(d.usage.costMicros) || d.usage.costMicros<0) costMicros=null;
+        else if (costMicros!==null) costMicros+=d.usage.costMicros;
+      }
+      return { ...s, model, usage: { inputTokens, outputTokens, costMicros } };
+    }) };
+  }
+
   /** Message hits (with a snippet) over one owner's sessions, best first. Owner scoping is part of the query, not a post-filter. */
   searchMessages(f: Omit<ListFilter, "search"> & { search: string }): SearchHit[] {
     const limit = Math.min(Math.max(f.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);

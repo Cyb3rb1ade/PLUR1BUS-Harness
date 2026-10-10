@@ -1,0 +1,11 @@
+{
+  "params": {
+    "agentId": "alpha"
+  },
+  "result": {
+    "agentId": "alpha",
+    "paused": true,
+    "archived": false,
+    "deleted": false
+  }
+}

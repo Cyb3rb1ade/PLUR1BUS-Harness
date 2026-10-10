@@ -1,0 +1,10 @@
+{
+  "notice": {
+    "kind": "granted",
+    "userId": "affected",
+    "grantId": "grant-fixture",
+    "holderUserId": "owner",
+    "reason": "Investigate incident",
+    "expiresAt": 2000
+  }
+}
