@@ -1414,6 +1414,608 @@
       "additionalProperties": false,
       "default": {},
       "properties": {
+        "video": {
+          "description": "Video v0.2 settings. Adapter models and supported ranges come from configuration or discovery; no model defaults. Runtime providers.media.adapters accept the same video profile.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "maxBytes": {
+              "description": "Maximum stored video bytes, default 512 MiB.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483648,
+              "default": 536870912,
+              "x-tier": "advanced",
+              "x-restart": "core"
+            },
+            "embedMetadata": {
+              "description": "Global prompt embedding default, overridden by agent and call preferences.",
+              "type": "boolean",
+              "default": false,
+              "x-tier": "advanced",
+              "x-restart": "core"
+            },
+            "adapters": {
+              "description": "Video profiles keyed by provider; model is required, never inferred from an image default.",
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "openrouter": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "model": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Configured video model ID. No image-model fallback."
+                    },
+                    "textToVideo": {
+                      "type": "boolean",
+                      "default": true,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected model accepts a text prompt for video generation."
+                    },
+                    "imageToVideo": {
+                      "type": "boolean",
+                      "default": false,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected model accepts a starting image."
+                    },
+                    "videoToVideo": {
+                      "type": "boolean",
+                      "default": false,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected model accepts an uploaded video for editing or extension."
+                    },
+                    "durationSeconds": {
+                      "type": "array",
+                      "minItems": 2,
+                      "maxItems": 2,
+                      "items": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "maximum": 600
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Inclusive minimum and maximum supported clip duration in seconds."
+                    },
+                    "resolutions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Supported provider resolution tiers or pixel dimensions."
+                    },
+                    "aspects": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Supported aspect ratio strings."
+                    },
+                    "fps": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 120
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Supported output frame rates; omit when not selectable."
+                    },
+                    "audio": {
+                      "type": "boolean",
+                      "default": false,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected protocol supports an audio generation switch."
+                    },
+                    "inputSchema": {
+                      "description": "Published model input properties for fal; Replicate discovers them from the model/version.",
+                      "type": "object",
+                      "additionalProperties": true,
+                      "x-tier": "advanced",
+                      "x-restart": "core"
+                    }
+                  },
+                  "required": [
+                    "model"
+                  ],
+                  "description": "openrouter video model capability profile; validated against the provider protocol."
+                },
+                "replicate": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "model": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Configured video model ID. No image-model fallback."
+                    },
+                    "textToVideo": {
+                      "type": "boolean",
+                      "default": true,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected model accepts a text prompt for video generation."
+                    },
+                    "imageToVideo": {
+                      "type": "boolean",
+                      "default": false,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected model accepts a starting image."
+                    },
+                    "videoToVideo": {
+                      "type": "boolean",
+                      "default": false,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected model accepts an uploaded video for editing or extension."
+                    },
+                    "durationSeconds": {
+                      "type": "array",
+                      "minItems": 2,
+                      "maxItems": 2,
+                      "items": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "maximum": 600
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Inclusive minimum and maximum supported clip duration in seconds."
+                    },
+                    "resolutions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Supported provider resolution tiers or pixel dimensions."
+                    },
+                    "aspects": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Supported aspect ratio strings."
+                    },
+                    "fps": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 120
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Supported output frame rates; omit when not selectable."
+                    },
+                    "audio": {
+                      "type": "boolean",
+                      "default": false,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected protocol supports an audio generation switch."
+                    },
+                    "inputSchema": {
+                      "description": "Published model input properties for fal; Replicate discovers them from the model/version.",
+                      "type": "object",
+                      "additionalProperties": true,
+                      "x-tier": "advanced",
+                      "x-restart": "core"
+                    }
+                  },
+                  "required": [
+                    "model"
+                  ],
+                  "description": "replicate video model capability profile; validated against the provider protocol."
+                },
+                "fal": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "model": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Configured video model ID. No image-model fallback."
+                    },
+                    "textToVideo": {
+                      "type": "boolean",
+                      "default": true,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected model accepts a text prompt for video generation."
+                    },
+                    "imageToVideo": {
+                      "type": "boolean",
+                      "default": false,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected model accepts a starting image."
+                    },
+                    "videoToVideo": {
+                      "type": "boolean",
+                      "default": false,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected model accepts an uploaded video for editing or extension."
+                    },
+                    "durationSeconds": {
+                      "type": "array",
+                      "minItems": 2,
+                      "maxItems": 2,
+                      "items": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "maximum": 600
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Inclusive minimum and maximum supported clip duration in seconds."
+                    },
+                    "resolutions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Supported provider resolution tiers or pixel dimensions."
+                    },
+                    "aspects": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Supported aspect ratio strings."
+                    },
+                    "fps": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 120
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Supported output frame rates; omit when not selectable."
+                    },
+                    "audio": {
+                      "type": "boolean",
+                      "default": false,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected protocol supports an audio generation switch."
+                    },
+                    "inputSchema": {
+                      "description": "Published model input properties for fal; Replicate discovers them from the model/version.",
+                      "type": "object",
+                      "additionalProperties": true,
+                      "x-tier": "advanced",
+                      "x-restart": "core"
+                    }
+                  },
+                  "required": [
+                    "model"
+                  ],
+                  "description": "fal video model capability profile; validated against the provider protocol."
+                },
+                "xai": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "model": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Configured video model ID. No image-model fallback."
+                    },
+                    "textToVideo": {
+                      "type": "boolean",
+                      "default": true,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected model accepts a text prompt for video generation."
+                    },
+                    "imageToVideo": {
+                      "type": "boolean",
+                      "default": false,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected model accepts a starting image."
+                    },
+                    "videoToVideo": {
+                      "type": "boolean",
+                      "default": false,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected model accepts an uploaded video for editing or extension."
+                    },
+                    "durationSeconds": {
+                      "type": "array",
+                      "minItems": 2,
+                      "maxItems": 2,
+                      "items": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "maximum": 600
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Inclusive minimum and maximum supported clip duration in seconds."
+                    },
+                    "resolutions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Supported provider resolution tiers or pixel dimensions."
+                    },
+                    "aspects": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Supported aspect ratio strings."
+                    },
+                    "fps": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 120
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Supported output frame rates; omit when not selectable."
+                    },
+                    "audio": {
+                      "type": "boolean",
+                      "default": false,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected protocol supports an audio generation switch."
+                    },
+                    "inputSchema": {
+                      "description": "Published model input properties for fal; Replicate discovers them from the model/version.",
+                      "type": "object",
+                      "additionalProperties": true,
+                      "x-tier": "advanced",
+                      "x-restart": "core"
+                    }
+                  },
+                  "required": [
+                    "model"
+                  ],
+                  "description": "xai video model capability profile; validated against the provider protocol."
+                },
+                "openai": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "model": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Configured video model ID. No image-model fallback."
+                    },
+                    "textToVideo": {
+                      "type": "boolean",
+                      "default": true,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected model accepts a text prompt for video generation."
+                    },
+                    "imageToVideo": {
+                      "type": "boolean",
+                      "default": false,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected model accepts a starting image."
+                    },
+                    "videoToVideo": {
+                      "type": "boolean",
+                      "default": false,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected model accepts an uploaded video for editing or extension."
+                    },
+                    "durationSeconds": {
+                      "type": "array",
+                      "minItems": 2,
+                      "maxItems": 2,
+                      "items": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "maximum": 600
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Inclusive minimum and maximum supported clip duration in seconds."
+                    },
+                    "resolutions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Supported provider resolution tiers or pixel dimensions."
+                    },
+                    "aspects": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Supported aspect ratio strings."
+                    },
+                    "fps": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 120
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Supported output frame rates; omit when not selectable."
+                    },
+                    "audio": {
+                      "type": "boolean",
+                      "default": false,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected protocol supports an audio generation switch."
+                    },
+                    "inputSchema": {
+                      "description": "Published model input properties for fal; Replicate discovers them from the model/version.",
+                      "type": "object",
+                      "additionalProperties": true,
+                      "x-tier": "advanced",
+                      "x-restart": "core"
+                    }
+                  },
+                  "required": [
+                    "model"
+                  ],
+                  "description": "openai video model capability profile; validated against the provider protocol."
+                },
+                "google": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "model": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Configured video model ID. No image-model fallback."
+                    },
+                    "textToVideo": {
+                      "type": "boolean",
+                      "default": true,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected model accepts a text prompt for video generation."
+                    },
+                    "imageToVideo": {
+                      "type": "boolean",
+                      "default": false,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected model accepts a starting image."
+                    },
+                    "videoToVideo": {
+                      "type": "boolean",
+                      "default": false,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected model accepts an uploaded video for editing or extension."
+                    },
+                    "durationSeconds": {
+                      "type": "array",
+                      "minItems": 2,
+                      "maxItems": 2,
+                      "items": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "maximum": 600
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Inclusive minimum and maximum supported clip duration in seconds."
+                    },
+                    "resolutions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Supported provider resolution tiers or pixel dimensions."
+                    },
+                    "aspects": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Supported aspect ratio strings."
+                    },
+                    "fps": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 120
+                      },
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "Supported output frame rates; omit when not selectable."
+                    },
+                    "audio": {
+                      "type": "boolean",
+                      "default": false,
+                      "x-tier": "advanced",
+                      "x-restart": "core",
+                      "description": "The selected protocol supports an audio generation switch."
+                    },
+                    "inputSchema": {
+                      "description": "Published model input properties for fal; Replicate discovers them from the model/version.",
+                      "type": "object",
+                      "additionalProperties": true,
+                      "x-tier": "advanced",
+                      "x-restart": "core"
+                    }
+                  },
+                  "required": [
+                    "model"
+                  ],
+                  "description": "google video model capability profile; validated against the provider protocol."
+                }
+              }
+            }
+          }
+        },
         "adapters": {
           "description": "Per-adapter settings keyed by adapter.",
           "type": "object",

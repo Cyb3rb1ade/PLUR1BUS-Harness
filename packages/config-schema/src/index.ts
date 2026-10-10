@@ -38,6 +38,7 @@ export interface HarnessConfig {
   };
   modules: Record<string, Record<string, unknown> & { enabled: boolean }>;
   voice: VoiceConfig;
+  media?: { video?: { maxBytes?: number; embedMetadata?: boolean; adapters?: Record<string, { model: string; textToVideo?: boolean; imageToVideo?: boolean; videoToVideo?: boolean; durationSeconds?: [number,number]; resolutions?: string[]; aspects?: string[]; fps?: number[]; audio?: boolean; inputSchema?: Record<string,unknown> }> } };
 }
 
 export type VoiceFeatureMode = "on" | "deferred" | "off";

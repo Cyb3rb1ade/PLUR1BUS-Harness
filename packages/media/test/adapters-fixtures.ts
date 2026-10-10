@@ -118,6 +118,7 @@ export async function fakeServer(handler: Handler): Promise<FakeServer> {
     const call = { method: req.method!, path: req.url!, body, headers: req.headers }; calls.push(call);
     await handler(call, res, calls.length - 1);
   });
+  s.on('connection', socket => socket.setNoDelay(true));
   await new Promise<void>(r => s.listen(0, '127.0.0.1', r));
   return { url: `http://127.0.0.1:${(s.address() as AddressInfo).port}`, calls, close: () => new Promise<void>(r => { s.closeAllConnections(); s.close(() => r()); }) };
 }

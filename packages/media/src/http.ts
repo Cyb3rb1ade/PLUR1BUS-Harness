@@ -52,6 +52,20 @@ export class HttpTransport {
       return json as Record<string, unknown>;
     } catch (e) { throw failure(e, signal.aborted && signal.reason?.name !== 'TimeoutError' ? signal : undefined); }
   }
+  /** Single-use lazy stream. Authenticated content is permitted only on the provider origin. */
+  async *stream(value: string, signal: AbortSignal, authenticated = false): AsyncIterable<Uint8Array> {
+    let url: URL; try { url = new URL(value); } catch { throw new MediaError('invalid_response'); }
+    if (url.username || url.password || !['http:', 'https:'].includes(url.protocol)) throw new MediaError('invalid_response');
+    if (url.origin !== this.base.origin && (authenticated || !this.downloadHosts.includes(url.hostname) || privateHost(url.hostname) || url.protocol !== 'https:')) throw new MediaError('backend_unavailable');
+    const headers: Record<string,string> = {};
+    if (authenticated && this.#key) { if (this.authKind === 'google') headers['x-goog-api-key'] = this.#key; else headers.authorization = `${this.authKind} ${this.#key}`; }
+    const response = await fetch(url, { signal, headers, redirect: 'error' });
+    if (!response.ok) { await response.body?.cancel(); throw classify(response.status, {}); }
+    if (!response.body) throw new MediaError('invalid_response');
+    const reader = response.body.getReader();
+    try { while (true) { signal.throwIfAborted(); const part = await reader.read(); if (part.done) break; yield part.value; } }
+    finally { await reader.cancel(); }
+  }
   async image(value: string, format: ImageFormat, signal: AbortSignal): Promise<{ bytes: Uint8Array; format: ImageFormat }> {
     if (value.startsWith('data:')) {
       const m = /^data:image\/(png|jpeg|webp);base64,([a-zA-Z0-9+/=]+)$/.exec(value);

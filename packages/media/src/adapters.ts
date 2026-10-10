@@ -1,3 +1,5 @@
+import { HttpVideoAdapter, type VideoProfile } from './adapters/video.ts';
+import type { VideoProcessor } from './video.ts';
 import { setTimeout as delay } from 'node:timers/promises';
 import { privateHost, checkedUrl, classify } from './http.ts';
 import { ResilientTransport } from './adapters/_shared/transport.ts';
@@ -13,7 +15,7 @@ import { probeDrawThings } from './adapters/drawthings-probe.ts';
 import { MediaError, validateRequest, failure } from './types.ts';
 import type { ImageAdapter, ImageRequest, ImageResult, GenerationContext, Capabilities, ReferenceImage } from './types.ts';
 export type HttpAdapterId = 'openrouter' | 'replicate' | 'fal' | 'together' | 'openai' | 'google' | 'xai' | 'draw-things';
-export interface HttpAdapterConfig { id: HttpAdapterId; model: string; baseUrl?: string; apiKey?: string; timeoutMs?: number; pollMs?: number; downloadHosts?: string[]; allowLan?: boolean; retry?: RetryPolicy; maxConcurrent?: number; modelListTtlMs?: number }
+export interface HttpAdapterConfig { id: HttpAdapterId; model: string; baseUrl?: string; apiKey?: string; timeoutMs?: number; pollMs?: number; downloadHosts?: string[]; allowLan?: boolean; retry?: RetryPolicy; maxConcurrent?: number; modelListTtlMs?: number; video?: VideoProfile; pollWait?: (ms: number, signal: AbortSignal) => Promise<void>; videoProcessor?: VideoProcessor }
 export const defaults: Record<HttpAdapterId, string> = { openrouter: 'https://openrouter.ai/api/v1', replicate: 'https://api.replicate.com/v1', fal: 'https://queue.fal.run', together: 'https://api.together.ai/v1', openai: 'https://api.openai.com/v1', google: 'https://generativelanguage.googleapis.com/v1beta', xai: 'https://api.x.ai/v1', 'draw-things': 'http://127.0.0.1:7860' };
 const dataUrl = (i: ReferenceImage) => `data:image/${i.format};base64,${Buffer.from(i.bytes).toString('base64')}`;
 const omitUnsupported = (req: ImageRequest, fields: (keyof ImageRequest)[]) => { if (fields.some(f => req[f] !== undefined)) throw new MediaError('unsupported_parameter'); };
@@ -30,8 +32,9 @@ const omitUnsupported = (req: ImageRequest, fields: (keyof ImageRequest)[]) => {
  * Draw Things ignores masks in HTTPAPI: inpaint is intentionally false. Model-specific gateway profiles are narrow; unknown parameters are refused.
  */
 export class HttpImageAdapter implements ImageAdapter {
-  readonly id: HttpAdapterId; readonly model: string; readonly config: Omit<HttpAdapterConfig, 'apiKey'>; private readonly http: ResilientTransport; private readonly limiter: Limiter | undefined; private readonly catalog: ModelCatalog | undefined; private schema: Promise<InputSchema | undefined> | undefined;
+  readonly id: HttpAdapterId; readonly model: string; readonly config: Omit<HttpAdapterConfig, 'apiKey'>; private readonly http: ResilientTransport; private readonly limiter: Limiter | undefined; private readonly catalog: ModelCatalog | undefined; private schema: Promise<InputSchema | undefined> | undefined; private readonly videoAdapter: HttpVideoAdapter | undefined;
   constructor(config: HttpAdapterConfig) {
+    this.videoAdapter = config.video ? new HttpVideoAdapter(config) : undefined;
     this.id = config.id; this.model = config.model; const { apiKey: _apiKey, ...publicConfig } = config; this.config = publicConfig;
     if (!config.model || /[?#]/.test(config.model) || config.model.split('/').some(p => p === '.' || p === '..' || !p)) throw new MediaError('unsupported_parameter');
     const base = config.baseUrl ?? defaults[config.id]; const url = checkedUrl(base);
@@ -41,7 +44,7 @@ export class HttpImageAdapter implements ImageAdapter {
     this.catalog = config.id === 'openrouter' ? new ModelCatalog(signal => this.http.json('models?output_modalities=image', undefined, signal), config.modelListTtlMs === undefined ? {} : { ttlMs: config.modelListTtlMs }) : undefined;
     if (config.pollMs !== undefined && (!Number.isFinite(config.pollMs) || config.pollMs < 1)) throw new MediaError('unsupported_parameter');
   }
-  capabilities(): Capabilities { return { generate: true, edit: ['openai', 'google', 'openrouter', 'draw-things', 'fal', 'replicate'].includes(this.id), inpaint: ['openai', 'fal', 'replicate'].includes(this.id) }; }
+  capabilities(): Capabilities { return { generate: true, edit: ['openai', 'google', 'openrouter', 'draw-things', 'fal', 'replicate'].includes(this.id), inpaint: ['openai', 'fal', 'replicate'].includes(this.id), ...(this.config.video ? { video: this.videoAdapter!.capabilities() } : {}) }; }
   /** OpenRouter only: image-output models from the models endpoint, cached for `modelListTtlMs` (default one hour). */
   async listModels(signal: AbortSignal = AbortSignal.timeout(this.config.timeoutMs ?? 120000)): Promise<ImageModel[]> {
     if (!this.catalog) throw new MediaError('unsupported_parameter');
@@ -49,14 +52,20 @@ export class HttpImageAdapter implements ImageAdapter {
   }
   /** Draw Things only: running / API switched off / app not installed, with a stable reason for the latter two. */
   probe(): ReturnType<typeof probeDrawThings> { if (this.id !== 'draw-things') return Promise.reject(new MediaError('unsupported_parameter')); return probeDrawThings(this.http.base.origin); }
-  generate(req: ImageRequest, context: GenerationContext = {}): Promise<ImageResult> { return this.batch(req, context, false); }
+  generate(req: ImageRequest, context: GenerationContext = {}): Promise<ImageResult> { return req.kind === 'video' ? (this.videoAdapter ? this.videoRun(req, context, false) : Promise.reject(new MediaError('unsupported_parameter'))) : this.batch(req, context, false); }
   edit(req: ImageRequest, context: GenerationContext = {}): Promise<ImageResult> {
+    if (req.kind === 'video') return this.videoAdapter ? this.videoRun(req, context, true) : Promise.reject(new MediaError('unsupported_parameter'));
     if (!this.capabilities().edit || !req.referenceImages?.length) return Promise.reject(new MediaError('unsupported_parameter'));
     return this.batch(req, context, true);
   }
   resume(req: ImageRequest, context: GenerationContext): Promise<ImageResult> {
+    if (req.kind === 'video') return this.videoAdapter ? this.videoRun(req, context, false) : Promise.reject(new MediaError('unsupported_parameter'));
     if (!['replicate', 'fal'].includes(this.id) || !context.resume || context.resume.model !== this.model || !/^[a-zA-Z0-9_-]+$/.test(context.resume.id)) return Promise.reject(new MediaError('unsupported_parameter'));
     return this.perform(req, context, false);
+  }
+  private videoRun(req: ImageRequest, context: GenerationContext, edit: boolean): Promise<ImageResult> {
+    const execute = () => this.videoAdapter!.execute(req,context,edit);
+    return this.limiter ? this.limiter.run(context.signal ?? new AbortController().signal,execute) : execute();
   }
   private async batch(input: ImageRequest, context: GenerationContext, edit: boolean): Promise<ImageResult> {
     validateRequest(input); const req = sanitizeRequest(input); // references and mask leave without EXIF/GPS or textual metadata

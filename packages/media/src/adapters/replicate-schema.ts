@@ -41,7 +41,7 @@ export function mapReplicateInput(req: ImageRequest, schema: InputSchema, edit: 
   if (edit) {
     const refs = req.referenceImages ?? [];
     if (refs.length) {
-      const many = pick(schema, ['input_images', 'image_input', 'images', 'image_urls']); const single = pick(schema, ['image', 'input_image', 'init_image', 'image_prompt']);
+      const many = pick(schema, ['input_images', 'image_input', 'images', 'image_urls']); const single = pick(schema, ['image', 'input_image', 'init_image', 'image_prompt', 'image_url', 'start_image_url', 'first_frame_url']);
       if (single && refs.length === 1) input[single] = dataUri(refs[0]!); else if (many) input[many] = refs.map(dataUri); else refuse();
     }
     if (req.mask) set(['mask', 'mask_image'], () => dataUri(req.mask!));
