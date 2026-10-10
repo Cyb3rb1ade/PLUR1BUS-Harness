@@ -2,6 +2,7 @@ FROM rust:1.95-bookworm@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92e
 WORKDIR /build
 COPY Cargo.toml Cargo.lock ./
 COPY desktop-contract/ desktop-contract/
+COPY host-helper/ host-helper/
 COPY mock-harness/ mock-harness/
 COPY test-bins/ test-bins/
 COPY src-tauri/Cargo.toml src-tauri/Cargo.toml

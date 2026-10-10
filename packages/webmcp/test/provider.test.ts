@@ -320,3 +320,12 @@ describe("execute", () => {
     assert.equal(call.calls.length, 0);
   });
 });
+describe("project column management remains human controlled", () => {
+  it("blocks the entire prefix even on explicit inclusion", () => {
+    const methods = ["project.column.list", "project.column.create", "project.column.update", "project.column.move", "project.column.delete"];
+    for (const method of methods) assert.equal(isForbiddenMethod(method), true);
+    const tools = buildWebMcpTools({ capabilities: caps, schema: SCHEMA, include: methods, call: fakeCall() });
+    for (const method of methods) assert.equal(byName(tools, method), undefined);
+    assert.equal(isForbiddenMethod("project.card.get"), false);
+  });
+});

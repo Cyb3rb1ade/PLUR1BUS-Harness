@@ -7,6 +7,8 @@ use crate::{
 use std::{future::Future, time::Duration};
 use tokio::sync::watch;
 
+type ApprovalSink = std::sync::Arc<dyn Fn(&str, serde_json::Value) + Send + Sync>;
+
 const MAX_FRAME: usize = 64 * 1024;
 /// A terminal result of native authenticated HTTP, never inferred from foreign SSE data.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -33,11 +35,15 @@ pub struct EventUpdate {
 }
 #[derive(Default)]
 pub struct EventStream {
+    approval_sink: Option<ApprovalSink>,
     last_id: Option<String>,
     failures: u32,
     last_state: Option<EventUpdate>,
 }
 impl EventStream {
+    pub fn approval_sink(&mut self, sink: ApprovalSink) {
+        self.approval_sink = Some(sink);
+    }
     pub fn last_event_id(&self) -> Option<&str> {
         self.last_id.as_deref()
     }
@@ -76,6 +82,17 @@ impl EventStream {
             if let Some(value) = line.strip_prefix("data:") {
                 data.push(value.strip_prefix(' ').unwrap_or(value));
             }
+        }
+        if matches!(event, "approval.requested" | "approval.resolved") && !data.is_empty() {
+            let value =
+                serde_json::from_str(&data.join("\n")).map_err(|_| ClientError::Protocol)?;
+            if let Some(sink) = &self.approval_sink {
+                sink(event, value);
+            }
+            if let Some(id) = id {
+                self.last_id = (!id.is_empty()).then(|| id.into());
+            }
+            return Ok(None);
         }
         if event != "harness.status" || data.is_empty() {
             return Ok(None);

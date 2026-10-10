@@ -7,8 +7,12 @@ import type { View } from "../../view.ts";
 import { Badge, Card } from "../../components/card.ts";
 import { ConfirmDialog, type ConfirmResult } from "../../components/confirm-dialog.ts";
 import { formatDateTime, t, type Key } from "../../i18n.ts";
+import { lazySection } from "../common/lazy-section.ts";
 import type { Agent, AgentState } from "./model.ts";
 import { archiveAgent, deleteAgent, exportAgent, pauseAgent, resumeAgent, unarchiveAgent } from "./model.ts";
+
+// Voice (real-time) override of this agent: its own lazy chunk with catalogue and CSS.
+const VoiceOverride = lazySection<{ agentId: string; canManage: boolean }>(() => import("../voice/override.ts").then((m) => m.VoiceOverride));
 
 export const whenText = (iso: string | null): string => {
   const d = iso ? new Date(iso) : null;
@@ -153,6 +157,7 @@ export function AgentDetail({ agent, canManage }: { agent: Agent; canManage: boo
 
   return h("div", { class: "a-detail" },
     h(MediaOverride, { agentId: agent.id, canManage }),
+    h(VoiceOverride, { agentId: agent.id, canManage }),
     h(Card, { title: agent.name, aside: h(Badge, { tone: stateTone }, t(`agents.state.${state}` as Key)) },
       h("dl", { class: "facts" },
         h("div", {}, h("dt", {}, t("agents.field.name")), h("dd", {}, agent.name)),

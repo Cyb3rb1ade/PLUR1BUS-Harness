@@ -1,3 +1,5 @@
+import {approvalCards} from "../src/views/approvals.ts";
+import {translate} from "../src/i18n.ts";
 import {showCrashOffers} from "../src/views/crash-offer.ts";
 import { showBackgroundHint } from "../src/views/background-hint.ts";
 import { createShell } from "../src/shell.ts";
@@ -25,6 +27,8 @@ const connectionGate = boot?.deferConnections ? new Promise<void>(resolve=>{rele
 let completeLoads: () => void = () => {};
 const loaded = boot?.deferLoad ? new Promise<void>(resolve => { completeLoads = resolve; }) : Promise.resolve();
 const transport: DesktopTransport = {
+ async helperStatus(){return {ready:true,restarting:false,capabilities:[],grants:[]};},
+ async bridgeSettings(enabled){return {enabled:enabled??true,memoryOnly:true,secretsLocked:true};},
  async autostartGet(){return autostart;},
  async autostartSet(value){autostartCalls.push(value);if(autostartFail)throw new Error("injected autostart error");autostart=value;return autostart;},
  async connectionsList(){await connectionGate;if(failConnections)throw "storage";return {connections:rows,active,tokenStore:"memory-only"};},
@@ -54,6 +58,8 @@ document.body.append(shellRoot);
 const shell = createShell(shellRoot, transport);
 Object.assign(window, { testShell: {
   ...shell,
+  approvalActions:[] as string[],
+  showApprovals:(cards:import("../src/views/approvals.ts").ApprovalCard[],locale:"de"|"en"="en",enabled=false)=>{shellRoot.replaceChildren(approvalCards(cards,key=>translate(locale,key),async id=>{(window as any).testShell.approvalActions.push(`open:${id}`);},enabled,async(id,decision)=>{(window as any).testShell.approvalActions.push(`${decision}:${id}`);}));},
   showBackgroundHint,
   autostartCalls: () => autostartCalls,
   failAutostart: () => { autostartFail = true; },

@@ -1,5 +1,5 @@
 export type Section = "home" | "settings" | "connections";
-export type SettingsPage = "runtime" | "updates" | "version" | "advanced";
+export type SettingsPage = "runtime" | "updates" | "version" | "advanced" | "computer-access";
 export type Route = { section: Section; page: SettingsPage };
 
 export function routeFromHash(hash: string): Route {
@@ -7,7 +7,7 @@ export function routeFromHash(hash: string): Route {
   if (parts[0] === "connections") return { section: "connections", page: "runtime" };
   if (parts[0] === "settings") {
     const page = parts[1] ?? "";
-    return { section: "settings", page: ["runtime", "updates", "version", "advanced"].includes(page) ? page as SettingsPage : "runtime" };
+    return { section: "settings", page: ["runtime", "updates", "version", "advanced", "computer-access"].includes(page) ? page as SettingsPage : "runtime" };
   }
   return { section: "home", page: "runtime" };
 }

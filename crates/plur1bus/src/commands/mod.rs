@@ -32,6 +32,7 @@ pub mod model;
 pub mod module;
 pub mod plugin;
 pub mod project;
+pub mod project_board;
 pub mod repair;
 pub mod secret;
 pub mod service;

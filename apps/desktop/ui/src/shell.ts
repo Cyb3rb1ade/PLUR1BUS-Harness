@@ -1,3 +1,4 @@
+import {computerAccess} from "./views/settings-computer-access.ts";
 import { bundledRuntime } from "./views/bundled-runtime.ts";
 import { connectionsView } from "./views/connections.ts";
 import "./theme/base.css";
@@ -25,6 +26,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   const mount = element("div", "shell-mount");
   root.append(mount);
   let wizardVisible = false;
+  const renderComputerAccess = computerAccess(transport,key=>t(key),()=>render());
   const bundled = bundledRuntime(transport, key => t(key), () => render());
   let settings: Settings = { theme: "system", locale: "system" };
   let persisted: Settings = settings;
@@ -186,7 +188,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   function settingsPage(): HTMLElement {
     const container = element("div", "content settings-content");
     const header = heading(t("settings.title"), t("settings.lead"));
-    const sections: [SettingsPage, MessageKey][] = [["runtime", "nav.runtime"], ["updates", "nav.updates"], ["version", "nav.version"], ["advanced", "nav.advanced"]];
+    const sections: [SettingsPage, MessageKey][] = [["runtime", "nav.runtime"], ["updates", "nav.updates"], ["version", "nav.version"], ["advanced", "nav.advanced"], ["computer-access", "nav.computerAccess"]];
     const openSections = button(t("nav.sections"), () => {
       const menu = element("nav", "sheet-sections");
       menu.setAttribute("aria-label", t("nav.sections"));
@@ -197,7 +199,9 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     openSections.dataset.focusKey = "sections";
     const layout = element("div", "settings-layout");
     const main = element("div", "settings-main");
-    if (route.page === "advanced") {
+    if (route.page === "computer-access") {
+      main.append(renderComputerAccess());
+    } else if (route.page === "advanced") {
       const stack = element("div", "settings-stack");
       const intro = element("div", "settings-section-header");
       append(intro, element("h2", undefined, t("settings.advancedTitle")), element("p", undefined, t("settings.advancedBody")));
@@ -208,6 +212,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
       const bodyKey = `settings.${route.page}Body` as MessageKey;
       main.append(pageCard(t(titleKey), t(bodyKey)));
       if (route.page === "runtime" && transport.runtimeDetect) main.append(bundled.settings());
+      if (route.page === "runtime" && transport.bridgeSettings) main.append(renderComputerAccess(true));
       if (route.page === "runtime" && transport.autostartGet && transport.autostartSet) {
         const section = element("section", "settings-card");
         const label = element("label", "quit-choice");
@@ -248,7 +253,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     mark.set(sectionLabel, spoken, changingSection, route.section === "home" ? t("wordmark.subtitle") : undefined);
     lastSection = route.section;
     const app = element("div", "app-frame");
-    const sidebar = rail({ main: t("nav.main"), home: t("nav.home"), settings: t("nav.settings"), connections: t("nav.connections"), open: t("nav.open"), close: t("nav.close"), runtime: t("nav.runtime"), updates: t("nav.updates"), version: t("nav.version"), advanced: t("nav.advanced") }, route.section, route.page, navigate, page => navigate("settings", page));
+    const sidebar = rail({ main: t("nav.main"), home: t("nav.home"), settings: t("nav.settings"), connections: t("nav.connections"), open: t("nav.open"), close: t("nav.close"), runtime: t("nav.runtime"), updates: t("nav.updates"), version: t("nav.version"), advanced: t("nav.advanced"), "computer-access": t("nav.computerAccess") }, route.section, route.page, navigate, page => navigate("settings", page));
     const body = element("div", "app-body");
     const top = element("header", "app-top");
     const status = chip(connectionSummary());
