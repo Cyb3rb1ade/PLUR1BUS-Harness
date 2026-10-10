@@ -8,7 +8,7 @@ export function createSink(o: { dir: string; role: string; now: () => number; ma
   mkdirSync(o.dir, { recursive: true, mode: 0o700 });
   if (!lstatSync(o.dir).isDirectory()) throw new Error("log directory is not a directory");
   const securePath = o.securePath ?? createSecurePath();
-  let securedIdentity: string | null = null;
+  let securedIdentity: string | null = null; let dirty = false;
   const secure = (p: string, mode: number) => { const r = securePath(p, { mode }); if (!r.applied) throw new Error("cannot secure log path"); };
   const file = path.join(o.dir, `${o.role}.log`); let maxBytes = o.maxBytes ?? 20 * 1024 * 1024; let keep = o.keep ?? 5;
   const retentionDays = o.retentionDays ?? 14;
@@ -28,7 +28,18 @@ export function createSink(o: { dir: string; role: string; now: () => number; ma
     secure(directoryLock, 0o600);
   });
   const regular = (p: string) => { if (existsSync(p) && !lstatSync(p).isFile()) throw new Error("log path is not a regular file"); };
+  // Caller holds the role lock. Info/debug appends are immediately visible; a timer,
+  // explicit flush, warning, close or rotation pays the disk-sync cost once per batch.
+  const syncDirty = (force = false) => {
+    if (!dirty && !force) return;
+    regular(file);
+    const fd = openSync(file, "a", 0o600);
+    try { fsyncSync(fd); dirty = false; } finally { closeSync(fd); }
+  };
   const rotate = () => {
+    // Another writer may have appended without syncing under the shared role
+    // lock. Our own dirty flag cannot describe that writer's pending batch.
+    syncDirty(true); // never rename an unsynced diagnostic batch
     regular(file); regular(`${file}.${keep}`); rmSync(`${file}.${keep}`, { force: true });
     for (let i = keep - 1; i >= 1; i--) { const p = `${file}.${i}`; regular(p); regular(`${file}.${i + 1}`); if (existsSync(p)) renameSync(p, `${file}.${i + 1}`); }
     if (existsSync(file)) renameSync(file, `${file}.1`);
@@ -37,7 +48,7 @@ export function createSink(o: { dir: string; role: string; now: () => number; ma
   return {
     file,
     setRotation(r: { maxBytes: number; keep: number }) { if (!Number.isFinite(r.maxBytes) || r.maxBytes <= 0 || !Number.isInteger(r.keep) || r.keep < 1) throw new RangeError("invalid rotation"); maxBytes = r.maxBytes; keep = r.keep; },
-    append(line: string) {
+    append(line: string, durable = true) {
       locked(`${file}.writer-lock`, 5000, () => {
         regular(file);
         if (existsSync(file)) { const st = statSync(file); if (st.size > 0 && (st.size + Buffer.byteLength(line) > maxBytes || Math.floor(st.mtimeMs / DAY) < Math.floor(o.now() / DAY))) rotate(); }
@@ -48,11 +59,16 @@ export function createSink(o: { dir: string; role: string; now: () => number; ma
             if (process.platform !== "win32") chmodSync(file, 0o600);
             secure(file, 0o600); securedIdentity = identity;
           }
-          const buf = Buffer.from(line); if (writeSync(fd, buf) !== buf.length) throw new Error("short log write"); fsyncSync(fd);
+          const buf = Buffer.from(line); if (writeSync(fd, buf) !== buf.length) throw new Error("short log write");
+          dirty = true;
+          if (durable) { fsyncSync(fd); dirty = false; }
         }
         finally { closeSync(fd); }
         utimesSync(file, new Date(o.now()), new Date(o.now()));
       });
+    },
+    sync() {
+      if (dirty) locked(`${file}.writer-lock`, 5000, syncDirty);
     },
     prune(): { files: number; bytes: number } {
       return locked(`${file}.writer-lock`, 5000, () => {

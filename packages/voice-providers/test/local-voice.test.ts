@@ -8,7 +8,7 @@ import { isVoiceProviderError } from "../src/errors.ts";
 import { startFakeVendor, sinePcm16, type FakeVendor } from "./helpers/fake-vendor.ts";
 import { FakeEngine, testCatalogOverride, testFiles } from "./helpers/fake-engine.ts";
 import { collect, until } from "./helpers/common.ts";
-import { builtinCatalog } from "../src/local/catalog.ts";
+import { builtinCatalog, licenceKey } from "../src/local/catalog.ts";
 import type { DownloadProgress } from "../src/local/download.ts";
 
 interface Rig { voice: LocalVoice; engine: FakeEngine; vendor: FakeVendor; dir: string; hits: string[]; done(): Promise<void> }
@@ -90,10 +90,10 @@ test("non-commercial tier is refused without confirmation and accepted with it (
     await assert.rejects(r.voice.setLanguage("de", { profile: "quality", download: true }), (e) => isVoiceProviderError(e) && e.code === "licence_required");
     assert.equal(r.hits.length, 0, "refused before any download");
     assert.equal(r.voice.current(), undefined);
-    const st = await r.voice.setLanguage("de", { profile: "quality", download: true, acceptNcLicence: true });
+    const st = await r.voice.setLanguage("de", { profile: "quality", download: true, acceptLicences: ["t-tts-de-nc@CC-BY-NC"] });
     assert.equal(st.tts.id, "t-tts-de-nc");
   } finally { await r.done(); }
-  const r2 = await rig({ acceptNcLicence: true, profile: "quality" });
+  const r2 = await rig({ acceptedLicences: { "t-tts-de-nc@CC-BY-NC": "2026-10-10T00:00:00Z" }, profile: "quality" });
   try {
     assert.equal((await r2.voice.setLanguage("de", { download: true })).tts.id, "t-tts-de-nc");
   } finally { await r2.done(); }
@@ -210,7 +210,7 @@ test("local ASR provider: streaming partials, endpoint finals, commit, and batch
 });
 
 test("non-streaming ASR tier decodes on commit", async () => {
-  const r = await rig({ profile: "quality", acceptNcLicence: true });
+  const r = await rig({ profile: "quality", acceptedLicences: { "t-tts-de-nc@CC-BY-NC": "2026-10-10T00:00:00Z" } });
   try {
     await r.voice.setLanguage("de", { download: true });
     const s = await r.voice.asr.openStream({ sampleRate: 16000 });
@@ -253,10 +253,111 @@ test("local TTS provider: pcm16 at the model rate, resampling, speakers by name,
   } finally { await vendor.close(); await rm(dir, { recursive: true, force: true }); }
 });
 
-test("the shipped catalog cannot be downloaded until sha256 is pinned: setLanguage says so, nothing is fetched", async () => {
+test("the shipped catalog: verified packages are downloadable, the entry without a package (Martin) is not, and says why", async () => {
   const dir = await mkdtemp(join(tmpdir(), "voice-local-"));
   try {
-    const v = new LocalVoice({ config: { acceptNcLicence: true }, modelsDir: dir, engine: new FakeEngine(), catalog: builtinCatalog(), fetch: async () => { throw new Error("must not fetch"); } });
-    await assert.rejects(v.setLanguage("en", { download: true }), (e) => isVoiceProviderError(e) && e.code === "catalog");
+    const v = new LocalVoice({ modelsDir: dir, engine: new FakeEngine(), catalog: builtinCatalog(), fetch: async () => { throw new Error("must not fetch"); } });
+    const de = (await v.getLanguage("de"))!;
+    assert.equal(de.profiles.fast.stt.downloadable, true);
+    assert.equal(de.profiles.fast.tts.downloadable, true);
+    assert.equal(de.profiles.quality.tts.downloadable, false);
+    assert.match(de.profiles.quality.tts.reason ?? "", /no package/);
+    const en = (await v.getLanguage("en"))!;
+    assert.equal(en.profiles.fast.stt.downloadable && en.profiles.fast.tts.downloadable && en.profiles.quality.stt.downloadable, true);
   } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test("pendingLicences lists the unconfirmed keys with their notices and shrinks as licences are confirmed in config", async () => {
+  const r = await rig();
+  try {
+    const pending = r.voice.pendingLicences("de", "quality");
+    assert.deepEqual(pending.map((p) => p.key), ["t-tts-de-nc@CC-BY-NC"]);
+    assert.match(pending[0]!.notice, /NON-COMMERCIAL/);
+    assert.deepEqual(r.voice.pendingLicences("de"), []);
+  } finally { await r.done(); }
+  const r2 = await rig({ acceptedLicences: { "t-tts-de-nc@CC-BY-NC": "2026-10-10T00:00:00Z" } });
+  try {
+    assert.deepEqual(r2.voice.pendingLicences("de", "quality"), []);
+  } finally { await r2.done(); }
+});
+
+test("accepting one model's licence does not accept another's: the error names the key to confirm", async () => {
+  const r = await rig({ acceptedLicences: { "some-other-model@CC-BY-NC": "2026-10-10T00:00:00Z" } });
+  try {
+    await assert.rejects(r.voice.setLanguage("de", { profile: "quality", download: true }), (e) => isVoiceProviderError(e) && e.code === "licence_required" && /t-tts-de-nc@CC-BY-NC/.test(e.message));
+    assert.equal(r.hits.length, 0);
+  } finally { await r.done(); }
+});
+
+const disposed = (r: Rig) => r.engine.events.filter((e) => e.startsWith("dispose:")).sort();
+
+test("F11: a running TTS stream survives a language switch; the old models are freed only after the stream ends", async () => {
+  const r = await rig();
+  try {
+    await r.voice.setLanguage("de", { download: true });
+    async function* text() { yield "First sentence. "; await switched; yield "Second one."; }
+    let release!: () => void;
+    const switched = new Promise<void>((res) => { release = res; });
+    const it = r.voice.tts.synthesizeStream(text())[Symbol.asyncIterator]();
+    assert.ok((await it.next()).value, "first chunk arrives on the old voice");
+    await r.voice.setLanguage("en", { download: true });
+    assert.deepEqual(disposed(r), [], "old models stay alive while the stream runs");
+    release();
+    const rest: unknown[] = [];
+    for (;;) { const n = await it.next(); if (n.done) break; rest.push(n.value); }
+    assert.ok(rest.length > 0, "the stream finishes on the old voice");
+    assert.deepEqual(disposed(r), ["dispose:t-stt-de", "dispose:t-tts-de", "dispose:t-vad"]);
+  } finally { await r.done(); }
+});
+
+test("F11: an open ASR session holds the old models until close(); unload() while it runs behaves the same", async () => {
+  const r = await rig();
+  try {
+    await r.voice.setLanguage("de", { download: true });
+    const s = await r.voice.asr.openStream({ sampleRate: 16000 });
+    await r.voice.setLanguage("en", { download: true });
+    assert.deepEqual(disposed(r), []);
+    s.sendAudio(sinePcm16(800));
+    await s.close();
+    assert.deepEqual(disposed(r), ["dispose:t-stt-de", "dispose:t-tts-de", "dispose:t-vad"]);
+
+    r.engine.events.length = 0;
+    const s2 = await r.voice.asr.openStream({ sampleRate: 16000 });
+    r.voice.unload();
+    assert.deepEqual(disposed(r), [], "unload retires but does not free under a running session");
+    await s2.close();
+    assert.deepEqual(disposed(r), ["dispose:t-stt-en", "dispose:t-tts-en", "dispose:t-vad"]);
+    r.voice.unload();
+    assert.equal(disposed(r).length, 3, "no double dispose");
+  } finally { await r.done(); }
+});
+
+test("F11: error paths and finished calls release their lease, so a later switch frees immediately", async () => {
+  const r = await rig();
+  try {
+    await r.voice.setLanguage("de", { download: true });
+    await assert.rejects(r.voice.tts.synthesize("x", { voice: "nobody" }), (e) => isVoiceProviderError(e));
+    await assert.rejects(r.voice.asr.transcribe({ data: sinePcm16(100), format: "pcm16", sampleRate: 16000 }, { language: "en" }), (e) => isVoiceProviderError(e) && e.code === "unsupported");
+    await assert.rejects(r.voice.asr.openStream({ language: "fr" }), (e) => isVoiceProviderError(e) && e.code === "unsupported");
+    await r.voice.tts.synthesize("ok");
+    await r.voice.tts.listVoices();
+    await r.voice.asr.listModels();
+    const ctl = new AbortController();
+    ctl.abort();
+    await assert.rejects(collect(r.voice.tts.synthesizeStream("abc", { signal: ctl.signal })));
+    await r.voice.setLanguage("en", { download: true });
+    assert.deepEqual(disposed(r), ["dispose:t-stt-de", "dispose:t-tts-de", "dispose:t-vad"]);
+  } finally { await r.done(); }
+});
+
+test("F19: local ASR honours options.language against the model's fixed language (primary subtag), multi-language models accept any", async () => {
+  const r = await rig();
+  try {
+    await r.voice.setLanguage("de", { download: true });
+    const audio = { data: sinePcm16(1600), format: "pcm16" as const, sampleRate: 16000 };
+    assert.equal((await r.voice.asr.transcribe(audio, { language: "de" })).language, "de");
+    assert.ok((await r.voice.asr.transcribe(audio, { language: "DE-at" })).text);
+    assert.ok((await r.voice.asr.transcribe(audio)).text);
+    await assert.rejects(r.voice.asr.transcribe(audio, { language: "en-US" }), (e) => isVoiceProviderError(e) && e.code === "unsupported" && /de.*en-US/.test(e.message));
+  } finally { await r.done(); }
 });

@@ -31,9 +31,17 @@ Every provider is off until `enabled` is true. The registry (`createVoiceProvide
 
 That mode makes the vendor call a model endpoint that we expose, which needs a publicly reachable harness endpoint. The harness API is never public (loopback only), so the mode is out of scope. ElevenLabs is used as a TTS and ASR component inside the harness's own turn loop.
 
+## WebSocket client
+
+The realtime and streaming providers use a small built-in RFC 6455 client (`src/ws.ts`) instead of the global `WebSocket`, because the global one hides the status of a refused handshake and the unified codes need it (401 `auth`, 429 `rate_limited` with `Retry-After`). It treats everything the service sends as untrusted: a total message limit over all fragments (4 MiB, close 1009), reserved bits, masked server frames, bad fragmentation, bad control frames and unknown opcodes (1002), invalid UTF-8 in a message or close reason (1007), a close timeout (5 s) and a ping keepalive (every 20 s idle, dead peer after 10 s without any bytes). A frame that makes a codec throw ends the session with one `upstream_protocol` error event and a clean close. Limits and timers can be passed per socket (`limits`, `timers`); the global proxy variables are not honoured by this client.
+
+## Egress
+
+`voiceEgressHosts({ providers, catalog })` lists the hosts a configuration will contact (enabled cloud providers, the Polly regional endpoint when a region is set, the model download hosts including `release-assets.githubusercontent.com` that GitHub redirects release downloads to) in the shape of the embedding adapters' egress declaration, and `toEgressConfig` turns it into a fragment for core's egress allowlist. The package declares; core enforces.
+
 ## Errors and usage
 
-All providers throw `VoiceProviderError` with a stable `code`: `auth`, `rate_limited`, `overloaded`, `invalid_request`, `unsupported`, `network`, `timeout`, `aborted`, `bad_response`, `closed`, `unavailable`, `licence_required`, `download_failed`, `checksum_mismatch`, `catalog`, `config`. HTTP calls honour `Retry-After`. Each call reports a `UsageReport` (characters, seconds, tokens where the vendor says so, absent otherwise). `toVoiceUsage` maps it onto core's `VoiceUsage` for `VoiceBudgetPort.record`.
+All providers throw `VoiceProviderError` with a stable `code`: `auth`, `rate_limited`, `overloaded`, `invalid_request`, `unsupported`, `network`, `timeout`, `aborted`, `bad_response`, `upstream_protocol`, `closed`, `unavailable`, `licence_required`, `download_failed`, `checksum_mismatch`, `catalog`, `config`. HTTP calls honour `Retry-After`. Each call reports a `UsageReport` (characters, seconds, tokens where the vendor says so, absent otherwise). `toVoiceUsage` maps it onto core's `VoiceUsage` for `VoiceBudgetPort.record`.
 
 ## Verify at integration
 
@@ -41,7 +49,7 @@ No vendor endpoint was exercised against the live service. Everything below live
 
 - ElevenLabs: host names per region, paths `/v1/text-to-speech/{voice}`, `.../stream-input`, `/v2/voices`, `/v1/models`, `/v1/speech-to-text`, `/v1/speech-to-text/realtime`; `output_format` values per rate; the `enable_logging=false` flag; the first-message chunk schedule; default models `eleven_flash_v2_5`, `scribe_v1`, `scribe_v2_realtime`.
 - xAI: base URL, `/v1/realtime` path and message shapes, `/v1/models` listing and the pattern used to pick realtime models. No default model is assumed.
-- Gemini: base URL, the Live WebSocket path, `bidiGenerateContent` as the models-list marker, audio MIME and sample rates, fallback model id.
+- Gemini: the API key travels in the `x-goog-api-key` header of the Live handshake (option `keyTransport: "query"` selects the documented `?key=` form; the official docs show only the query form, so confirm the header at integration), base URL, the Live WebSocket path, `bidiGenerateContent` as the models-list marker, audio MIME and sample rates, fallback model id.
 - Polly: pcm rates (8000, 16000), mp3 rates, the 3000 character request limit, engine names.
 - Local catalog: every download URL, archive layout, file names inside archives and every sha256 (see `docs/voice-local.md`).
 
