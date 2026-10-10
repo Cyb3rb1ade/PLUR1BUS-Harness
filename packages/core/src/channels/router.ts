@@ -11,7 +11,8 @@ const REJECT_REPLY_EVERY_MS = 60_000;
 const REJECT_MAP_MAX = 2000;
 
 export const NOT_PAIRED_TEXT = "This account is not paired yet. Ask the owner for a pairing code and send it here.";
-export const PAIRED_TEXT = "Paired. You can write to me now.";
+export const PAIRED_TEXT = (pairingId: string) =>
+  `Pairing claimed. Pairing ID: ${pairingId}. Confirm this link in My identities. Run: plur1bus identity approve ${pairingId}`;
 export const NEW_SESSION_TEXT = "Started a new session.";
 export const FAILED_TEXT = "Sorry, that did not work. Please try again.";
 
@@ -85,7 +86,7 @@ export class ChannelRouter {
     if (PAIRING_CODE.test(code)) {
       try {
         const r = await this.#d.identity.claimPairing(sender, code);
-        if (r.ok) { await this.#reply(send, msg, PAIRED_TEXT); return; }
+        if (r.ok) { await this.#reply(send, msg, PAIRED_TEXT(r.pairingId)); return; }
       } catch (e) {
         this.#d.log.error("channel.pairing.failed", { channel: msg.channel, error: errText(e) });
       }

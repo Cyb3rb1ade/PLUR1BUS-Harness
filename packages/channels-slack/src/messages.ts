@@ -4,7 +4,7 @@ export type Locale = "en" | "de";
 
 /** User-visible bot strings. Dynamic parts are escaped by the caller-facing helpers below. */
 export interface Messages {
-  pairingOk: string;
+  pairingOk(pairingId: string): string;
   pairingFail: string;
   pairingDmOnly: string;
   usage(withPairing: boolean): string;
@@ -18,7 +18,7 @@ export interface Messages {
 
 export const MESSAGES: Record<Locale, Messages> = {
   en: {
-    pairingOk: "Pairing claimed. Confirm this link in My identities.",
+    pairingOk: (pairingId) => `Pairing claimed. Pairing ID: ${escapeSlackText(pairingId)}. Confirm this link in My identities. Run: plur1bus identity approve ${escapeSlackText(pairingId)}`,
     pairingFail: "Pairing failed. Request a new code in My identities.",
     pairingDmOnly: "Please use this command in a direct message with me.",
     usage: (p) => (p ? "Usage: /plur1bus status | /plur1bus link CODE" : "Usage: /plur1bus status"),
@@ -30,7 +30,7 @@ export const MESSAGES: Record<Locale, Messages> = {
     buttonReceived: "_Received._",
   },
   de: {
-    pairingOk: "Kopplung angenommen. Bestätige diese Verknüpfung unter „Meine Identitäten“.",
+    pairingOk: (pairingId) => `Kopplung angenommen. ID: ${escapeSlackText(pairingId)}. Bestätige diese Verknüpfung unter „Meine Identitäten“. Freigabe: plur1bus identity approve ${escapeSlackText(pairingId)}`,
     pairingFail: "Kopplung fehlgeschlagen. Fordere unter „Meine Identitäten“ einen neuen Code an.",
     pairingDmOnly: "Bitte verwende diesen Befehl in einer Direktnachricht an mich.",
     usage: (p) => (p ? "Verwendung: /plur1bus status | /plur1bus link CODE" : "Verwendung: /plur1bus status"),

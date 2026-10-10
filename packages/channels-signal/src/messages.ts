@@ -4,7 +4,7 @@ export type Locale = "en" | "de";
 const TABLE = {
   en: {
     help: "/link <code> - link this Signal account to your identity\n/help - show this help",
-    linkOk: "Pairing claimed. Confirm this link in My identities.",
+    linkOk: (pairingId: string) => `Pairing claimed. Pairing ID: ${pairingId}. Confirm this link in My identities. Run: plur1bus identity approve ${pairingId}`,
     linkFail: "Pairing failed. Request a new code in My identities.",
     viewOnce: "View-once messages are not supported by this bot. Please send a normal message.",
     recorded: "Recorded.",
@@ -14,7 +14,7 @@ const TABLE = {
   },
   de: {
     help: "/link <code> - dieses Signal-Konto mit deiner Identität verknüpfen\n/help - diese Hilfe anzeigen",
-    linkOk: "Kopplung angenommen. Bestätige die Verknüpfung unter Meine Identitäten.",
+    linkOk: (pairingId: string) => `Kopplung angenommen. ID: ${pairingId}. Bestätige die Verknüpfung unter Meine Identitäten. Freigabe: plur1bus identity approve ${pairingId}`,
     linkFail: "Kopplung fehlgeschlagen. Fordere einen neuen Code unter Meine Identitäten an.",
     viewOnce: "Einmal-Ansichten werden von diesem Bot nicht unterstützt. Bitte sende eine normale Nachricht.",
     recorded: "Gespeichert.",

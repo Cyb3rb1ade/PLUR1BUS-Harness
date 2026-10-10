@@ -541,15 +541,14 @@ export class EmailChannel implements Channel {
         await this.#replyQuietly(key, this.#msgs.linkFail);
         return;
       }
-      let ok = false;
+      let pairingId: string | undefined;
       try {
-        this.#o.pairing.claim({ code: link, identity: { channel: "email", accountId: this.#cfg.address, userId: from } });
-        ok = true;
+        pairingId = this.#o.pairing.claim({ code: link, identity: { channel: "email", accountId: this.#cfg.address, userId: from } }).pairingId;
       } catch {
         /* uniform reply below; the identity port owns rate limits; the code is never logged */
       }
-      this.#log(ok ? "info" : "warn", "channel.email.link", { ok });
-      await this.#replyQuietly(key, ok ? this.#msgs.linkOk : this.#msgs.linkFail);
+      this.#log(pairingId ? "info" : "warn", "channel.email.link", { ok: pairingId !== undefined });
+      await this.#replyQuietly(key, pairingId ? this.#msgs.linkOk(pairingId) : this.#msgs.linkFail);
       return;
     }
 

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ChannelRouter, type InboundMessage, type OutboundMessage } from "../../src/channels/index.ts";
+import { ChannelRouter, PAIRED_TEXT, type InboundMessage, type OutboundMessage } from "../../src/channels/index.ts";
 import { FakeClock, FakeIdentity, FakeSessions, silentLog, flush } from "./helpers.ts";
 
 function setup() {
@@ -54,6 +54,8 @@ test("a valid pairing code from an unknown sender links them; the next message i
   t.identity.codes.set("ABCD2345", "u7");
   await t.router.handle(t.msg({ text: " abcd2345 " }), t.send);
   assert.deepEqual(t.identity.claims, ["ABCD2345"]);
+  assert.equal(t.sent[0]!.text, PAIRED_TEXT("pair-1"));
+  assert.ok(!t.sent[0]!.text.includes("ABCD2345"), "the pairing code is not echoed");
   assert.equal(t.sessions.submits.length, 0, "the code itself is not a turn");
   await t.router.handle(t.msg({ text: "hello" }), t.send);
   assert.deepEqual(t.sessions.submits.map((s) => s.userId), ["u7"]);
