@@ -5,6 +5,7 @@ import { stage } from "../composition/trace.ts";
 import { currentTrace, newTrace, withTrace } from "../logs/trace.ts";
 import type { CallerIdentity } from "@plur1bus/rpc-schema";
 import type { Compactor } from "./compaction.ts";
+import { catalogWindow, type ReadCatalog } from "./tokens.ts";
 import { estimateTokens } from "./compaction.ts";
 import type { TurnMemory } from "./memory-port.ts";
 import type { ChatProvider, TurnApprover } from "./provider.ts";
@@ -15,6 +16,7 @@ import { SessionError, type EventRecord, type SessionRecord } from "./types.ts";
 export interface TurnLoopLogger { info(msg: string, f?: Record<string, unknown>): void; warn(msg: string, f?: Record<string, unknown>): void }
 
 export interface TurnRunnerDeps {
+  catalog?: ReadCatalog;
   store: SessionStore; compactor: Compactor; memory: TurnMemory;
   /** null: no provider is configured (`submit` then fails with `no-provider` before anything is written). */
   provider: () => ChatProvider | null;
@@ -36,6 +38,9 @@ export class NoProviderError extends SessionError {
 
 export class TurnRunner {
   readonly #d: TurnRunnerDeps;
+  readonly #background = new Set<Promise<unknown>>();
+  readonly #queued = new Set<string>();
+  readonly #scheduled = new Set<string>();
   readonly #inflight = new Set<Promise<unknown>>();
   /** The cancel switch of every running turn, by turn id (`cancel`). */
   readonly #cancels = new Map<string, AbortController>();
@@ -66,7 +71,7 @@ export class TurnRunner {
   }
 
   /** Resolves once every turn that was running when it was called has fully finished (events, capture, compaction). */
-  async idle(): Promise<void> { while (this.#inflight.size > 0) await Promise.allSettled([...this.#inflight]); }
+  async idle(): Promise<void> { while (this.#inflight.size > 0 || this.#background.size > 0) await Promise.allSettled([...this.#inflight, ...this.#background]); }
 
   #emit(e: EventRecord, session: SessionRecord): void {
     try { this.#d.notify?.(e, session); } catch (err) { this.#d.logger?.warn("session event relay failed", { sessionId: session.id, seq: e.seq, err }); }
@@ -87,10 +92,14 @@ export class TurnRunner {
       signal.throwIfAborted();
 
       // 2. context within the L14 bound (a swap is preceded by the `compaction` checkpoint, never for an incognito session).
+      const models = provider.contextModels?.(text) ?? [];
+      const windows = models.map(m => (this.#d.catalog ? catalogWindow(this.#d.catalog, m) : undefined) ?? compactor.cfg.windowTokens);
+      const model = models[0];
+      if (model) compactor.configureModel(session.id, `${model.provider}/${model.model}`, windows.length ? Math.min(...windows) : undefined);
       const view = await stage("context", signal, trace, () => compactor.prepare(session.id));
 
       // 3. the provider stream, persisted event by event.
-      let reply = ""; let usage: { inputTokens: number; outputTokens: number } | null = null; let index = 0;
+      let reply = ""; let usage: { inputTokens: number; outputTokens: number; model?: string; measurements?: import("./provider.ts").UsageMeasurement[] } | null = null; let index = 0;
       for await (const chunk of provider.stream({
         sessionId: session.id, turnId, caller, ...(approver ? { approver } : {}), principal: session.owner, agentId: session.agentId, summaries: view.summaries.map((s) => s.text), memory: recalled.text,
         messages: view.messages.map((m) => ({ role: m.role, text: m.text })), signal,
@@ -110,7 +119,7 @@ export class TurnRunner {
         }
         // RULING: with a dispatcher the harness executes; a result the provider reports itself is ignored (it could forge provenance).
         else if (chunk.type === "tool.result") { if (!this.#d.toolCalls) this.#event(turnId, "tool.result", { id: chunk.id, output: chunk.output }, session); }
-        else usage = { inputTokens: chunk.inputTokens, outputTokens: chunk.outputTokens };
+        else usage = { inputTokens: chunk.inputTokens, outputTokens: chunk.outputTokens, ...(chunk.model ? { model: chunk.model } : {}), ...(chunk.measurements ? { measurements: chunk.measurements } : {}) };
       }
 
       // 4. complete, then capture (once) and keep the context small. The turn is complete for the client at this point.
@@ -118,6 +127,14 @@ export class TurnRunner {
         text: reply, tokens: usage?.outputTokens ?? estimateTokens(reply),
         data: { provider: provider.id, ...(usage ? { usage } : {}), recall: { degraded: recalled.degraded }, ...(view.compaction.swapped || view.clipped ? { compaction: view.compaction, clipped: view.clipped } : {}) },
       });
+      if (usage && done) {
+        const key = usage.model ?? (model ? `${model.provider}/${model.model}` : provider.id);
+        // Input usage includes prompt overhead: calibrate from the complete visible request, never assign it to one user message.
+        const estimated = estimateTokens([...view.summaries.map(s => s.text), ...view.messages.map(m => m.text), recalled.text].join("\n"));
+        if (usage.measurements?.length) for (const sample of usage.measurements) compactor.meter.observe(sample.model, sample.estimatedInputTokens, sample.inputTokens);
+        else compactor.meter.observe(key, estimated, usage.inputTokens);
+        if (!usage.measurements?.length || new Set(usage.measurements.map(m => m.model)).size === 1) store.recordMessageUsage(done.message.id, key, usage.outputTokens);
+      }
       if (!done) return { state: "failed", error: "turn-not-running" };
       this.#emit(done.event, session);
       await this.#after(session, caller, turnId, text, reply, incognito);
@@ -137,6 +154,14 @@ export class TurnRunner {
       try { await stage("capture", this.#d.signal ?? new AbortController().signal, r => this.#d.logger?.info("turn.stage", { ...r }), () => this.#d.memory.capture({ agentId: session.agentId, caller, sessionId: session.id, turnId, messages: [{ role: "user", content: user }, { role: "assistant", content: assistant }], incognito })); }
       catch (e) { this.#d.logger?.warn("session capture failed", { sessionId: session.id, turnId, err: e }); }
     }
-    try { await this.#d.compactor.afterTurn(session.id); } catch (e) { this.#d.logger?.warn("session compaction prepare failed", { sessionId: session.id, err: e }); }
+    // A macrotask after completion, owned/drained by the runner. Never await model/decision work in h.done.
+    if (this.#d.signal?.aborted) return;
+    if (this.#scheduled.has(session.id)) { this.#queued.add(session.id); return; }
+    this.#scheduled.add(session.id);
+    const work = new Promise<void>(resolve => { setTimeout(() => {
+      if (this.#d.signal?.aborted) { this.#scheduled.delete(session.id); resolve(); return; }
+      void (async () => { do { this.#queued.delete(session.id); await this.#d.compactor.afterTurn(session.id,caller); } while (this.#queued.has(session.id) && !this.#d.signal?.aborted); })().catch(err => this.#d.logger?.warn("session compaction prepare failed", { sessionId: session.id, err })).finally(() => { this.#scheduled.delete(session.id); resolve(); });
+    }, 0); });
+    this.#background.add(work); void work.finally(() => this.#background.delete(work));
   }
 }

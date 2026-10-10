@@ -343,6 +343,23 @@ export class SessionStore {
     return this.#all("SELECT * FROM messages WHERE session_id = ? AND seq > ? ORDER BY seq LIMIT ?", sessionId, o.afterSeq ?? 0, Math.min(Math.max(o.limit ?? 10_000, 1), 100_000)).map(toMessage);
   }
 
+  tokenCalibration(model: string): number | null { return (this.#get("SELECT factor FROM token_calibration WHERE model=?", model)?.factor as number | undefined) ?? null; }
+  tokenFactor(model: string): number { return this.tokenCalibration(model) ?? 1; }
+  setTokenFactor(model: string, factor: number): void { this.#run("INSERT INTO token_calibration(model,factor) VALUES (?,?) ON CONFLICT(model) DO UPDATE SET factor=excluded.factor", model, factor); }
+  recordMessageUsage(id: string, model: string, tokens: number): void { this.#run("INSERT OR REPLACE INTO message_usage(message_id,model,tokens) VALUES (?,?,?)", id, model, tokens); }
+  messageUsage(id: string, model: string, text: string): number | undefined { return this.#get("SELECT u.tokens FROM message_usage u JOIN messages m ON m.id=u.message_id WHERE message_id=? AND model=? AND m.text=?", id, model, text)?.tokens as number | undefined; }
+  toolVisibility(sessionId: string): { ref: string; hidden: boolean; reason: string }[] {
+    return this.#all("SELECT ref,hidden,reason FROM tool_visibility WHERE session_id=? ORDER BY ref", sessionId).map(r => ({ ref: r.ref as string, hidden: r.hidden === 1, reason: r.reason as string }));
+  }
+  setToolVisibility(sessionId: string, ref: string, hidden: boolean, reason: string): void {
+    this.#run("INSERT INTO tool_visibility(session_id,ref,hidden,reason) VALUES (?,?,?,?) ON CONFLICT(session_id,ref) DO UPDATE SET hidden=excluded.hidden,reason=excluded.reason", sessionId, ref, hidden ? 1 : 0, reason);
+  }
+  setToolVisibilities(sessionId: string, changes: { ref: string; hidden: boolean; reason: string }[]): void {
+    this.#tx(() => { for (const change of changes) this.setToolVisibility(sessionId,change.ref,change.hidden,change.reason); });
+  }
+  /** Internal read-only background scan; event pagination never drops older tool pairs. */
+  toolEvents(sessionId: string): EventRecord[] { return this.#all("SELECT * FROM events WHERE session_id=? AND type IN ('tool.call','tool.result') ORDER BY seq", sessionId).map(toEvent); }
+
   // ---- summaries (compaction) --------------------------------------------------------------------------------------
 
   addSummary(s: Omit<SummaryRecord, "id" | "createdAt">): SummaryRecord {

@@ -8338,6 +8338,61 @@ One session of the caller's (archived ones included), with the id of its running
       "items": {
         "$ref": "#/$defs/SessionMessage"
       }
+    },
+    "compaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Context-only hidden tool refs and applied summary original ranges. Full transcript is unchanged.",
+      "required": [
+        "hidden",
+        "summaries"
+      ],
+      "properties": {
+        "hidden": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ref"
+            ],
+            "properties": {
+              "ref": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string",
+                "maxLength": 256
+              }
+            }
+          }
+        },
+        "summaries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "fromSeq",
+              "toSeq"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "fromSeq": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "toSeq": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

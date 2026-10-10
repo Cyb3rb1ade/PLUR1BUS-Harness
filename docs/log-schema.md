@@ -99,6 +99,9 @@ emitters land in later parts of D111; the names are already reserved.
 
 | Event | Kinds | Level | Attrs group | Required attrs | Flags | Notes |
 |---|---|---|---|---|---|---|
+| `compaction.summary.created` | harness | info | compaction | `sessionId`, `fromSeq`, `toSeq`, `tier` | experimental | Session context visibility changed; originals remain available. |
+| `compaction.prune.hidden` | harness | info | compaction | `sessionId`, `ref` | experimental | Session context visibility changed; originals remain available. |
+| `compaction.prune.restored` | harness | info | compaction | `sessionId`, `ref` | experimental | Session context visibility changed; originals remain available. |
 | `log.level.changed` | any | info | log_level | `source_key`, `to` |  | Log level changed. |
 | `log.level.expired` | any | info | log_level | `source_key`, `from` |  | Log level expired. |
 | `log.suppressed` | any | warn | log_suppressed | `dropped` |  | Log records suppressed. |
@@ -255,6 +258,18 @@ Every event's `attrs` are closed: the common attributes below plus the event's g
 | `untrusted` | `boolean` | true on wrapped third-party output |
 | `truncated` | `boolean` | the value was cut to its limit |
 | `bytes` | `integer` | original size in bytes when truncated |
+
+#### `compaction`
+
+Compaction view changes; references only, never transcript content.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `sessionId` | `string` |  |
+| `ref` | `string` |  |
+| `fromSeq` | `integer` |  |
+| `toSeq` | `integer` |  |
+| `tier` | `integer` |  |
 
 #### `log_level`
 

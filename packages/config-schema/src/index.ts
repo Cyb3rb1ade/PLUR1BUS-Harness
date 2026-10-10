@@ -8,6 +8,7 @@ export const SCHEMA_VERSION = 1 as const;
 export interface HarnessConfig {
   $schema?: string;
   schemaVersion: 1;
+  session: { compaction: { softRatio: number; hardRatio: number; summaryMaxTokens: number; maxMessageTokens: number; summarizer: "llm" | "digest"; prune: { enabled: boolean; keepLastTurns: number; decider: "laya" | "heuristic" | "off"; maxMs: number; batchSize: number } } };
   tools: { hostctl: { enabled: boolean; shell: { allowed: boolean; default: "bash" | "zsh" | "pwsh" }; exec: { timeoutMs: number }; output: { maxBytes: number }; env: { allow: string[] }; denyPatterns: string[]; search: { maxResults: number } } };
   core: { logLevel: "debug" | "info" | "warn" | "error"; recall: { softBudgetMs: number; hardBudgetMs: number; capChars: number }; capture: { waitMs: number }; shutdownBudgetMs: number };
   supervisor: { graceMs: number; healthIntervalMs: number };
@@ -110,7 +111,11 @@ export function defaults(): HarnessConfig {
 
 export function validate(value: unknown): { ok: true; config: HarnessConfig } | { ok: false; errors: string[] } {
   const copy = structuredClone(value);
-  if (validateFn(copy)) return { ok: true, config: copy as HarnessConfig };
+  if (validateFn(copy)) {
+    const c = (copy as HarnessConfig).session.compaction;
+    if (c.softRatio >= c.hardRatio) return { ok: false, errors: ["/session/compaction softRatio must be below hardRatio"] };
+    return { ok: true, config: copy as HarnessConfig };
+  }
   return { ok: false, errors: (validateFn.errors ?? []).map((e) => `${e.instancePath || "/"} ${e.message ?? ""}${e.params && "additionalProperty" in e.params ? ` (${(e.params as any).additionalProperty})` : ""}`.trim()) };
 }
 

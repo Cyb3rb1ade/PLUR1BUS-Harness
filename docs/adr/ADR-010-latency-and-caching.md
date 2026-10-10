@@ -218,3 +218,31 @@ The weakest part of the evidence base is worth stating: the Writer numbers are n
 **Numbering.** The task's "L3" (clipping emits an event) and "L7" (frozen snapshot) are the engine spec's L3 (`docs/superpowers/specs/2026-09-23-m1b-1-engine-api-design.md` §3.2) and ADR-010 §1's zone-3 freeze; they are not this ADR's own L3 (no syscalls in prompt assembly) and L7 (model pre-warm), which the builder satisfies by being pure.
 
 **Not done here:** the ADR-010 ban list for timestamps and ids in caller-supplied zone 1–3 text (the builder adds none and B6 would catch a drifting one), R4's confirmation UI, R6 sticky routing and R7's cache-age scheduler (provider and scheduler side), R8's usage half, parallel tool-invoked recalls at one point.
+
+
+## M2 implementation record: session compaction (2026-10-10)
+
+D23's soft-threshold worker now uses the `summarize` role through the existing
+provider router and pre-call budget, retaining its cross-billing and D109 rules.
+Staged summaries merge previous tiers within `summaryMaxTokens`; missing role,
+model or budget falls back to the deterministic digest. The hard-threshold path
+never waits for LLM summarization. Checkpoint-before-swap and incognito behavior
+remain in place. Original transcript ranges are marked on every summary.
+
+L14 session bounds use the read-only per-model catalogue window, including the
+smallest fallback window. Provider usage is preferred for unmodified messages;
+per-model EWMA calibration persists separately from transcript rows. This does
+not claim exact tokenizer accounting for all prompt zones or live model acceptance.
+
+L1/L2 context trimming and D33 pruning use reversible view overlays. The post-turn
+worker batches local Laya decisions (D34: CPU/Linux/Windows default), protects
+recent/referenced/approval/audit entries, and retains originals on timeout or
+invalid decisions. Main has no installed Laya backend; an unavailable port uses
+the conservative age/size heuristic or configured `off`. No backend download or
+cloud decision fallback is introduced. Turn completion does not await the worker.
+
+Configuration, inspection metadata and D111 events are described in
+[session compaction](../architecture/compaction.md). Deterministic fake-provider,
+fake-Laya and timer tests verify bounds, tier merges, refusals, restoration and
+unchanged transcript bytes. Native model quality/performance remains a separate
+acceptance gate.
