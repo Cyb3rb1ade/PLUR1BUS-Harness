@@ -14,9 +14,9 @@ const TODO_MISSING_DESCRIPTIONS = [
   "agent.close", "agent.list", "agent.open", "agent.status",
   "core.auth", "core.shutdown", "core.status",
   "events.subscribe", "events.unsubscribe",
-  "memory.capture", "memory.checkpoint", "memory.correct", "memory.forget", "memory.list",
+  "memory.capture", "memory.checkpoint", "memory.correct", "memory.forget",
   "memory.proposals.accept", "memory.proposals.list", "memory.proposals.reject", "memory.propose",
-  "memory.recall", "memory.share", "memory.show", "memory.state",
+  "memory.recall", "memory.share", "memory.state",
   "module.status",
 ].sort();
 const TODO_MISSING_FIXTURES: string[] = [];

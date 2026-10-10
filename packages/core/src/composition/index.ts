@@ -49,6 +49,8 @@ export interface CompositionOptions {
 }
 export interface CompositionDeps {
   home: string; config: () => HarnessConfig; engine: Engine; agents: AgentRegistry; logger: HarnessLogger;
+  /** Already admitted turns retain memory access if the agent is paused while their reply is running. */
+  memoryAgents?: AgentRegistry;
   secrets: SecretStore; egress: Egress; permissions: PermissionRuntime; audit: AuditSink; identity: IdentityService;
   clock: () => number; signal: AbortSignal; isStopping: () => boolean;
   notify: (method: string, params: object, opts: import("../rpc/server.ts").NotifyOptions) => void;
@@ -88,7 +90,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     return linked ? deriveUserPrincipal(linked.humanId) : req.principal!;
   };
   const scope = createRecallScopeProvider(d.identity);
-  const memory = engineTurnMemory({ engine: d.engine, config: d.config, agents: d.agents, logger: d.logger, captureSignal: d.signal, isStopping: d.isStopping, ...(d.onStoredCapture ? { onStoredCapture: d.onStoredCapture } : {}), identity: d.identity, scope });
+  const memory = engineTurnMemory({ engine: d.engine, config: d.config, agents: d.memoryAgents ?? d.agents, logger: d.logger, captureSignal: d.signal, isStopping: d.isStopping, ...(d.onStoredCapture ? { onStoredCapture: d.onStoredCapture } : {}), identity: d.identity, scope });
   const cfg = d.config();
   const budget = isolated('turn budget', () => createCallBudget({ path: join(d.home, 'state', 'budget.sqlite'), clock: { now: d.clock }, prices: d.prices ?? new PriceBook(SHIPPED_PRICE_TABLES), emitter: { emit(event) {
     if (event.type === 'refuse') d.audit.append({ at: d.clock(), actor: { user: 'core', host: 'core' }, action: 'budget.refused', target: event.refusal.id || 'global', detail: { ...event.refusal } });
