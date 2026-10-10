@@ -110,3 +110,21 @@ pub fn plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     let builder = builder.macos_launcher(tauri_plugin_autostart::MacosLauncher::LaunchAgent);
     builder.build()
 }
+
+/// A saved Docker socket may arrive late at login; never wait past two minutes.
+pub async fn wait_socket<T, F, Fut>(mut probe: F) -> Result<T, &'static str>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = Option<T>>,
+{
+    tokio::time::timeout(std::time::Duration::from_secs(120), async {
+        loop {
+            if let Some(value) = probe().await {
+                return value;
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        }
+    })
+    .await
+    .map_err(|_| "runtime.timeout")
+}
