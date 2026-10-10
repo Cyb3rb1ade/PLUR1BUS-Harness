@@ -364,3 +364,46 @@ The native adapters use Apple’s signed `/usr/local/bin/container` executable o
 Tests use synthetic Apple fixtures and `test-bins/fake-container`, plus a local wire fixture for the Engine API. Synthetic Apple data is explicitly unrecorded. The Owner recorder requires an isolated `p1t-` HOME and matching `CFFIXED_USER_HOME`; it records public version/status only and does not start services or enumerate user objects.
 
 WP7 is not yet accepted: Apple has no rename CLI command, full Apple/real-engine contract evidence remains open, and Docker offline archives without repository manifest digests are refused. See the WP7 acceptance matrix in `docs/handoff/status/desktop-shell.md`. CI is not polled under the Owner instruction.
+
+
+### Host bridge and native frames (WP9)
+
+The bundled connection owns a Rust-only WebSocket to `ws://127.0.0.1:<port>/ws`.
+Its bearer and 32-byte secret-store key stay in native memory and OS credential
+storage. The bridge resumes on app startup and after the controller reconciles
+a changed published port, independently of the active SPA connection. Metadata
+identity is checked before each reconnect. Remote and native-local connections
+never start a bridge. Reconnect uses the existing 1–30 second exponential base
+with jitter; text messages and frames are bounded to 64 KiB. Revocation retires
+the device token and requests pairing. Provisioning is serialized with pairing
+and removal and never overwrites an existing key (`E_EXISTS`). Memory-only
+storage refuses provisioning; Settings explains how to install/unlock Secret
+Service. The host switch persists with appearance settings and can be changed
+from Runtime or Computer access.
+
+`plur1bus-host` is a separate bundled stdio sidecar, built by the UI prebuild for
+the same target as Tauri and staged under ignored `src-tauri/binaries/`. It has
+no host capabilities or OS grants. Only `hello`, `os.permissions.status` and
+`shutdown` exist. Its native supervisor clears the environment, retaining only
+PATH, HOME/USERPROFILE and LANG, bounds exchanges, kills owned children on
+cancellation and restarts with backoff. The Computer access page is an empty
+permission frame; no grant-request method exists. Pane inputs use a closed
+native enum. Linux has no universal D1 permissions pane and returns
+`E_NOT_AVAILABLE`; native pane behavior on Windows/Linux remains unverified.
+
+The native Approvals window displays a bounded projection of authenticated
+`approval.requested`/`approval.resolved` events: effect and exact targets precede
+risk, reversibility, grant options, the short action hash and the agent's
+unverified reason. The default action opens the paired SPA approval route.
+Nonce/raw arguments do not enter IPC. Its separate local capability permits
+only app information, reading preferences and the three approval commands;
+Rust also checks the window label and exact bundled origin. Decisions remain
+G-2's debug mock only (`PLUR1BUS_DESKTOP_APPROVALS_DECIDE=1`), additionally
+requiring a bundled loopback connection advertising the test mock capability.
+D109's real Core approval RPC and OS attestation do not supply this provisional
+desktop bearer route/scope, so no production decision integration is claimed.
+
+WP10–WP12 (signed feed/updater, harness upgrade/rollback, deep links) are not
+implemented by the WP9 delivery. No root updater, RPC schema or core changes
+are included. The desktop Cargo lockfile adds only the local helper package;
+the pnpm lockfile and all registry dependency versions are unchanged.
