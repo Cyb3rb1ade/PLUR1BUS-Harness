@@ -4,6 +4,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -205,7 +208,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -310,6 +313,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -511,7 +517,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -616,6 +622,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -817,7 +826,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -922,6 +931,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -1123,7 +1135,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -1228,6 +1240,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -1429,7 +1444,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -1534,6 +1549,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -1735,7 +1753,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -1840,6 +1858,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -2041,7 +2062,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -2146,6 +2167,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -2347,7 +2371,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -2452,6 +2476,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -2653,7 +2680,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -2758,6 +2785,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -2959,7 +2989,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -3064,6 +3094,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -3265,7 +3298,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -3370,6 +3403,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -3571,7 +3607,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -3676,6 +3712,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -3877,7 +3916,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -3982,6 +4021,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -4183,7 +4225,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -4288,6 +4330,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -4489,7 +4534,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -4594,6 +4639,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -4795,7 +4843,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -4900,6 +4948,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -5101,7 +5152,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -5206,6 +5257,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -5407,7 +5461,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -5512,6 +5566,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -5713,7 +5770,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -5818,6 +5875,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -6019,7 +6079,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -6124,6 +6184,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -6325,7 +6388,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -6430,6 +6493,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -6631,7 +6697,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -6736,6 +6802,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -6937,7 +7006,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -7042,6 +7111,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -7243,7 +7315,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -7348,6 +7420,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -7549,7 +7624,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -7654,6 +7729,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -7855,7 +7933,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -7960,6 +8038,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -8161,7 +8242,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -8266,6 +8347,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -8467,7 +8551,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -8572,6 +8656,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -8773,7 +8860,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -8878,6 +8965,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -9076,7 +9166,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -9181,6 +9271,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -9379,7 +9472,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,

@@ -111,6 +111,8 @@ pub fn run(out: &Out, layout: &Layout, cmd: SessionCmd) {
     let mut c = connect_sessions(out, layout);
     match cmd {
         SessionCmd::List {
+            owner,
+            all_owners,
             agent,
             kind,
             archived,
@@ -118,6 +120,12 @@ pub fn run(out: &Out, layout: &Layout, cmd: SessionCmd) {
             limit,
         } => {
             let mut p = json!({ "caller": &caller });
+            if all_owners {
+                p["allOwners"] = json!(true);
+            }
+            if let Some(o) = owner {
+                p["owner"] = json!(o);
+            }
             if let Some(a) = agent {
                 p["agentId"] = json!(a);
             }

@@ -66,7 +66,14 @@ fn shell_capability_is_local_only() {
             "core:event:allow-listen",
             "core:event:allow-unlisten",
             "allow-autostart-get",
-            "allow-autostart-set"
+            "allow-autostart-set",
+            "allow-runtime-detect",
+            "allow-runtime-start",
+            "allow-bundle-install",
+            "allow-harness-start",
+            "allow-harness-stop",
+            "allow-harness-status",
+            "allow-harness-logs-tail"
         ])
     );
     assert_eq!(c["webviews"], serde_json::json!(["shell"]));
@@ -98,6 +105,13 @@ fn every_wp4_command_is_registered_guarded_and_no_pin_or_runtime_path_is_an_ipc_
     assert_eq!(
         SHELL_COMMANDS,
         [
+            "runtime_detect",
+            "runtime_start",
+            "bundle_install",
+            "harness_start",
+            "harness_stop",
+            "harness_status",
+            "harness_logs_tail",
             "app_info",
             "settings_get",
             "settings_set",
@@ -149,7 +163,7 @@ fn registered_handlers_match_the_application_acl_table() {
         .split(',')
         .map(str::trim)
         .filter(|s| !s.is_empty())
-        .map(|s| s.strip_prefix("commands::").unwrap())
+        .map(|s| s.split("::").last().unwrap())
         .collect();
     assert_eq!(actual, plur1bus_desktop::commands::APP_COMMANDS);
 }

@@ -1,5 +1,6 @@
 pub mod acp;
 pub mod admin;
+pub mod admin_backend;
 pub mod agent;
 pub mod approval;
 pub mod audit;
@@ -35,7 +36,6 @@ pub mod service;
 pub mod session;
 pub mod setup;
 pub mod skill;
-pub mod stubs;
 pub(crate) mod surfaces;
 pub mod uninstall;
 pub mod update;

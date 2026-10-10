@@ -81,6 +81,16 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: AgentCmd,
     },
+    /// Read-only break-glass windows and affected-person notices
+    Breakglass {
+        #[command(subcommand)]
+        sub: BreakglassCmd,
+    },
+    /// Pairing payload tools (does not create a device store)
+    Pairing {
+        #[command(subcommand)]
+        sub: PairingCmd,
+    },
     /// Memory: add and recall through the core
     Memory {
         #[command(subcommand)]
@@ -468,13 +478,6 @@ pub struct BundleArgs {
     pub lines: usize,
 }
 
-#[derive(Args, Debug)]
-#[allow(dead_code)] // every milestone stub has become a real command; kept for the next one
-pub struct StubArgs {
-    #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
-    pub rest: Vec<String>,
-}
-
 #[derive(Subcommand, Debug)]
 pub enum FirstAidCmd {
     /// [experimental] Read-only diagnostics over the installation (spec §6.6)
@@ -495,6 +498,33 @@ pub enum AgentCmd {
     Remove { id: String },
     /// [experimental] Show an agent's activity and workspace
     Status { id: String },
+    /// [experimental] Pause new turns and background work while retaining state
+    Pause { id: String },
+    /// [experimental] Resume a paused agent (unarchive first)
+    Resume { id: String },
+    /// [experimental] Archive an agent, retaining its data
+    Archive { id: String },
+    /// [experimental] Unarchive an agent, preserving its pause state
+    Unarchive { id: String },
+    /// [experimental] Export a signed, secret-redacted JSON bundle or obtain a deletion offer
+    Export {
+        id: String,
+        #[arg(long)]
+        offer_only: bool,
+    },
+    /// [experimental] Erase an archived agent via the engine API (unavailable with the current engine)
+    Delete {
+        id: String,
+        #[arg(long)]
+        confirm_name: String,
+        #[arg(long)]
+        export_offer: String,
+    },
+    /// Per-person agent use/manage rights
+    Rights {
+        #[command(subcommand)]
+        sub: RightsCmd,
+    },
 }
 #[derive(Subcommand, Debug)]
 pub enum MemoryCmd {
@@ -953,6 +983,12 @@ pub enum AcpCmd {
 pub enum SessionCmd {
     /// [experimental] List your chat sessions (pinned first, then by last turn)
     List {
+        /// Owner principal filter (operator metadata view)
+        #[arg(long)]
+        owner: Option<String>,
+        /// Include all owners' metadata; transcripts remain protected
+        #[arg(long)]
+        all_owners: bool,
         #[arg(long)]
         agent: Option<String>,
         /// direct, card, project, channel or acp
@@ -1677,6 +1713,7 @@ mod tests {
                         search,
                         limit,
                         agent,
+                        ..
                     },
             } => {
                 assert_eq!(
@@ -1828,6 +1865,19 @@ mod tests {
 
 #[derive(Subcommand, Debug)]
 pub enum UserCmd {
+    /// [experimental] List people and role presets
+    List,
+    /// [experimental] Assign a role preset (last Owner protected)
+    Role {
+        user: String,
+        #[arg(value_parser=["owner","admin","operator","member","viewer"])]
+        role: String,
+    },
+    /// One-time invitations through the existing identity pairing path
+    Invite {
+        #[command(subcommand)]
+        sub: InviteCmd,
+    },
     /// [experimental] List humans with their linked identities and the pairings still waiting
     Ls {
         /// Include revoked links
@@ -1941,5 +1991,59 @@ pub enum ContainerCmd {
     Logs {
         #[arg(default_value = "plur1bus-harness")]
         service: String,
+    },
+}
+#[derive(Subcommand, Debug)]
+pub enum RightsCmd {
+    /// [experimental] List explicit agent rights
+    Get { id: String },
+    /// [experimental] Set use/manage, or none to revoke the explicit right
+    Set {
+        id: String,
+        user: String,
+        #[arg(value_parser=["use","manage","none"])]
+        right: String,
+    },
+}
+#[derive(Subcommand, Debug)]
+pub enum InviteCmd {
+    /// [experimental] Create a fixed-role pairing invitation; code is returned once
+    Create {
+        name: String,
+        #[arg(long,value_parser=["admin","operator","member","viewer"])]
+        role: String,
+        #[arg(long)]
+        channel: String,
+        #[arg(long,default_value_t=60,value_parser=clap::value_parser!(u32).range(1..=60))]
+        minutes: u32,
+    },
+    /// [experimental] List invitation metadata without codes
+    List,
+    /// [experimental] Revoke an unconfirmed invitation
+    Revoke { id: String },
+}
+#[derive(Subcommand, Debug)]
+pub enum BreakglassCmd {
+    /// [experimental] Request a read-only access window for another person
+    Request {
+        user: String,
+        #[arg(long)]
+        reason: String,
+        #[arg(long,default_value_t=15,value_parser=clap::value_parser!(u32).range(1..=60))]
+        minutes: u32,
+    },
+    /// [experimental] List your live read-only grants
+    List,
+    /// [experimental] Revoke a grant
+    Revoke { id: String },
+    /// [experimental] Read notices affecting your own account
+    Notices,
+}
+#[derive(Subcommand, Debug)]
+pub enum PairingCmd {
+    /// [experimental] Get QR byte payload for an existing pairing deep link; never mints a code
+    Qr {
+        #[arg(long)]
+        link: String,
     },
 }

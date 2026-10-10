@@ -1,0 +1,17 @@
+{
+  "params": {
+    "link": "plur1bus://pair?origin=https%3A%2F%2Foffline.invalid&code=ABCD-EFGH&exp=2000&tag=offline-fixture"
+  },
+  "result": {
+    "link": "plur1bus://pair?origin=https%3A%2F%2Foffline.invalid&code=ABCD-EFGH&exp=2000&tag=offline-fixture",
+    "expiresAt": 2000000,
+    "qr": {
+      "text": "plur1bus://pair?origin=https%3A%2F%2Foffline.invalid&code=ABCD-EFGH&exp=2000&tag=offline-fixture",
+      "mode": "byte",
+      "errorCorrection": "M",
+      "length": 96,
+      "maxLength": 2331,
+      "fits": true
+    }
+  }
+}

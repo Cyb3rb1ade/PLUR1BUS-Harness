@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assertLicenceAccepted, builtinCatalog, downloadable, licenceNotice, loadCatalog, modelsFor, needsLicenceConfirmation, parseCatalog } from "../src/local/catalog.ts";
+import { assertLicenceAccepted, builtinCatalog, downloadable, licenceKey, licenceNotice, loadCatalog, modelsFor, needsLicenceConfirmation, parseCatalog } from "../src/local/catalog.ts";
 import { isVoiceProviderError } from "../src/errors.ts";
 
 test("the shipped catalog loads and gives every language a fast and a quality tier for stt and tts", () => {
@@ -34,12 +34,13 @@ test("Martin is marked unconfirmed and cannot be downloaded; a model is download
 test("licence gate: confirmed commercial licences pass, non-commercial and unconfirmed need explicit acceptance", () => {
   const c = builtinCatalog();
   assert.equal(needsLicenceConfirmation(c.models["kokoro-multi"]!), false);
-  assert.doesNotThrow(() => assertLicenceAccepted(c.models["kokoro-multi"]!, false));
+  assert.doesNotThrow(() => assertLicenceAccepted(c.models["kokoro-multi"]!, []));
   for (const id of ["kroko-de", "voice-martin-de"]) {
-    assert.throws(() => assertLicenceAccepted(c.models[id]!, false), (e) => isVoiceProviderError(e) && e.code === "licence_required" && /UNCONFIRMED/.test(e.message));
-    assert.doesNotThrow(() => assertLicenceAccepted(c.models[id]!, true));
+    assert.throws(() => assertLicenceAccepted(c.models[id]!, []), (e) => isVoiceProviderError(e) && e.code === "licence_required" && /UNCONFIRMED/.test(e.message));
+    assert.doesNotThrow(() => assertLicenceAccepted(c.models[id]!, [licenceKey(c.models[id]!)]));
   }
-  assert.match(licenceNotice(c.models["kroko-de"]!), /commercial use not confirmed/);
+  assert.match(licenceNotice(c.models["voice-martin-de"]!), /commercial use not confirmed/);
+  assert.match(licenceNotice(c.models["piper-en-lessac-low"]!), /NON-COMMERCIAL/);
 });
 
 test("adding a language is data only: an override adds models and a language, and the result validates", () => {
@@ -71,4 +72,32 @@ test("a malformed catalog is rejected with a catalog error naming the problem", 
     ["bad language code", { ...base, languages: { "X!": { name: "X", stt: { fast: "v" }, tts: { fast: "v" } } } }, /language code/],
   ];
   for (const [name, doc, re] of bad) assert.throws(() => parseCatalog(doc), (e) => isVoiceProviderError(e) && e.code === "catalog" && re.test(e.message), name);
+});
+
+test("licence confirmation is per model and licence id: accepting one does not accept another, a changed licence id needs a new confirmation", () => {
+  const c = builtinCatalog();
+  const kroko = c.models["kroko-de"]!;
+  const martin = c.models["voice-martin-de"]!;
+  assert.equal(licenceKey(kroko), "kroko-de@CC-BY-SA");
+  assert.throws(() => assertLicenceAccepted(martin, [licenceKey(kroko)]), (e) => isVoiceProviderError(e) && e.code === "licence_required" && /voice-martin-de@unknown/.test(e.message));
+  assert.doesNotThrow(() => assertLicenceAccepted(kroko, new Set([licenceKey(kroko)])));
+  const updated = { ...kroko, licence: { ...kroko.licence, id: "CC-BY-SA-v2" } };
+  assert.throws(() => assertLicenceAccepted(updated, new Set([licenceKey(kroko)])), (e) => isVoiceProviderError(e) && e.code === "licence_required" && /kroko-de@CC-BY-SA-v2/.test(e.message));
+  assert.throws(() => assertLicenceAccepted({ ...kroko, id: "kroko-new" }, [licenceKey(kroko)]), (e) => isVoiceProviderError(e) && e.code === "licence_required");
+});
+
+test("catalogOverride cannot change the licence of a built-in model, but may change its other fields and add new models with their own licence", () => {
+  const builtin = builtinCatalog();
+  const flipped = { id: "x", name: "Free for all", commercial: true, status: "confirmed" };
+  const c = loadCatalog({ models: {
+    "kroko-de": { ...builtin.models["kroko-de"]!, licence: flipped, displayName: "Kroko override" },
+    "voice-martin-de": { ...builtin.models["voice-martin-de"]!, licence: flipped },
+  } });
+  assert.deepEqual(c.models["kroko-de"]!.licence, builtin.models["kroko-de"]!.licence);
+  assert.equal(c.models["kroko-de"]!.displayName, "Kroko override");
+  assert.equal(needsLicenceConfirmation(c.models["kroko-de"]!), true);
+  assert.equal(needsLicenceConfirmation(c.models["voice-martin-de"]!), true);
+  assert.throws(() => assertLicenceAccepted(c.models["voice-martin-de"]!, []), (e) => isVoiceProviderError(e) && e.code === "licence_required");
+  const added = loadCatalog({ models: { "new-nc": { ...builtin.models["piper-de-thorsten-low"]!, licence: { id: "NC", name: "NC", commercial: false, status: "confirmed" } } } });
+  assert.equal(needsLicenceConfirmation(added.models["new-nc"]!), true);
 });

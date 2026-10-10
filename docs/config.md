@@ -19,6 +19,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 |---|---|---|---|---|
 | `containers` | object |  | live | Container distribution library settings. Installer/runtime wiring is separate from the core. |
 | `sidecars` | object |  | live | Optional sidecars keyed by id. Core consumers read configuration only; runtime wiring is separate. |
+| `remote` | object | `{}` | core | Remote exposure configuration (listener integration is separate). |
 | `$schema` | string |  | live | URI identifying the JSON Schema used to validate this configuration. |
 | `schemaVersion` | const |  | core | Configuration format version; this schema supports version 1. |
 | `tools.hostctl.enabled` | boolean | `true` | core | Register local hostctl tools. |
@@ -159,7 +160,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `voice.local.perAgent` | object | `{}` | live | Per-agent override of language and tier, keyed by agent identifier. |
 | `voice.local.catalogOverride` | object |  | live | Data that adds or replaces catalog models and languages (adding a language is data, not code). Same shape as the built-in catalog. |
 | `voice.local.modelsDir` | string |  | live | Directory for downloaded voice models. Empty: a directory under the harness data directory. |
-| `voice.local.acceptNcLicence` | boolean | `false` | live | Confirm that models under non-commercial or unconfirmed licences may be downloaded and used. Off by default; the licence text is shown first. |
+| `voice.local.acceptedLicences` | object | `{}` | live | Licences the owner confirmed, one entry per model: the key is the model id, an @ sign and the licence id (for example kroko-de@CC-BY-SA), the value the date-time of the confirmation. A model under a non-commercial or unconfirmed licence is downloaded and used only with its own entry; a new model or a changed licence needs a new confirmation. |
 | `voice.localRealtime.enabled` | boolean | `false` | live | Whether the local real-time profile applies. When off, every feature runs without a time budget. |
 | `voice.localRealtime.endpointingMs` | integer | `400` | live | Silence after speech, in milliseconds, before the user's turn counts as finished. |
 | `voice.localRealtime.speculativeTurnStart` | boolean | `false` | live | Start the agent turn on the final transcript before the silence window ends, and cancel it if the user keeps talking. |

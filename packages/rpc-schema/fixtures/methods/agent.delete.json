@@ -1,0 +1,11 @@
+{
+  "params": {
+    "agentId": "alpha",
+    "confirmName": "Alpha",
+    "exportOfferId": "offer-fixture"
+  },
+  "result": {
+    "agentId": "alpha",
+    "deleted": true
+  }
+}
