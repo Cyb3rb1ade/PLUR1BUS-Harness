@@ -24,6 +24,10 @@ export function billingClassOf(def: Pick<ProviderDefinition, 'billingPath' | 'pr
 export function composeAuth(o: { config: HarnessConfig; definitions: Readonly<Record<string, ProviderDefinition>>; secrets: SecretStore; egress: Egress; log?: PipelineLog; fetch?: typeof fetch; openai?: OpenAIRuntime }) {
   const http = createOAuthHttp({ egress: o.egress });
   const credentials = createCredentialsProvider({ profiles: Object.values(o.definitions).filter(def => !o.openai?.handles(def)), store: createAuthSecretStore(o.secrets), clock: { now: Date.now }, refresher: new HttpRefresher(http), adc: new GoogleAdc({ http, clock: { now: Date.now } }) });
+  // Read-only discovery access to the same pool/refresh owner. A changed profile cannot reuse a lease
+  // registered for its previous origin or secret reference; composition must be restarted first.
+  const discoveryProfiles = new Map(Object.values(o.definitions).map(def => [def.profile.id, JSON.stringify([def.profile, def.entries, def.strategy])]));
+  const credentialsForDiscovery = (def: ProviderDefinition) => discoveryProfiles.get(def.profile.id) === JSON.stringify([def.profile, def.entries, def.strategy]) ? credentials : undefined;
   const registry: Map<string, ProviderRegistry extends ReadonlyMap<string, infer E> ? E : never> = new Map();
   const families: Record<string, ProviderFamily> = {};
   const billing: Record<string, BillingClass> = {};
@@ -52,5 +56,5 @@ export function composeAuth(o: { config: HarnessConfig; definitions: Readonly<Re
     registry.set(id, { adapter: wrapper, ...(def.defaultModel ? { defaultModel: def.defaultModel } : {}), ...(def.models ? { models: def.models } : {}) });
   }
   const resolved = resolveModelProfiles(o.config.modelProfiles, registry);
-  return { profiles: resolved.table as ProfileTable, families, billing, resolved, close: () => credentials.close() };
+  return { credentialsForDiscovery, profiles: resolved.table as ProfileTable, families, billing, resolved, close: () => credentials.close() };
 }

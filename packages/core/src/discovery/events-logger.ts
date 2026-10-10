@@ -1,3 +1,4 @@
+import { newTrace, withTrace } from "../logs/trace.ts";
 import type { ScanErrorInfo, ScanResultCode } from "./types.ts";
 import type { DiscoveryEvents } from "./ports.ts";
 
@@ -97,4 +98,18 @@ export function createLoggerEvents(logger: LoggerLike): DiscoveryEvents {
       });
     },
   };
+}
+
+/** D111 writer adapter: only fixed event names and metadata attributes enter the schema writer. */
+export function createD111Events(writer: Pick<ReturnType<typeof import("../logs/writer.ts").createWriter>, "write" | "flush">): DiscoveryEvents {
+  const logger: LoggerLike = Object.fromEntries(["debug", "info", "warn", "error"].map(level => [level, (event: string, fields?: object) => {
+    const { source: _source, trace_id: _trace, ...attrs } = fields as Record<string, unknown>;
+    const provider = String(attrs.provider).replaceAll(":", "/");
+    const id = /^[a-z0-9][a-z0-9._@/-]{0,127}$/.test(provider) ? provider : "discovery";
+    const trace = newTrace(), scanTrace = String(_trace).replaceAll("-", "");
+    if (/^[0-9a-f]{32}$/.test(scanTrace) && !/^0+$/.test(scanTrace)) { trace.trace_id = scanTrace; trace.traceparent = `00-${scanTrace}-${trace.span_id}-01`; }
+    withTrace(trace, () => writer.write(event, attrs, { source: { kind: "provider", id, version: "profile@1" }, level: level as "debug" | "info" | "warn" | "error" }));
+    writer.flush();
+  }])) as unknown as LoggerLike;
+  return createLoggerEvents(logger);
 }
