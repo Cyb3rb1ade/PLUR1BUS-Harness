@@ -100,6 +100,17 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
 
     for (name, fixture) in &fixtures {
         match name.as_str() {
+            "device.list" => check_pair::<types::DeviceListParams, types::DeviceListResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "device.revoke" => {
+                check_pair::<types::DeviceRevokeParams, types::Device>(name, fixture, &root_schema)
+            }
+            "device.rename" => {
+                check_pair::<types::DeviceRenameParams, types::Device>(name, fixture, &root_schema)
+            }
             "agent.pause" => check_pair::<types::AgentPauseParams, types::AgentPauseResult>(
                 name,
                 fixture,

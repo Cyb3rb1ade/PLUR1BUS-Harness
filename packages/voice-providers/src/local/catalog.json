@@ -77,7 +77,8 @@
       },
       "tts": {
         "fast": "piper-de-thorsten-low",
-        "quality": "voice-martin-de"
+        "quality": "voice-martin-de",
+        "fallback": "piper-de-thorsten-low"
       }
     },
     "en": {

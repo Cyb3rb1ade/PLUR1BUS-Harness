@@ -182,6 +182,11 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: SecretCmd,
     },
+    /// [experimental] Paired devices: list, revoke and rename (F44)
+    Device {
+        #[command(subcommand)]
+        sub: DeviceCmd,
+    },
     /// [experimental] Standing permissions: list, add and revoke grants (D109)
     ///
     /// A grant lets an agent use a capability without asking each time. Only a person creates one.
@@ -2071,4 +2076,14 @@ pub enum PairingCmd {
         #[arg(long)]
         link: String,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DeviceCmd {
+    /// [experimental] List your devices (Owner/Admin: all), including revoked devices
+    List,
+    /// [experimental] Revoke a device and close its connections immediately
+    Revoke { id: String },
+    /// [experimental] Rename a device you own
+    Rename { id: String, name: String },
 }

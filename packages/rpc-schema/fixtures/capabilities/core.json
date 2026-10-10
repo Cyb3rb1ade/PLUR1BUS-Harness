@@ -1,5 +1,17 @@
 {
   "methods": {
+    "device.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "device.revoke": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "device.rename": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "media.preferences.set": {
       "stability": "experimental",
       "since": "1.5.0"

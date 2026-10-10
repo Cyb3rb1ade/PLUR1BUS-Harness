@@ -320,3 +320,24 @@ The existing D109 approval service is unchanged.
 leaves no usable grant. Existing library callers retain their default behavior. Core notices are persisted, self-scoped, and
 optionally delivered through the checked `breakglass.notice` audience. A lapsed/revoked window cannot read foreign transcripts
 or user cards, and every allowed use is audited. Web binding remains follow-up; no web sources are changed.
+
+## Device management (F44)
+
+All `device.*` methods are human-only and intersected with exact token scopes
+(`device.list`, `device.revoke`, `device.rename`) or `device.*`. Agents, missing
+principal kinds, unknown roles and unscoped tokens are denied regardless of rights
+or Break-Glass grants. The central system-resource rules admit the person; the
+handler applies the stored `pairedBy` ownership gate, as for identity self-service.
+Ownership is never accepted from RPC params.
+
+| Method | Owner/Admin | Operator/Member/Viewer |
+|---|---|---|
+| `device.list` | All, including revoked entries | Own entries only |
+| `device.revoke` | Any device | Own device only |
+| `device.rename` | Own device only | Own device only |
+
+The matrix fixture covers method admission. The guard/handler tests independently
+cover stored ownership, spoofed ownership params, token scopes, unknown roles and
+agent principals. Successful pairing, revocation and rename use the existing audit
+sink with `device.paired`, `device.revoked`, `device.renamed`; audit failure prevents
+the mutation. UI binding and remote transport mounting remain follow-up work.

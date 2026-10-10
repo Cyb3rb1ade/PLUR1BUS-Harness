@@ -580,8 +580,8 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
       let reply = "Pairing failed. Request a new code in My identities.";
       if (message.chatKind === "direct" && this.#o.pairing && this.#botId !== undefined) {
         try {
-          this.#o.pairing.claim({ code: message.command.argument, identity: { channel: "telegram", accountId: String(this.#botId), userId: message.senderId } });
-          reply = "Pairing claimed. Confirm this link in My identities.";
+          const pairing = this.#o.pairing.claim({ code: message.command.argument, identity: { channel: "telegram", accountId: String(this.#botId), userId: message.senderId } });
+          reply = `Pairing claimed. Pairing ID: ${pairing.pairingId}. Confirm this link in My identities. Run: plur1bus identity approve ${pairing.pairingId}`;
         } catch { /* Uniform message; the identity port owns durable rate limits. Never log the submitted code. */ }
       }
       await this.send(chatId, reply);

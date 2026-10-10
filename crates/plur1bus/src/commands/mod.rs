@@ -11,6 +11,7 @@ pub mod completions;
 pub mod config;
 pub mod core;
 pub mod daemon;
+pub mod device;
 pub mod dreams;
 pub mod ext;
 pub mod firstaid;
