@@ -54,7 +54,7 @@ plur1bus config schema --tier <tier> --json
 
 ## The error enum
 
-Every RPC-backed command answers a failure as one of a closed set of codes (`ErrorCode`, RPC schema): `E_UNAUTHORIZED`, `E_RPC_VERSION`, `E_NOT_AVAILABLE`, `E_CORE_UNAVAILABLE`, `E_INVALID_PARAMS`, `E_AGENT_UNKNOWN`, `E_CONFIG_INVALID`, `E_MODULE_UNKNOWN`, `E_INTERNAL`, `E_LOCKED`, `E_NOT_FOUND`, `E_DENIED`, `E_APPROVAL_REQUIRED`, `E_CONFLICT`, `E_STORAGE`. A `--json` failure document is `{"schema":"error/1","error":"<code>",...}`; the human text on stderr/stdout names the same code. `E_NOT_AVAILABLE reason=container-managed` means the step or command is refused because a container manages this installation's lifecycle — that is expected, not a fault, and needs no repair.
+Every RPC-backed command answers a failure as one of a closed set of codes (`ErrorCode`, RPC schema): `E_UNAUTHORIZED`, `E_RPC_VERSION`, `E_NOT_AVAILABLE`, `E_CORE_UNAVAILABLE`, `E_INVALID_PARAMS`, `E_AGENT_UNKNOWN`, `E_CONFIG_INVALID`, `E_MODULE_UNKNOWN`, `E_INTERNAL`, `E_LOCKED`, `E_NOT_FOUND`, `E_DENIED`, `E_APPROVAL_REQUIRED`, `E_CONFLICT`, `E_STORAGE`, and for media search `E_MEDIA_CAPABILITY`, `E_MEDIA_LICENSE`, `E_MEDIA_PRIVACY`, `E_MEDIA_UNAVAILABLE`, `E_MEDIA_DIMENSION`, `E_MEDIA_UNSUPPORTED_KIND` (a configuration or availability problem of the media index, see docs/media-search.md; not a crash). A `--json` failure document is `{"schema":"error/1","error":"<code>",...}`; the human text on stderr/stdout names the same code. `E_NOT_AVAILABLE reason=container-managed` means the step or command is refused because a container manages this installation's lifecycle — that is expected, not a fault, and needs no repair.
 
 ## The `CrashReason` vocabulary
 

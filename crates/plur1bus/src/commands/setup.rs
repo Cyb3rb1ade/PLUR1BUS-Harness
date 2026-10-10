@@ -43,6 +43,15 @@ pub fn run(out: &Out, layout: &Layout, args: SetupArgs) -> ! {
         use_class: args.use_class,
         agent: args.agent,
         profile: args.profile,
+        media: setup::MediaOpts {
+            skip: args.skip_media_search,
+            text_provider: args.text_provider,
+            media_provider: args.media_provider,
+            media_model: args.media_model,
+            media_dimensions: args.media_dimensions,
+            media_modalities: args.media_modalities,
+            caption_provider: args.caption_provider,
+        },
     };
     let mut prompter: Box<dyn Prompter> = if opts.non_interactive {
         Box::new(NoPrompts)

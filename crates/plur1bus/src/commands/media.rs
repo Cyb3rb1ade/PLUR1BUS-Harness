@@ -67,6 +67,23 @@ pub enum MediaCmd {
     Rm { id: String },
     #[command(about = "[experimental] List adapter capabilities")]
     Adapters,
+    /// [experimental] Search indexed media by words or by similarity to another medium
+    #[command(after_long_help = "\
+Examples:
+  plur1bus media search \"red bicycle by the sea\"
+  plur1bus media search \"birthday\" --kind image --kind video --limit 10
+  plur1bus --json media search --like m-img-1")]
+    Search(super::media_search::SearchArgs),
+    /// [experimental] The media index: status, pause, resume, reindex
+    Index {
+        #[command(subcommand)]
+        sub: super::media_search::IndexCmd,
+    },
+    /// [experimental] Media captions
+    Caption {
+        #[command(subcommand)]
+        sub: super::media_search::CaptionCmd,
+    },
 }
 fn save(out: &Out, layout: &Layout, id: &str, index: u32, destination: &PathBuf) {
     let value = call(
@@ -143,9 +160,18 @@ pub fn request(cmd: &MediaCmd) -> (&'static str, Value) {
         MediaCmd::Output { id, .. } => ("media.output.get", json!({"id":id})),
         MediaCmd::Rm { id } => ("media.output.delete", json!({"id":id})),
         MediaCmd::Adapters => ("media.adapters.list", json!({})),
+        MediaCmd::Search(a) => super::media_search::search_request(a),
+        MediaCmd::Index { sub } => super::media_search::index_request(sub),
+        MediaCmd::Caption { sub } => super::media_search::caption_request(sub),
     }
 }
 pub fn run(out: &Out, layout: &Layout, cmd: MediaCmd) {
+    let cmd = match cmd {
+        MediaCmd::Search(a) => return super::media_search::run_search(out, layout, a),
+        MediaCmd::Index { sub } => return super::media_search::run_index(out, layout, sub),
+        MediaCmd::Caption { sub } => return super::media_search::run_caption(out, layout, sub),
+        other => other,
+    };
     let (method, params) = request(&cmd);
     let mut value = call(out, layout, method, params);
     if let MediaCmd::Generate(a) | MediaCmd::Edit(a) = &cmd {
