@@ -290,6 +290,21 @@ export class DiscordChannel implements Channel {
     return this.sendTurn({ ...msg }).then(() => undefined);
   }
 
+  /** Chat id that reaches `who.userId` directly: the DM channel (opened via REST, cached). Only a user on `dmAllowlist` qualifies,
+   *  and only then may the bot send into that DM channel; nothing else is widened. `accountId` is unused (one bot per channel). */
+  async resolveOwnerTarget(who: { userId: string; accountId?: string }): Promise<string> {
+    const { api, signal } = this.#live();
+    const user = who.userId;
+    if (typeof user !== "string" || !SNOWFLAKE.test(user)) throw new Error("invalid discord user id");
+    if (!this.#c.dmAllowlist.has(user)) throw new Error("user is not on the discord dmAllowlist");
+    for (const [chat, sender] of this.#dmChannels) if (sender === user) return chat;
+    const res = await api.request<{ id?: unknown }>({ method: "POST", path: "/users/@me/channels", json: { recipient_id: user }, signal });
+    if (typeof res?.id !== "string" || !SNOWFLAKE.test(res.id)) throw new Error("discord returned an invalid DM channel");
+    this.#dmChannels.set(res.id, user);
+    if (this.#dmChannels.size > DM_CHANNEL_LIMIT) this.#dmChannels.delete(this.#dmChannels.keys().next().value!);
+    return res.id;
+  }
+
   /** Framework-independent conveniences, same behaviour as `sendTurn`. */
   async sendOutput(chatId: string, outputId: string, index = 0): Promise<SentRef[]> {
     this.#target(chatId);
