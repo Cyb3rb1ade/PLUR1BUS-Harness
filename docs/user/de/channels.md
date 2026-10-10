@@ -14,7 +14,7 @@ plur1bus channel status
 ```
 
 Der Befehl braucht einen laufenden Core (`plur1bus daemon start`). Zeigt die Liste für einen Kanal den Zustand
-`not-registered` und darunter den Hinweis „no switchboard host“, startet dieser Build den Kanal nicht. Die Einrichtung
+`not-registered` und darunter den Hinweis „This core runs no switchboard host“, startet dieser Build den Kanal nicht. Die Einrichtung
 unten ist dann vorbereitet, wirkt aber erst mit einem Build, der den Host enthält. Fehlt dieser Hinweis, hat der Build
 einen Host. `plur1bus channel show <kanal>` zeigt dann Zustand und letzten Fehler des Kanals.
 

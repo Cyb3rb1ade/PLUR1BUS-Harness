@@ -14,7 +14,7 @@ plur1bus channel status
 ```
 
 The command needs a running core (`plur1bus daemon start`). If the list shows the state `not-registered` for a channel
-and the note "no switchboard host" below it, this build does not start channels. The setup below is then prepared but
+and the note "This core runs no switchboard host" below it, this build does not start channels. The setup below is then prepared but
 takes effect only in a build that includes the host. If that note is missing, the build has a host;
 `plur1bus channel show <channel>` then shows the channel's state and last error.
 

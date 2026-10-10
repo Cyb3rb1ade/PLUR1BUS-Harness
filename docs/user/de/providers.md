@@ -7,8 +7,8 @@ lokale Modelle laufen und was die Fehlerklassen bedeuten. Die technische Referen
 
 ## Bei einem Anbieter anmelden
 
-Für jeden Anbieter gibt es zwei Wege: die Anmeldung mit deinem ChatGPT-Konto oder ein API-Schlüssel. Beides läuft über
-`plur1bus login`. Der Befehl spricht mit dem Core. Ist der Core nicht gestartet, bricht er mit `E_CORE_UNAVAILABLE` ab;
+Die Anmeldung läuft über `plur1bus login`. Bei OpenAI kannst du dich mit deinem ChatGPT-Konto anmelden oder einen
+API-Schlüssel hinterlegen. Alle anderen Anbieter nutzen einen API-Schlüssel. Der Befehl spricht mit dem Core. Ist der Core nicht gestartet, bricht er mit `E_CORE_UNAVAILABLE` ab;
 starte ihn dann mit `plur1bus daemon start`.
 
 Die Anmeldung ist noch experimentell. Eine Anmeldung über die Web-Oberfläche gibt es noch nicht; alles läuft über die
@@ -33,7 +33,8 @@ auf eine andere Abrechnung.
 
 ### Ohne Browser: Server, SSH, Container
 
-Mit `--no-browser` gibt der Befehl nur die Adresse aus und öffnet keinen Browser:
+Dieser Abschnitt betrifft nur die ChatGPT-Anmeldung bei OpenAI. Mit `--no-browser` gibt der Befehl nur die Adresse aus und
+öffnet keinen Browser:
 
 ```sh
 plur1bus login <anbieter> --no-browser

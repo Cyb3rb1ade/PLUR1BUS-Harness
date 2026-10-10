@@ -6,7 +6,8 @@ this page is [../de/providers.md](../de/providers.md).
 
 ## Sign in to a provider
 
-Each provider offers two ways in: signing in with your ChatGPT account, or an API key. Both go through `plur1bus login`.
+Sign-in goes through `plur1bus login`. For OpenAI you can sign in with your ChatGPT account or store an API key. All other
+providers use an API key.
 The command talks to the core. If the core is not running, it fails with `E_CORE_UNAVAILABLE`; start it with
 `plur1bus daemon start`.
 
@@ -29,7 +30,8 @@ If your subscription's allowance is used up, Plur1bus reports it and does not qu
 
 ### Without a browser: servers, SSH, containers
 
-With `--no-browser` the command only prints the address and opens no browser:
+This section applies only to the ChatGPT sign-in with OpenAI. With `--no-browser` the command only prints the address and
+opens no browser:
 
 ```sh
 plur1bus login <provider> --no-browser
