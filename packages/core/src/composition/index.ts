@@ -1,5 +1,5 @@
 import { createHostctlPool } from '../../../hostctl/src/pool.ts';
-import { createVoiceRuntime, type VoiceRuntime } from '../voice/runtime.ts';
+import { composeVoice, type VoiceRuntime } from './voice.ts';
 import { createOpenAIRuntime, type OpenAIRuntime } from '../openai-auth/runtime.ts';
 import { createMediaSurface, mediaActionHash } from '../rpc/media-surface.ts';
 import { decide } from '../policy/index.ts';
@@ -40,7 +40,7 @@ import { legacyAdapter } from './legacy.ts';
 export interface CompositionOptions {
   /** Trusted in-process surfaces register here; no auth RPC is added. */
   onOpenAI?: (auth: import('../openai-auth/service.ts').AuthService) => void;
-  onVoice?: (voice: VoiceRuntime) => void;
+  onVoice?: (voice: import("../voice/runtime.ts").VoiceRuntime & Partial<Pick<VoiceRuntime, "openTalk" | "metrics" | "renderMetrics">>) => void;
   definitions?: Readonly<Record<string, ProviderDefinition>>;
   fetch?: typeof fetch;
   providers?: Pick<TurnProviderOptions, 'profiles' | 'family' | 'router' | 'onPrompt' | 'maxTokens' | 'topK' | 'maxRounds' | 'billing'>;
@@ -102,7 +102,8 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
   try {
     const definitions = options.definitions ?? Object.fromEntries(Object.entries(cfg.providers).filter(([, value]) => !!value && typeof value === 'object' && 'wireFormat' in value)) as Record<string, ProviderDefinition>;
     const openai = createOpenAIRuntime(d); disposers.push(() => openai.close());
-    const voice = createVoiceRuntime(d, openai, budget); disposers.push(() => voice.close());
+    let sessions: SessionService;
+    const voice = composeVoice(d, openai, budget, () => sessions); disposers.push(() => voice.close());
     const auth = isolated('turn providers', () => composeAuth({ config: cfg, definitions, openai, secrets: d.secrets, egress: d.egress, log: record => d.logger.info('turn.stage', { ...record }), ...(options.fetch ? { fetch: options.fetch } : {}) }));
     if (auth) disposers.push(() => auth.close());
     const hostctl = createHostctlPool({ config: cfg.tools?.hostctl, audit: event => d.audit.append({ at: d.clock(), actor: { user: event.principal, host: 'local' }, action: event.operation, target: event.paths.join(';'), detail: { ...event } }) });
@@ -146,7 +147,6 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     // plan<->paid fallback; absent, a fallback across billing classes is refused.
     const profilePolicy = (cfg.providers as { modelProfilePolicy?: Record<string, { allowCrossBilling?: unknown }> }).modelProfilePolicy ?? {};
     const toolsForTurn = (req: ChatRequest) => composeTools({ home: d.home, roots: options.tools?.roots ?? [{ id: req.agentId, path: d.agents.workspaceOf(req.agentId) ?? join(d.home, 'agents', req.agentId, 'workspace') }], grants, audit: d.audit, hostctl, ...(budget ? { budget } : {}), degraded: (service, error) => d.logger.warn('turn tool service degraded', { service, err: error }), ...options.tools, ...(media ? { media: { adapter: media.adapter, store: mediaSurface.storeFor(req.agentId, principal(req)) } } : {}), ...(options.tools?.mcp ? {} : mcp ? { mcp: { port: mcp, servers } } : {}) }, { ...req, principal: principal(req) });
-    let sessions: SessionService;
     // M2: isolated additive Session wiring; the existing turn/tool composition below is unchanged.
     const create = sessionRoleFactory(options.createTurnProvider ?? createTurnProvider, cfg);
     const maintenance = sessionMaintenance(d.home, cfg);

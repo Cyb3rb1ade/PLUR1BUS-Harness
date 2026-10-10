@@ -292,6 +292,13 @@ export class LocalVoice {
     return this.loaded.vad;
   }
 
+  /** Pin VAD ownership across a language switch, like the ASR/TTS provider leases. */
+  leaseVad(): ModelLease<LoadedVad> {
+    if (!this.loaded) throw new VoiceProviderError("unavailable", "local voice: no language is loaded");
+    const l = this.lease(this.loaded);
+    return { value: l.vad, release: this.releaser(l) };
+  }
+
   unload(): void {
     const l = this.loaded;
     this.loaded = undefined;

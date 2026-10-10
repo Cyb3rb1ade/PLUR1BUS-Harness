@@ -1,3 +1,4 @@
+import { voiceEngineConfig } from "./voice/turn-profile.ts";
 import type { EngineConfig, HostServices } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import type { HarnessConfig } from "@plur1bus/config-schema";
 import type { AgentRegistry } from "./agents.ts";
@@ -19,7 +20,7 @@ export function createHarnessHost(o: { layout: Layout; logger: HarnessLogger; co
     // E4: read by engine.status() under its own 50 ms cap; a throw or a timeout there is `journal: null`.
     capabilities: { journalBacklog: () => journalBacklog(o.layout.journal) },
     workspaceDir: async (agentId) => o.agents.workspaceOf(agentId),
-    config: () => o.engineConfig as EngineConfig,
+    config: () => voiceEngineConfig(o.engineConfig) as EngineConfig,
     events: { emit: (name, payload) => o.events(name, payload) },
     clock: o.clock ?? Date.now,
     platform: createPlatformCapabilities({ logger: o.logger }),
