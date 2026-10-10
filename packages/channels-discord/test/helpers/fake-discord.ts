@@ -33,6 +33,8 @@ export class FakeDiscordRest {
   readonly commandSets: unknown[] = [];
   readonly interactionResponses: { id: string; token: string; body: unknown }[] = [];
   readonly webhookPatches: { token: string; body: unknown }[] = [];
+  /** recipient user id -> DM channel id handed out by `POST /users/@me/channels`. */
+  readonly dms = new Map<string, string>();
   readonly cdn = new Map<string, { mime: string; data: Buffer; headers?: Record<string, string> }>();
   readonly failures: Array<{ key: string; failure: Failure }> = [];
   #server!: Server;
@@ -91,6 +93,13 @@ export class FakeDiscordRest {
     }
     const api = path.replace(/^\/api\/v10/, "");
     if (method === "GET" && api === "/users/@me") return send(res, 200, { id: BOT_ID, username: "testbot", bot: true });
+    if (method === "POST" && api === "/users/@me/channels") {
+      const rid = (json as { recipient_id?: unknown } | undefined)?.recipient_id;
+      if (typeof rid !== "string" || !/^\d+$/.test(rid)) return send(res, 400, { message: "Invalid recipient", code: 50035 });
+      let dm = this.dms.get(rid);
+      if (!dm) this.dms.set(rid, (dm = snowflake(this.#next++ + 5000)));
+      return send(res, 200, { id: dm, type: 1, recipients: [{ id: rid }] });
+    }
     if (method === "PUT" && /^\/applications\/\d+\/commands$/.test(api)) {
       this.commandSets.push(json);
       return send(res, 200, json);

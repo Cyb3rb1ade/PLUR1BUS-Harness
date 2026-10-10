@@ -15639,7 +15639,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "starting",
         "running",
         "backoff",
-        "failed"
+        "failed",
+        "misconfigured"
       ]
     },
     "health": {
@@ -15695,7 +15696,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "starting",
         "running",
         "backoff",
-        "failed"
+        "failed",
+        "misconfigured"
       ]
     },
     "health": {

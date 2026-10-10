@@ -67,7 +67,7 @@ Notes on the manifest:
 
 1. **Install to workspace** (OAuth & Permissions). Copy the **Bot User OAuth Token**, which starts with `xoxb-`. This is the bot token.
 2. **Basic Information → App-Level Tokens → Generate Token and Scopes.** Add the single scope **`connections:write`**. Copy the token, which starts with `xapp-`. This is the app-level token used only for `apps.connections.open`.
-3. Store both in the host secret store under names you choose, for example `slack-bot-token` and `slack-app-token`. Pass those names as `botTokenSecret` and `appTokenSecret`.
+3. Store both in the host secret store as `channels.slack.bot-token` and `channels.slack.app-token` (the switchboard only reads secrets named `channels.slack.*`). Pass those names as `botTokenSecret` and `appTokenSecret`.
 
 Do not reinstall the app after rotating a token without updating the secret store. A revoked token is a fatal start failure (`invalid_auth`, `token_revoked`, `account_inactive`); the channel does not retry it.
 
@@ -84,8 +84,8 @@ Copy each conversation ID (channel details, or the link menu: the ID starts with
 ```json
 {
   "enabled": true,
-  "botTokenSecret": "slack-bot-token",
-  "appTokenSecret": "slack-app-token",
+  "botTokenSecret": "channels.slack.bot-token",
+  "appTokenSecret": "channels.slack.app-token",
   "teamId": "T0123ABCD",
   "allowlist": ["C0123ABCD", "G0123ABCD"],
   "dmAllowlist": ["U0123ABCD"],

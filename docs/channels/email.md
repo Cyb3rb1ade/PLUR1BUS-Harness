@@ -8,7 +8,7 @@ Use a dedicated mailbox for the bot. Anything the bot can read, every sender who
 
 1. Create the mailbox, for example `assistant@your-domain.example`.
 2. Enable IMAP and SMTP for it. Most providers need this switched on explicitly.
-3. Create an app password (or the provider's equivalent) for IMAP and SMTP access, and store it in the host secret store under a name such as `EMAIL_BOT_PASSWORD`. Never paste it into config, source, tests, shell history or logs.
+3. Create an app password (or the provider's equivalent) for IMAP and SMTP access, and store it in the host secret store as `channels.email.imap-password` and `channels.email.smtp-password` (the switchboard only reads secrets named `channels.email.*`). Never paste it into config, source, tests, shell history or logs.
 4. The package does not implement OAuth2. Providers that only accept OAuth2 for IMAP and SMTP cannot be used.
 
 Ports:
@@ -32,7 +32,7 @@ Use `tls` where the provider offers it. With `starttls`, the server must adverti
     "port": 993,
     "security": "tls",
     "user": "assistant@your-domain.example",
-    "passwordSecret": "EMAIL_BOT_PASSWORD",
+    "passwordSecret": "channels.email.imap-password",
     "folder": "INBOX",
     "idle": true,
     "pollIntervalSec": 60
@@ -42,7 +42,7 @@ Use `tls` where the provider offers it. With `starttls`, the server must adverti
     "port": 465,
     "security": "tls",
     "user": "assistant@your-domain.example",
-    "passwordSecret": "EMAIL_BOT_PASSWORD"
+    "passwordSecret": "channels.email.smtp-password"
   },
   "dmAllowlist": ["alice@example.org", "*@partner.example"],
   "authServId": "mx.your-provider.example",
