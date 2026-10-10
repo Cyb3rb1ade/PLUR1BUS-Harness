@@ -79,6 +79,8 @@ import { createIdentityService, type IdentityService } from "./identity/service.
 import { approvalsDbPath } from "./approvals/db.ts";
 import { secretStoreKeySource } from "./approvals/keys.ts";
 import { createPermissionNotifier, type PermissionNotifier } from "./approvals/notify.ts";
+import { openChannelSwitchboard } from "./channels/core-host.ts";
+import type { Switchboard } from "./channels/switchboard.ts";
 import { createPermissionRuntime, type PermissionRuntime } from "./approvals/runtime.ts";
 import type { ApprovalService } from "./approvals/service.ts";
 import { createPolicyAudit } from "./policy/audit.ts";
@@ -216,6 +218,7 @@ export function createCore(o: CoreOptions): Core {
   let turnComposition: TurnComposition | null = null;
   let permissions: PermissionRuntime | null = null; // D109: grants + approvals (`state/approvals.sqlite`), opened on first use
   let permissionNotifier: PermissionNotifier | null = null;
+  let switchboard: Switchboard | null = null; // R3: the channel adapters (Discord, Slack, Matrix, Signal, E-mail), started and stopped by `channels.<id>.enabled`
   let engineStatus: EngineStatus | null = null; let engineStatusAt = 0; // performance.now() of the cached copy
   let statusRefresh: Promise<void> | null = null; let warmingTimer: NodeJS.Timeout | null = null;
   // H3-R22/R23: true from the start of the warm-up until its recall-path pass ends; engine.ready waits for it.
@@ -519,8 +522,13 @@ export function createCore(o: CoreOptions): Core {
         now: clock, log: (msg, fields) => log.debug(msg, fields),
       });
       permissionNotifier = notifier;
+      const board = switchboard = openChannelSwitchboard({
+        layout: l, config: cs, secrets: secretStore, identity: () => identity, sessions: () => sessions, agents: registry, permissions: () => permissions,
+        clock, log: { info: (m, f) => log.info(m, f), warn: (m, f) => log.warn(m, f), error: (m, f) => log.error(m, f) },
+      });
       permissions = createPermissionRuntime({
-        dbPath: approvalsDbPath(l.home), keys: secretStoreKeySource(secretStore), clock: { now: clock }, events: notifier.events,
+        // The switchboard sees approval requests next to the RPC notifier: a channel chat shows its own prompt.
+        dbPath: approvalsDbPath(l.home), keys: secretStoreKeySource(secretStore), clock: { now: clock }, events: { emit: (n, p) => { notifier.events.emit(n, p); board.approvalEvents.emit(n, p); } },
         audit: createPolicyAudit({ sink: rbacAudit, clock: { now: clock } }), securePath: platform.securePath,
       });
       const perms = permissions;
@@ -618,7 +626,7 @@ export function createCore(o: CoreOptions): Core {
         ...adminSurface,
         ...sessionTranscriptSurface({ sessions: () => sessions?.store ?? null, breakglass, ownership, personOf }),
         ...buildAuthSurface(() => turnComposition?.openai.auth ?? null),
-        ...buildChannelSurface({ config: cfg, source: cs, secrets: secretStore, identity: () => identity, registry: () => null, audit: rbacAudit, clock }),
+        ...buildChannelSurface({ config: cfg, source: cs, secrets: secretStore, identity: () => identity, registry: () => switchboard?.view ?? null, audit: rbacAudit, clock }),
         // D4: logs.query / logs.tail over <home>/logs; RBAC-guarded below (RPC_RULES).
         ...createLogsMethods({ dir: l.logs, signal: shutdown.signal }),
       };
@@ -682,6 +690,7 @@ export function createCore(o: CoreOptions): Core {
           recallWarmPending = false; refreshEngineStatus();
         },
       });
+      try { await switchboard?.start(); } catch (e) { logger.error("channels did not start", { err: e }); } // a channel problem never stops the core
       // B2 (I2): the journal replays in the background once the socket accepts connections, so the CLI's captures go
       // live instead of journaling while it is read; drainJournal re-runs the pass for any line that still arrived
       // during one. A stop aborts it between lines (shutdown.signal).
@@ -700,6 +709,7 @@ export function createCore(o: CoreOptions): Core {
       statusClosed = true; warmup?.abort(); if (warmingTimer) { clearTimeout(warmingTimer); warmingTimer = null; }
       orphans?.dispose();
       await step(log, "config watch", async () => { await source?.close(); });
+      await step(log, "channels stop", async () => { await switchboard?.stop(); }); switchboard = null;
       await step(log, "sessions close", async () => { await turnComposition?.close(); turnComposition = null; }); sessions = null;
       await step(log, "permissions close", async () => { permissionNotifier?.close(); await permissions?.close(); }); permissions = null; permissionNotifier = null;
       await step(log, "budget close", () => { budget?.close(); budget = null; });
@@ -780,6 +790,7 @@ export function createCore(o: CoreOptions): Core {
         replay.abandon(); // after a finished replay only detaches its logger
       }, errors);
       // M1b-2c: the shutdown abort above ends running turns (failed, `aborted`); they finish their writes before the engine closes.
+      await step(logger, "channels stop", async () => { await switchboard?.stop(); switchboard = null; }, errors); // adapters first: no inbound message may reach a closing session store
       await step(logger, "sessions close", async () => { await turnComposition?.close(); turnComposition = null; sessions = null; }, errors);
       // A re-embedding run in flight ends at its next batch boundary (aborted, resumable) before the engine closes under it.
       await step(logger, "re-embedding run", async () => { await reembed?.stop(Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }, errors);

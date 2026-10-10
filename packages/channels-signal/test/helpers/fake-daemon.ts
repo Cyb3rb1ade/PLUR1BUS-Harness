@@ -59,6 +59,7 @@ export class FakeDaemon {
   }
 
   #onConnect(s: Socket): void {
+    s.setNoDelay(true);
     this.connections += 1;
     this.#sockets.add(s);
     this.#connected = s;

@@ -118,6 +118,25 @@ export class MatrixApi {
     await this.#json("POST", `/_matrix/client/v3/rooms/${enc(roomId)}/join`, {}, signal, 30_000, "join");
   }
 
+  /** Creates a private direct room and invites `invite`. No encryption state is set (this adapter refuses E2EE rooms). */
+  async createDirectRoom(invite: string, signal: AbortSignal): Promise<string> {
+    const r = await this.#json<{ room_id?: unknown }>(
+      "POST",
+      "/_matrix/client/v3/createRoom",
+      { is_direct: true, invite: [invite], preset: "trusted_private_chat", visibility: "private" },
+      signal,
+      30_000,
+      "createRoom",
+    );
+    if (typeof r?.room_id !== "string" || !/^![^\s]{1,255}$/.test(r.room_id)) throw new MatrixApiError("protocol", "createRoom result lacks room_id");
+    return r.room_id;
+  }
+
+  /** Replaces the account data of the given type (used for `m.direct`). */
+  async setAccountData(userId: string, type: string, content: Record<string, unknown>, signal: AbortSignal): Promise<void> {
+    await this.#json("PUT", `/_matrix/client/v3/user/${enc(userId)}/account_data/${enc(type)}`, content, signal, 30_000, "accountData");
+  }
+
   async leaveRoom(roomId: string, signal: AbortSignal): Promise<void> {
     await this.#json("POST", `/_matrix/client/v3/rooms/${enc(roomId)}/leave`, {}, signal, 30_000, "leave");
   }
