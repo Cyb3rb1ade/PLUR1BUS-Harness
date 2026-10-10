@@ -11,6 +11,7 @@ export const ELEVENLABS = {
     us: "api.us.elevenlabs.io",
     eu: "api.eu.residency.elevenlabs.io",
     in: "api.in.residency.elevenlabs.io",
+    sg: "api.sg.residency.elevenlabs.io",
   } as Record<string, string>,
   paths: {
     ttsHttp: (voiceId: string) => `/v1/text-to-speech/${encodeURIComponent(voiceId)}`, // VERIFY
@@ -23,12 +24,13 @@ export const ELEVENLABS = {
   headerKey: "xi-api-key",
   /** VERIFY: defaults only; config and discovery override. */
   defaultTtsModel: "eleven_flash_v2_5",
-  defaultSttModel: "scribe_v1",
+  defaultSttModel: "scribe_v2", // scribe_v1 is deprecated (docs, 2026-10)
   defaultRealtimeSttModel: "scribe_v2_realtime",
   /** VERIFY: output_format query values per (format, rate). */
   outputFormat: (format: "pcm16" | "mp3" | "opus", rate: number): string | undefined => {
     if (format === "pcm16") return [8000, 16000, 22050, 24000, 44100].includes(rate) ? `pcm_${rate}` : undefined;
-    if (format === "mp3") return rate === 22050 || rate === 24000 || rate === 44100 ? `mp3_${rate}_128` : undefined;
+    // The docs list exactly these mp3 variants: 22050 only at 32 kbit/s, 24000 only at 48, 44100 from 32 up to 192.
+    if (format === "mp3") return rate === 22050 ? "mp3_22050_32" : rate === 24000 ? "mp3_24000_48" : rate === 44100 ? "mp3_44100_128" : undefined;
     if (format === "opus") return rate === 48000 ? "opus_48000_64" : undefined;
     return undefined;
   },
@@ -61,7 +63,7 @@ export const GEMINI = {
   /** VERIFY: Live API model methods marker used to filter the models list. */
   liveMethod: "bidiGenerateContent",
   /** VERIFY: only a fallback; discovery picks native-audio models first. */
-  defaultModel: "models/gemini-2.5-flash-native-audio-preview",
+  defaultModel: "models/gemini-3.8-live",
   nativeAudioPattern: /native-audio|live/i,
   inputMime: "audio/pcm;rate=16000",
   outputSampleRate: 24000,
@@ -71,9 +73,10 @@ export const GEMINI = {
 export const POLLY = {
   /** Polly output rates for pcm. VERIFY against the SDK docs: pcm supports 8000 and 16000. */
   pcmRates: [8000, 16000] as readonly number[],
-  mp3Rates: [8000, 16000, 22050, 24000] as readonly number[],
+  mp3Rates: [8000, 16000, 22050, 24000, 44100, 48000] as readonly number[],
   defaultSampleRate: 16000,
   defaultEngine: "neural",
   /** Polly has no Opus output; ogg_vorbis is a different codec and is not offered as "opus". */
+  /** 3000 billed characters per request (6000 including SSML tags, docs 2026-10); the lower figure is enforced. */
   maxTextChars: 3000,
 } as const;

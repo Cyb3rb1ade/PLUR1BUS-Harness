@@ -12,7 +12,7 @@ import type { WsLike } from "../src/ws.ts";
 import { startFakeVendor, type FakeSocket } from "./helpers/fake-vendor.ts";
 import { collect, getSecret, until } from "./helpers/common.ts";
 
-const errorCodes = (evs: RealtimeEvent[]): string[] => evs.filter((e) => e.type === "error").map((e) => ((e as { error: VoiceProviderError }).error).code);
+const errorCodes = (evs: RealtimeEvent[]): string[] => evs.filter((e) => e.type === "error").map((e) => ((e as unknown as { error: VoiceProviderError }).error).code);
 
 const geminiHostile: Array<[string, unknown]> = [
   ["parts as an object", { serverContent: { modelTurn: { parts: { inlineData: { data: "AAAA" } } } } }],
@@ -101,7 +101,7 @@ for (const [name, frame] of [["a JSON array", [1]], ["a bare string", "x"]] as A
       const session = await asr.openStream({ sampleRate: 16000 });
       const evs = await until(session.events[Symbol.asyncIterator](), (e) => e.type === "closed");
       assert.deepEqual(evs.map((e) => e.type), ["ready", "error", "closed"]);
-      assert.equal((evs[1] as { error: VoiceProviderError }).error.code, "upstream_protocol");
+      assert.equal((evs[1] as unknown as { error: VoiceProviderError }).error.code, "upstream_protocol");
       assert.equal(await v.sockets[0]!.waitClosed(), 1002);
     } finally { await v.close(); }
   });
@@ -135,7 +135,7 @@ test("realtime session shell: a codec that throws, and a send on a closing socke
   for (const l of listeners.message) l({ data: JSON.stringify({ x: 2 }) }); // ignored after the failure
   const evs = await until(it, (e) => e.type === "closed");
   assert.deepEqual(evs.map((e) => e.type), ["ready", "usage", "error", "closed"]);
-  assert.equal((evs[2] as { error: VoiceProviderError }).error.code, "upstream_protocol");
+  assert.equal((evs[2] as unknown as { error: VoiceProviderError }).error.code, "upstream_protocol");
   assert.deepEqual(closedWith, [1002]);
   assert.throws(() => session.sendAudio(new Uint8Array(2)), (e) => isVoiceProviderError(e) && e.code === "closed");
 });

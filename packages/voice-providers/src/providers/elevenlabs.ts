@@ -280,7 +280,7 @@ class ElevenLabsAsrSession implements AsrSession {
     else if (t === "committed_transcript_with_timestamps") {
       const words = wordsOf(f["words"]);
       this.q.push({ type: "final", text: String(f["text"] ?? ""), ...(typeof f["language_code"] === "string" ? { language: f["language_code"] } : {}), ...(words ? { words } : {}) });
-    } else if (typeof t === "string" && /error|exceeded|limit/.test(t)) this.q.push({ type: "error", error: frameError(ID, f, secrets) });
+    } else if (typeof t === "string" && /error|exceeded|limit|quota|throttl|overflow|invalid|exhausted|unaccepted/.test(t)) this.q.push({ type: "error", error: frameError(ID, f, secrets) });
   }
 
   private send(frame: Record<string, unknown>): void {
