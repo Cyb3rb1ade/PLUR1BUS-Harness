@@ -6,7 +6,7 @@ import { VoiceProviderError } from "../errors.ts";
 import type { FetchLike } from "../http.ts";
 import type { AsrProvider, Logger, TtsProvider, UsageReport } from "../types.ts";
 import { noopLogger } from "../types.ts";
-import { assertLicenceAccepted, downloadable, licenceNotice, loadCatalog, modelSizeBytes, modelsFor, needsLicenceConfirmation, type Catalog, type CatalogModel, type Licence, type Profile } from "./catalog.ts";
+import { assertLicenceAccepted, downloadable, licenceKey, licenceNotice, loadCatalog, modelSizeBytes, modelsFor, needsLicenceConfirmation, type Catalog, type CatalogModel, type Licence, type Profile } from "./catalog.ts";
 import { downloadModel, isInstalled, modelDir, type DownloadProgress, type ExtractFn } from "./download.ts";
 import { createSherpaEngine, resolveModel, type LoadedAsr, type LoadedTts, type LoadedVad, type LocalEngine } from "./engine.ts";
 import { createLocalAsr, createLocalTts } from "./providers.ts";
@@ -18,7 +18,8 @@ export interface LocalVoiceConfig {
   perAgent?: Record<string, { language?: string; profile?: Profile }>;
   catalogOverride?: unknown;
   modelsDir?: string;
-  acceptNcLicence?: boolean;
+  /** Confirmed licences: `<modelId>@<licenceId>` (see licenceKey) -> ISO date-time of the confirmation. */
+  acceptedLicences?: Record<string, string>;
 }
 
 export interface LocalVoiceOptions {
@@ -65,7 +66,8 @@ export interface LanguageInfo {
 export interface SetLanguageOptions {
   /** Download missing models (default false: fail with a clear message instead). */
   download?: boolean;
-  acceptNcLicence?: boolean;
+  /** Licence keys (see licenceKey) confirmed for this call, in addition to config.acceptedLicences. */
+  acceptLicences?: string[];
   profile?: Profile;
   onProgress?: (p: DownloadProgress) => void;
   signal?: AbortSignal;
@@ -80,7 +82,10 @@ export interface LocalVoiceState {
 }
 export type Capability = { state: "unavailable"; message: string } | { state: "idle"; message: string } | { state: "ready"; message: string; language: string; profile: Profile };
 
-interface Loaded { state: LocalVoiceState; asr: LoadedAsr; tts: LoadedTts; vad: LoadedVad }
+interface Loaded { state: LocalVoiceState; asr: LoadedAsr; tts: LoadedTts; vad: LoadedVad; refs: number; retired: boolean; disposed: boolean }
+
+/** A handle on the resident models that keeps them alive until released (F11). */
+export interface ModelLease<T> { value: T; release(): void }
 
 export class LocalVoice {
   private readonly o: LocalVoiceOptions;
@@ -105,8 +110,33 @@ export class LocalVoice {
       if (!this.loaded) throw new VoiceProviderError("unavailable", "local voice: no language is loaded; call setLanguage() first");
       return this.loaded;
     };
-    this.asr = createLocalAsr(() => ({ asr: need().asr, model: need().state.stt }), o.usage);
-    this.tts = createLocalTts(() => ({ tts: need().tts, model: need().state.tts }), o.usage);
+    this.asr = createLocalAsr(() => { const l = this.lease(need()); return { asr: l.asr, model: l.state.stt, release: this.releaser(l) }; }, o.usage);
+    this.tts = createLocalTts(() => { const l = this.lease(need()); return { tts: l.tts, model: l.state.tts, release: this.releaser(l) }; }, o.usage);
+  }
+
+  private lease(l: Loaded): Loaded {
+    l.refs++;
+    return l;
+  }
+  private releaser(l: Loaded): () => void {
+    let done = false;
+    return () => {
+      if (done) return;
+      done = true;
+      l.refs--;
+      this.disposeIfIdle(l);
+    };
+  }
+  private disposeIfIdle(l: Loaded): void {
+    if (!l.retired || l.refs > 0 || l.disposed) return;
+    l.disposed = true;
+    for (const part of [l.asr, l.tts, l.vad]) { try { part.dispose(); } catch { /* best effort */ } }
+  }
+  /** Stop handing out `l`; its models are freed as soon as the last running call or session on them ends. */
+  private retire(l: Loaded | undefined): void {
+    if (!l) return;
+    l.retired = true;
+    this.disposeIfIdle(l);
   }
 
   /** The system language if the catalog has it, else English. */
@@ -116,6 +146,20 @@ export class LocalVoice {
     if (this.catalog.languages[full]) return full;
     const primary = full.split("-")[0]!;
     return this.catalog.languages[primary] ? primary : "en";
+  }
+
+  /**
+   * Licences the owner still has to confirm before `code` can be used: key plus the notice to show. Based on
+   * voice.local.acceptedLicences only; pass the keys to setLanguage({ acceptLicences }) to confirm them.
+   */
+  pendingLicences(code: string, profile?: Profile): Array<{ key: string; notice: string }> {
+    const sel = modelsFor(this.catalog, code, profile ?? this.cfg.profile ?? "fast");
+    const accepted = this.acceptedFromConfig();
+    return [sel.stt, sel.tts, sel.vad].filter((m) => needsLicenceConfirmation(m) && !accepted.has(licenceKey(m))).map((m) => ({ key: licenceKey(m), notice: licenceNotice(m) }));
+  }
+
+  private acceptedFromConfig(): Set<string> {
+    return new Set(Object.keys(this.cfg.acceptedLicences ?? {}));
   }
 
   /** Language and profile for an agent: per-agent override, then voice.local, then the default. */
@@ -191,7 +235,7 @@ export class LocalVoice {
     const avail = this.engine.availability();
     if (!avail.ok) throw new VoiceProviderError("unavailable", avail.reason);
     const profile = options.profile ?? this.cfg.profile ?? "fast";
-    const accepted = options.acceptNcLicence ?? this.cfg.acceptNcLicence ?? false;
+    const accepted = new Set([...this.acceptedFromConfig(), ...(options.acceptLicences ?? [])]);
     const sel = modelsFor(this.catalog, code, profile);
 
     // Choose the TTS model: the tier's own, or the declared fallback when the tier's package cannot be fetched or run.
@@ -209,7 +253,7 @@ export class LocalVoice {
       if (await isInstalled(this.dir, m)) continue;
       if (!options.download) throw new VoiceProviderError("unavailable", `${m.displayName} is not installed; call setLanguage("${code}", { download: true }) to fetch it`);
       await mkdir(this.dir, { recursive: true });
-      await downloadModel(m, { modelsDir: this.dir, acceptNcLicence: accepted, ...(this.o.fetch ? { fetch: this.o.fetch } : {}), ...(this.o.extract ? { extract: this.o.extract } : {}), ...(options.onProgress ? { onProgress: options.onProgress } : {}), ...(options.signal ? { signal: options.signal } : {}) });
+      await downloadModel(m, { modelsDir: this.dir, acceptedLicences: accepted, ...(this.o.fetch ? { fetch: this.o.fetch } : {}), ...(this.o.extract ? { extract: this.o.extract } : {}), ...(options.onProgress ? { onProgress: options.onProgress } : {}), ...(options.signal ? { signal: options.signal } : {}) });
     }
 
     const parts: { asr?: LoadedAsr; tts?: LoadedTts; vad?: LoadedVad } = {};
@@ -223,8 +267,8 @@ export class LocalVoice {
     }
     const old = this.loaded;
     const state: LocalVoiceState = { language: code, profile, stt: sel.stt, tts, vad: sel.vad, usedTtsFallback: usedFallback };
-    this.loaded = { state, asr: parts.asr, tts: parts.tts, vad: parts.vad };
-    old?.asr.dispose(); old?.tts.dispose(); old?.vad.dispose();
+    this.loaded = { state, asr: parts.asr, tts: parts.tts, vad: parts.vad, refs: 0, retired: false, disposed: false };
+    this.retire(old);
     this.log.debug("local voice language set", { language: code, profile, fallback: usedFallback });
     return state;
   }
@@ -251,7 +295,7 @@ export class LocalVoice {
   unload(): void {
     const l = this.loaded;
     this.loaded = undefined;
-    l?.asr.dispose(); l?.tts.dispose(); l?.vad.dispose();
+    this.retire(l);
   }
 }
 
