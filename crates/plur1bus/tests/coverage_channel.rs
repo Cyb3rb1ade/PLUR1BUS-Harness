@@ -187,6 +187,7 @@ fn a_secret_typed_for_a_secret_key_is_not_echoed_in_the_json_error_either() {
         .args(["--json", "channel", "set", "github", "tokenSecret", &typed])
         .output()
         .unwrap();
-    assert_eq!(o.status.code(), Some(1));
+    // Refused before any core call (a usage refusal, exit 2), not by the connection failure it used to meet.
+    assert_eq!(o.status.code(), Some(2));
     assert!(!text(&o).contains(&typed), "{}", text(&o));
 }

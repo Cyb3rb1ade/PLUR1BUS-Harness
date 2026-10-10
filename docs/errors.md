@@ -71,7 +71,7 @@ the core sent. The last two are raised by the CLI itself.
 
 | `reason` | Code | Exit | Meaning |
 |---|---|---|---|
-| `secret-value` | `E_INVALID_PARAMS` | 2 | A value that looks like a credential was given for a `*Secret` key (or a recognisable token for any key). It is not echoed, stored or logged; treat what was typed as exposed and rotate it. Store secrets with `plur1bus secret set <name>` and pass the name. |
+| `secret-value` | `E_INVALID_PARAMS` | 2 | A `*Secret` key was given something other than a secret name: a value that looks like a credential, or any text outside the name format (`[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}`). The CLI refuses it before the core is called, so nothing is sent; the core refuses it too and stores nothing. A value is never echoed, stored or logged. A credential-shaped value is to be treated as exposed: rotate it. Store secrets with `plur1bus secret set <name>` and pass the name. |
 | `invalid-id`, `invalid-key`, `unknown-key`, `value-required`, `invalid-params` | `E_INVALID_PARAMS` | 1 | Usage: the id or key is not well formed, the key does not exist for that channel, or the value is missing. Nothing was written. |
 | `invalid-value` | `E_INVALID_PARAMS` | 1 | The value does not validate against the config schema; `detail` names the schema complaint (never the value). Nothing was written. |
 | `unknown-channel` | `E_NOT_FOUND` | 1 | No such channel in the config schema or the registry. |
