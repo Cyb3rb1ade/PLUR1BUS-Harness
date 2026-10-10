@@ -1,0 +1,88 @@
+.home-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.home-links-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.home-link-item {
+  display: flex;
+}
+
+.home-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--field-bg);
+  border: 1px solid var(--border);
+  width: 100%;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.home-link:hover {
+  background: var(--hover-bg);
+  border-color: var(--focus);
+}
+
+.external-badge {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+
+.home-status-facts {
+  display: grid;
+  gap: 12px;
+}
+
+.status-fact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.status-fact:last-child {
+  border-bottom: none;
+}
+
+.status-key {
+  color: var(--ink-2);
+  font-size: 13.5px;
+}
+
+.status-val {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-ok {
+  background: var(--ok-bg);
+  color: var(--ok-ink);
+}
+
+.status-warn {
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+}

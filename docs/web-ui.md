@@ -33,8 +33,10 @@ the page for each id in `src/pages/registry.ts`.
 | `/settings/devices` | Devices & remote | pinned | all but empty | Hidden behind a note when `remote.publish` is `local` or unknown; the pairing QR (`pairing.qr`) and the device list with rename and revoke (`device.list/rename/revoke`) are wired; Owner/Admin see all devices, everyone else only their own (F44). |
 | `/settings/voice` | Voice | pinned | all five plus read-only | Speech language with fast/quality profiles, download progress, licence confirmations without active links, research-only badges; real-time switches, endpointing slider, speculative turn-start, confirmation sound, feature switches with time budgets, cost metrics and engine-fixed indicator. |
 | `/logs`, `/logs/activity`, `/logs/sessions` | Logs (tabs Logs, Activity, Sessions) | Control | all five per tab | Log viewer: filters, cursor paging, live tail (long poll, pause with buffer), virtual list, detail with redaction marks, export. Activity: grouped, human-readable events and the `audit.verify` status. Sessions: operators see other people's sessions (filter owner/agent, columns owner, model, usage), transcripts only through an active break-glass window (F41, F42). Links `?trace=`, `?q=`, `?stream=` prefill the viewer. |
-| `/setup`, `/setup?mode=bundled` | First-run wizard | none (not in the sidebar) | per step | Eight steps (seven when bundled), progress, back/next/skip, resume after reload, licence gate for non-commercial embedding models, and voice language selection step with system language preselected. |
-| `/projects`, `/inbox`, `/library`, `/skills`, `/plugins`, `/switchboard`, `/recurring`, `/approvals`, `/help` | placeholder | as in `nav.ts` | none (fixed text `page.placeholder`) | `PlaceholderPage`. `approvals` stays a placeholder (grants and approvals, D109, are not part of this change). |
+| `/home` | Home | none (accessible via wordmark logo) | all five | Links to FAQ, guides (bundled user docs), repositories, contact and donation placeholders (hidden while empty), compact version/build and core status. Clicking wordmark logo morphs back into "PLUR1BUS" and navigates to `#/home`. |
+| `/help`, `/help/<slug>` | Help | pinned | all five | Bundled user documentation from `docs/user/{de,en}` rendered safely as HTML-free Markdown; follows UI language; table of contents, local search, deep-linking per page chunk. |
+| `/library` | Library | Workspace | all five | Media library gallery over `media.output.list`, filters by kind (image/video/audio), preview via `media.output.get`, download, deletion confirmation via `media.output.delete`, caption inspect/edit via `media.caption.set`. Links to `#/media` for media search. |
+| `/projects`, `/inbox`, `/skills`, `/plugins`, `/switchboard`, `/recurring`, `/approvals` | placeholder | as in `nav.ts` | none (fixed text `page.placeholder`) | `PlaceholderPage`. `approvals` stays a placeholder (grants and approvals, D109, are not part of this change). `inbox` remains a placeholder. |
 | `/login` | Sign-in | none | form errors only | Owner token against `POST /api/v1/session`; see `ui/web-shell.md`. |
 | any other path | 404 | none | n/a | Link back to the landing route. |
 | ⌘K / Ctrl+K, `/` | Command palette | overlay | n/a | Only while signed in and on a page (not on `/login`). Groups: navigation, actions, settings, agents, chats, logs; entity groups come from a bounded, abortable fan-out (150 ms debounce, 5 per group, 1.5 s per source) and are filtered by role. The dialog is its own lazy chunk. |
@@ -81,6 +83,9 @@ the page for each id in `src/pages/registry.ts`.
 | Voice | `voice.language.list` (`agentId?`), `voice.language.get` (`agentId?`), `voice.realtime.profile.get` (`agentId?`), `voice.metrics.get` (`agentId?`) | assumed | no |
 | Voice | `voice.language.set` (`language`, `profile`, `acceptLicences`, `agentId?`), `voice.realtime.profile.set` (`agentId?`, `...`) | assumed | yes |
 | Voice | `/events`: `voice.download.progress` (`modelId`, `receivedBytes`, `totalBytes`, `done`, `error?`) | assumed | no |
+| Home | `GET /api/v1/health`, `core.status` | real / assumed | no |
+| Help | none (bundled docs chunks, no remote calls) | n/a | no |
+| Library | `media.output.list`, `media.output.get`, `media.output.delete`, `media.caption.set` | assumed | delete, caption: yes |
 
 No page sends a `caller`: a browser never asserts identity or trust (the `memory.*`, `session.*`, `models.*`, `budget.*`,
 `dreams.*`, `core.status` and `config.get` calls all omit it; see F1). Event consumers accept an SSE message either named
@@ -300,7 +305,7 @@ Numbers are stable; other documents refer to them.
   one) and set `PLUR1BUS_WEB_E2E_REQUIRED=1` there; until then CI skips the browser suites.
 - **F22. Fonts.** Bundle Atkinson Hyperlegible Next, Lilita One and JetBrains Mono (ADR-004: local files, no remote origin); the
   tokens fall back to system fonts.
-- **F23. Wordmark morph** (`V2LogoMorph`).
+- **F23. Wordmark morph** (`V2LogoMorph`). Built in sidebar header. The wordmark transforms into capitalized section titles upon navigation; clicking it morphs back into "PLUR1BUS" (190 ms collapse through pivot letter '1', fully respectful of `prefers-reduced-motion`) and navigates to the Home page (`#/home`).
 - **F24. Sidebar.** Projects list and badges. The [project board backend](projects-board.md) now provides columns, cards, assignments, comments, activity, paging and authorized live events; board UI binding remains follow-up.
 - **F25. Chat.** Context column, recents, fork, archive (`session.archive`), search (`session.list` with `search`), model selection and
   attachments (the last three need F6), rename and pin (F5).
@@ -310,7 +315,7 @@ Numbers are stable; other documents refer to them.
 - **F27. State in the URL.** The router drops the query (`#/path?x` is read as `#/path`), so the chosen agent, search text, filters
   and `?focus=` are lost on reload and cannot be linked; the agent choice lives in memory only. (`?theme=` is read separately.)
 - **F28. Doctor file picker.** The text of the native file input follows the OS language, not the UI language.
-- **F29. Placeholders.** The Projects Kanban backend is available; its board UI remains follow-up. Eight pages (Projects, Inbox, Library, Skills, Plugins, Recurring, Approvals, Help) are placeholders; Switchboard is built.
+- **F29. Placeholders.** The Projects Kanban backend is available; its board UI remains follow-up. Help and Library are built, replacing placeholders. Home page is built and accessible via the wordmark morph. Six pages (Projects, Inbox, Skills, Plugins, Recurring, Approvals) remain placeholders; Switchboard is built.
 
 ### M3 part 2
 

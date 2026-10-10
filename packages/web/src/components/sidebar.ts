@@ -9,6 +9,7 @@ import { BOTTOM, GROUPS, LANDING, type NavItem } from "../nav.ts";
 import { route } from "../router.ts";
 import { shortcut } from "../palette/hotkey.ts";
 import { openPalette } from "../palette/state.ts";
+import { V2LogoMorph } from "./morph.ts";
 
 export const menuOpen = signal(false);
 export const closeMenu = (): void => { menuOpen.value = false; };
@@ -60,7 +61,7 @@ export function Sidebar(): View {
           type: "button", ref: menuButton, class: "icon-btn menu-btn", "aria-expanded": open, "aria-controls": "sidebar-nav",
           onClick: () => { menuOpen.value = !menuOpen.value; },
         }, icon(open ? "close" : "menu"), h("span", { class: "sr-only" }, open ? t("nav.close") : t("nav.menu"))),
-        h("a", { class: "wordmark", href: `#${LANDING}`, "aria-label": "PLUR1BUS" }, "PLUR", h("span", { class: "one" }, "1"), "BUS")),
+        h(V2LogoMorph, null)),
       // Opens the command palette (palette/); ⌘K / Ctrl+K and "/" do the same from anywhere.
       h("button", { type: "button", class: "search-pill", "aria-haspopup": "dialog", "aria-keyshortcuts": `${shortcut()} /`, onClick: openPalette }, icon("search"), h("span", { class: "label" }, t("nav.search"))),
       h("nav", { id: "sidebar-nav", "aria-label": t("nav.main") },

@@ -35,13 +35,17 @@ registerChunkCss(${JSON.stringify(name)}, ${JSON.stringify(minified.trim())});
   },
 };
 
+import { bundleDocs } from "./scripts/bundle-user-docs.ts";
+
 export type BuildOptions = {
   /** Include the pattern gallery route (`#/gallery/<pattern>`, components fixture). Off in the shipped bundle. */
   gallery?: boolean;
 };
 
 export async function buildWeb(outdir: string = here("./dist"), opts: BuildOptions = {}): Promise<void> {
+  bundleDocs();
   await mkdir(outdir, { recursive: true });
+
   await copyFile(here("./index.html"), `${outdir}/index.html`);
   await build({
     entryPoints: { main: here("./src/main.ts"), styles: here("./src/styles/app.css") },
