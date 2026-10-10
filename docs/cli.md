@@ -164,6 +164,14 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus media output`↴](#plur1bus-media-output)
 * [`plur1bus media rm`↴](#plur1bus-media-rm)
 * [`plur1bus media adapters`↴](#plur1bus-media-adapters)
+* [`plur1bus media search`↴](#plur1bus-media-search)
+* [`plur1bus media index`↴](#plur1bus-media-index)
+* [`plur1bus media index status`↴](#plur1bus-media-index-status)
+* [`plur1bus media index pause`↴](#plur1bus-media-index-pause)
+* [`plur1bus media index resume`↴](#plur1bus-media-index-resume)
+* [`plur1bus media index reindex`↴](#plur1bus-media-index-reindex)
+* [`plur1bus media caption`↴](#plur1bus-media-caption)
+* [`plur1bus media caption set`↴](#plur1bus-media-caption-set)
 * [`plur1bus identity`↴](#plur1bus-identity)
 * [`plur1bus identity link`↴](#plur1bus-identity-link)
 * [`plur1bus identity links`↴](#plur1bus-identity-links)
@@ -287,6 +295,16 @@ Downloads the pinned Node runtime and the core payload and verifies their SHA-25
 
   Possible values: `host`, `full`
 
+* `--skip-media-search` — Do not set up media search (image, video, audio); it can be enabled later with `plur1bus config set memory.mediaEmbedding.enabled true`
+* `--text-provider <ID>` — Provider of the text memory, recorded only (default: local-transformers = EmbeddingGemma 2); the text index changes through `memory reembed`
+* `--media-provider <ID>` — Provider of the media index: local-transformers (EmbeddingGemma 2, Apache-2.0, default), a cloud provider id, or off
+* `--media-model <MODEL>` — Model of the media index (required for a cloud provider; default google/embeddinggemma-2)
+* `--media-dimensions <N>` — Vector dimensions of the media index (default 768; EmbeddingGemma 2: 768, 512, 256 or 128)
+* `--media-modalities <KINDS>` — Media kinds to index, comma separated (default: image,video,audio)
+
+  Possible values: `image`, `video`, `audio`
+
+* `--caption-provider <WHERE>` — Automatic captions: local, cloud (the media provider), off, or a provider id (a cloud media provider has no default)
 
 
 
@@ -2395,6 +2413,9 @@ Assigned project agents
 * `output` — [experimental] Read or download a media output
 * `rm` — [experimental] Delete a media output
 * `adapters` — [experimental] List adapter capabilities
+* `search` — [experimental] Search indexed media by words or by similarity to another medium
+* `index` — [experimental] The media index: status, pause, resume, reindex
+* `caption` — [experimental] Media captions
 
 
 
@@ -2547,6 +2568,110 @@ Assigned project agents
 [experimental] List adapter capabilities
 
 **Usage:** `plur1bus media adapters`
+
+
+
+## `plur1bus media search`
+
+[experimental] Search indexed media by words or by similarity to another medium
+
+**Usage:** `plur1bus media search [OPTIONS] <TEXT|--like <MEDIA_ID>>`
+
+Examples:
+  plur1bus media search "red bicycle by the sea"
+  plur1bus media search "birthday" --kind image --kind video --limit 10
+  plur1bus --json media search --like m-img-1
+
+###### **Arguments:**
+
+* `<TEXT>` — what to look for, in words (exactly one of TEXT or --like)
+
+###### **Options:**
+
+* `--like <MEDIA_ID>` — find media similar to this one (a media id) instead of searching by words
+* `--kind <KIND>` — restrict to a kind; repeat for several (default: all kinds)
+
+  Possible values: `image`, `video`, `audio`
+
+* `--limit <LIMIT>` — maximum number of hits
+
+  Default value: `20`
+
+
+
+## `plur1bus media index`
+
+[experimental] The media index: status, pause, resume, reindex
+
+**Usage:** `plur1bus media index <COMMAND>`
+
+###### **Subcommands:**
+
+* `status` — [experimental] Media index state: model, counts and backfill progress
+* `pause` — [experimental] Pause the background backfill
+* `resume` — [experimental] Resume a paused backfill
+* `reindex` — [experimental] Rebuild the media index from scratch (asks first; --yes skips the question)
+
+
+
+## `plur1bus media index status`
+
+[experimental] Media index state: model, counts and backfill progress
+
+**Usage:** `plur1bus media index status`
+
+
+
+## `plur1bus media index pause`
+
+[experimental] Pause the background backfill
+
+**Usage:** `plur1bus media index pause`
+
+
+
+## `plur1bus media index resume`
+
+[experimental] Resume a paused backfill
+
+**Usage:** `plur1bus media index resume`
+
+
+
+## `plur1bus media index reindex`
+
+[experimental] Rebuild the media index from scratch (asks first; --yes skips the question)
+
+**Usage:** `plur1bus media index reindex [OPTIONS]`
+
+###### **Options:**
+
+* `--yes` — do not ask; required without a terminal and with --json
+
+
+
+## `plur1bus media caption`
+
+[experimental] Media captions
+
+**Usage:** `plur1bus media caption <COMMAND>`
+
+###### **Subcommands:**
+
+* `set` — [experimental] Set the caption of a medium (it becomes a text-searchable memory entry)
+
+
+
+## `plur1bus media caption set`
+
+[experimental] Set the caption of a medium (it becomes a text-searchable memory entry)
+
+**Usage:** `plur1bus media caption set <ID> <TEXT>`
+
+###### **Arguments:**
+
+* `<ID>` — the media id
+* `<TEXT>` — the caption text
 
 
 

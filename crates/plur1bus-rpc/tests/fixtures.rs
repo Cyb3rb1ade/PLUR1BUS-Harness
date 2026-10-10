@@ -97,6 +97,12 @@ fn method_fixture(name: &str, f: &Value) {
         "identity.principals" => {
             pair::<IdentityPrincipalsParams, IdentityPrincipalsResult>(name, f)
         }
+        "media.search" => pair::<MediaSearchParams, MediaSearchResult>(name, f),
+        "media.index.status" => pair::<MediaIndexStatusParams, MediaIndexStatusResult>(name, f),
+        "media.index.pause" => pair::<MediaIndexPauseParams, MediaIndexPauseResult>(name, f),
+        "media.index.resume" => pair::<MediaIndexResumeParams, MediaIndexResumeResult>(name, f),
+        "media.index.reindex" => pair::<MediaIndexReindexParams, MediaIndexReindexResult>(name, f),
+        "media.caption.set" => pair::<MediaCaptionSetParams, MediaCaptionSetResult>(name, f),
         "media.preferences.get" => {
             pair::<MediaPreferencesGetParams, MediaPreferencesGetResult>(name, f)
         }
@@ -262,6 +268,12 @@ fn all_error_codes() -> BTreeSet<ErrorCode> {
         ErrorCode::EApprovalRequired,
         ErrorCode::EConflict,
         ErrorCode::EStorage,
+        ErrorCode::EMediaCapability,
+        ErrorCode::EMediaLicense,
+        ErrorCode::EMediaPrivacy,
+        ErrorCode::EMediaUnavailable,
+        ErrorCode::EMediaDimension,
+        ErrorCode::EMediaUnsupportedKind,
     ];
     for c in all {
         match c {
@@ -279,7 +291,13 @@ fn all_error_codes() -> BTreeSet<ErrorCode> {
             | ErrorCode::EDenied
             | ErrorCode::EApprovalRequired
             | ErrorCode::EConflict
-            | ErrorCode::EStorage => {}
+            | ErrorCode::EStorage
+            | ErrorCode::EMediaCapability
+            | ErrorCode::EMediaLicense
+            | ErrorCode::EMediaPrivacy
+            | ErrorCode::EMediaUnavailable
+            | ErrorCode::EMediaDimension
+            | ErrorCode::EMediaUnsupportedKind => {}
         }
     }
     all.into_iter().collect()

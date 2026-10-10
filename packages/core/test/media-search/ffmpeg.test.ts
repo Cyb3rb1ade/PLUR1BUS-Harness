@@ -5,6 +5,11 @@ import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createFfmpegPorts } from "../../src/media-search/ffmpeg.ts";
+import { mkdtempSync, writeFileSync } from "node:fs";
+const MP4HEAD = new Uint8Array([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0, 0, 0, 0]);
+const fixtureDir = mkdtempSync(join(tmpdir(), "ffmpeg-input-"));
+const VIDEO = join(fixtureDir, "v.mp4"); writeFileSync(VIDEO, MP4HEAD);
+const AUDIO = join(fixtureDir, "a.wav"); writeFileSync(AUDIO, Buffer.from("RIFF....WAVE"));
 
 // 20-byte "PNG": signature + IEND chunk. Enough for the frame splitter.
 const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from([0, 0, 0, 0]), Buffer.from("IEND"), Buffer.from([0xae, 0x42, 0x60, 0x82])]);
@@ -61,12 +66,12 @@ describe("createFfmpegPorts resolution", () => {
   it("a binary that vanishes later yields E_MEDIA_UNSUPPORTED_KIND", async () => {
     const { f, ports } = await setup({ mode: "frames" });
     await unlink(f.bin);
-    await assert.rejects(collect(ports.frames!.frames({ path: "/x/v.mp4" }, { intervalSec: 1, sceneDetect: false, maxFrames: 2 })), code("E_MEDIA_UNSUPPORTED_KIND"));
-    await assert.rejects(collect(ports.audio!.pcm({ path: "/x/a.wav" }, { sampleRate: 16000, mono: true, maxSeconds: 5 })), code("E_MEDIA_UNSUPPORTED_KIND"));
+    await assert.rejects(collect(ports.frames!.frames({ path: VIDEO }, { intervalSec: 1, sceneDetect: false, maxFrames: 2 })), code("E_MEDIA_UNSUPPORTED_KIND"));
+    await assert.rejects(collect(ports.audio!.pcm({ path: AUDIO }, { sampleRate: 16000, mono: true, maxSeconds: 5 })), code("E_MEDIA_UNSUPPORTED_KIND"));
   });
   it("a failing exit code yields E_MEDIA_UNSUPPORTED_KIND", async () => {
     const { ports } = await setup({ mode: "fail" });
-    await assert.rejects(collect(ports.frames!.frames({ path: "/x/v.mp4" }, { intervalSec: 1, sceneDetect: false, maxFrames: 2 })), code("E_MEDIA_UNSUPPORTED_KIND"));
+    await assert.rejects(collect(ports.frames!.frames({ path: VIDEO }, { intervalSec: 1, sceneDetect: false, maxFrames: 2 })), code("E_MEDIA_UNSUPPORTED_KIND"));
   });
 });
 
@@ -76,6 +81,7 @@ describe("frames", () => {
     const spy = ((cmd: string, args: readonly string[], opts: { shell?: unknown }) => { calls.push({ cmd, args, shell: opts.shell }); return (spawn as unknown as (...a: unknown[]) => ReturnType<typeof spawn>)(cmd, args, opts); }) as unknown as typeof spawn;
     const { f, ports, tempDir } = await setup({ mode: "frames" }, { spawn: spy });
     const evil = join(root, "my video; rm -rf $(x) `y` & z.mp4");
+    await writeFile(evil, MP4HEAD);
     const frames = await collect(ports.frames!.frames({ path: evil }, { intervalSec: 2, sceneDetect: false, maxFrames: 5 }));
     assert.equal(frames.length, 2);
     const argv = (await f.argvs())[0]!;
@@ -89,7 +95,7 @@ describe("frames", () => {
   });
   it("yields png frames with showinfo timestamps and respects maxFrames in argv", async () => {
     const { f, ports } = await setup({ mode: "frames", frames: 3 });
-    const frames = await collect(ports.frames!.frames({ path: "/x/v.mp4" }, { intervalSec: 2, sceneDetect: false, maxFrames: 3 }));
+    const frames = await collect(ports.frames!.frames({ path: VIDEO }, { intervalSec: 2, sceneDetect: false, maxFrames: 3 }));
     assert.deepEqual(frames.map((x) => x.tsMs), [0, 2500, 5000]);
     assert.ok(frames.every((x) => x.mime === "image/png" && Buffer.compare(Buffer.from(x.image), PNG) === 0));
     const argv = (await f.argvs())[0]!;
@@ -97,11 +103,11 @@ describe("frames", () => {
   });
   it("never yields more than maxFrames", async () => {
     const { ports } = await setup({ mode: "frames", frames: 6 });
-    assert.equal((await collect(ports.frames!.frames({ path: "/x/v.mp4" }, { intervalSec: 1, sceneDetect: false, maxFrames: 4 }))).length, 4);
+    assert.equal((await collect(ports.frames!.frames({ path: VIDEO }, { intervalSec: 1, sceneDetect: false, maxFrames: 4 }))).length, 4);
   });
   it("sceneDetect uses select gt(scene,0.3) and falls back to the interval when nothing is detected", async () => {
     const { f, ports } = await setup({ mode: "frames", sceneEmpty: true });
-    const frames = await collect(ports.frames!.frames({ path: "/x/v.mp4" }, { intervalSec: 1, sceneDetect: true, maxFrames: 4 }));
+    const frames = await collect(ports.frames!.frames({ path: VIDEO }, { intervalSec: 1, sceneDetect: true, maxFrames: 4 }));
     assert.equal(frames.length, 2);
     const calls = await f.argvs();
     assert.equal(calls.length, 2);
@@ -110,7 +116,7 @@ describe("frames", () => {
   });
   it("writes bytes sources into tempDir and removes them afterwards", async () => {
     const { f, ports, tempDir } = await setup({ mode: "frames" });
-    await collect(ports.frames!.frames({ bytes: new Uint8Array([1, 2, 3]) }, { intervalSec: 1, sceneDetect: false, maxFrames: 2 }));
+    await collect(ports.frames!.frames({ bytes: MP4HEAD }, { intervalSec: 1, sceneDetect: false, maxFrames: 2 }));
     const argv = (await f.argvs())[0]!;
     assert.ok(argv.some((a) => a.startsWith(`file:${tempDir}`)));
     assert.deepEqual(await readdir(tempDir), []);
@@ -118,18 +124,18 @@ describe("frames", () => {
   it("timeout kills a hanging process; tempDir stays empty", async () => {
     const { ports, tempDir } = await setup({ mode: "hang" }, { timeoutMs: 300 });
     const t0 = Date.now();
-    await assert.rejects(collect(ports.frames!.frames({ bytes: new Uint8Array([1]) }, { intervalSec: 1, sceneDetect: false, maxFrames: 2 })), code("E_MEDIA_UNSUPPORTED_KIND"));
+    await assert.rejects(collect(ports.frames!.frames({ bytes: MP4HEAD }, { intervalSec: 1, sceneDetect: false, maxFrames: 2 })), code("E_MEDIA_UNSUPPORTED_KIND"));
     assert.ok(Date.now() - t0 < 4000);
     assert.deepEqual(await readdir(tempDir), []);
   });
   it("size limit trips on oversized output", async () => {
     const { ports, tempDir } = await setup({ mode: "big" }, { maxBytes: 200_000, maxFrameBytes: 100_000 });
-    await assert.rejects(collect(ports.frames!.frames({ bytes: new Uint8Array([1]) }, { intervalSec: 1, sceneDetect: false, maxFrames: 2 })), code("E_MEDIA_UNSUPPORTED_KIND"));
+    await assert.rejects(collect(ports.frames!.frames({ bytes: MP4HEAD }, { intervalSec: 1, sceneDetect: false, maxFrames: 2 })), code("E_MEDIA_UNSUPPORTED_KIND"));
     assert.deepEqual(await readdir(tempDir), []);
   });
   it("early termination by the consumer cleans up", async () => {
     const { ports, tempDir } = await setup({ mode: "frames", frames: 4 });
-    for await (const _ of ports.frames!.frames({ bytes: new Uint8Array([1]) }, { intervalSec: 1, sceneDetect: false, maxFrames: 4 })) break;
+    for await (const _ of ports.frames!.frames({ bytes: MP4HEAD }, { intervalSec: 1, sceneDetect: false, maxFrames: 4 })) break;
     assert.deepEqual(await readdir(tempDir), []);
   });
 });
@@ -137,7 +143,7 @@ describe("frames", () => {
 describe("audio", () => {
   it("streams f32le mono PCM in chunks with startMs offsets", async () => {
     const { f, ports, tempDir } = await setup({ mode: "pcm", samples: 25 }, { audioChunkSec: 1 });
-    const chunks = await collect(ports.audio!.pcm({ path: "/x/a.wav" }, { sampleRate: 10, mono: true, maxSeconds: 60 }));
+    const chunks = await collect(ports.audio!.pcm({ path: AUDIO }, { sampleRate: 10, mono: true, maxSeconds: 60 }));
     assert.deepEqual(chunks.map((c) => [c.startMs, c.samples.length]), [[0, 10], [1000, 10], [2000, 5]]);
     assert.ok(chunks.every((c) => c.samples instanceof Float32Array));
     assert.ok(Math.abs(chunks[1]!.samples[0]! - 0.1) < 1e-6);
@@ -150,16 +156,28 @@ describe("audio", () => {
   it("clamps maxSeconds to probed duration when ffprobe is available", async () => {
     const probe = await fake({ mode: "probe" });
     const { f, ports } = await setup({ mode: "pcm" }, { ffprobePath: probe.bin });
-    await collect(ports.audio!.pcm({ path: "/x/a.wav" }, { sampleRate: 100, mono: true, maxSeconds: 3600 }));
-    const pa = (await probe.argvs())[0]!; assert.ok(pa.includes("-protocol_whitelist") && pa.includes("file:/x/a.wav"));
+    await collect(ports.audio!.pcm({ path: AUDIO }, { sampleRate: 100, mono: true, maxSeconds: 3600 }));
+    const pa = (await probe.argvs())[0]!; assert.ok(pa.includes("-protocol_whitelist") && pa.includes(`file:${AUDIO}`));
     const a = (await f.argvs())[0]!; assert.equal(a[a.indexOf("-t") + 1], "13");
   });
   it("hang and size limits on audio", async () => {
     const h = await setup({ mode: "hang" }, { timeoutMs: 300 });
-    await assert.rejects(collect(h.ports.audio!.pcm({ bytes: new Uint8Array([1]) }, { sampleRate: 100, mono: true, maxSeconds: 5 })), code("E_MEDIA_UNSUPPORTED_KIND"));
+    await assert.rejects(collect(h.ports.audio!.pcm({ bytes: MP4HEAD }, { sampleRate: 100, mono: true, maxSeconds: 5 })), code("E_MEDIA_UNSUPPORTED_KIND"));
     assert.deepEqual(await readdir(h.tempDir), []);
     const b = await setup({ mode: "big" }, { maxBytes: 300_000 });
-    await assert.rejects(collect(b.ports.audio!.pcm({ bytes: new Uint8Array([1]) }, { sampleRate: 100, mono: true, maxSeconds: 5 })), code("E_MEDIA_UNSUPPORTED_KIND"));
+    await assert.rejects(collect(b.ports.audio!.pcm({ bytes: MP4HEAD }, { sampleRate: 100, mono: true, maxSeconds: 5 })), code("E_MEDIA_UNSUPPORTED_KIND"));
     assert.deepEqual(await readdir(b.tempDir), []);
+  });
+});
+
+import { isAllowedContainer } from "../../src/media-search/ffmpeg.ts";
+describe("container allowlist", () => {
+  it("accepts binary containers and rejects playlist-like text formats", () => {
+    assert.equal(isAllowedContainer(MP4HEAD), true);
+    assert.equal(isAllowedContainer(Buffer.from("RIFF....WAVE")), true);
+    assert.equal(isAllowedContainer(Buffer.from("#EXTM3U\n#EXT-X-VERSION:3\n")), false);
+    assert.equal(isAllowedContainer(Buffer.from("ffconcat version 1.0\nfile /etc/hosts\n")), false);
+    assert.equal(isAllowedContainer(Buffer.from("<?xml version=\"1.0\"?><MPD>")), false);
+    assert.equal(isAllowedContainer(Buffer.from("v=0\r\no=- 0 0 IN IP4 127.0.0.1")), false);
   });
 });

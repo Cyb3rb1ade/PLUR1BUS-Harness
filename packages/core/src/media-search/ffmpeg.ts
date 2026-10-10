@@ -1,6 +1,6 @@
 import { spawn as nodeSpawn, type ChildProcess } from "node:child_process";
 import { accessSync, constants, statSync } from "node:fs";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import { delimiter, join, resolve } from "node:path";
 import { mediaError } from "./errors.ts";
 import type { AudioDecoderPort, FrameExtractorPort, MediaSource } from "./types.ts";
@@ -21,6 +21,26 @@ const STDERR_CAP = 256 * 1024;
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 // Inputs may only be plain files or pipes, so a path can never turn into a network URL or a concat/subfile protocol.
 const SAFE_INPUT = ["-nostdin", "-hide_banner", "-protocol_whitelist", "file,pipe"];
+
+/**
+ * Playlist-like demuxers (HLS, concat, DASH, SDP, ...) let a crafted "media" file make ffmpeg read other local files, which the
+ * protocol whitelist does not stop (`file` has to stay allowed for the input itself). Only binary containers are handed to ffmpeg.
+ */
+export function isAllowedContainer(head: Uint8Array): boolean {
+  const b = Buffer.from(head);
+  const at = (o: number, s: string) => b.length >= o + s.length && b.toString("latin1", o, o + s.length) === s;
+  if (at(4, "ftyp") || at(4, "moov") || at(4, "mdat") || at(4, "free") || at(4, "wide")) return true; // MP4 / MOV / M4A
+  if (b.length >= 4 && b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) return true; // Matroska / WebM
+  if (at(0, "RIFF") || at(0, "FORM") || at(0, "OggS") || at(0, "fLaC") || at(0, "ID3") || at(0, "FLV")) return true; // AVI, WAV, AIFF, Ogg, FLAC, MP3, FLV
+  if (b.length >= 2 && b[0] === 0xff && (b[1]! & 0xe0) === 0xe0) return true; // MPEG audio / ADTS sync word
+  if (b.length >= 4 && b[0] === 0 && b[1] === 0 && b[2] === 1 && b[3] === 0xba) return true; // MPEG-PS
+  return false;
+}
+async function sniffFile(file: string): Promise<boolean> {
+  const h = await open(file, "r");
+  try { const buf = Buffer.alloc(16); const { bytesRead } = await h.read(buf, 0, 16, 0); return isAllowedContainer(buf.subarray(0, bytesRead)); }
+  finally { await h.close(); }
+}
 
 function findOnPath(name: string): string | null {
   const exts = process.platform === "win32" ? [".exe", ".cmd", ""] : [""];
@@ -122,12 +142,16 @@ export function createFfmpegPorts(opts: FfmpegPortsOptions): { frames: FrameExtr
   async function prepareInput(src: MediaSource): Promise<{ input: string; cleanup(): Promise<void> }> {
     if ("path" in src) {
       if (typeof src.path !== "string" || src.path.length === 0 || src.path.includes("\0")) throw mediaError("E_MEDIA_UNSUPPORTED_KIND", "invalid media path", { reason: "bad-path" });
-      return { input: `file:${resolve(src.path)}`, cleanup: async () => {} };
+      const abs = resolve(src.path);
+      if (!(await sniffFile(abs).catch(() => false))) throw mediaError("E_MEDIA_UNSUPPORTED_KIND", "container not allowed", { reason: "container-not-allowed" });
+      return { input: `file:${abs}`, cleanup: async () => {} };
     }
     await mkdir(opts.tempDir, { recursive: true });
     const dir = await mkdtemp(join(opts.tempDir, "media-"));
     const cleanup = () => rm(dir, { recursive: true, force: true });
-    try { const file = join(dir, "input.bin"); await writeFile(file, src.bytes); return { input: `file:${file}`, cleanup }; }
+    try {
+      if (!isAllowedContainer(src.bytes.subarray(0, 16))) throw mediaError("E_MEDIA_UNSUPPORTED_KIND", "container not allowed", { reason: "container-not-allowed" });
+      const file = join(dir, "input.bin"); await writeFile(file, src.bytes); return { input: `file:${file}`, cleanup }; }
     catch (e) { await cleanup(); throw e; }
   }
 

@@ -373,6 +373,27 @@ pub struct SetupArgs {
     /// Install profile: host (supervisor and core only, for Hermes host mode) or full (default for a new home; an existing home keeps its profile)
     #[arg(long, value_name = "PROFILE", value_parser = ["host", "full"])]
     pub profile: Option<String>,
+    /// Do not set up media search (image, video, audio); it can be enabled later with `plur1bus config set memory.mediaEmbedding.enabled true`
+    #[arg(long)]
+    pub skip_media_search: bool,
+    /// Provider of the text memory, recorded only (default: local-transformers = EmbeddingGemma 2); the text index changes through `memory reembed`
+    #[arg(long, value_name = "ID")]
+    pub text_provider: Option<String>,
+    /// Provider of the media index: local-transformers (EmbeddingGemma 2, Apache-2.0, default), a cloud provider id, or off
+    #[arg(long, value_name = "ID")]
+    pub media_provider: Option<String>,
+    /// Model of the media index (required for a cloud provider; default google/embeddinggemma-2)
+    #[arg(long, value_name = "MODEL")]
+    pub media_model: Option<String>,
+    /// Vector dimensions of the media index (default 768; EmbeddingGemma 2: 768, 512, 256 or 128)
+    #[arg(long, value_name = "N", value_parser = clap::value_parser!(u32).range(1..))]
+    pub media_dimensions: Option<u32>,
+    /// Media kinds to index, comma separated (default: image,video,audio)
+    #[arg(long, value_name = "KINDS", value_delimiter = ',', value_parser = ["image", "video", "audio"])]
+    pub media_modalities: Option<Vec<String>>,
+    /// Automatic captions: local, cloud (the media provider), off, or a provider id (a cloud media provider has no default)
+    #[arg(long, value_name = "WHERE")]
+    pub caption_provider: Option<String>,
 }
 
 /// `plur1bus update` (spec §6.5, D78, HB10): apply a signed release (snapshot, swap, health gate, automatic

@@ -22,6 +22,7 @@ pub mod identity;
 pub mod import;
 pub mod login;
 pub mod media;
+pub mod media_search;
 pub mod memory;
 pub mod memory_ops;
 pub mod memory_reembed;
