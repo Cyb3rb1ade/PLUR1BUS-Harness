@@ -58,11 +58,8 @@ export const FS_PATH_ROWS: E2ERow[] = [
     benign: async (w) => { linkSync(w.f.wsA, path.join(w.f.ws, "alias.txt")); return w.probe("fs.read", path.join(w.f.ws, "alias.txt")); },
   },
   {
-    // paths.ts resolves hard-link identities only for deny-list `path` entries; a `name` entry (.env, token files by pattern) is
-    // matched by spelling alone, so a hard link with another name reads the file. Reported, not fixed here: refusing every
-    // hard-linked target would over-block pnpm stores. See the task report.
+    // Closed: a hard-linked target is compared by identity (dev+ino) with every file a deny-list `name` entry protects inside the roots.
     id: "path-hard-link-to-name-entry", group: "paths", what: "a hard link to a file protected only by a deny-list NAME entry (.env) is refused", expect: "denied:deny-list", skip: NO_HARDLINK,
-    knownGap: "paths.ts matches deny-list `name` entries by spelling only; a hard link under another name is not recognised",
     attack: async (w) => { linkSync(w.f.wsEnv, path.join(w.f.ws, "notes.txt")); return w.probe("fs.read", path.join(w.f.ws, "notes.txt")); },
     benign: async (w) => { linkSync(w.f.wsA, path.join(w.f.ws, "alias.txt")); return w.probe("fs.read", path.join(w.f.ws, "alias.txt")); },
   },

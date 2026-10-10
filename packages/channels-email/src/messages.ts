@@ -1,6 +1,6 @@
 export type Locale = "en" | "de";
 export interface Messages {
-  linkOk: string;
+  linkOk(pairingId: string): string;
   linkFail: string;
   approvalRefused: string;
   approvalSubject: string;
@@ -9,7 +9,7 @@ export interface Messages {
   rateLimited: string;
 }
 const en: Messages = {
-  linkOk: "Pairing claimed. Confirm this link in My identities.",
+  linkOk: (pairingId) => `Pairing claimed. Pairing ID: ${pairingId}. Confirm this link in My identities. Run: plur1bus identity approve ${pairingId}`,
   linkFail: "Pairing failed. Request a new code in My identities.",
   approvalRefused: "This approval code is invalid, expired, already used or not for you. Nothing was approved.",
   approvalSubject: "Approval needed",
@@ -19,7 +19,7 @@ const en: Messages = {
   rateLimited: "email reply rate limit reached",
 };
 const de: Messages = {
-  linkOk: "Verknüpfung angefordert. Bitte unter „Meine Identitäten“ bestätigen.",
+  linkOk: (pairingId) => `Verknüpfung angefordert. ID: ${pairingId}. Bitte unter „Meine Identitäten“ bestätigen. Freigabe: plur1bus identity approve ${pairingId}`,
   linkFail: "Verknüpfung fehlgeschlagen. Bitte unter „Meine Identitäten“ einen neuen Code anfordern.",
   approvalRefused: "Dieser Freigabecode ist ungültig, abgelaufen, schon benutzt oder nicht für Sie. Es wurde nichts freigegeben.",
   approvalSubject: "Freigabe erforderlich",

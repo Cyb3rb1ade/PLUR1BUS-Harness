@@ -40,6 +40,9 @@ fn pair<P: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize>(name: 
 fn method_fixture(name: &str, f: &Value) {
     use types::*;
     match name {
+        "device.list" => pair::<DeviceListParams, DeviceListResult>(name, f),
+        "device.revoke" => pair::<DeviceRevokeParams, Device>(name, f),
+        "device.rename" => pair::<DeviceRenameParams, Device>(name, f),
         "auth.login.start" => pair::<AuthLoginStartParams, AuthLoginStartResult>(name, f),
         "auth.login.await" => pair::<AuthLoginAwaitParams, AuthLoginAwaitResult>(name, f),
         "auth.login.cancel" => pair::<AuthLoginCancelParams, AuthLoginCancelResult>(name, f),

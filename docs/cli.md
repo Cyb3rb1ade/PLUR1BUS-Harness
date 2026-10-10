@@ -144,6 +144,10 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus secret get`↴](#plur1bus-secret-get)
 * [`plur1bus secret rm`↴](#plur1bus-secret-rm)
 * [`plur1bus secret ls`↴](#plur1bus-secret-ls)
+* [`plur1bus device`↴](#plur1bus-device)
+* [`plur1bus device list`↴](#plur1bus-device-list)
+* [`plur1bus device revoke`↴](#plur1bus-device-revoke)
+* [`plur1bus device rename`↴](#plur1bus-device-rename)
 * [`plur1bus grant`↴](#plur1bus-grant)
 * [`plur1bus grant list`↴](#plur1bus-grant-list)
 * [`plur1bus grant add`↴](#plur1bus-grant-add)
@@ -256,6 +260,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `budget` — [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
 * `audit` — [experimental] Audit trail: verify the hash-chained audit file (B5)
 * `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
+* `device` — [experimental] Paired devices: list, revoke and rename (F44)
 * `grant` — [experimental] Standing permissions: list, add and revoke grants (D109)
 * `approval` — [experimental] Approval requests: the pending queue, approve, deny and verify the chain (D109)
 * `login` — [experimental] Provider sign-in: OAuth (ChatGPT) or an API key from stdin; `login status|list|logout`
@@ -2245,6 +2250,53 @@ One trailing newline is removed. Replacing a secret revokes the leases on the ol
 [experimental] List secret names (never values)
 
 **Usage:** `plur1bus secret ls`
+
+
+
+## `plur1bus device`
+
+[experimental] Paired devices: list, revoke and rename (F44)
+
+**Usage:** `plur1bus device <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List your devices (Owner/Admin: all), including revoked devices
+* `revoke` — [experimental] Revoke a device and close its connections immediately
+* `rename` — [experimental] Rename a device you own
+
+
+
+## `plur1bus device list`
+
+[experimental] List your devices (Owner/Admin: all), including revoked devices
+
+**Usage:** `plur1bus device list`
+
+
+
+## `plur1bus device revoke`
+
+[experimental] Revoke a device and close its connections immediately
+
+**Usage:** `plur1bus device revoke <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus device rename`
+
+[experimental] Rename a device you own
+
+**Usage:** `plur1bus device rename <ID> <NAME>`
+
+###### **Arguments:**
+
+* `<ID>`
+* `<NAME>`
 
 
 

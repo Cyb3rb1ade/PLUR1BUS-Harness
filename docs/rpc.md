@@ -58,6 +58,119 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ## Methods
 
+### `device.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+List paired devices, including revoked entries. Owner/Admin see all; other people see their own. Agents are always denied.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "devices"
+  ],
+  "properties": {
+    "devices": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Device"
+      }
+    }
+  }
+}
+```
+
+### `device.revoke`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Persist revocation and immediately close all live connections for this device. Owner/Admin or the stored pairedBy person; future handshakes with the key are denied.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^dev_[a-f0-9-]{36}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/Device"
+}
+```
+
+### `device.rename`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Rename a device owned by the authenticated person (stored pairedBy); no administrator override. Agents are always denied.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^dev_[a-f0-9-]{36}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/Device"
+}
+```
+
 ### `media.preferences.set`
 
 **Stability:** experimental · since 1.5.0
@@ -11481,6 +11594,89 @@ D109 §4: a grant was created or revoked (use, expiry and suspension are not not
 ## Definitions
 
 Shared `$defs` referenced above as `#/$defs/<Name>`.
+
+### `Device`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "platform",
+    "publicKey",
+    "fingerprint",
+    "pairedBy",
+    "pairedAt",
+    "lastSeenAt",
+    "scope",
+    "revoked"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^dev_[a-f0-9-]{36}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "platform": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "publicKey": {
+      "type": "string",
+      "maxLength": 4096,
+      "description": "Canonical base64 DER Ed25519 SubjectPublicKeyInfo."
+    },
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "pairedBy": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "pairedAt": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Epoch milliseconds."
+    },
+    "lastSeenAt": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Epoch milliseconds."
+    },
+    "revokedAt": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Epoch milliseconds."
+    },
+    "revokedBy": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "scope": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "revoked": {
+      "type": "boolean"
+    }
+  }
+}
+```
 
 ### `ErrorCode`
 

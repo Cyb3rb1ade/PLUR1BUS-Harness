@@ -238,10 +238,13 @@ export class LocalVoice {
     const accepted = new Set([...this.acceptedFromConfig(), ...(options.acceptLicences ?? [])]);
     const sel = modelsFor(this.catalog, code, profile);
 
-    // Choose the TTS model: the tier's own, or the declared fallback when the tier's package cannot be fetched or run.
+    // Choose the TTS model: the tier's own, or the declared fallback when the tier's package cannot be fetched or run,
+    // or its licence has not been confirmed.
     let tts = sel.tts;
     let usedFallback = false;
-    const ownOk = (await isInstalled(this.dir, tts)) || (downloadable(tts).ok && this.engine.supports("tts", tts.engine));
+    const ownOk = this.engine.supports("tts", tts.engine)
+      && ((await isInstalled(this.dir, tts)) || downloadable(tts).ok)
+      && (!needsLicenceConfirmation(tts) || accepted.has(licenceKey(tts)));
     if (!ownOk && sel.ttsFallback) { tts = sel.ttsFallback; usedFallback = true; }
     for (const m of [sel.stt, tts, sel.vad]) {
       if (!this.engine.supports(m.kind, m.engine)) throw new VoiceProviderError("unavailable", `${m.displayName} needs the "${m.engine}" engine, which the installed sherpa-onnx-node does not support`);
@@ -304,5 +307,9 @@ export class LocalVoice {
     this.loaded = undefined;
     this.retire(l);
   }
-}
 
+  /** Retire the resident models; active calls and streams release them when their leases end. */
+  dispose(): void {
+    this.unload();
+  }
+}

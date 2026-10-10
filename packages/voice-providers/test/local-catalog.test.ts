@@ -14,6 +14,8 @@ test("the shipped catalog loads and gives every language a fast and a quality ti
   }
   assert.equal(modelsFor(c, "de", "fast").stt.id, "kroko-de");
   assert.equal(modelsFor(c, "de", "fast").stt.streaming, true);
+  assert.equal(modelsFor(c, "de", "quality").tts.id, "voice-martin-de");
+  assert.equal(modelsFor(c, "de", "quality").ttsFallback?.id, "piper-de-thorsten-low");
   assert.equal(modelsFor(c, "en", "quality").stt.id, "parakeet-110m-en");
   assert.equal(modelsFor(c, "en", "quality").ttsFallback?.id, "kokoro-multi");
 });

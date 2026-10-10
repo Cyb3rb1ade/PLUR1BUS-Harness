@@ -674,11 +674,11 @@ export class SlackChannel implements Channel {
       else {
         try {
           // The code is passed straight to the identity port and never logged or echoed.
-          await this.#deps.pairing.claim({
+          const pairing = await this.#deps.pairing.claim({
             code: m[2],
             identity: { channel: this.name, accountId: this.#botUserId, userId: user },
           });
-          reply = msgs.pairingOk;
+          reply = msgs.pairingOk(pairing.pairingId);
         } catch {
           reply = msgs.pairingFail;
         }
