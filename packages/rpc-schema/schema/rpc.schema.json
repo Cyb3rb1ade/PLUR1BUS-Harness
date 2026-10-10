@@ -3247,7 +3247,7 @@
       "required": ["id", "displayName", "enabled", "configured", "state", "health"],
       "properties": {
         "id": { "$ref": "#/$defs/ChannelId" }, "displayName": { "type": "string" }, "enabled": { "type": "boolean" }, "configured": { "type": "boolean" },
-        "state": { "type": "string", "enum": ["not-registered", "stopped", "waiting", "starting", "running", "backoff", "failed"] },
+        "state": { "type": "string", "enum": ["not-registered", "stopped", "waiting", "starting", "running", "backoff", "failed", "misconfigured"] },
         "health": { "$ref": "#/$defs/ChannelHealth" }
       }
     },
@@ -3258,7 +3258,7 @@
       "required": ["id", "displayName", "enabled", "configured", "state", "health", "configurable", "restart", "missing", "secrets", "config", "attempts", "linkHelp"],
       "properties": {
         "id": { "$ref": "#/$defs/ChannelId" }, "displayName": { "type": "string" }, "enabled": { "type": "boolean" }, "configured": { "type": "boolean" },
-        "state": { "type": "string", "enum": ["not-registered", "stopped", "waiting", "starting", "running", "backoff", "failed"] },
+        "state": { "type": "string", "enum": ["not-registered", "stopped", "waiting", "starting", "running", "backoff", "failed", "misconfigured"] },
         "health": { "$ref": "#/$defs/ChannelHealth" },
         "configurable": { "type": "boolean" },
         "description": { "type": "string" },

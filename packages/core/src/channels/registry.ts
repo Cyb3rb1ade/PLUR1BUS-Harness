@@ -4,7 +4,8 @@ import { validateChannelManifest, type ChannelManifest } from "./manifest.ts";
 import type { ChannelRouter } from "./router.ts";
 import type { Channel, ChannelFactory, ChannelHealth, ChannelHost, ChannelLogger, InboundMessage, OutboundMessage } from "./types.ts";
 
-export type ChannelState = "stopped" | "waiting" | "starting" | "running" | "backoff" | "failed";
+/** `misconfigured`: enabled, but it cannot start until the operator fixes the configuration (a missing secret, an invalid value). Nothing is retried. */
+export type ChannelState = "stopped" | "waiting" | "starting" | "running" | "backoff" | "failed" | "misconfigured";
 
 export interface ChannelStatus {
   name: string;
@@ -14,6 +15,8 @@ export interface ChannelStatus {
   attempts: number;
   lastError?: string;
   startedAt?: number;
+  /** The adapter's last health answer while it runs (start, then every watch). */
+  health?: ChannelHealth;
 }
 
 export interface RegistryOptions {
@@ -38,6 +41,7 @@ interface Entry {
   attempts: number;
   lastError?: string;
   startedAt?: number;
+  health?: ChannelHealth;
   timers: Set<Timer>;
 }
 
@@ -97,12 +101,25 @@ export class ChannelRegistry {
   /** Schedule a start (after the manifest's `startDelayMs`). Returns at once; never throws. */
   start(name: string): void {
     const e = this.#entries.get(name);
-    if (!e || e.state !== "stopped" && e.state !== "failed") return;
+    if (!e || e.state !== "stopped" && e.state !== "failed" && e.state !== "misconfigured") return;
     e.gen++;
     e.attempts = 0;
     delete e.lastError;
     e.state = "waiting";
     this.#later(e, e.gen, e.manifest.startDelayMs, () => this.#attempt(e, e.gen));
+  }
+
+  /** Parks a channel that must not start (`reason` is shown as its last error). Only a stopped, failed or misconfigured channel can be parked. */
+  markMisconfigured(name: string, reason: string): void {
+    const e = this.#entries.get(name);
+    if (!e || e.state !== "stopped" && e.state !== "failed" && e.state !== "misconfigured") return;
+    e.gen++;
+    this.#clearTimers(e);
+    e.attempts = 0;
+    e.state = "misconfigured";
+    e.lastError = reason;
+    delete e.startedAt;
+    delete e.health;
   }
 
   startAll(): void { for (const n of this.#entries.keys()) this.start(n); }
@@ -115,6 +132,8 @@ export class ChannelRegistry {
     const ch = e.channel;
     delete e.channel;
     delete e.startedAt;
+    delete e.health;
+    if (e.state === "misconfigured") delete e.lastError; // a parked channel has nothing to report once it is switched off
     e.state = "stopped";
     if (ch) await this.#stopQuietly(ch, e.manifest.name);
   }
@@ -159,6 +178,7 @@ export class ChannelRegistry {
     if (e.gen !== gen) return;
     e.state = "running";
     e.startedAt = this.#o.clock.now();
+    e.health = { ok: true };
     this.#o.log.info("channel.started", { channel: name });
     this.#later(e, gen, this.#o.stableAfterMs, () => { e.attempts = 0; });
     this.#watchHealth(e, gen, ch);
@@ -169,6 +189,7 @@ export class ChannelRegistry {
       try {
         const h = await withTimeout(this.#o.clock, () => ch.health(), this.#o.callTimeoutMs, `${e.manifest.name}.health`);
         if (!h || !h.ok) throw new Error(`unhealthy${h?.detail ? `: ${h.detail}` : ""}`);
+        if (e.gen === gen) e.health = { ok: true, ...(h.detail !== undefined ? { detail: String(h.detail) } : {}) };
       } catch (err) {
         return this.#crashed(e, gen, err);
       }
@@ -229,6 +250,7 @@ function snapshot(e: Entry): ChannelStatus {
     name: e.manifest.name, version: e.manifest.version, state: e.state, attempts: e.attempts,
     ...(e.lastError !== undefined ? { lastError: e.lastError } : {}),
     ...(e.startedAt !== undefined ? { startedAt: e.startedAt } : {}),
+    ...(e.health !== undefined ? { health: { ...e.health } } : {}),
   };
 }
 

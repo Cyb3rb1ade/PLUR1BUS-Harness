@@ -145,6 +145,12 @@ export class SessionStore {
     return r ? toSession(r) : null;
   }
 
+  /** D21: the one active session of a chat, or null. For the channel host, which knows the chat but not the owner. */
+  activeForChat(chatKey: string): SessionRecord | null {
+    const r = this.#get("SELECT * FROM sessions WHERE chat_key = ? AND archived_at IS NULL", chatKey);
+    return r ? toSession(r) : null;
+  }
+
   /** The store never decides who may see a session; callers use this to get "not found" for someone else's. */
   getOwned(id: string, owner: string): SessionRecord {
     const s = this.getSession(id);
