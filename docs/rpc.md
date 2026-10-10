@@ -10039,6 +10039,11 @@ One session of the caller's (archived ones included), with the id of its running
       "type": "integer",
       "minimum": 0,
       "maximum": 1000
+    },
+    "includeHidden": {
+      "type": "boolean",
+      "default": false,
+      "description": "Also return the tool outputs the context view hides (hiddenToolOutputs). Off by default; it adds no rights, the same transcript gate applies."
     }
   }
 }
@@ -10068,6 +10073,46 @@ One session of the caller's (archived ones included), with the id of its running
       "type": "array",
       "items": {
         "$ref": "#/$defs/SessionMessage"
+      }
+    },
+    "hiddenToolOutputs": {
+      "type": "array",
+      "description": "Present only with includeHidden: the tool outputs hidden from the context view, with their originals from the event log.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ref",
+          "reason",
+          "name",
+          "callId",
+          "turnId",
+          "output"
+        ],
+        "properties": {
+          "ref": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "callId": {
+            "type": "string"
+          },
+          "turnId": {
+            "type": "string"
+          },
+          "args": {},
+          "output": {
+            "type": "string"
+          },
+          "isError": {
+            "type": "boolean"
+          }
+        }
       }
     },
     "compaction": {

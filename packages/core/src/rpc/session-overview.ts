@@ -6,6 +6,7 @@ import { authenticatedPrincipal } from "../rbac/guard.ts";
 import type { Handler } from "./server.ts";
 import { RpcError } from "./errors.ts";
 import { toWireEvent, toWireSession, mapSessionError } from "../session/methods.ts";
+import { hiddenToolOutputs } from "../session/pruning.ts";
 export function sessionTranscriptSurface(d: { sessions: () => SessionStore | null; breakglass: BreakGlass; ownership: (a: Principal, p: unknown) => string[]; personOf: (owner: string) => string | undefined }): Record<string, Handler> {
   const read = (method: "get" | "resume" | "events"): Handler => async (p, ctx) => {
     const a = authenticatedPrincipal(ctx); if (a.kind !== "person") throw new RpcError("E_DENIED", "transcript reads require a person");
@@ -19,7 +20,8 @@ export function sessionTranscriptSurface(d: { sessions: () => SessionStore | nul
       const wire = toWireSession(session);
       const messages = (limit: number) => store.listMessages(session.id).slice(-limit).map(m => ({ id: m.id, seq: m.seq, turnId: m.turnId, role: m.role, text: m.text, createdAt: m.createdAt }));
       const runningTurnId = store.runningTurn(session.id)?.id ?? null;
-      if (method === "get") return { session: wire, runningTurnId, ...(p.messages ? { messages: messages(p.messages) } : {}) };
+      // includeHidden is opt-in and rides the same gate as the rest of the transcript: nothing above is relaxed for it.
+      if (method === "get") return { session: wire, runningTurnId, ...(p.messages ? { messages: messages(p.messages) } : {}), ...(p.includeHidden === true ? { hiddenToolOutputs: hiddenToolOutputs(store, session.id) } : {}) };
       if (method === "resume") {
         if (session.archivedAt !== null) throw new RpcError("E_CONFLICT", "session is archived", { reason: "archived" });
         return { session: wire, runningTurnId, messages: messages(p.limit ?? 100), lastEventSeq: store.lastEventSeq(session.id) ?? 0 };

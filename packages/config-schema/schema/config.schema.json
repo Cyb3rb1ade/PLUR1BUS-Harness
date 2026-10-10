@@ -586,9 +586,9 @@
     "oauth":     { "description": "Reserved namespace for OAuth configuration.", "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced", "x-reserved": "M2 (D16)", "additionalProperties": true },
     "decision":  { "description": "Reserved namespace for decision model configuration.", "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced", "x-reserved": "M2 (D18)", "additionalProperties": true },
     "modelRoles": {
-      "description": "Model identifiers assigned to the supported functional roles.",
+      "description": "Model identifiers assigned to the supported functional roles. The summarize role is the model that writes session compaction summaries (a profile name or provider/model); when it is unset, compaction falls back to its deterministic digest.",
       "type": "object", "default": {}, "x-restart": "live", "x-tier": "basic", "x-reserved": "M2 (D15, D18)",
-      "propertyNames": { "enum": ["chat", "reasoning", "capture", "dream", "embedding", "rerank", "decision"] },
+      "propertyNames": { "enum": ["chat", "reasoning", "capture", "dream", "embedding", "rerank", "decision", "summarize"] },
       "additionalProperties": { "description": "Model identifier assigned to the role.", "type": "string" }
     },
     "modelProfiles": {
