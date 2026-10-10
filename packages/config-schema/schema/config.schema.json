@@ -216,7 +216,32 @@
               "pinned": { "description": "Skill names pinned for this agent; currently stored and displayed but not interpreted.", "type": "array", "items": { "type": "string" }, "default": [] },
               "applyAt": { "description": "When a changed skill selection takes effect for a running agent.", "enum": ["next-turn", "next-session"], "default": "next-turn" }
             }
-          }
+          },
+          "memory": {"description": "Per-agent memory settings.", "type": "object", "additionalProperties": false, "properties": {
+            "mediaEmbedding": {"description": "Per-agent override of the media index settings; unset keys inherit the installation values.", "type": "object", "additionalProperties": false, "x-restart": "core", "x-tier": "basic", "properties": {
+              "enabled": {"description": "Whether the separate media index (image, video, audio) is used.", "type": "boolean", "x-restart": "core", "x-tier": "basic"},
+              "provider": {"description": "Embedding provider id for the media index, or \"off\". Chosen independently of the text embedding provider.", "type": "string", "x-restart": "core", "x-tier": "basic"},
+              "model": {"description": "Model id used for the media index; the same model may serve text and media, the indexes stay separate.", "type": "string", "x-restart": "core", "x-tier": "basic"},
+              "dimensions": {"description": "Vector dimensions of the media index; must be supported by the model (EmbeddingGemma: 768, 512, 256 or 128).", "type": "integer", "minimum": 1, "x-restart": "core", "x-tier": "advanced"},
+              "modalities": {"description": "Media kinds that are indexed.", "type": "array", "items": {"type": "string", "enum": ["image", "video", "audio"], "description": "One media kind."}, "uniqueItems": true, "minItems": 1, "x-restart": "core", "x-tier": "basic"},
+              "video": {"description": "How video is cut into segments and frames before embedding.", "type": "object", "additionalProperties": false, "properties": {
+                "segmentSec": {"description": "Length of one video segment in seconds.", "type": "integer", "minimum": 1, "x-restart": "core", "x-tier": "advanced"},
+                "maxFrames": {"description": "Maximum number of frames embedded per video; capped by the model limit.", "type": "integer", "minimum": 1, "x-restart": "core", "x-tier": "advanced"},
+                "sceneDetect": {"description": "Whether frames are picked at scene changes instead of a fixed interval.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"}
+              }},
+              "audio": {"description": "How audio is cut into segments before embedding.", "type": "object", "additionalProperties": false, "properties": {
+                "segmentSec": {"description": "Length of one audio segment in seconds.", "type": "integer", "minimum": 1, "x-restart": "core", "x-tier": "advanced"},
+                "maxSeconds": {"description": "Maximum audio duration in seconds that is indexed; longer media is truncated.", "type": "integer", "minimum": 1, "x-restart": "core", "x-tier": "advanced"}
+              }},
+              "caption": {"description": "Captions: one text entry per medium in the text index, written by the prompt, the user or an automatic captioner.", "type": "object", "additionalProperties": false, "properties": {
+                "source": {"description": "Caption order: generation prompt, then user caption or alt text, then automatic captioning; user-only skips automatic captions; off disables captions.", "type": "string", "enum": ["prompt-then-user-then-auto", "user-only", "off"], "x-restart": "core", "x-tier": "advanced"},
+                "provider": {"description": "Caption provider id, or \"off\". Unset means local when the media embedding is local; with a cloud embedding setup asks.", "type": "string", "x-restart": "core", "x-tier": "advanced"},
+                "maxChars": {"description": "Maximum caption length in characters.", "type": "integer", "minimum": 20, "x-restart": "core", "x-tier": "advanced"},
+                "perSegment": {"description": "Whether video and audio get one caption per segment instead of one per medium.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"}
+              }},
+              "backfill": {"description": "Whether existing media are indexed automatically in the background (auto) or only on request (manual).", "type": "string", "enum": ["auto", "manual"], "x-restart": "core", "x-tier": "advanced"}
+            }}
+          }}
         }
       }
     },
@@ -245,6 +270,31 @@
         "acceptedNcLicenceAt": { "description": "Date-time when the non-commercial licence was accepted.", "type": "string", "format": "date-time", "x-restart": "core", "x-tier": "advanced" }
       }
     },
+    "memory": {"description": "Memory settings that the harness owns; the media index is separate from the text index.", "type": "object", "additionalProperties": false, "default": {}, "properties": {
+      "mediaEmbedding": {"description": "Media index (image, video, audio) with its own provider, independent of the text embedding. Captions land in the text index.", "type": "object", "additionalProperties": false, "default": {}, "x-restart": "core", "x-tier": "basic", "properties": {
+        "enabled": {"description": "Whether the separate media index (image, video, audio) is used.", "type": "boolean", "default": true, "x-restart": "core", "x-tier": "basic"},
+        "provider": {"description": "Embedding provider id for the media index, or \"off\". Chosen independently of the text embedding provider.", "type": "string", "default": "local-transformers", "x-restart": "core", "x-tier": "basic"},
+        "model": {"description": "Model id used for the media index; the same model may serve text and media, the indexes stay separate.", "type": "string", "default": "google/embeddinggemma-2", "x-restart": "core", "x-tier": "basic"},
+        "dimensions": {"description": "Vector dimensions of the media index; must be supported by the model (EmbeddingGemma: 768, 512, 256 or 128).", "type": "integer", "minimum": 1, "default": 768, "x-restart": "core", "x-tier": "advanced"},
+        "modalities": {"description": "Media kinds that are indexed.", "type": "array", "items": {"type": "string", "enum": ["image", "video", "audio"], "description": "One media kind."}, "uniqueItems": true, "minItems": 1, "default": ["image", "video", "audio"], "x-restart": "core", "x-tier": "basic"},
+        "video": {"description": "How video is cut into segments and frames before embedding.", "type": "object", "additionalProperties": false, "default": {}, "properties": {
+          "segmentSec": {"description": "Length of one video segment in seconds.", "type": "integer", "minimum": 1, "default": 10, "x-restart": "core", "x-tier": "advanced"},
+          "maxFrames": {"description": "Maximum number of frames embedded per video; capped by the model limit.", "type": "integer", "minimum": 1, "default": 32, "x-restart": "core", "x-tier": "advanced"},
+          "sceneDetect": {"description": "Whether frames are picked at scene changes instead of a fixed interval.", "type": "boolean", "default": true, "x-restart": "core", "x-tier": "advanced"}
+        }},
+        "audio": {"description": "How audio is cut into segments before embedding.", "type": "object", "additionalProperties": false, "default": {}, "properties": {
+          "segmentSec": {"description": "Length of one audio segment in seconds.", "type": "integer", "minimum": 1, "default": 30, "x-restart": "core", "x-tier": "advanced"},
+          "maxSeconds": {"description": "Maximum audio duration in seconds that is indexed; longer media is truncated.", "type": "integer", "minimum": 1, "default": 3600, "x-restart": "core", "x-tier": "advanced"}
+        }},
+        "caption": {"description": "Captions: one text entry per medium in the text index, written by the prompt, the user or an automatic captioner.", "type": "object", "additionalProperties": false, "default": {}, "properties": {
+          "source": {"description": "Caption order: generation prompt, then user caption or alt text, then automatic captioning; user-only skips automatic captions; off disables captions.", "type": "string", "enum": ["prompt-then-user-then-auto", "user-only", "off"], "default": "prompt-then-user-then-auto", "x-restart": "core", "x-tier": "advanced"},
+          "provider": {"description": "Caption provider id, or \"off\". Unset means local when the media embedding is local; with a cloud embedding setup asks.", "type": "string", "x-restart": "core", "x-tier": "advanced"},
+          "maxChars": {"description": "Maximum caption length in characters.", "type": "integer", "minimum": 20, "default": 280, "x-restart": "core", "x-tier": "advanced"},
+          "perSegment": {"description": "Whether video and audio get one caption per segment instead of one per medium.", "type": "boolean", "default": false, "x-restart": "core", "x-tier": "advanced"}
+        }},
+        "backfill": {"description": "Whether existing media are indexed automatically in the background (auto) or only on request (manual).", "type": "string", "enum": ["auto", "manual"], "default": "auto", "x-restart": "core", "x-tier": "advanced"}
+      }}
+    }},
     "engine": {
       "description": "Pass-through to the engine's EngineConfig (57 keys, see docs/config-engine-keys.md). Every key here is class core until the engine declares readAt: live (engine PR E5).",
       "type": "object", "default": {}, "x-restart": "core", "x-tier": "advanced",

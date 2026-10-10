@@ -73,6 +73,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -370,6 +398,34 @@
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
+      },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
       },
       "engine": {},
       "providers": {},
@@ -682,6 +738,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -979,6 +1063,34 @@
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
+      },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
       },
       "engine": {
         "recallMinScore": 0.5
@@ -1293,6 +1405,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -1594,6 +1734,34 @@
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
+      },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
       },
       "engine": {},
       "providers": {},
@@ -1912,6 +2080,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -2209,6 +2405,34 @@
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
+      },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
       },
       "engine": {},
       "providers": {},
@@ -2527,6 +2751,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -2828,6 +3080,34 @@
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
+      },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
       },
       "engine": {},
       "providers": {},
@@ -3144,6 +3424,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -3441,6 +3749,34 @@
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
+      },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
       },
       "engine": {},
       "providers": {
@@ -3759,6 +4095,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -4056,6 +4420,34 @@
       "embedding": {
         "useClass": "research",
         "acceptedNcLicence": false
+      },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
       },
       "engine": {},
       "providers": {},
@@ -4371,6 +4763,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -4673,6 +5093,34 @@
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
+      },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
       },
       "engine": {},
       "providers": {},
@@ -4992,6 +5440,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -5289,6 +5765,34 @@
       "embedding": {
         "useClass": "general",
         "acceptedNcLicence": false
+      },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
       },
       "engine": {},
       "providers": {},
