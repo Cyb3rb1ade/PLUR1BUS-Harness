@@ -2,8 +2,9 @@
 
 The switchboard connects chat platforms to the harness core. Each platform is a channel: a
 package that implements the core `Channel` contract (`packages/core/src/channels/`) and is
-configured under `channels.<id>.*`. Every channel is off by default and needs a restart of its
-module to take effect.
+configured under `channels.<id>.*`. Every channel is off by default. The core process hosts the
+enabled ones (see [Operation](#operation-how-channels-are-started-and-watched)); a change to
+`channels.<id>.*` restarts that one channel and nothing else.
 
 ## Kanäle
 
@@ -103,7 +104,42 @@ The full key list and defaults are generated in [config.md](config.md).
 
 Secrets: a `*Secret` key takes the **name** of a secret. Store the value with `plur1bus secret set <name>` (read from stdin), then `plur1bus channel set <id> tokenSecret <name>`. A value that looks like a credential is refused (`reason: secret-value`) without being echoed, stored or logged; treat anything you typed as exposed and rotate it.
 
-Limits: the write commands need a running core under a supervisor (`reason: config-not-writable` otherwise). Runtime state and health come from the switchboard registry; a core that runs no switchboard host reports every channel as `not-registered` (`host: false`). `--send-owner` addresses the chat whose id equals the linked identity's channel user id, which is a direct chat on Telegram-style platforms; it needs the channel to be running and the identity linked.
+Limits: the write commands need a running core under a supervisor (`reason: config-not-writable` otherwise). Runtime state and health come from the switchboard registry (below). `--send-owner` needs the channel to be running and your identity linked; it sends to the chat the channel itself names for you (`resolveOwnerTarget`): the DM channel Discord opens for you, the IM Slack opens, your direct Matrix room (or a new one you are invited to), your address (e-mail) or your number (Signal). A channel without that method gets the linked user id as the chat id.
+
+## Operation: how channels are started and watched
+
+The channel packages are libraries behind the core `Channel` contract. They are not module processes of their own: the **core process** hosts them (`packages/core/src/channels/switchboard.ts`), using the same lifecycle as any channel (`ChannelRegistry`: start, stop, health watch, restart with backoff) and the same inbound path (`ChannelRouter`). Telegram is a library of the same kind but has no `channels.telegram` block in the configuration, so the switchboard does not host it yet.
+
+- **Start and stop.** `channels.<id>.enabled: true` starts the channel; `false` stops it. Any other key under `channels.<id>` (restart class `module:<id>`) stops and starts that one channel with the new value. No other channel and no other part of the core restarts. A disabled channel loads no code.
+- **Misconfigured.** A channel that is enabled but cannot start for a reason retrying will not fix is parked with state `misconfigured` and the reason in `lastError`: a secret that is not stored, a secret name outside `channels.<id>.` (a channel reads only its own secrets), or a value the adapter refuses (for example an allowlist entry that is not an id). Nothing is retried and nothing crashes. The switchboard looks for a missing secret again after 30 s, then 60 s and so on up to 10 minutes (each look is an audited secret read); changing the configuration looks at once.
+- **Failures while running.** A start that fails, an unhealthy adapter or a fatal error from the platform restarts the channel with backoff (1 s doubling up to 60 s), up to the manifest's `maxRestarts` (8). After that the state is `failed` until the configuration changes.
+- **Secrets.** The adapter reads its secrets through the core's secret store (`lease` as the core, audited). A secret value never appears in `lastError`, in logs or in `channel.*` answers.
+- **Inbound.** A message goes through the router: the identity service decides who the sender is (a handle linked to a person; unlinked senders get the pairing notice only), the chat's one active session (D21, kind `channel`, `chatKey` = `<channel>:<chat id>`) takes the turn, the reply goes back to the same chat. `/new` archives the chat's session. `/link <code>` pairing happens in the adapter (slash command, text command or mail) and creates a pending claim that the owner confirms (`plur1bus identity`).
+- **Approvals (D109).** When a tool call in a channel session needs approval, the person gets the adapter's own prompt (buttons, reaction or reply code) in the same **private** chat. Only handles linked to that person may answer; the press becomes `ApprovalService.decide` at surface T2. In a group chat no prompt is shown (the request would be visible to the room); it waits for another surface.
+- **Images.** Images a turn produced (media store outputs) follow the text reply into the same chat. A chat can be sent only outputs that one of its own turns produced.
+
+### Status fields
+
+`plur1bus channel list|status|show` (and `channel.list|status|get`) report, per channel:
+
+| Field | Meaning |
+|---|---|
+| `state` | `not-registered` (the core hosts no switchboard), `stopped` (disabled), `waiting`, `starting`, `running`, `backoff` (restarting), `failed` (gave up), `misconfigured` (parked, see `lastError`). |
+| `health` | `ok` (running and the adapter's last health answer is ok), `failing` (backoff, failed, misconfigured or an unhealthy adapter), `unknown` (not running). `channel show` also probes the adapter now. |
+| `lastError` | The last failure or the misconfiguration reason, with secret values and token-shaped strings masked. |
+| `attempts` | Failed starts since the last stable run (a run of one minute counts as stable). |
+| `startedAt` | When the running instance started. |
+
+### Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| `misconfigured`, `secret not found: …` | Store the secret under exactly that name: `plur1bus secret set channels.<id>.<name>`. The channel starts by itself within a few minutes, or at once after `plur1bus channel disable <id>` and `enable <id>`. |
+| `misconfigured`, `secret names must start with channels.<id>.` | Rename the secret and the `*Secret` key; a channel does not read other credentials. |
+| `misconfigured`, `invalid configuration: …` | The adapter refused a value; fix it with `plur1bus channel set`. |
+| `backoff`/`failed` and `lastError` names the platform | The platform refused the credentials or is unreachable; see the channel's own guide. Fix, then change any key (or disable and enable) to start again after `failed`. |
+| A person writes and gets only the pairing notice | The handle is not linked. Mint a code (`plur1bus identity link`), send `/link <code>` from the account, then confirm the claim. |
+| `--send-owner`: `owner-not-linked` / `channel-not-running` | Link your identity on that channel; make sure the channel is `running`. |
 
 ## Verification
 

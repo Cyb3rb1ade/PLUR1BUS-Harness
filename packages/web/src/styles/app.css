@@ -17,6 +17,7 @@
 @import "./activity.css";
 @import "./sessions.css";
 @import "./palette.css"; /* command palette (src/palette); declared after the shared rules it overrides via specificity, not order */
+@import "./media-search.css"; /* media search: the two indexes, hits and the player (src/pages/media-search) */
 
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }

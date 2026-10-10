@@ -22,7 +22,7 @@ export interface BreakGlassNotice {
   expiresAt: number;
 }
 
-export type BreakGlassErrorCode = "not-permitted" | "invalid-target" | "self-target" | "reason-required" | "ttl-invalid" | "audit-failed" | "unknown-grant";
+export type BreakGlassErrorCode = "not-permitted" | "invalid-target" | "self-target" | "reason-required" | "ttl-invalid" | "audit-failed" | "unknown-grant" | "notification-failed";
 export class BreakGlassError extends Error {
   readonly code: BreakGlassErrorCode;
   constructor(code: BreakGlassErrorCode, message: string) { super(message); this.name = "BreakGlassError"; this.code = code; }
@@ -32,6 +32,7 @@ export interface BreakGlassOptions {
   audit: AuditSink;
   /** Tells the affected user at once (ADR-007 Q3, recommended default). Required: a grant nobody hears of is not allowed. */
   notify: (notice: BreakGlassNotice) => void;
+  requireNotification?: boolean;
   clock: () => number;
   idGen?: () => string;
   /** The `actor.host` of audit lines. */
@@ -105,7 +106,9 @@ export function createBreakGlass(o: BreakGlassOptions): BreakGlass {
       grants.set(grant.id, grant);
       try { o.notify({ kind: "granted", userId: targetUserId, grantId: grant.id, holderUserId: holder.userId, reason, expiresAt: grant.expiresAt }); }
       catch (e) {
-        try { record("break-glass.notify-failed", holder.userId, targetUserId, { grantId: grant.id, error: e instanceof Error ? e.message : String(e) }); } catch { /* the grant stands, already audited */ }
+        if (o.requireNotification) grants.delete(grant.id);
+        try { record("break-glass.notify-failed", holder.userId, targetUserId, { grantId: grant.id, error: e instanceof Error ? e.message : String(e) }); } catch { /* the grant is already audited */ }
+        if (o.requireNotification) throw new BreakGlassError("notification-failed", "no grant without a durable notice");
       }
       return grant;
     },

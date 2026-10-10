@@ -4,6 +4,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -117,6 +120,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -205,7 +224,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -310,6 +329,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -423,6 +445,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -511,7 +549,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -616,6 +654,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -729,6 +770,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -817,7 +874,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -922,6 +979,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -1035,6 +1095,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -1123,7 +1199,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -1228,6 +1304,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -1341,6 +1420,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -1429,7 +1524,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -1534,6 +1629,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -1647,6 +1745,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -1735,7 +1849,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -1840,6 +1954,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -1953,6 +2070,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -2041,7 +2174,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -2146,6 +2279,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -2259,6 +2395,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -2347,7 +2499,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -2452,6 +2604,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -2565,6 +2720,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -2653,7 +2824,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -2758,6 +2929,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -2871,6 +3045,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -2959,7 +3149,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -3064,6 +3254,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -3177,6 +3370,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -3265,7 +3474,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -3370,6 +3579,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -3483,6 +3695,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -3571,7 +3799,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -3676,6 +3904,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -3789,6 +4020,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -3877,7 +4124,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -3982,6 +4229,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -4095,6 +4345,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -4183,7 +4449,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -4288,6 +4554,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -4401,6 +4670,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -4489,7 +4774,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -4594,6 +4879,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -4707,6 +4995,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -4795,7 +5099,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -4900,6 +5204,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -5013,6 +5320,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -5101,7 +5424,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -5206,6 +5529,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -5319,6 +5645,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -5407,7 +5749,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -5512,6 +5854,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -5625,6 +5970,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -5713,7 +6074,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -5818,6 +6179,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -5931,6 +6295,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -6019,7 +6399,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -6124,6 +6504,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -6237,6 +6620,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -6325,7 +6724,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -6430,6 +6829,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -6543,6 +6945,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -6631,7 +7049,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -6736,6 +7154,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -6849,6 +7270,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -6937,7 +7374,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -7042,6 +7479,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -7155,6 +7595,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -7243,7 +7699,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -7348,6 +7804,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -7461,6 +7920,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -7549,7 +8024,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -7654,6 +8129,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -7767,6 +8245,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -7855,7 +8349,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -7960,6 +8454,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -8073,6 +8570,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -8161,7 +8674,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -8266,6 +8779,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -8379,6 +8895,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -8467,7 +8999,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -8572,6 +9104,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -8685,6 +9220,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -8773,7 +9324,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -8878,6 +9429,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -8988,6 +9542,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -9076,7 +9646,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -9181,6 +9751,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -9291,6 +9864,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -9379,7 +9968,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,

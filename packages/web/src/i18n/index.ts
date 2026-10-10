@@ -17,6 +17,7 @@ import * as devices from "./devices.ts";
 import * as doctor from "./doctor.ts";
 import * as logs from "./logs.ts";
 import * as memory from "./memory.ts";
+import * as mediasearch from "./mediasearch.ts";
 import * as models from "./models.ts";
 import * as palette from "./palette.ts";
 import * as providers from "./providers.ts";
@@ -37,6 +38,7 @@ export const AREAS = [
   { name: "core", en: core.en, de: core.de },
   { name: "chat", en: chat.en, de: chat.de },
   { name: "memory", en: memory.en, de: memory.de },
+  { name: "mediasearch", en: mediasearch.en, de: mediasearch.de },
   { name: "models", en: models.en, de: models.de },
   { name: "budget", en: budget.en, de: budget.de },
   { name: "doctor", en: doctor.en, de: doctor.de },

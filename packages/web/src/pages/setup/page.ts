@@ -14,6 +14,9 @@ import { failureOf } from "../common/load.ts";
 import { choiceById } from "./licences.ts";
 import { changesFor, load, save, stepsFor, validate, type Answers, type Errors, type Saved, type StepId, type Status } from "./model.ts";
 import { AccountStep, BackupStep, ImportStep, MemoryStep, ModelStep, PersonaStep, UnavailableStep, type StepProps } from "./steps.ts";
+import { MediaSetupStep, type MediaSetupProps } from "../media-search/setup.ts";
+import { mediaErrorOf, problemText } from "../media-search/model.ts";
+type MediaProblemCode = MediaSetupProps["error"];
 
 const label = (id: StepId): string => t(`setup.step.${id}` as Key);
 
@@ -83,6 +86,9 @@ export function SetupPage({ item }: PageProps): View {
       try {
         await getApi().rpc("config.set", { changes });
       } catch (e) {
+        // A refused media setting names its E_MEDIA_* code; show what the person can do about it.
+        const media = mediaErrorOf(e);
+        if (media) { setFail(problemText(media)); setBusy(false); return; }
         const k = failureOf(e).kind;
         setFail(k === "forbidden" ? t("setup.err.forbidden") : k === "unavailable" ? t("setup.err.unavailable") : t("setup.err.failed"));
         setBusy(false);
@@ -103,7 +109,8 @@ export function SetupPage({ item }: PageProps): View {
     case "persona": body = h(PersonaStep, props); break;
     case "model": body = h(ModelStep, props); break;
     case "switchboard": body = h(UnavailableStep, { title: t("setup.switchboard.title"), body: t("setup.switchboard.body") }); break;
-    case "memory": body = h(MemoryStep, props); break;
+    case "memory": body = h("div", {}, h(MemoryStep, props),
+      h(MediaSetupStep, { textProvider: a.embedding, media: a.media, set: (m) => { patch({ media: { ...a.media, ...m } }); }, error: errors.media as MediaProblemCode })); break;
     case "backup": body = h(BackupStep, props); break;
     default: body = h(ImportStep, {});
   }

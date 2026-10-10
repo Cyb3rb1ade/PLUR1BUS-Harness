@@ -1,6 +1,7 @@
 // Agent detail (`/agents/<id>`): facts, skills and the lifecycle actions. The harness has no RPC for pause, archive, export or
 // delete (F39): the buttons are aria-disabled with a visible reason. The delete flow itself is built (archive-first, export
 // offer, typed name) and ends in the "unavailable" result without sending anything.
+import { MediaOverride } from "../media-search/override.ts";
 import { h } from "preact";
 import { useState } from "preact/hooks";
 import type { View } from "../../view.ts";
@@ -27,6 +28,7 @@ export function AgentDetail({ agent, canManage }: { agent: Agent; canManage: boo
   const canDelete = canManage && agent.state === "archived";
   const stateTone = agent.state === "active" ? "ok" : agent.state === "paused" ? "warn" : "neutral";
   return h("div", { class: "a-detail" },
+    h(MediaOverride, { agentId: agent.id, canManage }),
     h(Card, { title: agent.name, aside: h(Badge, { tone: stateTone }, t(`agents.state.${agent.state}` as Key)) },
       h("dl", { class: "facts" },
         h("div", {}, h("dt", {}, t("agents.field.name")), h("dd", {}, agent.name)),

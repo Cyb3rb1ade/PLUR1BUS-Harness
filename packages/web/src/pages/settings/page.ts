@@ -17,6 +17,7 @@ const ProvidersSection = lazySection<SectionProps>(() => import("./sections/prov
 const UsersSection = lazySection<SectionProps>(() => import("./sections/users.ts").then((m) => m.UsersSection));
 const DevicesSection = lazySection<SectionProps>(() => import("./sections/devices.ts").then((m) => m.DevicesSection));
 
+const MediaIndexPanel = lazySection<object>(() => import("../media-search/settings.ts").then((m) => m.MediaIndexPanel));
 const MediaSection = lazySection<SectionProps>(() => import("../surfaces/media.ts").then(m => m.MetadataPreference));
 
 const BODY = { media: MediaSection, config: ConfigSection, secrets: SecretsSection, providers: ProvidersSection, users: UsersSection, devices: DevicesSection } as const;
@@ -34,5 +35,5 @@ export function SettingsPage({ sub }: PageProps): View {
             href: `#/settings/${s.id}`, class: "settings-nav-link", ...(s.id === section.id ? { "aria-current": "true" } : {}),
             onClick: (e: MouseEvent) => { if (e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey) { e.preventDefault(); navigate(`/settings/${s.id}`); } },
           }, t(s.label)))))),
-      h("div", { class: "settings-content" }, body)));
+      h("div", { class: "settings-content" }, section.id === "memory" ? h(MediaIndexPanel, {}) : null, body)));
 }

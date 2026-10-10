@@ -7,7 +7,7 @@ import { MESSAGES } from "./messages.ts";
 import { checkMime, kindForMime, safeFilename } from "./media.ts";
 import { escapeSlackText, slackToPlain, toSlackMrkdwn } from "./mrkdwn.ts";
 import { outputAttachment } from "./outputs.ts";
-import { redactAttrs } from "./redact.ts";
+import { redactAttrs, redactString } from "./redact.ts";
 import { TokenBucket } from "./rate-limit.ts";
 import { SEEN_MAX_IDS } from "./seen.ts";
 import { SocketFatalError, SocketMode, type SocketEnvelope, type SocketLike } from "./socket.ts";
@@ -49,6 +49,7 @@ const EVENT_ID = /^[A-Za-z0-9._:-]{1,128}$/;
 const TS = /^\d{1,10}\.\d{1,6}$/;
 const BOT_TOKEN = /^xoxb-[A-Za-z0-9-]{10,200}$/;
 const APP_TOKEN = /^xapp-[A-Za-z0-9-]{10,200}$/;
+const USER_ID = /^[UW][A-Z0-9]{2,31}$/;
 const TARGET = /^([CDGW][A-Z0-9]{2,31})(?::(\d{1,10}\.\d{1,6}))?$/;
 const MAX_SEND_RETRIES = 3;
 const MAX_ATTACHMENTS = 10;
@@ -104,6 +105,7 @@ export class SlackChannel implements Channel {
   readonly #chats = new Map<string, TokenBucket>();
   readonly #inactive = new Set<string>();
   readonly #dmUsers = new Map<string, string>();
+  readonly #ownerDms = new Map<string, string>();
   readonly #seen = new Set<string>();
   readonly #seenOrder: string[] = [];
   #host: ChannelHost | undefined;
@@ -283,6 +285,34 @@ export class SlackChannel implements Channel {
     if (!this.#deps.outputs) throw new Error("media output store unavailable");
     const attachment = await outputAttachment(this.#deps.outputs, outputId, chatId, this.#cfg.maxMediaBytes, index);
     return this.sendTurn({ chatId, text: "", attachments: [attachment] });
+  }
+
+  /**
+   * The conversation in which a message reaches this Slack user directly (conversations.open -> D...), for an explicit owner
+   * test. Only a user who may DM the bot (dmAllowlist) gets one; the opened DM is then sendable, nothing else is widened.
+   */
+  async resolveOwnerTarget(who: { userId: string; accountId?: string }): Promise<string> {
+    if (!this.#api || !this.#ac) throw new Error("slack channel is not started");
+    const user = who?.userId;
+    if (typeof user !== "string" || !USER_ID.test(user)) throw new Error("invalid slack user id");
+    if (!this.#cfg.dm.has(user)) throw new Error("slack user is not on the dm allowlist");
+    let dm = this.#ownerDms.get(user);
+    if (dm === undefined || this.#inactive.has(dm)) {
+      try {
+        const r = await this.#retry(this.#ac.signal, () =>
+          this.#api!.call<{ channel?: unknown }>("conversations.open", { users: user }, this.#ac!.signal),
+        );
+        const id = str(obj(r.channel)?.id);
+        if (!id || !/^D[A-Z0-9]{2,31}$/.test(id)) throw new Error("slack returned no direct message channel");
+        dm = id;
+      } catch (e) {
+        throw new Error(redactString(e instanceof Error ? e.message : "conversations.open failed", ...this.#secrets));
+      }
+      this.#ownerDms.set(user, dm);
+      this.#inactive.delete(dm);
+    }
+    this.#dmUsers.set(dm, user); // #target allows a DM whose user is on dmAllowlist
+    return dm;
   }
 
   async sendTurn(turn: OutboundTurn): Promise<SentRef[]> {

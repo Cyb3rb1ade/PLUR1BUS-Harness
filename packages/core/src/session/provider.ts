@@ -1,15 +1,19 @@
 // The session provider seam. Composition supplies the real router/model/tool pipeline; isolated tests can use the deterministic fake.
 
+export interface UsageMeasurement { model: string; estimatedInputTokens: number; inputTokens: number; outputTokens: number }
+
 export type ChatChunk =
   | { type: "delta"; text: string }
   /** With a tool dispatcher the loop executes the call and persists the envelope as `tool.result`; without one it persists a reported call/result and executes nothing. */
   | { type: "tool.call"; id: string; name: string; args?: unknown }
   | { type: "tool.result"; id: string; output: string }
-  | { type: "usage"; inputTokens: number; outputTokens: number };
+  | { type: "usage"; inputTokens: number; outputTokens: number; model?: string; measurements?: UsageMeasurement[] };
 
 export interface TurnApprover { person: string | null; surface: 0 | 1 | 2 | 3 }
 
 export interface ChatRequest {
+  /** Internal background role: the same router/budget, with no tool execution. */
+  role?: "summarize"; maxOutputTokens?: number;
   sessionId: string; agentId: string;
   turnId?: string; projectId?: string; headlessJobId?: string; toolView?: readonly string[]; principal?: string; authenticatedPerson?: string; caller?: import("@plur1bus/rpc-schema").CallerIdentity;
   /** The RPC connection's resolved approver (D109 §5): `person` null for a non-person principal; `surface` its derived trust level. */
@@ -30,6 +34,9 @@ export interface ChatRequest {
 export interface ChatProvider {
   readonly id: string;
   stream(req: ChatRequest): AsyncIterable<ChatChunk>;
+  /** Resolved profile candidates before context assembly (including possible fallbacks). */
+  roleModels?: (role: "summarize") => import("./tokens.ts").ContextModel[];
+  contextModels?: (text: string) => import("./tokens.ts").ContextModel[];
 }
 
 export interface FakeProviderOptions {

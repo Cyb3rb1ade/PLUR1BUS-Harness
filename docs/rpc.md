@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.5.0)
+# RPC reference (rpc 1.6.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -2011,6 +2011,8 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 
 **Served by:** core
 
+ targetUserId reads user-scope data only through a live audited Break-Glass grant; not available on write methods.
+
 **params**
 
 ```json
@@ -2045,6 +2047,11 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
       "type": "integer",
       "minimum": 1,
       "maximum": 100
+    },
+    "targetUserId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
     }
   }
 }
@@ -2087,6 +2094,8 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 
 **Served by:** core
 
+ targetUserId reads user-scope data only through a live audited Break-Glass grant; not available on write methods.
+
 **params**
 
 ```json
@@ -2107,6 +2116,11 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
     },
     "id": {
       "$ref": "#/$defs/MemoryId"
+    },
+    "targetUserId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
     }
   }
 }
@@ -2708,6 +2722,26 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
           },
           "activity": {
             "$ref": "#/$defs/Activity"
+          },
+          "lifecycle": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "paused",
+              "archived",
+              "deleted"
+            ],
+            "properties": {
+              "paused": {
+                "type": "boolean"
+              },
+              "archived": {
+                "type": "boolean"
+              },
+              "deleted": {
+                "type": "boolean"
+              }
+            }
           }
         }
       }
@@ -2856,6 +2890,26 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
       "type": "array",
       "items": {
         "$ref": "#/$defs/JobRun"
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "paused",
+        "archived",
+        "deleted"
+      ],
+      "properties": {
+        "paused": {
+          "type": "boolean"
+        },
+        "archived": {
+          "type": "boolean"
+        },
+        "deleted": {
+          "type": "boolean"
+        }
       }
     }
   }
@@ -7244,6 +7298,1325 @@ Removes a saved provider login and its local token state (provider revocation is
 }
 ```
 
+### `agent.pause`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Human-only lifecycle state. Paused agents admit no new work; archive retains all data. Unarchive preserves the pause flag.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "paused",
+    "archived",
+    "deleted"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "paused": {
+      "type": "boolean"
+    },
+    "archived": {
+      "type": "boolean"
+    },
+    "deleted": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `agent.resume`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Human-only lifecycle state. Paused agents admit no new work; archive retains all data. Unarchive preserves the pause flag.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "paused",
+    "archived",
+    "deleted"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "paused": {
+      "type": "boolean"
+    },
+    "archived": {
+      "type": "boolean"
+    },
+    "deleted": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `agent.archive`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Human-only lifecycle state. Paused agents admit no new work; archive retains all data. Unarchive preserves the pause flag.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "paused",
+    "archived",
+    "deleted"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "paused": {
+      "type": "boolean"
+    },
+    "archived": {
+      "type": "boolean"
+    },
+    "deleted": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `agent.unarchive`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Human-only lifecycle state. Paused agents admit no new work; archive retains all data. Unarchive preserves the pause flag.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "paused",
+    "archived",
+    "deleted"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "paused": {
+      "type": "boolean"
+    },
+    "archived": {
+      "type": "boolean"
+    },
+    "deleted": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `agent.export`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Secret-redacted UTF-8 JSON bundle with an Ed25519 signature of the SHA-256 manifest hash. offerOnly offers an export without reading data; the offer is actor-bound and valid for ten minutes. Agent-private/workspace engine cards plus the authenticated exporter's own user cards only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "offerOnly": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "offerId",
+    "expiresAt"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "offerId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "files",
+        "manifest",
+        "manifestHash",
+        "algorithm",
+        "publicKey",
+        "signature"
+      ],
+      "properties": {
+        "format": {
+          "enum": [
+            "plur1bus.agent-export/1"
+          ]
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "text"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "text": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "manifest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "format",
+            "agentId",
+            "files"
+          ],
+          "properties": {
+            "format": {
+              "enum": [
+                "plur1bus.agent-export/1"
+              ]
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "bytes",
+                  "sha256"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "bytes": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  }
+                }
+              }
+            }
+          }
+        },
+        "manifestHash": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "algorithm": {
+          "enum": [
+            "Ed25519"
+          ]
+        },
+        "publicKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "signature": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    }
+  }
+}
+```
+
+### `agent.delete`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Archive-first erasure with typed display name and a live export offer. E_NOT_AVAILABLE engine-erasure-unavailable until the pinned engine supplies an erasure API. Never deletes a store directly.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "confirmName",
+    "exportOfferId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "confirmName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "exportOfferId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "deleted"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "deleted": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `user.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+People and role presets, Owner/Admin only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "users"
+  ],
+  "properties": {
+    "users": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "displayName",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "admin",
+              "operator",
+              "member",
+              "viewer"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `user.role.set`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Assign a role preset; only an Owner may change ownership. Last Owner cannot be demoted. Audited.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "userId",
+    "role"
+  ],
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "role": {
+      "enum": [
+        "owner",
+        "admin",
+        "operator",
+        "member",
+        "viewer"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "userId",
+    "role"
+  ],
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "role": {
+      "enum": [
+        "owner",
+        "admin",
+        "operator",
+        "member",
+        "viewer"
+      ]
+    }
+  }
+}
+```
+
+### `user.invite.create`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Create a human and an ephemeral one-time Identity pairing invitation with a fixed role (never Owner). Code returned here only; redeem/confirm through identity.pair.claim/confirm.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "displayName",
+    "role",
+    "channel"
+  ],
+  "properties": {
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "role": {
+      "enum": [
+        "owner",
+        "admin",
+        "operator",
+        "member",
+        "viewer"
+      ]
+    },
+    "channel": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "expiresInMinutes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 60
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "userId",
+    "role",
+    "channel",
+    "expiresAt",
+    "code"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "role": {
+      "enum": [
+        "owner",
+        "admin",
+        "operator",
+        "member",
+        "viewer"
+      ]
+    },
+    "channel": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16
+    }
+  }
+}
+```
+
+### `user.invite.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Invitation metadata without codes. Pending proofs and invitation metadata expire on restart.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "invites"
+  ],
+  "properties": {
+    "invites": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "userId",
+          "role",
+          "channel",
+          "expiresAt",
+          "state"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "userId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "admin",
+              "operator",
+              "member",
+              "viewer"
+            ]
+          },
+          "channel": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "expiresAt": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "claimed",
+              "confirmed",
+              "declined",
+              "expired",
+              "revoked"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `user.invite.revoke`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Revoke pending or claimed invitation proof before confirmation. A confirmed link must be unlinked through Identity.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "inviteId"
+  ],
+  "properties": {
+    "inviteId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "revoked"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "revoked": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `agent.rights.get`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+List explicitly assigned per-agent rights, Owner/Admin only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "rights"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "rights": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "userId",
+          "right"
+        ],
+        "properties": {
+          "userId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "right": {
+            "enum": [
+              "use",
+              "manage"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `agent.rights.set`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Assign use/manage; null revokes the explicit right. Role and token scopes still narrow it.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "userId",
+    "right"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "right": {
+      "enum": [
+        "use",
+        "manage",
+        null
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "userId",
+    "right"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "right": {
+      "enum": [
+        "use",
+        "manage",
+        null
+      ]
+    }
+  }
+}
+```
+
+### `breakglass.request`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Request an audited read-only window for another person. Affected person receives a durable notice; reason 10-500 trimmed characters, window 1-60 minutes.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "targetUserId",
+    "reason"
+  ],
+  "properties": {
+    "targetUserId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 500
+    },
+    "windowMinutes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 60
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "holderUserId",
+    "targetUserId",
+    "reason",
+    "issuedAt",
+    "expiresAt"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "holderUserId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "targetUserId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "issuedAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `breakglass.notices`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Read up to 200 durable break-glass notices affecting the authenticated person. Self-scoped; all human roles. Live grants still require Owner/Admin.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "notices"
+  ],
+  "properties": {
+    "notices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "userId",
+          "grantId",
+          "holderUserId",
+          "reason",
+          "expiresAt"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "granted"
+            ]
+          },
+          "userId": {
+            "type": "string"
+          },
+          "grantId": {
+            "type": "string"
+          },
+          "holderUserId": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `breakglass.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+List the authenticated holder's live grants; sweeps expiry and audits it.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "grants"
+  ],
+  "properties": {
+    "grants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "holderUserId",
+          "targetUserId",
+          "reason",
+          "issuedAt",
+          "expiresAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "holderUserId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "targetUserId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "issuedAt": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expiresAt": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `breakglass.revoke`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Revoke a read-only grant; only the holder or an Owner may revoke it.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "grantId"
+  ],
+  "properties": {
+    "grantId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "revoked"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "revoked": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `pairing.qr`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Read-only formatting of an existing, unexpired pairing link with packages/remote-access QR payload. Does not issue a code, verify an offer tag, pair or store a device. Owner/Admin people only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "link"
+  ],
+  "properties": {
+    "link": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2331
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "link",
+    "qr",
+    "expiresAt"
+  ],
+  "properties": {
+    "link": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2331
+    },
+    "qr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "text",
+        "mode",
+        "errorCorrection",
+        "length",
+        "maxLength",
+        "fits"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2331
+        },
+        "mode": {
+          "enum": [
+            "byte"
+          ]
+        },
+        "errorCorrection": {
+          "enum": [
+            "M"
+          ]
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxLength": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fits": {
+          "type": "boolean"
+        }
+      }
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
 ### `auth.status`
 
 **Stability:** experimental · since 1.5.0
@@ -8213,7 +9586,7 @@ Opens a session for the caller (the owner is derived from the caller identity). 
 
 **Served by:** core
 
-The caller's sessions: pinned first, then by last turn. Archived ones are excluded unless archived is only or any. search is a full-text query over titles and messages (every word must match).
+Authenticated metadata listing: Owner/Admin/Operator/Viewer may filter all owners and agents; Member sees only their own sessions. No transcripts; searching another owner's transcript is denied. Omitting owner and allOwners preserves own-session listing; allOwners=true selects all metadata.
 
 **params**
 
@@ -8221,9 +9594,7 @@ The caller's sessions: pinned first, then by last turn. Archived ones are exclud
 {
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "caller"
-  ],
+  "required": [],
   "properties": {
     "caller": {
       "$ref": "#/$defs/CallerIdentity"
@@ -8250,6 +9621,14 @@ The caller's sessions: pinned first, then by last turn. Archived ones are exclud
       "type": "integer",
       "minimum": 1,
       "maximum": 200
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "allOwners": {
+      "type": "boolean"
     }
   }
 }
@@ -8285,7 +9664,7 @@ The caller's sessions: pinned first, then by last turn. Archived ones are exclud
 
 **Served by:** core
 
-One session of the caller's (archived ones included), with the id of its running turn (if any) and, when messages is given, the last that many messages. Another owner's session is E_NOT_FOUND.
+One session of the caller's (archived ones included), with the id of its running turn (if any) and, when messages is given, the last that many messages. Another owner's session is E_NOT_FOUND. Foreign transcripts require a live audited Break-Glass grant; the authenticated principal determines ownership.
 
 **params**
 
@@ -8294,8 +9673,8 @@ One session of the caller's (archived ones included), with the id of its running
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "caller",
-    "sessionId"
+    "sessionId",
+    "caller"
   ],
   "properties": {
     "caller": {
@@ -8338,6 +9717,61 @@ One session of the caller's (archived ones included), with the id of its running
       "items": {
         "$ref": "#/$defs/SessionMessage"
       }
+    },
+    "compaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Context-only hidden tool refs and applied summary original ranges. Full transcript is unchanged.",
+      "required": [
+        "hidden",
+        "summaries"
+      ],
+      "properties": {
+        "hidden": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ref"
+            ],
+            "properties": {
+              "ref": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string",
+                "maxLength": 256
+              }
+            }
+          }
+        },
+        "summaries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "fromSeq",
+              "toSeq"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "fromSeq": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "toSeq": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
@@ -8349,7 +9783,7 @@ One session of the caller's (archived ones included), with the id of its running
 
 **Served by:** core
 
-Get plus the transcript (the last `limit` messages, default 100) and the last event seq, so a client can continue from the next one. An archived session is E_CONFLICT.
+Get plus the transcript (the last `limit` messages, default 100) and the last event seq, so a client can continue from the next one. An archived session is E_CONFLICT. Foreign transcripts require a live audited Break-Glass grant; the authenticated principal determines ownership.
 
 **params**
 
@@ -8358,8 +9792,8 @@ Get plus the transcript (the last `limit` messages, default 100) and the last ev
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "caller",
-    "sessionId"
+    "sessionId",
+    "caller"
   ],
   "properties": {
     "caller": {
@@ -8542,7 +9976,7 @@ Submits one user message and starts a turn. Returns at once with state running (
 
 **Served by:** core
 
-The session's persisted events after afterSeq (default 0), oldest first: the same stream session.event delivers, for replay and catch-up. running tells whether a turn is still producing events.
+The session's persisted events after afterSeq (default 0), oldest first: the same stream session.event delivers, for replay and catch-up. running tells whether a turn is still producing events. Foreign transcripts require a live audited Break-Glass grant; the authenticated principal determines ownership.
 
 **params**
 
@@ -8551,8 +9985,8 @@ The session's persisted events after afterSeq (default 0), oldest first: the sam
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "caller",
-    "sessionId"
+    "sessionId",
+    "caller"
   ],
   "properties": {
     "caller": {
@@ -9130,6 +10564,61 @@ D109 §6: verifies the HMAC-SHA256 chain of the approval store (the `1staid chec
 ## Notifications
 
 Delivered on the same connection to clients that called `events.subscribe`.
+
+### `breakglass.notice`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "x-server": "core",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "notice"
+  ],
+  "properties": {
+    "notice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "userId",
+        "grantId",
+        "holderUserId",
+        "reason",
+        "expiresAt"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "granted"
+          ]
+        },
+        "userId": {
+          "type": "string"
+        },
+        "grantId": {
+          "type": "string"
+        },
+        "holderUserId": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "expiresAt": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}
+```
 
 ### `media.job.progress`
 
@@ -12893,7 +14382,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The owner principal is never sent: a caller sees only its own sessions.",
+  "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The overview adds owner, model/provider and usage metadata. Transcript access stays owner-scoped or explicitly audited through break-glass.",
   "x-stability": "experimental",
   "x-since": "1.5.0",
   "type": "object",
@@ -12962,6 +14451,47 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "turnCount": {
       "type": "integer",
       "minimum": 0
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inputTokens",
+        "outputTokens",
+        "costMicros"
+      ],
+      "properties": {
+        "inputTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outputTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "costMicros": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "pendingCalls": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
     }
   }
 }
@@ -13740,6 +15270,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "displayName": {
       "type": "string"
     },
+    "new": {
+      "type": "boolean",
+      "description": "true until the person acknowledges the model via models.acknowledge"
+    },
     "kind": {
       "$ref": "#/$defs/ModelKind"
     },
@@ -14101,7 +15635,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "starting",
         "running",
         "backoff",
-        "failed"
+        "failed",
+        "misconfigured"
       ]
     },
     "health": {
@@ -14157,7 +15692,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "starting",
         "running",
         "backoff",
-        "failed"
+        "failed",
+        "misconfigured"
       ]
     },
     "health": {

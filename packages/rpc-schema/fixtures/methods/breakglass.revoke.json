@@ -1,0 +1,9 @@
+{
+  "params": {
+    "grantId": "grant-fixture"
+  },
+  "result": {
+    "id": "grant-fixture",
+    "revoked": true
+  }
+}

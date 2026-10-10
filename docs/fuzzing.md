@@ -12,7 +12,7 @@ names the case and the seed, so a failure replays with the same two variables.
 
 ## cargo-fuzz targets (nightly workflow, manual runs)
 
-`fuzz/` is its own Cargo workspace (excluded from the root one, no committed `Cargo.lock`). A target body is a plain
+`fuzz/` is its own Cargo workspace (excluded from the root one, with a committed `Cargo.lock`). A target body is a plain
 function `plur1bus_fuzz::<name>::run(&[u8])` in `fuzz/src/`; `fuzz/fuzz_targets/<name>.rs` only wraps it in
 `fuzz_target!`. Every target must never panic and asserts the invariant named below.
 
@@ -33,7 +33,7 @@ small stand-ins for `crate::audit::create_private`, `crate::paths::Layout` and `
 The update module exposes no parser that takes bytes (everything takes a `Layout`), so there is no separate update
 target: the release manifest parser `update --check` uses is covered by `install_manifest`.
 
-### Without nightly: `cargo test --manifest-path fuzz/Cargo.toml --test seeds`
+### Without nightly: `cargo test --manifest-path fuzz/Cargo.toml --test seeds --locked`
 
 `fuzz/tests/seeds.rs` runs every target body over its seed corpus and 24 deterministic mutations of each seed
 (seeded xorshift: bit flips, byte replacement, truncation, deletion, splices from another seed). It needs only the
@@ -42,18 +42,18 @@ directory and named in the failure message.
 
 ### Running locally
 
-Needs `rustup toolchain install nightly` and `cargo install cargo-fuzz`. `rust-toolchain.toml` pins 1.95, so name the
+Needs `rustup toolchain install nightly` and `cargo install cargo-fuzz --locked`. `rust-toolchain.toml` pins 1.95, so name the
 toolchain explicitly:
 
 ```bash
 cd fuzz
-cargo +nightly fuzz run config_parse corpus/config_parse seeds/config_parse -- \
+cargo +nightly fuzz run --locked config_parse corpus/config_parse seeds/config_parse -- \
   -dict=dicts/config_parse.dict -max_len=65536 -rss_limit_mb=2048 -timeout=10 -max_total_time=300
-cargo +nightly fuzz run client_response_line -- -max_len=5000000 -rss_limit_mb=1024 -timeout=10
+cargo +nightly fuzz run --locked client_response_line -- -max_len=5000000 -rss_limit_mb=1024 -timeout=10
 ```
 
 `-s none` skips AddressSanitizer: these targets are safe Rust, and the instrumented build needs more disk.
-A crash replays with `cargo +nightly fuzz run <target> fuzz/artifacts/<target>/<file>`.
+A crash replays with `cargo +nightly fuzz run --locked <target> fuzz/artifacts/<target>/<file>`.
 
 ### Nightly workflow
 
@@ -70,12 +70,12 @@ The workflow is not a merge gate.
 - `fuzz/dicts/<target>.dict` holds libFuzzer dictionary tokens.
 - `fuzz/corpus/` (the evolving corpus) and `fuzz/artifacts/` are git-ignored and not cached between nightly runs: each
   run starts from the seeds. Add an input to `seeds/` only when it reaches code the existing seeds do not (check with
-  `cargo +nightly fuzz coverage`), and minimise it first with `cargo +nightly fuzz tmin`.
+  `cargo +nightly fuzz coverage --locked`), and minimise it first with `cargo +nightly fuzz tmin --locked`.
 
 ### Handling a finding
 
 1. Download the `fuzz-crash-<target>` artifact (or take `fuzz/artifacts/<target>/crash-*`), replay it, and minimise it
-   with `cargo +nightly fuzz tmin <target> <file>`.
+   with `cargo +nightly fuzz tmin --locked <target> <file>`.
 2. Add a minimal regression test to the owning crate's tests directory, `#[ignore]`d and commented
    `// FUZZ FINDING: <what panics or which invariant breaks>`, so the repro is committed before the fix and the fix
    removes the `#[ignore]`.

@@ -1,0 +1,12 @@
+{
+  "params": {
+    "agentId": "alpha",
+    "userId": "person-fixture",
+    "right": "use"
+  },
+  "result": {
+    "agentId": "alpha",
+    "userId": "person-fixture",
+    "right": "use"
+  }
+}
