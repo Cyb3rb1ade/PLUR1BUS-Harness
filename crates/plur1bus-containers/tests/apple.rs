@@ -1,11 +1,28 @@
 #![cfg(unix)]
 use plur1bus_containers::*;
 use std::{fs, os::unix::fs::PermissionsExt, time::Duration};
+/// The fake CLI is written and made executable once per process, before any test thread can reach `fork`: Linux refuses
+/// to `exec` a file that some process still holds open for writing (ETXTBSY, surfaced as "spawn: Text file busy" and
+/// read by `detect` as `Missing`), and a `fork` on a sibling test thread inherits the writer's descriptor until its own
+/// `exec`. Every test blocks on this `OnceLock` inside `fake()` before it spawns anything, so no fork can overlap the
+/// write. Each test then gets its own inode-sharing hard link in its own directory, because the script keeps its state
+/// beside `__file__`.
+fn template() -> &'static std::path::Path {
+    static T: std::sync::OnceLock<(tempfile::TempDir, std::path::PathBuf)> =
+        std::sync::OnceLock::new();
+    &T.get_or_init(|| {
+        let d = tempfile::tempdir().unwrap();
+        let p = d.path().join("container");
+        fs::write(&p, include_str!("fixtures/container.py")).unwrap();
+        fs::set_permissions(&p, fs::Permissions::from_mode(0o700)).unwrap();
+        (d, p)
+    })
+    .1
+}
 fn fake() -> (tempfile::TempDir, AppleContainerRuntime) {
     let d = tempfile::tempdir().unwrap();
     let p = d.path().join("container");
-    fs::write(&p, include_str!("fixtures/container.py")).unwrap();
-    fs::set_permissions(&p, fs::Permissions::from_mode(0o700)).unwrap();
+    fs::hard_link(template(), &p).unwrap();
     let r = AppleContainerRuntime::new(p, Platform::MacArm, 26);
     (d, r)
 }
