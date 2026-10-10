@@ -131,7 +131,7 @@ export function mapAwsError(e: unknown, signal?: AbortSignal): VoiceProviderErro
   return new VoiceProviderError("network", `${ID}: AWS request failed (${name || "error"})`, init);
 }
 
-async function loadSdkClient(o: PollyOptions): Promise<PollyClientLike> {
+export async function loadSdkClient(o: PollyOptions, requestHandler?: unknown): Promise<PollyClientLike> {
   let sdk: any;
   try {
     // Optional peers: resolved at call time so the package works (and typechecks) without them installed.
@@ -150,7 +150,7 @@ async function loadSdkClient(o: PollyOptions): Promise<PollyClientLike> {
       throw new VoiceProviderError("unavailable", `${ID}: @aws-sdk/credential-providers is needed to use a named profile`, { provider: ID });
     }
   }
-  const raw = new sdk.PollyClient({ ...(o.region ? { region: o.region } : {}), ...(credentials ? { credentials } : {}) });
+  const raw = new sdk.PollyClient({ ...(requestHandler ? { requestHandler } : {}), ...(o.region ? { region: o.region } : {}), ...(credentials ? { credentials } : {}) });
   return {
     async synthesize(input, signal) {
       const r = await raw.send(new sdk.SynthesizeSpeechCommand(input), signal ? { abortSignal: signal } : undefined);
