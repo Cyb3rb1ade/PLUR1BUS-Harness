@@ -3,7 +3,9 @@ use plur1bus_containers::*;
 use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
+    fs,
     io::{Read, Write},
+    os::unix::fs::PermissionsExt,
     os::unix::net::{UnixListener, UnixStream},
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -166,8 +168,26 @@ impl Drop for FakeEngine {
         self.task.take().unwrap().join().unwrap();
     }
 }
+/// The fake curl is written and made executable once per process, before any test thread can reach `fork`: Linux refuses
+/// to `exec` a file that some process still holds open for writing (ETXTBSY), and a `fork` on a sibling test thread
+/// inherits the writer's descriptor until its own `exec`. Every test that spawns curl calls this first, so no fork can
+/// overlap the write. Each test then hard-links the template into its own directory (see apple.rs).
+fn curl_template() -> &'static std::path::Path {
+    static T: std::sync::OnceLock<(tempfile::TempDir, std::path::PathBuf)> =
+        std::sync::OnceLock::new();
+    &T.get_or_init(|| {
+        let d = tempfile::tempdir().unwrap();
+        let p = d.path().join("curl");
+        fs::write(&p, "#!/bin/sh\nprintf '{}\\n200'\n").unwrap();
+        fs::set_permissions(&p, fs::Permissions::from_mode(0o700)).unwrap();
+        (d, p)
+    })
+    .1
+}
+
 #[test]
 fn engine_api_stack_rollback_and_offline_load() {
+    curl_template();
     let fake = FakeEngine::new();
     let r = fake.runtime();
     assert_eq!(r.detect().state, RuntimeState::Ready);
@@ -206,6 +226,7 @@ fn engine_api_stack_rollback_and_offline_load() {
 }
 #[test]
 fn detect_missing_and_refuse_unencrypted_remote_daemon() {
+    curl_template();
     let r = DockerRuntime::new("unix:///nonexistent/docker.sock");
     assert_eq!(r.detect().state, RuntimeState::Missing);
     let r = DockerRuntime::new("tcp://192.168.1.1:2375");
@@ -222,11 +243,9 @@ fn docker_stream_framing() {
 }
 #[test]
 fn a_json_service_without_an_engine_version_is_not_a_ready_runtime() {
-    use std::{fs, os::unix::fs::PermissionsExt};
     let dir = tempfile::tempdir().unwrap();
     let fake = dir.path().join("curl");
-    fs::write(&fake, "#!/bin/sh\nprintf '{}\\n200'\n").unwrap();
-    fs::set_permissions(&fake, fs::Permissions::from_mode(0o700)).unwrap();
+    fs::hard_link(curl_template(), &fake).unwrap();
     let mut runtime = DockerRuntime::new("https://synthetic.invalid");
     runtime.curl = fake;
     assert_eq!(runtime.detect().state, RuntimeState::Unreachable);
