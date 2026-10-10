@@ -120,3 +120,21 @@ Not CLI codes: `VoiceProviderError.code` of the voice package, stable like the o
 | `checksum_mismatch` | Downloaded bytes do not match the catalog sha256. |
 | `catalog` | A catalog entry is missing, malformed, or has no verified package. |
 | `config` | Provider configuration is invalid. |
+
+## Device management (F44)
+
+Device RPC uses existing `E_*` codes with these additive `reason` values; there
+are no new top-level error codes. Messages contain no key material or pairing code.
+
+| Reason | Error | Meaning |
+|---|---|---|
+| `device-invalid` | `E_INVALID_PARAMS` | Invalid id, name, metadata or public key. |
+| `device-not-found` | `E_NOT_FOUND` | No device with that id. |
+| `device-owner` | `E_DENIED` | The stored device belongs to another person; rename has no admin override. |
+| `device-denied`, `device-revoked` | `E_DENIED` | Pairing proof/handshake refused, or the key has been revoked. |
+| `device-conflict` | `E_CONFLICT` | This public key is already enrolled. |
+| `device-storage` | `E_STORAGE` | State/ACL/audit could not be read or written; fail closed. A failed revocation write still disconnects and denies the key in memory; retry before restarting. |
+
+The central RBAC gate additionally returns `E_UNAUTHORIZED` for a missing
+principal and `E_DENIED` for forbidden role/kind/token scope, using the existing
+RBAC reasons. Repeating a completed revocation is idempotent.
