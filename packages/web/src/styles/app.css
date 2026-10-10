@@ -9,7 +9,9 @@
 @import "./settings.css";
 @import "./agents.css";
 @import "./users.css";
+@import "./providers.css";
 @import "./secrets.css";
+@import "./switchboard.css";
 @import "./setup.css";
 @import "./logs.css";
 @import "./activity.css";

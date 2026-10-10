@@ -1,4 +1,8 @@
 import { t, type Key } from "./i18n.ts";
+import { registerArea } from "./i18n/index.ts";
+import * as area from "./i18n/approvals.ts";
+
+registerArea("approvals", area);
 
 const METHODS: Readonly<Record<string, Key>> = {
   "touch-id": "approvals.attest.method.touchId",
