@@ -83,6 +83,20 @@ No page sends a `caller`: a browser never asserts identity or trust (the `memory
 by its `event:` field or as a JSON-RPC notification object whose `method` is the name (memories, models); chat requires
 `event: session.event` with `data: { event: SessionEvent }`.
 
+## Administration backend status (F39–F42, F44)
+
+The [admin backends](admin-backends.md) now supply the RPC/CLI contracts below. The original page inventory and
+`unavailable` UI flows remain unchanged; binding those pages is follow-up work. `device.list/revoke` are absent, and agent
+hard-erasure is blocked by the pinned engine API. No `packages/web` code is changed by this backend PR.
+
+| What the UI needs | Backend status | Remaining UI work |
+|---|---|---|
+| Agent pause/resume, archive/unarchive, export/delete (F39) | RPC and CLI available; delete safely reports missing engine erasure API | Bind lifecycle calls and export offer; display the erasure limitation |
+| Users, role presets, invitation, use/manage matrix (F40) | RPC and CLI available, stored roles/rights, one-time Identity proof | Bind list/mutations and invite redemption/confirmation |
+| Break-Glass window and affected-person notice (F41) | RPC/CLI, durable self-scoped notices, audited transcript/user-memory reads | Bind dialog, inbox/live notice and read flows |
+| Operator session overview (F42) | `session.list` owner/agent filters, explicit allOwners, owner/model/tokens/cost metadata | Request overview filters and show additive fields; keep transcripts behind Break-Glass |
+| QR payload and remote mode (F44) | `pairing.qr` and `remote.publish` config available | Bind existing-offer QR payload; **Geräte-Store mit List/Revoke fehlt in packages/remote-access** |
+
 ## M3 part 2: inventory (K1)
 
 What the second web UI change builds fully and what it renders as `unavailable`, measured against `origin/main` @ `809f2d5`
@@ -307,17 +321,27 @@ Numbers are stable; other documents refer to them.
 - **F37. Import** (Wizard). `plur1bus import` is CLI only; the step shows the command.
 - **F38. `agent.create` with an idempotency key** (Agents). Create goes through `config.set` with `ifRevision`, an existence check and
   a client key; a real RPC with a server-side key would replace it. `agents.<id>.state` and `skills` are assumptions about the shape.
-- **F39. Agent lifecycle** (Agents). Pause, archive, export bundle (without secrets) and delete have no RPC; the delete dialog is built.
-- **F40. Users, roles and rights** (Users). No RPC reads or assigns roles, invites people or stores per-agent use/manage rights.
-  `identity.human.create` takes a display name only.
-- **F41. Break-glass** (Users, Sessions). `breakglass.request` and the log read are library code (`docs/rbac.md`), not RPCs; the
-  dialog validates and then reports `unavailable`.
-- **F42. Sessions of other people** (Sessions). `session.list` returns the caller's own sessions; no owner, model or usage fields.
+- **F39. Agent lifecycle — backend available, UI binding follows.** `agent.pause/resume/archive/unarchive/export/delete` and
+  matching CLI commands now exist. Pause retains state and rejects new work. Export is signed/redacted; delete requires
+  archive, typed name and an export offer. **Engine gap:** the pinned engine lacks hard-erasure; delete fails closed with
+  `engine-erasure-unavailable`. Large memory exports also need an exhaustive engine listing API (current list cap 100).
+- **F40. Users, roles and rights — backend available, UI binding follows.** `user.list`, `user.role.set`,
+  `user.invite.create/list/revoke`, `agent.rights.get/set` and CLI commands persist presets/rights and use Identity pairing
+  for one-time invitation redemption. Last Owner protection and immediate role/right enforcement are server-side.
+- **F41. Break-glass — backend available, UI binding follows.** `breakglass.request/list/revoke` wrap the existing read-only
+  library. Reasons/windows are validated and each use is audited. `breakglass.notices` is the affected person's durable
+  inbox; checked opt-in live notices use `breakglass.notice`. Foreign `session.get/resume/events` and targeted
+  `memory.list/show` reads require a live grant. No write is enabled by a grant.
+- **F42. Sessions of other people — backend available, UI binding follows.** `session.list` adds owner/model/usage metadata,
+  owner/agent filters and explicit `allOwners`. Operations roles may list metadata; Member sees own only. Costs/models join
+  the existing budget ledger; unknown/pending costs remain null. Transcripts and foreign transcript search are protected.
 - **F43. Log viewer** (Logs). `logs.query` has no `trace_id` parameter (matched with `text`, and not combinable with a search text);
   `logs.tail` is a long poll (no log event on SSE); `audit.verify` returns no check time; the activity feed relies on scheduler job
   names (`scheduler.run.*`) because the log schema registers no agent-run, dream, model-scan or backup events.
-- **F44. Devices** (Devices). `remote.publish` is not in the config schema on `origin/main`; paired devices, QR or deep link,
-  fingerprint and removal have no API.
+- **F44. Devices — pairing payload backend available, UI binding follows.** `pairing.qr`/`plur1bus pairing qr --link`
+  format an existing offer using the package's read-only QR payload. `remote.publish` is now in the config schema.
+  **Geräte-Store mit List/Revoke fehlt in packages/remote-access**. `device.list` and `device.revoke` are intentionally absent;
+  listener integration and actual device enrollment remain existing remote-access follow-ups.
 - **F45. Config schema over RPC** (Settings). No `config.schema` method: types, bounds, enums and defaults come from a static table
   in `pages/settings/config/meta.ts`, guarded by a drift test against `config.schema.json`. `config.get` could return the restart
   class for a whole tier (the page asks once per key). `config.set` has no role rule in `docs/rbac.md` (the UI allows owner and admin).

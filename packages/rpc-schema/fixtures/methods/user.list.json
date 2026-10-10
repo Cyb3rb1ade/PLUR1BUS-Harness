@@ -1,0 +1,12 @@
+{
+  "params": {},
+  "result": {
+    "users": [
+      {
+        "id": "person-fixture",
+        "displayName": "Alex",
+        "role": "member"
+      }
+    ]
+  }
+}

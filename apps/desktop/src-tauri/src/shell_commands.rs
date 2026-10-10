@@ -1,5 +1,12 @@
 // Shared by the native allow-list and Tauri's generated application ACL.
 pub const SHELL_COMMANDS: &[&str] = &[
+    "runtime_detect",
+    "runtime_start",
+    "bundle_install",
+    "harness_start",
+    "harness_stop",
+    "harness_status",
+    "harness_logs_tail",
     "app_info",
     "settings_get",
     "settings_set",
@@ -21,6 +28,13 @@ pub const SHELL_COMMANDS: &[&str] = &[
 
 // Application manifest includes both trust zones; shell-ui still names only SHELL_COMMANDS.
 pub const APP_COMMANDS: &[&str] = &[
+    "runtime_detect",
+    "runtime_start",
+    "bundle_install",
+    "harness_start",
+    "harness_stop",
+    "harness_status",
+    "harness_logs_tail",
     "app_info",
     "settings_get",
     "settings_set",

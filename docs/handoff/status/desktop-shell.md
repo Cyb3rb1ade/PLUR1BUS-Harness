@@ -1443,3 +1443,45 @@ Full validation Root/docs9, desktop alltargets/Rustdoc/Clippy/fmt, UI58, scripts
 ### Owner-authorized launcher skip round · maximum two pushes
 
 Previous head4d26f738 Root/Desktop evidence remains historical; Windows jobs failed, including ARM launcher occlusion and x64 DIAGNOSTICS_MODAL_MISSING. New fixture-only skip policy above is authorized by the owner. Zero pushes in this round; Root check/gen/build/test/lint/workspace Rust/Clippy/fmt/docs PASS, desktop alltargets370PASS/one existingIGNORE and Rustdoc PASS, UI58PASS, scripts47PASS/5platformSKIP. Initial Root bin.test file failed without a cause; isolated TAP8PASS and complete Root rerun PASS, no Core/Hermes edit. Desktop Clippy/fmt PASS. Windows ARM target attempt UNAVAILABLE101: ring assert.h requires missing MSVC SDK. Logs /tmp/wp06-launcher-skip-*.log. No product change or observer/budget increase. PR87 stays Draft until exact-head Root/all7Desktop plus strict-x64 summary are green. Skips are explicitly not passes; owner verifies ARM manually before D1 release.
+
+
+## WP7 — IN PROGRESS (local implementation; acceptance open)
+
+- PR: [#263](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/263), Draft, depends on #233.
+
+- Branch: `feat/desktop-shell-wp07-runtime-adapters`; stacked on WP6 acceptance audit (#233), because its compilation/crash fixes are not on main. Main baseline remains `bedf063146003c86a7dabb5382763fa76162c1e1`.
+- Owner instruction: continue WP7/WP8 locally **without CI polling**. No current-head CI result is asserted; no automatic ready/GREEN transition.
+- Implementation: shared native Runtime trait, single ContainerSpec policy, signed Apple CLI adapter, local-only Docker Engine API adapter (`bollard =0.21.1`, pipe feature only, SSL/HTTP features disabled), deterministic candidate ordering/context lookup/socket deduplication, current runtime preservation, closed de/en runtime messages.
+- Evidence: tests use temporary homes, synthetic JSON, the `test-bins/fake-container` executable and an Engine wire fixture (Unix socket / Windows named pipe); no Docker subprocess is spawned by the Docker adapter, no real keychain or runtime objects are used.
+- Fresh independent review: no Critical findings; five Important findings reproduced and fixed: Apple conflict cleanup; unregistered service status; one-shot nonzero exit/stdout/stderr; total stream deadlines/output limits; refusing configuration IDs as manifest digests. Additional cancellation regression proves owned one-shot cleanup.
+
+### Acceptance matrix
+
+| Acceptance point | Test / evidence | Status |
+|---|---|---|
+| Apple version minimum; unknown fields ignored, required fields mandatory | `apple_runtime::{detect_parses_version_and_refuses_too_old,unknown_json_fields_are_ignored_required_ones_are_not,malformed_versions_are_refused_instead_of_zero_filled,inspect_uses_the_nested_status_and_required_configuration}` | local PASS |
+| Apple signature refused; fixed absolute production CLI + Apple Team ID | `apple_runtime::detect_refuses_an_unsigned_binary` (macOS); installed executable public TeamIdentifier `UPBK2H6LZM`; strict codesign requirement | local PASS; injected signature trait coverage open |
+| Apple stopped/unregistered; system start; stop 150 s; stdin + exit code | `test-bins/tests/apple_runtime.rs`; `apple_runtime::unregistered_services_are_stopped_and_can_be_started` | local PASS; complete stateful successful start scenario open |
+| Apple exact create flags, no restart flag | `apple_runtime::create_passes_exactly_the_spec_flags` | local PASS; complete harness golden argv and image mismatch/load scenarios open |
+| Detection candidate order per OS; Docker contexts (OrbStack, Colima, Rancher, Podman, rootless); TCP ignored | `detect::{detection_candidate_table,contexts_cover_orbstack_colima_rancher_and_podman,tcp_docker_host_is_ignored_with_a_note}` | local PASS |
+| Linux containers required; rootless/Podman access hint; deduplicated socket; never adopt new runtime | `docker_runtime::a_windows_containers_engine_is_wrong_mode`; `detect::{permission_denied_is_no_access_with_the_rootless_hint,the_same_socket_via_two_sources_is_listed_once,a_new_runtime_is_listed_not_adopted,choose_default_table}` | local PASS |
+| Docker Desktop, Engine, Podman, Colima, Rancher, OrbStack, WSL2-backed Docker through one adapter | `docker_runtime::every_docker_compatible_runtime_uses_the_same_api` | local PASS; standalone WSL distribution remains D2 per spec §4.12 |
+| Docker exact body: loopback, read-only, uid10001, ALL capabilities dropped, no-new-privileges, pids1024, memory/cpus, named mounts, no privileged/host binds | `docker_runtime::create_body_is_exactly_the_spec` | local PASS |
+| Digest-verified load/pull; config ID never accepted as manifest digest | `docker_runtime::{image_load_returns_the_manifest_digest,image_load_refuses_a_config_id_without_manifest_digest,config_id_is_not_a_manifest_digest,pull_verifies_the_digest}` | local PASS; offline archives lacking RepoDigests need verified OCI manifest identity follow-up |
+| Shared full runtime contract for both adapters | Docker `runtime_contract`, one-shot exit7/stdout/stderr and cancellation; Apple conflict refusal + binary stdin/stop tests | **open**: full Apple contract including rename; Docker additional volumes/network/error/oneshot scenarios |
+| Bounded image/load/pull/log/exec processing | `runtime::docker::stream_tests::{stalled_body_has_a_total_deadline,oversized_output_is_refused}`; native CLI and exec byte limits | local PASS; SDK can transiently decode a single large JSON event before retained-output limit |
+| Real Docker and Podman contracts | no `/var/run/docker.sock`, OrbStack socket or Docker Desktop socket available in this environment; no Podman runtime provisioned | **open – native engines unavailable, Owner** |
+| Recorded Apple fixtures / spike | `tests/fixtures/apple/synthetic-1.3/README.md` explicitly unrecorded; isolated-HOME read-only version/status recorder | **open – manuell, Owner** (WP7 excludes spike; no recorded full-runtime claim) |
+| fmt/clippy/locked workspace tests, UI build/tests, unchanged Root lint/hygiene | locked Rust workspace: 320 PASS / 0 FAIL / 1 opt-in keychain IGNORE; UI 59/59; fmt/clippy/build/Root lint+hygiene PASS | local PASS |
+| desktop.yml all five targets + Root unit CI | not inspected after Owner's no-polling instruction | **open – CI evidence, Owner** |
+
+### Follow-ups / rulings
+
+- Apple CLI has no rename subcommand (installed CLI help and current upstream command tree checked). Adapter returns a closed `apple-rename-unavailable` failure rather than issuing invented argv. A supported rename/recreate strategy is needed for the full contract and later upgrade swapping; WP7 is not claimed accepted.
+- Offline Docker load without RepoDigests fails closed; returning the config image ID would falsely equate different digest identities. Verified OCI manifest metadata integration is still needed for that archive case.
+- Review minors deferred: detector should preserve ignored-endpoint notes/access hint/too-old version in its public result; Apple version probe currently has a separate 3 s budget rather than a single documented detection budget. These limitations remain visible and do not justify GREEN.
+- Root hygiene's slash-command lexical rule collides with the required state mount spelling. `STATE_MOUNT = concat!("/", "state")` names the native container mount explicitly; Root rules remain unchanged.
+- Ledger is scratch under `/tmp`, overriding skill's root `.superpowers` location to honor the user's allowed-file boundary. User-authorized pushes/PRs override the historical plan's never-push restriction; no fictitious co-author attribution is added.
+- Core remains unchanged. Runtime and bundled setup will target desktop-contract / mock-harness; WP8 records owner-bootstrap/pairing gaps separately.
+
+WP7 final local verification (2026-10-08): locked workspace tests **320 PASS / 0 FAIL / 1 opt-in real-keychain IGNORE**; UI **59/59**; fmt, all-target clippy, UI build and Root lint/typecheck/hygiene/i18n checks PASS. Logs retained locally in `/tmp/desktop-wp07-final-*` and `/tmp/desktop-wp07-root-lint-final.log`. The branch remains draft/IN PROGRESS for the explicit acceptance gaps and unqueried CI.

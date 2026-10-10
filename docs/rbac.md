@@ -270,3 +270,42 @@ The R3 methods are declared in RPC_RULES and are human-only; both actions are gr
 | channel.list, channel.get, channel.status | channel.read | Secrets appear as names only (`{ secret, present }`), never a value |
 | channel.test | channel.read | `sendOwner: true` additionally requires `channel.write` (checked in the handler) and sends one fixed text to the caller's own linked identity on that channel |
 | channel.enable, channel.disable, channel.set | channel.write | A write is a `config.set` through the supervisor, so the per-key restart class applies; `channel.set` refuses secret values |
+
+
+## F39–F42/F44 administration backend
+
+See [Administration backends](admin-backends.md) for format, lifecycle, invitation redemption, notices and engine limitations.
+Every rule below is human-only, including reads; an agent principal is denied regardless of role, scopes or object rights.
+Assigned roles and explicit agent rights are read from `state/admin.sqlite` on every authenticated core invocation.
+
+| RPC methods | Policy action | Human roles |
+|---|---|---|
+| `agent.pause`, `agent.resume` | `admin.agent.operate` | Owner, Admin, Operator |
+| `agent.archive`, `agent.unarchive`, `agent.export` | `admin.agent.manage` | Owner, Admin |
+| `agent.delete` | `admin.agent.delete` | Owner, Admin; archived, typed display name and actor-bound export offer required; engine erasure currently unavailable |
+| `agent.rights.get`, `agent.rights.set` | `admin.agent.rights` | Owner, Admin |
+| `user.list`, `user.invite.list` | `admin.users.read` | Owner, Admin |
+| `user.role.set`, `user.invite.create`, `user.invite.revoke` | `admin.users.write` | Owner, Admin; ownership changes Owner only, last Owner protected |
+| `breakglass.request`, `breakglass.revoke` | `admin.breakglass.write` | Owner, Admin; library also enforces request/revoke rules |
+| `breakglass.list` | `admin.breakglass.read` | Owner, Admin; holder's grants only |
+| `breakglass.notices` | `admin.notices.read` | All five; affected person's own inbox only |
+| `session.list` | `admin.sessions.read` | All five; Member own only; Owner/Admin/Operator/Viewer may filter all metadata |
+| `session.get`, `session.resume`, `session.events` | `admin.sessions.transcript` | All five; own session or live audited Break-Glass grant |
+| `session.create`, `session.submit`, `session.cancel`, `session.archive` | `admin.sessions.write` | Owner, Admin, Operator, Member; own session and `agent.use` required |
+| `memory.list`, `memory.show` | `admin.memory.read` | All five; optional `targetUserId` requires `agent.read` and live library `memory.user.read` authorization |
+| `pairing.qr` | `admin.pairing.read` | Owner, Admin; existing payload only, no code issuance |
+
+Token scopes intersect **every** gate. For example, a scoped invitation caller also needs the existing Identity `users.manage`
+scope; a scoped Break-Glass request needs `breakglass.request` as well as the new surface action. These nested checks never
+widen a token. Explicit `manage` implies `use`; Viewer still cannot write. Break-Glass never authorizes a session mutation.
+All these method names occur in `RPC_RULES`, the independent role-matrix fixture and deny-by-default guard tests.
+
+D109's `harness.admin` capability is never available to agents; its specification explicitly delegates direct harness admin
+operations to human CLI/UI callers. These backends do not route human actions through an agent tool grant. Destructive
+operations use mandatory audit and the existing human RBAC gates; the pinned engine's missing hard-erasure API fails closed.
+The existing D109 approval service is unchanged.
+
+`createBreakGlass({ requireNotification: true })` adds a fail-closed notice gate used by the core: a failed durable notice write
+leaves no usable grant. Existing library callers retain their default behavior. Core notices are persisted, self-scoped, and
+optionally delivered through the checked `breakglass.notice` audience. A lapsed/revoked window cannot read foreign transcripts
+or user cards, and every allowed use is audited. Web binding remains follow-up; no web sources are changed.

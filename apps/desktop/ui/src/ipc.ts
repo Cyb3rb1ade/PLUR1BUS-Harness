@@ -1,3 +1,4 @@
+import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import type { LocaleChoice } from "./i18n.ts";
 
@@ -11,6 +12,15 @@ export type ConnectionSnapshot = { status: "loading" | "ready" | "error"; data: 
 export type PairRequest = { name: string; origin: string; code: string; repairId: string | null };
 export type Paired = { connection: Connection; tokenStore: TokenStoreKind };
 export type DesktopTransport = {
+  bundleProgress?(onStep:(step:string)=>void):Promise<()=>void>;
+  runtimeDetect?(): Promise<import("./models/wizard-model.ts").RuntimeItem[]>;
+  bundleCancel?(runtimeId:string):Promise<void>;
+  bundleInstall?(runtimeId: string, agreed: boolean): Promise<{connectionId: string}>;
+  harnessStart?(memoryGib?: number): Promise<void>;
+  harnessStop?(): Promise<void>;
+  harnessStatus?(): Promise<{state: string;resources?:{memoryMiB:number}}>;
+  harnessStatusEvents?(onStatus:(status:{state:string})=>void):Promise<()=>void>;
+  harnessLogsTail?(): Promise<string>;
   autostartGet?(): Promise<boolean | null>;
   autostartSet?(enabled: boolean): Promise<boolean>;
   connectionsList(): Promise<ConnectionList>;
@@ -25,6 +35,15 @@ export type DesktopTransport = {
 };
 
 export const nativeTransport: DesktopTransport = {
+  bundleProgress: onStep => listen<string>("desktop-bundle-progress",event=>onStep(event.payload)),
+  runtimeDetect: () => invoke("runtime_detect"),
+  bundleCancel: runtimeId => invoke("bundle_install",{request:{runtimeId,agreed:true,action:"cancel"}}),
+  bundleInstall: (runtimeId, agreed) => invoke("bundle_install", {request:{runtimeId,agreed}}),
+  harnessStart: memoryGib => invoke("harness_start",{request:{memoryGib:memoryGib??null}}),
+  harnessStop: () => invoke("harness_stop"),
+  harnessStatus: () => invoke("harness_status"),
+  harnessStatusEvents: onStatus => listen<{state:string}>("desktop-harness-status",event=>onStatus(event.payload)),
+  harnessLogsTail: () => invoke("harness_logs_tail"),
   autostartGet: () => invoke("autostart_get"),
   autostartSet: enabled => invoke("autostart_set", {enabled}),
   connectionsList: () => invoke("connections_list"),
