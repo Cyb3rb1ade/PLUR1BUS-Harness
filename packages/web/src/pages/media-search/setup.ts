@@ -5,7 +5,7 @@ import { h } from "preact";
 import type { View } from "../../view.ts";
 import { t, type Key } from "../../i18n.ts";
 import { choiceById } from "../setup/licences.ts";
-import type { CaptionSourceSetting, MediaBackfillSetting, MediaErrorCode, MediaModality } from "../../api/media-search.types.ts";
+import type { CaptionSourceSetting, MediaBackfillSetting, MediaErrorCode, MediaModality } from "./contract.ts";
 import { ALL_MODALITIES, CAPTION_CHOICES, CAPTION_SOURCES, MEDIA_PROVIDERS, captionPreselection, effectiveCaption, problemText, providerById, type CaptionChoice, type MediaSetup } from "./model.ts";
 
 export type MediaSetupProps = {

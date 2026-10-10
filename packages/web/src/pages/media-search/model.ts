@@ -2,11 +2,12 @@
 // Everything here follows the binding contract (media-search-contract.md): free provider choice, validation only for
 // capability, licence, privacy pin and availability, captioning preselected only when embedding is local, defaults as in
 // the contract. Changes are sent only where a value differs from the contract default, so an untouched form writes nothing.
-import { MEDIA_EMBEDDING_DEFAULTS, isMediaErrorCode, type CaptionSourceSetting, type MediaBackfillSetting, type MediaCapabilities, type MediaErrorCode, type MediaKind, type MediaModality, type MediaSearchParams } from "../../api/media-search.types.ts";
+import type { MediaIndexKind, MediaSearchParams } from "../../../../rpc-schema/generated/types.ts";
+import { MEDIA_EMBEDDING_DEFAULTS, isMediaErrorCode, type CaptionSourceSetting, type MediaBackfillSetting, type MediaCapabilities, type MediaErrorCode, type MediaModality } from "./contract.ts";
 import { t, type Key } from "../../i18n.ts";
 import { DEFAULT_EMBEDDING, choiceById, choicesOf } from "../setup/licences.ts";
 
-export const MEDIA_KINDS: readonly MediaKind[] = ["image", "video", "audio"];
+export const MEDIA_KINDS: readonly MediaIndexKind[] = ["image", "video", "audio"];
 export const ALL_MODALITIES: readonly MediaModality[] = ["image", "video", "audio"];
 export const SEARCH_LIMIT = 20;
 
@@ -124,11 +125,20 @@ export function mediaSetupChanges(m: MediaSetup, textProvider: string): Change[]
 
 // ---- Search ------------------------------------------------------------------------------------------------------------
 
-export type SearchForm = { text: string; likeMediaId?: string; kinds: MediaKind[]; fuseCaptions: boolean };
+export type SearchForm = { text: string; likeMediaId?: string; kinds: MediaIndexKind[]; fuseCaptions: boolean };
+
+/** The schema's `kinds` is a tuple of one to three distinct kinds (generated), not an array; the form's list is always unique. */
+function kindsTuple(list: readonly MediaIndexKind[]): NonNullable<MediaSearchParams["kinds"]> | undefined {
+  const [a, b, c] = list;
+  if (a === undefined || list.length > 3) return undefined;
+  if (b === undefined) return [a];
+  if (c === undefined) return [a, b];
+  return [a, b, c];
+}
 
 /** The RPC params, or null when there is nothing to search for. Exactly one of `text` and `likeMediaId` is sent. */
 export function searchParams(f: SearchForm): MediaSearchParams | null {
-  const kinds = f.kinds.length === 0 || f.kinds.length === MEDIA_KINDS.length ? undefined : [...f.kinds];
+  const kinds = f.kinds.length === 0 || f.kinds.length === MEDIA_KINDS.length ? undefined : kindsTuple(f.kinds);
   const common = { limit: SEARCH_LIMIT, ...(kinds ? { kinds } : {}), ...(f.fuseCaptions ? { fuseCaptions: true } : {}) };
   if (f.likeMediaId) return { likeMediaId: f.likeMediaId, ...common };
   const text = f.text.trim();

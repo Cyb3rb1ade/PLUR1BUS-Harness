@@ -19,9 +19,9 @@ fn fake_core(run: &Path) -> std::thread::JoinHandle<Value> {
         let Ok((stream, _)) = listener.accept() else {
             return Value::Null;
         };
-        stream
-            .set_read_timeout(Some(Duration::from_secs(5)))
-            .unwrap();
+        // The wake-up connect of `set_and_collect` can already be closed: then the timeout cannot be set (EINVAL on macOS),
+        // and the read below simply sees end-of-file, which returns `Null`.
+        let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
         let mut w = stream.try_clone().unwrap();
         let mut lines = BufReader::new(stream).lines();
         let Some(Ok(line)) = lines.next() else {
@@ -79,12 +79,48 @@ fn a_secret_name_is_forwarded_as_the_text_of_the_set() {
 }
 
 #[test]
-#[ignore = "KNOWN GAP: channel set sends a value typed for a *Secret key to the core as params.text (the module doc says a secret never travels through this command)"]
 fn a_value_typed_for_a_secret_key_never_reaches_the_core() {
-    let typed = ["FIXTURE", "NOT", "A", "SECRET"].join("-");
-    let (_, request) = set_and_collect("botTokenSecret", &typed);
+    // A space is not in a secret name, so this marker is a value by the name rule (a plain `-` would be a valid name).
+    let typed = ["FIXTURE", "NOT", "A", "SECRET"].join(" ");
+    let (out, request) = set_and_collect("botTokenSecret", &typed);
     assert!(
         !request.to_string().contains(&typed),
         "the typed value was sent to the core: {request}"
+    );
+    assert!(request.is_null(), "the core was called: {request}");
+    assert_eq!(
+        out.status.code(),
+        Some(2),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let shown = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        !shown.contains(&typed),
+        "the typed value was echoed: {shown}"
+    );
+    assert!(shown.contains("plur1bus secret set <name>"), "{shown}");
+}
+
+#[test]
+fn a_credential_typed_for_a_secret_key_never_reaches_the_core_or_the_output() {
+    // A token is a valid name by format; the credential shape is what refuses it here.
+    let typed = ["xoxb", "1234567890", "abcdefghijklmnop"].join("-");
+    let (out, request) = set_and_collect("botTokenSecret", &typed);
+    assert!(request.is_null(), "the core was called: {request}");
+    assert_eq!(out.status.code(), Some(2));
+    let shown = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(!shown.contains(&typed), "{shown}");
+    assert!(
+        shown.contains("treat the value you just typed as exposed"),
+        "{shown}"
     );
 }

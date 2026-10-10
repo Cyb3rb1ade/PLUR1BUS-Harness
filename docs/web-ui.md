@@ -363,7 +363,7 @@ component except one registration line per place (listed below).
 
 | Piece | File | Where it shows | Calls |
 |---|---|---|---|
-| Wire types (temporary) | `src/api/media-search.types.ts` | — | — |
+| Wire types | generated `packages/rpc-schema/generated/types.ts`, merged by `src/pages/media-search/rpc-types.ts`; config and error contract in `src/pages/media-search/contract.ts` | — | — |
 | Rules (pure: captioning preselection, validation mirror of E_MEDIA_*, config changes against the defaults, query params, time labels) | `src/pages/media-search/model.ts` | all of the below | — |
 | Setup, media part of the Memory step | `src/pages/media-search/setup.ts` | `/setup`, step Memory (the wizard model `setup/model.ts` carries the answers as `media`) | `config.set` on Next, only for values that differ from the defaults |
 | Memory settings panel (text and media index side by side, video and audio options, captioning, backfill, status card with pause, resume, re-index) | `src/pages/media-search/settings.ts` | `/settings/memory`, above the form | `config.get`, `config.set` (`ifRevision`), `media.index.status`, `media.index.pause\|resume\|reindex` |
@@ -410,9 +410,18 @@ override). The config mock writes into the objects it receives, so each test bui
 
 ### Follow-ups (media search)
 
-- **F47. Generated RPC types.** Replace `src/api/media-search.types.ts` and the merge in `rpc-types.ts` with the generated types, once
-  the backend's `media.*` methods and `memory.mediaEmbedding.*` keys are in `rpc.schema.json` and `config.schema.json`. Until then
-  the hand-written copy is the only definition here; a drift test against the schema would then replace the review.
+- **F47. Generated RPC types. Done.** `src/api/media-search.types.ts` is deleted. The six `media.*` methods are merged from the
+  generated types, and the forms, settings and tests use them. What the placeholder had that is not an RPC shape moved to
+  `src/pages/media-search/contract.ts`: the `memory.mediaEmbedding.*` types and defaults, the catalogue capabilities and the
+  `E_MEDIA_*` codes (checked against the schema's `ErrorCode` at compile time). Deviations from the placeholder, all resolved to
+  the schema: `MediaKind` is `MediaIndexKind` and `MediaHit` is `MediaSearchHit`; `kinds` is a tuple of one to three kinds (a
+  guard in `model.ts` builds it); `MediaSearchParams` has no compile-time "exactly one of `text` and `likeMediaId`" (the schema
+  has no `oneOf`; the server answers `text-or-like-required` and `text-and-like-exclusive`, and `model.ts` sends one of them);
+  `dimensions` is any integer of at least 1 in `config.schema.json` (768, 512, 256 and 128 are the model's list, checked in the
+  forms); `Segment`, `BackfillState`, `PausedReason`, `CaptionSource` and `MEDIA_METHODS` were unused and are gone.
+  **Open, not changed here:** the schema default of `memory.mediaEmbedding.provider` is `local-transformers`, while the forms
+  preselect the catalogue entry `egemma2`. Until F48 unifies the two lists, the forms can show a provider the core does not
+  name by that ID.
 - **F48. Catalogue for the forms.** The provider list, licence, dimensions and capabilities come from the static table in
   `pages/setup/licences.ts` (plus the capability table in `pages/media-search/model.ts`). The contract extends the embedding
   catalogue with `capabilities`; the forms should read it from there. The catalogue's size field is not in the contract, so the forms

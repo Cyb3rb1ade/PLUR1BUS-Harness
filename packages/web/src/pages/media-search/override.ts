@@ -8,7 +8,7 @@ import { PageLoading } from "../../components/page-state.ts";
 import { t, type Key } from "../../i18n.ts";
 import { FailureState, Notice } from "../common/states.ts";
 import { getApi, useLoad } from "../common/load.ts";
-import type { MediaModality } from "../../api/media-search.types.ts";
+import type { MediaModality } from "./contract.ts";
 import { ALL_MODALITIES, CAPTION_SOURCES, CLOUD_CAPTION_PROVIDER, MEDIA_PROVIDERS, draftOf, mediaErrorOf, overrideKey, problemText, type MediaDraft } from "./model.ts";
 import "./rpc-types.ts";
 
