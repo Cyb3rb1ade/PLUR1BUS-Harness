@@ -142,6 +142,18 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `channels.email.authServId` | string |  | module:email | Authserv-id of the mail server that delivers into the bot mailbox. Only Authentication-Results headers from this server are read; without it every SPF/DKIM/DMARC result counts as none. |
 | `channels.email.requireAuthPass` | boolean | `false` | module:email | Drop mail whose Authentication-Results do not show a pass (dmarc, or spf and dkim). The channel only reads the verdict; it does not verify mail itself. |
 | `channels.email.locale` | enum | `"en"` | module:email | Language of the bot's own messages (pairing replies, refusals, approval prompts). |
+| `channels.telegram.enabled` | boolean | `false` | module:telegram | Whether the Telegram channel is started. Off by default; nothing connects until this is true. |
+| `channels.telegram.tokenSecret` | string | `"channels.telegram.botToken"` | module:telegram | Name of the secret holding the Telegram bot token. The value never appears in config or logs. |
+| `channels.telegram.allowlist` | array | `[]` | module:telegram | Decimal chat IDs (users, groups, supergroups) that may talk to the bot. Empty allows nothing, inbound and outbound. |
+| `channels.telegram.userAllowlist` | array |  | module:telegram | When present, only these numeric user IDs are heard in groups and direct chats. |
+| `channels.telegram.mode` | enum | `"polling"` | module:telegram | Connection transport: `polling` for long polling (default), or `webhook` for host HTTP webhook dispatch. |
+| `channels.telegram.webhook` | object |  | module:telegram | Webhook mode parameters (required when mode is `webhook`). |
+| `channels.telegram.botId` | integer |  | module:telegram | Explicit bot user ID override (normally discovered via getMe). |
+| `channels.telegram.botUsername` | string |  | module:telegram | Explicit bot username override without @ (normally discovered via getMe). |
+| `channels.telegram.groupPolicy` | enum | `"addressed"` | module:telegram | When the bot answers in a group: `addressed` accepts mentions, replies or bot commands; `all` accepts all group messages. |
+| `channels.telegram.maxMediaBytes` | integer | `20971520` | module:telegram | Largest attachment accepted or sent, in bytes (1..20 MiB). |
+| `channels.telegram.pollTimeoutSec` | integer | `30` | module:telegram | Long polling timeout in seconds (1..60). |
+| `channels.telegram.maxSendRetries` | integer | `3` | module:telegram | Maximum retries on 429 rate limit or transient network errors. |
 | `voice.providers.elevenlabs.enabled` | boolean | `false` | live | Whether ElevenLabs may be used. Off until enabled and given an apiKeyRef. |
 | `voice.providers.elevenlabs.apiKeyRef` | string |  | live | Secret-store reference holding the ElevenLabs API key. |
 | `voice.providers.elevenlabs.region` | enum | `"default"` | live | Data-residency region: default (global), us, eu or in. Ignored when baseUrl is set. |

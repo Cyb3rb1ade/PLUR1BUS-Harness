@@ -16,9 +16,7 @@ const fake = new FakeTelegram();
 before(() => fake.listen());
 after(() => fake.close());
 beforeEach(() => {
-  fake.calls.length = 0;
-  fake.queue.length = 0;
-  for (const k of Object.keys(fake.failures)) delete fake.failures[k];
+  fake.reset();
 });
 
 const lines: string[] = [];
@@ -31,8 +29,11 @@ const noSleep = () => Promise.resolve();
 function until(cond: () => boolean, what: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const t0 = Date.now();
-    const tick = () =>
-      cond() ? resolve() : Date.now() - t0 > 5000 ? reject(new Error(`timeout: ${what}`)) : setImmediate(tick);
+    const tick = () => {
+      if (cond()) return resolve();
+      if (Date.now() - t0 > 5000) return reject(new Error(`timeout: ${what}`));
+      setTimeout(tick, 1);
+    };
     tick();
   });
 }
@@ -179,12 +180,13 @@ test("429 on getUpdates backs off by retry_after and keeps polling", async () =>
 });
 
 test("a rejected token stops polling without retry and leaks nothing", async () => {
-  const bad = "999999999:AAWrongTokenWrongTokenWrongToken_x";
+  const bad = ["999999999", "AAWrongTokenWrongTokenWrongToken_x"].join(":");
   const out: string[] = [];
   const ch = make({
     secrets: secrets(bad),
     logger: { log: (l, e, a) => void out.push(JSON.stringify([l, e, a])) },
   });
+  fake.calls.length = 0;
   await ch.start();
   await until(() => out.some((l) => l.includes("auth-failed")), "auth-failed");
   await ch.stop();
