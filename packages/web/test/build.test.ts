@@ -101,7 +101,7 @@ test("every lazy chunk brings its own CSS", async () => {
   assert.ok(helperChunk, "chunk CSS helper chunk must exist");
   for (const f of lazy) {
     const code = await read(f);
-    assert.match(code, new RegExp(`from"\\./${helperChunk}"`), `${f} does not bring its own CSS`);
+    assert.match(code, new RegExp(`(?:from|import)"\\./${helperChunk}"`), `${f} does not bring its own CSS`);
   }
 });
 

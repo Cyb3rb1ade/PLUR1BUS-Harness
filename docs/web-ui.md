@@ -26,13 +26,14 @@ the page for each id in `src/pages/registry.ts`.
 | `/models`, `/models/<provider>/<id>` | Models | Build | all five | Providers, filterable list, detail, "new" badges and acknowledge, scan, manual add, override edit, remove manual. Both id parts are percent-encoded. Unknown fields are shown with secret-named values masked. Live updates on `models.changed`. |
 | `/usage`, `/usage/<tab>` (`global`, `agents`, `other`, `usage`) | Usage & Quota (budget) | Control | all five | Limits with soft/hard state, set/edit/remove limit dialogs, usage per period, agent and model. Scopes the UI does not know (project, user) appear in the `other` tab. Money is micro-USD, converted without float drift. |
 | `/doctor` | Doctor | Control | each part separately: health, core status, agents (ok, unavailable, forbidden, error, `down` for a 503 `status: down`); whole page forbidden if health is | Re-check button, automatic refresh every 30 s (stops while the tab is hidden), provisioning check: loads a `1staid.check/1` JSON file chosen by the owner, shows it as a table, copy/download of the unchanged text. |
-| `/agents`, `/agents/new`, `/agents/<id>` | Agents | Build | all five; unknown id is not-found | List from `config.get agents`, detail, three-step create (name and id, skills, review) with a client idempotency key, pause/resume, archive/unarchive and export (bundle download) wired to `agent.*`, delete only for archived agents with export offer and typed name (F39). Only owner/admin create. |
-| `/settings`, `/settings/<section>` (`general`, `models`, `memory`, `extensions`, `network`) | Settings | pinned | all five plus read-only | Section navigation 224 px, content up to 880 px. Fields from a static index of the config schema (F17), restart class badge, "Review changes" with a dry-run diff, save with `ifRevision`, `?focus=<key>` scrolls to and highlights a field. |
+| `/agents`, `/agents/new`, `/agents/<id>` | Agents | Build | all five; unknown id is not-found | List from `config.get agents`, detail, three-step create (name and id, skills, review) with a client idempotency key, pause/resume, archive/unarchive and export (bundle download) wired to `agent.*`, delete only for archived agents with export offer and typed name (F39), voice real-time profile override with reset. Only owner/admin create. |
+| `/settings`, `/settings/<section>` (`general`, `models`, `memory`, `extensions`, `network`, `voice`) | Settings | pinned | all five plus read-only | Section navigation 224 px, content up to 880 px. Fields from a static index of the config schema (F17), restart class badge, "Review changes" with a dry-run diff, save with `ifRevision`, `?focus=<key>` scrolls to and highlights a field. Voice section manages speech language, downloads, licences and real-time profile. |
 | `/settings/users` | Users & roles | pinned | all five | People list (`identity.list`), role presets with plain text, simple mode and rights matrix per agent (draft), invite dialog and break-glass dialog; role change, invitations (code shown once, copy button), use/manage rights per agent and the break-glass request are wired; the last Owner cannot be demoted and the error is explained (F40, F41). Owner/admin only. |
 | `/settings/secrets` | Secrets | pinned | all five | Names and metadata only; create, rotate (masked input, value cleared at submit) and delete (typed name). No value is ever in the DOM, storage, URL or console (tested). |
 | `/settings/devices` | Devices & remote | pinned | all but empty | Hidden behind a note when `remote.publish` is `local` or unknown; the pairing QR (`pairing.qr`) and the device list with rename and revoke (`device.list/rename/revoke`) are wired; Owner/Admin see all devices, everyone else only their own (F44). |
+| `/settings/voice` | Voice | pinned | all five plus read-only | Speech language with fast/quality profiles, download progress, licence confirmations without active links, research-only badges; real-time switches, endpointing slider, speculative turn-start, confirmation sound, feature switches with time budgets, cost metrics and engine-fixed indicator. |
 | `/logs`, `/logs/activity`, `/logs/sessions` | Logs (tabs Logs, Activity, Sessions) | Control | all five per tab | Log viewer: filters, cursor paging, live tail (long poll, pause with buffer), virtual list, detail with redaction marks, export. Activity: grouped, human-readable events and the `audit.verify` status. Sessions: operators see other people's sessions (filter owner/agent, columns owner, model, usage), transcripts only through an active break-glass window (F41, F42). Links `?trace=`, `?q=`, `?stream=` prefill the viewer. |
-| `/setup`, `/setup?mode=bundled` | First-run wizard | none (not in the sidebar) | per step | Seven steps (six when bundled), progress, back/next/skip, resume after reload, licence gate for non-commercial embedding models only (the default, EmbeddingGemma 2, is Apache-2.0 and asks nothing). |
+| `/setup`, `/setup?mode=bundled` | First-run wizard | none (not in the sidebar) | per step | Eight steps (seven when bundled), progress, back/next/skip, resume after reload, licence gate for non-commercial embedding models, and voice language selection step with system language preselected. |
 | `/projects`, `/inbox`, `/library`, `/skills`, `/plugins`, `/switchboard`, `/recurring`, `/approvals`, `/help` | placeholder | as in `nav.ts` | none (fixed text `page.placeholder`) | `PlaceholderPage`. `approvals` stays a placeholder (grants and approvals, D109, are not part of this change). |
 | `/login` | Sign-in | none | form errors only | Owner token against `POST /api/v1/session`; see `ui/web-shell.md`. |
 | any other path | 404 | none | n/a | Link back to the landing route. |
@@ -77,6 +78,9 @@ the page for each id in `src/pages/registry.ts`.
 | Sessions | `session.list` (`kind: direct`, `archived: any`, `limit: 200`) | assumed | no |
 | Wizard | `GET /api/v1/whoami`, `models.list`, `config.set` (`agents.<id>`, `modelRoles.chat`, `modelRoles.rerank`, `embedding.*`), `admin.backup.snapshot` | real / assumed | set, snapshot: yes |
 | Palette | `config.get` (`agents`, and the whole configuration for setting values), `session.list` (`search`, `limit: 5`) | assumed | no |
+| Voice | `voice.language.list` (`agentId?`), `voice.language.get` (`agentId?`), `voice.realtime.profile.get` (`agentId?`), `voice.metrics.get` (`agentId?`) | assumed | no |
+| Voice | `voice.language.set` (`language`, `profile`, `acceptLicences`, `agentId?`), `voice.realtime.profile.set` (`agentId?`, `...`) | assumed | yes |
+| Voice | `/events`: `voice.download.progress` (`modelId`, `receivedBytes`, `totalBytes`, `done`, `error?`) | assumed | no |
 
 No page sends a `caller`: a browser never asserts identity or trust (the `memory.*`, `session.*`, `models.*`, `budget.*`,
 `dreams.*`, `core.status` and `config.get` calls all omit it; see F1). Event consumers accept an SSE message either named
@@ -426,3 +430,42 @@ override). The config mock writes into the objects it receives, so each test bui
   (`E_MEDIA_PRIVACY`) is the only signal.
 - **F54. Size.** The contract's catalogue has no size; the forms show "not stated". A size field would make the setup's "Größe" useful.
 - **F55. Playback test.** The browser test checks the `#t=` fragment and `data-start`, not actual playback.
+
+## Voice UI (V3 contract)
+
+Voice settings, real-time profiles and first-run wizard integration are built against the V3 RPC contract.
+The backend RPCs (`voice.*`) are in development in parallel. While the generated RPC types are pending,
+hand-written wire types live in `packages/web/src/api/voice.types.ts` and merge into `RpcMethods`. If the server
+does not serve a method or rejects with `E_VOICE_UNAVAILABLE`, the UI gracefully shows the existing `unavailable` state.
+
+### Surfaces
+
+- **Settings > Voice (`/settings/voice`):**
+  - **Language panel (`LanguagePanel`):** Lists available languages and profiles (`fast` / `quality`) with download sizes and licences per model (`asr`, `tts`, `vad`). Models requiring licence confirmation (`needsConfirmation: true`) must be confirmed via checkboxes (`modelId@licenceId`) before download. Licence identifiers are rendered as text without active external links. Research-only / non-commercial licences (e.g. `blizzard-2013`, `CC-BY-NC-4.0`) are clearly badged ("Research only, no commercial use" / "nur Forschung, keine kommerzielle Nutzung"). Download progress is streamed via `/events` (`voice.download.progress`) with accessible progress bars and polite live region announcements.
+  - **Real-time profile panel (`RealtimePanel`):** Controls real-time speech interaction: on/off switch, endpointing slider (200–2000 ms), speculative turn-start switch, and confirmation sound switch.
+  - **Feature switches:** Individual feature controls (`autoRecall`, `promptEnrichment`, `reranker`, `decisionService`, `postTurnRefine`, `memoryWrite`, `compaction`, `toolSchemas`) supporting modes `on`, `deferred`, and `off` (`toolSchemas` additionally supports `reduced`), each with a configurable time budget (10–5000 ms).
+  - **Metrics and effective status:** Measured costs per feature and speech-end-to-first-audio latency (median / p95) from `voice.metrics.get` are displayed alongside each switch. Features reported with `effective="engine-fixed"` are visually tagged ("Fixed by the engine" / "Takes effect only with engine support").
+- **Agent Detail override (`/agents/<id>`):**
+  - Integrated `VoiceOverride` component allowing per-agent overrides of the real-time profile.
+  - Clearly indicates inherited versus overridden fields and provides a one-click reset to inherited values.
+- **First-run setup wizard (`/setup`):**
+  - Step "Language for voice features" (`setup.step.voice`): preselects the browser/system language; offers `fast` or `quality` profile with model sizes and licences; download flow; skippable without blocking setup.
+  - English preselection: never preselects a research-only voice (such as `piper-en-lessac`); English suggests the `quality` profile (Kokoro).
+  - German preselection: selects `fast` with Piper Thorsten + Kroko, gating on CC-BY-SA licence confirmation.
+  - Step completion reflects in the wizard summary.
+
+### Mock API (`test/voice-fixtures.ts`)
+
+`installVoice(server, world)` registers:
+- `voice.language.list`: lists languages, profiles, model metadata, and licence confirmation requirements.
+- `voice.language.get`: returns current language and profile.
+- `voice.language.set`: validates licence acceptance (`acceptLicences`), returns `{ ok: true, downloading: boolean }`.
+- `voice.realtime.profile.get`: returns global profile or per-agent profile when `agentId` is supplied.
+- `voice.realtime.profile.set`: saves editable profile parameters.
+- `voice.metrics.get`: returns latency percentiles and feature cost medians/p95s.
+- `pushProgress(server, ...)`: emits SSE `voice.download.progress` events.
+Simulates error conditions `E_VOICE_LICENCE` and `E_VOICE_UNAVAILABLE`.
+
+### Follow-ups (voice)
+
+- **F56. Generated RPC types.** Replace `packages/web/src/api/voice.types.ts` with auto-generated RPC types once the backend's `voice.*` schemas are merged into `rpc.schema.json`.

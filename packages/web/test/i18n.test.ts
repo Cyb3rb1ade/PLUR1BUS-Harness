@@ -16,6 +16,7 @@ import * as secrets from "../src/i18n/secrets.ts";
 import * as sessions from "../src/i18n/sessions.ts";
 import * as setup from "../src/i18n/setup.ts";
 import * as switchboard from "../src/i18n/switchboard.ts";
+import * as voice from "../src/i18n/voice.ts";
 import * as users from "../src/i18n/users.ts";
 
 // The lazy areas register as their page chunk loads; load them here so every check below covers them too.
@@ -33,13 +34,14 @@ registerArea("logs", logs);
 registerArea("activity", activity);
 registerArea("sessions", sessions);
 registerArea("approvals", approvals);
+registerArea("voice", voice);
 
 const placeholders = (s: string): string[] => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]!).sort();
 
 test("i18n areas: core plus the page areas are registered", () => {
   assert.deepEqual(AREAS.map((a) => a.name), [
     "surfaces", "core", "chat", "memory", "mediasearch", "models", "budget", "doctor", "palette",
-    "shared", "setup", "agents", "settings", "users", "providers", "secrets", "switchboard", "devices", "logs", "activity", "sessions", "approvals",
+    "shared", "setup", "agents", "settings", "users", "providers", "secrets", "switchboard", "devices", "logs", "activity", "sessions", "approvals", "voice",
   ]);
 });
 
