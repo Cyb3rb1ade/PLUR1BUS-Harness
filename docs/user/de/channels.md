@@ -97,8 +97,10 @@ Damit der Assistent weiß, wer du bist, verknüpfst du dein Konto auf dem Kanal 
 2. Schick dem Bot im Direktchat `/link <code>`. Bei Slack heißt der Befehl `/plur1bus link <code>`; bei Discord ist es
    ein Slash-Befehl; bei Matrix, Signal und E-Mail schreibst du den Befehl als Text. Welche Form dein Kanal genau nutzt,
    zeigt `plur1bus channel link-help <kanal>`.
-3. Die Verknüpfung wird erst aktiv, wenn du sie bestätigst. Bestätige sie mit `plur1bus identity approve <id>`, oder lehne
-   sie mit `plur1bus identity decline <id>` ab. Mit `plur1bus identity links` siehst du deine bestehenden Verknüpfungen.
+3. Die Verknüpfung wird erst aktiv, wenn du sie bestätigst. Wartende Kopplungen zeigt `plur1bus identity links` unter
+   `pairings`, jede mit `id` und `state`. Bestätige eine mit `plur1bus identity approve <id>`, oder lehne sie mit
+   `plur1bus identity decline <id>` ab. Die Meldung im Kanal nennt die ID nicht; sie fordert nur auf, die Verknüpfung in der
+   Weboberfläche unter „Meine Identitäten“ zu bestätigen. Bestehende Verknüpfungen stehen in derselben Ausgabe unter `links`.
 
 Der Code gilt nur kurz und ist nur einmal verwendbar. Hast du keinen Code mehr, erzeuge einen neuen.
 

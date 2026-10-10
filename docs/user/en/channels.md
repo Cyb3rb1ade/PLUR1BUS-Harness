@@ -95,8 +95,10 @@ So the assistant knows who you are, link your account on the channel to your use
 2. Send the bot `/link <code>` in a direct chat. On Slack the command is `/plur1bus link <code>`; on Discord it is a
    slash command; on Matrix, Signal and e-mail you write the command as text. `plur1bus channel link-help <channel>`
    shows the exact form for your channel.
-3. The link becomes active only when you confirm it. Confirm with `plur1bus identity approve <id>`, or decline with
-   `plur1bus identity decline <id>`. `plur1bus identity links` lists your existing links.
+3. The link becomes active only when you confirm it. Waiting pairings are listed by `plur1bus identity links` under
+   `pairings`, each with `id` and `state`. Confirm one with `plur1bus identity approve <id>`, or decline it with
+   `plur1bus identity decline <id>`. The message in the channel does not show the ID; it only asks you to confirm the link
+   under "My identities" in the web interface. Existing links are in the same output under `links`.
 
 The code is valid only briefly and works once. If you have no code left, create a new one.
 
