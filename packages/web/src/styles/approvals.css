@@ -1,0 +1,16 @@
+/* Approvals & Grants Page Styles */
+.approvals-page { display: flex; flex-direction: column; gap: 16px; }
+.approval-card-d109 { border: 1px solid var(--border); border-radius: 12px; padding: 16px; background: var(--surface); display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
+.approval-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.approval-card-title { font-size: 16px; font-weight: 650; margin: 0; color: var(--ink); }
+.approval-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; padding: 10px; background: var(--hover-bg); border-radius: 8px; font-size: 13px; }
+.approval-field-label { font-weight: 600; color: var(--ink-2); display: block; margin-bottom: 2px; }
+.approval-targets { font-family: var(--font-mono, monospace); font-size: 12px; word-break: break-all; }
+.approval-hash { font-family: var(--font-mono, monospace); font-size: 11px; color: var(--ink-2); }
+.approval-summary { padding: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; font-family: var(--font-mono, monospace); font-size: 12px; white-space: pre-wrap; overflow-x: auto; }
+.approval-reason-unverified { padding: 8px 12px; background: var(--hover-bg); border-left: 3px solid var(--warn-ink); border-radius: 4px; font-size: 13px; font-style: italic; color: var(--ink-2); }
+.approval-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.approval-scope-select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--ink); font-size: 13px; }
+.grants-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+.grants-table th, .grants-table td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+.grants-table th { color: var(--ink-2); font-weight: 600; background: var(--hover-bg); }

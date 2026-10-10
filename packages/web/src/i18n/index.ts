@@ -17,12 +17,14 @@ import type * as chat from "./chat.ts";
 import * as core from "./core.ts";
 import type * as devices from "./devices.ts";
 import type * as doctor from "./doctor.ts";
+import type * as extensions from "./extensions.ts";
 import type * as logs from "./logs.ts";
 import * as memory from "./memory.ts";
 import * as mediasearch from "./mediasearch.ts";
 import * as models from "./models.ts";
 import * as palette from "./palette.ts";
 import type * as providers from "./providers.ts";
+import type * as recurring from "./recurring.ts";
 import type * as secrets from "./secrets.ts";
 import type * as sessions from "./sessions.ts";
 import * as settings from "./settings.ts";
@@ -65,11 +67,13 @@ type LazyAreaName =
   | "logs"
   | "activity"
   | "sessions"
-  | "voice";
+  | "voice"
+  | "extensions"
+  | "recurring";
 
 const LAZY_ORDER: readonly string[] = [
   "surfaces", "core", "chat", "memory", "mediasearch", "models", "budget", "doctor", "palette", "shared", "setup", "agents", "settings", "users",
-  "providers", "secrets", "switchboard", "devices", "logs", "activity", "sessions", "approvals", "voice",
+  "providers", "secrets", "switchboard", "devices", "logs", "activity", "sessions", "approvals", "voice", "extensions", "recurring",
 ];
 
 type AreaEn =
@@ -89,7 +93,9 @@ type AreaEn =
   | typeof logs.en
   | typeof activity.en
   | typeof sessions.en
-  | typeof voice.en;
+  | typeof voice.en
+  | typeof extensions.en
+  | typeof recurring.en;
 type Intersect<U> = (U extends unknown ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
 
 export type Key = keyof Intersect<AreaEn> & string;

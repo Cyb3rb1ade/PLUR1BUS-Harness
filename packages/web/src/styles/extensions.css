@@ -1,0 +1,16 @@
+/* Extensions (Skills & Plugins) Page Styles */
+.extensions-page { display: flex; flex-direction: column; gap: 16px; }
+.extensions-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.extensions-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.extensions-search { min-width: 200px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.extensions-list { display: grid; gap: 8px; }
+.extension-item-info { display: flex; flex-direction: column; gap: 4px; }
+.extension-item-title { font-size: 15px; font-weight: 600; color: var(--ink); }
+.extension-detail { display: flex; flex-direction: column; gap: 16px; }
+.extension-meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 8px; }
+.extension-meta-item { display: flex; flex-direction: column; gap: 2px; }
+.extension-meta-label { font-size: 12px; color: var(--ink-2); font-weight: 600; text-transform: uppercase; }
+.extension-meta-value { font-size: 14px; color: var(--ink); }
+.extension-web-notice { padding: 12px 16px; background: var(--hover-bg); border: 1px solid var(--border); border-radius: 10px; font-size: 13px; color: var(--ink-2); }
+.chip-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.permission-list { list-style: disc; margin: 4px 0 0 20px; padding: 0; color: var(--ink-2); font-size: 13px; }
