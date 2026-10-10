@@ -56,7 +56,7 @@ docker run -d --name plur1bus-harness --init --read-only --tmpfs /tmp:size=64m,m
 | State volume | `/var/lib/plur1bus`: `config.json`, stores, LanceDB, journal, `run/`, logs, installed modules (survive image upgrades) |
 | Models volume | `/var/lib/plur1bus/models`: the engine's model cache is `<home>/models` (`packages/core/src/paths.ts`) |
 | Removed | npm, npx, corepack, yarn: nothing installs packages at run time |
-| Ports | none published (the HTTP API is M3; compose gets `127.0.0.1:18700:18700` then) |
+| Ports | none published by default; `containers.apiPort` publishes 18700 on `containers.bindAddress` (see [containers.md](containers.md)) |
 
 Hardening (compose and the smoke test assert it): non-root, read-only root file system with `tmpfs /tmp`, all capabilities
 dropped, `no-new-privileges`, `pids_limit 1024`, memory 3 GiB. No runtime socket, no `--privileged`, no host network, no

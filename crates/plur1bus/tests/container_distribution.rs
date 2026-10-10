@@ -317,6 +317,253 @@ mod host {
         );
         assert!(home.join("container-sidecars/config/settings.yml").exists());
     }
+    // ---- containers.bindAddress / containers.apiPort and the SearXNG wiring ----
+    fn write_config(e: &Env, containers: Value) {
+        let home = e.dir.path().join("home");
+        fs::create_dir_all(&home).unwrap();
+        fs::write(
+            home.join("config.json"),
+            json!({"schemaVersion":1,"containers":containers}).to_string(),
+        )
+        .unwrap();
+    }
+    fn calls(e: &Env) -> String {
+        fs::read_to_string(e.dir.path().join("calls.jsonl")).unwrap_or_default()
+    }
+    fn install(e: &Env, extra: &[&str]) -> Output {
+        let tar = e.dir.path().join("image.tar");
+        fs::write(&tar, b"synthetic").unwrap();
+        let mut args = vec![
+            "install",
+            "--container",
+            "--runtime",
+            "apple",
+            "--image",
+            "local:test",
+            "--image-from",
+            tar.to_str().unwrap(),
+        ];
+        args.extend_from_slice(extra);
+        e.run(&args)
+    }
+    #[test]
+    fn bind_address_with_an_api_port_reaches_the_runtime_arguments() {
+        for (bind, expected) in [
+            ("127.0.0.1", "--publish\", \"127.0.0.1:28700:18700"),
+            ("192.168.1.10", "--publish\", \"192.168.1.10:28700:18700"),
+            (
+                "100.101.102.103",
+                "--publish\", \"100.101.102.103:28700:18700",
+            ),
+        ] {
+            let e = Env::new();
+            write_config(&e, json!({"bindAddress":bind,"apiPort":28700}));
+            let v = assert_ok(install(&e, &["--non-interactive"]));
+            assert!(calls(&e).contains(expected), "{bind}: {}", calls(&e));
+            assert_eq!(v["published"][0]["address"], bind);
+            assert_eq!(v["published"][0]["hostPort"], 28700);
+            assert_eq!(v["published"][0]["containerPort"], 18700);
+            let loopback = bind == "127.0.0.1";
+            assert_eq!(
+                v["warnings"].as_array().unwrap().len(),
+                usize::from(!loopback),
+                "{bind}"
+            );
+            let status = assert_ok(e.run(&["container", "status"]));
+            assert_eq!(status["published"][0]["address"], bind);
+            assert_eq!(
+                status["warnings"].as_array().unwrap().len(),
+                usize::from(!loopback),
+                "{bind}"
+            );
+        }
+    }
+    #[test]
+    fn loopback_is_the_default_address_for_a_published_port() {
+        let e = Env::new();
+        write_config(&e, json!({"apiPort":28700}));
+        let v = assert_ok(install(&e, &["--non-interactive"]));
+        assert!(
+            calls(&e).contains("--publish\", \"127.0.0.1:28700:18700"),
+            "{}",
+            calls(&e)
+        );
+        assert_eq!(v["published"][0]["address"], "127.0.0.1");
+        assert!(v["warnings"].as_array().unwrap().is_empty());
+    }
+    #[test]
+    fn nothing_is_published_without_an_api_port_whatever_the_bind_address() {
+        for containers in [json!({}), json!({"bindAddress":"192.168.1.10"})] {
+            let e = Env::new();
+            write_config(&e, containers);
+            let v = assert_ok(install(&e, &["--non-interactive"]));
+            assert!(!calls(&e).contains("--publish"), "{}", calls(&e));
+            assert!(v["published"].as_array().unwrap().is_empty());
+            assert!(v["warnings"].as_array().unwrap().is_empty());
+        }
+    }
+    #[test]
+    fn a_non_loopback_publish_needs_explicit_confirmation_unless_non_interactive() {
+        let e = Env::new();
+        write_config(&e, json!({"bindAddress":"192.168.1.10","apiPort":28700}));
+        let o = install(&e, &[]);
+        assert!(!o.status.success());
+        let v = doc(&o);
+        assert_eq!(v["reason"], "confirmation-required", "{v}");
+        assert!(
+            v["message"].as_str().unwrap_or("").contains("192.168.1.10"),
+            "{v}"
+        );
+        assert!(!e.dir.path().join("home/container-install.json").exists());
+        assert!(
+            !calls(&e).contains("\"create\""),
+            "nothing may be created: {}",
+            calls(&e)
+        );
+    }
+    #[test]
+    fn the_plan_shows_what_would_be_published_and_warns_without_touching_the_runtime() {
+        let e = Env::new();
+        write_config(&e, json!({"bindAddress":"10.1.2.3","apiPort":28700}));
+        let v = assert_ok(install(&e, &["--container-plan"]));
+        assert_eq!(v["published"][0]["address"], "10.1.2.3");
+        assert!(v["warnings"][0].as_str().unwrap().contains("10.1.2.3"));
+        assert!(!calls(&e).contains("--publish"));
+        assert!(!e.dir.path().join("home/container-install.json").exists());
+    }
+    #[test]
+    fn api_port_must_be_an_unprivileged_port() {
+        for bad in [json!(0), json!(80), json!(70000), json!("28700")] {
+            let e = Env::new();
+            write_config(&e, json!({"apiPort":bad}));
+            let o = install(&e, &["--container-plan"]);
+            assert!(!o.status.success(), "{bad}");
+        }
+    }
+    fn connections(v: &Value) -> Vec<Value> {
+        let services = v["services"].as_array().unwrap();
+        services.last().unwrap()["connections"]
+            .as_array()
+            .unwrap()
+            .clone()
+    }
+    #[test]
+    fn a_bundled_searxng_is_wired_into_the_harness_through_its_private_address() {
+        let e = Env::new();
+        let v = assert_ok(install(
+            &e,
+            &["--sidecar", "searxng=bundled", "--container-plan"],
+        ));
+        let harness = v["services"].as_array().unwrap().last().unwrap().clone();
+        assert_eq!(harness["name"], "plur1bus-harness");
+        assert!(
+            connections(&v)
+                .iter()
+                .any(|c| c["env"] == "PLUR1BUS_SEARXNG_URL"
+                    && c["service"] == "plur1bus-searxng"
+                    && c["scheme"] == "http"
+                    && c["port"] == 8080
+                    && c["path"] == ""),
+            "{harness}"
+        );
+        assert!(harness["env"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|x| x == "PLUR1BUS_SEARXNG_MODE=bundled"));
+    }
+    #[test]
+    fn a_bundled_searxng_hands_the_harness_the_address_the_runtime_reports() {
+        let e = Env::new();
+        assert_ok(install(
+            &e,
+            &["--sidecar", "searxng=bundled", "--non-interactive"],
+        ));
+        let harness_create = calls(&e)
+            .lines()
+            .rfind(|l| l.contains("\"create\"") && l.contains("plur1bus-harness"))
+            .unwrap()
+            .to_string();
+        assert!(
+            harness_create.contains("PLUR1BUS_SEARXNG_URL=http://192.168.88.2:8080"),
+            "{harness_create}"
+        );
+        assert!(
+            harness_create.contains("PLUR1BUS_SEARXNG_MODE=bundled"),
+            "{harness_create}"
+        );
+    }
+    #[test]
+    fn a_remote_searxng_is_handed_over_as_its_url_and_creates_no_container() {
+        let e = Env::new();
+        let v = assert_ok(install(
+            &e,
+            &[
+                "--sidecar",
+                "searxng=http://100.64.0.7:8080",
+                "--container-plan",
+            ],
+        ));
+        assert_eq!(v["services"].as_array().unwrap().len(), 1);
+        let env = v["services"][0]["env"].as_array().unwrap().clone();
+        assert!(
+            env.iter().any(|x| x == "PLUR1BUS_SEARXNG_MODE=remote"),
+            "{env:?}"
+        );
+        assert!(
+            env.iter()
+                .any(|x| x == "PLUR1BUS_SEARXNG_URL=http://100.64.0.7:8080"),
+            "{env:?}"
+        );
+        assert!(connections(&v).is_empty());
+    }
+    #[test]
+    fn no_searxng_means_no_search_wiring_at_all() {
+        let e = Env::new();
+        for extra in [
+            &["--container-plan"][..],
+            &["--sidecar", "searxng=off", "--container-plan"][..],
+        ] {
+            let v = assert_ok(install(&e, extra));
+            let harness = &v["services"][0];
+            assert!(harness["env"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|x| !x.as_str().unwrap().starts_with("PLUR1BUS_SEARXNG")));
+            assert!(connections(&v).is_empty());
+        }
+    }
+    #[test]
+    fn an_existing_install_gets_the_wiring_on_its_next_start_without_a_reinstall() {
+        let e = Env::new();
+        e.installed();
+        let home = e.dir.path().join("home");
+        let path = home.join("container-install.json");
+        let mut state: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        let searxng = {
+            let mut s = Service::harness(&e.image("old"));
+            s.name = "plur1bus-searxng".into();
+            s.egress = false;
+            s.port = 8080;
+            serde_json::to_value(s).unwrap()
+        };
+        let harness = state["services"][0].clone();
+        state["services"] = json!([searxng, harness]); // the record an older release wrote: no connection on the harness
+        state["sidecars"] = json!({"searxng":{"mode":"bundled","timeoutMs":5000}});
+        fs::write(&path, serde_json::to_vec(&state).unwrap()).unwrap();
+        assert_ok(e.run(&["container", "down"]));
+        assert_ok(e.run(&["container", "up"]));
+        let harness_create = calls(&e)
+            .lines()
+            .rfind(|l| l.contains("\"create\"") && l.contains("plur1bus-harness"))
+            .unwrap()
+            .to_string();
+        assert!(
+            harness_create.contains("PLUR1BUS_SEARXNG_URL=http://192.168.88.2:8080"),
+            "{harness_create}"
+        );
+    }
 }
 
 #[cfg(unix)]
