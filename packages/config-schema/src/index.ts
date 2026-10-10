@@ -16,7 +16,7 @@ export interface MediaEmbeddingConfig {
 type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 
 export interface HarnessConfig {
-  containers?: { runtime: "auto" | "apple" | "docker"; image?: string; stateVolume: string; bindAddress: string; healthTimeoutMs: number };
+  containers?: { runtime: "auto" | "apple" | "docker"; image?: string; stateVolume: string; bindAddress: string; apiPort?: number; healthTimeoutMs: number };
   sidecars?: Record<string, { mode: "bundled" | "remote" | "off"; url?: string; caBundle?: string; fingerprint?: string; timeoutMs: number }>;
   $schema?: string;
   schemaVersion: 1;

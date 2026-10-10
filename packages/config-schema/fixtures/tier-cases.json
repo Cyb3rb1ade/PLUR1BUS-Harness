@@ -571,7 +571,7 @@
               "default": "plur1bus-state"
             },
             "bindAddress": {
-              "description": "Explicit loopback or private LAN API host binding; the runtime refuses public/wildcard addresses and publishes no API by default.",
+              "description": "Host address a published harness port is bound to (Docker `-p ADDR:HOST:CONTAINER`, Apple `--publish ADDR:HOST:CONTAINER`). Loopback by default. A private LAN, tailnet or unique-local address is accepted for a company network, with a security warning at install and in `container status`; the runtime refuses public and wildcard addresses. Only takes effect together with `containers.apiPort`: without it nothing is published.",
               "type": "string",
               "anyOf": [
                 {
@@ -590,6 +590,12 @@
                 ]
               },
               "default": "127.0.0.1"
+            },
+            "apiPort": {
+              "description": "Host port on which the harness API port (18700 inside the container) is published at `containers.bindAddress`. Absent: nothing is published. The API is never public and stays behind authentication.",
+              "type": "integer",
+              "minimum": 1024,
+              "maximum": 65535
             },
             "healthTimeoutMs": {
               "description": "Time allowed for a stack service to pass its health gate.",
