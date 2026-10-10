@@ -20,7 +20,9 @@ const SCENE_THRESHOLD = 0.3;
 const STDERR_CAP = 256 * 1024;
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 // Inputs may only be plain files or pipes, so a path can never turn into a network URL or a concat/subfile protocol.
-const SAFE_INPUT = ["-nostdin", "-hide_banner", "-protocol_whitelist", "file,pipe"];
+// `-format_whitelist` makes ffmpeg itself refuse hls, concat, dash, sdp and the like, even if a file passes the magic-byte check.
+const DEMUXERS = "mov,mp4,m4a,3gp,3g2,mj2,matroska,webm,avi,wav,aiff,ogg,flac,mp3,aac,flv,mpeg";
+const SAFE_INPUT = ["-nostdin", "-hide_banner", "-protocol_whitelist", "file,pipe", "-format_whitelist", DEMUXERS];
 
 /**
  * Playlist-like demuxers (HLS, concat, DASH, SDP, ...) let a crafted "media" file make ffmpeg read other local files, which the
@@ -157,7 +159,7 @@ export function createFfmpegPorts(opts: FfmpegPortsOptions): { frames: FrameExtr
 
   async function probeDuration(input: string): Promise<number | undefined> {
     if (!ffprobe) return undefined;
-    const p = new Proc(spawnFn, ffprobe, ["-v", "error", "-nostdin", "-protocol_whitelist", "file,pipe", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", "-i", input], { timeoutMs: Math.min(timeoutMs, 30_000), maxBytes: 64 * 1024 });
+    const p = new Proc(spawnFn, ffprobe, ["-v", "error", "-nostdin", "-protocol_whitelist", "file,pipe", "-format_whitelist", DEMUXERS, "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", "-i", input], { timeoutMs: Math.min(timeoutMs, 30_000), maxBytes: 64 * 1024 });
     try {
       let out = ""; for await (const c of p.chunks()) out += c.toString("latin1");
       await p.finish();
