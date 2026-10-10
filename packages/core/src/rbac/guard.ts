@@ -49,6 +49,14 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "media.output.list": rule("media.read", system),
   "media.output.delete": rule("media.write", system),
   "media.adapters.list": rule("media.read", system),
+  // Media index (image, video, audio search): search and status are open to every role including agents (the handler narrows the
+  // hits to what the caller may read); operating the index is Owner/Admin and people only; a caption edit needs edit rights on the medium.
+  "media.search": rule("media.index.read", system),
+  "media.index.status": rule("media.index.read", system),
+  "media.index.pause": rule("media.index.operate", system),
+  "media.index.resume": rule("media.index.operate", system),
+  "media.index.reindex": rule("media.index.operate", system),
+  "media.caption.set": rule("media.caption.write", system),
   "project.create": rule("project.create", system),
   "project.get": rule("project.surface.read", system),
   "project.list": rule("project.surface.read", system),

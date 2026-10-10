@@ -5,8 +5,10 @@ export type MediaKind = "image" | "video" | "audio";
 export type CaptionSource = "prompt" | "user" | "auto";
 export type Segment = { idx: number; startMs: number; endMs: number };
 
-/** Same visibility model as memory entries: the agent plus the principals whose entries the caller may read. */
-export type Scope = { agentId: string; principals: readonly string[] };
+import type { Principal } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
+
+/** Same visibility model as memory entries: the engine's own `Principal` (agent, workspace, optional user, trust). */
+export type Scope = Principal;
 
 export type IndexState = "indexed" | "pending" | "unsupported-kind" | "failed";
 export type BackfillState = "idle" | "running" | "paused" | "cancelled" | "done";

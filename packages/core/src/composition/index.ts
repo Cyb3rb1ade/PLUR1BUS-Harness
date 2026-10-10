@@ -35,6 +35,7 @@ import { ToolRegistry } from '../tools/registry.ts';
 import { createCollab, alsAgentScopePort, type Collab } from '../collab/index.ts';
 import { composedAgentRunner } from './collaboration.ts';
 import { legacyAdapter } from './legacy.ts';
+import { composeMediaSearch, mediaSearchMethods } from './media-search.ts';
 
 export interface CompositionOptions {
   /** Trusted in-process surfaces register here; no auth RPC is added. */
@@ -137,6 +138,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     });
     await mediaSurface.recover();
     disposers.push(() => mediaSurface.close());
+    const mediaSearch = await composeMediaSearch({ home: d.home, config: d.config, engine: d.engine, agents: d.agents, logger: d.logger, store: media?.store ?? null, budget }); disposers.push(() => mediaSearch.close());
     const profiles = options.providers?.profiles ?? (d.provider ? { default: [{ provider: 'fixture', model: 'gpt-4.1', adapter: legacyAdapter(d.provider) }] } : auth?.profiles ?? {});
     const classProfiles = cfg.decision.classProfiles as Record<string, string> | undefined;
     // Reserved `providers` namespace: `providers.modelProfilePolicy.<profile>.allowCrossBilling: true` opts one profile into
@@ -164,7 +166,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     sessions = openSessionService({ dbPath: join(d.home, 'state', 'sessions.sqlite'), clock: d.clock, logger: d.logger, agents: d.agents, isStopping: d.isStopping, memory, provider: () => provider, notify: d.notify, signal: d.signal, onSessionEnd: id => { void hostctl.endSession(id).catch(err => d.logger.warn('hostctl session cleanup failed', { err })); }, ...(d.approver ? { approver: d.approver } : {}) });
     let closed = false;
     const opened = sessions;
-    return { voice, openai, sessions: opened, collab, surfaceMethods: mediaSurface.methods, async close() {
+    return { voice, openai, sessions: opened, collab, surfaceMethods: { ...mediaSurface.methods, ...mediaSearchMethods({ home: d.home, config: d.config, agents: d.agents }, mediaSearch) }, async close() {
       if (closed) return; closed = true;
       await opened.close();
       for (const close of disposers.reverse()) try { await close(); } catch (e) { d.logger.warn('turn service shutdown failed', { err: e }); }
