@@ -1,0 +1,13 @@
+{
+  "id": "custom",
+  "image": "registry.example/sidecar@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "port": 8080,
+  "health_command": [
+    "/app/healthcheck"
+  ],
+  "memory": 268435456,
+  "pids": 128,
+  "user": "10001:10001",
+  "volumes": [],
+  "license": "REPLACE-WITH-SPDX"
+}

@@ -14,6 +14,12 @@ This document contains the help content for the `plur1bus` command-line program.
 
 * [`plur1bus`↴](#plur1bus)
 * [`plur1bus setup`↴](#plur1bus-setup)
+* [`plur1bus install`↴](#plur1bus-install)
+* [`plur1bus container`↴](#plur1bus-container)
+* [`plur1bus container status`↴](#plur1bus-container-status)
+* [`plur1bus container up`↴](#plur1bus-container-up)
+* [`plur1bus container down`↴](#plur1bus-container-down)
+* [`plur1bus container logs`↴](#plur1bus-container-logs)
 * [`plur1bus 1staid`↴](#plur1bus-1staid)
 * [`plur1bus 1staid check`↴](#plur1bus-1staid-check)
 * [`plur1bus 1staid repair`↴](#plur1bus-1staid-repair)
@@ -204,6 +210,8 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 ###### **Subcommands:**
 
 * `setup` — [experimental] Install the harness: Node runtime, core, config, skills, OS service, start and first check
+* `install` — [experimental] Install the harness on a host using a container runtime
+* `container` — Manage the host container stack
 * `1staid` — Check and repair the installation
 * `agent` — Agents (personas): list, create, remove, status
 * `memory` — Memory: add and recall through the core
@@ -268,6 +276,17 @@ Downloads the pinned Node runtime and the core payload and verifies their SHA-25
 
 ###### **Options:**
 
+* `--container` — Install in container mode on this host
+* `--container-manifest <MANIFEST>` — Signed release manifest path or HTTPS URL (default: the channel feed); used when no image is supplied
+* `--runtime <RUNTIME>` — Container runtime; automatic selection prefers Apple on macOS ARM
+
+  Possible values: `auto`, `apple`, `docker`
+
+* `--image <IMAGE>` — Image reference (production: registry/repository@sha256:digest)
+* `--image-from <IMAGE_FROM>` — Load an offline OCI/Docker image archive
+* `--sidecar <SIDECARS>` — Sidecar selection, repeatable: ID=bundled, ID=off, or ID=http(s)://HOST:PORT
+* `--container-plan` — Display detection and installation plan without changes
+* `--accept-runtime-download` — Consent to downloading the official runtime installer after viewing its licence
 * `--non-interactive` — Never prompt: answers come from the flags and the defaults (agent `main`, use class `general`)
 * `--accept-nc-licence` — Accept a non-commercial model licence (only needed when you opt into a CC BY-NC model such as Jina; the defaults are permissive)
 * `--no-service` — Do not register the OS service (the supervisor is still started for this session)
@@ -287,6 +306,88 @@ Downloads the pinned Node runtime and the core payload and verifies their SHA-25
 
   Possible values: `host`, `full`
 
+
+
+
+## `plur1bus install`
+
+[experimental] Install the harness on a host using a container runtime
+
+**Usage:** `plur1bus install [OPTIONS] --container`
+
+###### **Options:**
+
+* `--channel <CHANNEL>` — Signed release channel for the container image
+
+  Default value: `stable`
+
+  Possible values: `stable`, `beta`
+
+* `--container` — Select container distribution
+* `--container-manifest <MANIFEST>` — Signed release manifest path or HTTPS URL (default: the channel feed); used when no image is supplied
+* `--runtime <RUNTIME>` — Container runtime; automatic selection prefers Apple on macOS ARM
+
+  Possible values: `auto`, `apple`, `docker`
+
+* `--image <IMAGE>` — Image reference (production: registry/repository@sha256:digest)
+* `--image-from <IMAGE_FROM>` — Load an offline OCI/Docker image archive
+* `--sidecar <SIDECARS>` — Sidecar selection, repeatable: ID=bundled, ID=off, or ID=http(s)://HOST:PORT
+* `--container-plan` — Display detection and installation plan without changes
+* `--accept-runtime-download` — Consent to downloading the official runtime installer after viewing its licence
+* `--non-interactive` — Apply without prompting (runtime download still requires separate consent)
+
+
+
+## `plur1bus container`
+
+Manage the host container stack
+
+**Usage:** `plur1bus container <COMMAND>`
+
+###### **Subcommands:**
+
+* `status` — [experimental] Diagnose runtime and show container stack status
+* `up` — [experimental] Start the configured stack and check its health
+* `down` — [experimental] Stop and remove owned containers, retain state volumes
+* `logs` — [experimental] Stream one service's logs (JSON lines with --json)
+
+
+
+## `plur1bus container status`
+
+[experimental] Diagnose runtime and show container stack status
+
+**Usage:** `plur1bus container status`
+
+
+
+## `plur1bus container up`
+
+[experimental] Start the configured stack and check its health
+
+**Usage:** `plur1bus container up`
+
+
+
+## `plur1bus container down`
+
+[experimental] Stop and remove owned containers, retain state volumes
+
+**Usage:** `plur1bus container down`
+
+
+
+## `plur1bus container logs`
+
+[experimental] Stream one service's logs (JSON lines with --json)
+
+**Usage:** `plur1bus container logs [SERVICE]`
+
+###### **Arguments:**
+
+* `<SERVICE>`
+
+  Default value: `plur1bus-harness`
 
 
 

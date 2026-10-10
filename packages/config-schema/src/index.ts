@@ -6,6 +6,8 @@ export const CONFIG_SCHEMA = schemaJson as Record<string, any>;
 export const SCHEMA_VERSION = 1 as const;
 
 export interface HarnessConfig {
+  containers?: { runtime: "auto" | "apple" | "docker"; image?: string; stateVolume: string; bindAddress: string; healthTimeoutMs: number };
+  sidecars?: Record<string, { mode: "bundled" | "remote" | "off"; url?: string; caBundle?: string; fingerprint?: string; timeoutMs: number }>;
   $schema?: string;
   schemaVersion: 1;
   tools: { hostctl: { enabled: boolean; shell: { allowed: boolean; default: "bash" | "zsh" | "pwsh" }; exec: { timeoutMs: number }; output: { maxBytes: number }; env: { allow: string[] }; denyPatterns: string[]; search: { maxResults: number } } };

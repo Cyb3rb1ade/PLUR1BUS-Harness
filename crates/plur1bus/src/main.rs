@@ -4,6 +4,8 @@ mod cli;
 mod coexistence;
 mod commands;
 mod container;
+#[path = "commands/container.rs"]
+mod container_commands;
 mod ext;
 mod firstaid_bundle;
 mod identity;
@@ -37,6 +39,21 @@ fn main() {
         }
         Cmd::Completions { shell } => commands::completions::run(shell),
         Cmd::Manpages { dir } => commands::completions::manpages(&out, &dir),
+        Cmd::Install(args) => install::containers::run(
+            &out,
+            &layout,
+            args.options,
+            args.non_interactive,
+            &args.channel,
+        ),
+        Cmd::Setup(args) if args.container => install::containers::run(
+            &out,
+            &layout,
+            args.container_options,
+            args.non_interactive,
+            &args.channel,
+        ),
+        Cmd::Container { sub } => container_commands::run(&out, &layout, sub),
         Cmd::Setup(args) => commands::setup::run(&out, &layout, args),
         Cmd::FirstAid {
             sub: cli::FirstAidCmd::Repair(args),
@@ -47,6 +64,11 @@ fn main() {
         Cmd::Backup { sub } => commands::backup::run(&out, &layout, sub),
         Cmd::Daemon { sub } => commands::daemon::run(&out, &layout, sub),
         Cmd::Service { sub } => commands::service::run(&out, &layout, sub),
+        Cmd::Update(args)
+            if update::containers::installed(&layout) && !container::container_mode() =>
+        {
+            update::containers::run(&out, &layout, args)
+        }
         Cmd::Update(args) => commands::update::run(&out, &layout, args),
         Cmd::User { sub } => commands::user::run(&out, &layout, sub),
         Cmd::Model { sub } => commands::model::run(&out, &layout, sub),

@@ -63,6 +63,13 @@ pub enum Cmd {
     /// (asking only the basic-tier questions), copies the bundled skills, registers the OS service, starts the
     /// supervisor and runs `1staid check`. Safe to run again: a step whose result is already installed is skipped.
     Setup(SetupArgs),
+    /// [experimental] Install the harness on a host using a container runtime
+    Install(ContainerInstallArgs),
+    /// Manage the host container stack
+    Container {
+        #[command(subcommand)]
+        sub: ContainerCmd,
+    },
     /// Check and repair the installation
     #[command(name = "1staid")]
     FirstAid {
@@ -349,6 +356,11 @@ pub enum OnConflict {
 /// `plur1bus setup` (spec §6.5, HB11).
 #[derive(Args, Debug)]
 pub struct SetupArgs {
+    /// Install in container mode on this host
+    #[arg(long)]
+    pub container: bool,
+    #[command(flatten)]
+    pub container_options: ContainerOptions,
     /// Never prompt: answers come from the flags and the defaults (agent `main`, use class `general`)
     #[arg(long)]
     pub non_interactive: bool,
@@ -1876,5 +1888,58 @@ pub enum PairCmd {
         pairing: String,
         #[arg(long)]
         reject: bool,
+    },
+}
+
+#[derive(Args, Debug)]
+pub struct ContainerInstallArgs {
+    /// Signed release channel for the container image
+    #[arg(long, value_parser = ["stable", "beta"], default_value = "stable")]
+    pub channel: String,
+    /// Select container distribution
+    #[arg(long, required = true)]
+    pub container: bool,
+    #[command(flatten)]
+    pub options: ContainerOptions,
+    /// Apply without prompting (runtime download still requires separate consent)
+    #[arg(long)]
+    pub non_interactive: bool,
+}
+#[derive(Args, Debug, Default)]
+pub struct ContainerOptions {
+    /// Signed release manifest path or HTTPS URL (default: the channel feed); used when no image is supplied
+    #[arg(long = "container-manifest")]
+    pub manifest: Option<String>,
+    /// Container runtime; automatic selection prefers Apple on macOS ARM
+    #[arg(long, value_parser = ["auto", "apple", "docker"])]
+    pub runtime: Option<String>,
+    /// Image reference (production: registry/repository@sha256:digest)
+    #[arg(long)]
+    pub image: Option<String>,
+    /// Load an offline OCI/Docker image archive
+    #[arg(long)]
+    pub image_from: Option<PathBuf>,
+    /// Sidecar selection, repeatable: ID=bundled, ID=off, or ID=http(s)://HOST:PORT
+    #[arg(long = "sidecar")]
+    pub sidecars: Vec<String>,
+    /// Display detection and installation plan without changes
+    #[arg(long = "container-plan")]
+    pub plan: bool,
+    /// Consent to downloading the official runtime installer after viewing its licence
+    #[arg(long)]
+    pub accept_runtime_download: bool,
+}
+#[derive(Subcommand, Debug)]
+pub enum ContainerCmd {
+    /// [experimental] Diagnose runtime and show container stack status
+    Status,
+    /// [experimental] Start the configured stack and check its health
+    Up,
+    /// [experimental] Stop and remove owned containers, retain state volumes
+    Down,
+    /// [experimental] Stream one service's logs (JSON lines with --json)
+    Logs {
+        #[arg(default_value = "plur1bus-harness")]
+        service: String,
     },
 }
