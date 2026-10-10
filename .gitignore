@@ -169,4 +169,3 @@ __pycache__/
 /fuzz/target/
 /fuzz/corpus/
 /fuzz/artifacts/
-/fuzz/Cargo.lock
