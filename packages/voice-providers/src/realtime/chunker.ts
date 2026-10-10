@@ -21,6 +21,7 @@ export interface ChunkerOptions {
 
 export class SentenceChunker {
   private buffer = "";
+  private searchStartIndex = 0;
   private readonly maxWords: number;
 
   constructor(options: ChunkerOptions = {}) {
@@ -37,6 +38,7 @@ export class SentenceChunker {
   flush(): string[] {
     const out = this.drain(true);
     this.buffer = "";
+    this.searchStartIndex = 0;
     return out;
   }
 
@@ -47,20 +49,31 @@ export class SentenceChunker {
 
   reset(): void {
     this.buffer = "";
+    this.searchStartIndex = 0;
   }
 
   private drain(final: boolean): string[] {
     const out: string[] = [];
     for (;;) {
-      const end = findBoundary(this.buffer);
-      if (end === undefined) break;
+      const boundaryRes = findBoundary(this.buffer, this.searchStartIndex);
+      if (boundaryRes.boundary === undefined) {
+        this.searchStartIndex = boundaryRes.nextStartIndex;
+        break;
+      }
+      const end = boundaryRes.boundary;
       const sentence = this.buffer.slice(0, end).trim();
       this.buffer = this.buffer.slice(end);
+      this.searchStartIndex = 0;
       if (sentence !== "") out.push(...splitLong(sentence, this.maxWords, true).chunks);
     }
     const r = splitLong(this.buffer, this.maxWords, final);
     out.push(...r.chunks);
     this.buffer = r.rest;
+    if (this.buffer !== "") {
+      this.searchStartIndex = Math.min(this.searchStartIndex, this.buffer.length);
+    } else {
+      this.searchStartIndex = 0;
+    }
     return out;
   }
 }
@@ -71,12 +84,13 @@ export function chunkSentences(text: string, options: ChunkerOptions = {}): stri
   return [...c.push(text), ...c.flush()];
 }
 
-/** Index just after the first valid sentence boundary, or undefined. */
-function findBoundary(text: string): number | undefined {
-  for (let i = 0; i < text.length; i++) {
+/** Index just after the first valid sentence boundary, or undefined, plus next search start index. */
+function findBoundary(text: string, startIndex = 0): { boundary: number | undefined; nextStartIndex: number } {
+  let lastChecked = Math.max(0, Math.min(startIndex, text.length));
+  for (let i = lastChecked; i < text.length; i++) {
     const ch = text[i]!;
     if (ch === "\n") {
-      if (text.slice(0, i).trim() !== "") return i + 1;
+      if (text.slice(0, i).trim() !== "") return { boundary: i + 1, nextStartIndex: 0 };
       continue;
     }
     if (!TERMINATORS.has(ch)) continue;
@@ -84,17 +98,18 @@ function findBoundary(text: string): number | undefined {
     while (j < text.length && (TERMINATORS.has(text[j]!) || CLOSERS.has(text[j]!))) j++;
     if (j >= text.length) {
       // The terminator run touches the buffer end: wait for the next delta (the final flush emits the remainder).
-      return undefined;
+      // Next time, start search from i.
+      return { boundary: undefined, nextStartIndex: i };
     }
     if (!/\s/.test(text[j]!)) { i = j - 1; continue; }
     if (ch === ".") {
       const stop = isRealStop(text, i, j);
-      if (stop === "wait") return undefined;
+      if (stop === "wait") return { boundary: undefined, nextStartIndex: i };
       if (!stop) { i = j - 1; continue; }
     }
-    return j;
+    return { boundary: j, nextStartIndex: 0 };
   }
-  return undefined;
+  return { boundary: undefined, nextStartIndex: Math.max(0, text.length - 1) };
 }
 
 /** Decide whether the "." at index i (run ends before j) closes a sentence. */

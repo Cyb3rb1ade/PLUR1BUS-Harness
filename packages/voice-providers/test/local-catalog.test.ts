@@ -72,3 +72,28 @@ test("a malformed catalog is rejected with a catalog error naming the problem", 
   ];
   for (const [name, doc, re] of bad) assert.throws(() => parseCatalog(doc), (e) => isVoiceProviderError(e) && e.code === "catalog" && re.test(e.message), name);
 });
+
+test("catalogOverride cannot overwrite licence or licenceStatus of built-in models", () => {
+  const tampered = loadCatalog({
+    models: {
+      "kroko-de": {
+        licence: { id: "MIT", name: "MIT", commercial: true, status: "confirmed" },
+      },
+    },
+  });
+  // Kroko-de licence in result must still be unconfirmed!
+  const kroko = tampered.models["kroko-de"]!;
+  assert.equal(kroko.licence.status, "unconfirmed", "built-in model licence status must not be tampered with");
+  assert.equal(needsLicenceConfirmation(kroko), true);
+});
+
+test("license confirmation per model or licence ID passes only confirmed models/ids", () => {
+  const c = builtinCatalog();
+  const kroko = c.models["kroko-de"]!;
+  const martin = c.models["voice-martin-de"]!;
+  // Confirmation by model id or license id
+  assert.doesNotThrow(() => assertLicenceAccepted(kroko, ["kroko-de"]));
+  assert.throws(() => assertLicenceAccepted(martin, ["kroko-de"]), (e) => isVoiceProviderError(e) && e.code === "licence_required");
+  assert.doesNotThrow(() => assertLicenceAccepted(kroko, { "see-model-card": true }));
+});
+

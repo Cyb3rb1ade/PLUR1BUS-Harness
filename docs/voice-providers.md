@@ -20,9 +20,15 @@ Every provider is off until `enabled` is true. The registry (`createVoiceProvide
 2. Set `enabled` to true. Optional: `region` (ElevenLabs: `default`, `us`, `eu`, `in`), `baseUrl` (https only, or loopback for a local relay), `defaultVoice`, `defaultModel`.
 3. Polly takes no key. It uses the AWS SDK default credential chain (environment, shared config, SSO profile, instance role). `voice.providers.polly.credentials.profile` names a shared-config profile. Install the optional peers `@aws-sdk/client-polly` and `@aws-sdk/credential-providers`.
 
-## Privacy
+## Egress allowlist declarations
 
-- The provider key never appears in results returned to clients, in log lines, in error messages or in snapshots. Errors are scrubbed of the key, and the HTTP logger never writes a query string.
+Following the pattern in `packages/embedding-adapters`, `voiceEgressHosts(config)` and `egressHosts(config)` declare the vendor hosts for enabled cloud providers (ElevenLabs, xAI Grok, Gemini Live, Polly) without enforcing network policy directly. `toEgressConfig(decl)` generates ready-to-merge allowlist entries for core's egress controller.
+
+## Privacy & Network Hardening
+
+- The provider key never appears in results returned to clients, in log lines, in error messages or in snapshots. Errors are scrubbed of the key, Gemini keys are passed in request headers when supported (and stripped/redacted from URLs in error logs), and the HTTP logger never writes a query string.
+- Upstream WebSocket frames and JSON payloads are guarded with defensive parsing (`upstream_protocol` error code) so hostile or malformed frames from an upstream provider do not throw unhandled exceptions or crash the session.
+- The built-in RFC 6455 client strictly enforces maximum payload limits (1009), control frame size constraints (<= 125 bytes, non-fragmented), reserved bits (RSV == 0), close handshakes with timeouts, UTF-8 validity (1007), and keepalive pings.
 - ElevenLabs `zeroRetention` asks the vendor not to log or retain request content. Use the `eu` or `in` region for data residency.
 - Redirects are refused. A non-https `baseUrl` is accepted only for loopback.
 - Cloud audio leaves the machine. The local tier (`docs/voice-local.md`) does not.
@@ -33,7 +39,7 @@ That mode makes the vendor call a model endpoint that we expose, which needs a p
 
 ## Errors and usage
 
-All providers throw `VoiceProviderError` with a stable `code`: `auth`, `rate_limited`, `overloaded`, `invalid_request`, `unsupported`, `network`, `timeout`, `aborted`, `bad_response`, `closed`, `unavailable`, `licence_required`, `download_failed`, `checksum_mismatch`, `catalog`, `config`. HTTP calls honour `Retry-After`. Each call reports a `UsageReport` (characters, seconds, tokens where the vendor says so, absent otherwise). `toVoiceUsage` maps it onto core's `VoiceUsage` for `VoiceBudgetPort.record`.
+All providers throw `VoiceProviderError` with a stable `code`: `auth`, `rate_limited`, `overloaded`, `invalid_request`, `unsupported`, `network`, `timeout`, `aborted`, `bad_response`, `closed`, `unavailable`, `licence_required`, `download_failed`, `checksum_mismatch`, `catalog`, `config`, `upstream_protocol`. HTTP calls honour `Retry-After`. Each call reports a `UsageReport` (characters, seconds, tokens where the vendor says so, absent otherwise). Gemini usage is deduplicated across streaming turns. `toVoiceUsage` maps it onto core's `VoiceUsage` for `VoiceBudgetPort.record`.
 
 ## Verify at integration
 

@@ -80,7 +80,14 @@ export interface LocalVoiceState {
 }
 export type Capability = { state: "unavailable"; message: string } | { state: "idle"; message: string } | { state: "ready"; message: string; language: string; profile: Profile };
 
-interface Loaded { state: LocalVoiceState; asr: LoadedAsr; tts: LoadedTts; vad: LoadedVad }
+interface Loaded {
+  state: LocalVoiceState;
+  asr: LoadedAsr;
+  tts: LoadedTts;
+  vad: LoadedVad;
+  refCount: number;
+  retired: boolean;
+}
 
 export class LocalVoice {
   private readonly o: LocalVoiceOptions;
@@ -90,6 +97,7 @@ export class LocalVoice {
   private readonly dir: string;
   private readonly log: Logger;
   private loaded: Loaded | undefined;
+  private readonly retired: Set<Loaded> = new Set();
   private chain: Promise<unknown> = Promise.resolve();
   readonly asr: AsrProvider;
   readonly tts: TtsProvider;
@@ -105,7 +113,28 @@ export class LocalVoice {
       if (!this.loaded) throw new VoiceProviderError("unavailable", "local voice: no language is loaded; call setLanguage() first");
       return this.loaded;
     };
-    this.asr = createLocalAsr(() => ({ asr: need().asr, model: need().state.stt }), o.usage);
+    this.asr = createLocalAsr(
+      () => ({ asr: need().asr, model: need().state.stt }),
+      o.usage,
+      {
+        onStreamOpen: (asr) => {
+          const target = [this.loaded, ...this.retired].find((l) => l && l.asr === asr);
+          if (target) {
+            target.refCount++;
+            return () => {
+              target.refCount--;
+              if (target.retired && target.refCount <= 0) {
+                this.retired.delete(target);
+                target.asr.dispose();
+                target.tts.dispose();
+                target.vad.dispose();
+              }
+            };
+          }
+          return () => {};
+        },
+      },
+    );
     this.tts = createLocalTts(() => ({ tts: need().tts, model: need().state.tts }), o.usage);
   }
 
@@ -223,8 +252,17 @@ export class LocalVoice {
     }
     const old = this.loaded;
     const state: LocalVoiceState = { language: code, profile, stt: sel.stt, tts, vad: sel.vad, usedTtsFallback: usedFallback };
-    this.loaded = { state, asr: parts.asr, tts: parts.tts, vad: parts.vad };
-    old?.asr.dispose(); old?.tts.dispose(); old?.vad.dispose();
+    this.loaded = { state, asr: parts.asr, tts: parts.tts, vad: parts.vad, refCount: 0, retired: false };
+    if (old) {
+      if (old.refCount > 0) {
+        old.retired = true;
+        this.retired.add(old);
+      } else {
+        old.asr.dispose();
+        old.tts.dispose();
+        old.vad.dispose();
+      }
+    }
     this.log.debug("local voice language set", { language: code, profile, fallback: usedFallback });
     return state;
   }
@@ -251,7 +289,19 @@ export class LocalVoice {
   unload(): void {
     const l = this.loaded;
     this.loaded = undefined;
-    l?.asr.dispose(); l?.tts.dispose(); l?.vad.dispose();
+    l?.asr.dispose();
+    l?.tts.dispose();
+    l?.vad.dispose();
+  }
+
+  dispose(): void {
+    this.unload();
+    for (const r of this.retired) {
+      r.asr.dispose();
+      r.tts.dispose();
+      r.vad.dispose();
+    }
+    this.retired.clear();
   }
 }
 

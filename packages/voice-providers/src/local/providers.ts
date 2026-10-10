@@ -38,7 +38,11 @@ export function resample(samples: Float32Array, from: number, to: number): Float
 const ID = "local";
 const REC_RATE = 16000;
 
-export function createLocalAsr(get: () => { asr: LoadedAsr; model: CatalogModel }, onUsage?: (r: UsageReport) => void): AsrProvider {
+export function createLocalAsr(
+  get: () => { asr: LoadedAsr; model: CatalogModel },
+  onUsage?: (r: UsageReport) => void,
+  hooks?: { onStreamOpen?: (asr: LoadedAsr) => () => void },
+): AsrProvider {
   return {
     id: ID,
     kind: "asr",
@@ -59,6 +63,7 @@ export function createLocalAsr(get: () => { asr: LoadedAsr; model: CatalogModel 
 
     async openStream(options: AsrStreamOptions = {}): Promise<AsrSession> {
       const { asr } = get();
+      const release = hooks?.onStreamOpen?.(asr);
       const rate = options.sampleRate ?? REC_RATE;
       const q = new AsyncQueue<AsrEvent>();
       let closed = false;
@@ -89,7 +94,11 @@ export function createLocalAsr(get: () => { asr: LoadedAsr; model: CatalogModel 
         async close() {
           if (closed) return;
           closed = true;
-          st?.dispose();
+          try {
+            st?.dispose();
+          } finally {
+            release?.();
+          }
           q.push({ type: "closed" });
           q.end();
         },

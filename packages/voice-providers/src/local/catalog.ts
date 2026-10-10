@@ -100,7 +100,30 @@ export function parseCatalog(raw: unknown): Catalog {
 export function mergeCatalog(base: Catalog, override: unknown): Catalog {
   if (override === undefined || override === null) return base;
   if (!isObj(override)) return fail("catalogOverride is not an object");
-  return parseCatalog({ version: 1, vad: override["vad"] ?? base.vad, models: { ...base.models, ...(isObj(override["models"]) ? override["models"] : {}) }, languages: { ...base.languages, ...(isObj(override["languages"]) ? override["languages"] : {}) } });
+  const baseModels = base.models;
+  const overrideModels = isObj(override["models"]) ? (override["models"] as Record<string, unknown>) : {};
+  const mergedModels: Record<string, unknown> = { ...baseModels };
+
+  for (const [id, ov] of Object.entries(overrideModels)) {
+    if (!isObj(ov)) continue;
+    const existing = baseModels[id];
+    if (existing) {
+      // Built-in model: deep copy existing fields, but NEVER let override tamper with licence fields (F10)
+      const merged = { ...existing, ...ov };
+      // Always restore base licence
+      merged.licence = existing.licence;
+      mergedModels[id] = merged;
+    } else {
+      mergedModels[id] = ov;
+    }
+  }
+
+  return parseCatalog({
+    version: 1,
+    vad: override["vad"] ?? base.vad,
+    models: mergedModels,
+    languages: { ...base.languages, ...(isObj(override["languages"]) ? override["languages"] : {}) },
+  });
 }
 
 let builtin: Catalog | undefined;
@@ -150,7 +173,17 @@ export function licenceNotice(m: CatalogModel): string {
 }
 
 /** The same gate as embeddings: refuse unless the owner confirmed non-commercial / unconfirmed terms. */
-export function assertLicenceAccepted(m: CatalogModel, accepted: boolean): void {
-  if (!needsLicenceConfirmation(m) || accepted) return;
+export function assertLicenceAccepted(
+  m: CatalogModel,
+  accepted: boolean | string[] | readonly string[] | Record<string, boolean> | undefined,
+): void {
+  if (!needsLicenceConfirmation(m)) return;
+  if (accepted === true) return;
+  if (Array.isArray(accepted)) {
+    if (accepted.includes(m.id) || accepted.includes(m.licence.id)) return;
+  } else if (isObj(accepted)) {
+    const map = accepted as Record<string, boolean>;
+    if (map[m.id] === true || map[m.licence.id] === true) return;
+  }
   throw new VoiceProviderError("licence_required", `licence confirmation required before using ${licenceNotice(m)}`);
 }

@@ -191,3 +191,80 @@ test("the endpointing window is configurable per detector", () => {
     assert.deepEqual(types(), ["user_speaking", "turn_end"]);
   } finally { done(); }
 });
+
+test("minTranscriptLength: empty or too short transcript does not emit turn_end", () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  const out: TurnOutput[] = [];
+  const d = createTurnDetector({ endpointingMs: 400, speculativeTurnStart: false, ackSound: false, minTranscriptLength: 3, emit: (e) => out.push(e) });
+  try {
+    d.push({ type: "speech_start" });
+    d.push({ type: "transcript", text: "  ", final: true }); // empty trimmed
+    d.push({ type: "speech_end" });
+    mock.timers.tick(400);
+    assert.equal(out.some((e) => e.type === "turn_end"), false, "whitespace-only transcript must not emit turn_end");
+    assert.equal(d.state, "idle");
+
+    // Utterance with text shorter than minTranscriptLength (e.g. "hi" length 2 < 3)
+    out.length = 0;
+    d.push({ type: "speech_start" });
+    d.push({ type: "transcript", text: "hi", final: true });
+    d.push({ type: "speech_end" });
+    mock.timers.tick(400);
+    assert.equal(out.some((e) => e.type === "turn_end"), false, "transcript shorter than minTranscriptLength must not emit turn_end");
+    assert.equal(d.state, "idle");
+
+    // Utterance meeting minTranscriptLength
+    out.length = 0;
+    d.push({ type: "speech_start" });
+    d.push({ type: "transcript", text: "hallo", final: true });
+    d.push({ type: "speech_end" });
+    mock.timers.tick(400);
+    const end = out.find((e) => e.type === "turn_end");
+    assert.ok(end, "valid transcript emits turn_end");
+    assert.equal((end as any).transcript, "hallo");
+  } finally { mock.timers.reset(); }
+});
+
+test("accumulation of multiple finals within an utterance", () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  const out: TurnOutput[] = [];
+  const d = createTurnDetector({ endpointingMs: 400, speculativeTurnStart: false, ackSound: false, emit: (e) => out.push(e) });
+  try {
+    d.push({ type: "speech_start" });
+    d.push({ type: "transcript", text: "Erster Satz.", final: true });
+    d.push({ type: "transcript", text: "Zweiter Satz.", final: true });
+    d.push({ type: "speech_end" });
+    mock.timers.tick(400);
+    const end = out.find((e) => e.type === "turn_end");
+    assert.ok(end);
+    assert.equal((end as any).transcript, "Erster Satz. Zweiter Satz.");
+  } finally { mock.timers.reset(); }
+});
+
+test("outdated agent_audio_end from an earlier turn does not prematurely end a newer response", () => {
+  const { d } = rig({ endpointingMs: 400 });
+  try {
+    d.push({ type: "speech_start" });
+    d.push({ type: "transcript", text: "turn 1", final: true });
+    d.push({ type: "speech_end" });
+    mock.timers.tick(400);
+    assert.equal(d.state, "responding");
+    d.push({ type: "agent_audio_start" });
+    assert.equal(d.state, "agent_speaking");
+
+    // User barges in, starts turn 2
+    d.push({ type: "speech_start" });
+    assert.equal(d.state, "user_speaking");
+    d.push({ type: "transcript", text: "turn 2", final: true });
+    d.push({ type: "speech_end" });
+    mock.timers.tick(400);
+    assert.equal(d.state, "responding");
+
+    // An outdated agent_audio_end arrives from turn 1's aborted playback:
+    // (If passed with a turn sequence id or if arriving while turn 2 is responding, it must not reset state to idle)
+    // Even if agent_audio_end arrives, if turn 2 is responding and hasn't started its audio, it should not reset to idle
+    d.push({ type: "agent_audio_end" });
+    assert.equal(d.state, "responding", "outdated audio_end should not reset responding turn to idle");
+  } finally { done(); }
+});
+

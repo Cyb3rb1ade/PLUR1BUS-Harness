@@ -17,3 +17,5 @@ export { SentenceChunker, chunkSentences, type ChunkerOptions } from "./realtime
 export { createTurnDetector, type TurnDetector, type TurnDetectorOptions, type TurnEvent, type TurnOutput, type TurnState } from "./realtime/endpointing.ts";
 export { FeatureLatencyRecorder, type LatencyReport, type FeatureStats, type Stats } from "./realtime/latency.ts";
 export { FEATURE_NAMES, LOCAL_REALTIME_DEFAULTS, createFeatureRunner, resolveProfile, type BudgetResult, type FeatureEvent, type FeatureMode, type FeatureName, type FeatureRunner, type FeatureRunnerOptions, type FeatureSetting, type LocalRealtimeConfig, type LocalRealtimeProfile } from "./realtime/profile.ts";
+export { egressHosts, toEgressConfig, voiceEgressHosts, type EgressConfigShape, type EgressDeclaration, type EgressHost } from "./egress.ts";
+

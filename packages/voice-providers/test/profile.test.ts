@@ -163,3 +163,52 @@ test("when the local-realtime profile is not enabled every feature runs normally
     assert.ok(events.every((e) => e.type === "feature.completed"));
   } finally { mock.timers.reset(); }
 });
+
+test("drainDeferred: abort before dequeue checks signal and emits feature.dropped (does not silently discard)", async () => {
+  const { r, events } = runner(on());
+  const ran: string[] = [];
+  r.defer("memoryWrite", async () => { ran.push("write"); });
+  r.defer("compaction", async () => { ran.push("compact"); });
+  r.defer("postTurnRefine", async () => { ran.push("refine"); });
+  const ctl = new AbortController();
+  const drainP = r.drainDeferred(ctl.signal);
+  ctl.abort();
+  await drainP;
+  // Any remaining jobs not run must either remain in queue or emit feature.dropped, never silently discarded
+  assert.equal(events.some((e) => (e as any).type === "feature.dropped"), true, "dropped event must be emitted for jobs skipped due to abort");
+});
+
+test("runWithBudget: synchronous throw returns { ok: false, reason: 'error' } instead of rejecting", async () => {
+  const { r, events } = runner(on());
+  // Synchronous throw (not returning a rejected promise):
+  const res = await r.runWithBudget("autoRecall", () => {
+    throw new Error("sync crash");
+  });
+  assert.equal(res.ok, false);
+  assert.equal((res as any).reason, "error");
+  assert.equal(events.some((e) => e.type === "feature.failed"), true);
+});
+
+test("runWithBudget: abort is respected even when maxMs is undefined (profile disabled or no budget)", async () => {
+  const { r } = runner(resolveProfile({ enabled: false }));
+  const ctl = new AbortController();
+  ctl.abort();
+  const res = await r.runWithBudget("autoRecall", async () => "should not run", ctl.signal);
+  assert.deepEqual(res, { ok: false, reason: "aborted" });
+});
+
+test("feature 'on' without maxMs gets default budget from LOCAL_REALTIME_DEFAULTS", () => {
+  // If user configures autoRecall: "on" or { mode: "on" } without specifying maxMs, it inherits default maxMs
+  const p = resolveProfile({ enabled: true, features: { autoRecall: "on", promptEnrichment: { mode: "on" } } });
+  assert.equal(p.features.autoRecall.maxMs, 30);
+  assert.equal(p.features.promptEnrichment.maxMs, 10);
+});
+
+test("perAgent block validates keys like base keys: endpointingMs, sentenceChunking.maxWords", () => {
+  assert.throws(() => resolveProfile({ perAgent: { agent1: { endpointingMs: -10 } } }, "agent1"), /invalid endpointingMs/);
+  assert.throws(() => resolveProfile({ perAgent: { agent1: { endpointingMs: 20 } } }, "agent1"), /invalid endpointingMs/);
+  assert.throws(() => resolveProfile({ perAgent: { agent1: { sentenceChunking: { maxWords: 1 } } } }, "agent1"), /invalid sentenceChunking/);
+  const p = resolveProfile({ perAgent: { agent1: { endpointingMs: 250 } } }, "agent1");
+  assert.equal(p.endpointingMs, 250);
+});
+

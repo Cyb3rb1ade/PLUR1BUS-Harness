@@ -29,6 +29,7 @@ export interface TurnDetectorOptions {
   endpointingMs: number;
   speculativeTurnStart: boolean;
   ackSound: boolean;
+  minTranscriptLength?: number;
   emit: (output: TurnOutput) => void;
   setTimeout?: (fn: () => void, ms: number) => unknown;
   clearTimeout?: (handle: unknown) => void;
@@ -44,11 +45,15 @@ export interface TurnDetector {
 export function createTurnDetector(o: TurnDetectorOptions): TurnDetector {
   const set = o.setTimeout ?? ((fn, ms) => setTimeout(fn, ms));
   const clear = o.clearTimeout ?? ((h) => clearTimeout(h as ReturnType<typeof setTimeout>));
+  const minLen = o.minTranscriptLength ?? 0;
   let state: TurnState = "idle";
   let timer: unknown;
   let text = "";
+  let accumulatedFinals = "";
   let finalSeen = false;
   let speculativeText: string | undefined;
+
+  const currentFullText = () => (accumulatedFinals ? (text ? `${accumulatedFinals} ${text}` : accumulatedFinals) : text).trim();
 
   const stopTimer = () => { if (timer !== undefined) { clear(timer); timer = undefined; } };
   const cancelSpeculation = (reason: "speech_resumed" | "transcript_changed" | "barge_in") => {
@@ -57,21 +62,29 @@ export function createTurnDetector(o: TurnDetectorOptions): TurnDetector {
     o.emit({ type: "speculative_cancel", reason });
   };
   const maybeStartSpeculation = () => {
-    if (!o.speculativeTurnStart || state !== "endpointing" || !finalSeen || text.trim() === "") return;
-    if (speculativeText === text) return;
+    const full = currentFullText();
+    if (!o.speculativeTurnStart || state !== "endpointing" || !finalSeen || full.length < minLen) return;
+    if (speculativeText === full) return;
     if (speculativeText !== undefined) cancelSpeculation("transcript_changed");
-    speculativeText = text;
-    o.emit({ type: "speculative_start", transcript: text });
+    speculativeText = full;
+    o.emit({ type: "speculative_start", transcript: full });
   };
   const fire = () => {
     timer = undefined;
     if (state !== "endpointing") return;
-    const transcript = text;
+    const transcript = currentFullText();
+    text = "";
+    accumulatedFinals = "";
+    finalSeen = false;
+    if (transcript.length < minLen) {
+      if (speculativeText !== undefined) cancelSpeculation("transcript_changed");
+      speculativeText = undefined;
+      state = "idle";
+      return;
+    }
     const speculative = speculativeText !== undefined && speculativeText === transcript;
     if (speculativeText !== undefined && !speculative) cancelSpeculation("transcript_changed");
     speculativeText = undefined;
-    text = "";
-    finalSeen = false;
     state = "responding";
     if (o.ackSound) o.emit({ type: "ack_sound" });
     o.emit({ type: "turn_end", transcript, speculative });
@@ -87,7 +100,7 @@ export function createTurnDetector(o: TurnDetectorOptions): TurnDetector {
             const from = state;
             cancelSpeculation("barge_in");
             o.emit({ type: "barge_in", from });
-            text = ""; finalSeen = false;
+            text = ""; accumulatedFinals = ""; finalSeen = false;
             state = "user_speaking";
             o.emit({ type: "user_speaking" });
           } else if (state === "endpointing") {
@@ -95,7 +108,7 @@ export function createTurnDetector(o: TurnDetectorOptions): TurnDetector {
             cancelSpeculation("speech_resumed");
             state = "user_speaking";
           } else if (state === "idle") {
-            text = ""; finalSeen = false;
+            text = ""; accumulatedFinals = ""; finalSeen = false;
             state = "user_speaking";
             o.emit({ type: "user_speaking" });
           }
@@ -109,23 +122,39 @@ export function createTurnDetector(o: TurnDetectorOptions): TurnDetector {
           return;
         case "transcript":
           if (state === "idle" || state === "responding" || state === "agent_speaking") return;
-          text = e.text;
-          finalSeen = e.final;
+          if (e.final) {
+            const incoming = e.text.trim();
+            if (incoming) {
+              if (!accumulatedFinals) {
+                accumulatedFinals = incoming;
+              } else if (incoming.startsWith(accumulatedFinals)) {
+                // Engine updated the final recognition with the full utterance
+                accumulatedFinals = incoming;
+              } else {
+                accumulatedFinals = `${accumulatedFinals} ${incoming}`;
+              }
+            }
+            text = "";
+            finalSeen = true;
+          } else {
+            text = e.text.trim();
+          }
           maybeStartSpeculation();
           return;
         case "agent_audio_start":
           if (state === "responding") state = "agent_speaking";
           return;
         case "agent_audio_end":
-          if (state === "agent_speaking" || state === "responding") state = "idle";
+          if (state === "agent_speaking") state = "idle";
           return;
         case "reset":
           stopTimer();
           speculativeText = undefined;
-          text = ""; finalSeen = false;
+          text = ""; accumulatedFinals = ""; finalSeen = false;
           state = "idle";
           return;
       }
     },
   };
 }
+

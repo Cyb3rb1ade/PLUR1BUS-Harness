@@ -4,12 +4,13 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { createWriteStream } from "node:fs";
-import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readdir, readFile, readlink, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createReadStream } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { VoiceProviderError, abortedError } from "../errors.ts";
 import type { FetchLike } from "../http.ts";
+import { assertSecureTransport } from "../util.ts";
 import { assertLicenceAccepted, downloadable, type CatalogModel, type DownloadItem } from "./catalog.ts";
 
 export interface DownloadProgress {
@@ -38,6 +39,36 @@ export const tarExtract: ExtractFn = async (archive, destDir, o) => {
   await exec("tar", ["-xjf", archive, "-C", destDir, `--strip-components=${o.stripComponents}`]);
 };
 
+/** Verify that extracted contents in destDir do not escape destDir via symlinks or directory traversal */
+async function verifyExtractedSecurity(destDir: string): Promise<void> {
+  const realDest = await realpath(destDir);
+  async function walk(dir: string): Promise<void> {
+    const entries = await readdir(dir, { withFileTypes: true });
+    for (const ent of entries) {
+      const full = join(dir, ent.name);
+      if (ent.isSymbolicLink()) {
+        const target = await readlink(full);
+        const resolvedTarget = resolve(dir, target);
+        if (!resolvedTarget.startsWith(realDest + "/") && resolvedTarget !== realDest) {
+          throw new VoiceProviderError("bad_response", `malicious archive: symlink ${ent.name} points outside destination directory`);
+        }
+      } else if (ent.isDirectory()) {
+        const real = await realpath(full);
+        if (!real.startsWith(realDest + "/") && real !== realDest) {
+          throw new VoiceProviderError("bad_response", `malicious archive: directory ${ent.name} escapes destination directory`);
+        }
+        await walk(full);
+      } else if (ent.isFile()) {
+        const real = await realpath(full);
+        if (!real.startsWith(realDest + "/") && real !== realDest) {
+          throw new VoiceProviderError("bad_response", `malicious archive: file ${ent.name} escapes destination directory`);
+        }
+      }
+    }
+  }
+  await walk(destDir);
+}
+
 export function modelDir(modelsDir: string, id: string): string {
   return join(modelsDir, id);
 }
@@ -59,29 +90,40 @@ export async function downloadModel(model: CatalogModel, o: DownloadOptions): Pr
   if (await isInstalled(o.modelsDir, model)) return dir;
   const ok = downloadable(model);
   if (!ok.ok) throw new VoiceProviderError("catalog", `${model.displayName} cannot be downloaded: ${ok.reason}`);
+  for (const item of model.download) {
+    if (item.url) assertSecureTransport(item.url, "local voice download");
+  }
   const fetchFn: FetchLike = o.fetch ?? ((url, init) => fetch(url, init));
-  const staging = join(o.modelsDir, `.staging-${model.id}`);
+  const staging = join(o.modelsDir, `.staging-${model.id}-${Date.now()}`);
   await rm(staging, { recursive: true, force: true });
   await mkdir(staging, { recursive: true });
   const partDir = join(o.modelsDir, ".downloads", model.id);
   await mkdir(partDir, { recursive: true });
-  for (let i = 0; i < model.download.length; i++) {
-    const item = model.download[i]!;
-    const part = join(partDir, `${i}.part`);
-    await fetchItem(model, item, i, part, fetchFn, o);
-    if (item.archive) await (o.extract ?? tarExtract)(part, staging, { format: item.archive, stripComponents: item.stripComponents ?? 0 });
-    else {
-      const target = join(staging, item.path!);
-      await mkdir(dirname(target), { recursive: true });
-      await rename(part, target).catch(async () => { await writeFile(target, await readFile(part)); });
+  try {
+    for (let i = 0; i < model.download.length; i++) {
+      const item = model.download[i]!;
+      const part = join(partDir, `${i}.part`);
+      await fetchItem(model, item, i, part, fetchFn, o);
+      if (item.archive) {
+        await (o.extract ?? tarExtract)(part, staging, { format: item.archive, stripComponents: item.stripComponents ?? 0 });
+        await verifyExtractedSecurity(staging);
+      } else {
+        const target = join(staging, item.path!);
+        await mkdir(dirname(target), { recursive: true });
+        await rename(part, target).catch(async () => { await writeFile(target, await readFile(part)); });
+      }
     }
+    await writeFile(join(staging, ".complete.json"), JSON.stringify({ id: model.id, sha256: model.download.map((d) => d.sha256!.toLowerCase()) }));
+    await rm(dir, { recursive: true, force: true });
+    await rename(staging, dir);
+    await rm(partDir, { recursive: true, force: true });
+  } catch (err) {
+    await rm(staging, { recursive: true, force: true });
+    throw err;
   }
-  await writeFile(join(staging, ".complete.json"), JSON.stringify({ id: model.id, sha256: model.download.map((d) => d.sha256!.toLowerCase()) }));
-  await rm(dir, { recursive: true, force: true });
-  await rename(staging, dir);
-  await rm(partDir, { recursive: true, force: true });
   return dir;
 }
+
 
 async function hashFile(path: string, h: ReturnType<typeof createHash>): Promise<void> {
   await new Promise<void>((resolve, reject) => {

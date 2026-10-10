@@ -104,3 +104,24 @@ test("interrupt sends response.cancel; abort closes the session with an aborted 
     assert.equal((evs[0] as unknown as { error: { code: string } }).error.code, "aborted");
   } finally { await v.close(); }
 });
+
+test("hostile frame: malformed frame in grok session emits upstream_protocol error and closes cleanly", async () => {
+  const v = await startFakeVendor({ ws: (s) => {
+    (async () => {
+      s.send({ type: "session.created" });
+      await s.waitFor(1);
+      // Malformed frame that causes codec failure or upstream protocol error
+      s.send({ type: "response.audio.delta", delta: 12345 }); // delta is not a string/b64
+    })();
+  } });
+  try {
+    const p = createGrokVoice({ getSecret, apiKeyRef: "voice.key", baseUrl: v.httpUrl, defaultModel: "m" });
+    const s = await p.connect();
+    const evs = await until(s.events[Symbol.asyncIterator](), (e) => e.type === "closed");
+    const err = evs.find((e) => e.type === "error") as Extract<RealtimeEvent, { type: "error" }>;
+    assert.ok(err, "error event expected");
+    assert.equal((err.error as any).code, "upstream_protocol");
+    assert.equal(evs.at(-1)?.type, "closed");
+  } finally { await v.close(); }
+});
+

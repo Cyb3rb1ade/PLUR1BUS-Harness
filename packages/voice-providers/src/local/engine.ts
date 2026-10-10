@@ -130,7 +130,9 @@ export function createSherpaEngine(o: SherpaEngineOptions = {}): LocalEngine {
             return { text: String(rec.getResult(st).text ?? "").trim() };
           },
           async warm() { const st = rec.createStream(); st.acceptWaveform({ sampleRate: 16000, samples: new Float32Array(16000) }); while (rec.isReady(st)) rec.decode(st); },
-          dispose() {},
+          dispose() {
+            try { (rec as any)?.delete?.(); } catch {}
+          },
         };
       }
       const rec = new s.OfflineRecognizer({ featConfig: { sampleRate: 16000, featureDim: 80 }, modelConfig: { transducer, ...common, modelType: "nemo_transducer" } });
@@ -145,7 +147,9 @@ export function createSherpaEngine(o: SherpaEngineOptions = {}): LocalEngine {
         createStream() { throw new VoiceProviderError("unsupported", "this ASR model is not a streaming model"); },
         decodeOffline: run,
         warm: async () => { await run(new Float32Array(16000), 16000); },
-        dispose() {},
+        dispose() {
+          try { (rec as any)?.delete?.(); } catch {}
+        },
       };
     },
 
@@ -160,7 +164,15 @@ export function createSherpaEngine(o: SherpaEngineOptions = {}): LocalEngine {
         const r = await tts.generateAsync({ text, sid: opt.speaker ?? 0, speed: opt.speed ?? 1.0 });
         return { samples: r.samples as Float32Array, sampleRate: Number(r.sampleRate) };
       };
-      return { sampleRate: Number(tts.sampleRate), speakers: Number(tts.numSpeakers ?? 1), generate: gen, warm: async () => { await gen("Hi.", {}); }, dispose() {} };
+      return {
+        sampleRate: Number(tts.sampleRate),
+        speakers: Number(tts.numSpeakers ?? 1),
+        generate: gen,
+        warm: async () => { await gen("Hi.", {}); },
+        dispose() {
+          try { (tts as any)?.delete?.(); } catch {}
+        },
+      };
     },
 
     async loadVad(m) {
@@ -170,7 +182,9 @@ export function createSherpaEngine(o: SherpaEngineOptions = {}): LocalEngine {
         acceptWaveform: (samples) => vad.acceptWaveform(samples),
         isSpeech: () => vad.isDetected() === true,
         reset: () => vad.reset?.(),
-        dispose() {},
+        dispose() {
+          try { (vad as any)?.delete?.(); } catch {}
+        },
       };
     },
   };

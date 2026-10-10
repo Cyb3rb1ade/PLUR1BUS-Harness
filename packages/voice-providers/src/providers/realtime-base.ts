@@ -39,18 +39,28 @@ export function startRealtimeSession(i: SessionInit): RealtimeSession {
   };
   i.ws.addEventListener("message", (ev) => {
     let frame: Record<string, unknown>;
-    try { frame = parseJsonFrame(ev.data, i.provider); } catch (e) { q.push({ type: "error", error: e as Error }); return; }
-    if (!ready && i.codec.isReady(frame)) {
-      ready = true;
-      for (const f of pending) i.ws.send(f);
-      pending = [];
-      q.push({ type: "ready" });
+    try { frame = parseJsonFrame(ev.data, i.provider); } catch (e) {
+      q.push({ type: "error", error: new VoiceProviderError("upstream_protocol", `${i.provider}: malformed frame: ${(e as Error).message}`, { provider: i.provider }) });
+      try { i.ws.close(1002, "protocol error"); } catch { /* ignore */ }
+      return;
     }
-    for (const e of i.codec.decode(frame)) {
-      if (e.type === "usage") i.report(e.report);
-      q.push(e);
+    try {
+      if (!ready && i.codec.isReady(frame)) {
+        ready = true;
+        for (const f of pending) i.ws.send(f);
+        pending = [];
+        q.push({ type: "ready" });
+      }
+      for (const e of i.codec.decode(frame)) {
+        if (e.type === "usage") i.report(e.report);
+        q.push(e);
+      }
+    } catch (e) {
+      q.push({ type: "error", error: new VoiceProviderError("upstream_protocol", `${i.provider}: frame decoding failed: ${(e as Error).message}`, { provider: i.provider }) });
+      try { i.ws.close(1002, "protocol error"); } catch { /* ignore */ }
     }
   });
+
   i.ws.addEventListener("close", (ev) => {
     if (closed) return;
     closed = true;

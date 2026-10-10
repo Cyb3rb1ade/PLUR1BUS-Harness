@@ -96,3 +96,47 @@ test("handshake failures: 403 -> auth; 429 -> rate_limited; key stays out of the
     await assert.rejects(createGeminiLive({ getSecret, apiKeyRef: "voice.key", baseUrl: slow.httpUrl, defaultModel: "m" }).connect(), (e) => isVoiceProviderError(e) && e.code === "rate_limited");
   } finally { await deny.close(); await slow.close(); }
 });
+
+test("hostile frame (non-iterable parts): emits upstream_protocol error and closes session cleanly", async () => {
+  const v = await startFakeVendor({ ws: (s) => {
+    (async () => {
+      await s.waitFor(1);
+      s.send({ setupComplete: {} });
+      await s.waitFor(2);
+      // Malformed frame where parts is not iterable (e.g. integer or object instead of array)
+      s.send({ serverContent: { modelTurn: { parts: 12345 } } });
+    })();
+  } });
+  try {
+    const p = createGeminiLive({ getSecret, apiKeyRef: "voice.key", baseUrl: v.httpUrl, defaultModel: "m" });
+    const s = await p.connect();
+    s.sendText("test");
+    const evs = await until(s.events[Symbol.asyncIterator](), (e) => e.type === "closed");
+    const err = evs.find((e) => e.type === "error") as Extract<RealtimeEvent, { type: "error" }>;
+    assert.ok(err, "error event must be emitted");
+    assert.equal((err.error as any).code, "upstream_protocol");
+    assert.equal(evs.at(-1)?.type, "closed");
+  } finally { await v.close(); }
+});
+
+test("usage deduplication: identical usage frame received twice is not double reported", async () => {
+  const { sink, reports } = usageSink();
+  const v = await startFakeVendor({ ws: (s) => {
+    (async () => {
+      await s.waitFor(1);
+      s.send({ setupComplete: {} });
+      await s.waitFor(2);
+      s.send({ serverContent: { turnComplete: true }, usageMetadata: { promptTokenCount: 50, responseTokenCount: 15 } });
+      s.send({ usageMetadata: { promptTokenCount: 50, responseTokenCount: 15 } });
+      s.close(1000);
+    })();
+  } });
+  try {
+    const p = createGeminiLive({ getSecret, apiKeyRef: "voice.key", baseUrl: v.httpUrl, defaultModel: "m", usage: sink });
+    const s = await p.connect();
+    s.sendText("test");
+    await until(s.events[Symbol.asyncIterator](), (e) => e.type === "closed");
+    assert.equal(reports.length, 1, "usage should be reported exactly once per turn");
+  } finally { await v.close(); }
+});
+

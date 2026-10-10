@@ -260,3 +260,27 @@ test("the shipped catalog cannot be downloaded until sha256 is pinned: setLangua
     await assert.rejects(v.setLanguage("en", { download: true }), (e) => isVoiceProviderError(e) && e.code === "catalog");
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+
+test("dispose and reference counting: language switch delays unloading until active streams complete", async () => {
+  const r = await rig();
+  try {
+    await r.voice.setLanguage("de", { download: true });
+    // Open an active ASR stream
+    const s = await r.voice.asr.openStream();
+    r.engine.events.length = 0;
+    // Request language switch while stream is open
+    const switchPromise = r.voice.setLanguage("en", { download: true });
+    await switchPromise;
+    // Old de models must NOT be disposed yet while active stream is running!
+    assert.equal(r.engine.events.some((e) => e === "dispose:t-stt-de"), false, "active stream protects old model from being disposed immediately");
+    // Now close stream
+    await s.close();
+    // After stream closed, old model is disposed
+    assert.equal(r.engine.events.some((e) => e === "dispose:t-stt-de"), true, "old model disposed after active stream closes");
+    // Calling voice.dispose() disposes currently loaded models
+    r.engine.events.length = 0;
+    r.voice.dispose();
+    assert.equal(r.engine.events.some((e) => e.startsWith("dispose:")), true, "voice.dispose() releases all resident models");
+  } finally { await r.done(); }
+});
+

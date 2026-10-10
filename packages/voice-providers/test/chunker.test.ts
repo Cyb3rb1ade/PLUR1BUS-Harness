@@ -52,3 +52,17 @@ test("maxWords never cuts inside a word that is still arriving", () => {
   assert.deepEqual(c.push("a epsilon "), ["alpha beta gamma"]);
   assert.deepEqual(c.flush(), ["delta epsilon"]);
 });
+
+test("chunker: large stream with many small deltas processes efficiently without quadratic scan", () => {
+  const c = new SentenceChunker();
+  const deltas = Array.from({ length: 500 }, (_, i) => `word${i} `);
+  const out: string[] = [];
+  for (const d of deltas) {
+    out.push(...c.push(d));
+  }
+  out.push(...c.push("End of sentence. Next."));
+  out.push(...c.flush());
+  assert.equal(out.length, 2);
+  assert.ok(out[0]!.endsWith("End of sentence."));
+});
+

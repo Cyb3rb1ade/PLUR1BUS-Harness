@@ -18,8 +18,10 @@ export const VOICE_ERROR_CODES = [
   "checksum_mismatch", // downloaded bytes do not match the catalog sha256
   "catalog", // catalog entry missing or malformed
   "config", // provider configuration is invalid
+  "upstream_protocol", // upstream frame violated protocol or could not be decoded
 ] as const;
 export type VoiceErrorCode = (typeof VOICE_ERROR_CODES)[number];
+
 
 export const RETRYABLE_CODES: ReadonlySet<VoiceErrorCode> = new Set<VoiceErrorCode>(["rate_limited", "overloaded", "network", "timeout"]);
 

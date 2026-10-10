@@ -74,7 +74,7 @@
     "de": {
       "name": "Deutsch",
       "stt": { "fast": "kroko-de", "quality": "parakeet-v3-int8" },
-      "tts": { "fast": "piper-de-thorsten-low", "quality": "voice-martin-de" }
+      "tts": { "fast": "piper-de-thorsten-low", "quality": "voice-martin-de", "fallback": "kokoro-multi" }
     },
     "en": {
       "name": "English",

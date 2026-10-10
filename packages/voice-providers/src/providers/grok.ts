@@ -79,10 +79,11 @@ function grokCodec(model: string, opt: RealtimeConnectOptions, secrets: readonly
     decode(f): RealtimeEvent[] {
       const t = String(f["type"] ?? "");
       if (t === "response.audio.delta" || t === "response.output_audio.delta") {
-        if (typeof f["delta"] !== "string") return [];
+        if (typeof f["delta"] !== "string") throw new Error("response.audio.delta missing string delta");
         const chunk: AudioChunk = { data: fromBase64(f["delta"]), format: "pcm16", sampleRate: rate };
         return [{ type: "audio", chunk }];
       }
+
       if (t === "response.audio_transcript.delta" || t === "response.output_audio_transcript.delta") {
         transcript += String(f["delta"] ?? "");
         return [{ type: "transcript", role: "assistant", text: transcript, final: false }];

@@ -79,6 +79,7 @@ function geminiCodec(model: string, opt: RealtimeConnectOptions, secrets: readon
   let userText = "";
   let modelText = "";
   let muted = false;
+  let lastReportedUsage: { inputTokens?: number; outputTokens?: number } | undefined;
   return {
     init: () => [JSON.stringify({
       setup: {
@@ -104,7 +105,11 @@ function geminiCodec(model: string, opt: RealtimeConnectOptions, secrets: readon
       const out: RealtimeEvent[] = [];
       const sc = f["serverContent"] as Record<string, any> | undefined;
       if (sc) {
-        const parts: Array<Record<string, any>> = sc["modelTurn"]?.parts ?? [];
+        const rawParts = sc["modelTurn"]?.parts;
+        const parts: Array<Record<string, any>> = Array.isArray(rawParts) ? rawParts : [];
+        if (sc["modelTurn"] && rawParts !== undefined && !Array.isArray(rawParts)) {
+          throw new Error("modelTurn.parts is not an array");
+        }
         for (const p of parts) {
           const d = p?.inlineData;
           if (d && typeof d.data === "string" && !muted) {
@@ -118,6 +123,7 @@ function geminiCodec(model: string, opt: RealtimeConnectOptions, secrets: readon
         if (sc["interrupted"] === true) { muted = false; out.push({ type: "interrupted" }); }
         if (sc["turnComplete"] === true) {
           muted = false;
+          lastReportedUsage = undefined;
           if (userText) { out.push({ type: "transcript", role: "user", text: userText, final: true }); userText = ""; }
           if (modelText) { out.push({ type: "transcript", role: "assistant", text: modelText, final: true }); modelText = ""; }
           out.push({ type: "turn.done" });
@@ -131,14 +137,23 @@ function geminiCodec(model: string, opt: RealtimeConnectOptions, secrets: readon
       }
       const u = f["usageMetadata"] as Record<string, any> | undefined;
       if (u) {
-        const report: UsageReport = { provider: ID, operation: "realtime", model, ...(Number.isFinite(u["promptTokenCount"]) ? { inputTokens: Number(u["promptTokenCount"]) } : {}), ...(Number.isFinite(u["responseTokenCount"]) ? { outputTokens: Number(u["responseTokenCount"]) } : {}) };
-        out.push({ type: "usage", report });
+        const inTok = Number.isFinite(u["promptTokenCount"]) ? Number(u["promptTokenCount"]) : undefined;
+        const outTok = Number.isFinite(u["responseTokenCount"]) ? Number(u["responseTokenCount"]) : undefined;
+        if (!lastReportedUsage || lastReportedUsage.inputTokens !== inTok || lastReportedUsage.outputTokens !== outTok) {
+          lastReportedUsage = {
+            ...(inTok !== undefined ? { inputTokens: inTok } : {}),
+            ...(outTok !== undefined ? { outputTokens: outTok } : {}),
+          };
+          const report: UsageReport = { provider: ID, operation: "realtime", model, ...(inTok !== undefined ? { inputTokens: inTok } : {}), ...(outTok !== undefined ? { outputTokens: outTok } : {}) };
+          out.push({ type: "usage", report });
+        }
       }
       if (f["error"] !== undefined) out.push({ type: "error", error: frameError(ID, typeof f["error"] === "object" ? (f["error"] as Record<string, unknown>) : f, secrets) });
       return out;
     },
   };
 }
+
 
 function withVoice(options: RealtimeConnectOptions, fallback: string | undefined): RealtimeConnectOptions {
   const voice = options.voice ?? fallback;

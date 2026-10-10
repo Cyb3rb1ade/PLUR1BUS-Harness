@@ -192,3 +192,24 @@ test("abort stops the download with an aborted error and keeps the partial for r
     assert.equal(await isInstalled(dir, m), false);
   } finally { await v.close(); await rm(dir, { recursive: true, force: true }); }
 });
+
+test("download rejects non-https URLs (unless loopback for tests)", async () => {
+  const dir = await tmp();
+  try {
+    const m: CatalogModel = { id: "insecure", kind: "tts", engine: "vits", displayName: "Insecure", licence: { id: "MIT", name: "MIT", commercial: true, status: "confirmed" }, download: [{ url: "http://remote.example.com/model.bin", sha256: "a".repeat(64), sizeBytes: 100, path: "model.bin" }], roles: { model: "model.bin" } };
+    await assert.rejects(downloadModel(m, { modelsDir: dir }), (e) => isVoiceProviderError(e) && (e.code === "invalid_request" || e.code === "config"));
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test("safe extraction rejects archives with path traversal or symlinks escaping destDir", async () => {
+  const dir = await tmp();
+  try {
+    // Malicious archive with path traversal
+    const mTraverse: CatalogModel = { id: "bad-traverse", kind: "tts", engine: "vits", displayName: "Bad", licence: { id: "MIT", name: "MIT", commercial: true, status: "confirmed" }, download: [{ url: "https://127.0.0.1/fake.tar.bz2", sha256: "a".repeat(64), sizeBytes: 100, archive: "tar.bz2", stripComponents: 0 }], roles: { model: "model.bin" } };
+    await assert.rejects(downloadModel(mTraverse, { modelsDir: dir, fetch: async () => new Response(new Uint8Array(100)), extract: async (_file, dest) => {
+      // Simulate extractor attempting to write outside dest
+      await writeFile(join(dest, "../escaped.txt"), "evil");
+    }}), (e) => isVoiceProviderError(e));
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+

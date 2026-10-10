@@ -57,21 +57,37 @@ export const LOCAL_REALTIME_DEFAULTS: LocalRealtimeProfile = {
   auditDetail: "minimal",
 };
 
-function normaliseFeature(base: FeatureSetting, input: FeatureInput | undefined): FeatureSetting {
+function normaliseFeature(featureName: FeatureName, base: FeatureSetting, input: FeatureInput | undefined): FeatureSetting {
   if (input === undefined) return base;
-  if (typeof input === "string") return withoutMax(input, base.maxMs);
+  const defaultMaxMs = LOCAL_REALTIME_DEFAULTS.features[featureName].maxMs;
+  if (typeof input === "string") {
+    const maxMs = input === "on" ? (base.maxMs ?? defaultMaxMs) : base.maxMs;
+    return withoutMax(input, maxMs);
+  }
   const mode = input.mode ?? base.mode;
-  const maxMs = input.maxMs ?? base.maxMs;
+  let maxMs = input.maxMs ?? base.maxMs;
+  if (mode === "on" && maxMs === undefined) maxMs = defaultMaxMs;
   return withoutMax(mode, maxMs);
 }
 function withoutMax(mode: FeatureMode, maxMs: number | undefined): FeatureSetting {
   return maxMs === undefined ? { mode } : { mode, maxMs };
 }
 
+
 function applyLayer(p: LocalRealtimeProfile, c: LocalRealtimeConfigBase | undefined): LocalRealtimeProfile {
   if (!c) return p;
+  if (c.endpointingMs !== undefined) {
+    if (!Number.isInteger(c.endpointingMs) || c.endpointingMs < 50 || c.endpointingMs > 5000) {
+      throw new Error(`invalid endpointingMs: must be an integer between 50 and 5000, got ${c.endpointingMs}`);
+    }
+  }
+  if (c.sentenceChunking?.maxWords !== undefined) {
+    if (!Number.isInteger(c.sentenceChunking.maxWords) || c.sentenceChunking.maxWords < 3 || c.sentenceChunking.maxWords > 200) {
+      throw new Error(`invalid sentenceChunking.maxWords: must be an integer between 3 and 200, got ${c.sentenceChunking.maxWords}`);
+    }
+  }
   const features = { ...p.features };
-  for (const name of FEATURE_NAMES) features[name] = normaliseFeature(p.features[name], c.features?.[name]);
+  for (const name of FEATURE_NAMES) features[name] = normaliseFeature(name, p.features[name], c.features?.[name]);
   return {
     enabled: c.enabled ?? p.enabled,
     endpointingMs: c.endpointingMs ?? p.endpointingMs,
@@ -105,7 +121,8 @@ export type FeatureEvent =
   | { type: "feature.budget_exceeded"; feature: FeatureName; maxMs: number; elapsedMs: number }
   | { type: "feature.skipped"; feature: FeatureName; reason: SkipReason }
   | { type: "feature.completed"; feature: FeatureName; durationMs: number }
-  | { type: "feature.failed"; feature: FeatureName; durationMs: number };
+  | { type: "feature.failed"; feature: FeatureName; durationMs: number }
+  | { type: "feature.dropped"; feature: FeatureName };
 
 export interface FeatureRunnerOptions {
   profile: LocalRealtimeProfile;
@@ -137,12 +154,12 @@ export function createFeatureRunner(o: FeatureRunnerOptions): FeatureRunner {
 
   return {
     async runWithBudget<T>(feature: FeatureName, fn: (signal: AbortSignal) => Promise<T>, signal?: AbortSignal): Promise<BudgetResult<T>> {
+      if (signal?.aborted) return { ok: false, reason: "aborted" };
       const setting = o.profile.features[feature];
       if (o.profile.enabled && setting.mode !== "on") {
         o.emit({ type: "feature.skipped", feature, reason: setting.mode });
         return { ok: false, reason: setting.mode };
       }
-      if (signal?.aborted) return { ok: false, reason: "aborted" };
       const maxMs = o.profile.enabled ? setting.maxMs : undefined;
       const ctl = new AbortController();
       const onOuterAbort = () => ctl.abort();
@@ -150,7 +167,16 @@ export function createFeatureRunner(o: FeatureRunnerOptions): FeatureRunner {
       const t0 = now();
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
-        const work = fn(ctl.signal).then((value) => ({ kind: "value" as const, value }), (error: unknown) => ({ kind: "error" as const, error }));
+        let workPromise: Promise<T>;
+        try {
+          workPromise = Promise.resolve(fn(ctl.signal));
+        } catch (syncErr) {
+          const elapsed = now() - t0;
+          record(feature, elapsed, false);
+          o.emit({ type: "feature.failed", feature, durationMs: elapsed });
+          return { ok: false, reason: "error", error: syncErr };
+        }
+        const work = workPromise.then((value) => ({ kind: "value" as const, value }), (error: unknown) => ({ kind: "error" as const, error }));
         const racers: Array<Promise<{ kind: "value"; value: T } | { kind: "error"; error: unknown } | { kind: "timeout" }>> = [work];
         if (maxMs !== undefined) racers.push(new Promise((resolve) => { timer = setTimeout(() => resolve({ kind: "timeout" }), maxMs); }));
         const r = await Promise.race(racers);
@@ -181,8 +207,14 @@ export function createFeatureRunner(o: FeatureRunnerOptions): FeatureRunner {
     async drainDeferred(signal) {
       let ran = 0;
       while (queue.length > 0) {
+        if (signal?.aborted) {
+          while (queue.length > 0) {
+            const dropped = queue.shift()!;
+            o.emit({ type: "feature.dropped", feature: dropped.feature });
+          }
+          break;
+        }
         const job = queue.shift()!;
-        if (signal?.aborted) break;
         const ctl = new AbortController();
         const t0 = now();
         try {
@@ -195,6 +227,7 @@ export function createFeatureRunner(o: FeatureRunnerOptions): FeatureRunner {
       }
       return ran;
     },
+
     get pendingDeferred() {
       return queue.length;
     },
