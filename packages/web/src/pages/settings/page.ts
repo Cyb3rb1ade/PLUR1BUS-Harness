@@ -10,17 +10,19 @@ import { lazySection } from "../common/lazy-section.ts";
 import type { PageProps } from "../registry.ts";
 
 export type SectionProps = { section: SectionDef; focus?: string };
+import "../../styles/settings.css";
 
 const ConfigSection = lazySection<SectionProps>(() => import("./sections/config.ts").then((m) => m.ConfigSection));
 const SecretsSection = lazySection<SectionProps>(() => import("./sections/secrets.ts").then((m) => m.SecretsSection));
 const ProvidersSection = lazySection<SectionProps>(() => import("./sections/providers.ts").then((m) => m.ProvidersSection));
 const UsersSection = lazySection<SectionProps>(() => import("./sections/users.ts").then((m) => m.UsersSection));
 const DevicesSection = lazySection<SectionProps>(() => import("./sections/devices.ts").then((m) => m.DevicesSection));
+const VoiceSection = lazySection<SectionProps>(() => import("./sections/voice.ts").then((m) => m.VoiceSection));
 
 const MediaIndexPanel = lazySection<object>(() => import("../media-search/settings.ts").then((m) => m.MediaIndexPanel));
 const MediaSection = lazySection<SectionProps>(() => import("../surfaces/media.ts").then(m => m.MetadataPreference));
 
-const BODY = { media: MediaSection, config: ConfigSection, secrets: SecretsSection, providers: ProvidersSection, users: UsersSection, devices: DevicesSection } as const;
+const BODY = { media: MediaSection, config: ConfigSection, secrets: SecretsSection, providers: ProvidersSection, users: UsersSection, devices: DevicesSection, voice: VoiceSection } as const;
 
 export function SettingsPage({ sub }: PageProps): View {
   const section = sectionById(sub) ?? sectionById(DEFAULT_SECTION)!;

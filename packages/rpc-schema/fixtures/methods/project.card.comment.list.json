@@ -1,0 +1,21 @@
+{
+  "params": {
+    "projectId": "prj1",
+    "cardId": "card1"
+  },
+  "result": {
+    "items": [
+      {
+        "id": "0000000000000001",
+        "cardId": "card1",
+        "author": {
+          "kind": "person",
+          "id": "alice"
+        },
+        "text": "Hello",
+        "createdAt": 1000
+      }
+    ],
+    "nextCursor": null
+  }
+}

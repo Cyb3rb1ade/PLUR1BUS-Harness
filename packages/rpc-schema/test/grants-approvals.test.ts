@@ -71,10 +71,11 @@ describe("grant.* and approval.* (D109)", () => {
     assert.equal(validateResult("approval.verify", { ok: false, entries: 3, head: null, brokenAt: 2, reason: "because" }).ok, false);
   });
 
-  it("the closed error enum did not change (reasons are additive text, ADR-016)", () => {
+  it("the closed error enum includes media and project WIP codes (reasons are additive text, ADR-016)", () => {
     assert.deepEqual([...ERROR_CODES], [
       "E_UNAUTHORIZED", "E_RPC_VERSION", "E_NOT_AVAILABLE", "E_CORE_UNAVAILABLE", "E_INVALID_PARAMS", "E_AGENT_UNKNOWN", "E_CONFIG_INVALID",
       "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED", "E_NOT_FOUND", "E_DENIED", "E_APPROVAL_REQUIRED", "E_CONFLICT", "E_STORAGE",
+      "E_MEDIA_CAPABILITY", "E_MEDIA_LICENSE", "E_MEDIA_PRIVACY", "E_MEDIA_UNAVAILABLE", "E_MEDIA_DIMENSION", "E_MEDIA_UNSUPPORTED_KIND", "E_PROJECT_WIP_LIMIT",
     ]);
     const text = [methods["approval.decide"].description, methods["grant.create"].description].join(" ");
     for (const reason of ["policy-never", "surface-untrusted", "approval-expired", "approval-mismatch", "approval-used"]) assert.ok(text.includes(reason), reason);

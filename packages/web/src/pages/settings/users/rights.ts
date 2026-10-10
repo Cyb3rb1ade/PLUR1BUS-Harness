@@ -1,5 +1,5 @@
-// Rights per agent for Member and Operator: the agent list comes from `config.get agents`. Used by the section (simple mode off)
-// and by the invite dialog. A draft only: there is no RPC that stores rights.
+// Rights per agent for Member and Operator: the agent list comes from `config.get agents`.
+// Wired to agent.rights.get and agent.rights.set.
 import { h } from "preact";
 import { useState } from "preact/hooks";
 import type { View } from "../../../view.ts";
@@ -7,7 +7,7 @@ import { PageLoading } from "../../../components/page-state.ts";
 import { t } from "../../../i18n.ts";
 import { getApi, useLoad } from "../../common/load.ts";
 import { FailureState } from "../../common/states.ts";
-import { agentIds, toggleRight, type Rights } from "./model.ts";
+import { agentIds, setAgentRight, toggleRight, type Rights } from "./model.ts";
 
 async function loadAgents(signal: AbortSignal): Promise<string[]> {
   const r = await getApi().rpc("config.get", { key: "agents" }, { write: false, signal });
@@ -41,12 +41,33 @@ export function RightsMatrix({ role, rights, onChange, idPrefix }: { role: "memb
 export function RightsPanel(): View {
   const [role, setRole] = useState<"member" | "operator">("member");
   const [rights, setRights] = useState<Rights>({});
+  const [saved, setSaved] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const save = async (): Promise<void> => {
+    setSaving(true);
+    setSaved(null);
+    try {
+      for (const [agent, right] of Object.entries(rights)) {
+        await setAgentRight(agent, role, right);
+      }
+      setSaved(t("users.rights.saved"));
+    } catch {
+      setSaved(t("users.rights.draft"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return h("section", { class: "card users-block", "aria-labelledby": "users-rights-h" },
     h("h2", { id: "users-rights-h", class: "card-title" }, t("users.rights.title")),
     h("p", { class: "field-hint" }, t("users.rights.lead")),
     h("div", { class: "field" },
       h("label", { for: "users-rights-role" }, t("users.rights.role")),
-      h("select", { id: "users-rights-role", value: role, onChange: (e: Event) => { setRole((e.target as HTMLSelectElement).value as "member" | "operator"); setRights({}); } },
+      h("select", { id: "users-rights-role", value: role, onChange: (e: Event) => { setRole((e.target as HTMLSelectElement).value as "member" | "operator"); setRights({}); setSaved(null); } },
         (["member", "operator"] as const).map((r) => h("option", { key: r, value: r, selected: r === role }, t(`users.preset.${r}.name`)))))
-    , h(RightsMatrix, { role, rights, onChange: setRights, idPrefix: "users-rights" }));
+    , h(RightsMatrix, { role, rights, onChange: (r) => { setRights(r); setSaved(null); }, idPrefix: "users-rights" }),
+    h("div", { class: "users-rights-actions" },
+      h("button", { type: "button", class: "btn btn-primary", disabled: saving, onClick: () => { void save(); } }, saving ? t("shared.confirm.working") : t("users.rights.save")),
+      saved ? h("p", { class: "form-notice", role: "status" }, saved) : null));
 }

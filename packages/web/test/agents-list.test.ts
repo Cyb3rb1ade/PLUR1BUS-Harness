@@ -88,7 +88,8 @@ describe("agents: detail", opts, () => {
       await d.getByRole("heading", { name: "Main", level: 2 }).waitFor();
       const text = (await d.textContent()) ?? "";
       assert.match(text, /ID\s*main/); assert.match(text, /web-search/); assert.match(text, /calendar/);
-      for (const n of ["Pause", "Archive", "Export bundle", "Delete"]) assert.equal(await d.getByRole("button", { name: n }).getAttribute("aria-disabled"), "true", n);
+      for (const n of ["Pause", "Archive", "Export bundle"]) assert.equal(await d.getByRole("button", { name: n }).getAttribute("aria-disabled"), null, `${n} is wired`);
+      assert.equal(await d.getByRole("button", { name: "Delete" }).getAttribute("aria-disabled"), "true", "delete needs an archived agent");
       assert.equal(await app.page.getByRole("link", { name: /Main/ }).first().getAttribute("aria-current"), "true");
     });
   });

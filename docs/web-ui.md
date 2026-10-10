@@ -26,13 +26,14 @@ the page for each id in `src/pages/registry.ts`.
 | `/models`, `/models/<provider>/<id>` | Models | Build | all five | Providers, filterable list, detail, "new" badges and acknowledge, scan, manual add, override edit, remove manual. Both id parts are percent-encoded. Unknown fields are shown with secret-named values masked. Live updates on `models.changed`. |
 | `/usage`, `/usage/<tab>` (`global`, `agents`, `other`, `usage`) | Usage & Quota (budget) | Control | all five | Limits with soft/hard state, set/edit/remove limit dialogs, usage per period, agent and model. Scopes the UI does not know (project, user) appear in the `other` tab. Money is micro-USD, converted without float drift. |
 | `/doctor` | Doctor | Control | each part separately: health, core status, agents (ok, unavailable, forbidden, error, `down` for a 503 `status: down`); whole page forbidden if health is | Re-check button, automatic refresh every 30 s (stops while the tab is hidden), provisioning check: loads a `1staid.check/1` JSON file chosen by the owner, shows it as a table, copy/download of the unchanged text. |
-| `/agents`, `/agents/new`, `/agents/<id>` | Agents | Build | all five; unknown id is not-found | List from `config.get agents`, detail, three-step create (name and id, skills, review) with a client idempotency key, pause/archive/export shown `unavailable`, delete flow (archive first, export offer, typed name) built and sends nothing (F39). Only owner/admin create. |
-| `/settings`, `/settings/<section>` (`general`, `models`, `memory`, `extensions`, `network`) | Settings | pinned | all five plus read-only | Section navigation 224 px, content up to 880 px. Fields from a static index of the config schema (F17), restart class badge, "Review changes" with a dry-run diff, save with `ifRevision`, `?focus=<key>` scrolls to and highlights a field. |
-| `/settings/users` | Users & roles | pinned | all five | People list (`identity.list`), role presets with plain text, simple mode and rights matrix per agent (draft), invite dialog and break-glass dialog; assignment and break-glass are `unavailable` (F40, F41). Owner/admin only. |
+| `/agents`, `/agents/new`, `/agents/<id>` | Agents | Build | all five; unknown id is not-found | List from `config.get agents`, detail, three-step create (name and id, skills, review) with a client idempotency key, pause/resume, archive/unarchive and export (bundle download) wired to `agent.*`, delete only for archived agents with export offer and typed name (F39), voice real-time profile override with reset. Only owner/admin create. |
+| `/settings`, `/settings/<section>` (`general`, `models`, `memory`, `extensions`, `network`, `voice`) | Settings | pinned | all five plus read-only | Section navigation 224 px, content up to 880 px. Fields from a static index of the config schema (F17), restart class badge, "Review changes" with a dry-run diff, save with `ifRevision`, `?focus=<key>` scrolls to and highlights a field. Voice section manages speech language, downloads, licences and real-time profile. |
+| `/settings/users` | Users & roles | pinned | all five | People list (`identity.list`), role presets with plain text, simple mode and rights matrix per agent (draft), invite dialog and break-glass dialog; role change, invitations (code shown once, copy button), use/manage rights per agent and the break-glass request are wired; the last Owner cannot be demoted and the error is explained (F40, F41). Owner/admin only. |
 | `/settings/secrets` | Secrets | pinned | all five | Names and metadata only; create, rotate (masked input, value cleared at submit) and delete (typed name). No value is ever in the DOM, storage, URL or console (tested). |
-| `/settings/devices` | Devices & remote | pinned | all but empty | Hidden behind a note when `remote.publish` is `local` or unknown; paired devices, QR and removal still render `unavailable`; the F44 backend is available for follow-up UI binding. |
-| `/logs`, `/logs/activity`, `/logs/sessions` | Logs (tabs Logs, Activity, Sessions) | Control | all five per tab | Log viewer: filters, cursor paging, live tail (long poll, pause with buffer), virtual list, detail with redaction marks, export. Activity: grouped, human-readable events and the `audit.verify` status. Sessions: metadata of the caller's direct chats, transcript only via the break-glass dialog (`unavailable`, F41). Links `?trace=`, `?q=`, `?stream=` prefill the viewer. |
-| `/setup`, `/setup?mode=bundled` | First-run wizard | none (not in the sidebar) | per step | Seven steps (six when bundled), progress, back/next/skip, resume after reload, licence gate for non-commercial embedding models only (the default, EmbeddingGemma 2, is Apache-2.0 and asks nothing). |
+| `/settings/devices` | Devices & remote | pinned | all but empty | Hidden behind a note when `remote.publish` is `local` or unknown; the pairing QR (`pairing.qr`) and the device list with rename and revoke (`device.list/rename/revoke`) are wired; Owner/Admin see all devices, everyone else only their own (F44). |
+| `/settings/voice` | Voice | pinned | all five plus read-only | Speech language with fast/quality profiles, download progress, licence confirmations without active links, research-only badges; real-time switches, endpointing slider, speculative turn-start, confirmation sound, feature switches with time budgets, cost metrics and engine-fixed indicator. |
+| `/logs`, `/logs/activity`, `/logs/sessions` | Logs (tabs Logs, Activity, Sessions) | Control | all five per tab | Log viewer: filters, cursor paging, live tail (long poll, pause with buffer), virtual list, detail with redaction marks, export. Activity: grouped, human-readable events and the `audit.verify` status. Sessions: operators see other people's sessions (filter owner/agent, columns owner, model, usage), transcripts only through an active break-glass window (F41, F42). Links `?trace=`, `?q=`, `?stream=` prefill the viewer. |
+| `/setup`, `/setup?mode=bundled` | First-run wizard | none (not in the sidebar) | per step | Eight steps (seven when bundled), progress, back/next/skip, resume after reload, licence gate for non-commercial embedding models, and voice language selection step with system language preselected. |
 | `/projects`, `/inbox`, `/library`, `/skills`, `/plugins`, `/switchboard`, `/recurring`, `/approvals`, `/help` | placeholder | as in `nav.ts` | none (fixed text `page.placeholder`) | `PlaceholderPage`. `approvals` stays a placeholder (grants and approvals, D109, are not part of this change). |
 | `/login` | Sign-in | none | form errors only | Owner token against `POST /api/v1/session`; see `ui/web-shell.md`. |
 | any other path | 404 | none | n/a | Link back to the landing route. |
@@ -77,6 +78,9 @@ the page for each id in `src/pages/registry.ts`.
 | Sessions | `session.list` (`kind: direct`, `archived: any`, `limit: 200`) | assumed | no |
 | Wizard | `GET /api/v1/whoami`, `models.list`, `config.set` (`agents.<id>`, `modelRoles.chat`, `modelRoles.rerank`, `embedding.*`), `admin.backup.snapshot` | real / assumed | set, snapshot: yes |
 | Palette | `config.get` (`agents`, and the whole configuration for setting values), `session.list` (`search`, `limit: 5`) | assumed | no |
+| Voice | `voice.language.list` (`agentId?`), `voice.language.get` (`agentId?`), `voice.realtime.profile.get` (`agentId?`), `voice.metrics.get` (`agentId?`) | assumed | no |
+| Voice | `voice.language.set` (`language`, `profile`, `acceptLicences`, `agentId?`), `voice.realtime.profile.set` (`agentId?`, `...`) | assumed | yes |
+| Voice | `/events`: `voice.download.progress` (`modelId`, `receivedBytes`, `totalBytes`, `done`, `error?`) | assumed | no |
 
 No page sends a `caller`: a browser never asserts identity or trust (the `memory.*`, `session.*`, `models.*`, `budget.*`,
 `dreams.*`, `core.status` and `config.get` calls all omit it; see F1). Event consumers accept an SSE message either named
@@ -85,17 +89,17 @@ by its `event:` field or as a JSON-RPC notification object whose `method` is the
 
 ## Administration backend status (F39–F42, F44)
 
-The [admin backends](admin-backends.md) now supply the RPC/CLI contracts below. The original page inventory and
-`unavailable` UI flows remain unchanged; binding those pages is follow-up work. `device.list/revoke/rename` are now available (F44); agent
-hard-erasure is blocked by the pinned engine API. No `packages/web` code is changed by this backend PR.
+The [admin backends](admin-backends.md) now supply the RPC/CLI contracts below. The admin pages are now bound to these
+calls (**angebunden**). Every page shows only what the role may read, translates the error codes (de/en) and falls back to
+`unavailable` when the server does not know a method. Open gap: agent hard-erasure is blocked by the pinned engine API (delete then reports `engine-erasure-unavailable`).
 
 | What the UI needs | Backend status | Remaining UI work |
 |---|---|---|
-| Agent pause/resume, archive/unarchive, export/delete (F39) | RPC and CLI available; delete safely reports missing engine erasure API | Bind lifecycle calls and export offer; display the erasure limitation |
-| Users, role presets, invitation, use/manage matrix (F40) | RPC and CLI available, stored roles/rights, one-time Identity proof | Bind list/mutations and invite redemption/confirmation |
-| Break-Glass window and affected-person notice (F41) | RPC/CLI, durable self-scoped notices, audited transcript/user-memory reads | Bind dialog, inbox/live notice and read flows |
-| Operator session overview (F42) | `session.list` owner/agent filters, explicit allOwners, owner/model/tokens/cost metadata | Request overview filters and show additive fields; keep transcripts behind Break-Glass |
-| Devices, QR payload and remote mode (F44) | Persistent device store, `device.list/revoke/rename`, CLI, `pairing.qr` and `remote.publish` available | Bind device list/revoke/rename and existing-offer QR payload; mount remote pairing/handshake transport ports |
+| Agent pause/resume, archive/unarchive, export/delete (F39) | RPC and CLI available; delete safely reports missing engine erasure API | Done: bound (F39); the erasure limitation is displayed |
+| Users, role presets, invitation, use/manage matrix (F40) | RPC and CLI available, stored roles/rights, one-time Identity proof | Done: bound (F40) |
+| Break-Glass window and affected-person notice (F41) | RPC/CLI, durable self-scoped notices, audited transcript/user-memory reads | Done: request, list with remaining time, revoke (F41); inbox/live notice follows |
+| Operator session overview (F42) | `session.list` owner/agent filters, explicit allOwners, owner/model/tokens/cost metadata | Done: filters and owner/model/usage columns (F42); transcripts stay behind Break-Glass |
+| Devices, QR payload and remote mode (F44) | Persistent device store, `device.list/revoke/rename`, CLI, `pairing.qr` and `remote.publish` available | Done: QR, device list, rename (own device) and revoke with confirmation that open connections close (F44) |
 
 ## M3 part 2: inventory (K1)
 
@@ -125,23 +129,23 @@ Two different questions decide a row:
 | Wizard: optional *Import* | none (`plur1bus import` is CLI only) | **no** | `unavailable` with the CLI command to copy (F37) |
 | **Agents** list, detail | `GET /api/v1/agents` (real), `agent.list`, `agent.status`, `config.get` key `agents` | yes | Built |
 | Agents: create (multi-step, client idempotency key) | `config.set` with `ifRevision` on `agents.<id>` | yes | Partial: the client key is the reserved id plus `ifRevision`; there is no `agent.create` with a saga or key (F38) |
-| Agents: pause | no lifecycle RPC (`agent.close` closes the runtime, it is not a pause) | **no** | `unavailable` (F39) |
-| Agents: archive, delete (archive-first, export offer, typed name), export bundle without secrets | none | **no** | `unavailable`; the confirmation dialog is built and tested but sends nothing (F39) |
+| Agents: pause, resume | `agent.pause`, `agent.resume` | yes | Built (F39) |
+| Agents: archive, unarchive, delete (archive-first, export offer, typed name), export bundle without secrets | `agent.archive`, `agent.unarchive`, `agent.delete`, `agent.export` | yes | Built (F39) |
 | **Users & roles**: list, create | `identity.list`, `identity.human.create` | yes | Built |
 | Users: pairing codes, link, unlink | `identity.pair.start`, `.claim`, `.confirm`, `identity.link`, `identity.unlink` | yes | Built |
-| Users: invite | none | **no** | Pairing code is the closest; no invite (F40) |
-| Users: role presets, simple mode | none to assign; presets are static text from `docs/rbac.md` | **no** (assign) | Presets and simple mode built as display; assignment `unavailable` (F40) |
-| Users: object rights per agent (use/manage) | none | **no** | `unavailable` (F40) |
+| Users: invite | `user.invite.create`, `.list`, `.revoke` | yes | Built; the code is shown once (F40) |
+| Users: role presets, simple mode | `user.list`, `user.role.set` | yes | Built; the last Owner is protected (F40) |
+| Users: object rights per agent (use/manage) | `agent.rights.get`, `agent.rights.set` | yes | Built (F40) |
 | Users: Member sees only shared agents | `agent.list` (the server decides), `principal.role` from `whoami` | yes | Built: the UI hides what the role may not see and shows a server `E_DENIED` as forbidden |
-| Break-glass dialog (reason, window, notice) | `breakglass.request`, log read | **no** (library only, `docs/rbac.md`) | Dialog built (reason 10 to 500 characters, 1 to 60 min, "the person concerned is notified"); submit shows `unavailable` (F41) |
+| Break-glass dialog (reason, window, notice) | `breakglass.request`, `.list`, `.revoke` | yes | Built (reason 10 to 500 characters, 1 to 60 min, "the person concerned is notified"); running windows with remaining time and revoke (F41) |
 | **Settings** routed sections, forms, restart class, diff before save | `config.get` (`key`, `tier`; returns `restartClass`, `revision`), `config.set` (`dryRun`, `ifRevision`) | yes | Built. Titles, help and enums come from the static index of the schema (no schema RPC; F17) |
 | **Secrets** list, create, rotate, delete | `secret.status`, `secret.list`, `secret.set`, `secret.delete` (`secret.get` is never called with `reveal`) | yes | Built |
-| **Sessions overview** | `session.list` | yes, own sessions only | Partial: metadata of the caller's own sessions (no owner, model or usage fields in `SessionRecord`). The all-users operator view and usage per session have no RPC (F42) |
-| Sessions: transcript via break-glass | `breakglass.request` | **no** | Same dialog, `unavailable` (F41) |
+| **Sessions overview** | `session.list` | yes | Built: owner/agent filters and owner, model, usage columns for operators; Member sees own sessions (F42) |
+| Sessions: transcript via break-glass | `breakglass.request` | yes | Same dialog; transcripts only while a window is active (F41) |
 | **Log viewer** query, filters, export | `logs.query` (`stream`, `minLevel`, `component`, `text`, `from`, `to`, `order`, `limit`, `cursor`) | yes | Built. `trace_id` has no parameter: it is matched with `text`; export is the loaded, filtered rows (F43) |
 | Log viewer live tail | `logs.tail` (long poll with `waitMs`) | yes | Built over `/rpc`; there is no log event on SSE (F2) |
 | **Activity feed** | `logs.query` (streams `audit` and `diagnostic`), `audit.verify` | yes | Built from the log streams only; `jobs.history`, `dreams.log` and `models.list` are not used (F43) |
-| Devices / pairing card | `config.get` key `remote.publish` | **no** (key is not in the config schema on main) | Card hidden at `local` and when the key is unknown; paired devices, QR or deep link, fingerprint and remove have no API (F44) |
+| Devices / pairing card | `config.get` key `remote.publish`, `pairing.qr`, `device.list`, `device.rename`, `device.revoke` | yes | Built: mode card hidden at `local` and when the key is unknown (Owner/Admin); the QR comes from `pairing.qr`; the device list shows name, platform, paired at/by, last seen and status for everyone (own devices, Owner/Admin all); rename for the device's own person, revoke with a confirmation (F44) |
 | **Command palette** entities | `config.get` (`agents`), `session.list`, static navigation, settings, actions and a log-search link | yes | Built as a client fan-out over those lists, capped and abortable (F14 is answered; a server endpoint stays a later option) |
 | **Settings: Providers** | `auth.credentials.list`, `auth.status`, `auth.login.start`, `auth.login.await`, `auth.login.cancel`, `auth.logout`, `secret.set` | yes | Built. Replaces unavailable provider login state. Masked secret key entry, headless SSH hint and callback paste flow. Interface wish: `auth.login.callback` RPC for manual callback URL forwarding (F33) |
 | **Switchboard** | `channel.list`, `channel.status`, `channel.get`, `channel.enable`, `channel.disable`, `channel.set`, `channel.test` | yes | Built. Channel list and detail, enable/disable toggles, field edit with secret rejection and link to secrets, test channel and test message to owner (`sendOwner: true`). When the channel host is missing, `not-registered` is rendered as "not started (host missing)" without an error state (F34) |
@@ -297,7 +301,7 @@ Numbers are stable; other documents refer to them.
 - **F22. Fonts.** Bundle Atkinson Hyperlegible Next, Lilita One and JetBrains Mono (ADR-004: local files, no remote origin); the
   tokens fall back to system fonts.
 - **F23. Wordmark morph** (`V2LogoMorph`).
-- **F24. Sidebar.** Projects list and badges.
+- **F24. Sidebar.** Projects list and badges. The [project board backend](projects-board.md) now provides columns, cards, assignments, comments, activity, paging and authorized live events; board UI binding remains follow-up.
 - **F25. Chat.** Context column, recents, fork, archive (`session.archive`), search (`session.list` with `search`), model selection and
   attachments (the last three need F6), rename and pin (F5).
 - **F26. Memories.** Accepting and rejecting proposals (`memory.proposals.accept`, `.reject`), forget and correct (`memory.forget`,
@@ -306,7 +310,7 @@ Numbers are stable; other documents refer to them.
 - **F27. State in the URL.** The router drops the query (`#/path?x` is read as `#/path`), so the chosen agent, search text, filters
   and `?focus=` are lost on reload and cannot be linked; the agent choice lives in memory only. (`?theme=` is read separately.)
 - **F28. Doctor file picker.** The text of the native file input follows the OS language, not the UI language.
-- **F29. Placeholders.** Eight pages (Projects, Inbox, Library, Skills, Plugins, Recurring, Approvals, Help) are placeholders; Switchboard is built.
+- **F29. Placeholders.** The Projects Kanban backend is available; its board UI remains follow-up. Eight pages (Projects, Inbox, Library, Skills, Plugins, Recurring, Approvals, Help) are placeholders; Switchboard is built.
 
 ### M3 part 2
 
@@ -324,28 +328,28 @@ Numbers are stable; other documents refer to them.
 - **F37. Import** (Wizard). `plur1bus import` is CLI only; the step shows the command.
 - **F38. `agent.create` with an idempotency key** (Agents). Create goes through `config.set` with `ifRevision`, an existence check and
   a client key; a real RPC with a server-side key would replace it. `agents.<id>.state` and `skills` are assumptions about the shape.
-- **F39. Agent lifecycle — backend available, UI binding follows.** `agent.pause/resume/archive/unarchive/export/delete` and
+- **F39. Agent lifecycle — wired.** `agent.pause/resume/archive/unarchive/export/delete` and
   matching CLI commands now exist. Pause retains state and rejects new work. Export is signed/redacted; delete requires
   archive, typed name and an export offer. **Engine gap:** the pinned engine lacks hard-erasure; delete fails closed with
   `engine-erasure-unavailable`. Large memory exports also need an exhaustive engine listing API (current list cap 100).
-- **F40. Users, roles and rights — backend available, UI binding follows.** `user.list`, `user.role.set`,
+- **F40. Users, roles and rights — wired.** `user.list`, `user.role.set`,
   `user.invite.create/list/revoke`, `agent.rights.get/set` and CLI commands persist presets/rights and use Identity pairing
   for one-time invitation redemption. Last Owner protection and immediate role/right enforcement are server-side.
-- **F41. Break-glass — backend available, UI binding follows.** `breakglass.request/list/revoke` wrap the existing read-only
+- **F41. Break-glass — wired.** `breakglass.request/list/revoke` wrap the existing read-only
   library. Reasons/windows are validated and each use is audited. `breakglass.notices` is the affected person's durable
   inbox; checked opt-in live notices use `breakglass.notice`. Foreign `session.get/resume/events` and targeted
   `memory.list/show` reads require a live grant. No write is enabled by a grant.
-- **F42. Sessions of other people — backend available, UI binding follows.** `session.list` adds owner/model/usage metadata,
+- **F42. Sessions of other people — wired.** `session.list` adds owner/model/usage metadata,
   owner/agent filters and explicit `allOwners`. Operations roles may list metadata; Member sees own only. Costs/models join
   the existing budget ledger; unknown/pending costs remain null. Transcripts and foreign transcript search are protected.
 - **F43. Log viewer** (Logs). `logs.query` has no `trace_id` parameter (matched with `text`, and not combinable with a search text);
   `logs.tail` is a long poll (no log event on SSE); `audit.verify` returns no check time; the activity feed relies on scheduler job
   names (`scheduler.run.*`) because the log schema registers no agent-run, dream, model-scan or backup events.
-- **F44. Devices — backend available, UI binding follows.** `pairing.qr`/`plur1bus pairing qr --link`
+- **F44. Devices — wired.** `pairing.qr`/`plur1bus pairing qr --link`
   format an existing offer using the package's read-only QR payload. `remote.publish` is now in the config schema.
   `packages/remote-access` now supplies the persistent device store, enrollment, proof-of-key reconnect and immediate
-  revocation ports. `device.list/revoke/rename` and `plur1bus device` are available with RBAC and audit. Bind the web
-  page as follow-up work; remote listener/route integration must share the core-owned store (see [remote access](remote-access.md#persistent-devices-f44)).
+  revocation ports. `device.list/revoke/rename` and `plur1bus device` are available with RBAC and audit. The web
+  page is bound (list, rename, revoke); remote listener/route integration must share the core-owned store (see [remote access](remote-access.md#persistent-devices-f44)).
 - **F45. Config schema over RPC** (Settings). No `config.schema` method: types, bounds, enums and defaults come from a static table
   in `pages/settings/config/meta.ts`, guarded by a drift test against `config.schema.json`. `config.get` could return the restart
   class for a whole tier (the page asks once per key). `config.set` has no role rule in `docs/rbac.md` (the UI allows owner and admin).
@@ -426,3 +430,42 @@ override). The config mock writes into the objects it receives, so each test bui
   (`E_MEDIA_PRIVACY`) is the only signal.
 - **F54. Size.** The contract's catalogue has no size; the forms show "not stated". A size field would make the setup's "Größe" useful.
 - **F55. Playback test.** The browser test checks the `#t=` fragment and `data-start`, not actual playback.
+
+## Voice UI (V3 contract)
+
+Voice settings, real-time profiles and first-run wizard integration are built against the V3 RPC contract.
+The backend RPCs (`voice.*`) are in development in parallel. While the generated RPC types are pending,
+hand-written wire types live in `packages/web/src/api/voice.types.ts` and merge into `RpcMethods`. If the server
+does not serve a method or rejects with `E_VOICE_UNAVAILABLE`, the UI gracefully shows the existing `unavailable` state.
+
+### Surfaces
+
+- **Settings > Voice (`/settings/voice`):**
+  - **Language panel (`LanguagePanel`):** Lists available languages and profiles (`fast` / `quality`) with download sizes and licences per model (`asr`, `tts`, `vad`). Models requiring licence confirmation (`needsConfirmation: true`) must be confirmed via checkboxes (`modelId@licenceId`) before download. Licence identifiers are rendered as text without active external links. Research-only / non-commercial licences (e.g. `blizzard-2013`, `CC-BY-NC-4.0`) are clearly badged ("Research only, no commercial use" / "nur Forschung, keine kommerzielle Nutzung"). Download progress is streamed via `/events` (`voice.download.progress`) with accessible progress bars and polite live region announcements.
+  - **Real-time profile panel (`RealtimePanel`):** Controls real-time speech interaction: on/off switch, endpointing slider (200–2000 ms), speculative turn-start switch, and confirmation sound switch.
+  - **Feature switches:** Individual feature controls (`autoRecall`, `promptEnrichment`, `reranker`, `decisionService`, `postTurnRefine`, `memoryWrite`, `compaction`, `toolSchemas`) supporting modes `on`, `deferred`, and `off` (`toolSchemas` additionally supports `reduced`), each with a configurable time budget (10–5000 ms).
+  - **Metrics and effective status:** Measured costs per feature and speech-end-to-first-audio latency (median / p95) from `voice.metrics.get` are displayed alongside each switch. Features reported with `effective="engine-fixed"` are visually tagged ("Fixed by the engine" / "Takes effect only with engine support").
+- **Agent Detail override (`/agents/<id>`):**
+  - Integrated `VoiceOverride` component allowing per-agent overrides of the real-time profile.
+  - Clearly indicates inherited versus overridden fields and provides a one-click reset to inherited values.
+- **First-run setup wizard (`/setup`):**
+  - Step "Language for voice features" (`setup.step.voice`): preselects the browser/system language; offers `fast` or `quality` profile with model sizes and licences; download flow; skippable without blocking setup.
+  - English preselection: never preselects a research-only voice (such as `piper-en-lessac`); English suggests the `quality` profile (Kokoro).
+  - German preselection: selects `fast` with Piper Thorsten + Kroko, gating on CC-BY-SA licence confirmation.
+  - Step completion reflects in the wizard summary.
+
+### Mock API (`test/voice-fixtures.ts`)
+
+`installVoice(server, world)` registers:
+- `voice.language.list`: lists languages, profiles, model metadata, and licence confirmation requirements.
+- `voice.language.get`: returns current language and profile.
+- `voice.language.set`: validates licence acceptance (`acceptLicences`), returns `{ ok: true, downloading: boolean }`.
+- `voice.realtime.profile.get`: returns global profile or per-agent profile when `agentId` is supplied.
+- `voice.realtime.profile.set`: saves editable profile parameters.
+- `voice.metrics.get`: returns latency percentiles and feature cost medians/p95s.
+- `pushProgress(server, ...)`: emits SSE `voice.download.progress` events.
+Simulates error conditions `E_VOICE_LICENCE` and `E_VOICE_UNAVAILABLE`.
+
+### Follow-ups (voice)
+
+- **F56. Generated RPC types.** Replace `packages/web/src/api/voice.types.ts` with auto-generated RPC types once the backend's `voice.*` schemas are merged into `rpc.schema.json`.

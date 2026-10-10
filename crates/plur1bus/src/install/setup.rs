@@ -44,6 +44,11 @@ pub const PROMPTS: &[(&str, &str)] = &[
         "embedding.useClass",
         "How will you use PLUR1BUS (general, research or commercial)",
     ),
+    // Asked by `answer_media` (several sub-questions, keys `memory.mediaEmbedding.*`), not by `answer_config`.
+    (
+        "memory.mediaEmbedding",
+        "Memory & media search: embedding models for text and media",
+    ),
 ];
 
 // No NC-licence question (ADR-006 amendment 2026-10-08): the default embedding model (EmbeddingGemma 2, Apache-2.0)
@@ -72,6 +77,20 @@ pub struct SetupOpts {
     pub agent: Option<String>,
     /// `--profile`: `host` or `full`; `None` keeps the recorded profile (`full` for a new home, HM2-R9).
     pub profile: Option<String>,
+    /// The "Memory & media search" answers given as flags.
+    pub media: MediaOpts,
+}
+
+/// Flags of the media-search questions (`--skip-media-search`, `--text-provider`, `--media-*`, `--caption-provider`).
+#[derive(Debug, Clone, Default)]
+pub struct MediaOpts {
+    pub skip: bool,
+    pub text_provider: Option<String>,
+    pub media_provider: Option<String>,
+    pub media_model: Option<String>,
+    pub media_dimensions: Option<u32>,
+    pub media_modalities: Option<Vec<String>>,
+    pub caption_provider: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -848,7 +867,7 @@ pub fn answer_config(
     });
     if !o.non_interactive {
         for (key, question) in PROMPTS {
-            if host && *key == "agents" {
+            if (host && *key == "agents") || *key == "memory.mediaEmbedding" {
                 continue;
             }
             let (slot, valid): (&mut String, fn(&str) -> bool) = match *key {
@@ -922,7 +941,14 @@ fn step_config(
     };
     let answers = answer_config(o, profile, config["embedding"]["useClass"].as_str(), ask)?;
     let now = crate::commands::agent::rfc3339_now();
-    let changes = config_changes(&config, &answers, &now);
+    let mut changes = config_changes(&config, &answers, &now);
+    let media = if profile == PROFILE_HOST {
+        None
+    } else {
+        let m = answer_media(o, &config, ask)?;
+        changes.extend(media_changes(&config, &m));
+        Some(m)
+    };
     let accepted = changes
         .iter()
         .any(|(k, _)| k == "embedding.acceptedNcLicence");
@@ -953,8 +979,396 @@ fn step_config(
             "acceptedNcLicence": answers.accept_nc || config["embedding"]["acceptedNcLicence"] == json!(true),
             "changed": keys,
             "supervised": supervised,
+            "media": media.as_ref().map_or_else(
+                || json!({ "skipped": "profile-host" }),
+                MediaAnswers::detail,
+            ),
         }),
     ))
+}
+
+// ---- memory & media search ---------------------------------------------------------------------------------------
+
+pub const LOCAL_PROVIDER: &str = "local-transformers";
+pub const LOCAL_MODEL: &str = "google/embeddinggemma-2";
+const LOCAL_LICENCE: &str = "Apache-2.0";
+const MODALITIES: [&str; 3] = ["image", "video", "audio"];
+const GEMMA_DIMENSIONS: [u32; 4] = [768, 512, 256, 128];
+const DEFAULT_DIMENSIONS: u32 = 768;
+/// A required answer with no default is asked this often before setup gives up and names the flag.
+const REQUIRED_ASKS: usize = 3;
+
+/// What the questions of "Memory & media search" resolved to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MediaAnswers {
+    pub enabled: bool,
+    /// Text embedding provider. Recorded only: the text index changes through `memory reembed`, never silently here.
+    pub text_provider: String,
+    pub provider: String,
+    pub model: String,
+    pub dimensions: u32,
+    pub modalities: Vec<String>,
+    /// `local`, `off` or a provider id; `None` while undecided (a cloud media provider with no answer yet).
+    pub caption_provider: Option<String>,
+    /// Set only when captioning was just switched off: user captions stay, automatic ones stop.
+    pub caption_source: Option<&'static str>,
+}
+
+impl MediaAnswers {
+    fn detail(&self) -> Value {
+        json!({
+            "enabled": self.enabled,
+            "textProvider": self.text_provider,
+            "provider": self.provider,
+            "model": self.model,
+            "dimensions": self.dimensions,
+            "modalities": self.modalities,
+            "captionProvider": self.caption_provider,
+            "captionPending": self.enabled && self.provider != "off" && self.caption_provider.is_none()
+                && self.provider != LOCAL_PROVIDER,
+            "textProviderNote": (self.text_provider != LOCAL_PROVIDER).then_some(
+                "the text index keeps its provider; change it with `plur1bus memory reembed --plan`"
+            ),
+        })
+    }
+}
+
+fn valid_token(v: &str) -> bool {
+    !v.is_empty()
+        && v.len() <= 128
+        && v.bytes()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'-' | b'_' | b'.' | b'/' | b':'))
+}
+
+fn parse_modalities(v: &str) -> Option<Vec<String>> {
+    let mut out: Vec<String> = Vec::new();
+    for part in v.split(',') {
+        let p = part.trim().to_ascii_lowercase();
+        if !MODALITIES.contains(&p.as_str()) {
+            return None;
+        }
+        if !out.contains(&p) {
+            out.push(p);
+        }
+    }
+    (!out.is_empty()).then_some(out)
+}
+
+/// Asks until `valid` accepts the answer; with `required` (no usable default) gives up after [`REQUIRED_ASKS`] tries.
+fn ask_valid(
+    ask: &mut dyn Prompter,
+    key: &str,
+    question: &str,
+    default: &str,
+    required: Option<(&'static str, &str)>,
+    valid: &dyn Fn(&str) -> bool,
+) -> Result<String, StepError> {
+    for _ in 0..REQUIRED_ASKS {
+        let a = ask.ask(key, question, default);
+        if valid(&a) {
+            return Ok(a);
+        }
+        eprintln!("{a:?} is not a valid answer");
+    }
+    match required {
+        Some((reason, hint)) => {
+            Err(StepError::new(reason, format!("no valid answer for {key}")).hint(hint))
+        }
+        None => Ok(default.to_string()),
+    }
+}
+
+/// Resolves the media-search questions. Order of precedence per question: its flag, then what the configuration
+/// already holds (never asked again), then the answer (interactive) or the default (`--non-interactive`).
+pub fn answer_media(
+    o: &SetupOpts,
+    config: &Value,
+    ask: &mut dyn Prompter,
+) -> Result<MediaAnswers, StepError> {
+    let f = &o.media;
+    let cur = &config["memory"]["mediaEmbedding"];
+    let interactive = !o.non_interactive;
+    let first_time = cur.get("enabled").is_none() && cur.get("provider").is_none();
+    let cur_str = |p: &[&str]| -> Option<String> {
+        p.iter()
+            .try_fold(cur, |v, k| v.get(*k))
+            .and_then(Value::as_str)
+            .map(str::to_string)
+    };
+    let any_flag = f.text_provider.is_some()
+        || f.media_provider.is_some()
+        || f.media_model.is_some()
+        || f.media_dimensions.is_some()
+        || f.media_modalities.is_some()
+        || f.caption_provider.is_some();
+
+    let mut a = MediaAnswers {
+        enabled: cur["enabled"].as_bool().unwrap_or(true),
+        text_provider: f
+            .text_provider
+            .clone()
+            .unwrap_or_else(|| LOCAL_PROVIDER.to_string()),
+        provider: cur_str(&["provider"]).unwrap_or_else(|| LOCAL_PROVIDER.to_string()),
+        model: cur_str(&["model"]).unwrap_or_else(|| LOCAL_MODEL.to_string()),
+        dimensions: cur["dimensions"]
+            .as_u64()
+            .and_then(|d| u32::try_from(d).ok())
+            .unwrap_or(DEFAULT_DIMENSIONS),
+        modalities: cur["modalities"]
+            .as_array()
+            .map(|m| {
+                m.iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_string)
+                    .collect()
+            })
+            .filter(|m: &Vec<String>| !m.is_empty())
+            .unwrap_or_else(|| MODALITIES.iter().map(|m| m.to_string()).collect()),
+        caption_provider: cur_str(&["caption", "provider"]),
+        caption_source: None,
+    };
+    for flag in [
+        &f.text_provider,
+        &f.media_provider,
+        &f.media_model,
+        &f.caption_provider,
+    ]
+    .into_iter()
+    .flatten()
+    {
+        if !valid_token(flag) {
+            return Err(StepError::new(
+                "media-flag-invalid",
+                format!("{flag:?} is not a valid provider or model id"),
+            ));
+        }
+    }
+
+    // 1. Skippable as a whole.
+    if f.skip {
+        a.enabled = false;
+        return Ok(a);
+    }
+    if any_flag {
+        a.enabled = true;
+    } else if first_time && interactive {
+        eprintln!("Memory & media search: find photos, videos and recordings by content.");
+        eprintln!(
+            "  Default: EmbeddingGemma 2, runs on this machine, licence {LOCAL_LICENCE}, downloaded once on first use."
+        );
+        let yes = ask_valid(
+            ask,
+            "memory.mediaEmbedding.enabled",
+            "Set up media search (yes/no)",
+            "yes",
+            None,
+            &|v| matches!(v, "yes" | "no"),
+        )?;
+        a.enabled = yes == "yes";
+    }
+    if !a.enabled {
+        return Ok(a);
+    }
+
+    // 2. Text and media providers, asked separately.
+    if f.text_provider.is_none() && first_time && interactive {
+        a.text_provider = ask_valid(
+            ask,
+            "memory.textProvider",
+            &format!(
+                "Provider for the text memory ({LOCAL_PROVIDER} = EmbeddingGemma 2 on this machine, {LOCAL_LICENCE}; or a cloud provider id)"
+            ),
+            LOCAL_PROVIDER,
+            None,
+            &valid_token,
+        )?;
+    }
+    if let Some(p) = &f.media_provider {
+        a.provider = p.clone();
+    } else if first_time && interactive {
+        a.provider = ask_valid(
+            ask,
+            "memory.mediaEmbedding.provider",
+            &format!(
+                "Provider for media search ({LOCAL_PROVIDER} = EmbeddingGemma 2 on this machine, {LOCAL_LICENCE}; a cloud provider id; or off)"
+            ),
+            LOCAL_PROVIDER,
+            None,
+            &valid_token,
+        )?;
+    }
+    if a.provider == "off" {
+        return Ok(a);
+    }
+    let local = a.provider == LOCAL_PROVIDER;
+
+    // 3. Model and dimensions: fixed for the local default, a cloud provider needs its own model id.
+    if let Some(m) = &f.media_model {
+        a.model = m.clone();
+    } else if !local && cur_str(&["model"]).is_none_or(|m| m == LOCAL_MODEL) {
+        if !interactive {
+            return Err(StepError::new(
+                "media-model-missing",
+                format!("media provider {} needs a model", a.provider),
+            )
+            .hint("pass --media-model <id>"));
+        }
+        a.model = ask_valid(
+            ask,
+            "memory.mediaEmbedding.model",
+            &format!("Model id for {}", a.provider),
+            "",
+            Some(("media-model-missing", "pass --media-model <id>")),
+            &valid_token,
+        )?;
+    } else if local && f.media_provider.is_some() && f.media_model.is_none() {
+        a.model = LOCAL_MODEL.to_string();
+    }
+    if let Some(d) = f.media_dimensions {
+        a.dimensions = d;
+    }
+    if a.dimensions == 0 || (a.model == LOCAL_MODEL && !GEMMA_DIMENSIONS.contains(&a.dimensions)) {
+        return Err(StepError::new(
+            "media-dimensions-invalid",
+            format!(
+                "{} dimensions are not supported by {}",
+                a.dimensions, a.model
+            ),
+        )
+        .hint("EmbeddingGemma 2 supports 768, 512, 256 or 128"));
+    }
+
+    // 4. Modalities.
+    if let Some(m) = &f.media_modalities {
+        a.modalities = m.clone();
+    } else if cur.get("modalities").is_none() && first_time && interactive {
+        let v = ask_valid(
+            ask,
+            "memory.mediaEmbedding.modalities",
+            "Which media to index (comma separated: image,video,audio)",
+            "image,video,audio",
+            None,
+            &|v| parse_modalities(v).is_some(),
+        )?;
+        a.modalities = parse_modalities(&v).unwrap_or_else(|| a.modalities.clone());
+    }
+
+    // 5. Captioning: preselected local with a local media provider; with a cloud one there is no preselection.
+    let decided = cur_str(&["caption", "provider"]).is_some() || (local && !first_time);
+    let answer = if let Some(c) = &f.caption_provider {
+        Some(c.clone())
+    } else if decided || !interactive {
+        None
+    } else if local {
+        Some(ask_valid(
+            ask,
+            "memory.mediaEmbedding.caption.provider",
+            "Describe media automatically (local = on this machine, off, or a cloud provider id)",
+            "local",
+            None,
+            &valid_token,
+        )?)
+    } else {
+        Some(ask_valid(
+            ask,
+            "memory.mediaEmbedding.caption.provider",
+            &format!(
+                "Describe media automatically? Media go to {}: choose local, cloud (= {}), off, or a provider id",
+                a.provider, a.provider
+            ),
+            "",
+            Some((
+                "media-caption-choice-required",
+                "pass --caption-provider local|cloud|off|<provider id>",
+            )),
+            &valid_token,
+        )?)
+    };
+    if let Some(choice) = answer {
+        let chosen = if choice == "cloud" {
+            a.provider.clone()
+        } else {
+            choice
+        };
+        if chosen == "off" && cur_str(&["caption", "source"]).is_none() {
+            a.caption_source = Some("user-only");
+        }
+        a.caption_provider = Some(chosen);
+    }
+    Ok(a)
+}
+
+/// The `config.set` changes for `a`: only keys whose effective value (the configured one, else the schema default)
+/// differs from the answer. A cloud caption provider is never defaulted; a local one is the default for a local media
+/// provider and is written only when media runs elsewhere.
+fn media_changes(config: &Value, a: &MediaAnswers) -> Vec<(String, Value)> {
+    let cur = &config["memory"]["mediaEmbedding"];
+    let mut changes = Vec::new();
+    let mut put = |key: &str, cur_val: Value, default: Value, answer: Value| {
+        if cur_val.is_null() && answer == default {
+            return;
+        }
+        if !cur_val.is_null() && cur_val == answer {
+            return;
+        }
+        changes.push((format!("memory.mediaEmbedding.{key}"), answer));
+    };
+    put(
+        "enabled",
+        cur["enabled"].clone(),
+        json!(true),
+        json!(a.enabled),
+    );
+    if !a.enabled {
+        return changes;
+    }
+    put(
+        "provider",
+        cur["provider"].clone(),
+        json!(LOCAL_PROVIDER),
+        json!(a.provider),
+    );
+    if a.provider == "off" {
+        return changes;
+    }
+    put(
+        "model",
+        cur["model"].clone(),
+        json!(LOCAL_MODEL),
+        json!(a.model),
+    );
+    put(
+        "dimensions",
+        cur["dimensions"].clone(),
+        json!(DEFAULT_DIMENSIONS),
+        json!(a.dimensions),
+    );
+    put(
+        "modalities",
+        cur["modalities"].clone(),
+        json!(MODALITIES),
+        json!(a.modalities),
+    );
+    if let Some(c) = &a.caption_provider {
+        let implied_local = c == "local" && a.provider == LOCAL_PROVIDER;
+        if !(implied_local && cur["caption"]["provider"].is_null()) {
+            put(
+                "caption.provider",
+                cur["caption"]["provider"].clone(),
+                Value::Null,
+                json!(c),
+            );
+        }
+    }
+    if let Some(src) = a.caption_source {
+        put(
+            "caption.source",
+            cur["caption"]["source"].clone(),
+            json!("prompt-then-user-then-auto"),
+            json!(src),
+        );
+    }
+    changes
 }
 
 // ---- skills ----------------------------------------------------------------------------------------------------
@@ -1124,6 +1538,7 @@ mod tests {
             use_class: None,
             agent: None,
             profile: None,
+            media: MediaOpts::default(),
         }
     }
 
@@ -1169,8 +1584,10 @@ mod tests {
 
         let mut p = scripted(vec!["bernd", "commercial"], true);
         let a = answer_config(&opts(false), "full", None, &mut p).unwrap();
+        // The media-search questions are asked by `answer_media`, not here.
         let expected: Vec<(String, String)> = PROMPTS
             .iter()
+            .filter(|(k, _)| *k != "memory.mediaEmbedding")
             .map(|(k, q)| (k.to_string(), q.to_string()))
             .collect();
         assert_eq!(p.asked, expected);
@@ -1380,6 +1797,326 @@ mod tests {
                 .use_class,
             "general"
         );
+    }
+
+    // ---- Memory & media search ------------------------------------------------------------------------------
+
+    fn media_keys(c: &[(String, Value)]) -> Vec<&str> {
+        c.iter()
+            .map(|(k, _)| k.strip_prefix("memory.mediaEmbedding.").unwrap_or(k))
+            .collect()
+    }
+
+    fn media_value<'a>(c: &'a [(String, Value)], key: &str) -> &'a Value {
+        &c.iter()
+            .find(|(k, _)| k == &format!("memory.mediaEmbedding.{key}"))
+            .unwrap_or_else(|| panic!("no change for {key}"))
+            .1
+    }
+
+    #[test]
+    fn media_defaults_are_preselected_local_gemma_and_write_nothing() {
+        let mut p = scripted(vec![], false);
+        let a = answer_media(&opts(false), &Value::Null, &mut p).unwrap();
+        let asked: Vec<&str> = p.asked.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(
+            asked,
+            [
+                "memory.mediaEmbedding.enabled",
+                "memory.textProvider",
+                "memory.mediaEmbedding.provider",
+                "memory.mediaEmbedding.modalities",
+                "memory.mediaEmbedding.caption.provider",
+            ],
+            "text and media provider are separate questions"
+        );
+        assert!(p.asked.iter().any(|(_, q)| q.contains("Apache-2.0")));
+        assert_eq!(
+            (
+                a.text_provider.as_str(),
+                a.provider.as_str(),
+                a.model.as_str(),
+                a.dimensions
+            ),
+            (LOCAL_PROVIDER, LOCAL_PROVIDER, LOCAL_MODEL, 768)
+        );
+        assert_eq!(a.modalities, ["image", "video", "audio"]);
+        assert_eq!(
+            a.caption_provider.as_deref(),
+            Some("local"),
+            "captioning preselected local"
+        );
+        assert!(
+            media_changes(&Value::Null, &a).is_empty(),
+            "all defaults: no key is written"
+        );
+    }
+
+    #[test]
+    fn media_answers_can_change_every_choice() {
+        let mut p = scripted(
+            vec![
+                "yes",
+                "local-transformers",
+                "local-transformers",
+                "image, audio",
+                "off",
+            ],
+            false,
+        );
+        let a = answer_media(&opts(false), &Value::Null, &mut p).unwrap();
+        assert_eq!(a.modalities, ["image", "audio"]);
+        assert_eq!(a.caption_provider.as_deref(), Some("off"));
+        let c = media_changes(&Value::Null, &a);
+        assert_eq!(
+            media_keys(&c),
+            ["modalities", "caption.provider", "caption.source"]
+        );
+        assert_eq!(media_value(&c, "modalities"), &json!(["image", "audio"]));
+        assert_eq!(media_value(&c, "caption.provider"), &json!("off"));
+        assert_eq!(media_value(&c, "caption.source"), &json!("user-only"));
+        // An invalid modality is asked again.
+        let mut p = scripted(vec!["yes", "x", "y", "gif", "video", "local"], false);
+        let a = answer_media(&opts(false), &Value::Null, &mut p).unwrap();
+        assert_eq!(a.modalities, ["video"]);
+    }
+
+    #[test]
+    fn a_cloud_media_provider_gets_no_caption_preselection() {
+        let mut p = scripted(
+            vec![
+                "yes",
+                "local-transformers",
+                "google",
+                "gemini-embedding-x",
+                "image,video,audio",
+                "cloud",
+            ],
+            false,
+        );
+        let a = answer_media(&opts(false), &Value::Null, &mut p).unwrap();
+        let (key, question) = p.asked.last().unwrap();
+        assert_eq!(key, "memory.mediaEmbedding.caption.provider");
+        assert!(question.contains("local, cloud"), "{question}");
+        assert_eq!(
+            a.caption_provider.as_deref(),
+            Some("google"),
+            "cloud means the media provider"
+        );
+        let c = media_changes(&Value::Null, &a);
+        assert_eq!(media_value(&c, "provider"), &json!("google"));
+        assert_eq!(media_value(&c, "model"), &json!("gemini-embedding-x"));
+        assert_eq!(media_value(&c, "caption.provider"), &json!("google"));
+        // Never answered: setup refuses to guess.
+        let mut p = scripted(
+            vec![
+                "yes",
+                "local-transformers",
+                "google",
+                "m",
+                "image,video,audio",
+                "",
+                "",
+                "",
+            ],
+            false,
+        );
+        assert_eq!(
+            answer_media(&opts(false), &Value::Null, &mut p)
+                .unwrap_err()
+                .reason,
+            "media-caption-choice-required"
+        );
+        // Non-interactive without a flag: left undecided and reported, not defaulted.
+        let mut o = opts(true);
+        o.media.media_provider = Some("google".into());
+        o.media.media_model = Some("m".into());
+        let a = answer_media(&o, &Value::Null, &mut p).unwrap();
+        assert_eq!(a.caption_provider, None);
+        assert_eq!(a.detail()["captionPending"], json!(true));
+        assert!(!media_changes(&Value::Null, &a)
+            .iter()
+            .any(|(k, _)| k.ends_with("caption.provider")));
+        // A cloud provider without a model is a usage error, not a default.
+        o.media.media_model = None;
+        assert_eq!(
+            answer_media(&o, &Value::Null, &mut p).unwrap_err().reason,
+            "media-model-missing"
+        );
+    }
+
+    #[test]
+    fn local_caption_is_written_only_when_media_runs_elsewhere() {
+        let mut o = opts(true);
+        o.media.media_provider = Some("google".into());
+        o.media.media_model = Some("m".into());
+        o.media.caption_provider = Some("local".into());
+        let a = answer_media(&o, &Value::Null, &mut scripted(vec![], false)).unwrap();
+        assert_eq!(
+            media_value(&media_changes(&Value::Null, &a), "caption.provider"),
+            &json!("local")
+        );
+    }
+
+    #[test]
+    fn skipping_media_search_writes_only_enabled_false_and_asks_nothing() {
+        let mut o = opts(false);
+        o.media.skip = true;
+        let mut p = scripted(vec![], false);
+        let a = answer_media(&o, &Value::Null, &mut p).unwrap();
+        assert!(p.asked.is_empty());
+        let c = media_changes(&Value::Null, &a);
+        assert_eq!(media_keys(&c), ["enabled"]);
+        assert_eq!(media_value(&c, "enabled"), &json!(false));
+        // Declining the first question is the same.
+        let mut p = scripted(vec!["no"], false);
+        let a = answer_media(&opts(false), &Value::Null, &mut p).unwrap();
+        assert_eq!(p.asked.len(), 1);
+        assert_eq!(media_keys(&media_changes(&Value::Null, &a)), ["enabled"]);
+    }
+
+    #[test]
+    fn non_interactive_media_flags_cover_every_choice() {
+        let mut o = opts(true);
+        o.media = MediaOpts {
+            skip: false,
+            text_provider: Some("openai".into()),
+            media_provider: Some(LOCAL_PROVIDER.into()),
+            media_model: None,
+            media_dimensions: Some(256),
+            media_modalities: Some(vec!["image".into(), "video".into()]),
+            caption_provider: Some("off".into()),
+        };
+        let mut p = scripted(vec![], false);
+        let a = answer_media(&o, &Value::Null, &mut p).unwrap();
+        assert!(p.asked.is_empty() && p.confirms.is_empty());
+        assert_eq!(a.text_provider, "openai");
+        assert!(a.detail()["textProviderNote"].is_string());
+        let c = media_changes(&Value::Null, &a);
+        assert_eq!(
+            media_keys(&c),
+            [
+                "dimensions",
+                "modalities",
+                "caption.provider",
+                "caption.source"
+            ]
+        );
+        assert_eq!(media_value(&c, "dimensions"), &json!(256));
+        // Defaults when no flag is given.
+        let a = answer_media(&opts(true), &Value::Null, &mut p).unwrap();
+        assert!(media_changes(&Value::Null, &a).is_empty());
+        // Unsupported dimension for Gemma, off provider, bad id.
+        o.media.media_dimensions = Some(300);
+        assert_eq!(
+            answer_media(&o, &Value::Null, &mut p).unwrap_err().reason,
+            "media-dimensions-invalid"
+        );
+        o.media.media_dimensions = None;
+        o.media.media_provider = Some("off".into());
+        let a = answer_media(&o, &Value::Null, &mut p).unwrap();
+        assert_eq!(media_keys(&media_changes(&Value::Null, &a)), ["provider"]);
+        o.media.media_provider = Some("bad id!".into());
+        assert_eq!(
+            answer_media(&o, &Value::Null, &mut p).unwrap_err().reason,
+            "media-flag-invalid"
+        );
+    }
+
+    #[test]
+    fn rerunning_media_setup_asks_nothing_and_changes_nothing() {
+        // First run, answers applied to a config.
+        let mut p = scripted(
+            vec![
+                "yes",
+                "local-transformers",
+                "google",
+                "m",
+                "image,video,audio",
+                "local",
+            ],
+            false,
+        );
+        let first = answer_media(&opts(false), &Value::Null, &mut p).unwrap();
+        let mut config = json!({ "memory": { "mediaEmbedding": {} } });
+        for (k, v) in media_changes(&Value::Null, &first) {
+            let key = k
+                .strip_prefix("memory.mediaEmbedding.")
+                .unwrap()
+                .to_string();
+            match key.split_once('.') {
+                Some((a, b)) => config["memory"]["mediaEmbedding"][a][b] = v,
+                None => config["memory"]["mediaEmbedding"][&key] = v,
+            }
+        }
+        let mut p = scripted(vec![], false);
+        let again = answer_media(&opts(false), &config, &mut p).unwrap();
+        assert!(
+            p.asked.is_empty(),
+            "everything is configured: {:?}",
+            p.asked
+        );
+        assert_eq!(again.provider, "google");
+        assert!(media_changes(&config, &again).is_empty());
+        // Local default re-run after a skip stays skipped.
+        let skipped = json!({ "memory": { "mediaEmbedding": { "enabled": false } } });
+        let mut p = scripted(vec![], false);
+        let a = answer_media(&opts(false), &skipped, &mut p).unwrap();
+        assert!(p.asked.is_empty() && media_changes(&skipped, &a).is_empty());
+        // A cloud setup whose caption was never decided asks only that.
+        let undecided =
+            json!({ "memory": { "mediaEmbedding": { "provider": "google", "model": "m" } } });
+        let mut p = scripted(vec!["off"], false);
+        let a = answer_media(&opts(false), &undecided, &mut p).unwrap();
+        let asked: Vec<&str> = p.asked.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(asked, ["memory.mediaEmbedding.caption.provider"]);
+        assert_eq!(a.caption_provider.as_deref(), Some("off"));
+        // An explicit flag changes a configured value.
+        let mut o = opts(true);
+        o.media.media_provider = Some(LOCAL_PROVIDER.into());
+        let a = answer_media(&o, &undecided, &mut scripted(vec![], false)).unwrap();
+        let c = media_changes(&undecided, &a);
+        assert_eq!(media_value(&c, "provider"), &json!(LOCAL_PROVIDER));
+        assert_eq!(media_value(&c, "model"), &json!(LOCAL_MODEL));
+    }
+
+    #[test]
+    fn media_changes_validate_against_the_config_schema() {
+        let a = MediaAnswers {
+            enabled: true,
+            text_provider: LOCAL_PROVIDER.into(),
+            provider: "google".into(),
+            model: "m".into(),
+            dimensions: 512,
+            modalities: vec!["audio".into()],
+            caption_provider: Some("off".into()),
+            caption_source: Some("user-only"),
+        };
+        let mut config = json!({});
+        for (k, v) in media_changes(&Value::Null, &a) {
+            let path: Vec<&str> = k.split('.').collect();
+            let mut node = &mut config;
+            for seg in &path[..path.len() - 1] {
+                node = &mut node[*seg];
+            }
+            node[path[path.len() - 1]] = v;
+        }
+        let schema: Value = serde_json::from_str(plur1bus_config::SCHEMA_JSON).unwrap();
+        let sub = &schema["properties"]["memory"]["properties"]["mediaEmbedding"];
+        let v = jsonschema_free_check(sub, &config["memory"]["mediaEmbedding"]);
+        assert!(v, "{config}");
+    }
+
+    /// Minimal check without a validator dependency: every written key exists in the schema's properties.
+    fn jsonschema_free_check(schema: &Value, value: &Value) -> bool {
+        match value.as_object() {
+            Some(o) => o.iter().all(|(k, v)| {
+                schema["properties"]
+                    .get(k)
+                    .is_some_and(|s| jsonschema_free_check(s, v))
+            }),
+            None => true,
+        }
     }
 
     #[test]

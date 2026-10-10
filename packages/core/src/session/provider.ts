@@ -12,6 +12,7 @@ export type ChatChunk =
 export interface TurnApprover { person: string | null; surface: 0 | 1 | 2 | 3 }
 
 export interface ChatRequest {
+  turnProfile?: import("../voice/turn-profile.ts").TurnProfile;
   /** Internal background role: the same router/budget, with no tool execution. */
   role?: "summarize"; maxOutputTokens?: number;
   sessionId: string; agentId: string;

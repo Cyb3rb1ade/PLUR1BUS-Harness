@@ -4,6 +4,18 @@ use clap::Subcommand;
 use serde_json::{json, Value};
 #[derive(Debug, Subcommand)]
 pub enum ProjectCmd {
+    #[command(about = "[experimental] Show the project board grouped by column")]
+    Board { project: String },
+    /// Work with project board cards
+    Card {
+        #[command(subcommand)]
+        sub: super::project_board::CardCmd,
+    },
+    /// Manage project board columns (project lead required)
+    Column {
+        #[command(subcommand)]
+        sub: super::project_board::ColumnCmd,
+    },
     #[command(about = "[experimental] Create a project")]
     Create { name: String },
     #[command(about = "[experimental] List records")]
@@ -64,6 +76,9 @@ pub enum TraceCmd {
 }
 pub fn request(cmd: &ProjectCmd) -> (&'static str, Value) {
     match cmd {
+        ProjectCmd::Board { project } => ("project.column.list", json!({"projectId":project})),
+        ProjectCmd::Card { sub } => super::project_board::card_request(sub),
+        ProjectCmd::Column { sub } => super::project_board::column_request(sub),
         ProjectCmd::Create { name } => ("project.create", json!({"name":name})),
         ProjectCmd::List => ("project.list", json!({})),
         ProjectCmd::Show { id } => ("project.get", json!({"projectId":id})),
@@ -103,6 +118,12 @@ pub fn request(cmd: &ProjectCmd) -> (&'static str, Value) {
     }
 }
 pub fn run(out: &Out, layout: &Layout, cmd: ProjectCmd) {
+    match &cmd {
+        ProjectCmd::Board { project } => return super::project_board::board(out, layout, project),
+        ProjectCmd::Card { sub } => return super::project_board::card(out, layout, sub),
+        ProjectCmd::Column { sub } => return super::project_board::column(out, layout, sub),
+        _ => {}
+    }
     let (m, p) = request(&cmd);
     emit(out, m, &call(out, layout, m, p));
 }

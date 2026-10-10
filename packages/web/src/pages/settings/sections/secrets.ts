@@ -11,6 +11,11 @@ import { FailureState } from "../../common/states.ts";
 import { currentRole, failureOf, getApi, roleIn, useLoad } from "../../common/load.ts";
 import type { SectionProps } from "../page.ts";
 import { SecretDialog, type SaveResult } from "../secrets/dialogs.ts";
+import { registerArea } from "../../../i18n/index.ts";
+import * as secretsArea from "../../../i18n/secrets.ts";
+import "../../../styles/secrets.css";
+
+registerArea("secrets", secretsArea);
 
 type Meta = { name: string; backend: string; createdAt: string; updatedAt: string };
 type Status = { backend: string; degraded: boolean; count: number | null; activeLeases: number };

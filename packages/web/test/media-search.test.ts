@@ -130,6 +130,7 @@ describe("media search: setup step", opts, () => {
       for (const m of ["image", "video", "audio"]) assert.equal(await app.page.locator(`#setup-modality-${m}`).isChecked(), true, m);
       assert.equal(await app.page.locator("#setup-caption-local").isChecked(), true, "captioning is local when embedding is local");
       await next(app.page);
+      await skip(app.page);
       await stepHeading(app.page, /Backups/).waitFor();
       // The persona and model steps write before this one, so the memory step's write is the last config.set.
       const memoryWrite = app.server.rpc.calls.filter((c) => c.method === "config.set").map((c) => (c.params as { changes: { key: string }[] }).changes).at(-1) ?? [];
@@ -145,6 +146,7 @@ describe("media search: setup step", opts, () => {
       await stepHeading(app.page, /Memory/).waitFor();
       await app.page.locator("#setup-modality-video").uncheck();
       await next(app.page);
+      await skip(app.page);
       await stepHeading(app.page, /Backups/).waitFor();
       const changes = app.server.rpc.calls.filter((c) => c.method === "config.set").flatMap((c) => (c.params as { changes: { key: string; value: unknown }[] }).changes);
       assert.deepEqual(changes.find((x) => x.key === "memory.mediaEmbedding.modalities"), { key: "memory.mediaEmbedding.modalities", value: ["image", "audio"] });
@@ -159,6 +161,7 @@ describe("media search: setup step", opts, () => {
       await app.page.locator("#setup-media-enabled").uncheck();
       assert.equal(await app.page.locator("#setup-modality-video").count(), 0);
       await next(app.page);
+      await skip(app.page);
       await stepHeading(app.page, /Backups/).waitFor();
       const changes = app.server.rpc.calls.filter((c) => c.method === "config.set").flatMap((c) => (c.params as { changes: { key: string; value: unknown }[] }).changes);
       assert.deepEqual(changes.find((x) => x.key === "memory.mediaEmbedding.enabled"), { key: "memory.mediaEmbedding.enabled", value: false });

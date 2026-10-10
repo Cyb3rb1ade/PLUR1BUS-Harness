@@ -15,6 +15,8 @@ import { FailureState } from "../../common/states.ts";
 import { currentRole, failureOf, getApi, roleIn, useLoad } from "../../common/load.ts";
 import type { SectionProps } from "../page.ts";
 
+import "../../../styles/providers.css";
+
 registerArea("providers", area);
 
 export type AuthCredential = {

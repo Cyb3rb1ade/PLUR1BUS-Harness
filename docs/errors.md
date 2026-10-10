@@ -23,7 +23,7 @@ that maps an error to an exit code.
 
 ## Error codes
 
-The first fifteen codes are the closed set of the RPC schema ([rpc.md](rpc.md#error-codes)); the CLI reports the code
+The RPC codes below are the closed set of the RPC schema ([rpc.md](rpc.md#error-codes)); the CLI reports the code
 the core sent. The last two are raised by the CLI itself.
 
 | Code | Exit | Meaning |
@@ -42,7 +42,14 @@ the core sent. The last two are raised by the CLI itself.
 | `E_DENIED` | 1 | Policy or permissions refuse the operation. |
 | `E_APPROVAL_REQUIRED` | 2 | The operation waits for an approval or an acknowledgement (`reason` says which). A script must not treat it as success. |
 | `E_CONFLICT` | 1 | The operation conflicts with the current state (name taken, concurrent change). |
+| `E_PROJECT_WIP_LIMIT` | 1 | The active-card count would exceed the target column WIP limit. The whole board mutation rolls back; a human with project manage may explicitly request `overrideWip`. |
 | `E_STORAGE` | 1 | A storage operation failed; `ids` may carry the ids needed to recover a half-finished step. |
+| `E_MEDIA_CAPABILITY` | 1 | The media index's provider or model cannot handle the modality (for example OpenAI embeddings in the media index). |
+| `E_MEDIA_LICENSE` | 1 | The licence of the media model has not been confirmed (for example a non-commercial licence). |
+| `E_MEDIA_PRIVACY` | 1 | The privacy pin is set and a cloud provider is configured for the media index; no request was sent. |
+| `E_MEDIA_UNAVAILABLE` | 1 | The media model is not installed, its key is missing, or the engine has no media index. |
+| `E_MEDIA_DIMENSION` | 1 | The query and the indexed documents differ in dimension, or the model does not support the configured dimension. |
+| `E_MEDIA_UNSUPPORTED_KIND` | 1 | The medium cannot be processed (decoder or frame extractor missing, format unknown). |
 | `E_IMPORT_FAILED` | 1 | `plur1bus import` could not run or finish the importer (`reason`: `importer-missing`, `node-unavailable`, `importer-crashed`). The importer's own errors keep the exit code it reports. |
 | `E_CANCELLED` | 1 | The user declined a confirmation prompt; nothing was changed. |
 
