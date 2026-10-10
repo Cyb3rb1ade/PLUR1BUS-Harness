@@ -47,6 +47,37 @@ pub(crate) fn locate_core_js(layout: &Layout) -> PathBuf {
         .unwrap_or_else(|| layout.runtime().join("core").join("core.js"))
 }
 
+/// The native attestation helper (`plur1bus-attest`, issue #192) shipped beside this executable, as a canonical absolute path, or
+/// `None`. The core pins whatever it is given again (`PLUR1BUS_ATTEST_BIN`: absolute, regular file, not group/world-writable), so a
+/// path that fails there simply means "no attestation here"; nothing breaks. A value already in the environment wins, as it does for
+/// `PLUR1BUS_CORE_JS`.
+pub(crate) fn locate_attest_bin() -> Option<PathBuf> {
+    if std::env::var_os("PLUR1BUS_ATTEST_BIN").is_some() {
+        return None; // inherited by the child as it is
+    }
+    attest_beside(&std::env::current_exe().ok()?)
+}
+
+pub(crate) fn attest_beside(exe: &std::path::Path) -> Option<PathBuf> {
+    let name = if cfg!(windows) {
+        "plur1bus-attest.exe"
+    } else {
+        "plur1bus-attest"
+    };
+    let candidate = exe.parent()?.join(name);
+    if !candidate.is_file() {
+        return None;
+    }
+    std::fs::canonicalize(candidate).ok()
+}
+
+/// What the core child's environment gains from [`locate_attest_bin`].
+pub(crate) fn attest_env() -> Vec<(std::ffi::OsString, std::ffi::OsString)> {
+    locate_attest_bin()
+        .map(|p| vec![("PLUR1BUS_ATTEST_BIN".into(), p.into_os_string())])
+        .unwrap_or_default()
+}
+
 /// Locates the Node runtime ([`locate_node`]) and dist/core.js ([`locate_core_js`]) and runs the core in the
 /// foreground.
 pub fn run(out: &Out, layout: &Layout) -> ! {
@@ -65,6 +96,7 @@ pub fn run(out: &Out, layout: &Layout) -> ! {
     }
     let mut cmd = Command::new(&node);
     cmd.arg(&core_js).arg("--home").arg(&layout.home);
+    cmd.envs(attest_env());
     if let Some(ti) = std::env::var_os("PLUR1BUS_TEST_INTERNALS") {
         cmd.arg("--test-internals").arg(ti);
     }
@@ -101,6 +133,27 @@ mod tests {
     fn touch(p: &std::path::Path) {
         std::fs::create_dir_all(p.parent().unwrap()).unwrap();
         std::fs::write(p, "").unwrap();
+    }
+
+    #[test]
+    fn the_attest_helper_is_the_binary_beside_the_executable_and_only_when_it_exists() {
+        let dir = tempfile::tempdir().unwrap();
+        let exe = dir.path().join(if cfg!(windows) {
+            "plur1bus.exe"
+        } else {
+            "plur1bus"
+        });
+        assert_eq!(attest_beside(&exe), None);
+        let helper = dir.path().join(if cfg!(windows) {
+            "plur1bus-attest.exe"
+        } else {
+            "plur1bus-attest"
+        });
+        touch(&helper);
+        assert_eq!(
+            attest_beside(&exe),
+            Some(std::fs::canonicalize(&helper).unwrap())
+        );
     }
 
     #[test]

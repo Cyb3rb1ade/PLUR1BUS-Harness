@@ -1,4 +1,6 @@
 // The eight grant.* / approval.* methods in a running core: the real RPC server, schema validators, RBAC guard, lazy stores and notifications.
+import { fakeHelper } from "../attestation/fixtures/pinned-fake.ts";
+import type { HelperSpec } from "../../src/attestation/index.ts";
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -194,5 +196,49 @@ describe("grant.* and approval.* in a running core: the owner's path", () => {
     assert.equal((await answer).approved, false);
     assert.ok(readFileSync(approvalsDbPath(home2)).length > 0);
     await assert.rejects(k.approvalService(), (e: any) => e.error === "E_NOT_AVAILABLE");
+  });
+});
+
+describe("OS attestation in a running core (#192 option C)", () => {
+  const restore = withMemoryKeyring();
+  const SHELL = { capability: "shell.exec", tool: "shell.run", effect: "local-destructive" as const, targets: [], args: { cmd: "ls" } };
+  const PERSON: Principal = { userId: "christian", kind: "person", role: "owner" };
+  after(() => restore());
+
+  async function run<T>(attestation: { helper: HelperSpec | null }, body: (c: CoreClient, core: Core) => Promise<T>): Promise<T> {
+    const core = createCore({ home: newHome(), testInternals: flatTestInternals(), attestation, rbac: { resolve: () => PERSON, audit: memoryAuditSink() } });
+    await core.start();
+    const c = await connect({ address: core.address, token: core.token });
+    try { return await body(c, core); } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
+  }
+  const park = async (core: Core) => {
+    const service = await core.approvalService();
+    const answer = service.request(askFor({ ...SHELL, actionHash: "ab".padEnd(64, "0"), taskId: "t1" }));
+    await new Promise((r) => setTimeout(r, 100));
+    const id = (await service.list({ status: "pending" }))[0]!.id;
+    return { id, answer };
+  };
+
+  it("a token connection lifts one T2 approval with one confirmation; the grant says where it came from", T, async () => {
+    await run({ helper: fakeHelper("ok") }, async (c, core) => {
+      const { id, answer } = await park(core);
+      await assert.rejects(c.call("approval.decide", { id, decision: "approve", scope: "session" }), (e: any) => { assert.deepEqual(err(e), { error: "E_APPROVAL_REQUIRED", reason: "attestation-required" }); return true; });
+      const out = await c.call<any>("approval.decide", { id, decision: "approve", scope: "task", attest: true });
+      assert.equal(out.approval.decisionSurface, 2);
+      assert.equal(out.grant.attestedVia, "attested:fake-biometric");
+      assert.equal((await answer).approved, true);
+    });
+  });
+
+  it("a cancelled confirmation, and a core without a helper, leave the request pending at T1", T, async () => {
+    await run({ helper: fakeHelper("cancel") }, async (c, core) => {
+      const { id } = await park(core);
+      await assert.rejects(c.call("approval.decide", { id, decision: "approve", attest: true }), (e: any) => { assert.deepEqual(err(e), { error: "E_DENIED", reason: "attestation-failed" }); return true; });
+      assert.equal((await c.call<any>("approval.get", { id })).status, "pending");
+    });
+    await run({ helper: null }, async (c, core) => {
+      const { id } = await park(core);
+      for (const attest of [false, true]) await assert.rejects(c.call("approval.decide", { id, decision: "approve", attest }), (e: any) => { assert.deepEqual(err(e), { error: "E_NOT_AVAILABLE", reason: "attestation-unavailable" }); return true; });
+    });
   });
 });

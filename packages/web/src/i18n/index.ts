@@ -11,6 +11,7 @@
 //    typed `Record<keyof typeof en, string>` once it has keys, so a missing translation fails typecheck at the source.
 import * as activity from "./activity.ts";
 import * as agents from "./agents.ts";
+import type * as approvals from "./approvals.ts";
 import * as budget from "./budget.ts";
 import * as chat from "./chat.ts";
 import * as core from "./core.ts";
@@ -59,14 +60,14 @@ const EAGER_AREAS = [
 /** Areas that only one lazy page chunk uses. They are not part of the start-up closure: the chunk imports its own catalogue and
  *  calls `registerArea` as it loads (before it renders), which merges the texts into `en` / `de` and adds it to AREAS. Their keys
  *  are still part of `Key` through the type-only imports above. `LAZY_ORDER` is the canonical position in AREAS. */
-type LazyAreaName = "providers" | "switchboard";
+type LazyAreaName = "providers" | "switchboard" | "approvals";
 const LAZY_ORDER: readonly string[] = [
   "surfaces", "core", "chat", "memory", "mediasearch", "models", "budget", "doctor", "palette", "shared", "setup", "agents", "settings", "users",
-  "providers", "secrets", "switchboard", "devices", "logs", "activity", "sessions",
+  "providers", "secrets", "switchboard", "devices", "logs", "activity", "sessions", "approvals",
 ];
 
 
-type AreaEn = (typeof EAGER_AREAS)[number]["en"] | typeof providers.en | typeof switchboard.en;
+type AreaEn = (typeof EAGER_AREAS)[number]["en"] | typeof providers.en | typeof switchboard.en | typeof approvals.en;
 type Intersect<U> = (U extends unknown ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
 
 export type Key = keyof Intersect<AreaEn> & string;

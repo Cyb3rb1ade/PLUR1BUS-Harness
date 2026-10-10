@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!--
+  PLUR1BUS approval attestation (issue #192). `plur1bus-attest` asks polkit about this action; the session's authentication
+  agent then asks the person at the machine for their own password. Installed to /usr/share/polkit-1/actions/.
+
+  - auth_self: the user's own password, not an administrator's: the question is "is a person here", not "may this change the system".
+  - allow_any / allow_inactive are "no": no remote session and no locked or background session can confirm.
+  - Not "_keep": an authorization is never remembered, so every approval needs a fresh confirmation.
+-->
+<policyconfig>
+  <vendor>PLUR1BUS</vendor>
+  <vendor_url>https://github.com/Cyb3rb1ade/PLUR1BUS-Harness</vendor_url>
+  <action id="org.plur1bus.approve">
+    <description>Confirm a PLUR1BUS approval</description>
+    <message>Confirm that you approve this PLUR1BUS request: $(text)</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_self</allow_active>
+    </defaults>
+  </action>
+</policyconfig>

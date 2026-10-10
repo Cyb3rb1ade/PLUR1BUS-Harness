@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { layout } from "../paths.ts";
 
-export const APPROVALS_SCHEMA_VERSION = 1;
+export const APPROVALS_SCHEMA_VERSION = 2;
 export const APPROVALS_DB_FILE = "approvals.sqlite";
 
 /** `<home>/state/approvals.sqlite`, via the harness layout (never config.json, D109 §6). */
@@ -91,6 +91,8 @@ const MIGRATIONS: Record<number, string> = {
       tag TEXT NOT NULL
     );
   `,
+  // #192 option C: where a grant came from when an OS confirmation lifted its approval to T2 ("attested:<method>"). NULL for every earlier row.
+  2: `ALTER TABLE grants ADD COLUMN attested_via TEXT;`,
 };
 
 export class ApprovalsDbError extends Error {
