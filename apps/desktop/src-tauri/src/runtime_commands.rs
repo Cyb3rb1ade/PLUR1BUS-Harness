@@ -453,6 +453,8 @@ fn write_target(window: &WebviewWindow, c: &Controller) -> Result<(), String> {
         .installed()
         .map_err(|e| e.code())?
         .ok_or("not-installed")?;
+    #[cfg(not(debug_assertions))]
+    let _ = window;
     #[cfg(debug_assertions)]
     if std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR").is_some() {
         return crate::install::target_json::write(

@@ -402,11 +402,11 @@ pub fn approval_open(window: WebviewWindow, request: ApprovalRequest) -> Result<
         .get_webview_window("spa")
         .ok_or("E_NOT_AVAILABLE")?;
     let mut url = spa.url().map_err(|_| "E_NOT_AVAILABLE")?;
-    let proxy = window
+    let origin = window
         .state::<crate::spa::SpaState>()
-        .active_proxy()
+        .active_origin()
         .ok_or("E_NOT_AVAILABLE")?;
-    if !crate::policy::same_origin(&url, proxy.origin()) {
+    if !crate::policy::same_origin(&url, &origin) {
         return Err("E_DENIED".into());
     }
     url.set_fragment(Some(&format!("/approvals/{}", request.id)));
