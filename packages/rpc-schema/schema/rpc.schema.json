@@ -5,6 +5,84 @@
   "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor or (methods only, since 1.3.0) module.",
   "x-rpc-version": "1.6.0",
   "$defs": {
+    "Device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "platform",
+        "publicKey",
+        "fingerprint",
+        "pairedBy",
+        "pairedAt",
+        "lastSeenAt",
+        "scope",
+        "revoked"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^dev_[a-f0-9-]{36}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "platform": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "publicKey": {
+          "type": "string",
+          "maxLength": 4096,
+          "description": "Canonical base64 DER Ed25519 SubjectPublicKeyInfo."
+        },
+        "fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "pairedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "pairedAt": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Epoch milliseconds."
+        },
+        "lastSeenAt": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Epoch milliseconds."
+        },
+        "revokedAt": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Epoch milliseconds."
+        },
+        "revokedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "scope": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "revoked": {
+          "type": "boolean"
+        }
+      }
+    },
     "ErrorCode": {
       "type": "string",
       "enum": ["E_UNAUTHORIZED", "E_RPC_VERSION", "E_NOT_AVAILABLE", "E_CORE_UNAVAILABLE", "E_INVALID_PARAMS", "E_AGENT_UNKNOWN", "E_CONFIG_INVALID", "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED", "E_NOT_FOUND", "E_DENIED", "E_APPROVAL_REQUIRED", "E_CONFLICT", "E_STORAGE"]
@@ -382,7 +460,8 @@
       "type": "object", "additionalProperties": false,
       "required": ["methods", "notifications", "extensionPoints", "features"],
       "properties": {
-        "methods": { "type": "object", "additionalProperties": { "$ref": "#/$defs/CapabilityEntry" } },
+        "methods": {
+ "type": "object", "additionalProperties": { "$ref": "#/$defs/CapabilityEntry" } },
         "notifications": { "type": "object", "additionalProperties": { "$ref": "#/$defs/CapabilityEntry" } },
         "extensionPoints": { "type": "object", "additionalProperties": { "$ref": "#/$defs/CapabilityEntry" } },
         "features": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
@@ -486,6 +565,84 @@
       }
     },
     "methods": {
+      "device.list": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "List paired devices, including revoked entries. Owner/Admin see all; other people see their own. Agents are always denied.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {}
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "devices"
+          ],
+          "properties": {
+            "devices": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Device"
+              }
+            }
+          }
+        }
+      },
+      "device.revoke": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Persist revocation and immediately close all live connections for this device. Owner/Admin or the stored pairedBy person; future handshakes with the key are denied.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^dev_[a-f0-9-]{36}$"
+            }
+          }
+        },
+        "result": {
+          "$ref": "#/$defs/Device"
+        }
+      },
+      "device.rename": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Rename a device owned by the authenticated person (stored pairedBy); no administrator override. Agents are always denied.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "name"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^dev_[a-f0-9-]{36}$"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        },
+        "result": {
+          "$ref": "#/$defs/Device"
+        }
+      },
+
       "media.preferences.set": {
         "description": "Persistent metadata embedding preference. Call overrides agent overrides global; default off. Writes need settings or agent manage rights.",
         "x-server": "core",

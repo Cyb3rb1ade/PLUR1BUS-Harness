@@ -71,11 +71,34 @@ pub(crate) fn attest_beside(exe: &std::path::Path) -> Option<PathBuf> {
     std::fs::canonicalize(candidate).ok()
 }
 
-/// What the core child's environment gains from [`locate_attest_bin`].
+/// The environment entries that hand the helper's expected content to the core. Passed verbatim and not validated: a malformed
+/// value must reach the core, which then runs no helper at all, instead of vanishing and leaving the helper unpinned.
+pub(crate) fn attest_pin_env(
+    sha256: Option<&str>,
+    team_id: Option<&str>,
+    win_thumbprint: Option<&str>,
+) -> Vec<(std::ffi::OsString, std::ffi::OsString)> {
+    [
+        ("PLUR1BUS_ATTEST_SHA256", sha256),
+        ("PLUR1BUS_ATTEST_TEAM_ID", team_id),
+        ("PLUR1BUS_ATTEST_WIN_THUMBPRINT", win_thumbprint),
+    ]
+    .into_iter()
+    .filter_map(|(k, v)| v.map(|v| (k.into(), v.into())))
+    .collect()
+}
+
+/// What the core child's environment gains from [`locate_attest_bin`]: the helper beside this executable and, when the build baked
+/// them, the pins it must match. An inherited `PLUR1BUS_ATTEST_BIN` (an operator's own helper) brings no baked pins: they describe
+/// the shipped binary, not that one.
 pub(crate) fn attest_env() -> Vec<(std::ffi::OsString, std::ffi::OsString)> {
-    locate_attest_bin()
-        .map(|p| vec![("PLUR1BUS_ATTEST_BIN".into(), p.into_os_string())])
-        .unwrap_or_default()
+    let Some(bin) = locate_attest_bin() else {
+        return Vec::new();
+    };
+    let (sha, team, thumb) = crate::install::pins::attest_helper_pins();
+    let mut env = vec![("PLUR1BUS_ATTEST_BIN".into(), bin.into_os_string())];
+    env.extend(attest_pin_env(sha, team, thumb));
+    env
 }
 
 /// Locates the Node runtime ([`locate_node`]) and dist/core.js ([`locate_core_js`]) and runs the core in the
@@ -154,6 +177,32 @@ mod tests {
             attest_beside(&exe),
             Some(std::fs::canonicalize(&helper).unwrap())
         );
+    }
+
+    #[test]
+    fn the_baked_attest_pins_travel_as_environment_verbatim() {
+        let none = attest_pin_env(None, None, None);
+        assert!(none.is_empty());
+        let all = attest_pin_env(
+            Some("ab".repeat(32).as_str()),
+            Some("ABCDE12345"),
+            Some("A1"),
+        );
+        let get = |k: &str| {
+            all.iter()
+                .find(|(n, _)| n == k)
+                .map(|(_, v)| v.to_string_lossy().into_owned())
+        };
+        assert_eq!(get("PLUR1BUS_ATTEST_SHA256"), Some("ab".repeat(32)));
+        assert_eq!(
+            get("PLUR1BUS_ATTEST_TEAM_ID").as_deref(),
+            Some("ABCDE12345")
+        );
+        // Not validated here: a malformed pin must reach the core, which then runs no helper (fail closed),
+        // instead of vanishing and leaving the helper unpinned.
+        assert_eq!(get("PLUR1BUS_ATTEST_WIN_THUMBPRINT").as_deref(), Some("A1"));
+        let empty = attest_pin_env(Some(""), None, None);
+        assert_eq!(empty.len(), 1);
     }
 
     #[test]

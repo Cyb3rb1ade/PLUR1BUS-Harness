@@ -1,6 +1,30 @@
 //! Host dispatch remains offline: fake runtime executables and scratch state only.
 use std::process::Command;
+/// The fake container CLI is written and made executable once per process, before any test thread can reach `fork`:
+/// Linux refuses to `exec` a file that some process still holds open for writing (ETXTBSY), and a `fork` on a sibling
+/// test thread inherits the writer's descriptor until its own `exec`. Every test that forks calls this first, so no
+/// fork can overlap the write. Each test then hard-links the template into its own directory (see apple.rs).
+#[cfg(unix)]
+fn container_template() -> &'static std::path::Path {
+    use std::os::unix::fs::PermissionsExt;
+    static T: std::sync::OnceLock<(tempfile::TempDir, std::path::PathBuf)> =
+        std::sync::OnceLock::new();
+    &T.get_or_init(|| {
+        let d = tempfile::tempdir().unwrap();
+        let p = d.path().join("container");
+        std::fs::write(
+            &p,
+            include_str!("../../plur1bus-containers/tests/fixtures/container.py"),
+        )
+        .unwrap();
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o700)).unwrap();
+        (d, p)
+    })
+    .1
+}
 fn cli(args: &[&str]) -> std::process::Output {
+    #[cfg(unix)]
+    container_template();
     let home = tempfile::tempdir().unwrap();
     Command::new(env!("CARGO_BIN_EXE_plur1bus"))
         .arg("--home")
@@ -49,16 +73,7 @@ mod host {
     impl Env {
         fn new() -> Self {
             let dir = tempfile::tempdir().unwrap();
-            fs::write(
-                dir.path().join("container"),
-                include_str!("../../plur1bus-containers/tests/fixtures/container.py"),
-            )
-            .unwrap();
-            fs::set_permissions(
-                dir.path().join("container"),
-                fs::Permissions::from_mode(0o700),
-            )
-            .unwrap();
+            fs::hard_link(super::container_template(), dir.path().join("container")).unwrap();
             Self {
                 dir,
                 key: minisign::KeyPair::generate_unencrypted_keypair().unwrap(),
