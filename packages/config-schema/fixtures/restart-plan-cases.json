@@ -197,6 +197,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -514,6 +524,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -844,6 +864,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -1163,6 +1193,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -1493,6 +1533,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -1814,6 +1864,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -2150,6 +2210,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -2467,6 +2537,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -2803,6 +2883,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -3124,6 +3214,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -3458,6 +3558,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -3779,6 +3889,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -4111,6 +4231,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -4428,6 +4558,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -4761,6 +4901,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -5083,6 +5233,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -5420,6 +5580,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -5737,6 +5907,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {

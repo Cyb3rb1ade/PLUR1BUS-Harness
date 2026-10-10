@@ -234,6 +234,19 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
     const attachment = await outputAttachment(this.#o.outputs, outputId, chatId, index);
     return this.sendTurn({ chatId, text: "", attachments: [attachment] });
   }
+  /** Resolves the owner's direct message chat ID. In Telegram, a DM chat ID is equal to the numeric user ID. */
+  async resolveOwnerTarget(who: { userId: string; accountId?: string }): Promise<string> {
+    if (!this.#api || !this.#ac || !this.#healthy) throw new Error("telegram channel is not started");
+    if (who.accountId !== undefined && this.#botId !== undefined && String(who.accountId) !== String(this.#botId)) {
+      throw new Error("identity belongs to another telegram account");
+    }
+    const user = typeof who.userId === "string" ? who.userId : String(who.userId);
+    if (!CHAT_ID.test(user)) throw new Error("invalid telegram user id");
+    if (!this.#allow.has(user)) {
+      throw new Error("user is not on the telegram allowlist");
+    }
+    return this.#target(user).chat;
+  }
   async sendTurn(turn: OutboundTurn): Promise<readonly string[]> {
     if (!this.#api || !this.#ac) throw new Error("telegram channel is not started");
     const target = this.#target(turn.chatId);
@@ -717,3 +730,14 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
     if (level !== "debug") this.#host?.log[level](event, safe);
   }
 }
+
+/** Factory used by the host registry: `cfg` is the JSON config, `deps` the non-JSON seams. */
+export function createTelegramChannel(cfg: Record<string, unknown>, deps: Record<string, unknown>): TelegramChannel {
+  return new TelegramChannel({
+    ...cfg,
+    ...deps,
+    tokenSecret: String(cfg.tokenSecret ?? "channels.telegram.botToken"),
+    allowlist: (cfg.allowlist as readonly (string | number)[]) ?? [],
+  } as TelegramChannelOptions);
+}
+

@@ -38,6 +38,20 @@ export interface HarnessConfig {
       imap: MailServerConfig & { folder: string; idle: boolean; pollIntervalSec: number };
       smtp: MailServerConfig;
     };
+    telegram: {
+      enabled: boolean;
+      tokenSecret: string;
+      allowlist: (string | number)[];
+      userAllowlist?: (string | number)[];
+      mode: "polling" | "webhook";
+      webhook?: { url: string; secret: string; maxBodyBytes?: number };
+      botId?: number;
+      botUsername?: string;
+      groupPolicy: "addressed" | "all";
+      maxMediaBytes: number;
+      pollTimeoutSec: number;
+      maxSendRetries: number;
+    };
   };
   modules: Record<string, Record<string, unknown> & { enabled: boolean }>;
   voice: VoiceConfig;
