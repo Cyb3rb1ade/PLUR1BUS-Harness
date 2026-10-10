@@ -56,7 +56,8 @@ export interface VoiceConfig {
     perAgent: Record<string, { language?: string; profile?: "fast" | "quality" }>;
     catalogOverride?: Record<string, unknown>;
     modelsDir?: string;
-    acceptNcLicence: boolean;
+    /** `<model id>@<licence id>` -> ISO date-time of the owner's confirmation (per model and licence, never global). */
+    acceptedLicences: Record<string, string>;
   };
   localRealtime: {
     enabled: boolean;
@@ -67,8 +68,20 @@ export interface VoiceConfig {
     features: Record<"autoRecall" | "reranker" | "recallMultiIdentity" | "promptEnrichment" | "decisionService" | "postTurnRefine" | "memoryWrite" | "compaction", VoiceFeatureConfig>;
     toolSchemas: "reduced" | "full";
     auditDetail: "minimal" | "full";
-    perAgent: Record<string, Record<string, unknown>>;
+    perAgent: Record<string, VoiceLocalRealtimeOverride>;
   };
+}
+
+/** `voice.localRealtime.perAgent.<id>`: the same keys as `voice.localRealtime`, all optional. */
+export interface VoiceLocalRealtimeOverride {
+  enabled?: boolean;
+  endpointingMs?: number;
+  speculativeTurnStart?: boolean;
+  ackSound?: boolean;
+  sentenceChunking?: { maxWords?: number };
+  features?: Partial<Record<"autoRecall" | "reranker" | "recallMultiIdentity" | "promptEnrichment" | "decisionService" | "postTurnRefine" | "memoryWrite" | "compaction", VoiceFeatureConfig>>;
+  toolSchemas?: "reduced" | "full";
+  auditDetail?: "minimal" | "full";
 }
 
 /** Keys every chat channel shares (`channels.<id>.*`); secrets are referenced by name, never held here. */

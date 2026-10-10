@@ -329,12 +329,16 @@ impl CargoLinkProbe {
         );
         write(
             "owner/Cargo.toml",
-            "[package]\nname = 'resource-owner'\nversion = '0.0.0'\nedition = '2021'\n",
+            "[package]\nname = 'resource-owner'\nversion = '0.0.0'\nedition = '2021'\n[build-dependencies]\nserde_json = '=1.0.150'\n",
         );
         // Compile the real build script and helper against a dependency-free
         // stand-in for pinned Tauri's resource emission. Only this fixture uses
         // a native object in place of a Windows .res, and selects MSVC handling
         // on every host. This exercises Cargo scope, not Windows resource tools.
+        write(
+            "bundle/bundle.json.tmpl",
+            include_str!("../../bundle/bundle.json.tmpl"),
+        );
         write("owner/desktop-build.rs", include_str!("../build.rs"));
         write(
             "owner/build_support.rs",

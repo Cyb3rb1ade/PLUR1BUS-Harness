@@ -1,3 +1,4 @@
+import { bundledRuntime } from "./views/bundled-runtime.ts";
 import { connectionsView } from "./views/connections.ts";
 import "./theme/base.css";
 import type { DesktopTransport, Platform, Settings, ThemeChoice } from "./ipc.ts";
@@ -23,6 +24,8 @@ function resolvedTheme(choice: ThemeChoice): "light" | "dark" {
 export function createShell(root: HTMLElement, transport: DesktopTransport) {
   const mount = element("div", "shell-mount");
   root.append(mount);
+  let wizardVisible = false;
+  const bundled = bundledRuntime(transport, key => t(key), () => render());
   let settings: Settings = { theme: "system", locale: "system" };
   let persisted: Settings = settings;
   const preferenceQueue: Array<{ change: Partial<Settings>; resolve: () => void }> = [];
@@ -85,6 +88,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   function t(key: MessageKey, values?: Record<string, string>) { return translate(resolveLocale(settings.locale, systemLocale), key, values); }
   function focusPage() { mount.querySelector<HTMLElement>("h1")?.focus(); }
   function navigate(section: Section, page: SettingsPage = "runtime") {
+    wizardVisible=false;
     const next = { section, page };
     window.location.hash = hashFor(next);
     route = next;
@@ -154,6 +158,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
       pageCard(t("home.connectionTitle"), connectionStatus.status === "ready" && connectionStatus.data?.connections.length ? `${connectionSummary()}: ${connectionStatus.data.connections.map(row => row.name).join(", ")}` : connectionSummary(), button(t("home.openConnections"), () => navigate("connections"), "primary")),
       pageCard(t("home.settingsTitle"), t("home.settingsBody"), button(t("home.openSettings"), () => navigate("settings"))));
     append(body, hero, cards, banner(t("banner.note")));
+    if (transport.bundleInstall) body.append(button(t("wizard.setup"), () => {wizardVisible=true; bundled.reset();}, "primary"));
     return body;
   }
   function preferenceCard(title: string, description: string, control: HTMLElement): HTMLElement {
@@ -202,6 +207,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
       const titleKey = `settings.${route.page}Title` as MessageKey;
       const bodyKey = `settings.${route.page}Body` as MessageKey;
       main.append(pageCard(t(titleKey), t(bodyKey)));
+      if (route.page === "runtime" && transport.runtimeDetect) main.append(bundled.settings());
       if (route.page === "runtime" && transport.autostartGet && transport.autostartSet) {
         const section = element("section", "settings-card");
         const label = element("label", "quit-choice");
@@ -250,11 +256,11 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     append(top, mark.node, status);
     const main = element("main", "page-main");
     main.id = "main-content";
-    main.append(route.section === "home" ? home() : route.section === "connections" ? connections() : settingsPage());
+    main.append(wizardVisible ? bundled.wizard() : route.section === "home" ? home() : route.section === "connections" ? connections() : settingsPage());
     const footer = element("footer", "app-footer");
     append(footer, element("span", undefined, t("footer.hint")), button(t("dialog.open"), () => openDialog(t("dialog.title"), t("dialog.body"), t("dialog.cancel"), t("dialog.confirm")), "quiet"));
     append(body, top, main, footer);
-    append(app, sidebar, body);
+    if(wizardVisible){app.classList.add("wizard-frame");app.append(body);}else append(app, sidebar, body);
     mount.replaceChildren(app);
     const title = mount.querySelector<HTMLElement>("h1");
     if (title) { title.tabIndex = -1; title.dataset.focusKey = "page-title"; }

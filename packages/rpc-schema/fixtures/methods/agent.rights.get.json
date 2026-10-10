@@ -1,0 +1,9 @@
+{
+  "params": {
+    "agentId": "alpha"
+  },
+  "result": {
+    "agentId": "alpha",
+    "rights": []
+  }
+}

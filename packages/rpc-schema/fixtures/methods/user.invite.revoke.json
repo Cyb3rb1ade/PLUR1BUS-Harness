@@ -1,0 +1,9 @@
+{
+  "params": {
+    "inviteId": "invite-fixture"
+  },
+  "result": {
+    "id": "invite-fixture",
+    "revoked": true
+  }
+}

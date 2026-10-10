@@ -1,0 +1,21 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { AgentLifecycle } from "../../src/agents/lifecycle.ts";
+import { activeAgents, lifecycleAdmission } from "../../src/agents/admission.ts";
+import { RpcError } from "../../src/rpc/errors.ts";
+const context = { requestId: "offline", connectionId: "offline", signal: new AbortController().signal };
+test("pause blocks new RPC work and the shared channel/ACP/scheduler registry; resume retains workspace", async t => {
+  const lifecycle = new AgentLifecycle({ path: ":memory:" }); t.after(() => lifecycle.close());
+  const base = { list: () => ["alpha"], has: (id: string) => id === "alpha", scaffold: () => {}, workspaceOf: () => "/offline/workspace" };
+  const active = activeAgents(base, lifecycle);
+  const ran: string[] = [];
+  const handlers = Object.fromEntries(["agent.open", "session.create", "session.submit", "memory.capture", "jobs.run", "dreams.run"].map(m => [m, async () => { ran.push(m); return {}; }]));
+  const methods = lifecycleAdmission(handlers, lifecycle, () => "alpha");
+  lifecycle.set("alpha", { paused: true });
+  assert.deepEqual(active.list(), []); assert.equal(active.has("alpha"), false); assert.equal(active.workspaceOf("alpha"), undefined);
+  for (const m of Object.keys(methods)) await assert.rejects(methods[m]!({ agentId: "alpha", sessionId: "session" }, context), (e: unknown) => e instanceof RpcError && e.reason === "paused");
+  assert.deepEqual(ran, []); assert.deepEqual(base.list(), ["alpha"]);
+  lifecycle.set("alpha", { paused: false }); assert.equal(active.workspaceOf("alpha"), "/offline/workspace");
+  await methods["session.submit"]!({ sessionId: "session" }, context); assert.deepEqual(ran, ["session.submit"]);
+  lifecycle.set("alpha", { archived: true }); assert.deepEqual(active.list(), []);
+});

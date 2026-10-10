@@ -14,7 +14,7 @@ let autostartFail = false;
 const autostartCalls: boolean[] = [];
 let deferredSaves = false;
 const pendingSaves: Array<{ value: Settings; resolve: (value: Settings) => void; reject: (error: Error) => void }> = [];
-const boot = (window as any).__fixtureBoot as { platform?: "mac" | "win" | "gnome" | "kde"; autostartUnknown?: boolean; failGet?: boolean; deferLoad?: boolean; locale?: string; rows?: import("../src/ipc.ts").Connection[]; deferConnections?: boolean; failConnections?: boolean } | undefined;
+const boot = (window as any).__fixtureBoot as { bundled?: boolean; platform?: "mac" | "win" | "gnome" | "kde"; autostartUnknown?: boolean; failGet?: boolean; deferLoad?: boolean; locale?: string; rows?: import("../src/ipc.ts").Connection[]; deferConnections?: boolean; failConnections?: boolean } | undefined;
 autostart = boot?.autostartUnknown ? null : false;
 let rows: import("../src/ipc.ts").Connection[]=boot?.rows??[];
 let active:string|null=null;
@@ -41,6 +41,14 @@ const transport: DesktopTransport = {
     settings = value; return settings;
   },
 };
+if(boot?.bundled){
+ transport.runtimeDetect=async()=>[{id:"p1t-runtime",kind:"docker",endpoint:"unix:///p1t/engine.sock",source:"podman",engine:"Podman",version:"5.0",state:"ready"}];
+ transport.bundleInstall=async()=>({connectionId:"p1t-bundled"});
+ transport.bundleCancel=async()=>{};
+ transport.harnessStatus=async()=>({state:"ready"});
+ transport.harnessStart=async()=>{};transport.harnessStop=async()=>{};
+ transport.harnessLogsTail=async()=>"synthetic redacted log";
+}
 const shellRoot = document.createElement("div");
 document.body.append(shellRoot);
 const shell = createShell(shellRoot, transport);

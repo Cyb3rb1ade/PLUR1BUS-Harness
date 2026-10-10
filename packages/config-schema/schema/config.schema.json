@@ -7,6 +7,7 @@
   "additionalProperties": false,
   "required": ["schemaVersion"],
   "properties": {
+    "remote": { "type": "object", "additionalProperties": false, "default": {}, "x-restart": "core", "x-tier": "advanced", "description": "Remote exposure configuration (listener integration is separate).", "properties": { "publish": { "type": "string", "enum": ["local", "tailnet", "network"], "default": "tailnet", "x-restart": "core", "x-tier": "advanced", "description": "Requested exposure mode; never makes a listener public. Applying the remote-access listener plan is a separate integration." } } },
     "$schema": { "description": "URI identifying the JSON Schema used to validate this configuration.", "type": "string", "x-restart": "live", "x-tier": "advanced" },
     "schemaVersion": { "description": "Configuration format version; this schema supports version 1.", "const": 1, "x-restart": "core", "x-tier": "advanced" },
     "tools": {
@@ -1470,7 +1471,12 @@
             },
             "catalogOverride": { "description": "Data that adds or replaces catalog models and languages (adding a language is data, not code). Same shape as the built-in catalog.", "type": "object", "additionalProperties": true , "x-restart": "live", "x-tier": "advanced" },
             "modelsDir": { "description": "Directory for downloaded voice models. Empty: a directory under the harness data directory.", "type": "string", "maxLength": 500 , "x-restart": "live", "x-tier": "advanced" },
-            "acceptNcLicence": { "description": "Confirm that models under non-commercial or unconfirmed licences may be downloaded and used. Off by default; the licence text is shown first.", "type": "boolean", "default": false , "x-restart": "live", "x-tier": "advanced" }
+            "acceptedLicences": {
+              "description": "Licences the owner confirmed, one entry per model: the key is the model id, an @ sign and the licence id (for example kroko-de@CC-BY-SA), the value the date-time of the confirmation. A model under a non-commercial or unconfirmed licence is downloaded and used only with its own entry; a new model or a changed licence needs a new confirmation.",
+              "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced",
+              "propertyNames": { "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}@[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$" , "x-restart": "live", "x-tier": "advanced" },
+              "additionalProperties": { "description": "Date-time at which this model's licence was confirmed.", "type": "string", "format": "date-time" , "x-restart": "live", "x-tier": "advanced" }
+            }
           }
         },
         "localRealtime": {
@@ -1506,7 +1512,39 @@
               "description": "Per-agent override of any localRealtime key (same shape, no defaults), keyed by agent identifier.",
               "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced",
               "propertyNames": { "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$" , "x-restart": "live", "x-tier": "advanced" },
-              "additionalProperties": { "description": "Overrides for one agent.", "type": "object", "additionalProperties": true , "x-restart": "live", "x-tier": "advanced" }
+              "additionalProperties": {
+                "description": "Overrides for one agent: the same keys and limits as voice.localRealtime, without defaults. Unknown keys are refused.",
+                "type": "object", "additionalProperties": false,
+                "properties": {
+                  "enabled": { "description": "Whether the local real-time profile applies to this agent.", "type": "boolean" , "x-restart": "live", "x-tier": "advanced" },
+                  "endpointingMs": { "description": "Silence after speech, in milliseconds, before this agent's user turn counts as finished.", "type": "integer", "minimum": 50, "maximum": 5000 , "x-restart": "live", "x-tier": "advanced" },
+                  "speculativeTurnStart": { "description": "Start this agent's turn on the final transcript before the silence window ends.", "type": "boolean" , "x-restart": "live", "x-tier": "advanced" },
+                  "ackSound": { "description": "Play a short acknowledgement sound when this agent's user turn ends.", "type": "boolean" , "x-restart": "live", "x-tier": "advanced" },
+                  "sentenceChunking": {
+                    "description": "How this agent's streamed answer text is cut into speakable chunks.",
+                    "type": "object", "additionalProperties": false,
+                    "properties": { "maxWords": { "description": "Maximum words in one spoken chunk for this agent.", "type": "integer", "minimum": 3, "maximum": 200, "x-restart": "live", "x-tier": "advanced" } },
+                    "x-restart": "live", "x-tier": "advanced"
+                  },
+                  "features": {
+                    "description": "Per-feature mode and time budget for this agent.",
+                    "type": "object", "additionalProperties": false,
+                    "properties": {
+                    "autoRecall": { "description": "Automatic memory recall before the answer.", "type": "object", "additionalProperties": false, "properties": { "mode": { "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.", "enum": ["on", "deferred", "off"] }, "maxMs": { "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.", "type": "integer", "minimum": 1, "maximum": 5000 } } , "x-restart": "live", "x-tier": "advanced" },
+                    "reranker": { "description": "Reranking of recalled memories.", "type": "object", "additionalProperties": false, "properties": { "mode": { "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.", "enum": ["on", "deferred", "off"] }, "maxMs": { "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.", "type": "integer", "minimum": 1, "maximum": 5000 } } , "x-restart": "live", "x-tier": "advanced" },
+                    "recallMultiIdentity": { "description": "Recall across several linked identities.", "type": "object", "additionalProperties": false, "properties": { "mode": { "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.", "enum": ["on", "deferred", "off"] }, "maxMs": { "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.", "type": "integer", "minimum": 1, "maximum": 5000 } } , "x-restart": "live", "x-tier": "advanced" },
+                    "promptEnrichment": { "description": "Prompt enrichment with short context.", "type": "object", "additionalProperties": false, "properties": { "mode": { "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.", "enum": ["on", "deferred", "off"] }, "maxMs": { "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.", "type": "integer", "minimum": 1, "maximum": 5000 } } , "x-restart": "live", "x-tier": "advanced" },
+                    "decisionService": { "description": "Decision-model call before the answer.", "type": "object", "additionalProperties": false, "properties": { "mode": { "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.", "enum": ["on", "deferred", "off"] }, "maxMs": { "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.", "type": "integer", "minimum": 1, "maximum": 5000 } } , "x-restart": "live", "x-tier": "advanced" },
+                    "postTurnRefine": { "description": "Refinement work after the answer has been spoken.", "type": "object", "additionalProperties": false, "properties": { "mode": { "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.", "enum": ["on", "deferred", "off"] }, "maxMs": { "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.", "type": "integer", "minimum": 1, "maximum": 5000 } } , "x-restart": "live", "x-tier": "advanced" },
+                    "memoryWrite": { "description": "Memory capture of the turn.", "type": "object", "additionalProperties": false, "properties": { "mode": { "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.", "enum": ["on", "deferred", "off"] }, "maxMs": { "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.", "type": "integer", "minimum": 1, "maximum": 5000 } } , "x-restart": "live", "x-tier": "advanced" },
+                    "compaction": { "description": "Conversation compaction.", "type": "object", "additionalProperties": false, "properties": { "mode": { "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.", "enum": ["on", "deferred", "off"] }, "maxMs": { "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.", "type": "integer", "minimum": 1, "maximum": 5000 } } , "x-restart": "live", "x-tier": "advanced" }
+                    },
+                    "x-restart": "live", "x-tier": "advanced"
+                  },
+                  "toolSchemas": { "description": "Tool schemas given to the model for this agent: reduced or full.", "enum": ["reduced", "full"] , "x-restart": "live", "x-tier": "advanced" },
+                  "auditDetail": { "description": "Detail of the audit record for this agent's real-time turns: minimal or full.", "enum": ["minimal", "full"] , "x-restart": "live", "x-tier": "advanced" }
+                }
+              }
             }
           }
         }

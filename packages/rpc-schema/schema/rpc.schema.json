@@ -1697,14 +1697,121 @@
         "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "reason", "digest", "written"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "reason": { "type": "string" }, "digest": { "type": "string" }, "written": { "type": "boolean" } } }
       },
       "memory.list": {
-        "x-stability": "experimental", "x-since": "1.0.0", "x-server": "core",
-        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "topic": { "type": "string", "minLength": 1, "maxLength": 2000 }, "since": { "type": "integer", "minimum": 0 }, "until": { "type": "integer", "minimum": 0 }, "limit": { "type": "integer", "minimum": 1, "maximum": 100 } } },
-        "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "items", "truncated"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "items": { "type": "array", "items": { "$ref": "#/$defs/MemoryCard" } }, "truncated": { "type": "boolean" }, "degraded": { "$ref": "#/$defs/Degraded" } } }
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-server": "core",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "caller",
+            "agentId"
+          ],
+          "properties": {
+            "caller": {
+              "$ref": "#/$defs/CallerIdentity"
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "topic": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "since": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "until": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "targetUserId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId",
+            "items",
+            "truncated"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/MemoryCard"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "degraded": {
+              "$ref": "#/$defs/Degraded"
+            }
+          }
+        },
+        "description": " targetUserId reads user-scope data only through a live audited Break-Glass grant; not available on write methods."
       },
       "memory.show": {
-        "x-stability": "experimental", "x-since": "1.0.0", "x-server": "core",
-        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "id"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "id": { "$ref": "#/$defs/MemoryId" } } },
-        "result": { "type": "object", "additionalProperties": false, "required": ["card"], "properties": { "card": { "$ref": "#/$defs/MemoryCard" }, "degraded": { "$ref": "#/$defs/Degraded" } } }
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-server": "core",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "caller",
+            "agentId",
+            "id"
+          ],
+          "properties": {
+            "caller": {
+              "$ref": "#/$defs/CallerIdentity"
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "id": {
+              "$ref": "#/$defs/MemoryId"
+            },
+            "targetUserId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "card"
+          ],
+          "properties": {
+            "card": {
+              "$ref": "#/$defs/MemoryCard"
+            },
+            "degraded": {
+              "$ref": "#/$defs/Degraded"
+            }
+          }
+        },
+        "description": " targetUserId reads user-scope data only through a live audited Break-Glass grant; not available on write methods."
       },
       "memory.forget": {
         "x-stability": "experimental", "x-since": "1.0.0", "x-server": "core",
@@ -1747,9 +1854,66 @@
         "result": { "type": "object", "additionalProperties": false, "required": ["proposalId", "status"], "properties": { "proposalId": { "type": "string" }, "status": { "const": "rejected" } } }
       },
       "agent.list": {
-        "x-stability": "experimental", "x-since": "1.0.0", "x-server": "core",
-        "params": { "type": "object", "additionalProperties": false, "properties": {} },
-        "result": { "type": "object", "additionalProperties": false, "required": ["agents"], "properties": { "agents": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["agentId", "open", "activity"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "open": { "type": "boolean" }, "activity": { "$ref": "#/$defs/Activity" } } } } } }
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-server": "core",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {}
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agents"
+          ],
+          "properties": {
+            "agents": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "agentId",
+                  "open",
+                  "activity"
+                ],
+                "properties": {
+                  "agentId": {
+                    "$ref": "#/$defs/AgentId"
+                  },
+                  "open": {
+                    "type": "boolean"
+                  },
+                  "activity": {
+                    "$ref": "#/$defs/Activity"
+                  },
+                  "lifecycle": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "paused",
+                      "archived",
+                      "deleted"
+                    ],
+                    "properties": {
+                      "paused": {
+                        "type": "boolean"
+                      },
+                      "archived": {
+                        "type": "boolean"
+                      },
+                      "deleted": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       },
       "agent.open": {
         "x-stability": "experimental", "x-since": "1.0.0", "x-server": "core",
@@ -1762,9 +1926,71 @@
         "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "open"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "open": { "const": false } } }
       },
       "agent.status": {
-        "x-stability": "experimental", "x-since": "1.0.0", "x-server": "core",
-        "params": { "type": "object", "additionalProperties": false, "required": ["agentId"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" } } },
-        "result": { "type": "object", "additionalProperties": false, "required": ["agentId", "open", "activity", "workspace"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "open": { "type": "boolean" }, "activity": { "$ref": "#/$defs/Activity" }, "workspace": { "type": "string" }, "lastJobs": { "type": "array", "items": { "$ref": "#/$defs/JobRun" } } } }
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-server": "core",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId",
+            "open",
+            "activity",
+            "workspace"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "open": {
+              "type": "boolean"
+            },
+            "activity": {
+              "$ref": "#/$defs/Activity"
+            },
+            "workspace": {
+              "type": "string"
+            },
+            "lastJobs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/JobRun"
+              }
+            },
+            "lifecycle": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "paused",
+                "archived",
+                "deleted"
+              ],
+              "properties": {
+                "paused": {
+                  "type": "boolean"
+                },
+                "archived": {
+                  "type": "boolean"
+                },
+                "deleted": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
       },
       "jobs.list": {
         "x-stability": "experimental", "x-since": "1.0.0", "x-server": "core",
@@ -2579,6 +2805,1109 @@
           "properties": { "id": { "type": "string", "pattern": "^[a-f0-9]{64}$" }, "loggedOut": { "type": "boolean" } }
         }
       },
+      "agent.pause": {
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "Human-only lifecycle state. Paused agents admit no new work; archive retains all data. Unarchive preserves the pause flag.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId",
+            "paused",
+            "archived",
+            "deleted"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "paused": {
+              "type": "boolean"
+            },
+            "archived": {
+              "type": "boolean"
+            },
+            "deleted": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "agent.resume": {
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "Human-only lifecycle state. Paused agents admit no new work; archive retains all data. Unarchive preserves the pause flag.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId",
+            "paused",
+            "archived",
+            "deleted"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "paused": {
+              "type": "boolean"
+            },
+            "archived": {
+              "type": "boolean"
+            },
+            "deleted": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "agent.archive": {
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "Human-only lifecycle state. Paused agents admit no new work; archive retains all data. Unarchive preserves the pause flag.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId",
+            "paused",
+            "archived",
+            "deleted"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "paused": {
+              "type": "boolean"
+            },
+            "archived": {
+              "type": "boolean"
+            },
+            "deleted": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "agent.unarchive": {
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "Human-only lifecycle state. Paused agents admit no new work; archive retains all data. Unarchive preserves the pause flag.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId",
+            "paused",
+            "archived",
+            "deleted"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "paused": {
+              "type": "boolean"
+            },
+            "archived": {
+              "type": "boolean"
+            },
+            "deleted": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "agent.export": {
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "Secret-redacted UTF-8 JSON bundle with an Ed25519 signature of the SHA-256 manifest hash. offerOnly offers an export without reading data; the offer is actor-bound and valid for ten minutes. Agent-private/workspace engine cards plus the authenticated exporter's own user cards only.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "offerOnly": {
+              "type": "boolean"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId",
+            "offerId",
+            "expiresAt"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "offerId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "expiresAt": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "bundle": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "format",
+                "files",
+                "manifest",
+                "manifestHash",
+                "algorithm",
+                "publicKey",
+                "signature"
+              ],
+              "properties": {
+                "format": {
+                  "enum": [
+                    "plur1bus.agent-export/1"
+                  ]
+                },
+                "files": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "path",
+                      "text"
+                    ],
+                    "properties": {
+                      "path": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "text": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "manifest": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "format",
+                    "agentId",
+                    "files"
+                  ],
+                  "properties": {
+                    "format": {
+                      "enum": [
+                        "plur1bus.agent-export/1"
+                      ]
+                    },
+                    "agentId": {
+                      "$ref": "#/$defs/AgentId"
+                    },
+                    "files": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "path",
+                          "bytes",
+                          "sha256"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "bytes": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "manifestHash": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "algorithm": {
+                  "enum": [
+                    "Ed25519"
+                  ]
+                },
+                "publicKey": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "signature": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                }
+              }
+            }
+          }
+        }
+      },
+      "agent.delete": {
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "Archive-first erasure with typed display name and a live export offer. E_NOT_AVAILABLE engine-erasure-unavailable until the pinned engine supplies an erasure API. Never deletes a store directly.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId",
+            "confirmName",
+            "exportOfferId"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "confirmName": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "exportOfferId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId",
+            "deleted"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "deleted": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "user.list": {
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "People and role presets, Owner/Admin only.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {}
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "users"
+          ],
+          "properties": {
+            "users": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "displayName",
+                  "role"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "displayName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "role": {
+                    "enum": [
+                      "owner",
+                      "admin",
+                      "operator",
+                      "member",
+                      "viewer"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "user.role.set": {
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "Assign a role preset; only an Owner may change ownership. Last Owner cannot be demoted. Audited.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "userId",
+            "role"
+          ],
+          "properties": {
+            "userId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "role": {
+              "enum": [
+                "owner",
+                "admin",
+                "operator",
+                "member",
+                "viewer"
+              ]
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "userId",
+            "role"
+          ],
+          "properties": {
+            "userId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "role": {
+              "enum": [
+                "owner",
+                "admin",
+                "operator",
+                "member",
+                "viewer"
+              ]
+            }
+          }
+        }
+      },
+      "user.invite.create": {
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "Create a human and an ephemeral one-time Identity pairing invitation with a fixed role (never Owner). Code returned here only; redeem/confirm through identity.pair.claim/confirm.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "displayName",
+            "role",
+            "channel"
+          ],
+          "properties": {
+            "displayName": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "role": {
+              "enum": [
+                "owner",
+                "admin",
+                "operator",
+                "member",
+                "viewer"
+              ]
+            },
+            "channel": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
+            },
+            "expiresInMinutes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "userId",
+            "role",
+            "channel",
+            "expiresAt",
+            "code"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "userId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "role": {
+              "enum": [
+                "owner",
+                "admin",
+                "operator",
+                "member",
+                "viewer"
+              ]
+            },
+            "channel": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
+            },
+            "expiresAt": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "code": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 16
+            }
+          }
+        }
+      },
+      "user.invite.list": {
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "Invitation metadata without codes. Pending proofs and invitation metadata expire on restart.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {}
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "invites"
+          ],
+          "properties": {
+            "invites": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "userId",
+                  "role",
+                  "channel",
+                  "expiresAt",
+                  "state"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "userId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "role": {
+                    "enum": [
+                      "owner",
+                      "admin",
+                      "operator",
+                      "member",
+                      "viewer"
+                    ]
+                  },
+                  "channel": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32
+                  },
+                  "expiresAt": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "state": {
+                    "enum": [
+                      "pending",
+                      "claimed",
+                      "confirmed",
+                      "declined",
+                      "expired",
+                      "revoked"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "user.invite.revoke": {
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "Revoke pending or claimed invitation proof before confirmation. A confirmed link must be unlinked through Identity.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "inviteId"
+          ],
+          "properties": {
+            "inviteId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "revoked"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "revoked": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "agent.rights.get": {
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "List explicitly assigned per-agent rights, Owner/Admin only.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId",
+            "rights"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "rights": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "userId",
+                  "right"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "right": {
+                    "enum": [
+                      "use",
+                      "manage"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "agent.rights.set": {
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "Assign use/manage; null revokes the explicit right. Role and token scopes still narrow it.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId",
+            "userId",
+            "right"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "userId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "right": {
+              "enum": [
+                "use",
+                "manage",
+                null
+              ]
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentId",
+            "userId",
+            "right"
+          ],
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "userId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "right": {
+              "enum": [
+                "use",
+                "manage",
+                null
+              ]
+            }
+          }
+        }
+      },
+      "breakglass.request": {
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "Request an audited read-only window for another person. Affected person receives a durable notice; reason 10-500 trimmed characters, window 1-60 minutes.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "targetUserId",
+            "reason"
+          ],
+          "properties": {
+            "targetUserId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 10,
+              "maxLength": 500
+            },
+            "windowMinutes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "holderUserId",
+            "targetUserId",
+            "reason",
+            "issuedAt",
+            "expiresAt"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "holderUserId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "targetUserId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "issuedAt": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "expiresAt": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      },
+      "breakglass.notices": {
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "Read up to 200 durable break-glass notices affecting the authenticated person. Self-scoped; all human roles. Live grants still require Owner/Admin.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {}
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "notices"
+          ],
+          "properties": {
+            "notices": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "userId",
+                  "grantId",
+                  "holderUserId",
+                  "reason",
+                  "expiresAt"
+                ],
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "granted"
+                    ]
+                  },
+                  "userId": {
+                    "type": "string"
+                  },
+                  "grantId": {
+                    "type": "string"
+                  },
+                  "holderUserId": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "expiresAt": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "breakglass.list": {
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "List the authenticated holder's live grants; sweeps expiry and audits it.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {}
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "grants"
+          ],
+          "properties": {
+            "grants": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "holderUserId",
+                  "targetUserId",
+                  "reason",
+                  "issuedAt",
+                  "expiresAt"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "holderUserId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "targetUserId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "issuedAt": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "expiresAt": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "breakglass.revoke": {
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "Revoke a read-only grant; only the holder or an Owner may revoke it.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "grantId"
+          ],
+          "properties": {
+            "grantId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "revoked"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "revoked": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "pairing.qr": {
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "Read-only formatting of an existing, unexpired pairing link with packages/remote-access QR payload. Does not issue a code, verify an offer tag, pair or store a device. Owner/Admin people only.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "link"
+          ],
+          "properties": {
+            "link": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2331
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "link",
+            "qr",
+            "expiresAt"
+          ],
+          "properties": {
+            "link": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2331
+            },
+            "qr": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "text",
+                "mode",
+                "errorCorrection",
+                "length",
+                "maxLength",
+                "fits"
+              ],
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2331
+                },
+                "mode": {
+                  "enum": [
+                    "byte"
+                  ]
+                },
+                "errorCorrection": {
+                  "enum": [
+                    "M"
+                  ]
+                },
+                "length": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "maxLength": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "fits": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "expiresAt": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      },
       "auth.status": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
         "description": "Saved provider logins plus the number of logins in progress. Human principals only; Owner only.",
@@ -2789,25 +4118,235 @@
         "result": { "type": "object", "additionalProperties": false, "required": ["session"], "properties": { "session": { "$ref": "#/$defs/SessionRecord" } } }
       },
       "session.list": {
-        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
-        "description": "The caller's sessions: pinned first, then by last turn. Archived ones are excluded unless archived is only or any. search is a full-text query over titles and messages (every word must match).",
-        "params": { "type": "object", "additionalProperties": false, "required": ["caller"], "properties": {
-          "caller": { "$ref": "#/$defs/CallerIdentity" }, "kind": { "$ref": "#/$defs/SessionKind" }, "agentId": { "$ref": "#/$defs/AgentId" },
-          "archived": { "enum": ["exclude", "only", "any"] }, "search": { "type": "string", "minLength": 1, "maxLength": 500 }, "limit": { "type": "integer", "minimum": 1, "maximum": 200 } } },
-        "result": { "type": "object", "additionalProperties": false, "required": ["sessions", "truncated"], "properties": { "sessions": { "type": "array", "items": { "$ref": "#/$defs/SessionRecord" } }, "truncated": { "type": "boolean" } } }
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "Authenticated metadata listing: Owner/Admin/Operator/Viewer may filter all owners and agents; Member sees only their own sessions. No transcripts; searching another owner's transcript is denied. Omitting owner and allOwners preserves own-session listing; allOwners=true selects all metadata.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {
+            "caller": {
+              "$ref": "#/$defs/CallerIdentity"
+            },
+            "kind": {
+              "$ref": "#/$defs/SessionKind"
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "archived": {
+              "enum": [
+                "exclude",
+                "only",
+                "any"
+              ]
+            },
+            "search": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "owner": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "allOwners": {
+              "type": "boolean"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessions",
+            "truncated"
+          ],
+          "properties": {
+            "sessions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SessionRecord"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            }
+          }
+        }
       },
       "session.get": {
-        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
-        "description": "One session of the caller's (archived ones included), with the id of its running turn (if any) and, when messages is given, the last that many messages. Another owner's session is E_NOT_FOUND.",
-        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "sessionId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "sessionId": { "$ref": "#/$defs/SessionId" }, "messages": { "type": "integer", "minimum": 0, "maximum": 1000 } } },
-        "result": { "type": "object", "additionalProperties": false, "required": ["session", "runningTurnId"], "properties": { "session": { "$ref": "#/$defs/SessionRecord" }, "runningTurnId": { "type": ["string", "null"] }, "messages": { "type": "array", "items": { "$ref": "#/$defs/SessionMessage" } }, "compaction": {"type": "object", "additionalProperties": false, "description": "Context-only hidden tool refs and applied summary original ranges. Full transcript is unchanged.", "required": ["hidden", "summaries"], "properties": {"hidden": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["ref"], "properties": {"ref": {"type": "string"}, "reason": {"type": "string", "maxLength": 256}}}}, "summaries": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["id", "fromSeq", "toSeq"], "properties": {"id": {"type": "string"}, "fromSeq": {"type": "integer", "minimum": 1}, "toSeq": {"type": "integer", "minimum": 1}}}}}} } }
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "One session of the caller's (archived ones included), with the id of its running turn (if any) and, when messages is given, the last that many messages. Another owner's session is E_NOT_FOUND. Foreign transcripts require a live audited Break-Glass grant; the authenticated principal determines ownership.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId",
+            "caller"
+          ],
+          "properties": {
+            "caller": {
+              "$ref": "#/$defs/CallerIdentity"
+            },
+            "sessionId": {
+              "$ref": "#/$defs/SessionId"
+            },
+            "messages": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "session",
+            "runningTurnId"
+          ],
+          "properties": {
+            "session": {
+              "$ref": "#/$defs/SessionRecord"
+            },
+            "runningTurnId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "messages": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SessionMessage"
+              }
+            },
+            "compaction": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "Context-only hidden tool refs and applied summary original ranges. Full transcript is unchanged.",
+              "required": [
+                "hidden",
+                "summaries"
+              ],
+              "properties": {
+                "hidden": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "ref"
+                    ],
+                    "properties": {
+                      "ref": {
+                        "type": "string"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "maxLength": 256
+                      }
+                    }
+                  }
+                },
+                "summaries": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "id",
+                      "fromSeq",
+                      "toSeq"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "fromSeq": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "toSeq": {
+                        "type": "integer",
+                        "minimum": 1
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       },
       "session.resume": {
-        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
-        "description": "Get plus the transcript (the last `limit` messages, default 100) and the last event seq, so a client can continue from the next one. An archived session is E_CONFLICT.",
-        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "sessionId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "sessionId": { "$ref": "#/$defs/SessionId" }, "limit": { "type": "integer", "minimum": 1, "maximum": 1000 } } },
-        "result": { "type": "object", "additionalProperties": false, "required": ["session", "runningTurnId", "messages", "lastEventSeq"], "properties": {
-          "session": { "$ref": "#/$defs/SessionRecord" }, "runningTurnId": { "type": ["string", "null"] }, "messages": { "type": "array", "items": { "$ref": "#/$defs/SessionMessage" } }, "lastEventSeq": { "type": "integer", "minimum": 0 } } }
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "Get plus the transcript (the last `limit` messages, default 100) and the last event seq, so a client can continue from the next one. An archived session is E_CONFLICT. Foreign transcripts require a live audited Break-Glass grant; the authenticated principal determines ownership.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId",
+            "caller"
+          ],
+          "properties": {
+            "caller": {
+              "$ref": "#/$defs/CallerIdentity"
+            },
+            "sessionId": {
+              "$ref": "#/$defs/SessionId"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "session",
+            "runningTurnId",
+            "messages",
+            "lastEventSeq"
+          ],
+          "properties": {
+            "session": {
+              "$ref": "#/$defs/SessionRecord"
+            },
+            "runningTurnId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "messages": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SessionMessage"
+              }
+            },
+            "lastEventSeq": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
       },
       "session.archive": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
@@ -2825,10 +4364,63 @@
           "reply": { "type": "string" }, "error": { "type": "string" } } }
       },
       "session.events": {
-        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
-        "description": "The session's persisted events after afterSeq (default 0), oldest first: the same stream session.event delivers, for replay and catch-up. running tells whether a turn is still producing events.",
-        "params": { "type": "object", "additionalProperties": false, "required": ["caller", "sessionId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "sessionId": { "$ref": "#/$defs/SessionId" }, "afterSeq": { "type": "integer", "minimum": 0 }, "limit": { "type": "integer", "minimum": 1, "maximum": 2000 } } },
-        "result": { "type": "object", "additionalProperties": false, "required": ["sessionId", "events", "lastSeq", "running"], "properties": { "sessionId": { "$ref": "#/$defs/SessionId" }, "events": { "type": "array", "items": { "$ref": "#/$defs/SessionEvent" } }, "lastSeq": { "type": "integer", "minimum": 0 }, "running": { "type": "boolean" } } }
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "description": "The session's persisted events after afterSeq (default 0), oldest first: the same stream session.event delivers, for replay and catch-up. running tells whether a turn is still producing events. Foreign transcripts require a live audited Break-Glass grant; the authenticated principal determines ownership.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId",
+            "caller"
+          ],
+          "properties": {
+            "caller": {
+              "$ref": "#/$defs/CallerIdentity"
+            },
+            "sessionId": {
+              "$ref": "#/$defs/SessionId"
+            },
+            "afterSeq": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2000
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId",
+            "events",
+            "lastSeq",
+            "running"
+          ],
+          "properties": {
+            "sessionId": {
+              "$ref": "#/$defs/SessionId"
+            },
+            "events": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SessionEvent"
+              }
+            },
+            "lastSeq": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "running": {
+              "type": "boolean"
+            }
+          }
+        }
       },
       "session.cancel": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
@@ -3012,7 +4604,7 @@
     "SessionKind": { "enum": ["direct", "card", "project", "channel", "acp"] },
     "MemoryMode": { "enum": ["remember", "incognito"] },
     "SessionRecord": {
-      "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The owner principal is never sent: a caller sees only its own sessions.",
+      "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The overview adds owner, model/provider and usage metadata. Transcript access stays owner-scoped or explicitly audited through break-glass.",
       "x-stability": "experimental", "x-since": "1.5.0",
       "type": "object", "additionalProperties": false,
       "required": ["id", "kind", "agentId", "scope", "chatKey", "title", "pinned", "memoryMode", "createdAt", "updatedAt", "lastTurnAt", "archivedAt", "turnCount"],
@@ -3020,7 +4612,10 @@
         "id": { "$ref": "#/$defs/SessionId" }, "kind": { "$ref": "#/$defs/SessionKind" }, "agentId": { "$ref": "#/$defs/AgentId" }, "scope": { "type": "string" },
         "chatKey": { "type": ["string", "null"] }, "title": { "type": "string" }, "pinned": { "type": "boolean" }, "memoryMode": { "$ref": "#/$defs/MemoryMode" },
         "createdAt": { "type": "integer" }, "updatedAt": { "type": "integer" }, "lastTurnAt": { "type": ["integer", "null"] }, "archivedAt": { "type": ["integer", "null"] },
-        "turnCount": { "type": "integer", "minimum": 0 }
+        "turnCount": { "type": "integer", "minimum": 0 },
+        "owner": {"type": "string", "minLength": 1, "maxLength": 128},
+        "model": { "type": ["string", "null"] },
+        "usage": {"type": "object", "additionalProperties": false, "required": ["inputTokens", "outputTokens", "costMicros"], "properties": {"inputTokens": {"type": "integer", "minimum": 0}, "outputTokens": {"type": "integer", "minimum": 0}, "costMicros": {"type": ["integer", "null"], "minimum": 0}, "pendingCalls": {"type": "integer", "minimum": 0}}}
       }
     },
     "SessionMessage": {
@@ -3424,6 +5019,52 @@
     },
 
     "notifications": {
+      "breakglass.notice": {
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "x-server": "core",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "notice"
+        ],
+        "properties": {
+          "notice": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "userId",
+              "grantId",
+              "holderUserId",
+              "reason",
+              "expiresAt"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "granted"
+                ]
+              },
+              "userId": {
+                "type": "string"
+              },
+              "grantId": {
+                "type": "string"
+              },
+              "holderUserId": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "expiresAt": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
       "media.job.progress": {
         "description": "Authorized connection receives job progress.",
         "x-server": "core",

@@ -19,6 +19,9 @@ fn handle(channel: &str, account: &str, user_id: &str, display_name: &Option<Str
 
 /// The `(method, params, schema id)` of a command: pure, so its shape is unit-tested without a core.
 pub fn request(cmd: &UserCmd) -> (&'static str, Value, &'static str) {
+    if let Some(request) = super::admin_backend::user_request(cmd) {
+        return request;
+    }
     let c = serde_json::to_value(caller()).unwrap_or(Value::Null);
     match cmd {
         UserCmd::Ls { all } => (
@@ -47,6 +50,9 @@ pub fn request(cmd: &UserCmd) -> (&'static str, Value, &'static str) {
             json!({ "caller": c, "linkId": link }),
             "user.unlink/1",
         ),
+        UserCmd::List | UserCmd::Role { .. } | UserCmd::Invite { .. } => {
+            unreachable!("admin commands dispatched above")
+        }
         UserCmd::Pair { sub } => match sub {
             PairCmd::Start { human, channel } => (
                 "identity.pair.start",
@@ -183,6 +189,10 @@ fn render(schema: &str, v: &Value) -> String {
 }
 
 pub fn run(out: &Out, layout: &Layout, cmd: UserCmd) {
+    if let Some(request) = super::admin_backend::user_request(&cmd) {
+        super::admin_backend::run(out, layout, request);
+        return;
+    }
     let (method, params, schema) = request(&cmd);
     let mut client = connect_core(out, layout, "identity", Duration::from_secs(15));
     require_supports(out, &client, method);
