@@ -12,6 +12,7 @@ type Props = Record<string, unknown>;
 const Viewer = lazySection<Props>(() => import("./viewer.ts").then((m) => m.LogViewer));
 const Activity = lazySection<Props>(() => import("./activity.ts").then((m) => m.ActivityFeed));
 const Sessions = lazySection<Props>(() => import("./sessions.ts").then((m) => m.SessionsOverview));
+import "../../styles/logs-tabs.css";
 
 const TABS = ["logs", "activity", "sessions"] as const;
 

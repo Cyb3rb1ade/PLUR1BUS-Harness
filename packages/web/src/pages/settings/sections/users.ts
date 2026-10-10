@@ -15,6 +15,11 @@ import { InviteDialog } from "../users/invite.ts";
 import { buildRows, presetName, type IdentityList, type Row } from "../users/model.ts";
 import { RightsPanel } from "../users/rights.ts";
 import type { SectionProps } from "../page.ts";
+import { registerArea } from "../../../i18n/index.ts";
+import * as usersArea from "../../../i18n/users.ts";
+import "../../../styles/users.css";
+
+registerArea("users", usersArea);
 
 const CAN = ["can1", "can2", "can3"] as const;
 const NOT = ["not1", "not2"] as const;

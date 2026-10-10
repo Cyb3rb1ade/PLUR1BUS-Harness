@@ -18,6 +18,7 @@ import {
   type Filters, type ListData, type ModelEntry, type ScanTotals,
 } from "./model.ts";
 import { capText, failState, isAborted, isForbidden, kindText, outcomeText, warnText, when, type FailState } from "./shared.ts";
+import "../../styles/models.css";
 import type { ModelsScanResult } from "./rpc-types.ts";
 
 type Load = { kind: "loading" } | { kind: "ready"; data: ListData; isNew: ReadonlySet<string> } | { kind: "fail"; state: FailState };

@@ -9,6 +9,11 @@ import { t } from "../../../i18n.ts";
 import { FailureState, Notice } from "../../common/states.ts";
 import { currentRole, failureOf, getApi, roleIn, useLoad, type Failure } from "../../common/load.ts";
 import type { SectionProps } from "../page.ts";
+import { registerArea } from "../../../i18n/index.ts";
+import * as devicesArea from "../../../i18n/devices.ts";
+import "../../../styles/devices.css";
+
+registerArea("devices", devicesArea);
 
 type Gate = { mode: string | null };
 const UNKNOWN_KEY = new Set(["E_NOT_FOUND", "E_CONFIG_INVALID", "E_NOT_AVAILABLE", "E_INVALID_PARAMS"]);

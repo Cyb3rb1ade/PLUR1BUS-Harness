@@ -14,6 +14,11 @@ import { currentRole, roleIn } from "../common/load.ts";
 import { FailureState, Notice } from "../common/states.ts";
 import { useSessions } from "./sessions/data.ts";
 import { applyFilters, filtersActive, NO_FILTERS, paginate, sortSessions, type Filters, type SessionMeta, type SortDir, type SortKey, type StatusFilter } from "./sessions/model.ts";
+import { registerArea } from "../../i18n/index.ts";
+import * as sessionsArea from "../../i18n/sessions.ts";
+import "../../styles/sessions.css";
+
+registerArea("sessions", sessionsArea);
 
 const SORT_KEYS: readonly SortKey[] = ["activity", "created", "title", "turns"];
 const STATUSES: readonly StatusFilter[] = ["active", "archived", "all"];

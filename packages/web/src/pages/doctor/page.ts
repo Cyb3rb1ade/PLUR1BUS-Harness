@@ -13,6 +13,11 @@ import type { View } from "../../view.ts";
 import { loadSnapshot, type Snapshot } from "./data.ts";
 import { ProvisioningCard } from "./provisioning.ts";
 import { AgentsCard, Banner, CoreCard, HealthCard } from "./views.ts";
+import { registerArea } from "../../i18n/index.ts";
+import * as doctorArea from "../../i18n/doctor.ts";
+import "../../styles/doctor.css";
+
+registerArea("doctor", doctorArea);
 
 export const REFRESH_MS = 30_000;
 
