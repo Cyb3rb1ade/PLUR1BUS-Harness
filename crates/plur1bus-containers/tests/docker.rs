@@ -20,6 +20,12 @@ struct FakeEngine {
 }
 impl FakeEngine {
     fn new() -> Self {
+        Self::with_networks(json!({"plur1bus-internal":{"IPAddress":"192.168.88.2"}}))
+    }
+    fn with_networks(networks: Value) -> Self {
+        Self::with_networks_and_labels(networks, None)
+    }
+    fn with_networks_and_labels(networks: Value, labels: Option<Value>) -> Self {
         let dir = tempfile::tempdir().unwrap();
         let listener = UnixListener::bind(dir.path().join("docker.sock")).unwrap();
         listener.set_nonblocking(true).unwrap();
@@ -100,7 +106,7 @@ impl FakeEngine {
                     }
                     ("POST", "/v1.47/containers/create?name=plur1bus-harness") => {
                         container = Some(
-                            json!({"Config":{"Image":body["Image"],"Labels":body["Labels"]},"State":{"Running":false,"Health":{"Status":"starting"}}}),
+                            json!({"Config":{"Image":body["Image"],"Labels":labels.as_ref().unwrap_or(&body["Labels"])},"State":{"Running":false,"Health":{"Status":"starting"}},"NetworkSettings":{"Networks":networks}}),
                         );
                         result = json!({"Id":"test"});
                     }
@@ -203,6 +209,73 @@ fn engine_api_stack_rollback_and_offline_load() {
     assert_eq!(body["HostConfig"]["CapDrop"][0], "ALL");
     assert_eq!(body["Labels"]["app.plur1bus.stack"], "distribution");
     assert_eq!(body["HostConfig"]["PortBindings"], json!({}));
+}
+#[test]
+fn docker_connection_address_is_a_private_ip_like_apple() {
+    let fake = FakeEngine::new();
+    let r = fake.runtime();
+    r.create(&Service::harness("local:test")).unwrap();
+    let address = r.address("plur1bus-harness", "plur1bus-internal").unwrap();
+    let ip: std::net::IpAddr = address
+        .parse()
+        .unwrap_or_else(|_| panic!("not an IP literal: {address}"));
+    assert!(private_bind(ip), "{address}");
+    assert_eq!(address, "192.168.88.2");
+    assert!(r
+        .address("plur1bus-harness", "another-network")
+        .unwrap_err()
+        .contains("network address absent"));
+}
+#[test]
+fn docker_connection_address_refuses_missing_invalid_and_public_ips() {
+    for (networks, expected) in [
+        (Value::Null, "network address absent"),
+        (json!({}), "network address absent"),
+        (json!({"plur1bus-internal":{}}), "network address absent"),
+        (
+            json!({"plur1bus-internal":{"IPAddress":""}}),
+            "network address absent",
+        ),
+        (
+            json!({"plur1bus-internal":{"IPAddress":"plur1bus-harness"}}),
+            "invalid network address",
+        ),
+        (
+            json!({"plur1bus-internal":{"IPAddress":"8.8.8.8"}}),
+            "public container address refused",
+        ),
+        (
+            json!({"plur1bus-internal":{"IPAddress":"0.0.0.0"}}),
+            "public container address refused",
+        ),
+    ] {
+        let fake = FakeEngine::with_networks(networks.clone());
+        let r = fake.runtime();
+        r.create(&Service::harness("local:test")).unwrap();
+        let error = r
+            .address("plur1bus-harness", "plur1bus-internal")
+            .unwrap_err();
+        assert!(error.contains(expected), "{networks}: {error}");
+    }
+}
+#[test]
+fn docker_connection_address_refuses_absent_and_unowned_containers() {
+    let fake = FakeEngine::new();
+    let r = fake.runtime();
+    assert!(r
+        .address("plur1bus-harness", "plur1bus-internal")
+        .unwrap_err()
+        .contains("not found"));
+    let unowned = FakeEngine::with_networks_and_labels(
+        json!({"plur1bus-internal":{"IPAddress":"192.168.88.2"}}),
+        Some(json!({})),
+    );
+    let r = unowned.runtime();
+    r.create(&Service::harness("local:test")).unwrap();
+    assert!(r
+        .address("plur1bus-harness", "plur1bus-internal")
+        .unwrap_err()
+        .contains("unowned connection dependency"));
 }
 #[test]
 fn detect_missing_and_refuse_unencrypted_remote_daemon() {
