@@ -57,38 +57,60 @@ export const LOCAL_REALTIME_DEFAULTS: LocalRealtimeProfile = {
   auditDetail: "minimal",
 };
 
+/** Budget given to an `on` feature that has no maxMs of its own in an enabled profile (the profile exists to bound first-audio latency). */
+export const DEFAULT_FEATURE_BUDGET_MS = 50;
+
+const MODES: readonly string[] = ["on", "deferred", "off"];
+const isMode = (v: unknown): v is FeatureMode => typeof v === "string" && MODES.includes(v);
+const isIntAtLeast = (v: unknown, min: number): v is number => typeof v === "number" && Number.isInteger(v) && v >= min;
+
+// Every value from a config layer is checked here; an invalid one is ignored so the lower layer's value survives
+// (a NaN or negative endpointingMs would otherwise reach setTimeout and end every turn at once).
 function normaliseFeature(base: FeatureSetting, input: FeatureInput | undefined): FeatureSetting {
-  if (input === undefined) return base;
-  if (typeof input === "string") return withoutMax(input, base.maxMs);
-  const mode = input.mode ?? base.mode;
-  const maxMs = input.maxMs ?? base.maxMs;
+  if (input === undefined || input === null) return base;
+  if (typeof input === "string") return withoutMax(isMode(input) ? input : base.mode, base.maxMs);
+  if (typeof input !== "object") return base;
+  const mode = isMode(input.mode) ? input.mode : base.mode;
+  const maxMs = isIntAtLeast(input.maxMs, 1) ? input.maxMs : base.maxMs;
   return withoutMax(mode, maxMs);
 }
 function withoutMax(mode: FeatureMode, maxMs: number | undefined): FeatureSetting {
   return maxMs === undefined ? { mode } : { mode, maxMs };
 }
+const bool = (v: unknown, fallback: boolean): boolean => (typeof v === "boolean" ? v : fallback);
 
 function applyLayer(p: LocalRealtimeProfile, c: LocalRealtimeConfigBase | undefined): LocalRealtimeProfile {
-  if (!c) return p;
+  if (!c || typeof c !== "object") return p;
   const features = { ...p.features };
-  for (const name of FEATURE_NAMES) features[name] = normaliseFeature(p.features[name], c.features?.[name]);
+  const given = c.features && typeof c.features === "object" ? c.features : undefined;
+  for (const name of FEATURE_NAMES) features[name] = normaliseFeature(p.features[name], given?.[name]);
+  const maxWords = (c.sentenceChunking as { maxWords?: unknown } | undefined)?.maxWords;
   return {
-    enabled: c.enabled ?? p.enabled,
-    endpointingMs: c.endpointingMs ?? p.endpointingMs,
-    speculativeTurnStart: c.speculativeTurnStart ?? p.speculativeTurnStart,
-    ackSound: c.ackSound ?? p.ackSound,
-    sentenceChunking: { maxWords: c.sentenceChunking?.maxWords ?? p.sentenceChunking.maxWords },
+    enabled: bool(c.enabled, p.enabled),
+    endpointingMs: isIntAtLeast(c.endpointingMs, 0) ? c.endpointingMs : p.endpointingMs,
+    speculativeTurnStart: bool(c.speculativeTurnStart, p.speculativeTurnStart),
+    ackSound: bool(c.ackSound, p.ackSound),
+    sentenceChunking: { maxWords: isIntAtLeast(maxWords, 1) ? maxWords : p.sentenceChunking.maxWords },
     features,
-    toolSchemas: c.toolSchemas ?? p.toolSchemas,
-    auditDetail: c.auditDetail ?? p.auditDetail,
+    toolSchemas: c.toolSchemas === "reduced" || c.toolSchemas === "full" ? c.toolSchemas : p.toolSchemas,
+    auditDetail: c.auditDetail === "minimal" || c.auditDetail === "full" ? c.auditDetail : p.auditDetail,
   };
 }
 
-/** defaults < voice.localRealtime < voice.localRealtime.perAgent.<agentId> */
+/** defaults < voice.localRealtime < voice.localRealtime.perAgent.<agentId>. Invalid values are ignored per key; in an
+ * enabled profile an `on` feature without maxMs gets DEFAULT_FEATURE_BUDGET_MS. */
 export function resolveProfile(config: LocalRealtimeConfig | undefined, agentId?: string): LocalRealtimeProfile {
   const { perAgent, ...global } = config ?? {};
   const base = applyLayer(structuredClone(LOCAL_REALTIME_DEFAULTS), global);
-  return applyLayer(base, agentId ? perAgent?.[agentId] : undefined);
+  const layer = agentId && perAgent && Object.hasOwn(perAgent, agentId) ? perAgent[agentId] : undefined;
+  const out = applyLayer(base, layer);
+  if (out.enabled) {
+    for (const name of FEATURE_NAMES) {
+      const f = out.features[name];
+      if (f.mode === "on" && f.maxMs === undefined) f.maxMs = DEFAULT_FEATURE_BUDGET_MS;
+    }
+  }
+  return out;
 }
 
 // ---- budgeted execution ----
@@ -118,13 +140,21 @@ export interface FeatureRunnerOptions {
 export interface FeatureRunner {
   /**
    * Run `fn` for the feature under the profile: off or deferred features do not run inline; an `on` feature with maxMs
-   * is raced against that budget (fn gets a signal that fires when the budget is spent). In a profile that is not
-   * enabled the feature simply runs with no budget.
+   * is raced against that budget (fn gets a signal that fires when the budget is spent). The caller's abort always
+   * wins the race, even when `fn` ignores its signal or there is no budget. A synchronous throw from `fn` is an
+   * `error` result like a rejection.
+   *
+   * When the profile is NOT enabled nothing is skipped and nothing is budgeted: every feature, including those with
+   * mode `off` or `deferred`, simply runs. A caller that wants the mode honoured must check `profile.enabled` itself.
    */
   runWithBudget<T>(feature: FeatureName, fn: (signal: AbortSignal) => Promise<T>, signal?: AbortSignal): Promise<BudgetResult<T>>;
   /** Queue work for after the turn (for features in `deferred` mode). */
   defer(feature: FeatureName, fn: (signal: AbortSignal) => Promise<unknown>): void;
-  /** Run and clear the deferred queue, in order; one failure does not stop the rest. Returns how many ran. */
+  /**
+   * Run and clear the deferred queue, in order; one failure does not stop the rest. Returns how many ran. An abort is
+   * checked before each job is taken off the queue, so jobs that did not run stay queued (`pendingDeferred`) for a
+   * later drain. A job that is already running when the abort fires receives it and is not re-queued.
+   */
   drainDeferred(signal?: AbortSignal): Promise<number>;
   readonly pendingDeferred: number;
 }
@@ -145,16 +175,22 @@ export function createFeatureRunner(o: FeatureRunnerOptions): FeatureRunner {
       if (signal?.aborted) return { ok: false, reason: "aborted" };
       const maxMs = o.profile.enabled ? setting.maxMs : undefined;
       const ctl = new AbortController();
-      const onOuterAbort = () => ctl.abort();
+      let wakeOnAbort: (() => void) | undefined;
+      const aborted = new Promise<{ kind: "aborted" }>((resolve) => { wakeOnAbort = () => resolve({ kind: "aborted" }); });
+      const onOuterAbort = () => { ctl.abort(); wakeOnAbort?.(); };
       signal?.addEventListener("abort", onOuterAbort, { once: true });
       const t0 = now();
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
-        const work = fn(ctl.signal).then((value) => ({ kind: "value" as const, value }), (error: unknown) => ({ kind: "error" as const, error }));
-        const racers: Array<Promise<{ kind: "value"; value: T } | { kind: "error"; error: unknown } | { kind: "timeout" }>> = [work];
+        let started: Promise<T>;
+        try { started = Promise.resolve(fn(ctl.signal)); } catch (e) { started = Promise.reject(e); }
+        const work = started.then((value) => ({ kind: "value" as const, value }), (error: unknown) => ({ kind: "error" as const, error }));
+        const racers: Array<Promise<{ kind: "value"; value: T } | { kind: "error"; error: unknown } | { kind: "timeout" } | { kind: "aborted" }>> = [work];
+        if (signal) racers.push(aborted);
         if (maxMs !== undefined) racers.push(new Promise((resolve) => { timer = setTimeout(() => resolve({ kind: "timeout" }), maxMs); }));
         const r = await Promise.race(racers);
         const elapsed = now() - t0;
+        if (r.kind === "aborted") return { ok: false, reason: "aborted" };
         if (r.kind === "timeout") {
           ctl.abort();
           record(feature, elapsed, true);
@@ -181,15 +217,19 @@ export function createFeatureRunner(o: FeatureRunnerOptions): FeatureRunner {
     async drainDeferred(signal) {
       let ran = 0;
       while (queue.length > 0) {
-        const job = queue.shift()!;
         if (signal?.aborted) break;
+        const job = queue.shift()!;
         const ctl = new AbortController();
+        const onAbort = () => ctl.abort();
+        signal?.addEventListener("abort", onAbort, { once: true });
         const t0 = now();
         try {
           await job.fn(ctl.signal);
           o.emit({ type: "feature.completed", feature: job.feature, durationMs: now() - t0 });
         } catch {
           o.emit({ type: "feature.failed", feature: job.feature, durationMs: now() - t0 });
+        } finally {
+          signal?.removeEventListener("abort", onAbort);
         }
         ran++;
       }

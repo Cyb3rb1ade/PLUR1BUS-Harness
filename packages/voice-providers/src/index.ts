@@ -16,4 +16,4 @@ export { LocalVoice, type Capability, type LanguageInfo, type LocalVoiceConfig, 
 export { SentenceChunker, chunkSentences, type ChunkerOptions } from "./realtime/chunker.ts";
 export { createTurnDetector, type TurnDetector, type TurnDetectorOptions, type TurnEvent, type TurnOutput, type TurnState } from "./realtime/endpointing.ts";
 export { FeatureLatencyRecorder, type LatencyReport, type FeatureStats, type Stats } from "./realtime/latency.ts";
-export { FEATURE_NAMES, LOCAL_REALTIME_DEFAULTS, createFeatureRunner, resolveProfile, type BudgetResult, type FeatureEvent, type FeatureMode, type FeatureName, type FeatureRunner, type FeatureRunnerOptions, type FeatureSetting, type LocalRealtimeConfig, type LocalRealtimeProfile } from "./realtime/profile.ts";
+export { DEFAULT_FEATURE_BUDGET_MS, FEATURE_NAMES, LOCAL_REALTIME_DEFAULTS, createFeatureRunner, resolveProfile, type BudgetResult, type FeatureEvent, type FeatureMode, type FeatureName, type FeatureRunner, type FeatureRunnerOptions, type FeatureSetting, type LocalRealtimeConfig, type LocalRealtimeProfile } from "./realtime/profile.ts";
