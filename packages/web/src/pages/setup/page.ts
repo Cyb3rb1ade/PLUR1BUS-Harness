@@ -3,7 +3,7 @@
 // Progress and the non-secret answers are kept in localStorage under one key (model.ts); the owner token is never stored.
 import { getApi } from "../../api/shared.ts";
 import { h } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Page } from "../../components/page.ts";
 import { t, type Key } from "../../i18n.ts";
@@ -55,7 +55,7 @@ export function SetupPage({ item }: PageProps): View {
   const a = st.answers;
   const patch = (p: Partial<Answers>): void => { setSt((s) => ({ ...s, answers: { ...s.answers, ...p } })); setErrors({}); setFail(""); };
 
-  useEffect(() => { save(st); }, [st]);
+  useLayoutEffect(() => { save(st); }, [st]);
   useEffect(() => { if (moved.current) heading.current?.focus(); }, [index, summary]);
 
   const go = (i: number, status?: Status): void => {

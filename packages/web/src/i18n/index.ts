@@ -19,11 +19,13 @@ import * as logs from "./logs.ts";
 import * as memory from "./memory.ts";
 import * as models from "./models.ts";
 import * as palette from "./palette.ts";
+import * as providers from "./providers.ts";
 import * as secrets from "./secrets.ts";
 import * as sessions from "./sessions.ts";
 import * as settings from "./settings.ts";
 import * as setup from "./setup.ts";
 import * as surfaces from "./surfaces.ts";
+import * as switchboard from "./switchboard.ts";
 import * as shared from "./shared.ts";
 import * as users from "./users.ts";
 
@@ -44,7 +46,9 @@ export const AREAS = [
   { name: "agents", en: agents.en, de: agents.de },
   { name: "settings", en: settings.en, de: settings.de },
   { name: "users", en: users.en, de: users.de },
+  { name: "providers", en: providers.en, de: providers.de },
   { name: "secrets", en: secrets.en, de: secrets.de },
+  { name: "switchboard", en: switchboard.en, de: switchboard.de },
   { name: "devices", en: devices.en, de: devices.de },
   { name: "logs", en: logs.en, de: logs.de },
   { name: "activity", en: activity.en, de: activity.de },

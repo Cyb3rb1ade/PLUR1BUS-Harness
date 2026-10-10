@@ -1,0 +1,12 @@
+.switchboard { width: 100%; }
+.channels-list { display: grid; gap: 8px; }
+.channels-items { display: grid; gap: 6px; }
+.channel-item-btn { display: flex; width: 100%; text-align: left; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--card-bg); color: var(--ink); cursor: pointer; font: inherit; }
+.channel-item-btn:hover, .channel-item-btn.active { background: var(--hover-bg); }
+.channel-item-btn.active { border-color: var(--accent); }
+.channel-item-info { display: grid; gap: 6px; width: 100%; }
+.channel-item-badges, .channel-detail-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.channel-detail { display: grid; gap: 16px; }
+.channel-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.channel-detail-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.channel-section { margin-top: 12px; }

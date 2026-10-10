@@ -129,9 +129,12 @@ Two different questions decide a row:
 | **Activity feed** | `logs.query` (streams `audit` and `diagnostic`), `audit.verify` | yes | Built from the log streams only; `jobs.history`, `dreams.log` and `models.list` are not used (F43) |
 | Devices / pairing card | `config.get` key `remote.publish` | **no** (key is not in the config schema on main) | Card hidden at `local` and when the key is unknown; paired devices, QR or deep link, fingerprint and remove have no API (F44) |
 | **Command palette** entities | `config.get` (`agents`), `session.list`, static navigation, settings, actions and a log-search link | yes | Built as a client fan-out over those lists, capped and abortable (F14 is answered; a server endpoint stays a later option) |
+| **Settings: Providers** | `auth.credentials.list`, `auth.status`, `auth.login.start`, `auth.login.await`, `auth.login.cancel`, `auth.logout`, `secret.set` | yes | Built. Replaces unavailable provider login state. Masked secret key entry, headless SSH hint and callback paste flow. Interface wish: `auth.login.callback` RPC for manual callback URL forwarding (F33) |
+| **Switchboard** | `channel.list`, `channel.status`, `channel.get`, `channel.enable`, `channel.disable`, `channel.set`, `channel.test` | yes | Built. Channel list and detail, enable/disable toggles, field edit with secret rejection and link to secrets, test channel and test message to owner (`sendOwner: true`). When the channel host is missing, `not-registered` is rendered as "not started (host missing)" without an error state (F34) |
 | Grants and approvals (D109, PR #190) | not built | n/a | The existing `approvals` navigation entry stays a placeholder |
 
-Where a page lives: `/agents`, `/agents/new`, `/agents/<id>`; `/settings/<section>` with `general`, `users`, `secrets`, `devices`;
+Where a page lives: `/agents`, `/agents/new`, `/agents/<id>`; `/settings/<section>` with `general`, `users`, `secrets`, `devices`, `providers`;
+`/switchboard` and `/switchboard/<id>`;
 `/logs` with the tabs Logs (`/logs`), Activity (`/logs/activity`) and Sessions (`/logs/sessions`); `/setup` (not in the sidebar).
 
 ## API client (`src/api/**`)
@@ -289,7 +292,7 @@ Numbers are stable; other documents refer to them.
 - **F27. State in the URL.** The router drops the query (`#/path?x` is read as `#/path`), so the chosen agent, search text, filters
   and `?focus=` are lost on reload and cannot be linked; the agent choice lives in memory only. (`?theme=` is read separately.)
 - **F28. Doctor file picker.** The text of the native file input follows the OS language, not the UI language.
-- **F29. Placeholders.** Nine pages (Projects, Inbox, Library, Skills, Plugins, Switchboard, Recurring, Approvals, Help) are placeholders.
+- **F29. Placeholders.** Eight pages (Projects, Inbox, Library, Skills, Plugins, Recurring, Approvals, Help) are placeholders; Switchboard is built.
 
 ### M3 part 2
 
@@ -298,8 +301,8 @@ Numbers are stable; other documents refer to them.
 - **F31. Owner bootstrap token** (Wizard, step "Your account"). There is no one-time bootstrap token and no route for it; the step
   shows the signed-in principal, or the owner token form.
 - **F32. Persona** (Wizard). `SOUL.md` has no RPC; the persona text is shown as unavailable.
-- **F33. Provider login** (Wizard). `plur1bus login` is a stub; no RPC signs a provider in.
-- **F34. Switchboard channels** (Wizard). No `channel.*` RPC; the step is skippable.
+- **F33. Provider login** (Settings → Providers, `#/settings/providers`). Built against `auth.credentials.list`, `auth.status`, `auth.login.start`, `auth.login.await`, `auth.login.cancel`, `auth.logout`, and `secret.set`. Tokens are never displayed; API keys are masked and stored via Secret. Includes headless SSH forward hint and callback URL paste. Note: `auth.login.callback` RPC is requested as an interface improvement to forward pasted callbacks to the backend.
+- **F34. Switchboard channels** (`#/switchboard`, `#/switchboard/<id>`). Built against `channel.list`, `channel.status`, `channel.get`, `channel.enable`, `channel.disable`, `channel.set`, and `channel.test`. Secrets are displayed only by name; secret edits are rejected with a link to Secrets. Until the channel host is registered, `not-registered` state is displayed cleanly as "not started (host missing)" rather than an error.
 - **F35. Licence confirmation record** (Wizard, Memory). The config stores `embedding.acceptedNcLicence` and `...At` only; who confirmed,
   the licence and the model revision are shown in the dialog but not persisted. Also `modelRoles.embedding` is not writable while the
   engine forces its default (ADR-006 deviation O5), and several revisions are not pinned in the ADR-006 table.

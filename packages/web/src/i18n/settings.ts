@@ -9,6 +9,7 @@ export const en = {
   "settings.section.extensions": "Extensions",
   "settings.section.network": "Network",
   "settings.section.users": "Users & roles",
+  "settings.section.providers": "Providers",
   "settings.section.secrets": "Secrets",
   "settings.section.devices": "Devices & remote",
   // Config sections (general, models, memory, extensions, network)
@@ -77,6 +78,7 @@ export const de: Record<keyof typeof en, string> = {
   "settings.section.extensions": "Erweiterungen",
   "settings.section.network": "Netzwerk",
   "settings.section.users": "Benutzer & Rollen",
+  "settings.section.providers": "Provider",
   "settings.section.secrets": "Geheimnisse",
   "settings.section.devices": "Geräte & Fernzugriff",
   "settings.cfg.default": "Standard: {value}",
