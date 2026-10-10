@@ -141,6 +141,10 @@ export class MatrixChannel implements Channel {
   readonly #noticed = new BoundedSet<string>(4096);
   /** DM rooms from m.direct whose peer is on dmAllowlist. */
   #mDirectRooms = new Set<string>();
+  /** The last m.direct content the server sent (merged into when the bot creates a DM). */
+  #directContent: Record<string, string[]> = {};
+  /** Resolved owner-test rooms, one pending/settled promise per peer. */
+  readonly #ownerRooms = new Map<string, Promise<string>>();
   /** DM rooms joined from a direct invite by a dmAllowlist inviter. */
   readonly #inviteDirectRooms = new Set<string>();
   #host: ChannelHost | undefined;
@@ -256,6 +260,7 @@ export class MatrixChannel implements Channel {
     await this.#loop;
     await this.#updates;
     this.#approvals.clear();
+    this.#ownerRooms.clear();
     this.#loop = undefined;
     this.#ac = undefined;
     this.#api = undefined;
@@ -328,6 +333,42 @@ export class MatrixChannel implements Channel {
       refs.push({ chatId: turn.chatId, messageId: id });
     }
     return refs;
+  }
+
+  /**
+   * The room for `channel.test --send-owner`: an existing m.direct room with `who.userId`, else a new private direct room (an
+   * invite is enough, the person joins later). Only a person on `dmAllowlist` qualifies, so nothing else becomes sendable.
+   */
+  resolveOwnerTarget(who: { userId: string; accountId?: string }): Promise<string> {
+    const mxid = who?.userId;
+    if (!isUserId(mxid) || mxid.length > 255) return Promise.reject(new RangeError("owner target must be a full mxid"));
+    if (!this.#cfg.dmAllow.has(mxid)) return Promise.reject(new Error("owner is not on the matrix direct-message allowlist"));
+    if (!this.#api || !this.#ac) return Promise.reject(new Error("matrix channel is not started"));
+    let p = this.#ownerRooms.get(mxid);
+    if (!p) {
+      p = this.#ownerRoom(mxid, this.#ac.signal).catch((e) => {
+        this.#ownerRooms.delete(mxid);
+        this.#log("warn", "channel.matrix.owner-room-failed", { kind: e instanceof MatrixApiError ? e.kind : "error" });
+        throw new Error("matrix direct room could not be opened");
+      });
+      this.#ownerRooms.set(mxid, p);
+    }
+    return p;
+  }
+
+  async #ownerRoom(mxid: string, signal: AbortSignal): Promise<string> {
+    const known = (this.#directContent[mxid] ?? []).find((r) => isRoomId(r) && this.#mDirectRooms.has(r) && !this.#inactive.has(r));
+    if (known) return known;
+    const api = this.#api!;
+    const roomId = await api.createDirectRoom(mxid, signal);
+    this.#inviteDirectRooms.add(roomId);
+    this.#directContent = { ...this.#directContent, [mxid]: [...(this.#directContent[mxid] ?? []), roomId] };
+    try {
+      await api.setAccountData(this.#cfg.userId, "m.direct", this.#directContent, signal);
+    } catch {
+      this.#log("warn", "channel.matrix.direct-save-failed", {}); // the room still works for this run
+    }
+    return roomId;
   }
 
   /** Streaming edit (`m.replace`). The new text must fit one event. Only the bot's own events can be edited. */
@@ -478,11 +519,14 @@ export class MatrixChannel implements Channel {
     const direct = events.find((e) => e.type === "m.direct");
     if (!direct || !isObj(direct.content)) return;
     const rooms = new Set<string>();
+    const content: Record<string, string[]> = {};
     for (const [mxid, list] of Object.entries(direct.content)) {
+      if (Array.isArray(list)) content[mxid] = list.filter((r): r is string => typeof r === "string");
       if (!this.#cfg.dmAllow.has(mxid) || !Array.isArray(list)) continue;
       for (const r of list) if (typeof r === "string") rooms.add(r);
     }
     this.#mDirectRooms = rooms;
+    this.#directContent = content;
   }
 
   async #invite(roomId: string, events: MatrixEvent[], signal: AbortSignal): Promise<void> {
