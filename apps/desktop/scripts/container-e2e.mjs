@@ -36,7 +36,7 @@ async function run(runtime,dry) {
   // An isolated preloaded registry proves digest retrieval without contacting a public registry.
   registry=`p1t-registry-${randomUUID()}`;
   cli(['image','inspect',plan.registry]);
-  cli(['run','--detach','--name',registry,'--publish','127.0.0.1::5000',plan.registry]);
+  cli(['run','--detach','--name',registry,'--label',`app.plur1bus.test=${registry}`,'--tmpfs','/var/lib/registry','--publish','127.0.0.1::5000',plan.registry]);
   const address=cli(['port',registry,'5000/tcp']).split('\n')[0];
   if(!/^127\.0\.0\.1:\d+$/.test(address))throw new Error('Registry must be loopback-only');
   for(let n=0;n<40;n++){try{if((await fetch(`http://${address}/v2/`)).ok)break;}catch{}if(n===39)throw new Error('Registry unavailable');await delay(250);}
