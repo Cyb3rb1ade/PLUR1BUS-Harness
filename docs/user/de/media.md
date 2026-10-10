@@ -7,6 +7,8 @@ kannst du mit Cloud-Anbietern oder lokal auf deinem Mac erzeugen.
 Videos sind in Arbeit und noch nicht verfügbar. Die technischen Details stehen in [../../media.md](../../media.md) und
 [../../media-adapters.md](../../media-adapters.md). Die englische Fassung dieser Seite ist [../en/media.md](../en/media.md).
 
+Siehe auch: [Mediensuche](../de/mediensuche.md), zum Suchen von Bildern, Videos und Audio in deinem Gedächtnis.
+
 ## Anbieter einrichten
 
 Ein Anbieter ist ein **Adapter**. Cloud-Adapter (OpenAI, Google, OpenRouter, fal, Replicate, Together, xAI) brauchen einen

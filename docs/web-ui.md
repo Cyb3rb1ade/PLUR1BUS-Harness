@@ -322,3 +322,79 @@ Numbers are stable; other documents refer to them.
   in `pages/settings/config/meta.ts`, guarded by a drift test against `config.schema.json`. `config.get` could return the restart
   class for a whole tier (the page asks once per key). `config.set` has no role rule in `docs/rbac.md` (the UI allows owner and admin).
 - **F46. Roles in `whoami`.** Only `owner` is emitted today; Operator, Member and Viewer paths are tested with a mock role only.
+
+## Media search (`src/pages/media-search/**`)
+
+The media index follows the binding contract `media-search-contract.md` (kept outside the repo). It adds a media part to the
+Memory setup step, the Memory settings, a per-agent override and a search in the Media view. Nothing here changes an existing
+component except one registration line per place (listed below).
+
+| Piece | File | Where it shows | Calls |
+|---|---|---|---|
+| Wire types (temporary) | `src/api/media-search.types.ts` | — | — |
+| Rules (pure: captioning preselection, validation mirror of E_MEDIA_*, config changes against the defaults, query params, time labels) | `src/pages/media-search/model.ts` | all of the below | — |
+| Setup, media part of the Memory step | `src/pages/media-search/setup.ts` | `/setup`, step Memory (the wizard model `setup/model.ts` carries the answers as `media`) | `config.set` on Next, only for values that differ from the defaults |
+| Memory settings panel (text and media index side by side, video and audio options, captioning, backfill, status card with pause, resume, re-index) | `src/pages/media-search/settings.ts` | `/settings/memory`, above the form | `config.get`, `config.set` (`ifRevision`), `media.index.status`, `media.index.pause\|resume\|reindex` |
+| Per-agent override | `src/pages/media-search/override.ts` | agent detail | `config.get`, `config.set` (`agents.<id>.memory.mediaEmbedding.*`) |
+| Search in the Media view, "Find similar" button, hits with segment and jump, caption edit | `src/pages/media-search/search.ts` | Media view | `media.index.status`, `media.search`, `media.caption.set`, `media.output.get` (playback) |
+| Typed RPC methods (merged into `RpcMethods`) | `src/pages/media-search/rpc-types.ts` | — | — |
+| Texts (de and en, one area) | `src/i18n/mediasearch.ts` | — | — |
+
+Registration lines in existing files (each is one line or one import): `src/i18n/index.ts` (area), `src/pages/setup/model.ts` (the
+`media` answer, its loading, the memory validation and the change list), `src/pages/setup/page.ts` (the memory step renders the media
+part and passes the error), `src/pages/settings/page.ts` (the panel above the Memory section), `src/pages/agents/detail.ts` (the
+override), `src/pages/surfaces/media.ts` (the search and the "Find similar" button per medium).
+
+### Rules the components rely on
+
+- **Free provider choice.** Text and media providers are chosen independently; there is no combination list. Validation checks only
+  capability (the media provider must take every chosen modality, so OpenAI can only be the text index), licence (a non-commercial
+  model needs its confirmation, `E_MEDIA_LICENSE`), privacy pin (`E_MEDIA_PRIVACY`) and availability. The pin is not in the wizard's
+  answers: the setup only explains it, and the server refuses the request.
+- **Defaults write nothing.** Config changes are computed against the contract defaults and the loaded values, so an untouched form
+  sends no media key. The existing setup test pins the exact `config.set` list of the default flow; this keeps it true.
+- **Captioning.** Preselected to local when the text provider is local. With a cloud text provider nothing is preselected and the
+  setup blocks until a choice is made (`caption-required`).
+- **Suggestions only fill fields.** The three suggestion buttons (EmbeddingGemma 2 only; OpenAI text with EmbeddingGemma 2 media;
+  Jina text with EmbeddingGemma 2 media) set the two provider fields and nothing else.
+- **Errors.** `E_MEDIA_*` codes are read from `error.data.error`. The API client maps only the closed list of harness codes, so these
+  codes reach the components through `RpcError.data`, read by `mediaErrorOf` in `model.ts`. Each code has a text under
+  `mediasearch.error.*`.
+- **Search.** Exactly one of `text` and `likeMediaId` is sent; the kinds filter is sent only when it narrows the search; `limit` is 20.
+  Results are not compared across spaces: the server runs a text-to-media search with the media model's text encoder.
+- **Playback.** A hit's file is read with the existing `media.output.get`, using the hit's `mediaId` as the output id. The contract
+  does not name a file URL for hits; if the backend serves one, the player should use it instead (see Follow-ups).
+- **Roles.** Index actions (pause, resume, re-index) are owner or admin; caption editing is owner, admin or operator. Both are client
+  hints; the server decides. Agents never edit captions (contract).
+
+### Mock API (`test/media-search-fixtures.ts`)
+
+`seedMedia(rpc, opts)` registers `media.index.status`, `media.index.pause`, `media.index.resume`, `media.index.reindex` (rejects a
+call without `confirm: true`), `media.search` (filters by `kinds`, excludes `likeMediaId` from its own results), `media.caption.set`,
+`media.output.get` and `media.output.list`. Options: `status` (initial status), `searchError` (a refused search with an E_MEDIA
+code), `noStatus` (the method is unknown, so the UI shows unavailable). The mock error list now carries the six `E_MEDIA_*` codes.
+Tests: `test/media-search-model.test.ts` (rules, pure) and `test/media-search.test.ts` (browser, 21 cases: settings, setup, Media view,
+override). The config mock writes into the objects it receives, so each test builds its own config (`memCfg()`).
+
+### Follow-ups (media search)
+
+- **F47. Generated RPC types.** Replace `src/api/media-search.types.ts` and the merge in `rpc-types.ts` with the generated types, once
+  the backend's `media.*` methods and `memory.mediaEmbedding.*` keys are in `rpc.schema.json` and `config.schema.json`. Until then
+  the hand-written copy is the only definition here; a drift test against the schema would then replace the review.
+- **F48. Catalogue for the forms.** The provider list, licence, dimensions and capabilities come from the static table in
+  `pages/setup/licences.ts` (plus the capability table in `pages/media-search/model.ts`). The contract extends the embedding
+  catalogue with `capabilities`; the forms should read it from there. The catalogue's size field is not in the contract, so the forms
+  show "not stated in the catalogue".
+- **F49. Text index keys.** The contract names no keys for the text index. The forms write `memory.embedding.provider` and
+  `memory.embedding.dimensions` (following the `agents.<id>.memory.embedding` structure the contract names for overrides) and read the
+  same. This must be confirmed against the backend.
+- **F50. Playback source.** Hits play from `media.output.get` (`data:` URL with a `#t=` start fragment). A file URL in the hit or a
+  streaming route would avoid base64 for large videos.
+- **F51. Caption provider ids.** The forms use `local`, `off` and `openai` as caption provider values. The contract says only "local"
+  as the default; the cloud id must match the backend's provider registry.
+- **F52. Agent override clearing.** Clearing a field writes `null`. The contract does not say whether `config.set` accepts `null` for
+  an `agents.<id>.memory.mediaEmbedding.*` key; if it does not, clearing needs a dedicated delete.
+- **F53. Privacy pin.** The setup only explains the pin. The Settings panel does not show whether it is set; the server's refusal
+  (`E_MEDIA_PRIVACY`) is the only signal.
+- **F54. Size.** The contract's catalogue has no size; the forms show "not stated". A size field would make the setup's "Größe" useful.
+- **F55. Playback test.** The browser test checks the `#t=` fragment and `data-start`, not actual playback.
