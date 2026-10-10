@@ -203,7 +203,7 @@ describe("absent from every catalogue an agent or an outside client can see", ()
     assert.match(cap.covers, /grants and approvals/);
   });
 
-  it("WebMCP refuses them (the admin.* rule, B15)", { todo: "needs \"grant.\" and \"approval.\" in FORBIDDEN_PREFIX of packages/webmcp/src/provider.ts (outside this work package's files)" }, () => {
+  it("WebMCP refuses them (the admin.* rule, B15)", () => {
     for (const m of METHODS) assert.equal(isForbiddenMethod(m), true, m);
   });
 });

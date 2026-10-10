@@ -40,7 +40,7 @@ describe("tool naming and selection", () => {
   });
 
   it("forbidden methods are never exposed, even when included", () => {
-    const forbidden = ["core.auth", "core.shutdown", "core.adopt", "events.subscribe", "events.unsubscribe", "memory.checkpoint", "agent.open", "agent.close", "supervisor.auth", "daemon.stop", "config.set", "config.get", "module.restart"];
+    const forbidden = ["core.auth", "core.shutdown", "core.adopt", "events.subscribe", "events.unsubscribe", "memory.checkpoint", "agent.open", "agent.close", "supervisor.auth", "daemon.stop", "config.set", "config.get", "module.restart", "grant.list", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.decide", "approval.cancel", "approval.verify", "grant.future.op", "approval.future.op"];
     const fakeCaps = { methods: { ...caps.methods } as Record<string, any> };
     const fakeSchema = structuredClone(SCHEMA) as any;
     for (const m of forbidden) {
