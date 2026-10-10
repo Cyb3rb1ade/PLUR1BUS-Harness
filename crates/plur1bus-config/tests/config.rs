@@ -90,6 +90,17 @@ fn restart_classes_match_the_schema() {
 }
 
 #[test]
+fn model_roles_accept_summarize_and_still_reject_unknown_roles() {
+    // The summarize role is read by the core's compaction; the Rust side must accept the same configuration.
+    let c = defaults();
+    let plan = set(&c, "modelRoles.summarize", json!("cheap")).unwrap();
+    assert_eq!(plan.after["modelRoles"]["summarize"], "cheap");
+    assert!(!plan.restart.core);
+    assert!(validate(&plan.after).is_ok());
+    assert!(set(&c, "modelRoles.summarise", json!("cheap")).is_err());
+}
+
+#[test]
 fn set_produces_a_plan_and_refuses_bad_values() {
     let c = defaults();
     let plan = set(&c, "core.recall.softBudgetMs", json!(250)).unwrap();

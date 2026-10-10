@@ -1035,6 +1035,9 @@ pub enum SessionCmd {
         /// How many of the last messages to show
         #[arg(long, default_value_t = 20)]
         messages: u32,
+        /// Also show the tool outputs hidden from the context view, with their originals
+        #[arg(long)]
+        include_hidden: bool,
     },
     /// [experimental] Archive a session (nothing is deleted)
     Archive { id: String },
@@ -1762,8 +1765,22 @@ mod tests {
         }
         match parse(&["session", "show", "ses_1"]).cmd {
             Cmd::Session {
-                sub: SessionCmd::Show { id, messages },
-            } => assert_eq!((id.as_str(), messages), ("ses_1", 20)),
+                sub:
+                    SessionCmd::Show {
+                        id,
+                        messages,
+                        include_hidden,
+                    },
+            } => assert_eq!(
+                (id.as_str(), messages, include_hidden),
+                ("ses_1", 20, false)
+            ),
+            other => panic!("{other:?}"),
+        }
+        match parse(&["session", "show", "ses_1", "--include-hidden"]).cmd {
+            Cmd::Session {
+                sub: SessionCmd::Show { include_hidden, .. },
+            } => assert!(include_hidden),
             other => panic!("{other:?}"),
         }
         match parse(&["chat", "--agent", "bernd", "--no-memory", "hello"]).cmd {

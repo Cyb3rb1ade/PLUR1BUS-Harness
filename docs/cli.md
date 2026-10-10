@@ -1092,6 +1092,7 @@ Chat sessions: list, show, archive
 * `--messages <MESSAGES>` — How many of the last messages to show
 
   Default value: `20`
+* `--include-hidden` — Also show the tool outputs hidden from the context view, with their originals
 
 
 
