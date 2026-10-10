@@ -7,6 +7,8 @@ images with cloud providers or locally on your Mac.
 Video is in progress and not available yet. Technical details are in [../../media.md](../../media.md) and
 [../../media-adapters.md](../../media-adapters.md). The German version of this page is [../de/media.md](../de/media.md).
 
+See also: [Media search](../en/media-search.md), for searching images, videos and audio in your memory.
+
 ## Set up a provider
 
 A provider is an **adapter**. Cloud adapters (OpenAI, Google, OpenRouter, fal, Replicate, Together, xAI) need a key.

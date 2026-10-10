@@ -10,6 +10,7 @@ import { Field } from "../common/field.ts";
 import { useLoad, currentRole } from "../common/load.ts";
 import { FailureState } from "../common/states.ts";
 import { rpc, imageUrl, filterOutputs, type Output } from "./data.ts";
+import { MediaSearch, SimilarButton } from "../media-search/search.ts";
 
 export function StoredImage({
   id,
@@ -329,6 +330,7 @@ export function MediaPage(): View {
       input("filter-from", t("surfaces.from"), from, setFrom, "date"),
       input("filter-to", t("surfaces.to"), to, setTo, "date"),
     ),
+    h(MediaSearch, {}),
     outputs.length
       ? h(
           "div",
@@ -344,6 +346,7 @@ export function MediaPage(): View {
                 h("span", {}, output.prompt),
               ),
               h("p", {}, output.agentId, " · ", output.metadata.adapter),
+              h(SimilarButton, { mediaId: output.id }),
             ),
           ),
         )
