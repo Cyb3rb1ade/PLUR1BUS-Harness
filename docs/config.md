@@ -65,6 +65,16 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `egress.allowHosts` | array | `[]` | live | Exact names, `*.suffix` (subdomains of any depth, not the apex), `*` (any name, never an IP literal) or an exact canonical IP literal (IPv6 in brackets). |
 | `egress.allowPorts` | array | `[443]` | live | Destination ports allowed for outgoing requests. |
 | `egress.allowLoopback` | boolean | `false` | live | Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused. |
+| `session.compaction.softRatio` | number | `0.65` | core | Prepare a summary above this fraction of the model context window. |
+| `session.compaction.hardRatio` | number | `0.88` | core | Swap prepared summary above this fraction. Must exceed softRatio. |
+| `session.compaction.summaryMaxTokens` | integer | `1228` | core | Maximum summary tokens; also capped to 15 percent of the catalogue window. |
+| `session.compaction.maxMessageTokens` | integer | `819` | core | Maximum tokens per context message; originals stay in the transcript. |
+| `session.compaction.summarizer` | string | `"llm"` | core | Background summarize role; unavailable model or refused budget uses deterministic digest. |
+| `session.compaction.prune.enabled` | boolean | `true` | core | Enable post-turn tool-output pruning. |
+| `session.compaction.prune.keepLastTurns` | integer | `3` | core | Never hide tool pairs in the latest N turns. |
+| `session.compaction.prune.decider` | string | `"laya"` | core | Local CPU Laya first, conservative heuristic if unavailable; off disables pruning. |
+| `session.compaction.prune.maxMs` | integer | `100` | core | Total decision time budget. Timeout retains original context. |
+| `session.compaction.prune.batchSize` | integer | `16` | core | Maximum tool pairs in one decision request. |
 | `channels.discord.enabled` | boolean | `false` | module:discord | Whether the discord channel is started. Off by default; nothing connects until this is true. |
 | `channels.discord.tokenSecret` | string | `"channels.discord.token"` | module:discord | Name of the secret holding the Discord bot token. The value never appears in config or logs. |
 | `channels.discord.applicationId` | string |  | module:discord | Discord application id (needed to register slash commands). Taken from the gateway READY event when omitted. |

@@ -116,6 +116,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -416,6 +432,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -731,6 +763,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -1033,6 +1081,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -1348,6 +1412,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -1652,6 +1732,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -1973,6 +2069,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -2273,6 +2385,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -2594,6 +2722,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -2898,6 +3042,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -3217,6 +3377,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -3521,6 +3697,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -3838,6 +4030,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -4138,6 +4346,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -4456,6 +4680,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -4761,6 +5001,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -5083,6 +5339,22 @@
         ],
         "allowLoopback": false
       },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
+      },
       "channels": {
         "discord": {
           "enabled": false,
@@ -5383,6 +5655,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
