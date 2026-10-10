@@ -145,6 +145,12 @@ export class SessionStore {
     return r ? toSession(r) : null;
   }
 
+  /** D21: the one active session of a chat, or null. For the channel host, which knows the chat but not the owner. */
+  activeForChat(chatKey: string): SessionRecord | null {
+    const r = this.#get("SELECT * FROM sessions WHERE chat_key = ? AND archived_at IS NULL", chatKey);
+    return r ? toSession(r) : null;
+  }
+
   /** The store never decides who may see a session; callers use this to get "not found" for someone else's. */
   getOwned(id: string, owner: string): SessionRecord {
     const s = this.getSession(id);
@@ -170,6 +176,39 @@ export class SessionStore {
       ...args, limit + 1,
     );
     return { sessions: rows.slice(0, limit).map(toSession), truncated: rows.length > limit };
+  }
+
+  /** F42 metadata listing; omitting owner is allowed only by the admin RPC's role gate.
+   * Own-session listing/search keeps the original query semantics. No message or event payload leaves this method. */
+  listOverview(f: Omit<ListFilter, "owner"> & { owner?: string; owners?: string[] }): { sessions: (SessionRecord & { model: string | null; usage: { inputTokens: number; outputTokens: number; costMicros: number | null } })[]; truncated: boolean } {
+    const limit = Math.min(Math.max(f.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
+    const where = ["1=1"], args: (string | number | null)[] = [];
+    if (f.owner) { where.push("s.owner=?"); args.push(f.owner); }
+    else if (f.owners) { if (!f.owners.length) return { sessions: [], truncated: false }; where.push(`s.owner IN (${f.owners.map(() => "?").join(",")})`); args.push(...f.owners); }
+    if (f.kind) { where.push("s.kind=?"); args.push(f.kind); }
+    if (f.agentId) { where.push("s.agent_id=?"); args.push(f.agentId); }
+    const archived = f.archived ?? "exclude";
+    if (archived === "exclude") where.push("s.archived_at IS NULL"); else if (archived === "only") where.push("s.archived_at IS NOT NULL");
+    if (f.search !== undefined) {
+      const q = ftsQuery(f.search);
+      where.push("(s.rowid IN (SELECT rowid FROM sessions_fts WHERE sessions_fts MATCH ?) OR s.id IN (SELECT m.session_id FROM messages m WHERE m.rowid IN (SELECT rowid FROM messages_fts WHERE messages_fts MATCH ?)))"); args.push(q,q);
+    }
+    const rows = this.#all(`SELECT s.* FROM sessions s WHERE ${where.join(" AND ")} ORDER BY s.pinned DESC,COALESCE(s.last_turn_at,s.created_at) DESC,s.created_at DESC,s.id LIMIT ?`, ...args, limit+1);
+    return { truncated: rows.length > limit, sessions: rows.slice(0,limit).map(row => {
+      const s = toSession(row);
+      // Existing turn.completed records contain provider/usage. Costs not recorded per session stay null, never a false zero.
+      const events = this.#all("SELECT data FROM events WHERE session_id=? AND type='turn.completed' ORDER BY seq", s.id);
+      let model: string | null = null, inputTokens=0, outputTokens=0, costMicros: number | null = events.length ? 0 : null;
+      for (const e of events) {
+        const d = JSON.parse(e.data as string);
+        if (typeof d.model === "string") model=d.model; else if (typeof d.provider === "string") model=d.provider;
+        const count = (v: unknown) => typeof v === "number" && Number.isSafeInteger(v) && v>=0 ? v : 0;
+        inputTokens += count(d.usage?.inputTokens); outputTokens += count(d.usage?.outputTokens);
+        if (typeof d.usage?.costMicros !== "number" || !Number.isSafeInteger(d.usage.costMicros) || d.usage.costMicros<0) costMicros=null;
+        else if (costMicros!==null) costMicros+=d.usage.costMicros;
+      }
+      return { ...s, model, usage: { inputTokens, outputTokens, costMicros } };
+    }) };
   }
 
   /** Message hits (with a snippet) over one owner's sessions, best first. Owner scoping is part of the query, not a post-filter. */
@@ -342,6 +381,23 @@ export class SessionStore {
   listMessages(sessionId: string, o: { afterSeq?: number; limit?: number } = {}): MessageRecord[] {
     return this.#all("SELECT * FROM messages WHERE session_id = ? AND seq > ? ORDER BY seq LIMIT ?", sessionId, o.afterSeq ?? 0, Math.min(Math.max(o.limit ?? 10_000, 1), 100_000)).map(toMessage);
   }
+
+  tokenCalibration(model: string): number | null { return (this.#get("SELECT factor FROM token_calibration WHERE model=?", model)?.factor as number | undefined) ?? null; }
+  tokenFactor(model: string): number { return this.tokenCalibration(model) ?? 1; }
+  setTokenFactor(model: string, factor: number): void { this.#run("INSERT INTO token_calibration(model,factor) VALUES (?,?) ON CONFLICT(model) DO UPDATE SET factor=excluded.factor", model, factor); }
+  recordMessageUsage(id: string, model: string, tokens: number): void { this.#run("INSERT OR REPLACE INTO message_usage(message_id,model,tokens) VALUES (?,?,?)", id, model, tokens); }
+  messageUsage(id: string, model: string, text: string): number | undefined { return this.#get("SELECT u.tokens FROM message_usage u JOIN messages m ON m.id=u.message_id WHERE message_id=? AND model=? AND m.text=?", id, model, text)?.tokens as number | undefined; }
+  toolVisibility(sessionId: string): { ref: string; hidden: boolean; reason: string }[] {
+    return this.#all("SELECT ref,hidden,reason FROM tool_visibility WHERE session_id=? ORDER BY ref", sessionId).map(r => ({ ref: r.ref as string, hidden: r.hidden === 1, reason: r.reason as string }));
+  }
+  setToolVisibility(sessionId: string, ref: string, hidden: boolean, reason: string): void {
+    this.#run("INSERT INTO tool_visibility(session_id,ref,hidden,reason) VALUES (?,?,?,?) ON CONFLICT(session_id,ref) DO UPDATE SET hidden=excluded.hidden,reason=excluded.reason", sessionId, ref, hidden ? 1 : 0, reason);
+  }
+  setToolVisibilities(sessionId: string, changes: { ref: string; hidden: boolean; reason: string }[]): void {
+    this.#tx(() => { for (const change of changes) this.setToolVisibility(sessionId,change.ref,change.hidden,change.reason); });
+  }
+  /** Internal read-only background scan; event pagination never drops older tool pairs. */
+  toolEvents(sessionId: string): EventRecord[] { return this.#all("SELECT * FROM events WHERE session_id=? AND type IN ('tool.call','tool.result') ORDER BY seq", sessionId).map(toEvent); }
 
   // ---- summaries (compaction) --------------------------------------------------------------------------------------
 

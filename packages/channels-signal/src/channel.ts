@@ -455,6 +455,13 @@ export class SignalChannel implements Channel {
     return { promptId: created.promptId, refs };
   }
 
+  /** The DM chat id of a person is their number or uuid; refused unless it is a DM id the allowlists let us message. */
+  async resolveOwnerTarget(who: { userId: string; accountId?: string }): Promise<string> {
+    if (who.accountId !== undefined && who.accountId !== this.#o.account) throw new Error("identity belongs to another signal account");
+    if (typeof who.userId !== "string" || !isDmId(who.userId)) throw new Error("not a signal number or uuid");
+    return this.#target(who.userId).chatId;
+  }
+
   // ---- outbound helpers ------------------------------------------------------------------------------------------
 
   async sendOutput(chatId: string, outputId: string, index = 0): Promise<SentRef[]> {

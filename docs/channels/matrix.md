@@ -33,7 +33,7 @@ read -rs PW && curl -sS -X POST https://matrix.example.org/_matrix/client/v3/log
   -o login.json && unset PW
 ```
 
-Copy `access_token` from `login.json` into your host secret store under a name such as `matrix/bot-token`, then delete `login.json`.
+Copy `access_token` from `login.json` into your host secret store as `channels.matrix.access-token` (the switchboard only reads secrets named `channels.matrix.*`), then delete `login.json`.
 Note `device_id` from the same response. Set `deviceId` in config if you want the channel to refuse a token from another device.
 Use a dedicated device per bot; logging in again creates a new device.
 
@@ -43,7 +43,7 @@ Config refers to the secret **name** only:
 {
   "homeserverUrl": "https://matrix.example.org",
   "userId": "@bot:example.org",
-  "accessTokenSecret": "matrix/bot-token",
+  "accessTokenSecret": "channels.matrix.access-token",
   "deviceId": "ABCDEF1234",
   "autoJoin": "allowlist",
   "allowlist": ["!roomid:example.org"],

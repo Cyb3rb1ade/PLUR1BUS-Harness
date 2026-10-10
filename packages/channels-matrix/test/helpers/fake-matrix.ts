@@ -57,6 +57,8 @@ export class FakeMatrix {
   readonly typing: { roomId: string; typing: boolean }[] = [];
   readonly uploads: { mime: string; filename: string; size: number }[] = [];
   readonly failures: Failure[] = [];
+  /** `createRoom` requests answered (body as sent), and the room ids handed out. */
+  readonly created: { body: Record<string, unknown>; roomId: string }[] = [];
   readonly media = new Map<string, { data: Buffer; mime: string }>();
   /** Account data `m.direct`: mxid -> room ids. */
   direct: Record<string, string[]> = {};
@@ -302,6 +304,18 @@ export class FakeMatrix {
     }
     if (room && method === "PUT" && room[2]!.startsWith("typing/")) {
       this.typing.push({ roomId: decodeURIComponent(room[1]!), typing: (body as { typing?: boolean })?.typing === true });
+      return this.#json(res, 200, {});
+    }
+
+    if (method === "POST" && path === "/_matrix/client/v3/createRoom") {
+      const roomId = `!created${this.#mediaSeq++}:hs.test`;
+      this.created.push({ body: (body ?? {}) as Record<string, unknown>, roomId });
+      this.addRoom(roomId, { members: 1 });
+      return this.#json(res, 200, { room_id: roomId });
+    }
+    const acct = /^\/_matrix\/client\/v3\/user\/([^/]+)\/account_data\/m\.direct$/.exec(path);
+    if (acct && method === "PUT") {
+      this.direct = (body ?? {}) as Record<string, string[]>;
       return this.#json(res, 200, {});
     }
 

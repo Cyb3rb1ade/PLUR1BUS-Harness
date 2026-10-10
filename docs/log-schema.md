@@ -99,6 +99,9 @@ emitters land in later parts of D111; the names are already reserved.
 
 | Event | Kinds | Level | Attrs group | Required attrs | Flags | Notes |
 |---|---|---|---|---|---|---|
+| `compaction.summary.created` | harness | info | compaction | `sessionId`, `fromSeq`, `toSeq`, `tier` | experimental | Session context visibility changed; originals remain available. |
+| `compaction.prune.hidden` | harness | info | compaction | `sessionId`, `ref` | experimental | Session context visibility changed; originals remain available. |
+| `compaction.prune.restored` | harness | info | compaction | `sessionId`, `ref` | experimental | Session context visibility changed; originals remain available. |
 | `log.level.changed` | any | info | log_level | `source_key`, `to` |  | Log level changed. |
 | `log.level.expired` | any | info | log_level | `source_key`, `from` |  | Log level expired. |
 | `log.suppressed` | any | warn | log_suppressed | `dropped` |  | Log records suppressed. |
@@ -194,6 +197,10 @@ emitters land in later parts of D111; the names are already reserved.
 | `os.service.restarted` | os | warn | os_service | `manager` | experimental | OS service restarted by the service manager. |
 | `os.service.failed` | os | fatal | os_service | `manager`, `reason` | experimental | OS service failed. |
 | `os.power.resumed` | os | info | os_service | `manager` | experimental | System resumed from sleep. |
+| `model.discovered` | provider | info | model_discovery | `provider`, `count`, `models`, `reappeared` | activity | Model discovery event (D112 Task 12). |
+| `model.unavailable` | provider | warn / **info** | model_discovery | `provider`, `count`, `models`, `roles` | activity | warn when roles is non-empty, otherwise info; Model discovery event (D112 Task 12). |
+| `model.scan.failed` | provider | error / **warn** | model_discovery | `provider`, `result`, `next_scan_at`, `consecutive_failures`, `err` |  | error for failed:auth and failed:invalid, otherwise warn; Model discovery event (D112 Task 12). |
+| `model.scan.completed` | provider | debug | model_discovery | `provider`, `result`, `duration_ms`, `counts` |  | Model discovery event (D112 Task 12). |
 
 ### Audit stream
 
@@ -255,6 +262,18 @@ Every event's `attrs` are closed: the common attributes below plus the event's g
 | `untrusted` | `boolean` | true on wrapped third-party output |
 | `truncated` | `boolean` | the value was cut to its limit |
 | `bytes` | `integer` | original size in bytes when truncated |
+
+#### `compaction`
+
+Compaction view changes; references only, never transcript content.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `sessionId` | `string` |  |
+| `ref` | `string` |  |
+| `fromSeq` | `integer` |  |
+| `toSeq` | `integer` |  |
+| `tier` | `integer` |  |
 
 #### `log_level`
 
@@ -848,6 +867,26 @@ Break-glass access.
 |---|---|---|
 | `target` | `string` | what was accessed |
 | `reason` | `string` | stated reason |
+
+#### `model_discovery`
+
+D112 provider discovery metadata only; no credential values, URLs or provider bodies.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `provider` | `string` |  |
+| `count` | `integer` |  |
+| `models` | `array` |  |
+| `reappeared` | `array` |  |
+| `roles` | `array` |  |
+| `result` | `ok` \| `failed:auth` \| `failed:network` \| `failed:server` \| `failed:invalid` \| `failed:empty` |  |
+| `http_status` | `integer` |  |
+| `retry_after_s` | `number` |  |
+| `next_scan_at` | `string` |  |
+| `consecutive_failures` | `integer` |  |
+| `duration_ms` | `integer` |  |
+| `counts` | `object` |  |
+| `err` | `object` |  |
 
 ## Redaction data
 

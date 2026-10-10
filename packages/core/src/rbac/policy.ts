@@ -89,6 +89,23 @@ export const POLICY: readonly ActionSpec[] = Object.freeze([
   humanOnly(spec("channel.read", "system", OA)),
   humanOnly(spec("channel.write", "system", OA)),
 
+  // F39-F42/F44: admin backends, people only. Roles are intersected with token scopes and stored rights.
+  humanOnly(spec("admin.agent.operate", "agent", { owner: A, admin: A, operator: A })),
+  humanOnly(spec("admin.agent.manage", "agent", OA)),
+  humanOnly(spec("admin.agent.delete", "agent", OA)),
+  humanOnly(spec("admin.agent.rights", "agent", OA)),
+  humanOnly(spec("admin.users.read", "system", OA)),
+  humanOnly(spec("admin.users.write", "system", OA)),
+  humanOnly(spec("admin.breakglass.read", "system", OA)),
+  humanOnly(spec("admin.breakglass.write", "system", OA)),
+  humanOnly(spec("admin.sessions.write", "system", { owner: A, admin: A, operator: A, member: A })),
+  humanOnly(spec("admin.sessions.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A })),
+  humanOnly(spec("admin.pairing.read", "system", OA)),
+
+  humanOnly(spec("admin.notices.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A })),
+  humanOnly(spec("admin.sessions.transcript", "system", { owner: A, admin: A, operator: A, member: A, viewer: A })),
+  humanOnly(spec("admin.memory.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A })),
+
   // My area and projects.
   spec("my.read", "user", { owner: O, admin: O, operator: O, member: O, viewer: O }),
   spec("my.write", "user", { owner: O, admin: O, operator: O, member: O }),

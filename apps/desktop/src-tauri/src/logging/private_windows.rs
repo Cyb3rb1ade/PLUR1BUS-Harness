@@ -17,13 +17,14 @@ use windows_sys::Win32::{
             GetSecurityInfo, SetSecurityInfo, SDDL_REVISION_1, SE_FILE_OBJECT,
         },
         CreateWellKnownSid, EqualSid, GetAce, GetSecurityDescriptorControl,
-        GetSecurityDescriptorDacl, GetTokenInformation, TokenUser, WinLocalSystemSid,
-        ACCESS_ALLOWED_ACE, DACL_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION,
-        PROTECTED_DACL_SECURITY_INFORMATION, SE_DACL_PROTECTED, TOKEN_QUERY, TOKEN_USER,
+        GetSecurityDescriptorDacl, GetTokenInformation, TokenOwner, TokenUser,
+        WinBuiltinAdministratorsSid, WinLocalSystemSid, ACCESS_ALLOWED_ACE,
+        DACL_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION,
+        SE_DACL_PROTECTED, TOKEN_OWNER, TOKEN_QUERY, TOKEN_USER,
     },
     Storage::FileSystem::{
         GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION, FILE_FLAG_BACKUP_SEMANTICS,
-        FILE_FLAG_OPEN_REPARSE_POINT, FILE_SHARE_READ,
+        FILE_FLAG_OPEN_REPARSE_POINT, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
     },
     System::Threading::{GetCurrentProcess, OpenProcessToken},
 };
@@ -37,6 +38,69 @@ impl Drop for Local {
 }
 fn denied() -> io::Error {
     io::Error::new(io::ErrorKind::PermissionDenied, "unsafe diagnostic ACL")
+}
+fn token_owner() -> io::Result<Vec<usize>> {
+    let mut raw = std::ptr::null_mut();
+    if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut raw) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let token = unsafe { OwnedHandle::from_raw_handle(raw) };
+    let mut size = 0;
+    unsafe {
+        GetTokenInformation(
+            token.as_raw_handle(),
+            TokenOwner,
+            std::ptr::null_mut(),
+            0,
+            &mut size,
+        )
+    };
+    if size < std::mem::size_of::<TOKEN_OWNER>() as u32 || size > 4096 {
+        return Err(denied());
+    }
+    let mut buffer = vec![0usize; (size as usize).div_ceil(std::mem::size_of::<usize>())];
+    if unsafe {
+        GetTokenInformation(
+            token.as_raw_handle(),
+            TokenOwner,
+            buffer.as_mut_ptr().cast(),
+            size,
+            &mut size,
+        )
+    } == 0
+    {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(buffer)
+}
+fn is_trusted_owner(owner: *mut c_void, current_user: *mut c_void) -> io::Result<bool> {
+    if owner.is_null() {
+        return Ok(false);
+    }
+    if unsafe { EqualSid(owner, current_user) } != 0 {
+        return Ok(true);
+    }
+    if let Ok(owner_buf) = token_owner() {
+        let t_owner = unsafe { (*(owner_buf.as_ptr().cast::<TOKEN_OWNER>())).Owner };
+        if !t_owner.is_null() && unsafe { EqualSid(owner, t_owner) } != 0 {
+            return Ok(true);
+        }
+    }
+    let mut admin = [0u32; 17];
+    let mut size = 68;
+    if unsafe {
+        CreateWellKnownSid(
+            WinBuiltinAdministratorsSid,
+            std::ptr::null_mut(),
+            admin.as_mut_ptr().cast(),
+            &mut size,
+        )
+    } != 0
+        && unsafe { EqualSid(owner, admin.as_mut_ptr().cast()) } != 0
+    {
+        return Ok(true);
+    }
+    Ok(false)
 }
 fn user() -> io::Result<Vec<usize>> {
     let mut raw = std::ptr::null_mut();
@@ -79,7 +143,7 @@ pub(super) fn directory_options(options: &mut OpenOptions) {
     const MAXIMUM_ALLOWED: u32 = 0x0200_0000;
     options
         .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)
-        .share_mode(FILE_SHARE_READ)
+        .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
         .access_mode(MAXIMUM_ALLOWED);
 }
 pub(super) fn require_owner(file: &File) -> io::Result<()> {
@@ -117,7 +181,7 @@ fn check(file: &File, private: bool) -> io::Result<()> {
     let _free = Local(descriptor);
     let buffer = user()?;
     let current = unsafe { (*(buffer.as_ptr().cast::<TOKEN_USER>())).User.Sid };
-    if owner.is_null() || unsafe { EqualSid(owner, current) } == 0 {
+    if !is_trusted_owner(owner, current)? {
         return Err(denied());
     }
     if !private {
@@ -159,9 +223,13 @@ fn check(file: &File, private: bool) -> io::Result<()> {
         let sid = std::ptr::addr_of!(ace.SidStart).cast_mut().cast();
         if unsafe { EqualSid(sid, current) } != 0 {
             found_user = true;
-        } else if unsafe { EqualSid(sid, system.as_mut_ptr().cast()) } != 0 {
+        }
+        if unsafe { EqualSid(sid, system.as_mut_ptr().cast()) } != 0 {
             found_system = true;
-        } else {
+        }
+        if unsafe { EqualSid(sid, current) } == 0
+            && unsafe { EqualSid(sid, system.as_mut_ptr().cast()) } == 0
+        {
             return Err(denied());
         }
     }

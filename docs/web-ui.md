@@ -83,6 +83,20 @@ No page sends a `caller`: a browser never asserts identity or trust (the `memory
 by its `event:` field or as a JSON-RPC notification object whose `method` is the name (memories, models); chat requires
 `event: session.event` with `data: { event: SessionEvent }`.
 
+## Administration backend status (F39–F42, F44)
+
+The [admin backends](admin-backends.md) now supply the RPC/CLI contracts below. The original page inventory and
+`unavailable` UI flows remain unchanged; binding those pages is follow-up work. `device.list/revoke` are absent, and agent
+hard-erasure is blocked by the pinned engine API. No `packages/web` code is changed by this backend PR.
+
+| What the UI needs | Backend status | Remaining UI work |
+|---|---|---|
+| Agent pause/resume, archive/unarchive, export/delete (F39) | RPC and CLI available; delete safely reports missing engine erasure API | Bind lifecycle calls and export offer; display the erasure limitation |
+| Users, role presets, invitation, use/manage matrix (F40) | RPC and CLI available, stored roles/rights, one-time Identity proof | Bind list/mutations and invite redemption/confirmation |
+| Break-Glass window and affected-person notice (F41) | RPC/CLI, durable self-scoped notices, audited transcript/user-memory reads | Bind dialog, inbox/live notice and read flows |
+| Operator session overview (F42) | `session.list` owner/agent filters, explicit allOwners, owner/model/tokens/cost metadata | Request overview filters and show additive fields; keep transcripts behind Break-Glass |
+| QR payload and remote mode (F44) | `pairing.qr` and `remote.publish` config available | Bind existing-offer QR payload; **Geräte-Store mit List/Revoke fehlt in packages/remote-access** |
+
 ## M3 part 2: inventory (K1)
 
 What the second web UI change builds fully and what it renders as `unavailable`, measured against `origin/main` @ `809f2d5`
@@ -307,18 +321,104 @@ Numbers are stable; other documents refer to them.
 - **F37. Import** (Wizard). `plur1bus import` is CLI only; the step shows the command.
 - **F38. `agent.create` with an idempotency key** (Agents). Create goes through `config.set` with `ifRevision`, an existence check and
   a client key; a real RPC with a server-side key would replace it. `agents.<id>.state` and `skills` are assumptions about the shape.
-- **F39. Agent lifecycle** (Agents). Pause, archive, export bundle (without secrets) and delete have no RPC; the delete dialog is built.
-- **F40. Users, roles and rights** (Users). No RPC reads or assigns roles, invites people or stores per-agent use/manage rights.
-  `identity.human.create` takes a display name only.
-- **F41. Break-glass** (Users, Sessions). `breakglass.request` and the log read are library code (`docs/rbac.md`), not RPCs; the
-  dialog validates and then reports `unavailable`.
-- **F42. Sessions of other people** (Sessions). `session.list` returns the caller's own sessions; no owner, model or usage fields.
+- **F39. Agent lifecycle — backend available, UI binding follows.** `agent.pause/resume/archive/unarchive/export/delete` and
+  matching CLI commands now exist. Pause retains state and rejects new work. Export is signed/redacted; delete requires
+  archive, typed name and an export offer. **Engine gap:** the pinned engine lacks hard-erasure; delete fails closed with
+  `engine-erasure-unavailable`. Large memory exports also need an exhaustive engine listing API (current list cap 100).
+- **F40. Users, roles and rights — backend available, UI binding follows.** `user.list`, `user.role.set`,
+  `user.invite.create/list/revoke`, `agent.rights.get/set` and CLI commands persist presets/rights and use Identity pairing
+  for one-time invitation redemption. Last Owner protection and immediate role/right enforcement are server-side.
+- **F41. Break-glass — backend available, UI binding follows.** `breakglass.request/list/revoke` wrap the existing read-only
+  library. Reasons/windows are validated and each use is audited. `breakglass.notices` is the affected person's durable
+  inbox; checked opt-in live notices use `breakglass.notice`. Foreign `session.get/resume/events` and targeted
+  `memory.list/show` reads require a live grant. No write is enabled by a grant.
+- **F42. Sessions of other people — backend available, UI binding follows.** `session.list` adds owner/model/usage metadata,
+  owner/agent filters and explicit `allOwners`. Operations roles may list metadata; Member sees own only. Costs/models join
+  the existing budget ledger; unknown/pending costs remain null. Transcripts and foreign transcript search are protected.
 - **F43. Log viewer** (Logs). `logs.query` has no `trace_id` parameter (matched with `text`, and not combinable with a search text);
   `logs.tail` is a long poll (no log event on SSE); `audit.verify` returns no check time; the activity feed relies on scheduler job
   names (`scheduler.run.*`) because the log schema registers no agent-run, dream, model-scan or backup events.
-- **F44. Devices** (Devices). `remote.publish` is not in the config schema on `origin/main`; paired devices, QR or deep link,
-  fingerprint and removal have no API.
+- **F44. Devices — pairing payload backend available, UI binding follows.** `pairing.qr`/`plur1bus pairing qr --link`
+  format an existing offer using the package's read-only QR payload. `remote.publish` is now in the config schema.
+  **Geräte-Store mit List/Revoke fehlt in packages/remote-access**. `device.list` and `device.revoke` are intentionally absent;
+  listener integration and actual device enrollment remain existing remote-access follow-ups.
 - **F45. Config schema over RPC** (Settings). No `config.schema` method: types, bounds, enums and defaults come from a static table
   in `pages/settings/config/meta.ts`, guarded by a drift test against `config.schema.json`. `config.get` could return the restart
   class for a whole tier (the page asks once per key). `config.set` has no role rule in `docs/rbac.md` (the UI allows owner and admin).
 - **F46. Roles in `whoami`.** Only `owner` is emitted today; Operator, Member and Viewer paths are tested with a mock role only.
+
+## Media search (`src/pages/media-search/**`)
+
+The media index follows the binding contract `media-search-contract.md` (kept outside the repo). It adds a media part to the
+Memory setup step, the Memory settings, a per-agent override and a search in the Media view. Nothing here changes an existing
+component except one registration line per place (listed below).
+
+| Piece | File | Where it shows | Calls |
+|---|---|---|---|
+| Wire types (temporary) | `src/api/media-search.types.ts` | — | — |
+| Rules (pure: captioning preselection, validation mirror of E_MEDIA_*, config changes against the defaults, query params, time labels) | `src/pages/media-search/model.ts` | all of the below | — |
+| Setup, media part of the Memory step | `src/pages/media-search/setup.ts` | `/setup`, step Memory (the wizard model `setup/model.ts` carries the answers as `media`) | `config.set` on Next, only for values that differ from the defaults |
+| Memory settings panel (text and media index side by side, video and audio options, captioning, backfill, status card with pause, resume, re-index) | `src/pages/media-search/settings.ts` | `/settings/memory`, above the form | `config.get`, `config.set` (`ifRevision`), `media.index.status`, `media.index.pause\|resume\|reindex` |
+| Per-agent override | `src/pages/media-search/override.ts` | agent detail | `config.get`, `config.set` (`agents.<id>.memory.mediaEmbedding.*`) |
+| Search in the Media view, "Find similar" button, hits with segment and jump, caption edit | `src/pages/media-search/search.ts` | Media view | `media.index.status`, `media.search`, `media.caption.set`, `media.output.get` (playback) |
+| Typed RPC methods (merged into `RpcMethods`) | `src/pages/media-search/rpc-types.ts` | — | — |
+| Texts (de and en, one area) | `src/i18n/mediasearch.ts` | — | — |
+
+Registration lines in existing files (each is one line or one import): `src/i18n/index.ts` (area), `src/pages/setup/model.ts` (the
+`media` answer, its loading, the memory validation and the change list), `src/pages/setup/page.ts` (the memory step renders the media
+part and passes the error), `src/pages/settings/page.ts` (the panel above the Memory section), `src/pages/agents/detail.ts` (the
+override), `src/pages/surfaces/media.ts` (the search and the "Find similar" button per medium).
+
+### Rules the components rely on
+
+- **Free provider choice.** Text and media providers are chosen independently; there is no combination list. Validation checks only
+  capability (the media provider must take every chosen modality, so OpenAI can only be the text index), licence (a non-commercial
+  model needs its confirmation, `E_MEDIA_LICENSE`), privacy pin (`E_MEDIA_PRIVACY`) and availability. The pin is not in the wizard's
+  answers: the setup only explains it, and the server refuses the request.
+- **Defaults write nothing.** Config changes are computed against the contract defaults and the loaded values, so an untouched form
+  sends no media key. The existing setup test pins the exact `config.set` list of the default flow; this keeps it true.
+- **Captioning.** Preselected to local when the text provider is local. With a cloud text provider nothing is preselected and the
+  setup blocks until a choice is made (`caption-required`).
+- **Suggestions only fill fields.** The three suggestion buttons (EmbeddingGemma 2 only; OpenAI text with EmbeddingGemma 2 media;
+  Jina text with EmbeddingGemma 2 media) set the two provider fields and nothing else.
+- **Errors.** `E_MEDIA_*` codes are read from `error.data.error`. The API client maps only the closed list of harness codes, so these
+  codes reach the components through `RpcError.data`, read by `mediaErrorOf` in `model.ts`. Each code has a text under
+  `mediasearch.error.*`.
+- **Search.** Exactly one of `text` and `likeMediaId` is sent; the kinds filter is sent only when it narrows the search; `limit` is 20.
+  Results are not compared across spaces: the server runs a text-to-media search with the media model's text encoder.
+- **Playback.** A hit's file is read with the existing `media.output.get`, using the hit's `mediaId` as the output id. The contract
+  does not name a file URL for hits; if the backend serves one, the player should use it instead (see Follow-ups).
+- **Roles.** Index actions (pause, resume, re-index) are owner or admin; caption editing is owner, admin or operator. Both are client
+  hints; the server decides. Agents never edit captions (contract).
+
+### Mock API (`test/media-search-fixtures.ts`)
+
+`seedMedia(rpc, opts)` registers `media.index.status`, `media.index.pause`, `media.index.resume`, `media.index.reindex` (rejects a
+call without `confirm: true`), `media.search` (filters by `kinds`, excludes `likeMediaId` from its own results), `media.caption.set`,
+`media.output.get` and `media.output.list`. Options: `status` (initial status), `searchError` (a refused search with an E_MEDIA
+code), `noStatus` (the method is unknown, so the UI shows unavailable). The mock error list now carries the six `E_MEDIA_*` codes.
+Tests: `test/media-search-model.test.ts` (rules, pure) and `test/media-search.test.ts` (browser, 21 cases: settings, setup, Media view,
+override). The config mock writes into the objects it receives, so each test builds its own config (`memCfg()`).
+
+### Follow-ups (media search)
+
+- **F47. Generated RPC types.** Replace `src/api/media-search.types.ts` and the merge in `rpc-types.ts` with the generated types, once
+  the backend's `media.*` methods and `memory.mediaEmbedding.*` keys are in `rpc.schema.json` and `config.schema.json`. Until then
+  the hand-written copy is the only definition here; a drift test against the schema would then replace the review.
+- **F48. Catalogue for the forms.** The provider list, licence, dimensions and capabilities come from the static table in
+  `pages/setup/licences.ts` (plus the capability table in `pages/media-search/model.ts`). The contract extends the embedding
+  catalogue with `capabilities`; the forms should read it from there. The catalogue's size field is not in the contract, so the forms
+  show "not stated in the catalogue".
+- **F49. Text index keys.** The contract names no keys for the text index. The forms write `memory.embedding.provider` and
+  `memory.embedding.dimensions` (following the `agents.<id>.memory.embedding` structure the contract names for overrides) and read the
+  same. This must be confirmed against the backend.
+- **F50. Playback source.** Hits play from `media.output.get` (`data:` URL with a `#t=` start fragment). A file URL in the hit or a
+  streaming route would avoid base64 for large videos.
+- **F51. Caption provider ids.** The forms use `local`, `off` and `openai` as caption provider values. The contract says only "local"
+  as the default; the cloud id must match the backend's provider registry.
+- **F52. Agent override clearing.** Clearing a field writes `null`. The contract does not say whether `config.set` accepts `null` for
+  an `agents.<id>.memory.mediaEmbedding.*` key; if it does not, clearing needs a dedicated delete.
+- **F53. Privacy pin.** The setup only explains the pin. The Settings panel does not show whether it is set; the server's refusal
+  (`E_MEDIA_PRIVACY`) is the only signal.
+- **F54. Size.** The contract's catalogue has no size; the forms show "not stated". A size field would make the setup's "Größe" useful.
+- **F55. Playback test.** The browser test checks the `#t=` fragment and `data-start`, not actual playback.

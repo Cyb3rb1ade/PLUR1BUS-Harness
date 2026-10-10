@@ -18,6 +18,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 
 | Key | Type | Default | Restart | Description |
 |---|---|---|---|---|
+| `remote` | object | `{}` | core | Remote exposure configuration (listener integration is separate). |
 | `$schema` | string |  | live | URI identifying the JSON Schema used to validate this configuration. |
 | `schemaVersion` | const |  | core | Configuration format version; this schema supports version 1. |
 | `tools.hostctl.enabled` | boolean | `true` | core | Register local hostctl tools. |
@@ -65,6 +66,16 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `egress.allowHosts` | array | `[]` | live | Exact names, `*.suffix` (subdomains of any depth, not the apex), `*` (any name, never an IP literal) or an exact canonical IP literal (IPv6 in brackets). |
 | `egress.allowPorts` | array | `[443]` | live | Destination ports allowed for outgoing requests. |
 | `egress.allowLoopback` | boolean | `false` | live | Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused. |
+| `session.compaction.softRatio` | number | `0.65` | core | Prepare a summary above this fraction of the model context window. |
+| `session.compaction.hardRatio` | number | `0.88` | core | Swap prepared summary above this fraction. Must exceed softRatio. |
+| `session.compaction.summaryMaxTokens` | integer | `1228` | core | Maximum summary tokens; also capped to 15 percent of the catalogue window. |
+| `session.compaction.maxMessageTokens` | integer | `819` | core | Maximum tokens per context message; originals stay in the transcript. |
+| `session.compaction.summarizer` | string | `"llm"` | core | Background summarize role; unavailable model or refused budget uses deterministic digest. |
+| `session.compaction.prune.enabled` | boolean | `true` | core | Enable post-turn tool-output pruning. |
+| `session.compaction.prune.keepLastTurns` | integer | `3` | core | Never hide tool pairs in the latest N turns. |
+| `session.compaction.prune.decider` | string | `"laya"` | core | Local CPU Laya first, conservative heuristic if unavailable; off disables pruning. |
+| `session.compaction.prune.maxMs` | integer | `100` | core | Total decision time budget. Timeout retains original context. |
+| `session.compaction.prune.batchSize` | integer | `16` | core | Maximum tool pairs in one decision request. |
 | `channels.discord.enabled` | boolean | `false` | module:discord | Whether the discord channel is started. Off by default; nothing connects until this is true. |
 | `channels.discord.tokenSecret` | string | `"channels.discord.token"` | module:discord | Name of the secret holding the Discord bot token. The value never appears in config or logs. |
 | `channels.discord.applicationId` | string |  | module:discord | Discord application id (needed to register slash commands). Taken from the gateway READY event when omitted. |
@@ -158,7 +169,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `voice.local.perAgent` | object | `{}` | live | Per-agent override of language and tier, keyed by agent identifier. |
 | `voice.local.catalogOverride` | object |  | live | Data that adds or replaces catalog models and languages (adding a language is data, not code). Same shape as the built-in catalog. |
 | `voice.local.modelsDir` | string |  | live | Directory for downloaded voice models. Empty: a directory under the harness data directory. |
-| `voice.local.acceptNcLicence` | boolean | `false` | live | Confirm that models under non-commercial or unconfirmed licences may be downloaded and used. Off by default; the licence text is shown first. |
+| `voice.local.acceptedLicences` | object | `{}` | live | Licences the owner confirmed, one entry per model: the key is the model id, an @ sign and the licence id (for example kroko-de@CC-BY-SA), the value the date-time of the confirmation. A model under a non-commercial or unconfirmed licence is downloaded and used only with its own entry; a new model or a changed licence needs a new confirmation. |
 | `voice.localRealtime.enabled` | boolean | `false` | live | Whether the local real-time profile applies. When off, every feature runs without a time budget. |
 | `voice.localRealtime.endpointingMs` | integer | `400` | live | Silence after speech, in milliseconds, before the user's turn counts as finished. |
 | `voice.localRealtime.speculativeTurnStart` | boolean | `false` | live | Start the agent turn on the final transcript before the silence window ends, and cancel it if the user keeps talking. |

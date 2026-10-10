@@ -543,6 +543,28 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "remote": {
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "x-restart": "core",
+          "x-tier": "advanced",
+          "description": "Remote exposure configuration (listener integration is separate).",
+          "properties": {
+            "publish": {
+              "type": "string",
+              "enum": [
+                "local",
+                "tailnet",
+                "network"
+              ],
+              "default": "tailnet",
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "description": "Requested exposure mode; never makes a listener public. Applying the remote-access listener plan is a separate integration."
+            }
+          }
+        },
         "$schema": {
           "description": "URI identifying the JSON Schema used to validate this configuration.",
           "type": "string",
@@ -1351,6 +1373,120 @@
               "default": false,
               "x-restart": "live",
               "x-tier": "advanced"
+            }
+          }
+        },
+        "session": {
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "description": "Session context maintenance.",
+          "properties": {
+            "compaction": {
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "description": "Progressive session compaction (D23, L14); hide originals without deleting them.",
+              "properties": {
+                "softRatio": {
+                  "type": "number",
+                  "default": 0.65,
+                  "description": "Prepare a summary above this fraction of the model context window.",
+                  "exclusiveMinimum": 0,
+                  "exclusiveMaximum": 1,
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "hardRatio": {
+                  "type": "number",
+                  "default": 0.88,
+                  "description": "Swap prepared summary above this fraction. Must exceed softRatio.",
+                  "exclusiveMinimum": 0,
+                  "exclusiveMaximum": 1,
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "summaryMaxTokens": {
+                  "type": "integer",
+                  "default": 1228,
+                  "description": "Maximum summary tokens; also capped to 15 percent of the catalogue window.",
+                  "minimum": 32,
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "maxMessageTokens": {
+                  "type": "integer",
+                  "default": 819,
+                  "description": "Maximum tokens per context message; originals stay in the transcript.",
+                  "minimum": 32,
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "summarizer": {
+                  "type": "string",
+                  "default": "llm",
+                  "description": "Background summarize role; unavailable model or refused budget uses deterministic digest.",
+                  "enum": [
+                    "llm",
+                    "digest"
+                  ],
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "prune": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "description": "Background tool-pair visibility settings.",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean",
+                      "default": true,
+                      "description": "Enable post-turn tool-output pruning.",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "keepLastTurns": {
+                      "type": "integer",
+                      "default": 3,
+                      "description": "Never hide tool pairs in the latest N turns.",
+                      "minimum": 1,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "decider": {
+                      "type": "string",
+                      "default": "laya",
+                      "description": "Local CPU Laya first, conservative heuristic if unavailable; off disables pruning.",
+                      "enum": [
+                        "laya",
+                        "heuristic",
+                        "off"
+                      ],
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "maxMs": {
+                      "type": "integer",
+                      "default": 100,
+                      "description": "Total decision time budget. Timeout retains original context.",
+                      "minimum": 1,
+                      "maximum": 60000,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "batchSize": {
+                      "type": "integer",
+                      "default": 16,
+                      "description": "Maximum tool pairs in one decision request.",
+                      "minimum": 1,
+                      "maximum": 256,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                }
+              }
             }
           }
         },
@@ -2422,12 +2558,24 @@
                   "x-restart": "live",
                   "x-tier": "advanced"
                 },
-                "acceptNcLicence": {
-                  "description": "Confirm that models under non-commercial or unconfirmed licences may be downloaded and used. Off by default; the licence text is shown first.",
-                  "type": "boolean",
-                  "default": false,
+                "acceptedLicences": {
+                  "description": "Licences the owner confirmed, one entry per model: the key is the model id, an @ sign and the licence id (for example kroko-de@CC-BY-SA), the value the date-time of the confirmation. A model under a non-commercial or unconfirmed licence is downloaded and used only with its own entry; a new model or a changed licence needs a new confirmation.",
+                  "type": "object",
+                  "default": {},
                   "x-restart": "live",
-                  "x-tier": "advanced"
+                  "x-tier": "advanced",
+                  "propertyNames": {
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}@[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$",
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  },
+                  "additionalProperties": {
+                    "description": "Date-time at which this model's licence was confirmed.",
+                    "type": "string",
+                    "format": "date-time",
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  }
                 }
               }
             },
@@ -2734,11 +2882,265 @@
                     "x-tier": "advanced"
                   },
                   "additionalProperties": {
-                    "description": "Overrides for one agent.",
+                    "description": "Overrides for one agent: the same keys and limits as voice.localRealtime, without defaults. Unknown keys are refused.",
                     "type": "object",
-                    "additionalProperties": true,
-                    "x-restart": "live",
-                    "x-tier": "advanced"
+                    "additionalProperties": false,
+                    "properties": {
+                      "enabled": {
+                        "description": "Whether the local real-time profile applies to this agent.",
+                        "type": "boolean",
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      },
+                      "endpointingMs": {
+                        "description": "Silence after speech, in milliseconds, before this agent's user turn counts as finished.",
+                        "type": "integer",
+                        "minimum": 50,
+                        "maximum": 5000,
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      },
+                      "speculativeTurnStart": {
+                        "description": "Start this agent's turn on the final transcript before the silence window ends.",
+                        "type": "boolean",
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      },
+                      "ackSound": {
+                        "description": "Play a short acknowledgement sound when this agent's user turn ends.",
+                        "type": "boolean",
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      },
+                      "sentenceChunking": {
+                        "description": "How this agent's streamed answer text is cut into speakable chunks.",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "maxWords": {
+                            "description": "Maximum words in one spoken chunk for this agent.",
+                            "type": "integer",
+                            "minimum": 3,
+                            "maximum": 200,
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          }
+                        },
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      },
+                      "features": {
+                        "description": "Per-feature mode and time budget for this agent.",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "autoRecall": {
+                            "description": "Automatic memory recall before the answer.",
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "mode": {
+                                "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                                "enum": [
+                                  "on",
+                                  "deferred",
+                                  "off"
+                                ]
+                              },
+                              "maxMs": {
+                                "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 5000
+                              }
+                            },
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          },
+                          "reranker": {
+                            "description": "Reranking of recalled memories.",
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "mode": {
+                                "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                                "enum": [
+                                  "on",
+                                  "deferred",
+                                  "off"
+                                ]
+                              },
+                              "maxMs": {
+                                "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 5000
+                              }
+                            },
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          },
+                          "recallMultiIdentity": {
+                            "description": "Recall across several linked identities.",
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "mode": {
+                                "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                                "enum": [
+                                  "on",
+                                  "deferred",
+                                  "off"
+                                ]
+                              },
+                              "maxMs": {
+                                "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 5000
+                              }
+                            },
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          },
+                          "promptEnrichment": {
+                            "description": "Prompt enrichment with short context.",
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "mode": {
+                                "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                                "enum": [
+                                  "on",
+                                  "deferred",
+                                  "off"
+                                ]
+                              },
+                              "maxMs": {
+                                "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 5000
+                              }
+                            },
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          },
+                          "decisionService": {
+                            "description": "Decision-model call before the answer.",
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "mode": {
+                                "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                                "enum": [
+                                  "on",
+                                  "deferred",
+                                  "off"
+                                ]
+                              },
+                              "maxMs": {
+                                "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 5000
+                              }
+                            },
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          },
+                          "postTurnRefine": {
+                            "description": "Refinement work after the answer has been spoken.",
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "mode": {
+                                "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                                "enum": [
+                                  "on",
+                                  "deferred",
+                                  "off"
+                                ]
+                              },
+                              "maxMs": {
+                                "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 5000
+                              }
+                            },
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          },
+                          "memoryWrite": {
+                            "description": "Memory capture of the turn.",
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "mode": {
+                                "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                                "enum": [
+                                  "on",
+                                  "deferred",
+                                  "off"
+                                ]
+                              },
+                              "maxMs": {
+                                "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 5000
+                              }
+                            },
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          },
+                          "compaction": {
+                            "description": "Conversation compaction.",
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "mode": {
+                                "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.",
+                                "enum": [
+                                  "on",
+                                  "deferred",
+                                  "off"
+                                ]
+                              },
+                              "maxMs": {
+                                "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.",
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 5000
+                              }
+                            },
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          }
+                        },
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      },
+                      "toolSchemas": {
+                        "description": "Tool schemas given to the model for this agent: reduced or full.",
+                        "enum": [
+                          "reduced",
+                          "full"
+                        ],
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      },
+                      "auditDetail": {
+                        "description": "Detail of the audit record for this agent's real-time turns: minimal or full.",
+                        "enum": [
+                          "minimal",
+                          "full"
+                        ],
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      }
+                    }
                   }
                 }
               }

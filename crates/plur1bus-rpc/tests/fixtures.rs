@@ -47,6 +47,24 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<AuthCredentialsListParams, AuthCredentialsListResult>(name, f)
         }
         "auth.logout" => pair::<AuthLogoutParams, AuthLogoutResult>(name, f),
+        "agent.pause" => pair::<AgentPauseParams, AgentPauseResult>(name, f),
+        "agent.resume" => pair::<AgentResumeParams, AgentResumeResult>(name, f),
+        "agent.archive" => pair::<AgentArchiveParams, AgentArchiveResult>(name, f),
+        "agent.unarchive" => pair::<AgentUnarchiveParams, AgentUnarchiveResult>(name, f),
+        "agent.export" => pair::<AgentExportParams, AgentExportResult>(name, f),
+        "agent.delete" => pair::<AgentDeleteParams, AgentDeleteResult>(name, f),
+        "user.list" => pair::<UserListParams, UserListResult>(name, f),
+        "user.role.set" => pair::<UserRoleSetParams, UserRoleSetResult>(name, f),
+        "user.invite.create" => pair::<UserInviteCreateParams, UserInviteCreateResult>(name, f),
+        "user.invite.list" => pair::<UserInviteListParams, UserInviteListResult>(name, f),
+        "user.invite.revoke" => pair::<UserInviteRevokeParams, UserInviteRevokeResult>(name, f),
+        "agent.rights.get" => pair::<AgentRightsGetParams, AgentRightsGetResult>(name, f),
+        "agent.rights.set" => pair::<AgentRightsSetParams, AgentRightsSetResult>(name, f),
+        "breakglass.request" => pair::<BreakglassRequestParams, BreakglassRequestResult>(name, f),
+        "breakglass.notices" => pair::<BreakglassNoticesParams, BreakglassNoticesResult>(name, f),
+        "breakglass.list" => pair::<BreakglassListParams, BreakglassListResult>(name, f),
+        "breakglass.revoke" => pair::<BreakglassRevokeParams, BreakglassRevokeResult>(name, f),
+        "pairing.qr" => pair::<PairingQrParams, PairingQrResult>(name, f),
         "auth.status" => pair::<AuthStatusParams, AuthStatusResult>(name, f),
         "channel.list" => pair::<ChannelListParams, ChannelListResult>(name, f),
         "channel.get" => pair::<ChannelGetParams, ChannelGetResult>(name, f),
@@ -386,6 +404,7 @@ fn every_notification_fixture_round_trips() {
     assert!(!files.is_empty());
     for (name, v) in &files {
         match name.as_str() {
+            "breakglass.notice" => round_trip::<types::BreakglassNoticeNotification>(v, name),
             "media.job.progress" => round_trip::<types::MediaJobProgressNotification>(v, name),
             "media.job.finished" => round_trip::<types::MediaJobFinishedNotification>(v, name),
             "engine.event" => round_trip::<types::EngineEventNotification>(v, name),
@@ -436,7 +455,7 @@ fn rpc_version_const_matches_the_schema() {
         plur1bus_rpc::RPC_VERSION,
         schema["x-rpc-version"].as_str().unwrap()
     );
-    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.5.0");
+    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.6.0");
     assert!(schema["$id"]
         .as_str()
         .unwrap()

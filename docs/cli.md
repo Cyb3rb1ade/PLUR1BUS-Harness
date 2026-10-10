@@ -23,6 +23,22 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus agent create`↴](#plur1bus-agent-create)
 * [`plur1bus agent remove`↴](#plur1bus-agent-remove)
 * [`plur1bus agent status`↴](#plur1bus-agent-status)
+* [`plur1bus agent pause`↴](#plur1bus-agent-pause)
+* [`plur1bus agent resume`↴](#plur1bus-agent-resume)
+* [`plur1bus agent archive`↴](#plur1bus-agent-archive)
+* [`plur1bus agent unarchive`↴](#plur1bus-agent-unarchive)
+* [`plur1bus agent export`↴](#plur1bus-agent-export)
+* [`plur1bus agent delete`↴](#plur1bus-agent-delete)
+* [`plur1bus agent rights`↴](#plur1bus-agent-rights)
+* [`plur1bus agent rights get`↴](#plur1bus-agent-rights-get)
+* [`plur1bus agent rights set`↴](#plur1bus-agent-rights-set)
+* [`plur1bus breakglass`↴](#plur1bus-breakglass)
+* [`plur1bus breakglass request`↴](#plur1bus-breakglass-request)
+* [`plur1bus breakglass list`↴](#plur1bus-breakglass-list)
+* [`plur1bus breakglass revoke`↴](#plur1bus-breakglass-revoke)
+* [`plur1bus breakglass notices`↴](#plur1bus-breakglass-notices)
+* [`plur1bus pairing`↴](#plur1bus-pairing)
+* [`plur1bus pairing qr`↴](#plur1bus-pairing-qr)
 * [`plur1bus memory`↴](#plur1bus-memory)
 * [`plur1bus memory add`↴](#plur1bus-memory-add)
 * [`plur1bus memory recall`↴](#plur1bus-memory-recall)
@@ -93,6 +109,12 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus update`↴](#plur1bus-update)
 * [`plur1bus update status`↴](#plur1bus-update-status)
 * [`plur1bus user`↴](#plur1bus-user)
+* [`plur1bus user list`↴](#plur1bus-user-list)
+* [`plur1bus user role`↴](#plur1bus-user-role)
+* [`plur1bus user invite`↴](#plur1bus-user-invite)
+* [`plur1bus user invite create`↴](#plur1bus-user-invite-create)
+* [`plur1bus user invite list`↴](#plur1bus-user-invite-list)
+* [`plur1bus user invite revoke`↴](#plur1bus-user-invite-revoke)
 * [`plur1bus user ls`↴](#plur1bus-user-ls)
 * [`plur1bus user add`↴](#plur1bus-user-add)
 * [`plur1bus user pair`↴](#plur1bus-user-pair)
@@ -214,6 +236,8 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `setup` — [experimental] Install the harness: Node runtime, core, config, skills, OS service, start and first check
 * `1staid` — Check and repair the installation
 * `agent` — Agents (personas): list, create, remove, status
+* `breakglass` — Read-only break-glass windows and affected-person notices
+* `pairing` — Pairing payload tools (does not create a device store)
 * `memory` — Memory: add and recall through the core
 * `session` — Chat sessions: list, show, archive
 * `chat` — [experimental] Chat with an agent (one message, or a line-by-line conversation on stdin)
@@ -371,6 +395,13 @@ Agents (personas): list, create, remove, status
 * `create` — [experimental] Register a new agent
 * `remove` — [experimental] Remove an agent from the registry (data is kept)
 * `status` — [experimental] Show an agent's activity and workspace
+* `pause` — [experimental] Pause new turns and background work while retaining state
+* `resume` — [experimental] Resume a paused agent (unarchive first)
+* `archive` — [experimental] Archive an agent, retaining its data
+* `unarchive` — [experimental] Unarchive an agent, preserving its pause state
+* `export` — [experimental] Export a signed, secret-redacted JSON bundle or obtain a deletion offer
+* `delete` — [experimental] Erase an archived agent via the engine API (unavailable with the current engine)
+* `rights` — Per-person agent use/manage rights
 
 
 
@@ -415,6 +446,215 @@ Agents (personas): list, create, remove, status
 ###### **Arguments:**
 
 * `<ID>`
+
+
+
+## `plur1bus agent pause`
+
+[experimental] Pause new turns and background work while retaining state
+
+**Usage:** `plur1bus agent pause <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus agent resume`
+
+[experimental] Resume a paused agent (unarchive first)
+
+**Usage:** `plur1bus agent resume <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus agent archive`
+
+[experimental] Archive an agent, retaining its data
+
+**Usage:** `plur1bus agent archive <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus agent unarchive`
+
+[experimental] Unarchive an agent, preserving its pause state
+
+**Usage:** `plur1bus agent unarchive <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus agent export`
+
+[experimental] Export a signed, secret-redacted JSON bundle or obtain a deletion offer
+
+**Usage:** `plur1bus agent export [OPTIONS] <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+###### **Options:**
+
+* `--offer-only`
+
+
+
+## `plur1bus agent delete`
+
+[experimental] Erase an archived agent via the engine API (unavailable with the current engine)
+
+**Usage:** `plur1bus agent delete --confirm-name <CONFIRM_NAME> --export-offer <EXPORT_OFFER> <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+###### **Options:**
+
+* `--confirm-name <CONFIRM_NAME>`
+* `--export-offer <EXPORT_OFFER>`
+
+
+
+## `plur1bus agent rights`
+
+Per-person agent use/manage rights
+
+**Usage:** `plur1bus agent rights <COMMAND>`
+
+###### **Subcommands:**
+
+* `get` — [experimental] List explicit agent rights
+* `set` — [experimental] Set use/manage, or none to revoke the explicit right
+
+
+
+## `plur1bus agent rights get`
+
+[experimental] List explicit agent rights
+
+**Usage:** `plur1bus agent rights get <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus agent rights set`
+
+[experimental] Set use/manage, or none to revoke the explicit right
+
+**Usage:** `plur1bus agent rights set <ID> <USER> <RIGHT>`
+
+###### **Arguments:**
+
+* `<ID>`
+* `<USER>`
+* `<RIGHT>`
+
+  Possible values: `use`, `manage`, `none`
+
+
+
+
+## `plur1bus breakglass`
+
+Read-only break-glass windows and affected-person notices
+
+**Usage:** `plur1bus breakglass <COMMAND>`
+
+###### **Subcommands:**
+
+* `request` — [experimental] Request a read-only access window for another person
+* `list` — [experimental] List your live read-only grants
+* `revoke` — [experimental] Revoke a grant
+* `notices` — [experimental] Read notices affecting your own account
+
+
+
+## `plur1bus breakglass request`
+
+[experimental] Request a read-only access window for another person
+
+**Usage:** `plur1bus breakglass request [OPTIONS] --reason <REASON> <USER>`
+
+###### **Arguments:**
+
+* `<USER>`
+
+###### **Options:**
+
+* `--reason <REASON>`
+* `--minutes <MINUTES>`
+
+  Default value: `15`
+
+
+
+## `plur1bus breakglass list`
+
+[experimental] List your live read-only grants
+
+**Usage:** `plur1bus breakglass list`
+
+
+
+## `plur1bus breakglass revoke`
+
+[experimental] Revoke a grant
+
+**Usage:** `plur1bus breakglass revoke <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus breakglass notices`
+
+[experimental] Read notices affecting your own account
+
+**Usage:** `plur1bus breakglass notices`
+
+
+
+## `plur1bus pairing`
+
+Pairing payload tools (does not create a device store)
+
+**Usage:** `plur1bus pairing <COMMAND>`
+
+###### **Subcommands:**
+
+* `qr` — [experimental] Get QR byte payload for an existing pairing deep link; never mints a code
+
+
+
+## `plur1bus pairing qr`
+
+[experimental] Get QR byte payload for an existing pairing deep link; never mints a code
+
+**Usage:** `plur1bus pairing qr --link <LINK>`
+
+###### **Options:**
+
+* `--link <LINK>`
 
 
 
@@ -701,6 +941,8 @@ Chat sessions: list, show, archive
 
 ###### **Options:**
 
+* `--owner <OWNER>` — Owner principal filter (operator metadata view)
+* `--all-owners` — Include all owners' metadata; transcripts remain protected
 * `--agent <AGENT>`
 * `--kind <KIND>` — direct, card, project, channel or acp
 
@@ -1488,11 +1730,95 @@ One human across channels only by proof (D24, ADR-007): a one-time pairing code 
 
 ###### **Subcommands:**
 
+* `list` — [experimental] List people and role presets
+* `role` — [experimental] Assign a role preset (last Owner protected)
+* `invite` — One-time invitations through the existing identity pairing path
 * `ls` — [experimental] List humans with their linked identities and the pairings still waiting
 * `add` — [experimental] Create a human (an opaque id; prints it)
 * `pair` — [experimental] One-time pairing codes: start, claim (what a channel adapter relays) and confirm
 * `link` — [experimental] Link a channel identity to a human by hand, with no code (audited; never inferred)
 * `unlink` — [experimental] Revoke a link at once (the record stays for the audit trail)
+
+
+
+## `plur1bus user list`
+
+[experimental] List people and role presets
+
+**Usage:** `plur1bus user list`
+
+
+
+## `plur1bus user role`
+
+[experimental] Assign a role preset (last Owner protected)
+
+**Usage:** `plur1bus user role <USER> <ROLE>`
+
+###### **Arguments:**
+
+* `<USER>`
+* `<ROLE>`
+
+  Possible values: `owner`, `admin`, `operator`, `member`, `viewer`
+
+
+
+
+## `plur1bus user invite`
+
+One-time invitations through the existing identity pairing path
+
+**Usage:** `plur1bus user invite <COMMAND>`
+
+###### **Subcommands:**
+
+* `create` — [experimental] Create a fixed-role pairing invitation; code is returned once
+* `list` — [experimental] List invitation metadata without codes
+* `revoke` — [experimental] Revoke an unconfirmed invitation
+
+
+
+## `plur1bus user invite create`
+
+[experimental] Create a fixed-role pairing invitation; code is returned once
+
+**Usage:** `plur1bus user invite create [OPTIONS] --role <ROLE> --channel <CHANNEL> <NAME>`
+
+###### **Arguments:**
+
+* `<NAME>`
+
+###### **Options:**
+
+* `--role <ROLE>`
+
+  Possible values: `admin`, `operator`, `member`, `viewer`
+
+* `--channel <CHANNEL>`
+* `--minutes <MINUTES>`
+
+  Default value: `60`
+
+
+
+## `plur1bus user invite list`
+
+[experimental] List invitation metadata without codes
+
+**Usage:** `plur1bus user invite list`
+
+
+
+## `plur1bus user invite revoke`
+
+[experimental] Revoke an unconfirmed invitation
+
+**Usage:** `plur1bus user invite revoke <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
 
 
 

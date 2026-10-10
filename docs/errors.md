@@ -102,3 +102,27 @@ the core sent. The last two are raised by the CLI itself.
 | `addon-disable-failed` | (Outcome `rolled-back`.) An add-on could not be disabled after the swap; the update was rolled back. |
 | `bundle-unreadable`, `bundle-invalid`, `archive-unsupported`, `archive-unsafe-entry`, `channel-mismatch` | An offline bundle (`--from`) is missing, lacks `manifest.json`, `manifest.json.minisig` or an artefact, is not a `.tar.zst`/`.zip`, holds an entry that is not a plain file or directory (traversal, absolute name, link, duplicate), or is for another channel. |
 | `ca-bundle-invalid` | `--ca-bundle` / `PLUR1BUS_CA_BUNDLE` is unreadable or holds no certificate (`E_INVALID_PARAMS`, exit 2). |
+
+## Voice provider error codes (`@plur1bus/voice-providers`)
+
+Not CLI codes: `VoiceProviderError.code` of the voice package, stable like the ones above. Callers branch on the code, never on the text; messages carry no key and no vendor text.
+
+| Code | Meaning |
+|---|---|
+| `auth` | 401/403, a missing secret reference, or a socket closed with policy code 1008. Retrying cannot help. |
+| `rate_limited` | 429 or a quota frame; `retryAfterMs` when the service said how long. |
+| `overloaded` | 5xx/529, transient. |
+| `invalid_request` | A 4xx the caller caused (bad voice, model or format). |
+| `unsupported` | The provider does not offer this capability or option. |
+| `network` | No response, or a socket that ended without a protocol reason. |
+| `timeout` | A deadline expired. |
+| `aborted` | The caller's `AbortSignal` fired. |
+| `bad_response` | An HTTP response or handshake the package refuses to interpret. |
+| `upstream_protocol` | New. A socket frame or close code that breaks the WebSocket protocol (reserved bits, bad UTF-8, oversize, bad fragmentation: close codes 1002, 1007, 1009) or the vendor's own message schema. The session is closed cleanly after one error event; nothing is thrown into the process. |
+| `closed` | The session is already closed. |
+| `unavailable` | The local engine or platform cannot run. |
+| `licence_required` | A non-commercial or unconfirmed licence needs the owner's confirmation for this model and licence id. |
+| `download_failed` | A model download failed: network, size limit, an archive with links or paths outside its directory, or a swap that could not complete (the previous version is kept). |
+| `checksum_mismatch` | Downloaded bytes do not match the catalog sha256. |
+| `catalog` | A catalog entry is missing, malformed, or has no verified package. |
+| `config` | Provider configuration is invalid. |

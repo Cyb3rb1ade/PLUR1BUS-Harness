@@ -116,6 +116,10 @@ export const MIGRATIONS: readonly string[] = [
   `,
   // v2: the first recall snapshot remains frozen across Core restarts for a remembered session.
   `CREATE TABLE prompt_snapshots (session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, memory TEXT NOT NULL);`,
+  // v3: view overlays and calibration only; never rewrite transcript messages/events.
+  `CREATE TABLE token_calibration (model TEXT PRIMARY KEY, factor REAL NOT NULL);
+   CREATE TABLE message_usage (message_id TEXT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE, model TEXT NOT NULL, tokens INTEGER NOT NULL);
+   CREATE TABLE tool_visibility (session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, ref TEXT NOT NULL, hidden INTEGER NOT NULL, reason TEXT NOT NULL, PRIMARY KEY(session_id,ref));`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
