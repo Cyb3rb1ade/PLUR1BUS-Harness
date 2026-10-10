@@ -1,9 +1,9 @@
 //! The Rust side of the acceptance list that does not need the TypeScript fixtures: the level map, unknown events,
 //! invalid levels, and the rules `validate_line` enforces.
 use plur1bus_log_schema::{
-    catalogue, is_source_key, lookup_event, validate_audit_line, validate_line, Level,
+    Level, catalogue, is_source_key, lookup_event, validate_audit_line, validate_line,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Hard timeout for every test (the work is a few milliseconds; a hang fails with a name instead of eating the job).
 fn within<F: FnOnce() + Send + 'static>(f: F) {
@@ -133,7 +133,7 @@ fn every_catalogue_entry_is_consistent() {
         assert!(c.events.len() >= 120);
         for e in &c.events {
             assert!(c.attr_groups.contains_key(&e.attrs), "{}", e.event);
-            assert_eq!(e.since, "D111");
+            assert!(matches!(e.since.as_str(), "D111" | "D112"));
             if e.stream == "audit" {
                 assert_eq!(e.kinds, ["harness"], "{}", e.event);
             }

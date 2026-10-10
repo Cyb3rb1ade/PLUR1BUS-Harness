@@ -1,3 +1,8 @@
+import { createAuthSecretStore } from "./auth/secret-store.ts";
+import { createWriter } from "./logs/writer.ts";
+import { createD111Events } from "./discovery/events-logger.ts";
+import { createPinnedClient } from "./discovery/http.ts";
+import type { DiscoveryProviderDefinition } from "./discovery/real-adapters.ts";
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
@@ -132,6 +137,8 @@ export interface CoreOptions {
   budget?: { prices?: PriceBook };
   /** D112: model discovery adapters and options. */
   discovery?: Partial<DiscoveryAdapters> & {
+    request?: typeof import("node:http").request;
+    resolver?: import("./tools/web/guard.ts").Resolver;
     scheduler?: boolean;
     /** Test seam: custom catalog store for testing boot failures. Must not be set in production. */
     store?: CatalogStore;
@@ -182,6 +189,7 @@ export function createCore(o: CoreOptions): Core {
   let reembed: MigrationDriver | null = null;
   let warmup: Warmup | null = null;
   let scanScheduler: ScanScheduler | null = null;
+  let discoveryWriter: ReturnType<typeof createWriter> | null = null;
   let dreams: Dreams | null = null;
   let dreamsError: string | undefined;
   let identity: IdentityService | null = null; // M3: humans, linked channel identities and pairing (`state/identity.sqlite`)
@@ -294,7 +302,7 @@ export function createCore(o: CoreOptions): Core {
     platform.securePath(l.catalog, { mode: 0o700 });
     platform.securePath(l.systemJobs, { mode: 0o700 });
     // M2: the secret store. Nothing is probed or opened here (the keychain is first touched by a `secret.*` call).
-    const egress = createEgress({ config: () => cs.current().egress, now: clock });
+    const egress = createEgress({ config: () => cs.current().egress, now: clock, ...(o.discovery?.resolver ? { resolver: o.discovery.resolver } : {}) });
     const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath, fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: log });
     orphans = createOrphanWatch({
       graceMs: config.supervisor.graceMs, clock,
@@ -331,7 +339,9 @@ export function createCore(o: CoreOptions): Core {
       if (next.core.logLevel !== prev.core.logLevel) log.setLevel(next.core.logLevel);
       if (next.logs.maxBytes !== prev.logs.maxBytes || next.logs.keep !== prev.logs.keep) log.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
       if (next.supervisor.graceMs !== prev.supervisor.graceMs) watchedOrphans.setGraceMs(next.supervisor.graceMs);
-      if (plan.changed.some((k) => k.startsWith("models.scan."))) scanScheduler?.replan();
+      if (plan.changed.some((k) => k.startsWith("models.scan.") || k === "providers" || k.startsWith("providers."))) scanScheduler?.replan();
+      discoveryWriter?.updateLevels({ defaultLevel: next.core.logLevel });
+      discoveryWriter?.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
       log.info("configuration changed", { revision: cs.revision(), changed: plan.changed, restartPending: cs.restartPending() });
       log.debug("live keys applied", { keys: plan.restart.live });
     });
@@ -382,10 +392,14 @@ export function createCore(o: CoreOptions): Core {
       }
       activity.onChange((agentId, a) => server?.notify("agent.activity", { agentId, activity: a }));
 
-      const discDefaults = defaultDiscoveryAdapters({ logger });
+      const discDefaults = defaultDiscoveryAdapters({ logger, runtime: {
+        definitions: () => o.composition?.definitions ?? Object.fromEntries(Object.entries(cfg().providers).filter(([, value]) => !!value && typeof value === "object" && "wireFormat" in value)) as Record<string, DiscoveryProviderDefinition>,
+        store: createAuthSecretStore(secretStore), egress, now: clock, credentialProvider: definition => turnComposition?.discoveryCredentials(definition), openai: () => turnComposition?.openai.auth,
+      } });
+      discoveryWriter = createWriter({ dir: l.logs, role: "core", source: { kind: "harness", id: "discovery", version: "0.1.0" }, levels: { defaultLevel: config.core.logLevel }, now: clock, maxBytes: config.logs.maxBytes, keep: config.logs.keep });
       const discProfiles = o.discovery?.profiles ?? discDefaults.profiles;
       const discCredentials = o.discovery?.credentials ?? discDefaults.credentials;
-      const discEvents = o.discovery?.events ?? discDefaults.events;
+      const discEvents = o.discovery?.events ?? createD111Events(discoveryWriter);
       const discClock = o.discovery?.clock ?? discDefaults.clock;
       const discRng = o.discovery?.rng ?? discDefaults.rng;
       const curatedTable = loadMetadataTable();
@@ -427,6 +441,7 @@ export function createCore(o: CoreOptions): Core {
 
       const discovery = createDiscoveryService({
         store: catalogStore,
+        makeClient: options => createPinnedClient({ ...options, egress, ...(o.discovery?.request ? { request: o.discovery.request } : {}) }),
         profiles: discProfiles,
         credentials: discCredentials,
         events: discEvents,
@@ -634,6 +649,7 @@ export function createCore(o: CoreOptions): Core {
       await step(log, "lock release", () => { lock?.release(); }); lock = null;
       await step(log, "run files", () => removeRunFiles());
       state = { state: "stopped", since: clock(), reason: "start-failed" };
+      await step(log, "discovery logger close", () => { discoveryWriter?.close(); discoveryWriter = null; });
       if (!o.logger) await step(null, "logger close", () => log.close());
       throw e;
     }
@@ -721,6 +737,7 @@ export function createCore(o: CoreOptions): Core {
       await step(logger, "run files", () => removeRunFiles(), errors);
       setState({ state: "stopped", since: clock(), ...(errors.length ? { reason: "stop-step-failed" } : {}) });
       await step(logger, "log", () => logger?.info("core stopped", { instanceId, failedSteps: errors.length, ...(errors.length ? { firstError: errors[0] } : {}) }));
+      await step(logger, "discovery logger close", () => { discoveryWriter?.close(); discoveryWriter = null; });
       if (!o.logger) await step(null, "logger close", () => logger?.close());
     })();
     return stopping;

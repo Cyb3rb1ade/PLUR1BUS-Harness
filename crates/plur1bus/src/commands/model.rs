@@ -7,7 +7,7 @@ use crate::output::Out;
 use crate::paths::Layout;
 use plur1bus_rpc::is_unavailable;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::fs;
 use std::time::Duration;
 
@@ -295,6 +295,12 @@ pub fn read_stale(layout: &Layout, filter: &ListFilter) -> Value {
         .map(|mut m| {
             if let Some(obj) = m.as_object_mut() {
                 obj.remove("api");
+                let is_new = obj.get("status").and_then(Value::as_str) == Some("available")
+                    && obj.get("source").and_then(Value::as_str) != Some("manual")
+                    && ack_at.is_none_or(|ack| {
+                        obj.get("firstSeen").and_then(Value::as_str).unwrap_or("") > ack
+                    });
+                obj.insert("new".to_string(), json!(is_new));
             }
             m
         })
@@ -339,7 +345,7 @@ pub fn check_models_roles(layout: &Layout) -> Check {
                 format!("cannot read catalog/models.json: {e}"),
                 None,
                 None,
-            )
+            );
         }
     };
     let cat: Value = match serde_json::from_str(&content) {
@@ -350,7 +356,7 @@ pub fn check_models_roles(layout: &Layout) -> Check {
                 format!("catalog/models.json is not valid JSON: {e}"),
                 None,
                 None,
-            )
+            );
         }
     };
 
@@ -452,6 +458,11 @@ pub fn render_list(v: &Value) -> String {
                 let status = match marker {
                     Some(role_str) => format!("{base_status} {role_str}"),
                     None => base_status.to_string(),
+                };
+                let status = if m.get("new").and_then(Value::as_bool) == Some(true) {
+                    format!("{status} new")
+                } else {
+                    status
                 };
                 out.push_str(&format!(
                     "{:<20} {:<30} {:<10} {:<10} {:<20}\n",

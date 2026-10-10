@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.5.0)
+# RPC reference (rpc 1.6.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -13739,6 +13739,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "displayName": {
       "type": "string"
+    },
+    "new": {
+      "type": "boolean",
+      "description": "true until the person acknowledges the model via models.acknowledge"
     },
     "kind": {
       "$ref": "#/$defs/ModelKind"

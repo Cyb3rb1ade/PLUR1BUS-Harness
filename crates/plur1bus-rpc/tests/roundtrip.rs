@@ -1,5 +1,5 @@
 use plur1bus_rpc::types;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use std::{fs, path::PathBuf};
 
@@ -843,4 +843,21 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
             other => panic!("method fixture {other} has no Rust type mapping"),
         }
     }
+}
+
+#[test]
+fn discovery_new_flag_roundtrips_and_remains_optional() {
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../packages/rpc-schema/fixtures/methods/models.list.json"
+    ))
+    .unwrap();
+    let mut model = fixture["result"]["models"][0].clone();
+    for flag in [true, false] {
+        model["new"] = serde_json::json!(flag);
+        let typed: types::ModelEntry = serde_json::from_value(model.clone()).unwrap();
+        assert_eq!(serde_json::to_value(typed).unwrap()["new"], flag);
+    }
+    model.as_object_mut().unwrap().remove("new");
+    let typed: types::ModelEntry = serde_json::from_value(model).unwrap();
+    assert!(serde_json::to_value(typed).unwrap().get("new").is_none());
 }
