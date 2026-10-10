@@ -266,3 +266,7 @@ allowed package scope; mock-server page tests do not establish that deployment.
 The two new D109 media catalogue entries are also a pending scope dependency:
 `policy/**` is excluded by this work package, so unknown capabilities currently
 fail closed. No D109 evaluator or budget behavior was changed.
+
+## Media search
+
+Indexing, captions and search over generated media are described in [media-search.md](media-search.md).

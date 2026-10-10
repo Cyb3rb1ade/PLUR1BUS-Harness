@@ -382,6 +382,31 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::IdentityPrincipalsParams,
                 types::IdentityPrincipalsResult,
             >(name, fixture, &root_schema),
+            "media.search" => check_pair::<types::MediaSearchParams, types::MediaSearchResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "media.index.status" => check_pair::<
+                types::MediaIndexStatusParams,
+                types::MediaIndexStatusResult,
+            >(name, fixture, &root_schema),
+            "media.index.pause" => check_pair::<
+                types::MediaIndexPauseParams,
+                types::MediaIndexPauseResult,
+            >(name, fixture, &root_schema),
+            "media.index.resume" => check_pair::<
+                types::MediaIndexResumeParams,
+                types::MediaIndexResumeResult,
+            >(name, fixture, &root_schema),
+            "media.index.reindex" => check_pair::<
+                types::MediaIndexReindexParams,
+                types::MediaIndexReindexResult,
+            >(name, fixture, &root_schema),
+            "media.caption.set" => check_pair::<
+                types::MediaCaptionSetParams,
+                types::MediaCaptionSetResult,
+            >(name, fixture, &root_schema),
             "media.preferences.get" => check_pair::<
                 types::MediaPreferencesGetParams,
                 types::MediaPreferencesGetResult,

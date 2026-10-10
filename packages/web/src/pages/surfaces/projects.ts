@@ -10,6 +10,8 @@ import { Field } from "../common/field.ts";
 import { useLoad, currentRole } from "../common/load.ts";
 import { FailureState } from "../common/states.ts";
 import { rpc, type Project, type Trace } from "./data.ts";
+import "../../styles/projects.css";
+
 function TraceView({ project }: { project: string }): View {
   const { state, reload } = useLoad(
     (signal) =>

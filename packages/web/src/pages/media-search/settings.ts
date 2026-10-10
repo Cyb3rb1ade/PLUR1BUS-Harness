@@ -14,6 +14,7 @@ import type { MediaIndexStatus, MediaModality } from "../../api/media-search.typ
 import { ALL_MODALITIES, CAPTION_SOURCES, CLOUD_CAPTION_PROVIDER, MEDIA_PROVIDERS, SUGGESTIONS, backfillView, canManageIndex, changesOf, draftOf, mediaErrorOf, problemText, providerById, toSetup, validateMedia, type ConfigChange, type MediaDraft } from "./model.ts";
 import { choiceById } from "../setup/licences.ts";
 import "./rpc-types.ts";
+import "../../styles/media-search.css";
 
 type Loaded = { draft: MediaDraft; revision: string; status: MediaIndexStatus | null; statusFailure: ReturnType<typeof failureOf> | null };
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;

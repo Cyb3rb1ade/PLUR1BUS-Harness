@@ -17,6 +17,7 @@ import { agentsSource, sessionsSource, type AgentRow, type SessionRow } from "./
 import { agentEntries, buildIndex, logSearchEntries, sessionEntries } from "./index-build.ts";
 import { highlight, search, type Entry, type Hit } from "./match.ts";
 import { closePalette } from "./state.ts";
+import "../styles/palette.css";
 
 const MAX_SETTINGS = 40;
 /** The count is announced when the list has been quiet for this long, not on every keystroke or arriving group. */

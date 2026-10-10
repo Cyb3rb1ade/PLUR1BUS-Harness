@@ -31,6 +31,12 @@
     "allow-harness-start",
     "allow-harness-stop",
     "allow-harness-status",
-    "allow-harness-logs-tail"
+    "allow-harness-logs-tail",
+    "allow-bridge-settings",
+    "allow-helper-status",
+    "allow-permissions-open-pane",
+    "allow-approvals-list",
+    "allow-approval-open",
+    "allow-approval-decide"
   ]
 }
