@@ -43,6 +43,29 @@
     }
   },
   "attrGroups": {
+    "compaction": {
+      "description": "Compaction view changes; references only, never transcript content.",
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "fromSeq": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "toSeq": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "tier": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
     "log_level": {
       "description": "A level change or its expiry.",
       "properties": {
@@ -1570,6 +1593,124 @@
     }
   },
   "events": [
+    {
+      "event": "compaction.summary.created",
+      "note": "Session context visibility changed; originals remain available.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "compaction.summary.created",
+      "attrs": "compaction",
+      "requiredAttrs": [
+        "sessionId",
+        "fromSeq",
+        "toSeq",
+        "tier"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-10T00:00:00.000Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "core",
+            "version": "0.1.0"
+          },
+          "event": "compaction.summary.created",
+          "msg": "compaction.summary.created",
+          "attrs": {
+            "sessionId": "ses_example",
+            "fromSeq": 1,
+            "toSeq": 4,
+            "tier": 1
+          }
+        }
+      ]
+    },
+    {
+      "event": "compaction.prune.hidden",
+      "note": "Session context visibility changed; originals remain available.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "compaction.prune.hidden",
+      "attrs": "compaction",
+      "requiredAttrs": [
+        "sessionId",
+        "ref"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-10T00:00:00.000Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "core",
+            "version": "0.1.0"
+          },
+          "event": "compaction.prune.hidden",
+          "msg": "compaction.prune.hidden",
+          "attrs": {
+            "sessionId": "ses_example",
+            "ref": "event:2"
+          }
+        }
+      ]
+    },
+    {
+      "event": "compaction.prune.restored",
+      "note": "Session context visibility changed; originals remain available.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "compaction.prune.restored",
+      "attrs": "compaction",
+      "requiredAttrs": [
+        "sessionId",
+        "ref"
+      ],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "ts": "2026-10-10T00:00:00.000Z",
+          "level": "info",
+          "source": {
+            "kind": "harness",
+            "id": "core",
+            "version": "0.1.0"
+          },
+          "event": "compaction.prune.restored",
+          "msg": "compaction.prune.restored",
+          "attrs": {
+            "sessionId": "ses_example",
+            "ref": "event:2"
+          }
+        }
+      ]
+    },
     {
       "event": "log.level.changed",
       "note": "Log level changed.",
