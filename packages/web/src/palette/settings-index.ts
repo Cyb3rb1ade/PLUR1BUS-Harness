@@ -84,7 +84,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "auth.openai.federated.environment", type: "object", tier: "advanced", help: "Extra environment variables for command; only these and the built-in allowlist are passed." },
   { key: "oauth", type: "object", tier: "advanced", help: "Reserved namespace for OAuth configuration." },
   { key: "decision", type: "object", tier: "advanced", help: "Reserved namespace for decision model configuration." },
-  { key: "modelRoles", type: "object", tier: "basic", help: "Model identifiers assigned to the supported functional roles." },
+  { key: "modelRoles", type: "object", tier: "basic", help: "Model identifiers assigned to the supported functional roles. The summarize role is the model that writes session compaction summaries (a profile name or provider/model); when it is unset, compaction falls back to its deterministic digest." },
   { key: "modelProfiles", type: "object", tier: "advanced", help: "Named model profiles (C4): an ordered candidate list with weights for fallback or mixture-of-agents (moa) use, plus sampling parameters and cache hints. Data only; selection is the router's job. List order is priority order." },
   { key: "models.scan.enabled", type: "boolean", tier: "advanced", help: "Whether periodic model discovery scans are enabled." },
   { key: "models.scan.intervalHours", type: "integer", tier: "advanced", help: "Hours between periodic model discovery scans." },

@@ -12,7 +12,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `embedding.useClass` | enum | `"general"` | core | Intended use of the embedding model: general, research, or commercial. |
 | `memory.mediaEmbedding` | object | `{}` | core | Media index (image, video, audio) with its own provider, independent of the text embedding. Captions land in the text index. |
 | `providers` | object | `{}` | live | Reserved namespace for model-provider configuration. |
-| `modelRoles` | object | `{}` | live | Model identifiers assigned to the supported functional roles. |
+| `modelRoles` | object | `{}` | live | Model identifiers assigned to the supported functional roles. The summarize role is the model that writes session compaction summaries (a profile name or provider/model); when it is unset, compaction falls back to its deterministic digest. |
 
 ## Advanced settings
 

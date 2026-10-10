@@ -511,7 +511,7 @@
           "additionalProperties": true
         },
         "modelRoles": {
-          "description": "Model identifiers assigned to the supported functional roles.",
+          "description": "Model identifiers assigned to the supported functional roles. The summarize role is the model that writes session compaction summaries (a profile name or provider/model); when it is unset, compaction falls back to its deterministic digest.",
           "type": "object",
           "default": {},
           "x-restart": "live",
@@ -525,7 +525,8 @@
               "dream",
               "embedding",
               "rerank",
-              "decision"
+              "decision",
+              "summarize"
             ]
           },
           "additionalProperties": {

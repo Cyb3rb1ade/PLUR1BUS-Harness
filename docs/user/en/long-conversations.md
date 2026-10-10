@@ -50,6 +50,7 @@ Show a session by its id. The command prints the last messages:
 ```sh
 plur1bus session list
 plur1bus session show <id>
+plur1bus session show <id> --include-hidden
 ```
 
 Continue a session:
@@ -64,8 +65,10 @@ Archive a session without deleting it:
 plur1bus session archive <id>
 ```
 
-A view that shows which tool outputs are currently hidden, or which summaries apply, does not exist in this build. The
-`session show` command only shows the last messages.
+`session show` shows the last messages. With `--include-hidden` it also lists the hidden tool outputs: for each one the
+reference (for example `event:12`), the tool name, the reason it was hidden and the full original output. They stay hidden,
+and the history does not change. The listing has the same rights as reading the session itself. The command does not show
+which summaries apply.
 
 ## Settings
 
@@ -101,9 +104,21 @@ An example for a more cautious setting that summarizes earlier:
 
 ### The model for summaries
 
-The role `summarize` determines which model writes summaries. For this the harness uses a model profile named `summarize`
-from `modelProfiles`. You create a profile with this name in `config.json`, with the candidates you want to use. If it is
-missing, or none of its candidates is usable, the deterministic path applies. How to create and connect profiles is
+The role `summarize` determines which model writes summaries. You set it under `modelRoles` in `config.json`, either as the
+name of a profile from `modelProfiles` or as `provider/model`:
+
+```json
+{
+  "modelProfiles": {
+    "cheap": { "candidates": [{ "model": "openai/gpt-4.1-mini" }] }
+  },
+  "modelRoles": { "summarize": "cheap" }
+}
+```
+
+If you name a `provider/model` that appears in a profile, the harness tries it first and uses the other candidates of that
+profile as fallbacks. Without `modelRoles.summarize`, the harness uses a profile named `summarize` if there is one. If neither
+exists, or none of the candidates is usable, the deterministic path applies. How to create and connect profiles is
 described in [providers.md](providers.md).
 
 The summary may not call tools and receives no memory content. It sees only the part of the history that it summarizes.
