@@ -44,7 +44,7 @@ pub fn run(out: &Out, layout: &Layout, sub: AcpCmd) {
 }
 
 fn serve(out: &Out, layout: &Layout, agent: Option<String>) {
-    let config = cfg::read(&layout.config_path())
+    let config = cfg::read_unvalidated(&layout.config_path())
         .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1));
     let agent = pick_agent(out, &config, agent);
     let js = locate_acp_js(layout);

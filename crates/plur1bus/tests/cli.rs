@@ -1205,6 +1205,37 @@ fn memory_ops_without_a_core_fail_fast_with_core_unavailable() {
 }
 
 #[test]
+fn read_paths_do_not_validate_config_json_but_the_config_command_does() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    std::fs::write(
+        dir.path().join("config.json"),
+        r#"{"schemaVersion":"not-a-number","agents":{"bernd":{}}}"#,
+    )
+    .unwrap();
+    // A fast-fail read path loads the file without the JSON-Schema validator: the core, not the CLI, rejects a bad file.
+    let out = bin()
+        .args(["--json", "--home", h, "memory", "list", "--agent", "bernd"])
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["error"], "E_CORE_UNAVAILABLE", "{v}");
+    // The command that owns the file keeps validating it.
+    let out = bin()
+        .args(["--json", "--home", h, "config", "get"])
+        .assert()
+        .failure()
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["error"], "E_CONFIG_INVALID", "{v}");
+}
+
+#[test]
 fn memory_ops_for_an_unregistered_agent_fail_before_connecting() {
     let dir = tempfile::tempdir().unwrap();
     let h = dir.path().to_str().unwrap();

@@ -166,7 +166,7 @@ fn proposal_status_str(s: &ProposalStatus) -> &'static str {
 
 pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
     // Read without creating config.json: only the supervisor (or a config-writing command) writes it (M4).
-    let config = cfg::read(&layout.config_path())
+    let config = cfg::read_unvalidated(&layout.config_path())
         .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1));
     let caller = identity::caller();
 

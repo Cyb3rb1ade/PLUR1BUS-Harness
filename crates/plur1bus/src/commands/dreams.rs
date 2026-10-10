@@ -95,7 +95,7 @@ fn llm_sessions_today(job_defs: &Value, job_runs: &Value, midnight_ms: u64) -> u
 
 pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
     // Read without creating config.json: only the supervisor (or a config-writing command) writes it (M4).
-    let config = cfg::read(&layout.config_path())
+    let config = cfg::read_unvalidated(&layout.config_path())
         .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1));
     let registered: Vec<String> = config["agents"]
         .as_object()

@@ -68,9 +68,17 @@ fn schema() -> &'static Value {
     static S: std::sync::OnceLock<Value> = std::sync::OnceLock::new();
     S.get_or_init(|| serde_json::from_str(SCHEMA_JSON).expect("embedded schema"))
 }
+static VALIDATOR: std::sync::OnceLock<jsonschema::Validator> = std::sync::OnceLock::new();
+
+/// Whether this process has built the schema validator yet. Building it compiles the schema after validating it against the
+/// draft 2020-12 meta-schema, which is what the read-only CLI paths avoid ([`read_unvalidated`]); tests assert on it.
+#[doc(hidden)]
+pub fn validator_built() -> bool {
+    VALIDATOR.get().is_some()
+}
+
 fn validator() -> &'static jsonschema::Validator {
-    static V: std::sync::OnceLock<jsonschema::Validator> = std::sync::OnceLock::new();
-    V.get_or_init(|| {
+    VALIDATOR.get_or_init(|| {
         // `format` is only an annotation in draft 2020-12 unless enabled; the core's ajv (with ajv-formats)
         // asserts it, so the CLI must too, or it writes a config the core refuses. `date-time` (the only
         // format config.schema.json uses) is checked by the ajv-formats "full" rule, not the crate's own.
@@ -255,6 +263,26 @@ pub fn read(path: &Path) -> Result<Config, ConfigError> {
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(defaults()),
         Err(e) => Err(e.into()),
     }
+}
+
+/// [`read`] without the schema validation: the file must be JSON, schema defaults are filled in, nothing else is checked, and the
+/// validator is never built. For the CLI's fast-fail read paths (`memory`, `dreams`, `chat`, `acp`), which only look up the agent
+/// registry before they talk to a core: the supervisor and the core validate the file they run on, `config`, `setup` and
+/// every writer ([`read`], [`load`], [`set`]) still do. Do not use it where a value is written back or acted on beyond a lookup.
+pub fn read_unvalidated(path: &Path) -> Result<Config, ConfigError> {
+    match fs::read_to_string(path) {
+        Ok(text) => parse_unvalidated(&text),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(defaults()),
+        Err(e) => Err(e.into()),
+    }
+}
+
+/// [`parse`] without the schema validation (see [`read_unvalidated`]).
+pub fn parse_unvalidated(text: &str) -> Result<Config, ConfigError> {
+    let mut v: Value =
+        serde_json::from_str(text).map_err(|e| ConfigError::NotJson(e.to_string()))?;
+    fill_defaults(schema(), &mut v);
+    Ok(v)
 }
 
 /// Parses config.json's text, fills the schema defaults and validates the result: what [`load`] does after reading
