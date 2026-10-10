@@ -2,3 +2,5 @@
 .devices { display: grid; gap: 16px; }
 .pairing-qr { display: grid; place-items: center; padding: 16px; background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); }
 .pairing-qr svg { display: block; max-width: 256px; height: auto; }
+.devices-qr-wrap { display: grid; gap: 8px; place-items: center; }
+.devices-pair-form { display: grid; gap: 12px; }

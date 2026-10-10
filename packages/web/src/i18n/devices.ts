@@ -9,6 +9,11 @@ export const en = {
   "devices.list.unavailable": "Paired devices (name, fingerprint, last seen) are not available on this harness yet.",
   "devices.pair": "Pair a device",
   "devices.pair.unavailable": "A QR code or deep link for pairing is not available on this harness yet.",
+  "devices.pair.inputLink": "Pairing link",
+  "devices.pair.loadQr": "Show QR code",
+  "devices.pair.scan": "Scan this code with the Plur1bus app to pair this device.",
+  "devices.pair.expires": "Valid until {when}",
+  "devices.pair.failed": "Could not generate QR code: {detail}",
   "devices.remove": "Removing a device",
   "devices.remove.unavailable": "Removing a paired device is not available on this harness yet.",
 } as const;
@@ -23,6 +28,11 @@ export const de: Record<keyof typeof en, string> = {
   "devices.list.unavailable": "Gekoppelte Geräte (Name, Fingerabdruck, zuletzt gesehen) sind bei diesem Harness noch nicht verfügbar.",
   "devices.pair": "Gerät koppeln",
   "devices.pair.unavailable": "Ein QR-Code oder Deep-Link zum Koppeln ist bei diesem Harness noch nicht verfügbar.",
+  "devices.pair.inputLink": "Kopplungs-Link",
+  "devices.pair.loadQr": "QR-Code anzeigen",
+  "devices.pair.scan": "Scanne diesen Code mit der Plur1bus-App, um dieses Gerät zu koppeln.",
+  "devices.pair.expires": "Gültig bis {when}",
+  "devices.pair.failed": "QR-Code konnte nicht erzeugt werden: {detail}",
   "devices.remove": "Gerät entfernen",
   "devices.remove.unavailable": "Das Entfernen eines gekoppelten Geräts ist bei diesem Harness noch nicht verfügbar.",
 };

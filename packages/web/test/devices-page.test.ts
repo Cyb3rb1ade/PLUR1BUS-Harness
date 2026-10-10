@@ -46,6 +46,24 @@ describe("devices: gate", opts, () => {
       assert.deepEqual([...new Set(app.server.rpc.calls.map((c) => c.method))].filter((m) => m !== "config.get" && m !== "session.list"), []); // the shell lists sessions itself
     });
   });
+  test("pairing.qr formats and renders a QR code with expiration", async () => {
+    await withApp({}, async (app) => {
+      publish(app, "tailnet");
+      const sampleLink = "plur1bus://pair?origin=https%3A%2F%2Foffline.invalid&code=ABCD-EFGH&exp=2000&tag=offline-fixture";
+      app.server.rpc.handle("pairing.qr", (p) => ({
+        link: (p as any).link,
+        qr: { text: (p as any).link, mode: "byte", errorCorrection: "M", length: 96, maxLength: 2331, fits: true },
+        expiresAt: Date.now() + 3600000,
+      }));
+      await open(app);
+      const pairGroup = app.page.getByRole("group", { name: "Pair a device" });
+      await pairGroup.getByLabel("Pairing link").fill(sampleLink);
+      await pairGroup.getByRole("button", { name: "Show QR code" }).click();
+      await pairGroup.locator(".pairing-qr svg").waitFor();
+      assert.ok(app.server.rpc.calls.some((c) => c.method === "pairing.qr" && (c.params as any).link === sampleLink));
+      await expectAxeClean(app.page, "pairing-qr");
+    });
+  });
   test("loading, error with Try again", async () => {
     await withApp({}, async (app) => {
       publish(app, "tailnet"); app.server.rpc.setDelay("config.get", 300);
