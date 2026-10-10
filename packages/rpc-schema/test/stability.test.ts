@@ -82,9 +82,9 @@ describe("rpc-schema stability annotations", () => {
     }
   });
 
-  it("RPC_VERSION is 1.5.0 and matches the $id", () => {
-    assert.equal(RPC_VERSION, "1.5.0");
-    assert.equal(schema.$id, "https://plur1bus.dev/schema/rpc/1.5.0/rpc.schema.json");
+  it("RPC_VERSION is 1.6.0 and matches the $id", () => {
+    assert.equal(RPC_VERSION, "1.6.0");
+    assert.equal(schema.$id, "https://plur1bus.dev/schema/rpc/1.6.0/rpc.schema.json");
   });
 
   it("core.status journalReplay (1.3.0) is optional, closed and experimental", () => {

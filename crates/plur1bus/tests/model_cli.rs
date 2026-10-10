@@ -74,6 +74,15 @@ fn model_list_stale_read_without_core() {
     assert_eq!(doc["stale"], true);
     assert_eq!(doc["models"].as_array().unwrap().len(), 1);
     assert_eq!(doc["models"][0]["id"], "m1");
+    assert_eq!(doc["models"][0]["new"], true);
+    let mut human = bin();
+    let output = human
+        .arg("--home")
+        .arg(&home)
+        .args(["model", "list"])
+        .assert()
+        .success();
+    assert!(String::from_utf8_lossy(&output.get_output().stdout).contains("available new"));
 }
 
 #[test]

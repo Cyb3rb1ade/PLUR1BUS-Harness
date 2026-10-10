@@ -1449,6 +1449,147 @@
           "description": "stated reason"
         }
       }
+    },
+    "model_discovery": {
+      "description": "D112 provider discovery metadata only; no credential values, URLs or provider bodies.",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "models": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
+        "reappeared": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
+        "roles": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
+        "result": {
+          "enum": [
+            "ok",
+            "failed:auth",
+            "failed:network",
+            "failed:server",
+            "failed:invalid",
+            "failed:empty"
+          ]
+        },
+        "http_status": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retry_after_s": {
+          "type": "number",
+          "minimum": 0
+        },
+        "next_scan_at": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "consecutive_failures": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "new",
+            "reappeared",
+            "unavailable",
+            "unchanged",
+            "duplicates"
+          ],
+          "properties": {
+            "new": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "reappeared": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unavailable": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unchanged": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "duplicates": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "err": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code",
+            "reason",
+            "retryable",
+            "hint"
+          ],
+          "properties": {
+            "code": {
+              "enum": [
+                "auth",
+                "network",
+                "timeout",
+                "server",
+                "rate-limited",
+                "invalid-request"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "pattern": "^[a-z0-9_.-]{1,64}$"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "hint": {
+              "type": "string",
+              "maxLength": 512
+            },
+            "httpStatus": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "retryAfterS": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      }
     }
   },
   "events": [
@@ -6515,6 +6656,205 @@
             "reason": "owner-requested-recovery"
           },
           "v": 2
+        }
+      ]
+    },
+    {
+      "event": "model.discovered",
+      "note": "Model discovery event (D112 Task 12).",
+      "kinds": [
+        "provider"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "msg": "model discovered",
+      "attrs": "model_discovery",
+      "requiredAttrs": [
+        "provider",
+        "count",
+        "models",
+        "reappeared"
+      ],
+      "activity": true,
+      "since": "D112",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "provider",
+            "id": "openai",
+            "version": "profile@1"
+          },
+          "event": "model.discovered",
+          "msg": "model discovered",
+          "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+          "span_id": "00f067aa0ba902b7",
+          "attrs": {
+            "provider": "openai",
+            "count": 1,
+            "models": [
+              "example-chat"
+            ],
+            "reappeared": [],
+            "truncated": false
+          }
+        }
+      ]
+    },
+    {
+      "event": "model.unavailable",
+      "note": "Model discovery event (D112 Task 12).",
+      "kinds": [
+        "provider"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "warn",
+        "info"
+      ],
+      "msg": "model unavailable",
+      "attrs": "model_discovery",
+      "requiredAttrs": [
+        "provider",
+        "count",
+        "models",
+        "roles"
+      ],
+      "activity": true,
+      "since": "D112",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "info",
+          "source": {
+            "kind": "provider",
+            "id": "openai",
+            "version": "profile@1"
+          },
+          "event": "model.unavailable",
+          "msg": "model unavailable",
+          "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+          "span_id": "00f067aa0ba902b7",
+          "attrs": {
+            "provider": "openai",
+            "count": 1,
+            "models": [
+              "example-chat"
+            ],
+            "roles": [],
+            "truncated": false
+          }
+        }
+      ],
+      "levelRule": "warn when roles is non-empty, otherwise info"
+    },
+    {
+      "event": "model.scan.failed",
+      "note": "Model discovery event (D112 Task 12).",
+      "kinds": [
+        "provider"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "error",
+        "warn"
+      ],
+      "msg": "model scan failed",
+      "attrs": "model_discovery",
+      "requiredAttrs": [
+        "provider",
+        "result",
+        "next_scan_at",
+        "consecutive_failures",
+        "err"
+      ],
+      "activity": false,
+      "since": "D112",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "warn",
+          "source": {
+            "kind": "provider",
+            "id": "openai",
+            "version": "profile@1"
+          },
+          "event": "model.scan.failed",
+          "msg": "model scan failed",
+          "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+          "span_id": "00f067aa0ba902b7",
+          "attrs": {
+            "provider": "openai",
+            "result": "failed:auth",
+            "next_scan_at": "2026-10-02T09:14:03.218Z",
+            "consecutive_failures": 0,
+            "err": {
+              "code": "auth",
+              "reason": "no_credential",
+              "retryable": false,
+              "hint": "renew sign-in"
+            }
+          }
+        }
+      ],
+      "levelRule": "error for failed:auth and failed:invalid, otherwise warn"
+    },
+    {
+      "event": "model.scan.completed",
+      "note": "Model discovery event (D112 Task 12).",
+      "kinds": [
+        "provider"
+      ],
+      "stream": "diagnostic",
+      "level": "debug",
+      "levels": [
+        "debug"
+      ],
+      "msg": "model scan completed",
+      "attrs": "model_discovery",
+      "requiredAttrs": [
+        "provider",
+        "result",
+        "duration_ms",
+        "counts"
+      ],
+      "activity": false,
+      "since": "D112",
+      "stability": "stable",
+      "examples": [
+        {
+          "ts": "2026-10-01T09:14:03.218Z",
+          "level": "debug",
+          "source": {
+            "kind": "provider",
+            "id": "openai",
+            "version": "profile@1"
+          },
+          "event": "model.scan.completed",
+          "msg": "model scan completed",
+          "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+          "span_id": "00f067aa0ba902b7",
+          "attrs": {
+            "provider": "openai",
+            "result": "ok",
+            "duration_ms": 1,
+            "counts": {
+              "new": 1,
+              "reappeared": 0,
+              "unavailable": 0,
+              "unchanged": 0,
+              "duplicates": 0
+            }
+          }
         }
       ]
     }

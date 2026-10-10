@@ -143,7 +143,7 @@ test("the catalogue is well-formed and self-consistent", () => {
     assert.ok(group, `${e.event}: attrs group ${e.attrs}`);
     const known = { ...CATALOGUE.commonAttrs, ...group.properties };
     for (const k of e.requiredAttrs) assert.ok(k in known, `${e.event}: required attr ${k} is declared`);
-    assert.equal(e.since, "D111");
+    assert.ok(["D111", "D112"].includes(e.since), `${e.event}: known catalogue introduction`);
     assert.ok(e.stability === "stable" || e.stability === "experimental");
     if (e.stream === "audit") assert.deepEqual(e.kinds, ["harness"], `${e.event}: audit is emitted by the harness`);
     if (e.event.startsWith("process.")) assert.deepEqual(e.kinds, [...SOURCE_KINDS], `${e.event}: process.* is allowed for every kind`);
