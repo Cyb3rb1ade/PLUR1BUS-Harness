@@ -1,7 +1,3 @@
-.providers-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-.providers-head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.providers-actions { text-align: right; white-space: nowrap; }
-.providers-login-dlg { display: grid; gap: 12px; }
-.providers-authorize-link { margin: 8px 0; text-align: center; }
-.providers-headless-box { margin-top: 8px; padding: 10px; border-radius: 8px; background: var(--card-bg); border: 1px solid var(--border); }
-.providers-paste-form { display: grid; gap: 6px; margin-top: 8px; }
+.chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.providers-login-dlg, .providers-paste-form, .channels-items, .channel-detail { display: grid; gap: 8px; }
+.providers-actions { text-align: right; }

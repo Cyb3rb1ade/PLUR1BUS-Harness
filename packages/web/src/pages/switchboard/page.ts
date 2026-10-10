@@ -9,10 +9,14 @@ import { ListDetail } from "../../components/list-detail.ts";
 import { Page } from "../../components/page.ts";
 import { PageLoading, PageState } from "../../components/page-state.ts";
 import { t, type Key } from "../../i18n.ts";
+import { registerArea } from "../../i18n/index.ts";
+import * as area from "../../i18n/switchboard.ts";
 import { FailureState } from "../common/states.ts";
 import { currentRole, getApi, roleIn, useLoad } from "../common/load.ts";
 import type { PageProps } from "../registry.ts";
 import { navigate } from "../../router.ts";
+
+registerArea("switchboard", area);
 
 export type ChannelSummary = {
   id: string;
@@ -280,14 +284,14 @@ function DetailView({
     { class: "channel-detail" },
     h(
       "div",
-      { class: "channel-detail-head" },
+      { class: "card-head" },
       h(
         "div",
         null,
         h("h2", { class: "card-title" }, d.displayName),
         h(
           "div",
-          { class: "channel-detail-badges" },
+          { class: "chip-row" },
           h(
             Badge,
             { tone: d.enabled ? "ok" : "neutral" },
@@ -307,7 +311,7 @@ function DetailView({
       ),
       h(
         "div",
-        { class: "channel-detail-actions" },
+        { class: "chip-row" },
         d.enabled
           ? h(
               "button",
@@ -375,7 +379,7 @@ function DetailView({
       : null,
     h(
       "section",
-      { class: "card channel-section" },
+      { class: "card" },
       h("h3", { class: "card-title" }, t("switchboard.detail.config")),
       h(
         "table",
@@ -421,7 +425,7 @@ function DetailView({
     d.linkHelp
       ? h(
           "section",
-          { class: "card channel-section" },
+          { class: "card" },
           h("h3", { class: "card-title" }, t("switchboard.detail.linkHelp")),
           h("p", { class: "reading" }, d.linkHelp),
         )
@@ -492,7 +496,8 @@ function SwitchboardContent({ sub }: { sub?: string }): View {
                 "button",
                 {
                   type: "button",
-                  class: `channel-item-btn${selected === c.id ? " active" : ""}`,
+                  class: "nav-link",
+                  "aria-current": selected === c.id ? "true" : undefined,
                   onClick: () => select(c.id),
                 },
                 h(
@@ -501,7 +506,7 @@ function SwitchboardContent({ sub }: { sub?: string }): View {
                   h("strong", { class: "channel-item-title" }, c.displayName),
                   h(
                     "div",
-                    { class: "channel-item-badges" },
+                    { class: "chip-row" },
                     h(
                       Badge,
                       { tone: c.enabled ? "ok" : "neutral" },

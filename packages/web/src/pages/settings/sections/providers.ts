@@ -9,9 +9,13 @@ import { ConfirmDialog } from "../../../components/confirm-dialog.ts";
 import { Dialog } from "../../../components/dialog.ts";
 import { PageLoading, PageState } from "../../../components/page-state.ts";
 import { formatDateTime, t, type Key } from "../../../i18n.ts";
+import { registerArea } from "../../../i18n/index.ts";
+import * as area from "../../../i18n/providers.ts";
 import { FailureState } from "../../common/states.ts";
 import { currentRole, failureOf, getApi, roleIn, useLoad } from "../../common/load.ts";
 import type { SectionProps } from "../page.ts";
+
+registerArea("providers", area);
 
 export type AuthCredential = {
   id: string;
@@ -190,7 +194,7 @@ function LoginDialog({
       authorizeUrl
         ? h(
             "p",
-            { class: "providers-authorize-link" },
+            null,
             h(
               "a",
               {
@@ -206,7 +210,7 @@ function LoginDialog({
       callbackPort
         ? h(
             "div",
-            { class: "providers-headless-box" },
+            { class: "notice" },
             h("p", { class: "field-hint" }, t("providers.login.headless")),
             h(
               "pre",
@@ -401,11 +405,11 @@ function Body({ data, reload }: { data: Data; reload: () => void }): View {
     { class: "providers" },
     h(
       "div",
-      { class: "providers-head" },
+      { class: "card-head" },
       h("h3", { class: "card-title" }, t("providers.list.title")),
       h(
         "div",
-        { class: "providers-head-actions" },
+        { class: "chip-row" },
         h(
           "button",
           {

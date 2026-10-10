@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { catalogues, t, type Key } from "../src/i18n.ts";
-import { AREAS } from "../src/i18n/index.ts";
+import { AREAS, registerArea } from "../src/i18n/index.ts";
+import * as providers from "../src/i18n/providers.ts";
+import * as switchboard from "../src/i18n/switchboard.ts";
+
+// The lazy areas register as their page chunk loads; load them here so every check below covers them too.
+registerArea("providers", providers);
+registerArea("switchboard", switchboard);
 
 const placeholders = (s: string): string[] => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]!).sort();
 
