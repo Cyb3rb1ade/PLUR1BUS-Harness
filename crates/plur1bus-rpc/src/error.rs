@@ -27,6 +27,7 @@ pub enum RpcError {
     Protocol(String),
 }
 
+/// `E_PROJECT_WIP_LIMIT` refuses a board mutation atomically; the CLI exits 1.
 /// Media-index codes of the closed set (the generated `ErrorCode` carries them; the CLI exits 1 for each, see docs/errors.md):
 /// `E_MEDIA_CAPABILITY`, `E_MEDIA_LICENSE`, `E_MEDIA_PRIVACY`, `E_MEDIA_UNAVAILABLE`, `E_MEDIA_DIMENSION`, `E_MEDIA_UNSUPPORTED_KIND`.
 /// The wire name of a closed error code. `ErrorCode` is a generated string enum, so serialising it cannot fail; the

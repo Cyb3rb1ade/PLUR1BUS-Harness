@@ -25,7 +25,8 @@
     "security": {
       "freezePrototype": true,
       "capabilities": [
-        "shell-ui"
+        "shell-ui",
+        "approvals"
       ],
       "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
     }
@@ -48,6 +49,9 @@
     },
     "macOS": {
       "signingIdentity": "-"
-    }
+    },
+    "externalBin": [
+      "binaries/plur1bus-host"
+    ]
   }
 }

@@ -4,21 +4,24 @@ import { getPref, setPref } from "../../prefs.ts";
 import { DEFAULT_EMBEDDING, DEFAULT_RERANK, choiceById } from "./licences.ts";
 import { CAPTION_CHOICES, CAPTION_SOURCES, mediaSetupChanges, mediaSetupDefaults, validateMedia, type CaptionChoice, type MediaSetup } from "../media-search/model.ts";
 import { ALL_MODALITIES } from "../media-search/model.ts";
+import type { VoiceProfileName } from "../../api/voice.types.ts";
 import type { CaptionSourceSetting, MediaBackfillSetting, MediaModality } from "../../api/media-search.types.ts";
 
-export type StepId = "account" | "persona" | "model" | "switchboard" | "memory" | "backup" | "import";
+export type StepId = "account" | "persona" | "model" | "switchboard" | "memory" | "voice" | "backup" | "import";
 export type Status = "done" | "skipped";
 export type UseClass = "general" | "research" | "commercial";
 export const USE_CLASSES: readonly UseClass[] = ["general", "research", "commercial"];
 
+export type VoiceChoice = { language: string; profile: VoiceProfileName };
 export type StepDef = { id: StepId; skippable: boolean; unavailable: boolean };
-/** The seven steps; `?mode=bundled` leaves out the account step (a bundled app signs in by itself). */
+/** The eight steps; `?mode=bundled` leaves out the account step (a bundled app signs in by itself). */
 export const STEPS: readonly StepDef[] = [
   { id: "account", skippable: false, unavailable: false },
   { id: "persona", skippable: false, unavailable: false },
   { id: "model", skippable: true, unavailable: false },
   { id: "switchboard", skippable: true, unavailable: true },
   { id: "memory", skippable: true, unavailable: false },
+  { id: "voice", skippable: true, unavailable: false },
   { id: "backup", skippable: true, unavailable: false },
   { id: "import", skippable: true, unavailable: true },
 ];
@@ -35,12 +38,14 @@ export type Answers = {
   backupId: string;
   /** The media index part of the Memory step (media-search/model.ts). */
   media: MediaSetup;
+  /** The voice language the person downloaded in the Voice step; null = not done (the step is then skipped). */
+  voice: VoiceChoice | null;
 };
 export type Saved = { v: 1; step: StepId | "summary"; status: Partial<Record<StepId, Status>>; answers: Answers };
 
 export const initial = (): Saved => ({
   v: 1, step: "account", status: {},
-  answers: { agentId: "main", displayName: "", createdAt: "", chatModel: "", useClass: "general", embedding: DEFAULT_EMBEDDING, rerank: DEFAULT_RERANK, nc: null, ncWritten: false, backupId: "", media: mediaSetupDefaults() },
+  answers: { agentId: "main", displayName: "", createdAt: "", chatModel: "", useClass: "general", embedding: DEFAULT_EMBEDDING, rerank: DEFAULT_RERANK, nc: null, ncWritten: false, backupId: "", media: mediaSetupDefaults(), voice: null },
 });
 
 const KEY = "setup";
@@ -60,7 +65,7 @@ export function load(): Saved {
       agentId: str(a.agentId, base.answers.agentId), displayName: str(a.displayName, ""), createdAt: str(a.createdAt, ""), chatModel: str(a.chatModel, ""),
       useClass: USE_CLASSES.includes(a.useClass as UseClass) ? (a.useClass as UseClass) : "general",
       embedding: str(a.embedding, DEFAULT_EMBEDDING), rerank: str(a.rerank, DEFAULT_RERANK), nc, ncWritten: a.ncWritten === true, backupId: str(a.backupId, ""),
-      media: loadMedia(a.media),
+      media: loadMedia(a.media), voice: loadVoice(a.voice),
     };
     // A non-commercial model is only ever kept together with its confirmation (and never for the commercial use class).
     const bad = (id: string, kind: "embedding" | "rerank"): boolean => { const c = choiceById(id); return !c || c.kind !== kind || (c.nc && (nc === null || answers.useClass === "commercial")); };
@@ -109,6 +114,13 @@ export function changesFor(step: StepId, a: Answers): Change[] {
   if (rerank) out.push({ key: "modelRoles.rerank", value: rerank.hf });
   out.push(...mediaSetupChanges(a.media, a.embedding));
   return out;
+}
+
+/** Reads the saved voice answer; anything unexpected means "not done". */
+function loadVoice(raw: unknown): VoiceChoice | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const o = raw as Record<string, unknown>;
+  return typeof o.language === "string" && o.language !== "" && (o.profile === "fast" || o.profile === "quality") ? { language: o.language, profile: o.profile } : null;
 }
 
 /** Reads the saved media answers; anything unexpected falls back to the contract defaults. */

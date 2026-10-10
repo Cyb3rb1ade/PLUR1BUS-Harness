@@ -39,7 +39,7 @@ describe("setup wizard: NC licence gate", opts, () => {
         assert.equal(await dialog(page).count(), 0, use);
       }
       await next(page);
-      await stepHeading(page, /Backups/).waitFor();
+      await stepHeading(page, /Language for voice features/).waitFor();
       const keys = changes(app).at(-1)!.map((c) => c.key);
       assert.ok(!keys.includes("embedding.acceptedNcLicence"), "no licence flag is written for the default");
     });
@@ -77,7 +77,7 @@ describe("setup wizard: NC licence gate", opts, () => {
       await dialog(page).waitFor({ state: "detached" });
       assert.equal(await page.evaluate(() => document.activeElement?.id), "setup-embedding-jina-v5-nano", "focus returns to the radio");
       await next(page);
-      await stepHeading(page, /Backups/).waitFor();
+      await stepHeading(page, /Language for voice features/).waitFor();
       const last = changes(app).at(-1)!;
       assert.deepEqual(last.map((c) => c.key), ["embedding.useClass", "modelRoles.rerank"]);
     });
@@ -93,7 +93,7 @@ describe("setup wizard: NC licence gate", opts, () => {
       assert.equal(await jina5(page).isChecked(), true);
       await page.getByText(/Confirmed by owner on/).waitFor();
       await next(page);
-      await stepHeading(page, /Backups/).waitFor();
+      await stepHeading(page, /Language for voice features/).waitFor();
       const last = changes(app).at(-1)!;
       assert.deepEqual(last.map((c) => c.key), ["embedding.useClass", "embedding.acceptedNcLicence", "embedding.acceptedNcLicenceAt", "modelRoles.rerank"]);
       assert.equal(last[0]?.value, "research"); assert.equal(last[1]?.value, true);
@@ -108,7 +108,7 @@ describe("setup wizard: NC licence gate", opts, () => {
       await page.getByRole("radio", { name: /Jina reranker v2/ }).click();
       await dialog(page).getByRole("button", { name: "I confirm non-commercial use" }).click();
       await next(page);
-      await stepHeading(page, /Backups/).waitFor();
+      await stepHeading(page, /Language for voice features/).waitFor();
       const last = changes(app).at(-1)!;
       assert.deepEqual(last.map((c) => c.key), ["embedding.useClass", "embedding.acceptedNcLicence", "embedding.acceptedNcLicenceAt", "modelRoles.rerank"]);
       assert.equal(last[3]?.value, "jinaai/jina-reranker-v2-base-multilingual");
@@ -127,7 +127,7 @@ describe("setup wizard: NC licence gate", opts, () => {
       assert.equal(await page.getByRole("radio", { name: /EmbeddingGemma 2/ }).isChecked(), true);
       assert.match((await page.locator("#setup-embedding-jina-v5-nano-d").textContent()) ?? "", /Not available for commercial use/);
       await next(page);
-      await stepHeading(page, /Backups/).waitFor();
+      await stepHeading(page, /Language for voice features/).waitFor();
       assert.deepEqual(changes(app).at(-1)!.map((c) => c.key), ["embedding.useClass", "modelRoles.rerank"]);
     });
   });
@@ -146,11 +146,11 @@ describe("setup wizard: NC licence gate", opts, () => {
       await jina5(page).click();
       await dialog(page).getByRole("button", { name: "I confirm non-commercial use" }).click();
       await next(page);
-      await stepHeading(page, /Backups/).waitFor();
+      await stepHeading(page, /Language for voice features/).waitFor();
       await page.getByRole("button", { name: "Back", exact: true }).click();
       await page.getByRole("radio", { name: /EmbeddingGemma 2/ }).check();
       await next(page);
-      await stepHeading(page, /Backups/).waitFor();
+      await stepHeading(page, /Language for voice features/).waitFor();
       assert.deepEqual(changes(app).at(-1)!, [
         { key: "embedding.useClass", value: "general" }, { key: "embedding.acceptedNcLicence", value: false }, { key: "modelRoles.rerank", value: "BAAI/bge-reranker-v2-m3" },
       ]);

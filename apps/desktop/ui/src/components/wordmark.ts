@@ -18,7 +18,10 @@ export function wordmark(goHome: () => void): { node: HTMLButtonElement; set: (t
     node.append(letters);
     if (subtitle) node.append(element("span", "wordmark-subtitle", subtitle));
   }
+  let previous: {text:string;spoken:string;subtitle:string|undefined}|undefined;
   return { node, set(text, spoken, morph, subtitle) {
+    if(!morph && previous?.text===text && previous.spoken===spoken && previous.subtitle===subtitle)return;
+    previous={text,spoken,subtitle};
     if (timer !== undefined) window.clearTimeout(timer);
     if (frame !== undefined) window.cancelAnimationFrame(frame);
     node.setAttribute("aria-label", spoken);
