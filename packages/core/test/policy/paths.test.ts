@@ -3,7 +3,7 @@
 import { after, before, describe, it, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { constants as fsc } from "node:fs";
-import { link, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { chmod, link, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import {
@@ -527,6 +527,23 @@ describe("D109 paths: review round 1 regressions", T, () => {
     await link(join(root, "capped", "a"), join(root, "capped", "a2"));
     refused(await canon(join(root, "capped", "a2"), { deny: [{ name: ".env" }], scanCap: 2 }), "deny-listed");
     allowed(await canon(join(root, "capped", "b"), { deny: [{ name: ".env" }], scanCap: 2 })); // link count 1: never scanned
+  });
+  it("a root that lies below a directory called like a NAME entry has all its files protected for the scan, as for the spelling check", async () => {
+    const second = join(base, "holder", ".ssh", "second-root");
+    await mkdir(second, { recursive: true });
+    await writeFile(join(second, "key"), "KEY");
+    const h = join(root, "from-ssh-root.txt");
+    await link(join(second, "key"), h);
+    refused(await canonicalisePath(h, { roots: [...roots(), { id: "two", path: second }], deny: [{ name: ".ssh" }] }), "deny-listed");
+  });
+  it("a directory the scan cannot read makes a hard-linked target refused (fail closed)", { skip: win || (process.getuid?.() === 0) }, async () => {
+    const locked = join(root, "locked");
+    await mkdir(locked, { recursive: true });
+    await writeFile(join(root, "lk-a.txt"), "x");
+    await link(join(root, "lk-a.txt"), join(root, "lk-b.txt"));
+    await chmod(locked, 0o000);
+    try { refused(await canon(join(root, "lk-b.txt"), { deny: [{ name: ".env" }] }), "deny-listed"); }
+    finally { await chmod(locked, 0o755); }
   });
   it("a file that gains a hard link after the check is refused at the open when a NAME entry is in force", async () => {
     const p = join(root, "gain-name.txt");

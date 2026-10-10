@@ -322,14 +322,16 @@ async function nameEntryAlias(key: string, roots: readonly ResolvedRoot[], names
   const seen = new Set<string>();
   const visit = async (dir: string, protectedBelow: boolean): Promise<boolean> => {
     let ents: import("node:fs").Dirent[];
-    try { ents = await readdir(dir, { withFileTypes: true }); } catch { return false; }
+    // Only a directory that is really gone may be skipped; one that cannot be read could hold the alias (fail closed).
+    try { ents = await readdir(dir, { withFileTypes: true }); } catch (e) { if ((e as NodeJS.ErrnoException).code !== "ENOENT") overflow = true; return false; }
     for (const d of ents) {
       if (budget-- <= 0) { overflow = true; return false; }
       const full = path.join(dir, d.name);
       const hit = protectedBelow || matchDeny(d.name, names) !== null;
       if (d.isDirectory()) { if (await visit(full, hit)) return true; if (overflow) return false; }
       else if (hit && d.isFile()) {
-        try { const st = await stat(full, { bigint: true }); if (`${st.dev}:${st.ino}` === key) return true; } catch { /* vanished */ }
+        try { const st = await stat(full, { bigint: true }); if (`${st.dev}:${st.ino}` === key) return true; }
+        catch (e) { if ((e as NodeJS.ErrnoException).code !== "ENOENT") { overflow = true; return false; } }
       }
     }
     return false;
@@ -337,7 +339,8 @@ async function nameEntryAlias(key: string, roots: readonly ResolvedRoot[], names
   for (const r of roots) {
     if (seen.has(r.real)) continue;
     seen.add(r.real);
-    if (await visit(r.real, matchDeny(path.basename(r.real), names) !== null)) return "alias";
+    // The spelling check matches a name against EVERY segment of the real path, so a root below `.ssh/` has all its files protected.
+    if (await visit(r.real, matchDeny(r.real, names) !== null)) return "alias";
     if (overflow) return "incomplete";
   }
   return null;
