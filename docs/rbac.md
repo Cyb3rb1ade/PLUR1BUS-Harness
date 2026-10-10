@@ -271,6 +271,17 @@ The R3 methods are declared in RPC_RULES and are human-only; both actions are gr
 | channel.test | channel.read | `sendOwner: true` additionally requires `channel.write` (checked in the handler) and sends one fixed text to the caller's own linked identity on that channel |
 | channel.enable, channel.disable, channel.set | channel.write | A write is a `config.set` through the supervisor, so the per-key restart class applies; `channel.set` refuses secret values |
 
+## Media index (`media.search`, `media.index.*`, `media.caption.set`)
+
+Three actions cover the media search surface. Everything is denied by default: an unauthenticated call is `E_UNAUTHORIZED`, a principal with an unknown or missing role is `E_DENIED`, and the handler never runs in either case.
+
+| RPC | Coarse action | Who | Notes |
+|---|---|---|---|
+| media.search, media.index.status | media.index.read | Every role, agents included | Not human-only. The handler searches in the caller's scope (`scopeOf`: an agent sees its own scope) and drops every hit the caller may not read (`readable`); `likeMediaId` needs read access to the seed medium, otherwise `E_NOT_FOUND` |
+| media.index.pause, media.index.resume, media.index.reindex | media.index.operate | Owner and Admin, people only | Agents are denied with `agent-principal`. `reindex` needs `confirm: true` |
+| media.caption.set | media.caption.write | Owner, Admin, Operator, Member, people only | Agents are denied with `agent-principal`; the handler also needs edit rights on the medium (`editable`: `agent.use` on the agent that made it, from the owner file under `<home>/media/owners`), otherwise `E_DENIED reason=not-editable`; an unreadable medium is `E_NOT_FOUND` |
+
+The `E_MEDIA_*` codes (capability, licence, privacy pin, availability, dimension, unsupported kind) are not RBAC outcomes; they report that the media index itself cannot do what was asked (see [errors.md](errors.md)).
 
 ## F39–F42/F44 administration backend
 

@@ -16,6 +16,11 @@ import { FailureState, Notice } from "../common/states.ts";
 import { CreateAgent } from "./create.ts";
 import { AgentDetail, whenText } from "./detail.ts";
 import { readAgents, type Agent } from "./model.ts";
+import { registerArea } from "../../i18n/index.ts";
+import * as agentsArea from "../../i18n/agents.ts";
+import "../../styles/agents.css";
+
+registerArea("agents", agentsArea);
 
 
 function Row({ agent, current }: { agent: Agent; current: boolean }): View {

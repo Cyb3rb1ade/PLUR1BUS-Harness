@@ -36,3 +36,6 @@
   .users-row .btn { grid-column: 1 / -1; }
 }
 .users-matrix input[type="checkbox"], #users-simple, input[name="users-preset"] { width: 24px; height: 24px; }
+.users-role-select { padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); font-size: 13px; }
+.invite-code-box { display: flex; align-items: center; gap: 8px; margin: 12px 0; }
+.invite-code { padding: 8px 12px; font-size: 16px; font-weight: bold; background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; letter-spacing: 1px; }

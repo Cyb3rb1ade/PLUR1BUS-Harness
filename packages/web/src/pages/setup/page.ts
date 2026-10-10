@@ -16,6 +16,12 @@ import { changesFor, load, save, stepsFor, validate, type Answers, type Errors, 
 import { AccountStep, BackupStep, ImportStep, MemoryStep, ModelStep, PersonaStep, UnavailableStep, type StepProps } from "./steps.ts";
 import { MediaSetupStep, type MediaSetupProps } from "../media-search/setup.ts";
 import { mediaErrorOf, problemText } from "../media-search/model.ts";
+import { registerArea } from "../../i18n/index.ts";
+import * as setupArea from "../../i18n/setup.ts";
+import "../../styles/setup.css";
+
+registerArea("setup", setupArea);
+
 type MediaProblemCode = MediaSetupProps["error"];
 
 const label = (id: StepId): string => t(`setup.step.${id}` as Key);

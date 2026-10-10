@@ -42,6 +42,12 @@ A closed enum; the core puts the code into every error response as `error.data.e
 - `E_APPROVAL_REQUIRED`
 - `E_CONFLICT`
 - `E_STORAGE`
+- `E_MEDIA_CAPABILITY`
+- `E_MEDIA_LICENSE`
+- `E_MEDIA_PRIVACY`
+- `E_MEDIA_UNAVAILABLE`
+- `E_MEDIA_DIMENSION`
+- `E_MEDIA_UNSUPPORTED_KIND`
 
 ## Stability
 
@@ -9137,6 +9143,239 @@ All channels, compact: id, enabled, state, health and the last error. Owner/Admi
 }
 ```
 
+### `media.search`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Searches the media index (image, video, audio) with text or by a medium it already knows: give exactly one of `text` and `likeMediaId`. A text query is embedded by the TEXT encoder of the MEDIA model (vectors of different spaces are never compared). `kinds` narrows the result, `limit` defaults to 20. With `fuseCaptions` the ranks are fused with the caption hits of the text index (reciprocal rank fusion over ranks, never over vectors). Results are filtered to the media the caller may read; an agent sees its own scope. Reasons: `text-or-like-required` / `text-and-like-exclusive` (E_INVALID_PARAMS). E_MEDIA_* codes: the media index refused or cannot run (capability, licence, privacy pin, availability, dimension, unsupported kind). Every principal with read access; agents within their own scope.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "likeMediaId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "kinds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MediaIndexKind"
+      },
+      "uniqueItems": true,
+      "minItems": 1,
+      "maxItems": 3
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "default": 20
+    },
+    "fuseCaptions": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "hits"
+  ],
+  "properties": {
+    "hits": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MediaSearchHit"
+      }
+    }
+  }
+}
+```
+
+### `media.index.status`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+State of the media index: whether it is enabled, provider, model, dimension and fingerprint, counts per state and the backfill progress. Every principal with read access (agents included).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/MediaIndexStatus"
+}
+```
+
+### `media.index.pause`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Pauses the background backfill of the media index (pausedReason `user`). Idempotent. Returns the new status. Owner/Admin, people only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/MediaIndexStatus"
+}
+```
+
+### `media.index.resume`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Resumes a paused backfill of the media index. Idempotent. Returns the new status. Owner/Admin, people only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/MediaIndexStatus"
+}
+```
+
+### `media.index.reindex`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Starts a full re-index of the media index in the background. `confirm` must be true (E_INVALID_PARAMS reason=confirmation-required otherwise). Returns the new status. Owner/Admin, people only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "confirm"
+  ],
+  "properties": {
+    "confirm": {
+      "const": true
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/MediaIndexStatus"
+}
+```
+
+### `media.caption.set`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Sets the caption of a medium (source `user`); the caption is a memory entry of the text index and is re-embedded. E_NOT_FOUND when the medium is unknown or the caller may not see it, E_DENIED when the caller may not edit it. People who may edit the medium; agents never.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mediaId",
+    "text"
+  ],
+  "properties": {
+    "mediaId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ok"
+  ],
+  "properties": {
+    "ok": {
+      "const": true
+    }
+  }
+}
+```
+
 ### `secret.set`
 
 **Stability:** experimental · since 1.5.0
@@ -11698,7 +11937,13 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "E_DENIED",
     "E_APPROVAL_REQUIRED",
     "E_CONFLICT",
-    "E_STORAGE"
+    "E_STORAGE",
+    "E_MEDIA_CAPABILITY",
+    "E_MEDIA_LICENSE",
+    "E_MEDIA_PRIVACY",
+    "E_MEDIA_UNAVAILABLE",
+    "E_MEDIA_DIMENSION",
+    "E_MEDIA_UNSUPPORTED_KIND"
   ]
 }
 ```
@@ -16020,6 +16265,186 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "type": "array",
       "items": {
         "type": "string"
+      }
+    }
+  }
+}
+```
+
+### `MediaIndexKind`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "image",
+    "video",
+    "audio"
+  ]
+}
+```
+
+### `MediaSearchHit`
+
+```json
+{
+  "description": "Experimental (1.5.0). One hit of `media.search`; `segment` locates the match inside a video or audio, `caption` is the caption text when the caller may read it, `thumbnailUrl` is a URL the web UI can load.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mediaId",
+    "kind",
+    "score"
+  ],
+  "properties": {
+    "mediaId": {
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/MediaIndexKind"
+    },
+    "score": {
+      "type": "number"
+    },
+    "segment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "idx",
+        "startMs",
+        "endMs"
+      ],
+      "properties": {
+        "idx": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "startMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "caption": {
+      "type": "string"
+    },
+    "thumbnailUrl": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `MediaIndexStatus`
+
+```json
+{
+  "description": "Experimental (1.5.0). The state of the media index and its backfill.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "enabled",
+    "provider",
+    "model",
+    "dim",
+    "fingerprint",
+    "counts",
+    "backfill"
+  ],
+  "properties": {
+    "enabled": {
+      "type": "boolean"
+    },
+    "provider": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "variant": {
+      "type": "string"
+    },
+    "dim": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "fingerprint": {
+      "type": "string"
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "indexed",
+        "pending",
+        "failed",
+        "unsupported"
+      ],
+      "properties": {
+        "indexed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pending": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unsupported": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "backfill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "done",
+        "total"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "idle",
+            "running",
+            "paused",
+            "cancelled",
+            "done"
+          ]
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "startedAt": {
+          "type": "string"
+        },
+        "pausedReason": {
+          "type": "string",
+          "enum": [
+            "budget",
+            "user",
+            "error"
+          ]
+        }
       }
     }
   }

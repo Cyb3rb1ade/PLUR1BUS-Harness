@@ -144,3 +144,7 @@ oder den Modulsatz ändert, wird abgelehnt: führe stattdessen `plur1bus setup` 
 - [media.md](media.md): Bilder erzeugen und bearbeiten, mit Cloud-Anbietern oder lokal.
 - [operations.md](operations.md): Verzeichnisse, Logs, Dienstverwaltung je Betriebssystem, Aktualisieren, Deinstallieren,
   Shell-Vervollständigung und Fehlersuche.
+- [container.md](container.md): die Harness als Container, auf macOS mit Apple Containers oder Docker, und die Sidecars.
+- [bestaetigung-betriebssystem.md](bestaetigung-betriebssystem.md): Freigaben, die eine Bestätigung durch Touch ID, Windows
+  Hello oder polkit brauchen, und was „nicht verfügbar" bedeutet.
+- [lange-gespraeche.md](lange-gespraeche.md): wie lange Sitzungen zusammengefasst werden und welche Einstellungen es gibt.

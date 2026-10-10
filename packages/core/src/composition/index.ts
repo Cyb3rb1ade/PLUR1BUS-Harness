@@ -1,5 +1,5 @@
 import { createHostctlPool } from '../../../hostctl/src/pool.ts';
-import { createVoiceRuntime, type VoiceRuntime } from '../voice/runtime.ts';
+import { composeVoice, type VoiceRuntime } from './voice.ts';
 import { createOpenAIRuntime, type OpenAIRuntime } from '../openai-auth/runtime.ts';
 import { createMediaSurface, mediaActionHash } from '../rpc/media-surface.ts';
 import { decide } from '../policy/index.ts';
@@ -36,11 +36,12 @@ import { ToolRegistry } from '../tools/registry.ts';
 import { createCollab, alsAgentScopePort, type Collab } from '../collab/index.ts';
 import { composedAgentRunner } from './collaboration.ts';
 import { legacyAdapter } from './legacy.ts';
+import { composeMediaSearch, mediaSearchMethods } from './media-search.ts';
 
 export interface CompositionOptions {
   /** Trusted in-process surfaces register here; no auth RPC is added. */
   onOpenAI?: (auth: import('../openai-auth/service.ts').AuthService) => void;
-  onVoice?: (voice: VoiceRuntime) => void;
+  onVoice?: (voice: import("../voice/runtime.ts").VoiceRuntime & Partial<Pick<VoiceRuntime, "openTalk" | "metrics" | "renderMetrics">>) => void;
   definitions?: Readonly<Record<string, ProviderDefinition>>;
   fetch?: typeof fetch;
   providers?: Pick<TurnProviderOptions, 'profiles' | 'family' | 'router' | 'onPrompt' | 'maxTokens' | 'topK' | 'maxRounds' | 'billing'>;
@@ -102,7 +103,8 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
   try {
     const definitions = options.definitions ?? Object.fromEntries(Object.entries(cfg.providers).filter(([, value]) => !!value && typeof value === 'object' && 'wireFormat' in value)) as Record<string, ProviderDefinition>;
     const openai = createOpenAIRuntime(d); disposers.push(() => openai.close());
-    const voice = createVoiceRuntime(d, openai, budget); disposers.push(() => voice.close());
+    let sessions: SessionService;
+    const voice = composeVoice(d, openai, budget, () => sessions); disposers.push(() => voice.close());
     const auth = isolated('turn providers', () => composeAuth({ config: cfg, definitions, openai, secrets: d.secrets, egress: d.egress, log: record => d.logger.info('turn.stage', { ...record }), ...(options.fetch ? { fetch: options.fetch } : {}) }));
     if (auth) disposers.push(() => auth.close());
     const hostctl = createHostctlPool({ config: cfg.tools?.hostctl, audit: event => d.audit.append({ at: d.clock(), actor: { user: event.principal, host: 'local' }, action: event.operation, target: event.paths.join(';'), detail: { ...event } }) });
@@ -140,13 +142,13 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     });
     await mediaSurface.recover();
     disposers.push(() => mediaSurface.close());
+    const mediaSearch = await composeMediaSearch({ home: d.home, config: d.config, engine: d.engine, agents: d.agents, logger: d.logger, store: media?.store ?? null, budget }); disposers.push(() => mediaSearch.close());
     const profiles = options.providers?.profiles ?? (d.provider ? { default: [{ provider: 'fixture', model: 'gpt-4.1', adapter: legacyAdapter(d.provider) }] } : auth?.profiles ?? {});
     const classProfiles = cfg.decision.classProfiles as Record<string, string> | undefined;
     // Reserved `providers` namespace: `providers.modelProfilePolicy.<profile>.allowCrossBilling: true` opts one profile into
     // plan<->paid fallback; absent, a fallback across billing classes is refused.
     const profilePolicy = (cfg.providers as { modelProfilePolicy?: Record<string, { allowCrossBilling?: unknown }> }).modelProfilePolicy ?? {};
     const toolsForTurn = (req: ChatRequest) => composeTools({ home: d.home, roots: options.tools?.roots ?? [{ id: req.agentId, path: d.agents.workspaceOf(req.agentId) ?? join(d.home, 'agents', req.agentId, 'workspace') }], grants, audit: d.audit, hostctl, ...(budget ? { budget } : {}), degraded: (service, error) => d.logger.warn('turn tool service degraded', { service, err: error }), ...options.tools, ...(media ? { media: { adapter: media.adapter, store: mediaSurface.storeFor(req.agentId, principal(req)) } } : {}), ...(options.tools?.mcp ? {} : mcp ? { mcp: { port: mcp, servers } } : {}) }, { ...req, principal: principal(req) });
-    let sessions: SessionService;
     // M2: isolated additive Session wiring; the existing turn/tool composition below is unchanged.
     const create = sessionRoleFactory(options.createTurnProvider ?? createTurnProvider, cfg);
     const maintenance = sessionMaintenance(d.home, cfg);
@@ -169,7 +171,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     sessions = openSessionService({ ...maintenance, dbPath: join(d.home, 'state', 'sessions.sqlite'), clock: d.clock, logger: d.logger, agents: d.agents, isStopping: d.isStopping, memory, provider: () => provider, notify: d.notify, signal: d.signal, onSessionEnd: id => { void hostctl.endSession(id).catch(err => d.logger.warn('hostctl session cleanup failed', { err })); }, ...(d.approver ? { approver: d.approver } : {}) });
     let closed = false;
     const opened = sessions;
-    return { discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, surfaceMethods: mediaSurface.methods, async close() {
+    return { discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, surfaceMethods: { ...mediaSurface.methods, ...mediaSearchMethods({ home: d.home, config: d.config, agents: d.agents }, mediaSearch) }, async close() {
       if (closed) return; closed = true;
       await opened.close();
       for (const close of disposers.reverse()) try { await close(); } catch (e) { d.logger.warn('turn service shutdown failed', { err: e }); }

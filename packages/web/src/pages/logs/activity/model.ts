@@ -122,3 +122,15 @@ export function logLink(e: Pick<ActivityEntry, "query" | "stream">): string {
 export function sentenceKey(e: Pick<ActivityEntry, "kind" | "outcome">): `activity.s.${string}` {
   return e.outcome === "none" ? `activity.s.${e.kind}` : `activity.s.${e.kind}.${e.outcome}`;
 }
+
+import { t, type Key } from "../../../i18n.ts";
+import { registerArea } from "../../../i18n/index.ts";
+import * as activityArea from "../../../i18n/activity.ts";
+
+registerArea("activity", activityArea);
+
+/** The entry as a sentence in the current language. A parameter the record lacks reads "unknown". */
+export function sentence(e: ActivityEntry): string {
+  const p = (v: string): string => (v === "" ? t("activity.unknown") : v);
+  return t(sentenceKey(e) as Key, { agent: p(e.params.agent), job: p(e.params.job), profile: p(e.params.profile), target: p(e.params.target) });
+}

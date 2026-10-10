@@ -9,28 +9,28 @@
 //    identical keys and placeholders in every area; both are checked by tests.
 //  - `Key` is the union of all keys of all areas, so `t("chat.send")` is checked by the compiler. An area's `de` should be
 //    typed `Record<keyof typeof en, string>` once it has keys, so a missing translation fails typecheck at the source.
-import * as activity from "./activity.ts";
-import * as agents from "./agents.ts";
+import type * as activity from "./activity.ts";
+import type * as agents from "./agents.ts";
 import type * as approvals from "./approvals.ts";
-import * as budget from "./budget.ts";
-import * as chat from "./chat.ts";
+import type * as budget from "./budget.ts";
+import type * as chat from "./chat.ts";
 import * as core from "./core.ts";
-import * as devices from "./devices.ts";
-import * as doctor from "./doctor.ts";
-import * as logs from "./logs.ts";
+import type * as devices from "./devices.ts";
+import type * as doctor from "./doctor.ts";
+import type * as logs from "./logs.ts";
 import * as memory from "./memory.ts";
 import * as mediasearch from "./mediasearch.ts";
 import * as models from "./models.ts";
 import * as palette from "./palette.ts";
 import type * as providers from "./providers.ts";
-import * as secrets from "./secrets.ts";
-import * as sessions from "./sessions.ts";
+import type * as secrets from "./secrets.ts";
+import type * as sessions from "./sessions.ts";
 import * as settings from "./settings.ts";
-import * as setup from "./setup.ts";
+import type * as setup from "./setup.ts";
 import * as surfaces from "./surfaces.ts";
 import type * as switchboard from "./switchboard.ts";
 import * as shared from "./shared.ts";
-import * as users from "./users.ts";
+import type * as users from "./users.ts";
 
 export type Area = { readonly name: string; readonly en: Readonly<Record<string, string>>; readonly de: Readonly<Record<string, string>> };
 
@@ -38,36 +38,55 @@ export type Area = { readonly name: string; readonly en: Readonly<Record<string,
 const EAGER_AREAS = [
   { name: "surfaces", en: surfaces.en, de: surfaces.de },
   { name: "core", en: core.en, de: core.de },
-  { name: "chat", en: chat.en, de: chat.de },
   { name: "memory", en: memory.en, de: memory.de },
   { name: "mediasearch", en: mediasearch.en, de: mediasearch.de },
   { name: "models", en: models.en, de: models.de },
-  { name: "budget", en: budget.en, de: budget.de },
-  { name: "doctor", en: doctor.en, de: doctor.de },
   { name: "palette", en: palette.en, de: palette.de },
   { name: "shared", en: shared.en, de: shared.de },
-  { name: "setup", en: setup.en, de: setup.de },
-  { name: "agents", en: agents.en, de: agents.de },
   { name: "settings", en: settings.en, de: settings.de },
-  { name: "users", en: users.en, de: users.de },
-  { name: "secrets", en: secrets.en, de: secrets.de },
-  { name: "devices", en: devices.en, de: devices.de },
-  { name: "logs", en: logs.en, de: logs.de },
-  { name: "activity", en: activity.en, de: activity.de },
-  { name: "sessions", en: sessions.en, de: sessions.de },
 ] as const satisfies readonly Area[];
 
 /** Areas that only one lazy page chunk uses. They are not part of the start-up closure: the chunk imports its own catalogue and
  *  calls `registerArea` as it loads (before it renders), which merges the texts into `en` / `de` and adds it to AREAS. Their keys
  *  are still part of `Key` through the type-only imports above. `LAZY_ORDER` is the canonical position in AREAS. */
-type LazyAreaName = "providers" | "switchboard" | "approvals";
+type LazyAreaName =
+  | "providers"
+  | "switchboard"
+  | "approvals"
+  | "chat"
+  | "budget"
+  | "doctor"
+  | "setup"
+  | "agents"
+  | "users"
+  | "secrets"
+  | "devices"
+  | "logs"
+  | "activity"
+  | "sessions";
+
 const LAZY_ORDER: readonly string[] = [
   "surfaces", "core", "chat", "memory", "mediasearch", "models", "budget", "doctor", "palette", "shared", "setup", "agents", "settings", "users",
   "providers", "secrets", "switchboard", "devices", "logs", "activity", "sessions", "approvals",
 ];
 
-
-type AreaEn = (typeof EAGER_AREAS)[number]["en"] | typeof providers.en | typeof switchboard.en | typeof approvals.en;
+type AreaEn =
+  | (typeof EAGER_AREAS)[number]["en"]
+  | typeof providers.en
+  | typeof switchboard.en
+  | typeof approvals.en
+  | typeof chat.en
+  | typeof memory.en
+  | typeof budget.en
+  | typeof doctor.en
+  | typeof setup.en
+  | typeof agents.en
+  | typeof users.en
+  | typeof secrets.en
+  | typeof devices.en
+  | typeof logs.en
+  | typeof activity.en
+  | typeof sessions.en;
 type Intersect<U> = (U extends unknown ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
 
 export type Key = keyof Intersect<AreaEn> & string;

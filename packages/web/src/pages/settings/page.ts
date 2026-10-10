@@ -10,6 +10,7 @@ import { lazySection } from "../common/lazy-section.ts";
 import type { PageProps } from "../registry.ts";
 
 export type SectionProps = { section: SectionDef; focus?: string };
+import "../../styles/settings.css";
 
 const ConfigSection = lazySection<SectionProps>(() => import("./sections/config.ts").then((m) => m.ConfigSection));
 const SecretsSection = lazySection<SectionProps>(() => import("./sections/secrets.ts").then((m) => m.SecretsSection));

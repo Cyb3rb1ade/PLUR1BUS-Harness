@@ -482,7 +482,10 @@ fn config_schema_tier_basic_filters() {
         .map(String::as_str)
         .collect();
     keys.sort();
-    assert_eq!(keys, ["agents", "embedding", "modelRoles", "providers"]);
+    assert_eq!(
+        keys,
+        ["agents", "embedding", "memory", "modelRoles", "providers"]
+    );
 
     // default (no --tier) is unfiltered and tagged "all"
     let out = bin()
