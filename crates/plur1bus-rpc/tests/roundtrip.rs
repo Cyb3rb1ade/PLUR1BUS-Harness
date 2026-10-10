@@ -957,6 +957,91 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::ApprovalVerifyParams,
                 types::ApprovalVerifyResult,
             >(name, fixture, &root_schema),
+            "project.column.list" => check_pair::<
+                types::ProjectColumnListParams,
+                types::ProjectColumnListResult,
+            >(name, fixture, &root_schema),
+            "project.column.create" => check_pair::<
+                types::ProjectColumnCreateParams,
+                types::BoardColumn,
+            >(name, fixture, &root_schema),
+            "project.column.update" => check_pair::<
+                types::ProjectColumnUpdateParams,
+                types::BoardColumn,
+            >(name, fixture, &root_schema),
+            "project.column.move" => {
+                check_pair::<types::ProjectColumnMoveParams, types::BoardColumn>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "project.column.delete" => check_pair::<
+                types::ProjectColumnDeleteParams,
+                types::ProjectColumnDeleteResult,
+            >(name, fixture, &root_schema),
+            "project.card.list" => check_pair::<
+                types::ProjectCardListParams,
+                types::ProjectCardListResult,
+            >(name, fixture, &root_schema),
+            "project.card.get" => check_pair::<types::ProjectCardGetParams, types::BoardCard>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "project.card.create" => {
+                check_pair::<types::ProjectCardCreateParams, types::BoardCard>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "project.card.update" => {
+                check_pair::<types::ProjectCardUpdateParams, types::BoardCard>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "project.card.move" => check_pair::<types::ProjectCardMoveParams, types::BoardCard>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "project.card.assign" => {
+                check_pair::<types::ProjectCardAssignParams, types::BoardCard>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "project.card.unassign" => check_pair::<
+                types::ProjectCardUnassignParams,
+                types::BoardCard,
+            >(name, fixture, &root_schema),
+            "project.card.archive" => {
+                check_pair::<types::ProjectCardArchiveParams, types::BoardCard>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "project.card.unarchive" => check_pair::<
+                types::ProjectCardUnarchiveParams,
+                types::BoardCard,
+            >(name, fixture, &root_schema),
+            "project.card.comment.add" => check_pair::<
+                types::ProjectCardCommentAddParams,
+                types::BoardComment,
+            >(name, fixture, &root_schema),
+            "project.card.comment.list" => check_pair::<
+                types::ProjectCardCommentListParams,
+                types::ProjectCardCommentListResult,
+            >(name, fixture, &root_schema),
+            "project.card.activity.list" => check_pair::<
+                types::ProjectCardActivityListParams,
+                types::ProjectCardActivityListResult,
+            >(name, fixture, &root_schema),
             other => panic!("method fixture {other} has no Rust type mapping"),
         }
     }

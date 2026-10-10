@@ -73,9 +73,20 @@ the transport process. Runtime and command failures use the CLI's normal JSON er
 ## API binding and sidecars
 
 The current core uses authenticated Unix RPC inside the container. The distribution
-publishes **no API port**. No host API defaults to `0.0.0.0`; runtime service validation
-rejects wildcard/public addresses. `compose.api.yaml` is a loopback-only example for a
-future installed HTTP listener; adding it cannot create an HTTP API in this core.
+publishes **no port by default**. `containers.apiPort` (1024-65535) publishes the harness API
+port (18700 in the container) on that host port, bound to `containers.bindAddress`
+(default `127.0.0.1`). Without `apiPort` the bind address has nothing to bind and nothing is
+published. The address reaches Docker as `PortBindings[].HostIp` and Apple Containers as
+`--publish ADDR:HOST:CONTAINER` (IPv6 in brackets).
+
+Accepted addresses are loopback, private LAN (RFC 1918), tailnet (100.64.0.0/10) and
+unique-local IPv6. Wildcard (`0.0.0.0`, `::`) and public addresses are refused by the
+config schema and again by service validation. A non-loopback address is allowed for a
+company network but is a decision: `install --container` prints a warning, asks for an
+explicit confirmation (`--non-interactive` accepts it after you reviewed
+`--container-plan`), and `container status` repeats the warning (`warnings`, `published`).
+The API stays behind authentication in every case and is never meant for the Internet.
+`compose.api.yaml` is a loopback-only example for a future installed HTTP listener.
 See [sidecars.md](sidecars.md) for bundled/remote/off selection.
 
 ## Signed host image updates

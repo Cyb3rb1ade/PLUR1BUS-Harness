@@ -32,7 +32,7 @@ Ein paar Regeln dabei:
 - Eine einzelne sehr große Nachricht, etwa eine lange Tool-Ausgabe, wird im Kontext gekürzt und mit einem Verweis
   versehen. Das Original bleibt im Verlauf.
 
-Die Zusammenfassung schreibt ein eigenes Modell, die Rolle `summarize`. Ist es nicht verfügbar oder überschreitet der
+Die Zusammenfassung schreibt ein eigenes Modell, die Rolle `summarize` (siehe unten). Ist es nicht verfügbar oder überschreitet der
 Aufruf das Budget, nimmt die Harness stattdessen eine einfache, deterministische Zusammenfassung ohne Modell. Dieser
 Weg braucht kein Modell.
 
@@ -54,6 +54,7 @@ Eine Sitzung zeigst du mit ihrer Kennung. Der Befehl gibt die letzten Nachrichte
 ```sh
 plur1bus session list
 plur1bus session show <id>
+plur1bus session show <id> --include-hidden
 ```
 
 Sitzung weiterführen:
@@ -68,8 +69,10 @@ Eine Sitzung archivierst du, ohne sie zu löschen:
 plur1bus session archive <id>
 ```
 
-Eine Ansicht, die dir zeigt, welche Tool-Ausgaben gerade ausgeblendet sind oder welche Zusammenfassungen gelten, gibt es in
-diesem Build nicht. Der Befehl `session show` zeigt nur die letzten Nachrichten.
+`session show` zeigt die letzten Nachrichten. Mit `--include-hidden` hängt er die ausgeblendeten Tool-Ausgaben an: je
+Ausgabe die Fundstelle (etwa `event:12`), den Werkzeugnamen, den Grund für das Ausblenden und den vollständigen
+Originaltext. Die Ausgaben bleiben dabei ausgeblendet, der Verlauf ändert sich nicht. Die Anzeige hat dieselben Rechte wie
+das Lesen der Sitzung selbst. Welche Zusammenfassungen gelten, zeigt der Befehl nicht.
 
 ## Einstellungen
 
@@ -105,10 +108,22 @@ Ein Beispiel für eine vorsichtigere Einstellung, die früher zusammenfasst:
 
 ### Das Modell für Zusammenfassungen
 
-Die Rolle `summarize` bestimmt, welches Modell Zusammenfassungen schreibt. Die Harness nimmt dafür ein Modellprofil namens
-`summarize` aus `modelProfiles`. Ein Profil mit diesem Namen legst du in `config.json` an, mit den Kandidaten, die du
-verwenden willst. Fehlt es, oder ist keiner seiner Kandidaten nutzbar, greift der deterministische Weg. Wie du Profile
-anlegst und anbindest, steht in [providers.md](providers.md).
+Die Rolle `summarize` bestimmt, welches Modell Zusammenfassungen schreibt. Du setzt sie unter `modelRoles` in
+`config.json`, entweder als Name eines Profils aus `modelProfiles` oder als `provider/modell`:
+
+```json
+{
+  "modelProfiles": {
+    "cheap": { "candidates": [{ "model": "openai/gpt-4.1-mini" }] }
+  },
+  "modelRoles": { "summarize": "cheap" }
+}
+```
+
+Nennst du ein `provider/modell`, das in einem Profil steht, versucht die Harness es zuerst und nimmt die übrigen
+Kandidaten dieses Profils als Ausweichmöglichkeit. Ohne `modelRoles.summarize` nimmt die Harness ein Profil namens
+`summarize`, falls es eines gibt. Fehlt beides, oder ist kein Kandidat nutzbar, greift der deterministische Weg. Wie du
+Profile anlegst und anbindest, steht in [providers.md](providers.md).
 
 Die Zusammenfassung darf keine Werkzeuge aufrufen und bekommt keine Gedächtnisinhalte mit. Sie sieht nur den Teil des
 Verlaufs, den sie zusammenfasst.

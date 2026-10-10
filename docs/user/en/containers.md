@@ -88,12 +88,18 @@ or networks.
 
 ## The harness API is not reachable from outside
 
-The container installation does not publish any port of the harness. The current core talks over an authenticated Unix
-connection inside the container. Access from outside is therefore not provided in this build.
+By default the container installation publishes no port of the harness. The current core talks over an authenticated
+Unix connection inside the container.
 
-The key `containers.bindAddress` exists for a later HTTP listener. It refuses the addresses `0.0.0.0` and `::`, so it
-only accepts loopback or private LAN addresses. Today the installation publishes no port, so this key has no effect
-towards the outside in this build.
+If you want a port on the host, set `containers.apiPort`. It is published on the address in `containers.bindAddress`,
+which is `127.0.0.1` by default, so only this computer can reach it. Without `apiPort` nothing is published, whatever
+`bindAddress` says. The API always stays behind authentication.
+
+`bindAddress` accepts loopback, private LAN, tailnet and unique-local addresses. `0.0.0.0`, `::` and public addresses are
+refused. If you pick another address than loopback, for example in a company network, everything that can reach that
+address can reach the port. The installation then prints a warning and asks you to confirm; with `--non-interactive` it
+only prints the warning, so read the plan first (`--container-plan`). `container status` shows the published ports
+(`published`) and repeats the warning (`warnings`).
 
 ## Sidecars
 
@@ -126,6 +132,13 @@ plur1bus install --container --image <digest-pinned-image> --sidecar valkey=valk
 Sidecars publish no port on the host. The installation creates a private configuration for the service, with a generated
 search secret, and mounts it read-only.
 
+SearXNG is the web search of your agents. With `bundled` the harness uses the sidecar over its private address on the
+container network, with `remote` it uses the host from `sidecars.searxng.url` (for example a Tailscale address and port),
+with `off` the agents have no web search and the tool answers that search is not set up. Search queries go only to this
+SearXNG. After you switch a bundled SearXNG on for an existing installation, run `container down` and `container up`
+once so the harness container learns the address. `plur1bus` status shows under `webSearch` whether the sidecar answered
+the last search.
+
 For HTTPS services you can set a CA bundle (`caBundle`) and a fingerprint (`fingerprint`, the SHA-256 of the certificate).
 The fingerprint checks only the installation's health check. When the harness itself talks to the service, it must apply
 the same trust rule. The health check uses no proxy and follows no redirects.
@@ -139,7 +152,8 @@ The container settings live in `config.json`. The keys with their defaults:
 | `containers.runtime` | `auto` | `auto`, `apple` or `docker` |
 | `containers.image` | empty | Image reference; use a digest in production |
 | `containers.stateVolume` | `plur1bus-state` | Name of the state volume |
-| `containers.bindAddress` | `127.0.0.1` | Bind address for a later HTTP listener, see above |
+| `containers.bindAddress` | `127.0.0.1` | Address a published port is bound to, see above |
+| `containers.apiPort` | empty | Host port for the harness API; empty publishes nothing |
 | `containers.healthTimeoutMs` | `120000` | Time a service has to pass its health gate |
 | `sidecars.<id>.mode` | `off` | `bundled`, `remote` or `off` |
 | `sidecars.<id>.url` | empty | Required for `remote`, without credentials |

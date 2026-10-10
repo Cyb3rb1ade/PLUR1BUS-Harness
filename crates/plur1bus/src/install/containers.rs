@@ -15,7 +15,7 @@ fn confirm(out: &Out, non_interactive: bool, question: &str) {
         host::fail(
             out,
             "confirmation-required",
-            "use --non-interactive after reviewing --container-plan",
+            &format!("{question} Use --non-interactive after reviewing --container-plan."),
         );
     }
     print!("{question} [y/N] ");
@@ -78,6 +78,14 @@ pub(crate) fn services(
     }
     if let Some(v) = cfg["containers"]["bindAddress"].as_str() {
         harness.bind = v.parse().map_err(|_| "invalid bind address")?;
+    }
+    // The bind address only has something to bind once a host port is published. The API stays behind authentication.
+    if let Some(v) = cfg["containers"].get("apiPort") {
+        let port = v
+            .as_u64()
+            .filter(|p| (1024..=65535).contains(p))
+            .ok_or("containers.apiPort must be an integer from 1024 to 65535")?;
+        harness.publish = Some(port as u16);
     }
     harness.validate()?;
     let mut all = vec![];
@@ -169,6 +177,7 @@ pub(crate) fn services(
         all.push(s);
     }
     all.push(harness);
+    host::wire_searxng(&mut all, configs.get("searxng"))?;
     Ok((all, configs))
 }
 fn write_settings(layout: &Layout) -> Result<()> {
@@ -301,15 +310,27 @@ pub fn run(
             opts.sidecars.push(format!("searxng={value}"));
         }
         let (services, sidecars) = services(layout, image, &cfg, &opts.sidecars)?;
+        let (published, warnings) = host::exposure(&services);
+        for w in &warnings {
+            eprintln!("warning: {w}");
+        }
         if opts.plan {
             return Ok(
-                json!({"plan":plan,"detections":detected,"services":services,"sidecars":sidecars}),
+                json!({"plan":plan,"detections":detected,"services":services,"sidecars":sidecars,"published":published,"warnings":warnings}),
             );
         }
         if !out.json {
             println!(
                 "{}",
                 serde_json::to_string_pretty(&plan).map_err(|e| e.to_string())?
+            );
+        }
+        if !warnings.is_empty() {
+            // A port on a non-loopback address is a decision, not a default: it gets its own question.
+            confirm(
+                out,
+                non_interactive,
+                &format!("{} Publish it anyway?", warnings.join(" ")),
             );
         }
         confirm(
@@ -411,7 +432,7 @@ pub fn run(
             crate::update::guard::record_seen(layout, channel, &state.version)?;
         }
         Ok(
-            json!({"installed":true,"runtime":selected,"services":state.services,"sidecars":host::sidecar_endpoints(&state)?}),
+            json!({"installed":true,"runtime":selected,"services":state.services,"sidecars":host::sidecar_endpoints(&state)?,"published":published,"warnings":warnings}),
         )
     })();
     match result {

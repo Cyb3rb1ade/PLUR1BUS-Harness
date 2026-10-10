@@ -5,7 +5,7 @@ import { DEFAULT_EMBEDDING, DEFAULT_RERANK, choiceById } from "./licences.ts";
 import { CAPTION_CHOICES, CAPTION_SOURCES, mediaSetupChanges, mediaSetupDefaults, validateMedia, type CaptionChoice, type MediaSetup } from "../media-search/model.ts";
 import { ALL_MODALITIES } from "../media-search/model.ts";
 import type { VoiceProfileName } from "../../api/voice.types.ts";
-import type { CaptionSourceSetting, MediaBackfillSetting, MediaModality } from "../../api/media-search.types.ts";
+import type { CaptionSourceSetting, MediaBackfillSetting, MediaModality } from "../media-search/contract.ts";
 
 export type StepId = "account" | "persona" | "model" | "switchboard" | "memory" | "voice" | "backup" | "import";
 export type Status = "done" | "skipped";

@@ -1,0 +1,12 @@
+{
+  "jsonrpc": "2.0",
+  "id": 22,
+  "error": {
+    "code": -32000,
+    "message": "project WIP limit exceeded",
+    "data": {
+      "error": "E_PROJECT_WIP_LIMIT",
+      "reason": "project-board-wip"
+    }
+  }
+}

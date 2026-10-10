@@ -23,7 +23,7 @@ that maps an error to an exit code.
 
 ## Error codes
 
-The first twenty-one codes are the closed set of the RPC schema ([rpc.md](rpc.md#error-codes)); the CLI reports the code
+The RPC codes below are the closed set of the RPC schema ([rpc.md](rpc.md#error-codes)); the CLI reports the code
 the core sent. The last two are raised by the CLI itself.
 
 | Code | Exit | Meaning |
@@ -42,6 +42,7 @@ the core sent. The last two are raised by the CLI itself.
 | `E_DENIED` | 1 | Policy or permissions refuse the operation. |
 | `E_APPROVAL_REQUIRED` | 2 | The operation waits for an approval or an acknowledgement (`reason` says which). A script must not treat it as success. |
 | `E_CONFLICT` | 1 | The operation conflicts with the current state (name taken, concurrent change). |
+| `E_PROJECT_WIP_LIMIT` | 1 | The active-card count would exceed the target column WIP limit. The whole board mutation rolls back; a human with project manage may explicitly request `overrideWip`. |
 | `E_STORAGE` | 1 | A storage operation failed; `ids` may carry the ids needed to recover a half-finished step. |
 | `E_MEDIA_CAPABILITY` | 1 | The media index's provider or model cannot handle the modality (for example OpenAI embeddings in the media index). |
 | `E_MEDIA_LICENSE` | 1 | The licence of the media model has not been confirmed (for example a non-commercial licence). |
@@ -71,7 +72,7 @@ the core sent. The last two are raised by the CLI itself.
 
 | `reason` | Code | Exit | Meaning |
 |---|---|---|---|
-| `secret-value` | `E_INVALID_PARAMS` | 2 | A value that looks like a credential was given for a `*Secret` key (or a recognisable token for any key). It is not echoed, stored or logged; treat what was typed as exposed and rotate it. Store secrets with `plur1bus secret set <name>` and pass the name. |
+| `secret-value` | `E_INVALID_PARAMS` | 2 | A `*Secret` key was given something other than a secret name: a value that looks like a credential, or any text outside the name format (`[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}`). The CLI refuses it before the core is called, so nothing is sent; the core refuses it too and stores nothing. A value is never echoed, stored or logged. A credential-shaped value is to be treated as exposed: rotate it. Store secrets with `plur1bus secret set <name>` and pass the name. |
 | `invalid-id`, `invalid-key`, `unknown-key`, `value-required`, `invalid-params` | `E_INVALID_PARAMS` | 1 | Usage: the id or key is not well formed, the key does not exist for that channel, or the value is missing. Nothing was written. |
 | `invalid-value` | `E_INVALID_PARAMS` | 1 | The value does not validate against the config schema; `detail` names the schema complaint (never the value). Nothing was written. |
 | `unknown-channel` | `E_NOT_FOUND` | 1 | No such channel in the config schema or the registry. |

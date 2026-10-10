@@ -34,6 +34,7 @@ import { callerToPrincipal } from "./principal.ts";
 import { startJournalReplay, type JournalReplay } from "./replay.ts";
 import { RpcError } from "./rpc/errors.ts";
 import { buildMethods } from "./rpc/methods.ts";
+import { buildProjectBoardSurface, deliverBoardChange } from "./rpc/project-board-surface.ts";
 import { buildCollabSurface } from "./rpc/collab-surface.ts";
 import { buildIdentitySurface } from "./rpc/identity-surface.ts";
 import { AdminStore } from "./identity/admin-store.ts";
@@ -62,6 +63,7 @@ import { sharedMemoryStatus } from "./shared-memory.ts";
 import { projectModels, startWarmup, type Warmup } from "./warmup.ts";
 import path from "node:path";
 import { createEgress } from "./egress/index.ts";
+import { createSearxngWebSearch, type SearxngWebSearch } from "./sidecars/web-search.ts";
 import { createBudgetService, PriceBook, SHIPPED_PRICE_TABLES, type BudgetService } from "./budget/index.ts";
 import { createCoreSecretStore } from "./secrets/runtime.ts";
 import { createCatalogStore, type CatalogStore } from "./discovery/catalog-store.ts";
@@ -221,6 +223,7 @@ export function createCore(o: CoreOptions): Core {
   let budget: BudgetService | null = null;
   let auditChain: AuditChain | null = null;
   let replay: JournalReplay | null = null;
+  let webSearch: SearxngWebSearch | null = null;
   let metricsHttp: MetricsServer | null = null;
   let sessions: SessionService | null = null;
   let turnComposition: TurnComposition | null = null;
@@ -291,6 +294,7 @@ export function createCore(o: CoreOptions): Core {
       journalBacklog: es?.journal ? es.journal.entries : journalBacklog,
       ...(replay ? { journalReplay: replay.status() } : {}),
       ...(jobs ? { jobs } : {}),
+      ...(webSearch ? { webSearch: webSearch.status() } : {}),
       ...(source ? { config: { revision: source.revision(), source: source.source, restartPending: source.restartPending() } } : {}),
       deprecationsUsed: server?.deprecationsUsed() ?? [],
     };
@@ -329,6 +333,12 @@ export function createCore(o: CoreOptions): Core {
     platform.securePath(l.systemJobs, { mode: 0o700 });
     // M2: the secret store. Nothing is probed or opened here (the keychain is first touched by a `secret.*` call).
     const egress = createEgress({ config: () => cs.current().egress, now: clock, ...(o.discovery?.resolver ? { resolver: o.discovery.resolver } : {}) });
+    // web.search over the SearXNG sidecar. The destination is configuration (sidecars.searxng) or the address the container layer
+    // injected; the trace carries lengths, counts and failure codes, never a query.
+    webSearch = createSearxngWebSearch({
+      config: () => cs.current().sidecars, env: process.env, now: clock, ...(o.discovery?.resolver ? { resolver: o.discovery.resolver } : {}),
+      trace: (e) => log.debug("web.search", { provider: e.provider ?? "searxng", queryChars: e.queryChars, results: e.results ?? 0, ms: e.ms, ...(e.error ? { error: e.error } : {}) }),
+    });
     const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath, fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: log });
     orphans = createOrphanWatch({
       graceMs: config.supervisor.graceMs, clock,
@@ -541,7 +551,7 @@ export function createCore(o: CoreOptions): Core {
       });
       const perms = permissions;
       try { turnComposition = await openTurnComposition({ home: l.home, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
-        secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal,
+        secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
         // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or
         // grant-covered turns) and is refused with a typed error only when a call needs a person's approval.
         approver: async (ctx, params) => { const principal = await resolvePrincipal(ctx, "session.submit", params); return { person: principal && principal.kind === "person" ? principal.userId : null, surface: connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }; },
@@ -630,6 +640,7 @@ export function createCore(o: CoreOptions): Core {
         }),
         ...(sessions?.methods ?? {}),
         ...(turnComposition?.surfaceMethods ?? {}),
+        ...buildProjectBoardSurface(() => turnComposition?.collab ?? null, event => { void deliverBoardChange(event, () => turnComposition?.collab ?? null, { subscriptions: () => server?.subscriptions() ?? [], resolve: async connectionId => resolvePrincipal({ requestId: "board-event", connectionId, signal: shutdown.signal }, "project.card.list", {}), notify: (m, p, opts) => { if (!shutdown.signal.aborted) server?.notify(m, p, opts); } }).catch(() => { log.debug("project board event withheld"); }); }),
         ...buildCollabSurface(() => turnComposition?.collab ?? null, id => registry.has(id)),
         ...buildIdentitySurface(() => identity),
         ...(await import("./rpc/device-surface.ts")).createDeviceSurface({ state: l.state, clock, audit: rbacAudit, securePath: p => platform.securePath(p) }),

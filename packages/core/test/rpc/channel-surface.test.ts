@@ -238,6 +238,22 @@ test("set: a *Secret key takes a name; credential-shaped values are refused with
   assert.equal((await s.call("channel.set", { id: "slack", key: "botTokenSecret", text: "later.name" })).secret.present, false);
 });
 
+test("set: a *Secret key takes only a name in the schema's format; other text is refused before any write and never echoed", async () => {
+  const s = setup({ stored: ["my.discord.token"] });
+  // The config schema's `pattern` on every *Secret key is the name rule. A space is outside it and passes the credential
+  // heuristic, so the schema is what refuses it here.
+  const text = "not a name";
+  for (const [id, key] of [["discord", "tokenSecret"], ["email", "imap.passwordSecret"]] as const) {
+    const e = await s.refusal("channel.set", { id, key, text });
+    assert.equal(e.reason, "invalid-value");
+    assert.equal(JSON.stringify(e).includes(text), false);
+  }
+  assert.equal(s.sets.length, 0);
+  assert.equal(JSON.stringify(s.audit).includes(text), false);
+  // Empty text is refused by the same schema rule.
+  assert.equal((await s.refusal("channel.set", { id: "discord", key: "tokenSecret", text: "" })).reason, "invalid-value");
+});
+
 test("secret heuristics", () => {
   for (const v of [TOKEN, "sk-" + "a".repeat(20), "ghp_" + "b".repeat(30), "eyJ" + "c".repeat(30), "123456789:" + "D".repeat(30)]) assert.ok(looksLikeToken(v), v);
   for (const v of ["channels.discord.token", "channels.slack.bot-token", "my/secret", "x"]) assert.equal(looksLikeSecretValue(v), false, v);

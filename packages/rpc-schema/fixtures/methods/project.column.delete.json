@@ -1,0 +1,9 @@
+{
+  "params": {
+    "projectId": "prj1",
+    "columnId": "col1"
+  },
+  "result": {
+    "deleted": true
+  }
+}

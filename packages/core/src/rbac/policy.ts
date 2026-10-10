@@ -25,6 +25,11 @@ const catalogue = (area: string): ActionSpec[] => [
 ];
 
 export const POLICY: readonly ActionSpec[] = Object.freeze([
+  spec("project.board.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A }),
+  spec("project.board.move", "system", { owner: A, admin: A, operator: A, member: A }),
+  spec("project.board.comment", "system", { owner: A, admin: A, operator: A, member: A }),
+  humanOnly(spec("project.board.write", "system", { owner: A, admin: A, operator: A, member: A })),
+  humanOnly(spec("project.board.manage", "system", { owner: A, admin: A, operator: A, member: A })),
   // Memory — scopes follow ADR-007 "Privacy": `user` only for the owning user (others by break-glass, read only),
   // `agent-private` only with `manage` on that agent, the workspace scope with at least `use`.
   spec("memory.user.read", "memory-user", { owner: OB, admin: OB, operator: O, member: O, viewer: O }),

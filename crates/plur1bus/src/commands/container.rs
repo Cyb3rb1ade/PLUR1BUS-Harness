@@ -90,8 +90,74 @@ pub(crate) fn detections() -> Vec<Detection> {
 pub(crate) fn fail(out: &Out, reason: &str, message: &str) -> ! {
     out.fail("E_NOT_AVAILABLE", message, json!({"reason":reason}), 1)
 }
+/// Name of the one service that carries the harness core; the search wiring below lands on it.
+const HARNESS: &str = "plur1bus-harness";
+/// What the core reads (`packages/core/src/sidecars/web-search.ts`): the sidecar's URL and whether it is bundled or remote.
+const SEARXNG_URL_ENV: &str = "PLUR1BUS_SEARXNG_URL";
+const SEARXNG_MODE_ENV: &str = "PLUR1BUS_SEARXNG_MODE";
+
+/// Hands the selected SearXNG to the harness so `web.search` can use it. Idempotent, so an install record written
+/// before this wiring existed gets it on its next `container up` without a reinstall.
+///
+/// * bundled: a `Connection`, which the stack resolves to the sidecar's private address once the sidecar is healthy
+///   (the same mechanism SearXNG uses for Valkey), plus the mode;
+/// * remote: the configured URL as it is (a remote sidecar is not on the container network, so no private-IP rule applies);
+/// * off or absent: nothing.
+pub(crate) fn wire_searxng(
+    services: &mut [Service],
+    searxng: Option<&SidecarConfig>,
+) -> Result<()> {
+    let bundled_port = services
+        .iter()
+        .find(|s| s.name == "plur1bus-searxng")
+        .map(|s| s.port);
+    let Some(harness) = services.iter_mut().find(|s| s.name == HARNESS) else {
+        return Ok(());
+    };
+    harness.env.retain(|e| {
+        !e.starts_with(&format!("{SEARXNG_URL_ENV}="))
+            && !e.starts_with(&format!("{SEARXNG_MODE_ENV}="))
+    });
+    harness.connections.retain(|c| c.env != SEARXNG_URL_ENV);
+    let Some(config) = searxng else {
+        return Ok(());
+    };
+    match config.mode {
+        SidecarMode::Off => {}
+        SidecarMode::Bundled => {
+            let port = bundled_port.ok_or("bundled SearXNG service missing")?;
+            harness.env.push(format!("{SEARXNG_MODE_ENV}=bundled"));
+            harness.connections.push(Connection {
+                env: SEARXNG_URL_ENV.into(),
+                service: "plur1bus-searxng".into(),
+                scheme: "http".into(),
+                port,
+                path: String::new(),
+            });
+        }
+        SidecarMode::Remote => {
+            let url = resolve_endpoint("searxng", config, None)?
+                .ok_or("remote SearXNG endpoint absent")?;
+            harness.env.push(format!("{SEARXNG_MODE_ENV}=remote"));
+            harness.env.push(format!("{SEARXNG_URL_ENV}={url}"));
+        }
+    }
+    Ok(())
+}
+
+/// What the stack publishes on the host and the warnings that go with it. Shared by install and `container status`.
+pub(crate) fn exposure(services: &[Service]) -> (Vec<PublishedPort>, Vec<String>) {
+    (
+        services.iter().flat_map(published_ports).collect(),
+        bind_warnings(services),
+    )
+}
+
 pub(crate) fn manager<'a>(r: &'a dyn ContainerRuntime, state: &HostInstall) -> StackManager<'a> {
-    let mut m = StackManager::new(r, state.services.clone());
+    let mut services = state.services.clone();
+    // A record that no longer wires cleanly is left as it is: the stack then fails on its own validation, not here.
+    let _ = wire_searxng(&mut services, state.sidecars.get("searxng"));
+    let mut m = StackManager::new(r, services);
     m.health_timeout = Duration::from_millis(state.health_timeout_ms);
     m
 }
@@ -190,9 +256,15 @@ pub fn run(out: &Out, layout: &Layout, sub: ContainerCmd) {
         }
         let stack = manager(r.as_ref(), &state);
         match sub {
-            ContainerCmd::Status => Ok(
-                json!({"installed":true,"runtime":r.detect(),"services":stack.status()?,"sidecars":sidecar_endpoints(&state)?,"recoveryPending":state.pending}),
-            ),
+            ContainerCmd::Status => {
+                let (published, warnings) = exposure(&state.services);
+                for w in &warnings {
+                    eprintln!("warning: {w}");
+                }
+                Ok(
+                    json!({"installed":true,"runtime":r.detect(),"services":stack.status()?,"sidecars":sidecar_endpoints(&state)?,"published":published,"warnings":warnings,"recoveryPending":state.pending}),
+                )
+            }
             ContainerCmd::Up => {
                 check_remote(&state)?;
                 stack.up()?;

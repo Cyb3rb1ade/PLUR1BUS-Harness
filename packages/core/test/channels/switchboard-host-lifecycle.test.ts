@@ -115,14 +115,26 @@ test("a config change that leaves a channel's values equal restarts nothing", as
   rig.close();
 });
 
-test("stop() then start() on the same host runs the channel again, with no registration error logged", { todo: "KNOWN GAP: a host restart re-registers its own channels and logs switchboard.register.failed (\"already registered\")" }, async () => {
+test("stop() then start() on the same host runs the channel again, with no registration error logged", async () => {
   const rig = await running();
-  await rig.switchboard.stop();
-  assert.equal(rig.switchboard.view.status("discord")?.state, "stopped");
-  await rig.switchboard.start();
+  for (let i = 0; i < 3; i++) {
+    const first = rig.adapter();
+    await rig.switchboard.stop();
+    assert.equal(first.stops, 1);
+    assert.equal(rig.switchboard.view.status("discord")?.state, "stopped");
+    assert.equal(rig.config.listeners(), 0);
+    await rig.switchboard.start();
+    await rig.switchboard.idle();
+    await rig.clock.advance(0);
+    assert.equal(rig.switchboard.view.status("discord")?.state, "running");
+    assert.notEqual(rig.adapter(), first);
+    assert.equal(rig.adapter().starts, 1);
+    assert.equal(rig.config.listeners(), 1);
+    assert.equal(rig.switchboard.view.list().length, 1);
+    assert.equal(rig.logs.some((l) => l.msg === "switchboard.register.failed"), false, "a restarted host must not report its own channels as a failed registration");
+  }
+  rig.config.set("discord", { enabled: false });
   await rig.switchboard.idle();
-  await rig.clock.advance(0);
-  assert.equal(rig.switchboard.view.status("discord")?.state, "running");
-  assert.equal(rig.logs.some((l) => l.msg === "switchboard.register.failed"), false, "a restarted host must not report its own channels as a failed registration");
+  assert.equal(rig.switchboard.view.status("discord")?.state, "stopped");
   rig.close();
 });

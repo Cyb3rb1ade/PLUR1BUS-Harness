@@ -102,7 +102,7 @@ The full key list and defaults are generated in [config.md](config.md).
 | `plur1bus channel status` | All channels, compact. |
 | `plur1bus channel link-help <id>` | How `/link` pairing works on that channel (the channel manifest's optional `linkHelp`, else the generic steps). |
 
-Secrets: a `*Secret` key takes the **name** of a secret. Store the value with `plur1bus secret set <name>` (read from stdin), then `plur1bus channel set <id> tokenSecret <name>`. A value that looks like a credential is refused (`reason: secret-value`) without being echoed, stored or logged; treat anything you typed as exposed and rotate it.
+Secrets: a `*Secret` key takes the **name** of a secret. Store the value with `plur1bus secret set <name>` (read from stdin), then `plur1bus channel set <id> tokenSecret <name>`. The CLI checks the name before it calls the core: text outside the name format, or a value that looks like a credential, is refused (`reason: secret-value`, exit 2) and nothing is sent. The core applies the same rule. A value is never echoed, stored or logged; treat a credential you typed as exposed and rotate it.
 
 Limits: the write commands need a running core under a supervisor (`reason: config-not-writable` otherwise). Runtime state and health come from the switchboard registry (below). `--send-owner` needs the channel to be running and your identity linked; it sends to the chat the channel itself names for you (`resolveOwnerTarget`): the DM chat in Telegram, the DM channel Discord opens for you, the IM Slack opens, your direct Matrix room (or a new one you are invited to), your address (e-mail) or your number (Signal). A channel without that method gets the linked user id as the chat id.
 

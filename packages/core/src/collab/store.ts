@@ -1,3 +1,4 @@
+import { ProjectBoardStore } from "./board.ts";
 import { chmodSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { DEFAULT_COLLAB_SETTINGS } from "./defaults.ts";
@@ -35,6 +36,7 @@ function num(v: unknown, d: number): number {
 }
 
 export class CollabStore {
+  readonly board: ProjectBoardStore;
   readonly #db: DatabaseSync;
   readonly #clock: () => number;
   readonly #newId: (prefix: string) => string;
@@ -47,6 +49,7 @@ export class CollabStore {
       this.#db.exec("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");
       if (o.path !== ":memory:") this.#db.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;");
       migrate(this.#db);
+      this.board = new ProjectBoardStore(this.#db, id => this.getProject(id), () => this.now(), prefix => this.id(prefix));
     } catch (e) { this.#db.close(); throw e; }
     if (o.path !== ":memory:" && process.platform !== "win32") { try { chmodSync(o.path, 0o600); } catch { /* best effort */ } }
   }
