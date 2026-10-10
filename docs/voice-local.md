@@ -7,7 +7,7 @@
 | Language | Tier | ASR | TTS |
 |---|---|---|---|
 | de | fast | Kroko-ASR streaming | Piper Thorsten (low) |
-| de | quality | Parakeet TDT 0.6B v3 (int8) | Martin voice (owner choice) |
+| de | quality | Parakeet TDT 0.6B v3 (int8) | Martin voice (owner choice), fallback Piper Thorsten (low) |
 | en | fast | Streaming Zipformer | Piper Lessac (low) |
 | en | quality | Parakeet TDT-CTC 110M | Pocket TTS (not runnable yet), fallback Kokoro multilingual |
 
@@ -15,7 +15,7 @@ VAD is Silero (MIT). Fast uses a streaming recogniser and a small voice for low 
 
 ### Language API
 
-`LocalVoice` offers `listLanguages()`, `getLanguage(code)`, `setLanguage(code, { profile, acceptLicences })`, `useForAgent(agentId, ...)`, `resolveFor(agentId)`, `capability()`, `warm()`, `vad()`, `unload()`. Per-agent overrides come from `voice.local.perAgent`. An empty `voice.local.language` means the system language when the catalog has it, otherwise the first catalog language.
+`LocalVoice` offers `listLanguages()`, `getLanguage(code)`, `setLanguage(code, { profile, acceptLicences })`, `useForAgent(agentId, ...)`, `resolveFor(agentId)`, `capability()`, `warm()`, `vad()`, `unload()` and `dispose()`. `dispose()` is the public lifecycle method for retiring resident models; it is idempotent and active calls or streams retain their models until their leases end. Per-agent overrides come from `voice.local.perAgent`. An empty `voice.local.language` means the system language when the catalog has it, otherwise the first catalog language.
 
 ### Adding a language is data
 
@@ -27,7 +27,7 @@ Models are downloaded on demand into `voice.local.modelsDir` (default under the 
 
 ### Licences
 
-Each model carries a licence record. A model whose licence is non-commercial or `unconfirmed` is used only after the owner confirmed it **for that model and licence id**: `voice.local.acceptedLicences` maps `<model id>@<licence id>` to the date-time of the confirmation, and a call can pass `acceptLicences: [key]`. A model that a catalog update adds, or whose licence id changes, needs a new confirmation. `LocalVoice.pendingLicences(code)` returns the keys still open with the notice to show. `voice.local.catalogOverride` cannot change the `licence` of a built-in model id (it can add new models, which carry and are gated by their own licence). The former global switch `acceptNcLicence` is gone. Without confirmation the call fails with `licence_required` and names the key.
+Each model carries a licence record. A model whose licence is non-commercial or `unconfirmed` is used only after the owner confirmed it **for that model and licence id**: `voice.local.acceptedLicences` maps `<model id>@<licence id>` to the date-time of the confirmation, and a call can pass `acceptLicences: [key]`. A model that a catalog update adds, or whose licence id changes, needs a new confirmation. `LocalVoice.pendingLicences(code)` returns the keys still open with the notice to show. `voice.local.catalogOverride` cannot change the `licence` of a built-in model id (it can add new models, which carry and are gated by their own licence). The former global switch `acceptNcLicence` is gone. Without confirmation the call fails with `licence_required` and names the key. When a TTS tier has a declared fallback, it is selected if the preferred voice is unavailable or needs an unaccepted licence.
 
 Licences as recorded in the catalog (from the model cards and the packages):
 
@@ -47,7 +47,7 @@ Pinned packages (url, size, sha256) are in `src/local/catalog.json`; each was ch
 
 ### Model lifetime
 
-Loaded models are reference counted: every ASR/TTS call, stream and session holds the models it uses. A language switch or `unload()` retires the old models and frees them once the last holder is done, so a running stream is never cut off. `vad()` returns the resident detector without a hold: fetch it again after a language switch. The sherpa engine calls the binding's `free`/`delete` where it has one (names to verify against the pinned binding).
+Loaded models are reference counted: every ASR/TTS call, stream and session holds the models it uses. A language switch, `unload()` or `dispose()` retires the old models and frees them once the last holder is done, so a running stream is never cut off. `vad()` returns the resident detector without a hold: fetch it again after a language switch. The sherpa engine calls the binding's `free`/`delete` where it has one (names to verify against the pinned binding).
 
 ## Local real-time profile
 

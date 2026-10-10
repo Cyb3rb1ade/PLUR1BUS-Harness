@@ -54,7 +54,7 @@ export interface SenderRef { channel: string; accountId?: string; senderId: stri
 export interface ChatKey { channel: string; chatId: string }
 
 export type IdentityResolution = { linked: true; userId: string } | { linked: false };
-export type PairingResult = { ok: true; userId: string } | { ok: false };
+export type PairingResult = { ok: true; userId: string; pairingId: string } | { ok: false };
 
 /** The pairing hook onto the identity layer (ADR-007). Unlinked channel identities stay unlinked (fail closed). */
 export interface IdentityPort {

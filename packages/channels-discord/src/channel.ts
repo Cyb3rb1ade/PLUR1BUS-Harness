@@ -661,9 +661,8 @@ export class DiscordChannel implements Channel {
     if (!this.#pairing || !this.#botId || !code || code.length > 128) return this.#msgs.pairFail;
     try {
       // The identity port is synchronous today; a promise-returning port is awaited so the 3 s deferral still applies.
-      const out: unknown = this.#o.pairing!.claim({ code, identity: { channel: "discord", accountId: this.#botId, userId: sender } });
-      if (out && typeof (out as PromiseLike<unknown>).then === "function") await out;
-      return this.#msgs.pairOk;
+      const out = await this.#o.pairing!.claim({ code, identity: { channel: "discord", accountId: this.#botId, userId: sender } });
+      return this.#msgs.pairOk(out.pairingId);
     } catch {
       return this.#msgs.pairFail;
     }

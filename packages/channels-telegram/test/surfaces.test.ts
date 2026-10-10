@@ -82,7 +82,9 @@ test("Telegram /link consumes code with authenticated bot/sender, rate limits, c
       "123456789",
     );
     assert.equal(service.list({}).pairings[0]!.claimedBy?.userId, "42");
-    assert.match(replies[0]!, /Confirm/);
+    assert.match(replies[0]!, new RegExp(`Pairing ID: ${pair.pairingId}`));
+    assert.match(replies[0]!, new RegExp(`plur1bus identity approve ${pair.pairingId}`));
+    assert.ok(!replies[0]!.includes(pair.code), "the pairing code is not echoed");
     service.confirm({ pairingId: pair.pairingId, approve: true }, actor);
     assert.equal(
       service.resolvePrincipals(deriveUserPrincipal(human.id)).length,

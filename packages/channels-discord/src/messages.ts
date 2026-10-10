@@ -1,6 +1,6 @@
 export type Locale = "en" | "de";
 export interface Messages {
-  pairOk: string;
+  pairOk(pairingId: string): string;
   pairFail: string;
   statusOnline: string;
   statusDegraded: string;
@@ -15,7 +15,7 @@ export interface Messages {
 }
 export const MESSAGES: Record<Locale, Messages> = {
   en: {
-    pairOk: "Pairing claimed. Confirm this link in My identities.",
+    pairOk: (pairingId) => `Pairing claimed. Pairing ID: ${pairingId}. Confirm this link in My identities. Run: plur1bus identity approve ${pairingId}`,
     pairFail: "Pairing failed. Request a new code in My identities.",
     statusOnline: "Online: gateway connected.",
     statusDegraded: "Degraded: the gateway connection is being re-established.",
@@ -29,7 +29,7 @@ export const MESSAGES: Record<Locale, Messages> = {
     cmdStatus: "Show the bot status",
   },
   de: {
-    pairOk: "Kopplung angenommen. Bestätige diese Verknüpfung unter Meine Identitäten.",
+    pairOk: (pairingId) => `Kopplung angenommen. ID: ${pairingId}. Bestätige diese Verknüpfung unter Meine Identitäten. Freigabe: plur1bus identity approve ${pairingId}`,
     pairFail: "Kopplung fehlgeschlagen. Fordere unter Meine Identitäten einen neuen Code an.",
     statusOnline: "Online: Gateway verbunden.",
     statusDegraded: "Eingeschränkt: Die Gateway-Verbindung wird neu aufgebaut.",

@@ -125,6 +125,24 @@ test("a tier whose engine the runtime lacks falls back to the declared TTS fallb
   } finally { await r.done(); }
 });
 
+test("German quality TTS uses the declared fallback when the preferred voice is unlicensed", async () => {
+  const r = await rig();
+  try {
+    const override = testCatalogOverride(r.vendor.httpUrl, testFiles());
+    const languages = override.languages as Record<string, { tts: { fallback?: string } }>;
+    languages.de!.tts.fallback = "t-tts-de";
+    const voice = new LocalVoice({
+      config: { catalogOverride: override },
+      modelsDir: r.dir,
+      engine: r.engine,
+      fetch: async (input, init) => fetch(new URL(String(input), r.vendor.httpUrl), init),
+    });
+    const st = await voice.setLanguage("de", { profile: "quality", download: true });
+    assert.equal(st.tts.id, "t-tts-de");
+    assert.equal(st.usedTtsFallback, true);
+  } finally { await r.done(); }
+});
+
 test("switching language loads the new models first, then unloads the old ones; a failing load keeps the old setup", async () => {
   const r = await rig();
   try {
@@ -329,6 +347,22 @@ test("F11: an open ASR session holds the old models until close(); unload() whil
     assert.deepEqual(disposed(r), ["dispose:t-stt-en", "dispose:t-tts-en", "dispose:t-vad"]);
     r.voice.unload();
     assert.equal(disposed(r).length, 3, "no double dispose");
+  } finally { await r.done(); }
+});
+
+test("LocalVoice.dispose() is idempotent and frees models after active sessions end", async () => {
+  const r = await rig();
+  try {
+    await r.voice.setLanguage("de", { download: true });
+    const session = await r.voice.asr.openStream({ sampleRate: 16000 });
+    r.voice.dispose();
+    r.voice.dispose();
+    assert.equal(r.voice.current(), undefined);
+    assert.deepEqual(disposed(r), [], "active sessions keep retired models alive");
+    await session.close();
+    assert.deepEqual(disposed(r), ["dispose:t-stt-de", "dispose:t-tts-de", "dispose:t-vad"]);
+    r.voice.dispose();
+    assert.equal(disposed(r).length, 3, "repeated disposal does not dispose models twice");
   } finally { await r.done(); }
 });
 

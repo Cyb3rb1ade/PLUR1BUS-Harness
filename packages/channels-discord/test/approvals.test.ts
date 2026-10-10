@@ -250,7 +250,7 @@ test("/link in a DM claims the pairing with the bot id as accountId and replies 
   await started(e, ch);
   await command(e, "link", { options: [{ name: "code", type: 3, value: "ABCD-1234" }] });
   assert.deepEqual(claims, [{ code: "ABCD-1234", identity: { channel: "discord", accountId: BOT_ID, userId: DM_USER } }]);
-  assert.equal(reply(e).data!.content, MESSAGES.en.pairOk);
+  assert.equal(reply(e).data!.content, MESSAGES.en.pairOk("p"));
   assert.equal(reply(e).data!.flags, 64);
   assert.ok(!JSON.stringify(e.rest.interactionResponses).includes("ABCD-1234"), "the code is never echoed");
   assert.ok(!JSON.stringify(e.logs).includes("ABCD-1234"), "the code is never logged");
@@ -301,7 +301,9 @@ test("/link without a pairing port is refused (and not advertised)", async () =>
 
 test("slow /link is deferred inside the 3 s deadline and answered by editing the original response", async () => {
   let resolveClaim!: () => void;
-  const pending = new Promise<void>((r) => (resolveClaim = r));
+  const pending = new Promise<{ pairingId: string; state: "awaiting-confirmation"; confirmBy: number }>((r) => {
+    resolveClaim = () => r({ pairingId: "p", state: "awaiting-confirmation", confirmBy: 0 });
+  });
   const e = await makeEnv();
   const ch = e.channel({}, { pairing: { claim: () => pending } as never });
   await started(e, ch);
@@ -317,7 +319,7 @@ test("slow /link is deferred inside the 3 s deadline and answered by editing the
   resolveClaim();
   await idle;
   assert.equal(e.rest.webhookPatches.length, 1);
-  assert.equal((e.rest.webhookPatches[0]!.body as { content: string }).content, MESSAGES.en.pairOk);
+  assert.equal((e.rest.webhookPatches[0]!.body as { content: string }).content, MESSAGES.en.pairOk("p"));
   assert.ok(!JSON.stringify(e.rest.webhookPatches).includes("SLOW-1"));
   await ch.stop();
   await e.close();
