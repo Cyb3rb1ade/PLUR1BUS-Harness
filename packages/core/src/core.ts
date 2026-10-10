@@ -85,6 +85,7 @@ import { createPermissionRuntime, type PermissionRuntime } from "./approvals/run
 import type { ApprovalService } from "./approvals/service.ts";
 import { createPolicyAudit } from "./policy/audit.ts";
 import { connectionSurface, type ConnectionAttestation } from "./rbac/connection-surface.ts";
+import { createAttestationService, helperFromEnv, type Attester, type HelperSpec } from "./attestation/index.ts";
 
 /** G17: the replies a stop waits for before it closes the sockets. `memory.capture` is among them, so a stored reply
  *  is never cut off (the client would journal the text and the next core would store it a second time); the admin ops
@@ -149,6 +150,13 @@ export interface CoreOptions {
     /** D109 §5: a server-side fact about a connection (desktop app, CLI on a TTY, fresh step-up) that raises a person to T3. Without it a token connection is T1 (#192); see rbac/connection-surface.ts. */
     attest?: (ctx: CallContext) => ConnectionAttestation | undefined;
   };
+  /**
+   * Issue #192 option C: one OS confirmation (Touch ID / Windows Hello / UAC consent / polkit) lifts a single approval of an
+   * unattested local connection from T1 to T2. `helper` is the native `plur1bus-attest` binary (default: `PLUR1BUS_ATTEST_BIN`,
+   * pinned, none in container mode; `null` = none); `attester` replaces the whole service (tests). No helper: attestation is
+   * "unavailable" and every decision stays at its T1 limits.
+   */
+  attestation?: { helper?: HelperSpec | null; attester?: Attester };
   /** M2 L8: test seam for the budget service (a price book of its own). */
   budget?: { prices?: PriceBook };
   /** D112: model discovery adapters and options. */
@@ -616,6 +624,7 @@ export function createCore(o: CoreOptions): Core {
         permissions: {
           permissions: () => perms.open(), principalOf: resolvePrincipal, clock,
           surfaceOf: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }),
+          attester: o.attestation?.attester ?? createAttestationService({ helper: o.attestation?.helper !== undefined ? o.attestation.helper : helperFromEnv(process.env), audit: createPolicyAudit({ sink: rbacAudit, clock: { now: clock } }), now: clock }),
           requireAgent: (agentId) => { requireAgent(registry, agentId); }, notify: { grantChanged: notifier.grantChanged },
         },
         }),

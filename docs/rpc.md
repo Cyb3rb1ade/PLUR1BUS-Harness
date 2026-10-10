@@ -10616,7 +10616,7 @@ D109 §5: one approval request with everything a person needs to decide it. Owne
 
 **Served by:** core
 
-D109 §5: a person approves or denies a pending request; the first valid answer wins and the other surfaces close. approve may pick one of the request's grantOptions as `scope`; the narrowest is the default. The surface level is derived by the core from the connection and checked against the request's requiredSurface; nothing is ever approved by a timeout or a surface default. nonce is the request's one-time nonce, required where the answer is relayed by a channel. Owner/Admin only (RBAC action approval.decide), refused for every agent principal. Audited. E_NOT_FOUND for an unknown id. E_DENIED reason=surface-untrusted (the connection's surface is below requiredSurface) | approval-expired | approval-used (already decided or consumed) | approval-mismatch (nonce or binding differs).
+D109 §5: a person approves or denies a pending request; the first valid answer wins and the other surfaces close. approve may pick one of the request's grantOptions as `scope`; the narrowest is the default. The surface level is derived by the core from the connection and checked against the request's requiredSurface; nothing is ever approved by a timeout or a surface default. nonce is the request's one-time nonce, required where the answer is relayed by a channel. Owner/Admin only (RBAC action approval.decide), refused for every agent principal. Audited. E_NOT_FOUND for an unknown id. E_DENIED reason=surface-untrusted (the connection's surface is below requiredSurface) | approval-expired | approval-used (already decided or consumed) | approval-mismatch (nonce or binding differs). OS attestation (issue #192): a request that needs T2 and is decided on an unattested local connection (T1) can be lifted to T2 by ONE confirmation of the operating system (Touch ID, Windows Hello, UAC consent, polkit), valid for this approval only (bound to the request, scope and agent, used once, at most 60 s). Without `attest` such a call is E_APPROVAL_REQUIRED reason=attestation-required (detail = the method that will be asked, e.g. touch-id) and nothing is shown; with `attest: true` the core opens the OS dialog itself and decides at T2 when the person confirms. E_DENIED reason=attestation-failed (detail = cancelled | timeout | failed | replay | mismatch; the request stays pending); E_NOT_AVAILABLE reason=attestation-unavailable (no helper, container mode, no graphical session: the T1 limits stand); E_CONFLICT reason=attestation-in-progress (another decision of the same request is waiting for its dialog). Never for a nonce-relayed decision, an agent principal or a request that needs T3.
 
 **params**
 
@@ -10643,6 +10643,10 @@ D109 §5: a person approves or denies a pending request; the first valid answer 
     },
     "delegable": {
       "type": "boolean"
+    },
+    "attest": {
+      "type": "boolean",
+      "description": "Consent to the OS confirmation dialog this decision may need (see the method description). Default false."
     },
     "nonce": {
       "type": "string",
@@ -16711,6 +16715,11 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "surface": {
       "$ref": "#/$defs/SurfaceTrustLevel",
       "description": "The surface level the grant was given on."
+    },
+    "attestedVia": {
+      "type": "string",
+      "pattern": "^attested:[a-z0-9][a-z0-9-]{0,31}$",
+      "description": "Present when an OS confirmation (attested:touch-id, attested:windows-hello, attested:polkit ...) lifted the approval that created this grant to T2."
     }
   }
 }

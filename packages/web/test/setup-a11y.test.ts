@@ -75,8 +75,7 @@ describe("setup wizard: a11y", opts, () => {
       await page.keyboard.press("Tab"); await page.keyboard.type("Hal Nine Thousand");
       await press(/^Next$/);
       await stepHeading(page, /Main model/).waitFor();
-      await page.getByLabel("Chat model").focus();
-      await page.keyboard.press("ArrowDown");
+      await page.getByLabel("Chat model").selectOption("anthropic/claude-x");
       await press(/^Next$/);
       await stepHeading(page, /Switchboard/).waitFor();
       await press(/^Skip this step$/);
@@ -84,6 +83,7 @@ describe("setup wizard: a11y", opts, () => {
       await page.getByRole("radio", { name: "Research, non-commercial" }).focus();
       await page.keyboard.press("ArrowDown");
       assert.equal(await page.getByRole("radio", { name: "Commercial", exact: true }).isChecked(), true);
+      await page.getByRole("radio", { name: "Commercial", exact: true }).focus();
       await page.keyboard.press("ArrowUp");
       await page.getByRole("radio", { name: /Jina v5 Text Nano/ }).focus();
       await page.waitForFunction(() => document.activeElement?.id === "setup-embedding-jina-v5-nano");

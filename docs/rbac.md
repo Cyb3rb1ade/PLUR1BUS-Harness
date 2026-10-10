@@ -63,7 +63,37 @@ unlisted or malformed is T0. `surfaceSatisfies(have, required)`: T0 satisfies no
 
 A person on a local token-authenticated RPC connection (`connectionSurface`, `connection-surface.ts`) is **T1** unless the embedder
 supplies a server-side attestation that raises it to T3 (#192): reading `run/core.token` proves only same-OS-user access, which an
-agent process has too. So without attestation only low-risk requests are decidable and no standing grant above T1 can be created.
+agent process has too. So without attestation only low-risk requests are decidable and no standing grant above T1 can be created,
+unless the person confirms that one approval with the operating system (next section).
+
+### OS-backed attestation (#192, option C)
+
+One confirmation by the operating system lifts **one approval** of an unattested local connection from T1 to T2. The core asks
+for it and reads the answer itself (`packages/core/src/attestation/`); the native helper `plur1bus-attest`
+(`crates/plur1bus-attest`) is a child process with a one-line JSON protocol and shows the OS's own dialog: Touch ID or the account
+password (macOS, LocalAuthentication), Windows Hello or the UAC consent prompt (Windows), polkit `org.plur1bus.approve` (Linux).
+It happens inside `approval.decide` (`attest: true`; without it the core answers `E_APPROVAL_REQUIRED attestation-required`
+and names the method). Details, error reasons, audit and what is bound to the confirmation: `docs/approvals.md` 3.2.1.
+
+Rules the RBAC layer keeps: an agent principal (and any principal that is not `kind: "person"`) never reaches the helper (the
+`humanOnly` actions are refused first); a connection already at T3 through `CoreOptions.rbac.attest` never needs it; a request
+that needs T3 is refused without a dialog; the lift is for exactly one decision at surface 2 and does not change the
+connection's own level for the next call.
+
+**Threat model: token theft by an agent.** The agent runs as the same OS user, can read `run/core.token` and connects as the
+local owner. Before this change that gave T1 only; with it the agent can still do only what T1 can do on its own, and every T2
+decision needs a human to answer an OS dialog on the machine, which the token does not provide and which the agent cannot answer
+(Touch ID needs the finger; the password prompt is the OS's secure dialog, not an RPC parameter). It cannot pre-confirm, replay or
+reuse a confirmation: the hash covers the concrete approval, the nonce is single-use, the lifetime is 60 s, every attempt is
+fresh. What remains: (1) a person who confirms without reading the dialog text, so the text names agent, capability and scope and
+nothing the model wrote; an agent can also raise approval requests to wear the person down (the fatigue limits of approvals.md 3.4
+apply); (2) **a replaced helper**: the core checks that `PLUR1BUS_ATTEST_BIN` is an absolute, regular file that is not group- or
+world-writable, which stops other users, but an agent running as the owner who can write the helper's location can substitute a
+program that always says yes. Install the helper where only an administrator can write (a package-manager install), and keep the
+exec sandbox from writing to it; a signature check of the helper (macOS code signature, Windows Authenticode) is a follow-up, see
+`docs/security/os-attestation-2026-10.md`; (3) a shell-capable agent on a machine where it also drives the logged-in desktop
+session (UI automation) could in principle click an OS dialog itself; the `ui.control` capability is T2 and `os.privilege` /
+`remote.control` are T3 for that reason.
 
 ## Privacy (ADR-007 §Privacy)
 

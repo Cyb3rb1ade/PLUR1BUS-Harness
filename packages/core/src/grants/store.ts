@@ -32,6 +32,8 @@ export interface StoredGrant extends Grant {
   revokedAt?: number;
   /** `revoked` | `task-ended` | `session-ended`. */
   endReason?: string;
+  /** `attested:<method>` when an OS confirmation lifted the approval that created this grant to T2 (issue #192). */
+  attestedVia?: string;
 }
 export type GrantState = "active" | "revoked" | "consumed" | "suspended";
 
@@ -54,7 +56,11 @@ export interface CreateGrantInput {
   jobId?: string;
   delegable?: boolean;
   acknowledgedUnsandboxed?: boolean;
+  /** `attested:<method>`: set only by an approval an OS confirmation lifted to T2, so `surface` is at least 2. */
+  attestedVia?: string;
 }
+
+const ATTESTED_VIA = /^attested:[a-z0-9][a-z0-9-]{0,31}$/;
 
 export interface GrantStoreOptions {
   db: DatabaseSync;
@@ -73,7 +79,7 @@ interface GrantRow {
   match_access: string | null; match_recursive: number | null; duration: string; created_by: string; created_at: number; expires_at: number | null;
   revoked_at: number | null; end_reason: string | null; last_used_at: number | null; consumed_at: number | null; action_hash: string | null;
   task_id: string | null; session_id: string | null; project_id: string | null; job_id: string | null; delegable: number; surface: number;
-  acknowledged_unsandboxed: number; def_hash: string; chain_seq: number;
+  acknowledged_unsandboxed: number; def_hash: string; chain_seq: number; attested_via?: string | null;
 }
 
 /** The immutable definition that is chained at creation. Fixed key order: it is compared as a string. */
@@ -84,6 +90,8 @@ function definitionOf(r: GrantRow): string {
     createdBy: r.created_by, createdAt: Number(r.created_at), expiresAt: r.expires_at === null ? null : Number(r.expires_at), actionHash: r.action_hash,
     taskId: r.task_id, sessionId: r.session_id, projectId: r.project_id, jobId: r.job_id, delegable: r.delegable === 1, surface: Number(r.surface),
     acknowledgedUnsandboxed: r.acknowledged_unsandboxed === 1,
+    // Only when present: a grant without an origin keeps the exact definition (and hash) it always had.
+    ...(r.attested_via != null ? { attestedVia: r.attested_via } : {}),
   });
 }
 
@@ -176,6 +184,7 @@ export class GrantStore implements GrantSource {
     if (r.job_id !== null) g.jobId = r.job_id;
     if (r.delegable === 1) g.delegable = true;
     if (r.acknowledged_unsandboxed === 1) g.acknowledgedUnsandboxed = true;
+    if (r.attested_via != null) g.attestedVia = r.attested_via;
     return g;
   }
 
@@ -203,6 +212,7 @@ export class GrantStore implements GrantSource {
     if (scopeRank(i.scope) > scopeRank(def!.ceiling!)) bad("ceiling-exceeded", `${def!.id} allows at most ${def!.ceiling} grants`);
     if (![1, 2, 3].includes(i.surface)) bad("surface-too-low", "a grant needs a decision from a T1..T3 surface");
     if (def!.minSurface !== null && i.surface < def!.minSurface) bad("surface-too-low", `${def!.id} needs a decision from T${def!.minSurface} or above`);
+    if (i.attestedVia !== undefined && (!ATTESTED_VIA.test(i.attestedVia) || i.surface < 2)) bad("invalid-grant", "attestedVia must be attested:<method> and needs a T2 or higher surface");
     if (i.expiresAt !== undefined && !Number.isFinite(i.expiresAt)) bad("invalid-grant", "expiresAt must be a finite number");
     if (i.scope === "once") {
       if (!str(i.actionHash) || i.match.kind !== "action") bad("invalid-grant", "a once grant is bound to an action hash (match.kind = action)");
@@ -233,12 +243,12 @@ export class GrantStore implements GrantSource {
     // later read recomputes from the row. Both happen in the caller's transaction.
     this.#db.prepare(
       `INSERT INTO grants (id, person, agent, capability, effect, match_kind, match_path, match_access, match_recursive, duration, created_by, created_at, expires_at,
-        action_hash, task_id, session_id, project_id, job_id, delegable, surface, acknowledged_unsandboxed, def_hash, chain_seq)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0)`,
+        action_hash, task_id, session_id, project_id, job_id, delegable, surface, acknowledged_unsandboxed, attested_via, def_hash, chain_seq)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0)`,
     ).run(
       id, i.person, i.agent, capability, i.effect ?? null, m.kind, m.kind === "path" ? m.path : null, m.kind === "path" ? m.access : null,
       m.kind === "path" ? (m.recursive ? 1 : 0) : null, i.scope, i.createdBy, now, i.expiresAt ?? null, i.actionHash ?? null, i.taskId ?? null,
-      i.sessionId ?? null, i.projectId ?? null, i.jobId ?? null, i.delegable === true ? 1 : 0, i.surface, i.acknowledgedUnsandboxed === true ? 1 : 0,
+      i.sessionId ?? null, i.projectId ?? null, i.jobId ?? null, i.delegable === true ? 1 : 0, i.surface, i.acknowledgedUnsandboxed === true ? 1 : 0, i.attestedVia ?? null,
     );
     const row = this.#db.prepare("SELECT * FROM grants WHERE id = ?").get(id) as unknown as GrantRow;
     const def = definitionOf(row);

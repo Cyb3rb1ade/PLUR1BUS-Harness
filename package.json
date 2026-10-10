@@ -15,8 +15,8 @@
     "typecheck": "tsc -p tsconfig.base.json --noEmit",
     "lint": "pnpm typecheck && node scripts/lint-hygiene.mjs && node scripts/check-i18n.mjs && node --test --test-timeout=120000 scripts/lint-hygiene.test.mjs scripts/check-i18n.test.mjs scripts/run-ts-tests.test.mjs scripts/build-hermes-provider.test.mjs scripts/test/audit-deps.test.mjs",
     "build:hermes": "node scripts/build-hermes-provider.mjs --out dist/hermes",
-    "docs:gen": "cargo build -q -p plur1bus && node scripts/gen-engine-keys.mjs && node scripts/gen-docs.mjs && node --conditions=source scripts/gen-openapi.mjs",
-    "docs:check": "cargo build -q -p plur1bus && node scripts/gen-docs.mjs --check && node --conditions=source scripts/gen-openapi.mjs --check && node scripts/check-docs-commands.mjs && node scripts/check-doc-links.mjs && node --test scripts/check-doc-links.test.mjs",
+    "docs:gen": "cargo build -q -p plur1bus && node scripts/gen-engine-keys.mjs && node scripts/gen-docs.mjs && node --conditions=source scripts/gen-openapi.mjs && node packages/web/scripts/gen-settings-index.mjs",
+    "docs:check": "cargo build -q -p plur1bus && node scripts/gen-docs.mjs --check && node --conditions=source scripts/gen-openapi.mjs --check && node packages/web/scripts/gen-settings-index.mjs --check && node scripts/check-docs-commands.mjs && node scripts/check-doc-links.mjs && node --test scripts/check-doc-links.test.mjs",
     "audit:deps": "node scripts/audit-deps.mjs",
     "bench": "node scripts/bench.mjs"
   },

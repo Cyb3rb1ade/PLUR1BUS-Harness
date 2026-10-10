@@ -144,7 +144,7 @@ describe("setup wizard: validation and failures", opts, () => {
       await page.getByText("Enter a display name.").waitFor();
       assert.equal(await page.getByLabel("Display name").getAttribute("aria-invalid"), "true");
       assert.match((await page.getByLabel("Display name").getAttribute("aria-describedby")) ?? "", /err/);
-      assert.equal(await page.evaluate(() => document.activeElement?.id), "setup-display-name");
+      await page.waitForFunction(() => document.activeElement?.id === "setup-display-name");
       await page.getByLabel("Agent id").fill("Bad Id");
       await page.getByLabel("Display name").fill("Hal");
       await next(page);
@@ -166,6 +166,7 @@ describe("setup wizard: validation and failures", opts, () => {
       const { page } = app;
       await next(page); await page.getByLabel("Display name").fill("Hal"); await next(page);
       await stepHeading(page, /Main model/).waitFor();
+      await page.getByLabel("Chat model").waitFor();
       const opts = await page.getByLabel("Chat model").locator("option").allTextContents();
       assert.deepEqual(opts, ["Choose a model…", "Claude X"]);
       await next(page);
