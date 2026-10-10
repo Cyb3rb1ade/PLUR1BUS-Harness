@@ -9,7 +9,7 @@ import { PageLoading } from "../../components/page-state.ts";
 import { t, formatNumber, type Key } from "../../i18n.ts";
 import { FailureState, Notice } from "../common/states.ts";
 import { currentRole, failureOf, getApi, useLoad } from "../common/load.ts";
-import type { MediaHit, MediaIndexStatus, MediaKind } from "../../api/media-search.types.ts";
+import type { MediaIndexKind, MediaIndexStatus, MediaSearchHit } from "../../../../rpc-schema/generated/types.ts";
 import { MEDIA_KINDS, backfillView, canEditCaption, jumpSeconds, mediaErrorOf, problemText, searchParams, segmentLabel, type SearchForm } from "./model.ts";
 import "./rpc-types.ts";
 
@@ -22,7 +22,7 @@ export function SimilarButton({ mediaId }: { mediaId: string }): View {
     t("mediasearch.search.similar"));
 }
 
-type Player = { hit: MediaHit; src: string; kind: MediaKind } | null;
+type Player = { hit: MediaSearchHit; src: string; kind: MediaIndexKind } | null;
 
 export function MediaSearch(): View {
   const { state, reload } = useLoad(async (signal) => {
@@ -51,7 +51,7 @@ function SearchBody({ status }: { status: MediaIndexStatus }): View {
   const role = currentRole();
   const bf = backfillView(status.backfill);
   const [form, setForm] = useState<SearchForm>({ text: "", kinds: [...MEDIA_KINDS], fuseCaptions: false });
-  const [hits, setHits] = useState<MediaHit[] | null>(null);
+  const [hits, setHits] = useState<MediaSearchHit[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>("");
   const [player, setPlayer] = useState<Player>(null);
@@ -74,7 +74,7 @@ function SearchBody({ status }: { status: MediaIndexStatus }): View {
     } finally { setBusy(false); }
   };
 
-  const play = async (hit: MediaHit): Promise<void> => {
+  const play = async (hit: MediaSearchHit): Promise<void> => {
     try {
       const f = (await getApi().rpc("media.output.get", { id: hit.mediaId, file: 0 }, { write: false })) as { data?: string; mimeType?: string };
       if (typeof f.data !== "string" || typeof f.mimeType !== "string") throw new Error("no media");
@@ -84,7 +84,7 @@ function SearchBody({ status }: { status: MediaIndexStatus }): View {
     }
   };
 
-  const saveCaption = async (hit: MediaHit): Promise<void> => {
+  const saveCaption = async (hit: MediaSearchHit): Promise<void> => {
     try {
       await getApi().rpc("media.caption.set", { mediaId: hit.mediaId, text: draftText.trim() }, { write: true });
       setHits((list) => (list ?? []).map((x) => (x.mediaId === hit.mediaId ? { ...x, caption: draftText.trim() } : x)));
@@ -94,7 +94,7 @@ function SearchBody({ status }: { status: MediaIndexStatus }): View {
     }
   };
 
-  const toggleKind = (k: MediaKind, on: boolean): void => {
+  const toggleKind = (k: MediaIndexKind, on: boolean): void => {
     setForm((f) => ({ ...f, kinds: MEDIA_KINDS.filter((x) => (x === k ? on : f.kinds.includes(x))) }));
   };
 
@@ -149,7 +149,7 @@ const seekTo = (player: NonNullable<Player>) => (e: Event): void => {
   (e.currentTarget as HTMLMediaElement).currentTime = jumpSeconds(player.hit.segment?.startMs ?? 0);
 };
 
-const segmentStart = (hit: MediaHit): string => {
+const segmentStart = (hit: MediaSearchHit): string => {
   const sec = jumpSeconds(hit.segment?.startMs ?? 0);
   const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
   return `${m}:${String(s).padStart(2, "0")}`;

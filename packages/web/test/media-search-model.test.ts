@@ -2,7 +2,7 @@
 // search params, time labels and the per-agent override. The browser behaviour is in media-search.test.ts.
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { MEDIA_EMBEDDING_DEFAULTS } from "../src/api/media-search.types.ts";
+import { MEDIA_EMBEDDING_DEFAULTS } from "../src/pages/media-search/contract.ts";
 import { ALL_MODALITIES, CLOUD_CAPTION_PROVIDER, SEARCH_LIMIT, captionPreselection, changesOf, clock, draftOf, effectiveCaption, jumpSeconds, mediaErrorOf, mediaSetupChanges, mediaSetupDefaults, problemText, searchParams, segmentLabel, toSetup, validateMedia, type MediaSetup } from "../src/pages/media-search/model.ts";
 import { overrideChanges, overrideOf } from "../src/pages/media-search/override.ts";
 
@@ -134,6 +134,10 @@ describe("media search: query params", () => {
   });
   test("a kinds filter is sent only when it narrows the search", () => {
     assert.deepEqual(searchParams({ text: "rain", kinds: ["image", "audio"], fuseCaptions: true }), { text: "rain", limit: 20, kinds: ["image", "audio"], fuseCaptions: true });
+  });
+  test("the schema's kinds tuple: one kind is sent as one item, no kind or all three send no filter", () => {
+    assert.deepEqual(searchParams({ text: "rain", kinds: ["video"], fuseCaptions: false }), { text: "rain", limit: 20, kinds: ["video"] });
+    assert.equal("kinds" in (searchParams({ text: "rain", kinds: [], fuseCaptions: false }) ?? {}), false);
   });
   test("find-similar sends likeMediaId and no text (exactly one of the two)", () => {
     const p = searchParams({ text: "ignored", likeMediaId: "med-1", kinds: ["image", "video", "audio"], fuseCaptions: false }) as Record<string, unknown>;
