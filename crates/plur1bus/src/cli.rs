@@ -456,13 +456,6 @@ pub struct BundleArgs {
     pub lines: usize,
 }
 
-#[derive(Args, Debug)]
-#[allow(dead_code)] // every milestone stub has become a real command; kept for the next one
-pub struct StubArgs {
-    #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
-    pub rest: Vec<String>,
-}
-
 #[derive(Subcommand, Debug)]
 pub enum FirstAidCmd {
     /// [experimental] Read-only diagnostics over the installation (spec §6.6)
