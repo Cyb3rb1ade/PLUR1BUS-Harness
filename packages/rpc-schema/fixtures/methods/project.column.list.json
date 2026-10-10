@@ -1,0 +1,16 @@
+{
+  "params": {
+    "projectId": "prj1"
+  },
+  "result": {
+    "columns": [
+      {
+        "id": "col1",
+        "title": null,
+        "titleKey": "project.board.backlog",
+        "position": 0,
+        "wipLimit": null
+      }
+    ]
+  }
+}

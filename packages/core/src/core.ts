@@ -34,6 +34,7 @@ import { callerToPrincipal } from "./principal.ts";
 import { startJournalReplay, type JournalReplay } from "./replay.ts";
 import { RpcError } from "./rpc/errors.ts";
 import { buildMethods } from "./rpc/methods.ts";
+import { buildProjectBoardSurface, deliverBoardChange } from "./rpc/project-board-surface.ts";
 import { buildCollabSurface } from "./rpc/collab-surface.ts";
 import { buildIdentitySurface } from "./rpc/identity-surface.ts";
 import { AdminStore } from "./identity/admin-store.ts";
@@ -630,6 +631,7 @@ export function createCore(o: CoreOptions): Core {
         }),
         ...(sessions?.methods ?? {}),
         ...(turnComposition?.surfaceMethods ?? {}),
+        ...buildProjectBoardSurface(() => turnComposition?.collab ?? null, event => { void deliverBoardChange(event, () => turnComposition?.collab ?? null, { subscriptions: () => server?.subscriptions() ?? [], resolve: async connectionId => resolvePrincipal({ requestId: "board-event", connectionId, signal: shutdown.signal }, "project.card.list", {}), notify: (m, p, opts) => { if (!shutdown.signal.aborted) server?.notify(m, p, opts); } }).catch(() => { log.debug("project board event withheld"); }); }),
         ...buildCollabSurface(() => turnComposition?.collab ?? null, id => registry.has(id)),
         ...buildIdentitySurface(() => identity),
         ...(await import("./rpc/device-surface.ts")).createDeviceSurface({ state: l.state, clock, audit: rbacAudit, securePath: p => platform.securePath(p) }),
