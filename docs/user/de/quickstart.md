@@ -139,4 +139,8 @@ oder den Modulsatz ändert, wird abgelehnt: führe stattdessen `plur1bus setup` 
 
 ## Weiter
 
-[operations.md](operations.md): Verzeichnisse, Logs, Dienstverwaltung je Betriebssystem und Fehlersuche.
+- [providers.md](providers.md): Bei Anbietern anmelden, Modellprofile und Fallback.
+- [channels.md](channels.md): Telegram, Discord, Slack, Matrix, Signal und E-Mail anbinden.
+- [media.md](media.md): Bilder erzeugen und bearbeiten, mit Cloud-Anbietern oder lokal.
+- [operations.md](operations.md): Verzeichnisse, Logs, Dienstverwaltung je Betriebssystem, Aktualisieren, Deinstallieren,
+  Shell-Vervollständigung und Fehlersuche.

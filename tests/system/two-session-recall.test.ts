@@ -52,7 +52,12 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
       if (!REAL) cli(h, ["config", "set", "engine.duplicateThreshold", "1.01", "--yes"]);
       if (CI_RECALL_HARD_MS !== null) {
         cli(h, ["config", "set", "core.recall.hardBudgetMs", String(CI_RECALL_HARD_MS), "--yes"]);
-        t.diagnostic(`CI recall budget: core.recall.hardBudgetMs ${CI_RECALL_HARD_MS} (targets reported, not asserted; H3-R26)`);
+        // The engine's soft-budget fallback can return before rerank even when
+        // the Core hard deadline has ample time left (#307). On shared runners
+        // allow the same budget for all phases; keep the 400/600 ms diagnostics
+        // and the real-reranker assertion, and keep strict reference runs intact.
+        cli(h, ["config", "set", "core.recall.softBudgetMs", String(CI_RECALL_HARD_MS), "--yes"]);
+        t.diagnostic(`CI recall budget: core.recall soft/hard ${CI_RECALL_HARD_MS} ms (targets reported, not asserted; H3-R26)`);
       }
 
       core = await startCore(h);
