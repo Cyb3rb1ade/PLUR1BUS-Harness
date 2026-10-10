@@ -46,7 +46,7 @@
     "HarnessId": { "type": "string", "pattern": "^[A-Za-z0-9._:@-]{1,128}$" },
     "ErrCode": {
       "description": "Closed: the RPC error codes (rpc-schema ErrorCode) and the provider classes. D94 typed failures join when D94 lands (open point).",
-      "enum": ["E_AGENT_UNKNOWN", "E_APPROVAL_REQUIRED", "E_CONFIG_INVALID", "E_CONFLICT", "E_CORE_UNAVAILABLE", "E_DENIED", "E_INTERNAL", "E_INVALID_PARAMS", "E_LOCKED", "E_MEDIA_CAPABILITY", "E_MEDIA_DIMENSION", "E_MEDIA_LICENSE", "E_MEDIA_PRIVACY", "E_MEDIA_UNAVAILABLE", "E_MEDIA_UNSUPPORTED_KIND", "E_MODULE_UNKNOWN", "E_NOT_AVAILABLE", "E_NOT_FOUND", "E_RPC_VERSION", "E_STORAGE", "E_UNAUTHORIZED", "rate-limited", "overloaded", "auth", "invalid-request", "server", "timeout", "network"]
+      "enum": ["E_AGENT_UNKNOWN", "E_APPROVAL_REQUIRED", "E_CONFIG_INVALID", "E_CONFLICT", "E_CORE_UNAVAILABLE", "E_DENIED", "E_INTERNAL", "E_INVALID_PARAMS", "E_LOCKED", "E_MEDIA_CAPABILITY", "E_MEDIA_DIMENSION", "E_MEDIA_LICENSE", "E_MEDIA_PRIVACY", "E_MEDIA_UNAVAILABLE", "E_MEDIA_UNSUPPORTED_KIND", "E_PROJECT_WIP_LIMIT", "E_MODULE_UNKNOWN", "E_NOT_AVAILABLE", "E_NOT_FOUND", "E_RPC_VERSION", "E_STORAGE", "E_UNAUTHORIZED", "rate-limited", "overloaded", "auth", "invalid-request", "server", "timeout", "network"]
     },
     "Err": {
       "type": "object",

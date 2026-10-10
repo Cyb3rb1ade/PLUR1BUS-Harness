@@ -98,6 +98,28 @@ export const MIGRATIONS: readonly string[] = [
     at INTEGER NOT NULL
   );
   `,
+  `
+  CREATE TABLE project_boards (
+    project_id TEXT PRIMARY KEY REFERENCES projects(id),
+    data TEXT NOT NULL CHECK(json_valid(data))
+  );
+  CREATE TRIGGER project_board_defaults AFTER INSERT ON projects BEGIN
+    INSERT INTO project_boards(project_id, data) VALUES (new.id, json_object(
+      'columns', json_array(
+        json_object('id',new.id || ':backlog','title',NULL,'titleKey','project.board.backlog','position',0,'wipLimit',NULL),
+        json_object('id',new.id || ':in-progress','title',NULL,'titleKey','project.board.inProgress','position',1,'wipLimit',NULL),
+        json_object('id',new.id || ':review','title',NULL,'titleKey','project.board.review','position',2,'wipLimit',NULL),
+        json_object('id',new.id || ':done','title',NULL,'titleKey','project.board.done','position',3,'wipLimit',NULL)),
+      'cards',json_array(),'activity',json_array(),'comments',json_array()));
+  END;
+  INSERT INTO project_boards(project_id, data)
+    SELECT id, json_object('columns',json_array(
+      json_object('id',id || ':backlog','title',NULL,'titleKey','project.board.backlog','position',0,'wipLimit',NULL),
+      json_object('id',id || ':in-progress','title',NULL,'titleKey','project.board.inProgress','position',1,'wipLimit',NULL),
+      json_object('id',id || ':review','title',NULL,'titleKey','project.board.review','position',2,'wipLimit',NULL),
+      json_object('id',id || ':done','title',NULL,'titleKey','project.board.done','position',3,'wipLimit',NULL)),
+      'cards',json_array(),'activity',json_array(),'comments',json_array()) FROM projects;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

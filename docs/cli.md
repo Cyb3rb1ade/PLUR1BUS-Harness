@@ -172,6 +172,20 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus channel status`↴](#plur1bus-channel-status)
 * [`plur1bus channel link-help`↴](#plur1bus-channel-link-help)
 * [`plur1bus project`↴](#plur1bus-project)
+* [`plur1bus project board`↴](#plur1bus-project-board)
+* [`plur1bus project card`↴](#plur1bus-project-card)
+* [`plur1bus project card list`↴](#plur1bus-project-card-list)
+* [`plur1bus project card show`↴](#plur1bus-project-card-show)
+* [`plur1bus project card create`↴](#plur1bus-project-card-create)
+* [`plur1bus project card move`↴](#plur1bus-project-card-move)
+* [`plur1bus project card assign`↴](#plur1bus-project-card-assign)
+* [`plur1bus project card comment`↴](#plur1bus-project-card-comment)
+* [`plur1bus project card archive`↴](#plur1bus-project-card-archive)
+* [`plur1bus project column`↴](#plur1bus-project-column)
+* [`plur1bus project column list`↴](#plur1bus-project-column-list)
+* [`plur1bus project column create`↴](#plur1bus-project-column-create)
+* [`plur1bus project column move`↴](#plur1bus-project-column-move)
+* [`plur1bus project column delete`↴](#plur1bus-project-column-delete)
 * [`plur1bus project create`↴](#plur1bus-project-create)
 * [`plur1bus project list`↴](#plur1bus-project-list)
 * [`plur1bus project show`↴](#plur1bus-project-show)
@@ -2683,12 +2697,269 @@ Examples:
 
 ###### **Subcommands:**
 
+* `board` — [experimental] Show the project board grouped by column
+* `card` — Work with project board cards
+* `column` — Manage project board columns (project lead required)
 * `create` — [experimental] Create a project
 * `list` — [experimental] List records
 * `show` — [experimental] Show a record
 * `archive` — [experimental] Archive a project
 * `member` — Project membership and roles
 * `agent` — Assigned project agents
+
+
+
+## `plur1bus project board`
+
+[experimental] Show the project board grouped by column
+
+**Usage:** `plur1bus project board <PROJECT>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+
+
+
+## `plur1bus project card`
+
+Work with project board cards
+
+**Usage:** `plur1bus project card <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List project cards, ordered by column and position
+* `show` — [experimental] Show a project card
+* `create` — [experimental] Create a card; description is plain Markdown text
+* `move` — [experimental] Move a card to a zero-based position; WIP override requires project manage
+* `assign` — [experimental] Assign or unassign a person or agent belonging to this project
+* `comment` — [experimental] Add a Markdown comment
+* `archive` — [experimental] Archive a card, or unarchive with --undo
+
+
+
+## `plur1bus project card list`
+
+[experimental] List project cards, ordered by column and position
+
+**Usage:** `plur1bus project card list [OPTIONS] <PROJECT>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+
+###### **Options:**
+
+* `--column <COLUMN>`
+* `--label <LABEL>`
+* `--text <TEXT>`
+* `--archived`
+* `--cursor <CURSOR>`
+* `--limit <LIMIT>`
+
+  Default value: `50`
+* `--assignee <ASSIGNEE>`
+* `--assignee-kind <ASSIGNEE_KIND>`
+
+  Default value: `person`
+
+  Possible values: `person`, `agent`
+
+
+
+
+## `plur1bus project card show`
+
+[experimental] Show a project card
+
+**Usage:** `plur1bus project card show <PROJECT> <CARD>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+* `<CARD>`
+
+
+
+## `plur1bus project card create`
+
+[experimental] Create a card; description is plain Markdown text
+
+**Usage:** `plur1bus project card create [OPTIONS] <PROJECT> <COLUMN> <TITLE>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+* `<COLUMN>`
+* `<TITLE>`
+
+###### **Options:**
+
+* `--description <DESCRIPTION>`
+
+  Default value: ``
+* `--label <LABEL>`
+* `--priority <PRIORITY>`
+
+  Default value: `normal`
+
+  Possible values: `none`, `low`, `normal`, `high`, `urgent`
+
+* `--due-at <DUE_AT>`
+* `--position <POSITION>`
+* `--override-wip`
+
+
+
+## `plur1bus project card move`
+
+[experimental] Move a card to a zero-based position; WIP override requires project manage
+
+**Usage:** `plur1bus project card move [OPTIONS] <PROJECT> <CARD> <COLUMN> <POSITION>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+* `<CARD>`
+* `<COLUMN>`
+* `<POSITION>`
+
+###### **Options:**
+
+* `--override-wip`
+
+
+
+## `plur1bus project card assign`
+
+[experimental] Assign or unassign a person or agent belonging to this project
+
+**Usage:** `plur1bus project card assign [OPTIONS] <PROJECT> <CARD> <KIND> <ASSIGNEE>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+* `<CARD>`
+* `<KIND>`
+
+  Possible values: `person`, `agent`
+
+* `<ASSIGNEE>`
+
+###### **Options:**
+
+* `--remove`
+
+
+
+## `plur1bus project card comment`
+
+[experimental] Add a Markdown comment
+
+**Usage:** `plur1bus project card comment <PROJECT> <CARD> <TEXT>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+* `<CARD>`
+* `<TEXT>`
+
+
+
+## `plur1bus project card archive`
+
+[experimental] Archive a card, or unarchive with --undo
+
+**Usage:** `plur1bus project card archive [OPTIONS] <PROJECT> <CARD>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+* `<CARD>`
+
+###### **Options:**
+
+* `--undo`
+* `--override-wip`
+
+
+
+## `plur1bus project column`
+
+Manage project board columns (project lead required)
+
+**Usage:** `plur1bus project column <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List board columns
+* `create` — [experimental] Create a column with a display title or an i18n key
+* `move` — [experimental] Move a column to a zero-based position
+* `delete` — [experimental] Delete an empty column, or move its cards to --target
+
+
+
+## `plur1bus project column list`
+
+[experimental] List board columns
+
+**Usage:** `plur1bus project column list <PROJECT>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+
+
+
+## `plur1bus project column create`
+
+[experimental] Create a column with a display title or an i18n key
+
+**Usage:** `plur1bus project column create [OPTIONS] <PROJECT> <TITLE>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+* `<TITLE>`
+
+###### **Options:**
+
+* `--title-key`
+* `--wip-limit <WIP_LIMIT>`
+* `--position <POSITION>`
+
+
+
+## `plur1bus project column move`
+
+[experimental] Move a column to a zero-based position
+
+**Usage:** `plur1bus project column move <PROJECT> <COLUMN> <POSITION>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+* `<COLUMN>`
+* `<POSITION>`
+
+
+
+## `plur1bus project column delete`
+
+[experimental] Delete an empty column, or move its cards to --target
+
+**Usage:** `plur1bus project column delete [OPTIONS] <PROJECT> <COLUMN>`
+
+###### **Arguments:**
+
+* `<PROJECT>`
+* `<COLUMN>`
+
+###### **Options:**
+
+* `--target <TARGET>`
+* `--override-wip`
 
 
 

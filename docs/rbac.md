@@ -341,3 +341,25 @@ cover stored ownership, spoofed ownership params, token scopes, unknown roles an
 agent principals. Successful pairing, revocation and rename use the existing audit
 sink with `device.paired`, `device.revoked`, `device.renamed`; audit failure prevents
 the mutation. UI binding and remote transport mounting remain follow-up work.
+
+## Project board
+
+See [Project board backend](projects-board.md#rights) for the stored-role matrix.
+All 17 board methods are declared in `RPC_RULES`. The independent policy fixture
+covers `project.board.read/write/move/comment/manage`; the guard/handler tests
+cover every method, absent/unknown principals, empty token scopes, Viewer writes,
+forged object rights, foreign projects and live agent assignment.
+
+Read, move and comment admit agents at the coarse guard. The object gate then
+requires their trusted identity in the persisted project's agents. Agents may
+move only cards explicitly assigned to themselves and cannot override WIP.
+Write and manage are human-only. Human mutations require `project.write`
+(member), column administration and WIP override require `project.manage`
+(lead); stored membership replaces caller-supplied rights. Owner/Admin retain
+the existing object policy override. Viewer cannot mutate even as a lead.
+Board token scopes are the corresponding `project.board.*` action names;
+object checks do not require an additional unrelated token scope.
+
+Events reauthorize stored membership and read scopes for each recipient. The
+WebMCP provider blocks `project.column.` even on explicit inclusion; workflow
+structure and WIP policy remain human-managed.

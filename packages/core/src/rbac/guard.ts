@@ -38,6 +38,23 @@ export function authenticatedPrincipal(ctx: CallContext): Principal {
 }
 
 export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
+  "project.column.list": rule("project.board.read", system),
+  "project.card.list": rule("project.board.read", system),
+  "project.card.get": rule("project.board.read", system),
+  "project.card.comment.list": rule("project.board.read", system),
+  "project.card.activity.list": rule("project.board.read", system),
+  "project.column.create": rule("project.board.manage", system),
+  "project.column.update": rule("project.board.manage", system),
+  "project.column.move": rule("project.board.manage", system),
+  "project.column.delete": rule("project.board.manage", system),
+  "project.card.create": rule("project.board.write", system),
+  "project.card.update": rule("project.board.write", system),
+  "project.card.assign": rule("project.board.write", system),
+  "project.card.unassign": rule("project.board.write", system),
+  "project.card.archive": rule("project.board.write", system),
+  "project.card.unarchive": rule("project.board.write", system),
+  "project.card.move": rule("project.board.move", system),
+  "project.card.comment.add": rule("project.board.comment", system),
   "media.preferences.get": rule("media.read", system),
   "media.preferences.set": rule("media.write", system),
   "media.generate": rule("media.write", system),
