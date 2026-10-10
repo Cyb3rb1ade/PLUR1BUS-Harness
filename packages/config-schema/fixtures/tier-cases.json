@@ -1047,6 +1047,120 @@
             }
           }
         },
+        "session": {
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "description": "Session context maintenance.",
+          "properties": {
+            "compaction": {
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "description": "Progressive session compaction (D23, L14); hide originals without deleting them.",
+              "properties": {
+                "softRatio": {
+                  "type": "number",
+                  "default": 0.65,
+                  "description": "Prepare a summary above this fraction of the model context window.",
+                  "exclusiveMinimum": 0,
+                  "exclusiveMaximum": 1,
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "hardRatio": {
+                  "type": "number",
+                  "default": 0.88,
+                  "description": "Swap prepared summary above this fraction. Must exceed softRatio.",
+                  "exclusiveMinimum": 0,
+                  "exclusiveMaximum": 1,
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "summaryMaxTokens": {
+                  "type": "integer",
+                  "default": 1228,
+                  "description": "Maximum summary tokens; also capped to 15 percent of the catalogue window.",
+                  "minimum": 32,
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "maxMessageTokens": {
+                  "type": "integer",
+                  "default": 819,
+                  "description": "Maximum tokens per context message; originals stay in the transcript.",
+                  "minimum": 32,
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "summarizer": {
+                  "type": "string",
+                  "default": "llm",
+                  "description": "Background summarize role; unavailable model or refused budget uses deterministic digest.",
+                  "enum": [
+                    "llm",
+                    "digest"
+                  ],
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "prune": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "description": "Background tool-pair visibility settings.",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean",
+                      "default": true,
+                      "description": "Enable post-turn tool-output pruning.",
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "keepLastTurns": {
+                      "type": "integer",
+                      "default": 3,
+                      "description": "Never hide tool pairs in the latest N turns.",
+                      "minimum": 1,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "decider": {
+                      "type": "string",
+                      "default": "laya",
+                      "description": "Local CPU Laya first, conservative heuristic if unavailable; off disables pruning.",
+                      "enum": [
+                        "laya",
+                        "heuristic",
+                        "off"
+                      ],
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "maxMs": {
+                      "type": "integer",
+                      "default": 100,
+                      "description": "Total decision time budget. Timeout retains original context.",
+                      "minimum": 1,
+                      "maximum": 60000,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    },
+                    "batchSize": {
+                      "type": "integer",
+                      "default": 16,
+                      "description": "Maximum tool pairs in one decision request.",
+                      "minimum": 1,
+                      "maximum": 256,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "channels": {
           "description": "Switchboard channel adapters. Every channel is off by default and takes effect when its module restarts. Tokens and passwords are secret names, never values.",
           "type": "object",
