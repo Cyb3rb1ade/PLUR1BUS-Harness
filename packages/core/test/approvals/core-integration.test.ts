@@ -1,4 +1,5 @@
 // The eight grant.* / approval.* methods in a running core: the real RPC server, schema validators, RBAC guard, lazy stores and notifications.
+import { fakeHelper } from "../attestation/fixtures/pinned-fake.ts";
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -12,7 +13,6 @@ import type { Principal } from "../../src/rbac/types.ts";
 import { connect } from "../helpers/connect.ts";
 import { flatTestInternals } from "../helpers/flat-embedder.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
-import { fileURLToPath } from "node:url";
 import { askFor } from "./service-helpers.ts";
 
 const T = { timeout: 60_000 };
@@ -200,7 +200,6 @@ describe("grant.* and approval.* in a running core: the owner's path", () => {
 
 describe("OS attestation in a running core (#192 option C)", () => {
   const restore = withMemoryKeyring();
-  const FAKE = fileURLToPath(new URL("../attestation/fixtures/fake-attest.mjs", import.meta.url));
   const SHELL = { capability: "shell.exec", tool: "shell.run", effect: "local-destructive" as const, targets: [], args: { cmd: "ls" } };
   const PERSON: Principal = { userId: "christian", kind: "person", role: "owner" };
   after(() => restore());
@@ -220,7 +219,7 @@ describe("OS attestation in a running core (#192 option C)", () => {
   };
 
   it("a token connection lifts one T2 approval with one confirmation; the grant says where it came from", T, async () => {
-    await run({ helper: { path: process.execPath, args: [FAKE, "ok"] } }, async (c, core) => {
+    await run({ helper: fakeHelper("ok") }, async (c, core) => {
       const { id, answer } = await park(core);
       await assert.rejects(c.call("approval.decide", { id, decision: "approve", scope: "session" }), (e: any) => { assert.deepEqual(err(e), { error: "E_APPROVAL_REQUIRED", reason: "attestation-required" }); return true; });
       const out = await c.call<any>("approval.decide", { id, decision: "approve", scope: "task", attest: true });
@@ -231,7 +230,7 @@ describe("OS attestation in a running core (#192 option C)", () => {
   });
 
   it("a cancelled confirmation, and a core without a helper, leave the request pending at T1", T, async () => {
-    await run({ helper: { path: process.execPath, args: [FAKE, "cancel"] } }, async (c, core) => {
+    await run({ helper: fakeHelper("cancel") }, async (c, core) => {
       const { id } = await park(core);
       await assert.rejects(c.call("approval.decide", { id, decision: "approve", attest: true }), (e: any) => { assert.deepEqual(err(e), { error: "E_DENIED", reason: "attestation-failed" }); return true; });
       assert.equal((await c.call<any>("approval.get", { id })).status, "pending");

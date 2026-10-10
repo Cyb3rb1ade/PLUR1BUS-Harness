@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { fakeHelper } from "./fixtures/pinned-fake.ts";
 import { createAttestationService, MAX_ATTEST_TTL_MS } from "../../src/attestation/index.ts";
 import type { PolicyAuditAction, PolicyAuditFields } from "../../src/policy/audit.ts";
 
@@ -15,7 +16,7 @@ function rig(mode: string, arg?: string, o: { ttlMs?: number; nonces?: string[] 
   const audit: { action: PolicyAuditAction; fields: PolicyAuditFields }[] = [];
   const nonces = [...(o.nonces ?? [])];
   const svc = createAttestationService({
-    helper: { path: process.execPath, args: [FAKE, mode, ...(arg !== undefined ? [arg] : [])] },
+    helper: fakeHelper(mode, arg),
     audit: { record: (action, fields) => { audit.push({ action, fields }); } },
     ...(o.ttlMs !== undefined ? { ttlMs: o.ttlMs } : {}),
     ...(nonces.length ? { newNonce: () => nonces.shift() ?? "n-fallback" } : {}),
@@ -62,7 +63,7 @@ describe("attestation service", () => {
   });
 
   it("refuses the replay of a nonce that was already consumed", T, async () => {
-    const svc = createAttestationService({ helper: { path: process.execPath, args: [FAKE, "nonce", "n1"] }, newNonce: (() => { const q = ["n1", "n2"]; return () => q.shift()!; })() });
+    const svc = createAttestationService({ helper: fakeHelper("nonce", "n1"), newNonce: (() => { const q = ["n1", "n2"]; return () => q.shift()!; })() });
     assert.equal((await svc.attest(ask())).ok, true); // n1 echoed for n1: fine, consumed now
     assert.deepEqual(await svc.attest(ask()), { ok: false, reason: "replay" }); // issued n2, helper replays n1
   });

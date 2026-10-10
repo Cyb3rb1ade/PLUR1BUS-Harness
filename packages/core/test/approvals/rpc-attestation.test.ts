@@ -1,8 +1,8 @@
 // #192 option C: one OS confirmation lifts ONE approval of an unattested local connection (T1) to T2. The attester is a seam the
 // core owns; these tests drive the handler with a programmable attester and, once, with the real service and the fake helper.
+import { fakeHelper } from "../attestation/fixtures/pinned-fake.ts";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { fileURLToPath } from "node:url";
 import { createAttestationService } from "../../src/attestation/index.ts";
 import type { AttestInput, AttestProbe, AttestResult, Attester } from "../../src/attestation/index.ts";
 import { createPolicyAudit } from "../../src/policy/audit.ts";
@@ -10,7 +10,6 @@ import { memoryAuditSink } from "../../src/rbac/audit.ts";
 import { AGENT_PRINCIPAL, refused, rpcRig, type RpcRig } from "./rpc-helpers.ts";
 
 const T = { timeout: 20_000 };
-const FAKE = fileURLToPath(new URL("../attestation/fixtures/fake-attest.mjs", import.meta.url));
 const SHELL = { capability: "shell.exec", tool: "shell.run", effect: "local-destructive" as const, targets: [], args: { cmd: "ls" } };
 
 function spy(result: AttestResult = { ok: true, method: "touch-id", at: 1 }, probe: AttestProbe = { available: true, method: "touch-id" }) {
@@ -201,7 +200,7 @@ describe("approval.decide with an OS attestation", () => {
 
   it("audits the attestation requested and its outcome around the decision (real service, fake helper)", T, async () => {
     const sink = memoryAuditSink();
-    const attester = createAttestationService({ helper: { path: process.execPath, args: [FAKE, "ok"] }, audit: createPolicyAudit({ sink, clock: { now: () => Date.now() }, host: "h" }) });
+    const attester = createAttestationService({ helper: fakeHelper("ok"), audit: createPolicyAudit({ sink, clock: { now: () => Date.now() }, host: "h" }) });
     const r = await withAttester(attester);
     const { id, answer } = await r.park(SHELL);
     const out = await r.call("approval.decide", { id, decision: "approve", scope: "session", attest: true });
