@@ -22,14 +22,18 @@ pub struct State {
 }
 pub type ExecHook = std::sync::Arc<dyn Fn(&[&str]) -> ExecOutput + Send + Sync>;
 pub struct FakeRuntime {
+    pub log_sample: Mutex<String>,
     pub exec_hook: Mutex<Option<ExecHook>>,
+    pub oneshot_hook: Mutex<Option<ExecHook>>,
     pub state: Mutex<State>,
     info: RuntimeInfo,
 }
 impl FakeRuntime {
     pub fn new(kind: RuntimeKind) -> Self {
         Self {
+            log_sample: Mutex::new("synthetic log".into()),
             exec_hook: Mutex::new(None),
+            oneshot_hook: Mutex::new(None),
             state: Mutex::new(State::default()),
             info: RuntimeInfo {
                 kind,
@@ -110,6 +114,9 @@ impl Runtime for FakeRuntime {
         self.call(&format!("volume:{name}"))?;
         self.state.lock().unwrap().volumes.insert(name.into());
         Ok(())
+    }
+    async fn volume_present(&self, name: &str, _labels: &Labels) -> Result<bool, RuntimeError> {
+        Ok(self.state.lock().unwrap().volumes.contains(name))
     }
     async fn volume_remove(&self, name: &str) -> Result<(), RuntimeError> {
         self.call(&format!("remove-volume:{name}"))?;
@@ -200,7 +207,7 @@ impl Runtime for FakeRuntime {
             .collect())
     }
     async fn logs_tail(&self, _name: &str, _lines: u32) -> Result<String, RuntimeError> {
-        Ok("synthetic log".into())
+        Ok(self.log_sample.lock().unwrap().clone())
     }
     async fn exec(
         &self,
@@ -217,10 +224,14 @@ impl Runtime for FakeRuntime {
     }
     async fn run_oneshot(
         &self,
-        _spec: &ContainerSpec,
+        spec: &ContainerSpec,
         _timeout: Duration,
     ) -> Result<ExecOutput, RuntimeError> {
         self.call("oneshot")?;
+        if let Some(hook) = self.oneshot_hook.lock().unwrap().as_ref() {
+            let cmd = spec.cmd.as_ref().unwrap();
+            return Ok(hook(&cmd.iter().map(String::as_str).collect::<Vec<_>>()));
+        }
         Ok(ExecOutput {
             code: 0,
             stdout: vec![],

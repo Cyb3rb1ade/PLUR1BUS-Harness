@@ -43,6 +43,8 @@
     "allow-update-install",
     "allow-update-skip",
     "allow-update-later",
-    "allow-update-store-open"
+    "allow-update-store-open",
+    "allow-harness-upgrade-status",
+    "allow-harness-rollback"
   ]
 }

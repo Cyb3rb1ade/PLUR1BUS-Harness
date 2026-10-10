@@ -85,7 +85,9 @@ fn shell_capability_is_local_only() {
             "allow-update-install",
             "allow-update-skip",
             "allow-update-later",
-            "allow-update-store-open"
+            "allow-update-store-open",
+            "allow-harness-upgrade-status",
+            "allow-harness-rollback"
         ])
     );
     assert_eq!(c["webviews"], serde_json::json!(["shell"]));
@@ -121,6 +123,8 @@ fn every_wp4_command_is_registered_guarded_and_no_pin_or_runtime_path_is_an_ipc_
             "runtime_start",
             "bundle_install",
             "harness_start",
+            "harness_upgrade_status",
+            "harness_rollback",
             "harness_stop",
             "harness_status",
             "harness_logs_tail",

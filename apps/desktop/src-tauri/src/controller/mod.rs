@@ -1,7 +1,9 @@
 pub mod acquire;
 pub mod autostart;
 pub mod bundle;
+pub mod journal;
 pub mod lifecycle;
+pub mod upgrade;
 pub mod watch;
 use crate::runtime::{Runtime, RuntimeError, RuntimeKind};
 use serde::{Deserialize, Serialize};
@@ -160,6 +162,8 @@ pub struct Controller {
     pub(crate) dir: PathBuf,
     pub(crate) resource_dir: PathBuf,
     pub(crate) health: Arc<dyn Health>,
+    pub(crate) upgrade_probe: Arc<dyn upgrade::UpgradeProbe>,
+    pub(crate) upgrade_timeout: Duration,
     pub(crate) mutation: tokio::sync::Mutex<()>,
     pub(crate) names: Names,
     pub(crate) watcher: std::sync::Mutex<watch::Watch>,
@@ -181,6 +185,8 @@ impl Controller {
             resource_dir: dir.join("resources"),
             dir,
             health,
+            upgrade_probe: Arc::new(upgrade::NativeUpgradeProbe),
+            upgrade_timeout: Duration::from_secs(300),
             mutation: tokio::sync::Mutex::new(()),
             names: Names::default(),
             watcher: std::sync::Mutex::new(watch::Watch::new(kind)),

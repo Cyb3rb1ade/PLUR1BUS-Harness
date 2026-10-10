@@ -132,6 +132,14 @@ impl super::Controller {
             let origin = std::time::Instant::now();
             loop {
                 tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                if self.mutation.try_lock().is_err()
+                    || self.upgrade_journal().is_err()
+                    || self.upgrade_journal().ok().flatten().is_some_and(|j| {
+                        !j.step.terminal() || j.step == super::journal::Step::RecoveryFailed
+                    })
+                {
+                    continue;
+                }
                 if !self.desired_running().unwrap_or(false) {
                     publish(self.status().await).await;
                     continue;

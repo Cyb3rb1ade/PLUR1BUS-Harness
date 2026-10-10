@@ -685,7 +685,7 @@ fn err(reason: &str, status: StatusCode) -> Response {
 async fn meta(State(s): State<Arc<Shared>>) -> Json<Value> {
     let store = s.store.lock().unwrap();
     Json(
-        json!({"apiVersion":*s.api_version.lock().unwrap(),"version":"0.1.0", "installationId":s.reported_id.lock().unwrap().clone().unwrap_or_else(||store.installation_id.clone()),"capabilities":if s.session_ticket_capability.load(Ordering::SeqCst) { vec![capability::SESSION_TICKET,capability::HOST_BRIDGE,"test.mock"] } else { vec![capability::HOST_BRIDGE,"test.mock"] }}),
+        json!({"apiVersion":*s.api_version.lock().unwrap(),"version":if std::env::var("PLUR1BUS_CONTAINER").as_deref()==Ok("1"){std::env::var("PLUR1BUS_STUB_VERSION").unwrap_or_else(|_|"0.1.0".into())}else{"0.1.0".into()}, "installationId":s.reported_id.lock().unwrap().clone().unwrap_or_else(||store.installation_id.clone()),"capabilities":if s.session_ticket_capability.load(Ordering::SeqCst) { vec![capability::SESSION_TICKET,capability::HOST_BRIDGE,"test.mock"] } else { vec![capability::HOST_BRIDGE,"test.mock"] }}),
     )
 }
 

@@ -123,7 +123,8 @@ pub fn create_body(spec: &ContainerSpec) -> Result<ContainerCreateBody, RuntimeE
         body["ExposedPorts"] = json!({"18700/tcp":{}})
     }
     if let Some(cmd) = &spec.cmd {
-        body["Cmd"] = json!(cmd)
+        body["Cmd"] = json!(cmd);
+        body["Entrypoint"] = json!([])
     }
     serde_json::from_value(body).map_err(|_| RuntimeError::Failed("container-body".into()))
 }
@@ -330,6 +331,17 @@ impl Runtime for DockerRuntime {
             .await
             .map(|_| ())
             .map_err(map_error)
+    }
+    async fn volume_present(&self, name: &str, labels: &Labels) -> Result<bool, RuntimeError> {
+        match self.client.inspect_volume(name).await {
+            Ok(v) => Ok(labels
+                .iter()
+                .all(|(k, value)| v.labels.get(k) == Some(value))),
+            Err(Error::DockerResponseServerError {
+                status_code: 404, ..
+            }) => Ok(false),
+            Err(e) => Err(map_error(e)),
+        }
     }
     async fn volume_remove_owned(&self, name: &str, labels: &Labels) -> Result<(), RuntimeError> {
         match self.client.inspect_volume(name).await {

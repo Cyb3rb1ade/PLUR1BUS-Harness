@@ -404,9 +404,9 @@ pub fn approval_open(window: WebviewWindow, request: ApprovalRequest) -> Result<
     let mut url = spa.url().map_err(|_| "E_NOT_AVAILABLE")?;
     let proxy = window
         .state::<crate::spa::SpaState>()
-        .active_proxy()
+        .active_origin()
         .ok_or("E_NOT_AVAILABLE")?;
-    if !crate::policy::same_origin(&url, proxy.origin()) {
+    if !crate::policy::same_origin(&url, &proxy) {
         return Err("E_DENIED".into());
     }
     url.set_fragment(Some(&format!("/approvals/{}", request.id)));

@@ -83,6 +83,10 @@ pub trait Runtime: Send + Sync {
         size_gib: u32,
         labels: &Labels,
     ) -> Result<(), RuntimeError>;
+    /// Read-only availability/ownership query for the manual rollback offer.
+    async fn volume_present(&self, _name: &str, _labels: &Labels) -> Result<bool, RuntimeError> {
+        Ok(false)
+    }
     async fn volume_remove(&self, name: &str) -> Result<(), RuntimeError>;
     async fn volume_remove_owned(&self, name: &str, _labels: &Labels) -> Result<(), RuntimeError> {
         self.volume_remove(name).await

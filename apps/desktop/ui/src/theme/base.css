@@ -186,3 +186,7 @@ p { color: var(--ink-2); line-height: 1.5; }
 .bundled-wizard .wizard-steps-button, .bundled-wizard .wizard-choices {display:none;}
 @media (max-width:1023px) { .bundled-wizard {display:block;} .wizard-rail {display:none;} .bundled-wizard .wizard-steps-button {display:inline-flex;} }
 @media (min-width:1601px) { .bundled-wizard {grid-template-columns:292px minmax(0,880px) 316px;max-width:1600px;} .bundled-wizard .wizard-choices {display:block;grid-column:3;grid-row:1 / span 20;} }
+
+.version-page dd { margin: 0 0 12px; overflow-wrap: anywhere; }
+.diagnostic-details { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 20rem; overflow: auto; }
+.upgrade-progress [aria-current="step"] { font-weight: 700; }

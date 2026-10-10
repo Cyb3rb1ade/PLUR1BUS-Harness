@@ -241,6 +241,14 @@ impl SpaState {
             probe(stage, hresult);
         }
     }
+    /// The production approval handover needs only its trusted carrier origin.
+    pub(crate) fn active_origin(&self) -> Option<crate::connections::Origin> {
+        self.current
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|a| a.proxy.origin().clone())
+    }
     /// Native fixture only: use the active carrier in memory for negative transport checks.
     #[cfg(debug_assertions)]
     pub fn active_proxy(&self) -> Option<SpaProxy> {

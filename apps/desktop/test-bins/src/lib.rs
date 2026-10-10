@@ -1,3 +1,4 @@
+mod snapshot;
 use plur1bus_desktop_contract::{
     exec::{self, Command},
     scope,
@@ -70,7 +71,14 @@ pub fn run(kind: &str) -> ! {
     }
     let result = match classified {
         Some(Command::DaemonStatus) => {
-            serde_json::from_str(include_str!("../fixtures/daemon-status.json")).unwrap()
+            let mut value: Value =
+                serde_json::from_str(include_str!("../fixtures/daemon-status.json")).unwrap();
+            if env::var("PLUR1BUS_CONTAINER").as_deref() == Ok("1") {
+                value["supervisor"]["process"]["state"] = json!("running");
+                value["children"] = json!([{"kind":"core","process":{"state":"ready"}}]);
+                value["activity"] = json!({"activeRuns":0});
+            }
+            value
         }
         Some(Command::FirstAidCheck) => {
             serde_json::from_str(include_str!("../fixtures/firstaid-check.json")).unwrap()
@@ -90,15 +98,24 @@ pub fn run(kind: &str) -> ! {
         Some(Command::DeviceRevoke) => mock_call("/__test/revoke", json!({"device_id":args[2]})),
         Some(Command::StateSnapshot) => {
             fail_if("snapshot");
-            json!({"schema":"state.snapshot/1","from":"mock","createdAt":"2026-01-01T00:00:00Z","fileCount":1,"bytes":1,"manifestSha256":"mock"})
+            snapshot::snapshot(
+                std::path::Path::new(&args[3]),
+                std::path::Path::new(&args[5]),
+            )
+            .unwrap_or_else(|_| fail("E_SNAPSHOT", "synthetic snapshot failed"))
         }
         Some(Command::StateVerify) => {
             fail_if("verify");
-            json!({"schema":"state.verify/1","ok":true,"mismatches":[]})
+            snapshot::verify(std::path::Path::new(&args[3]))
+                .unwrap_or_else(|_| fail("E_VERIFY", "synthetic verification failed"))
         }
         Some(Command::StateRestore) => {
             fail_if("restore");
-            json!({"schema":"state.restore/1","ok":true})
+            snapshot::restore(
+                std::path::Path::new(&args[3]),
+                std::path::Path::new(&args[5]),
+            )
+            .unwrap_or_else(|_| fail("E_RESTORE", "synthetic restore failed"))
         }
         Some(Command::AdminMigrate) => {
             fail_if("migrate");
@@ -106,6 +123,9 @@ pub fn run(kind: &str) -> ! {
         }
         Some(Command::AdminSmoke) => {
             fail_if("smoke");
+            if env::var("PLUR1BUS_STUB_FAIL_SMOKE").as_deref() == Ok("1") {
+                fail("E_SMOKE", "synthetic smoke failure");
+            }
             json!({"schema":"admin.smoke/1","ok":true,"steps":[{"name":"mock","ok":true,"ms":0}]})
         }
         _ => fail("E_ARGV", "unsupported argv"),
@@ -141,7 +161,15 @@ fn mock_call(path: &str, body: Value) -> Value {
     }
 }
 fn fail_if(step: &str) {
-    if mock_call("/__test/failure", json!({"step":step}))["fail"] == true {
+    if env::var("PLUR1BUS_STUB_FAIL_STEP").as_deref() == Ok(step) {
+        fail("E_INJECTED", "synthetic failure");
+    }
+    // Cold snapshot workers have network=none. Only running-harness controls may call the mock.
+    if (env::var_os("PLUR1BUS_FAKE_ORIGIN").is_some()
+        || (env::var("PLUR1BUS_CONTAINER").as_deref() == Ok("1")
+            && matches!(step, "smoke" | "migrate")))
+        && mock_call("/__test/failure", json!({"step":step}))["fail"] == true
+    {
         fail("E_INJECTED", "upgrade gate failure")
     }
 }

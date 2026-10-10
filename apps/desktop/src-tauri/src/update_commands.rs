@@ -11,10 +11,61 @@ use tauri::{Manager, WebviewWindow};
 #[derive(Default)]
 pub struct UpdateState(pub tokio::sync::Mutex<Owner>);
 /// Verified metadata is held in Rust only; installs cannot substitute UI metadata.
-#[derive(Default)]
 pub struct Owner {
     release: Option<Release>,
     started: bool,
+    active_runs: bool,
+    automatic_started: bool,
+}
+impl Default for Owner {
+    fn default() -> Self {
+        Self {
+            release: None,
+            started: false,
+            active_runs: true,
+            automatic_started: false,
+        }
+    }
+}
+/// Check cached approved policy once a minute; unknown activity keeps automatic updates waiting.
+pub(crate) fn auto_watch(window: WebviewWindow) {
+    tauri::async_runtime::spawn(async move {
+        let Some(state) = window.try_state::<UpdateState>() else {
+            return;
+        };
+        {
+            let mut owner = state.0.lock().await;
+            if owner.automatic_started {
+                return;
+            }
+            owner.automatic_started = true;
+        }
+        loop {
+            tokio::time::sleep(Duration::from_secs(60)).await;
+            if let Ok(root) = dir(&window) {
+                if crate::upgrade_commands::load_pending(&root).is_ok_and(|p| p.is_some())
+                    && crate::upgrade_commands::on_start(&window).await.is_err()
+                {
+                    return;
+                }
+            }
+            let busy = crate::upgrade_commands::has_active_runs(&window).await;
+            let Ok(root) = dir(&window) else {
+                return;
+            };
+            let Ok(settings) = load_settings(&root) else {
+                continue;
+            };
+            let mut owner = state.0.lock().await;
+            owner.active_runs = busy;
+            let result = snapshot(&settings, &owner, &root);
+            let auto = matches!(result.offer, Offer::AutoInstall) && result.install_available;
+            drop(owner);
+            if auto && update_install(window.clone()).await.is_err() {
+                return;
+            }
+        }
+    });
 }
 /// Public editable preferences exclude rate-limit and suppression bookkeeping.
 #[derive(Clone, Serialize, Deserialize)]
@@ -62,11 +113,9 @@ fn now() -> u64 {
 fn dir(window: &WebviewWindow) -> Result<std::path::PathBuf, String> {
     commands::app_config_dir(window.app_handle())
 }
-fn snapshot(s: &UpdateSettings, o: &Owner, root: &Path) -> Snapshot {
+fn snapshot(s: &UpdateSettings, o: &Owner, _root: &Path) -> Snapshot {
     use chrono::Timelike;
     let hour = chrono::Local::now().hour() as u8;
-    // Until WP11 has a proven no-active-run source and the shared upgrade path,
-    // automatic execution is held back; the policy itself remains fully testable.
     let offer = o
         .release
         .as_ref()
@@ -77,7 +126,7 @@ fn snapshot(s: &UpdateSettings, o: &Owner, root: &Path) -> Snapshot {
                 s,
                 now(),
                 hour,
-                true,
+                o.active_runs,
             )
         })
         .unwrap_or(Offer::None);
@@ -86,8 +135,7 @@ fn snapshot(s: &UpdateSettings, o: &Owner, root: &Path) -> Snapshot {
         release: o.release.clone(),
         offer,
         store_build: cfg!(feature = "store"),
-        install_available: cfg!(all(feature = "direct-updater", not(feature = "store")))
-            && !bundled_install_present(root),
+        install_available: cfg!(all(feature = "direct-updater", not(feature = "store"))),
     }
 }
 fn error(e: UpdateError) -> String {
@@ -201,7 +249,9 @@ pub async fn update_check(
     commands::check(&window, "update_check")?;
     let root = dir(&window)?;
     let state = window.state::<UpdateState>();
+    let busy = crate::upgrade_commands::has_active_runs(&window).await;
     let mut o = state.0.lock().await;
+    o.active_runs = busy;
     let mut s = load_settings(&root).map_err(error)?;
     if startup == Some(true) {
         if o.started {
@@ -235,10 +285,17 @@ pub async fn update_check(
     o.release = Some(verify_feed(&bytes, sig, &feed_key, s.channel).map_err(error)?);
     let result = snapshot(&s, &o, &root);
     publish(window.app_handle(), &result);
+    let auto = matches!(result.offer, Offer::AutoInstall) && result.install_available;
+    drop(o);
+    if auto {
+        update_install(window).await?;
+    }
     Ok(result)
 }
 fn publish(app: &tauri::AppHandle, s: &Snapshot) {
-    let state = app.state::<crate::native::NativeState>();
+    let Some(state) = app.try_state::<crate::native::NativeState>() else {
+        return;
+    };
     let mut view = state.view.lock().unwrap();
     view.held = s.settings.held;
     view.update_available = !matches!(s.offer, Offer::None);
@@ -302,7 +359,7 @@ pub fn pending_before_install<T>(
     )?;
     install()
 }
-/// App-only updates are available for attached installs. Bundled upgrades require WP11.
+/// Replace the app first; its next launch resumes the approved bundled transaction.
 #[tauri::command]
 pub async fn update_install(window: WebviewWindow) -> Result<(), String> {
     commands::check(&window, "update_install")?;
@@ -315,9 +372,6 @@ pub async fn update_install(window: WebviewWindow) -> Result<(), String> {
     {
         use tauri_plugin_updater::UpdaterExt;
         let root = dir(&window)?;
-        if bundled_install_present(&root) {
-            return Err("update-harness-upgrade-unavailable".into());
-        }
         let state = window.state::<UpdateState>();
         let o = state.0.lock().await;
         let s = load_settings(&root).map_err(error)?;
@@ -364,10 +418,13 @@ pub async fn update_install(window: WebviewWindow) -> Result<(), String> {
             .download(|_, _| {}, || {})
             .await
             .map_err(|_| error(UpdateError::Signature))?;
-        pending_before_install(&root, &release.version, || {
-            update.install(bytes).map_err(|_| UpdateError::Storage)
-        })
-        .map_err(error)?;
+        let automatic = matches!(snapshot(&s, &o, &root).offer, Offer::AutoInstall);
+        crate::upgrade_commands::approve(&root, release, automatic).map_err(error)?;
+        if update.install(bytes).is_err() {
+            std::fs::remove_file(root.join("upgrades.json"))
+                .map_err(|_| error(UpdateError::Storage))?;
+            return Err(error(UpdateError::Storage));
+        }
         window.app_handle().restart();
     }
 }
