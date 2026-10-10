@@ -1,6 +1,6 @@
 // Settings > Devices & remote. Gate: `config.get` key `remote.publish`. Hidden (with a short note) at `local` and when the key is
-// unknown or unserved; Owner/Admin only. `pairing.qr` formats an existing pairing offer as a QR code and link.
-// `device.list` and `device.revoke` are not yet available on this harness, so those remain unavailable with a notice.
+// unknown or unserved (Owner/Admin read it). `pairing.qr` formats an existing pairing offer as a QR code and link. `device.list/rename/revoke`
+// show the paired devices: Owner/Admin see all, everyone else only their own (the server filters; see ./devices/list.ts).
 import { h } from "preact";
 import { useState } from "preact/hooks";
 import type { View } from "../../../view.ts";
@@ -14,6 +14,7 @@ import { registerArea } from "../../../i18n/index.ts";
 import * as devicesArea from "../../../i18n/devices.ts";
 import "../../../styles/devices.css";
 import { QrCodeView } from "./devices/qr.ts";
+import { DeviceList } from "./devices/list.ts";
 import "../../common/admin-rpc.ts";
 import type { PairingQrResult } from "../../common/admin-rpc.ts";
 
@@ -99,14 +100,13 @@ function Loaded(): View {
   if (mode === null) return h(PageState, { state: "empty", title: t("devices.off.title"), detail: t("devices.off.body") });
   return h("div", { class: "devices" },
     h(Card, { title: t("devices.mode"), level: 3 }, h("p", {}, t("devices.mode.value", { mode }))),
-    h(Card, { title: t("devices.list"), level: 3 }, h(Notice, {}, t("devices.list.unavailable"))),
-    h(PairCard, {}),
-    h(Card, { title: t("devices.remove"), level: 3 }, h(Notice, {}, t("devices.remove.unavailable"))));
+    h(DeviceList, {}),
+    h(PairCard, {}));
 }
 
 export function DevicesSection({ section }: SectionProps): View {
-  const allowed = roleIn(currentRole(), ["owner", "admin"]);
+  const privileged = roleIn(currentRole(), ["owner", "admin"]);
   return h("section", { "data-section": section.id, "aria-labelledby": "devices-h" },
     h("h2", { id: "devices-h" }, t("devices.title")),
-    allowed ? h(Loaded, {}) : h(PageState, { state: "forbidden" }));
+    privileged ? h(Loaded, {}) : h(DeviceList, {}));
 }

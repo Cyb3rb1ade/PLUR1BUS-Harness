@@ -30,7 +30,7 @@ the page for each id in `src/pages/registry.ts`.
 | `/settings`, `/settings/<section>` (`general`, `models`, `memory`, `extensions`, `network`) | Settings | pinned | all five plus read-only | Section navigation 224 px, content up to 880 px. Fields from a static index of the config schema (F17), restart class badge, "Review changes" with a dry-run diff, save with `ifRevision`, `?focus=<key>` scrolls to and highlights a field. |
 | `/settings/users` | Users & roles | pinned | all five | People list (`identity.list`), role presets with plain text, simple mode and rights matrix per agent (draft), invite dialog and break-glass dialog; role change, invitations (code shown once, copy button), use/manage rights per agent and the break-glass request are wired; the last Owner cannot be demoted and the error is explained (F40, F41). Owner/admin only. |
 | `/settings/secrets` | Secrets | pinned | all five | Names and metadata only; create, rotate (masked input, value cleared at submit) and delete (typed name). No value is ever in the DOM, storage, URL or console (tested). |
-| `/settings/devices` | Devices & remote | pinned | all but empty | Hidden behind a note when `remote.publish` is `local` or unknown; the pairing QR (`pairing.qr`) is wired; the device list and removal stay `unavailable` with a note; the `device.list/revoke/rename` backend exists since #352, the UI binding is follow-up work (F44). |
+| `/settings/devices` | Devices & remote | pinned | all but empty | Hidden behind a note when `remote.publish` is `local` or unknown; the pairing QR (`pairing.qr`) and the device list with rename and revoke (`device.list/rename/revoke`) are wired; Owner/Admin see all devices, everyone else only their own (F44). |
 | `/logs`, `/logs/activity`, `/logs/sessions` | Logs (tabs Logs, Activity, Sessions) | Control | all five per tab | Log viewer: filters, cursor paging, live tail (long poll, pause with buffer), virtual list, detail with redaction marks, export. Activity: grouped, human-readable events and the `audit.verify` status. Sessions: operators see other people's sessions (filter owner/agent, columns owner, model, usage), transcripts only through an active break-glass window (F41, F42). Links `?trace=`, `?q=`, `?stream=` prefill the viewer. |
 | `/setup`, `/setup?mode=bundled` | First-run wizard | none (not in the sidebar) | per step | Seven steps (six when bundled), progress, back/next/skip, resume after reload, licence gate for non-commercial embedding models only (the default, EmbeddingGemma 2, is Apache-2.0 and asks nothing). |
 | `/projects`, `/inbox`, `/library`, `/skills`, `/plugins`, `/switchboard`, `/recurring`, `/approvals`, `/help` | placeholder | as in `nav.ts` | none (fixed text `page.placeholder`) | `PlaceholderPage`. `approvals` stays a placeholder (grants and approvals, D109, are not part of this change). |
@@ -87,8 +87,7 @@ by its `event:` field or as a JSON-RPC notification object whose `method` is the
 
 The [admin backends](admin-backends.md) now supply the RPC/CLI contracts below. The admin pages are now bound to these
 calls (**angebunden**). Every page shows only what the role may read, translates the error codes (de/en) and falls back to
-`unavailable` when the server does not know a method. Open gaps: the Devices page still shows the device list and removal as `unavailable` (`device.list/revoke/rename` exist in the backend, binding is follow-up), and
-agent hard-erasure is blocked by the pinned engine API (delete then reports `engine-erasure-unavailable`).
+`unavailable` when the server does not know a method. Open gap: agent hard-erasure is blocked by the pinned engine API (delete then reports `engine-erasure-unavailable`).
 
 | What the UI needs | Backend status | Remaining UI work |
 |---|---|---|
@@ -96,7 +95,7 @@ agent hard-erasure is blocked by the pinned engine API (delete then reports `eng
 | Users, role presets, invitation, use/manage matrix (F40) | RPC and CLI available, stored roles/rights, one-time Identity proof | Done: bound (F40) |
 | Break-Glass window and affected-person notice (F41) | RPC/CLI, durable self-scoped notices, audited transcript/user-memory reads | Done: request, list with remaining time, revoke (F41); inbox/live notice follows |
 | Operator session overview (F42) | `session.list` owner/agent filters, explicit allOwners, owner/model/tokens/cost metadata | Done: filters and owner/model/usage columns (F42); transcripts stay behind Break-Glass |
-| Devices, QR payload and remote mode (F44) | Persistent device store, `device.list/revoke/rename`, CLI, `pairing.qr` and `remote.publish` available | QR bound; **Gap: bind device list/revoke/rename**, the Devices page still shows these as `unavailable` |
+| Devices, QR payload and remote mode (F44) | Persistent device store, `device.list/revoke/rename`, CLI, `pairing.qr` and `remote.publish` available | Done: QR, device list, rename (own device) and revoke with confirmation that open connections close (F44) |
 
 ## M3 part 2: inventory (K1)
 
@@ -142,7 +141,7 @@ Two different questions decide a row:
 | **Log viewer** query, filters, export | `logs.query` (`stream`, `minLevel`, `component`, `text`, `from`, `to`, `order`, `limit`, `cursor`) | yes | Built. `trace_id` has no parameter: it is matched with `text`; export is the loaded, filtered rows (F43) |
 | Log viewer live tail | `logs.tail` (long poll with `waitMs`) | yes | Built over `/rpc`; there is no log event on SSE (F2) |
 | **Activity feed** | `logs.query` (streams `audit` and `diagnostic`), `audit.verify` | yes | Built from the log streams only; `jobs.history`, `dreams.log` and `models.list` are not used (F43) |
-| Devices / pairing card | `config.get` key `remote.publish`, `pairing.qr` | partly (QR yes, list/revoke no) | Card hidden at `local` and when the key is unknown; the QR comes from `pairing.qr`; paired devices and remove have no API (`device.list/revoke`, F44) |
+| Devices / pairing card | `config.get` key `remote.publish`, `pairing.qr`, `device.list`, `device.rename`, `device.revoke` | yes | Built: mode card hidden at `local` and when the key is unknown (Owner/Admin); the QR comes from `pairing.qr`; the device list shows name, platform, paired at/by, last seen and status for everyone (own devices, Owner/Admin all); rename for the device's own person, revoke with a confirmation (F44) |
 | **Command palette** entities | `config.get` (`agents`), `session.list`, static navigation, settings, actions and a log-search link | yes | Built as a client fan-out over those lists, capped and abortable (F14 is answered; a server endpoint stays a later option) |
 | **Settings: Providers** | `auth.credentials.list`, `auth.status`, `auth.login.start`, `auth.login.await`, `auth.login.cancel`, `auth.logout`, `secret.set` | yes | Built. Replaces unavailable provider login state. Masked secret key entry, headless SSH hint and callback paste flow. Interface wish: `auth.login.callback` RPC for manual callback URL forwarding (F33) |
 | **Switchboard** | `channel.list`, `channel.status`, `channel.get`, `channel.enable`, `channel.disable`, `channel.set`, `channel.test` | yes | Built. Channel list and detail, enable/disable toggles, field edit with secret rejection and link to secrets, test channel and test message to owner (`sendOwner: true`). When the channel host is missing, `not-registered` is rendered as "not started (host missing)" without an error state (F34) |
@@ -342,11 +341,11 @@ Numbers are stable; other documents refer to them.
 - **F43. Log viewer** (Logs). `logs.query` has no `trace_id` parameter (matched with `text`, and not combinable with a search text);
   `logs.tail` is a long poll (no log event on SSE); `audit.verify` returns no check time; the activity feed relies on scheduler job
   names (`scheduler.run.*`) because the log schema registers no agent-run, dream, model-scan or backup events.
-- **F44. Devices — QR wired; list/revoke/rename binding follows.** `pairing.qr`/`plur1bus pairing qr --link`
+- **F44. Devices — wired.** `pairing.qr`/`plur1bus pairing qr --link`
   format an existing offer using the package's read-only QR payload. `remote.publish` is now in the config schema.
   `packages/remote-access` now supplies the persistent device store, enrollment, proof-of-key reconnect and immediate
-  revocation ports. `device.list/revoke/rename` and `plur1bus device` are available with RBAC and audit. Bind the web
-  page as follow-up work; remote listener/route integration must share the core-owned store (see [remote access](remote-access.md#persistent-devices-f44)).
+  revocation ports. `device.list/revoke/rename` and `plur1bus device` are available with RBAC and audit. The web
+  page is bound (list, rename, revoke); remote listener/route integration must share the core-owned store (see [remote access](remote-access.md#persistent-devices-f44)).
 - **F45. Config schema over RPC** (Settings). No `config.schema` method: types, bounds, enums and defaults come from a static table
   in `pages/settings/config/meta.ts`, guarded by a drift test against `config.schema.json`. `config.get` could return the restart
   class for a whole tier (the page asks once per key). `config.set` has no role rule in `docs/rbac.md` (the UI allows owner and admin).

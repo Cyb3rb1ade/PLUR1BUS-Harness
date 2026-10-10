@@ -18,6 +18,7 @@ import type {
   BreakglassListParams, BreakglassListResult,
   BreakglassRevokeParams, BreakglassRevokeResult,
   PairingQrParams, PairingQrResult,
+  Device, DeviceListParams, DeviceListResult, DeviceRevokeParams, DeviceRevokeResult, DeviceRenameParams, DeviceRenameResult,
   SessionListParams, SessionListResult,
 } from "../../../../rpc-schema/generated/types.ts";
 
@@ -39,6 +40,7 @@ export type {
   BreakglassListParams, BreakglassListResult,
   BreakglassRevokeParams, BreakglassRevokeResult,
   PairingQrParams, PairingQrResult,
+  Device, DeviceListParams, DeviceListResult, DeviceRevokeParams, DeviceRevokeResult, DeviceRenameParams, DeviceRenameResult,
   SessionListParams, SessionListResult,
 };
 
@@ -60,6 +62,9 @@ declare module "../../api/index.ts" {
     "breakglass.request": { params: BreakglassRequestParams; result: BreakglassRequestResult };
     "breakglass.list": { params: BreakglassListParams; result: BreakglassListResult };
     "breakglass.revoke": { params: BreakglassRevokeParams; result: BreakglassRevokeResult };
+    "device.list": { params: DeviceListParams; result: DeviceListResult };
+    "device.revoke": { params: DeviceRevokeParams; result: DeviceRevokeResult };
+    "device.rename": { params: DeviceRenameParams; result: DeviceRenameResult };
     "pairing.qr": { params: PairingQrParams; result: PairingQrResult };
   }
 }
