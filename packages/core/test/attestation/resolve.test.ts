@@ -21,6 +21,13 @@ describe("attestation helper resolution and pinning", () => {
     }
     assert.equal(helperPinned(link), false);
   });
+  it("is no helper when its directory is group/world-writable", posix, () => {
+    const d = mkdtempSync(join(tmpdir(), "att-dir-"));
+    const p = join(d, "h"); writeFileSync(p, "#!/bin/sh\n"); chmodSync(p, 0o755);
+    assert.equal(helperPinned(p), true);
+    chmodSync(d, 0o777);
+    assert.equal(helperPinned(p), false);
+  });
   it("is no helper in container mode, whatever the variable says", posix, () => {
     assert.equal(helperFromEnv({ PLUR1BUS_ATTEST_BIN: exe("c", 0o755), PLUR1BUS_CONTAINER: "1" }), null);
   });

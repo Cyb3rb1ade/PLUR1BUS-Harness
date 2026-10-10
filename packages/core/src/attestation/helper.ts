@@ -2,7 +2,7 @@
 // exits. The core pins the helper: an absolute path to a regular file that is not writable by group or others. A helper that
 // does not answer within the deadline is killed.
 import { spawn } from "node:child_process";
-import { isAbsolute } from "node:path";
+import { dirname, isAbsolute } from "node:path";
 import { lstatSync } from "node:fs";
 
 export interface HelperSpec {
@@ -15,14 +15,22 @@ export interface HelperSpec {
 
 export type HelperOutcome = { kind: "reply"; value: Record<string, unknown> } | { kind: "timeout" } | { kind: "missing" } | { kind: "broken" };
 
-/** Absolute, regular, not group/world-writable (POSIX). A relative path, a link, a directory or a missing file is `false`. */
+/**
+ * Absolute, regular, not group/world-writable, owned by root or by the core's own user, and in a directory that is neither
+ * group/world-writable nor owned by anyone else (POSIX): otherwise another user could swap the file. A relative path, a link, a
+ * directory or a missing file is `false`. This stops other users, not the owner's own processes (docs/security/os-attestation-2026-10.md).
+ */
 export function helperPinned(path: string): boolean {
   if (typeof path !== "string" || !isAbsolute(path)) return false;
   try {
     const st = lstatSync(path);
     if (!st.isFile()) return false;
-    if (process.platform !== "win32" && (st.mode & 0o022) !== 0) return false;
-    return true;
+    if (process.platform === "win32") return true;
+    const me = process.getuid?.() ?? -1;
+    if ((st.mode & 0o022) !== 0 || (st.uid !== 0 && st.uid !== me)) return false;
+    const dir = lstatSync(dirname(path));
+    // A sticky shared directory (/tmp) is writable by everyone on purpose and is still no place for a helper.
+    return dir.isDirectory() && (dir.mode & 0o022) === 0 && (dir.uid === 0 || dir.uid === me);
   } catch { return false; }
 }
 

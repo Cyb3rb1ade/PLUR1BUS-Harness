@@ -34,8 +34,8 @@ const SCOPE_WORDS: Record<GrantScope, string> = {
 const printable = (v: string): string => v.replace(/[^\x20-\x7e]/g, "?").slice(0, 64);
 
 /** What one OS confirmation covers: the concrete approval (request, action, capability, scope and so duration, agent, person). Nothing else. */
-function attestationHash(v: ApprovalView, scope: GrantScope): string {
-  return createHash("sha256").update(JSON.stringify(["plur1bus.attest/1", v.id, v.actionHash, v.capability, scope, v.delegable, v.subject.kind, v.subject.id, v.principal])).digest("hex");
+function attestationHash(v: ApprovalView, scope: GrantScope, delegable: boolean): string {
+  return createHash("sha256").update(JSON.stringify(["plur1bus.attest/1", v.id, v.actionHash, v.capability, scope, delegable, v.subject.kind, v.subject.id, v.principal])).digest("hex");
 }
 
 export function buildApprovalMethods(d: ApprovalMethodDeps): Record<ApprovalMethodName, Handler> {
@@ -63,8 +63,8 @@ export function buildApprovalMethods(d: ApprovalMethodDeps): Record<ApprovalMeth
     asking.add(p.id);
     try {
       const r = await attester.attest({
-        actionHash: attestationHash(view, scope), person: c.person, requestId: view.id, agentId: view.subject.id, scope,
-        text: `Allow agent "${printable(view.subject.id)}" to use ${printable(view.capability)} ${SCOPE_WORDS[scope]}`,
+        actionHash: attestationHash(view, scope, p.delegable === true), person: c.person, requestId: view.id, agentId: view.subject.id, scope,
+        text: `Allow agent "${printable(view.subject.id)}" to use ${printable(view.capability)}${view.tool ? ` via ${printable(view.tool)}` : ""} ${SCOPE_WORDS[scope]}${p.delegable === true ? ", also for the helpers it starts" : ""}`,
       });
       if (!r.ok) {
         if (r.reason === "unavailable") throw unavailable();

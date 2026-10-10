@@ -90,6 +90,21 @@ describe("approval.decide with an OS attestation", () => {
     r.service.dispose();
   });
 
+  it("what the person confirms is what is decided: delegable is shown and bound, not taken from the stored request", T, async () => {
+    const a = spy();
+    const r = await withAttester(a);
+    const one = await r.park(SHELL);
+    const two = await r.park({ ...SHELL, actionHash: "cd".padEnd(64, "0") });
+    const three = await r.park({ ...SHELL, actionHash: "cd".padEnd(64, "0") });
+    await r.call("approval.decide", { id: one.id, decision: "approve", scope: "task", delegable: true, attest: true });
+    assert.match(a.calls[0]!.text, /helpers/);
+    assert.match(a.calls[0]!.text, /shell\.run/);
+    await r.call("approval.decide", { id: two.id, decision: "approve", scope: "task", attest: true });
+    assert.doesNotMatch(a.calls[1]!.text, /helpers/);
+    void three;
+    r.service.dispose();
+  });
+
   it("a cancelled, timed-out or failed confirmation approves nothing and leaves the request pending", T, async () => {
     for (const reason of ["cancelled", "timeout", "failed", "replay", "mismatch"] as const) {
       const r = await withAttester(spy({ ok: false, reason }));

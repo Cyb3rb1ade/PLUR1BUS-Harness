@@ -232,7 +232,7 @@ Audit: `attestation.requested` (before the dialog; if it cannot be written, no d
 (`attestationOutcome` `confirmed` \| `cancelled` \| `timeout` \| `unavailable` \| `failed` \| `replay` \| `mismatch`, `method`), both
 keyed to the request and the action hash, never the nonce. The core finds the helper through `PLUR1BUS_ATTEST_BIN` (set by the
 CLI and the supervisor to the `plur1bus-attest` beside their own executable) or `CoreOptions.attestation.helper`; it must be an
-absolute path to a regular file that is not group- or world-writable. Threat model and limits: `docs/rbac.md` ("OS-backed
+absolute path to a regular file that is not group- or world-writable, owned by root or the core's user, in a directory with the same properties. Threat model and limits: `docs/rbac.md` ("OS-backed
 attestation") and `docs/security/os-attestation-2026-10.md`.
 
 ### 3.3 Timeouts and the absent person

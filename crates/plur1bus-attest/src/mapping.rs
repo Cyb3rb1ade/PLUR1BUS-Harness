@@ -38,6 +38,17 @@ pub fn uac_error(win32: u32) -> Outcome {
     }
 }
 
+/// Does an elevated start (`runas`) put a consent prompt in front of the person? Not when UAC is off (`EnableLUA` 0), when the
+/// administrator policy elevates without prompting (`ConsentPromptBehaviorAdmin` 0), or when the process is already elevated.
+/// An unreadable policy value is read as "no prompt" (fail closed).
+pub fn uac_prompts_for(
+    enable_lua: Option<u32>,
+    admin_behavior: Option<u32>,
+    elevated: bool,
+) -> bool {
+    !elevated && enable_lua == Some(1) && matches!(admin_behavior, Some(b) if b != 0)
+}
+
 /// `pkcheck --allow-user-interaction` exit status: 0 authorized, 1 not authorized or error, 2 the dialog was dismissed, 3 a challenge
 /// that no agent could answer (no polkit authentication agent in this session). A signal or an unknown status is a failure.
 pub fn pkcheck_exit(code: Option<i32>, method: &str) -> Outcome {
@@ -94,6 +105,17 @@ mod tests {
         assert_eq!(uac_error(1223), Outcome::Cancelled);
         assert_eq!(uac_error(5), Outcome::Unavailable);
         assert_eq!(uac_error(2), Outcome::Failed);
+    }
+
+    #[test]
+    fn uac_only_counts_when_it_really_prompts() {
+        assert!(uac_prompts_for(Some(1), Some(2), false));
+        assert!(uac_prompts_for(Some(1), Some(5), false));
+        assert!(!uac_prompts_for(Some(1), Some(0), false)); // elevate without prompting
+        assert!(!uac_prompts_for(Some(0), Some(2), false)); // UAC off
+        assert!(!uac_prompts_for(Some(1), Some(2), true)); // already elevated: runas is silent
+        assert!(!uac_prompts_for(None, Some(2), false));
+        assert!(!uac_prompts_for(Some(1), None, false));
     }
 
     #[test]

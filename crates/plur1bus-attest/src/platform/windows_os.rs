@@ -2,7 +2,7 @@
 //! Hello, the UAC consent prompt: the helper starts itself elevated with `--consent-noop` (`ShellExecuteExW` verb `runas`); the
 //! secure-desktop prompt can only be answered by the person at the machine, and the elevated copy does nothing but exit 0.
 //! Either way the reason shown to the person is the request's text (Hello) or UAC's own wording (the consent prompt).
-use crate::mapping::{hello_available, hello_result, uac_error};
+use crate::mapping::{hello_available, hello_result, uac_error, uac_prompts_for};
 use crate::platform::Platform;
 use crate::protocol::{Outcome, Probe};
 use std::sync::mpsc;
@@ -12,6 +12,9 @@ use windows::Security::Credentials::UI::{
     UserConsentVerificationResult, UserConsentVerifier, UserConsentVerifierAvailability,
 };
 use windows::Win32::Foundation::{CloseHandle, WAIT_OBJECT_0};
+use windows::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
+use windows::Win32::System::Registry::{RegGetValueW, HKEY_LOCAL_MACHINE, RRF_RT_REG_DWORD};
+use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 use windows::Win32::System::Threading::{GetExitCodeProcess, WaitForSingleObject};
 use windows::Win32::UI::Shell::{ShellExecuteExW, SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW};
 use windows::Win32::UI::WindowsAndMessaging::SW_HIDE;
@@ -49,7 +52,61 @@ fn confirm_hello(text: &str, ttl: Duration) -> Outcome {
     }
 }
 
+/// `ConsentPromptBehaviorAdmin` / `EnableLUA` from the UAC policy key; `None` when unreadable.
+fn uac_policy(name: &str) -> Option<u32> {
+    let key = HSTRING::from("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System");
+    let value = HSTRING::from(name);
+    let mut data = 0u32;
+    let mut size = std::mem::size_of::<u32>() as u32;
+    let rc = unsafe {
+        RegGetValueW(
+            HKEY_LOCAL_MACHINE,
+            &key,
+            &value,
+            RRF_RT_REG_DWORD,
+            None,
+            Some(&mut data as *mut u32 as *mut _),
+            Some(&mut size),
+        )
+    };
+    rc.is_ok().then_some(data)
+}
+
+fn already_elevated() -> bool {
+    let mut token = windows::Win32::Foundation::HANDLE::default();
+    if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) }.is_err() {
+        return true; // cannot tell: treat as elevated, which refuses
+    }
+    let mut elevation = TOKEN_ELEVATION::default();
+    let mut len = 0u32;
+    let ok = unsafe {
+        GetTokenInformation(
+            token,
+            TokenElevation,
+            Some(&mut elevation as *mut _ as *mut _),
+            std::mem::size_of::<TOKEN_ELEVATION>() as u32,
+            &mut len,
+        )
+    }
+    .is_ok();
+    let _ = unsafe { CloseHandle(token) };
+    !ok || elevation.TokenIsElevated != 0
+}
+
+/// Whether `runas` would really put a consent prompt in front of the person. If UAC is off, set to "elevate without prompting", or
+/// this process is already elevated, an elevated start is silent: that would be a confirmation nobody gave, so it is refused.
+fn uac_prompts() -> bool {
+    uac_prompts_for(
+        uac_policy("EnableLUA"),
+        uac_policy("ConsentPromptBehaviorAdmin"),
+        already_elevated(),
+    )
+}
+
 fn confirm_uac(ttl: Duration) -> Outcome {
+    if !uac_prompts() {
+        return Outcome::Unavailable;
+    }
     let Ok(exe) = std::env::current_exe() else {
         return Outcome::Failed;
     };
@@ -86,7 +143,7 @@ fn confirm_uac(ttl: Duration) -> Outcome {
 
 impl Platform for Windows {
     fn probe(&self) -> Probe {
-        // The UAC consent prompt is always there for an interactive session, so Windows is available either way; the method says which.
+        // Hello, or a UAC consent prompt that really prompts; otherwise there is nothing a person could answer.
         match hello_availability() {
             Some(a) if hello_available(a.0) => Probe::Available {
                 method: HELLO.into(),
