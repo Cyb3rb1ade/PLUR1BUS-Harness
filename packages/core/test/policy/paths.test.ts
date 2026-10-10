@@ -3,7 +3,7 @@
 import { after, before, describe, it, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { constants as fsc } from "node:fs";
-import { link, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { chmod, link, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import {
@@ -475,6 +475,95 @@ describe("D109 paths: review round 1 regressions", T, () => {
     refused(await canon(h, { deny: [{ path: join(outside, "secret.txt") }] }), "deny-listed");
     refused(await canon(h, { deny: [{ path: outside }] }), "deny-listed");
     allowed(await canon(h, { deny: [{ path: join(root, "sub") }] })); // unrelated deny entries do not block it
+  });
+  it("a hard link to a file protected only by a deny-list NAME entry is refused by identity, whatever the link is called", async () => {
+    await mkdir(join(root, "nm"), { recursive: true });
+    await writeFile(join(root, "nm", ".env"), "TOKEN=1");
+    const h = join(root, "nm", "notes.txt");
+    await link(join(root, "nm", ".env"), h);
+    refused(await canon(h, { deny: [{ name: ".env" }] }), "deny-listed");
+    allowed(await canon(h, { deny: [{ name: ".npmrc" }] })); // an unrelated name entry does not block it
+    allowed(await canon(h)); // no name entry, no scan
+  });
+  it("name entries match on the folded spelling when the scan looks for protected files (.ENV is .env)", async () => {
+    await mkdir(join(root, "fold"), { recursive: true });
+    const secret = join(root, "fold", ".ENV");
+    await writeFile(secret, "TOKEN=2");
+    const h = join(root, "fold", "plain.txt");
+    await link(secret, h);
+    refused(await canon(h, { deny: [{ name: ".env" }] }), "deny-listed");
+  });
+  it("a hard link to a file below a directory protected by a NAME entry (.ssh/) is refused", async () => {
+    await mkdir(join(root, "keys", ".ssh"), { recursive: true });
+    await writeFile(join(root, "keys", ".ssh", "id_ed25519"), "KEY");
+    const h = join(root, "keys", "innocent.txt");
+    await link(join(root, "keys", ".ssh", "id_ed25519"), h);
+    refused(await canon(h, { deny: [{ name: ".ssh" }] }), "deny-listed");
+  });
+  it("the NAME-entry file may live in another root than the link", async () => {
+    const second = join(base, "second-root");
+    await mkdir(second, { recursive: true });
+    await writeFile(join(second, ".env"), "TOKEN=3");
+    const h = join(root, "from-second.txt");
+    await link(join(second, ".env"), h);
+    refused(await canonicalisePath(h, { roots: [...roots(), { id: "two", path: second }], deny: [{ name: ".env" }] }), "deny-listed");
+  });
+  it("a hard link reached through a symbolic link is refused as well", async (t) => {
+    await mkdir(join(root, "viasym"), { recursive: true });
+    await writeFile(join(root, "viasym", ".env"), "TOKEN=4");
+    await link(join(root, "viasym", ".env"), join(root, "viasym", "real.txt"));
+    if (!(await plant(t, join(root, "viasym", "real.txt"), join(root, "viasym", "sym.txt")))) return;
+    refused(await canon(join(root, "viasym", "sym.txt"), { deny: [{ name: ".env" }] }), "deny-listed");
+  });
+  it("hard links whose every name is unprotected stay readable when a NAME entry is in force", async () => {
+    await writeFile(join(root, "plain-a.txt"), "x");
+    await link(join(root, "plain-a.txt"), join(root, "plain-b.txt"));
+    const r = allowed(await canon(join(root, "plain-b.txt"), { deny: [{ name: ".env" }] }));
+    assert.equal(r.hardLinked, true);
+  });
+  it("a hard-linked target is refused when the name scan hits its cap (fail closed)", async () => {
+    await mkdir(join(root, "capped"), { recursive: true });
+    for (const n of ["a", "b", "c"]) await writeFile(join(root, "capped", n), n);
+    await link(join(root, "capped", "a"), join(root, "capped", "a2"));
+    refused(await canon(join(root, "capped", "a2"), { deny: [{ name: ".env" }], scanCap: 2 }), "deny-listed");
+    allowed(await canon(join(root, "capped", "b"), { deny: [{ name: ".env" }], scanCap: 2 })); // link count 1: never scanned
+  });
+  it("a root that lies below a directory called like a NAME entry has all its files protected for the scan, as for the spelling check", async () => {
+    const second = join(base, "holder", ".ssh", "second-root");
+    await mkdir(second, { recursive: true });
+    await writeFile(join(second, "key"), "KEY");
+    const h = join(root, "from-ssh-root.txt");
+    await link(join(second, "key"), h);
+    refused(await canonicalisePath(h, { roots: [...roots(), { id: "two", path: second }], deny: [{ name: ".ssh" }] }), "deny-listed");
+  });
+  it("a directory the scan cannot read makes a hard-linked target refused (fail closed)", { skip: win || (process.getuid?.() === 0) }, async () => {
+    const locked = join(root, "locked");
+    await mkdir(locked, { recursive: true });
+    await writeFile(join(root, "lk-a.txt"), "x");
+    await link(join(root, "lk-a.txt"), join(root, "lk-b.txt"));
+    await chmod(locked, 0o000);
+    try { refused(await canon(join(root, "lk-b.txt"), { deny: [{ name: ".env" }] }), "deny-listed"); }
+    finally { await chmod(locked, 0o755); }
+  });
+  it("a file that gains a hard link after the check is refused at the open when a NAME entry is in force", async () => {
+    const p = join(root, "gain-name.txt");
+    await writeFile(p, "g");
+    const c = allowed(await canon(p, { deny: [{ name: ".env" }] }));
+    await link(p, join(root, "gain-name.alias"));
+    const r = await openVerified(c, fsc.O_RDONLY);
+    assert.ok("ok" in r && r.ok === false);
+    if ("ok" in r && !r.ok) assert.equal(r.reason, "hard-link");
+  });
+  it("a file swapped for a hard link to a NAME-protected file after the check is refused at the open", async () => {
+    await writeFile(join(root, ".env"), "TOKEN=5");
+    const p = join(root, "swap-env.txt");
+    await writeFile(p, "harmless");
+    const c = allowed(await canon(p, { deny: [{ name: ".env" }] }));
+    await rm(p);
+    await link(join(root, ".env"), p);
+    const r = await openVerified(c, fsc.O_RDONLY);
+    assert.ok("ok" in r && r.ok === false);
+    if ("ok" in r && !r.ok) assert.equal(r.reason, "identity-changed");
   });
   it("home, system trees and their macOS /private spellings are never roots, checked on the real path", () => {
     for (const p of ["/private/etc", "/private/etc/ssh", "/private/var/db", "/private/var/root/x"]) assert.ok(isForbiddenRoot(p, false, "/Users/u"), p);

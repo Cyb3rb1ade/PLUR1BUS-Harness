@@ -40,11 +40,11 @@ export function createAttestationService(o: AttestationServiceOptions): Attester
   async function attest(input: AttestInput): Promise<AttestResult> {
     const fields = { ...(input.person ? { person: input.person } : {}), ...(input.requestId ? { requestId: input.requestId } : {}), ...(input.agentId ? { agentId: input.agentId } : {}),
       ...(input.scope ? { scope: input.scope } : {}), actionHash: input.actionHash };
-    const result = (r: AttestResult, method?: string): AttestResult => {
-      try { o.audit?.record("attestation.result", { ...fields, attestationOutcome: OUTCOME[r.ok ? "ok" : r.reason], ...(method ? { method } : {}) }); } catch { /* the outcome stands */ }
+    const result = (r: AttestResult, method?: string, why?: string): AttestResult => {
+      try { o.audit?.record("attestation.result", { ...fields, attestationOutcome: OUTCOME[r.ok ? "ok" : r.reason], ...(method ? { method } : {}), ...(why ? { reason: why } : {}) }); } catch { /* the outcome stands */ }
       return r;
     };
-    const fail = (reason: AttestFailure): AttestResult => result({ ok: false, reason });
+    const fail = (reason: AttestFailure, why?: string): AttestResult => result({ ok: false, reason }, undefined, why);
 
     if (o.helper === null) return fail("unavailable");
     const nonce = newNonce();
@@ -60,6 +60,7 @@ export function createAttestationService(o: AttestationServiceOptions): Attester
     switch (out.kind) {
       case "timeout": return fail("timeout");
       case "missing": return fail("unavailable");
+      case "refused": return fail("unavailable", out.reason); // a helper that fails its pin is no helper; the reason is for the audit log
       case "broken": return fail("failed");
       case "reply": break;
     }

@@ -68,9 +68,17 @@ fn schema() -> &'static Value {
     static S: std::sync::OnceLock<Value> = std::sync::OnceLock::new();
     S.get_or_init(|| serde_json::from_str(SCHEMA_JSON).expect("embedded schema"))
 }
+static VALIDATOR: std::sync::OnceLock<jsonschema::Validator> = std::sync::OnceLock::new();
+
+/// Whether this process has built the schema validator yet. Building it compiles the schema after validating it against the
+/// draft 2020-12 meta-schema, which is what the read-only CLI paths avoid ([`read_unvalidated`]); tests assert on it.
+#[doc(hidden)]
+pub fn validator_built() -> bool {
+    VALIDATOR.get().is_some()
+}
+
 fn validator() -> &'static jsonschema::Validator {
-    static V: std::sync::OnceLock<jsonschema::Validator> = std::sync::OnceLock::new();
-    V.get_or_init(|| {
+    VALIDATOR.get_or_init(|| {
         // `format` is only an annotation in draft 2020-12 unless enabled; the core's ajv (with ajv-formats)
         // asserts it, so the CLI must too, or it writes a config the core refuses. `date-time` (the only
         // format config.schema.json uses) is checked by the ajv-formats "full" rule, not the crate's own.
@@ -255,6 +263,100 @@ pub fn read(path: &Path) -> Result<Config, ConfigError> {
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(defaults()),
         Err(e) => Err(e.into()),
     }
+}
+
+/// [`read`] without the schema validation: the file must be JSON, schema defaults are filled in, nothing else is checked, and the
+/// validator is never built. For the CLI's fast-fail read paths (`memory`, `dreams`, `chat`, `acp`), which only look up the agent
+/// registry before they talk to a core: the supervisor and the core validate the file they run on, `config`, `setup` and
+/// every writer ([`read`], [`load`], [`set`]) still do. Do not use it where a value is written back or acted on beyond a lookup.
+pub fn read_unvalidated(path: &Path) -> Result<Config, ConfigError> {
+    match fs::read_to_string(path) {
+        Ok(text) => parse_unvalidated(&text),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(defaults()),
+        Err(e) => Err(e.into()),
+    }
+}
+
+/// The read for CLI paths that only look something up: [`read_unvalidated`], then a cheap structural check against the schema
+/// (top-level keys, `schemaVersion`, the shape of `agents`, and the numeric `keys` the caller will use, as JSON pointers such as
+/// `/core/recall/softBudgetMs`, against their `type`/`minimum`/`maximum`). Only a file that fails that check is validated in full,
+/// and then reports the schema errors like [`read`]; a file that passes is returned without the validator ever being built.
+///
+/// Passing is not validity: unknown keys or bad values deeper in a section, and keys the caller did not list, are not looked at.
+/// Callers must use nothing but what they listed. The supervisor and the core validate the file they run on.
+pub fn read_for_lookup(path: &Path, keys: &[&str]) -> Result<Config, ConfigError> {
+    let v = read_unvalidated(path)?;
+    if lookup_shape_ok(&v, keys) {
+        return Ok(v);
+    }
+    validate(&v).map_err(ConfigError::Invalid)?;
+    Ok(v)
+}
+
+fn lookup_shape_ok(v: &Value, keys: &[&str]) -> bool {
+    let (Some(obj), Some(props)) = (v.as_object(), schema()["properties"].as_object()) else {
+        return false;
+    };
+    if !obj.keys().all(|k| props.contains_key(k))
+        || obj.get("schemaVersion") != props["schemaVersion"].get("const")
+    {
+        return false;
+    }
+    let agent_props = props["agents"]["additionalProperties"]["properties"].as_object();
+    let agent_name_ok = |n: &str| {
+        let b = n.as_bytes();
+        (1..=64).contains(&b.len())
+            && (b[0].is_ascii_lowercase() || b[0].is_ascii_digit())
+            && b.iter()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'_' || *c == b'-')
+    };
+    let Some(agents) = obj.get("agents").and_then(Value::as_object) else {
+        return false;
+    };
+    for (name, a) in agents {
+        let (Some(a), Some(agent_props)) = (a.as_object(), agent_props) else {
+            return false;
+        };
+        if !agent_name_ok(name) || !a.keys().all(|k| agent_props.contains_key(k)) {
+            return false;
+        }
+    }
+    keys.iter().all(|ptr| {
+        let Some(val) = v.pointer(ptr) else {
+            return true; // absent: the schema default applies
+        };
+        // The schema node for the pointer: through `properties` at each level.
+        let mut node = schema();
+        for seg in ptr.split('/').skip(1) {
+            match node.get("properties").and_then(|p| p.get(seg)) {
+                Some(n) => node = n,
+                None => return false,
+            }
+        }
+        let Some(n) = val
+            .as_i64()
+            .or_else(|| val.as_u64().and_then(|u| i64::try_from(u).ok()))
+        else {
+            return false;
+        };
+        node.get("type").and_then(Value::as_str) == Some("integer")
+            && node
+                .get("minimum")
+                .and_then(Value::as_i64)
+                .is_none_or(|m| n >= m)
+            && node
+                .get("maximum")
+                .and_then(Value::as_i64)
+                .is_none_or(|m| n <= m)
+    })
+}
+
+/// [`parse`] without the schema validation (see [`read_unvalidated`]).
+pub fn parse_unvalidated(text: &str) -> Result<Config, ConfigError> {
+    let mut v: Value =
+        serde_json::from_str(text).map_err(|e| ConfigError::NotJson(e.to_string()))?;
+    fill_defaults(schema(), &mut v);
+    Ok(v)
 }
 
 /// Parses config.json's text, fills the schema defaults and validates the result: what [`load`] does after reading
