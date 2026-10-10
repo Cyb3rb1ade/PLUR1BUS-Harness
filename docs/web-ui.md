@@ -297,7 +297,7 @@ Numbers are stable; other documents refer to them.
 - **F22. Fonts.** Bundle Atkinson Hyperlegible Next, Lilita One and JetBrains Mono (ADR-004: local files, no remote origin); the
   tokens fall back to system fonts.
 - **F23. Wordmark morph** (`V2LogoMorph`).
-- **F24. Sidebar.** Projects list and badges.
+- **F24. Sidebar.** Projects list and badges. The [project board backend](projects-board.md) now provides columns, cards, assignments, comments, activity, paging and authorized live events; board UI binding remains follow-up.
 - **F25. Chat.** Context column, recents, fork, archive (`session.archive`), search (`session.list` with `search`), model selection and
   attachments (the last three need F6), rename and pin (F5).
 - **F26. Memories.** Accepting and rejecting proposals (`memory.proposals.accept`, `.reject`), forget and correct (`memory.forget`,
@@ -306,7 +306,7 @@ Numbers are stable; other documents refer to them.
 - **F27. State in the URL.** The router drops the query (`#/path?x` is read as `#/path`), so the chosen agent, search text, filters
   and `?focus=` are lost on reload and cannot be linked; the agent choice lives in memory only. (`?theme=` is read separately.)
 - **F28. Doctor file picker.** The text of the native file input follows the OS language, not the UI language.
-- **F29. Placeholders.** Eight pages (Projects, Inbox, Library, Skills, Plugins, Recurring, Approvals, Help) are placeholders; Switchboard is built.
+- **F29. Placeholders.** The Projects Kanban backend is available; its board UI remains follow-up. Eight pages (Projects, Inbox, Library, Skills, Plugins, Recurring, Approvals, Help) are placeholders; Switchboard is built.
 
 ### M3 part 2
 

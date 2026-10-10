@@ -55,7 +55,7 @@ describe("grant.* / approval.* policy actions (D6)", () => {
 
   it("no role entry of an agent-capable action leaks: humanOnly is the only way these actions are reached", () => {
     const humanOnly = POLICY.filter((s) => s.humanOnly).map((s) => s.action).sort();
-    assert.deepEqual(humanOnly, [...ACTIONS,"device.list","device.revoke","device.rename","admin.agent.operate","admin.agent.manage","admin.agent.delete","admin.agent.rights","admin.users.read","admin.users.write","admin.breakglass.read","admin.breakglass.write","admin.sessions.read","admin.sessions.write","admin.sessions.transcript","admin.pairing.read","admin.notices.read","admin.memory.read","media.read","media.write","project.create","project.surface.read","project.surface.write","identity.self.read","identity.self.write","auth.credentials.read","auth.credentials.write","channel.read","channel.write","media.index.operate","media.caption.write"].sort());
+    assert.deepEqual(humanOnly, [...ACTIONS,"project.board.write","project.board.manage","device.list","device.revoke","device.rename","admin.agent.operate","admin.agent.manage","admin.agent.delete","admin.agent.rights","admin.users.read","admin.users.write","admin.breakglass.read","admin.breakglass.write","admin.sessions.read","admin.sessions.write","admin.sessions.transcript","admin.pairing.read","admin.notices.read","admin.memory.read","media.read","media.write","project.create","project.surface.read","project.surface.write","identity.self.read","identity.self.write","auth.credentials.read","auth.credentials.write","channel.read","channel.write","media.index.operate","media.caption.write"].sort());
   });
 
   it("persons get exactly the roles written down, nothing else", () => {
