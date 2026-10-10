@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { METHODS_BY_SERVER } from "@plur1bus/rpc-schema";
-import { createMetrics, MAX_TOTAL_SERIES } from "../../src/metrics/metrics.ts";
+import { createMetrics, MAX_TOTAL_SERIES, RPC_CALLS_MAX_SERIES } from "../../src/metrics/metrics.ts";
 import { parseExposition } from "./exposition-parser.ts";
 
 const fam = (text: string, name: string) => parseExposition(text).find((f) => f.name === name);
@@ -74,6 +74,12 @@ describe("harness metrics", () => {
     for (const method of METHODS_BY_SERVER.core) for (const r of ["ok", "E_INVALID_PARAMS", "E_UNAUTHORIZED", "E_NOT_AVAILABLE", "E_INTERNAL", "E_X"]) m.rpcCall(method, r);
     const n = parseExposition(m.render()).reduce((a, f) => a + f.samples.length, 0);
     assert.ok(n <= MAX_TOTAL_SERIES, `${n} series`);
+  });
+
+  it("starts with the schema's full RPC method list even when its label space exceeds the generic per-metric cap", () => {
+    const m = createMetrics({ ...base, connections: () => 0 }); // threw "label space of N series exceeds the cap of 1024" at 150 core methods
+    m.rpcCall(METHODS_BY_SERVER.core[0]!, "ok");
+    assert.ok(RPC_CALLS_MAX_SERIES >= (METHODS_BY_SERVER.core.length + 1) * 7);
   });
 
   it("carries no agent, user, path or host label anywhere", () => {

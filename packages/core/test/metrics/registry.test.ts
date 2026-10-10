@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { createRegistry, MAX_SERIES_PER_METRIC } from "../../src/metrics/registry.ts";
+import { createRegistry, MAX_SERIES_HARD_LIMIT, MAX_SERIES_PER_METRIC } from "../../src/metrics/registry.ts";
 import { parseExposition } from "./exposition-parser.ts";
 
 describe("metrics registry", () => {
@@ -38,6 +38,17 @@ describe("metrics registry", () => {
     const r = createRegistry();
     const big = Array.from({ length: Math.ceil(Math.sqrt(MAX_SERIES_PER_METRIC)) + 1 }, (_, i) => `v${i}`);
     assert.throws(() => r.counter("t_big_total", "Big.", { a: big, b: big }), /series/);
+  });
+
+  it("accepts a larger label space only with an explicit maxSeries, and still refuses beyond it or beyond the hard limit", () => {
+    const r = createRegistry();
+    const vals = Array.from({ length: MAX_SERIES_PER_METRIC }, (_, i) => `v${i}`); // (n + other) = 1025 series
+    assert.throws(() => r.counter("t_open_total", "x", { a: vals }), /exceeds the cap of 1024/);
+    r.counter("t_closed_total", "x", { a: vals }, { maxSeries: vals.length + 1 });
+    assert.throws(() => r.counter("t_tight_total", "x", { a: vals }, { maxSeries: vals.length }), /exceeds the cap/);
+    const huge = Array.from({ length: MAX_SERIES_HARD_LIMIT }, (_, i) => `v${i}`);
+    assert.throws(() => r.counter("t_huge_total", "x", { a: huge }, { maxSeries: MAX_SERIES_HARD_LIMIT + 1 }), /maxSeries/);
+    assert.throws(() => r.counter("t_huge2_total", "x", { a: huge }, { maxSeries: MAX_SERIES_HARD_LIMIT }), /exceeds the cap/);
   });
 
   it("refuses invalid metric and label names, and duplicate registration", () => {

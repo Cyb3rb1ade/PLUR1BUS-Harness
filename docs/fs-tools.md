@@ -17,6 +17,10 @@ nothing registers itself.
 - Every path is canonicalised on the **real target** and must lie inside a root; `..`, backslashes (POSIX), Windows
   drive-relative / UNC / `\\?\` / stream / device-name forms, links leaving the root, dangling links, hard-linked write
   targets and `/dev`, `/proc`, `/sys` are refused with `path-refused` and the policy's `reason`.
+- A hard-linked file (link count > 1) is refused for **reading** too when it is the same file as one a deny-list `name` entry
+  (`.env`, `.ssh`) protects inside the roots: such targets are compared by identity (dev+ino), not by spelling, and a scan
+  that cannot finish (cap, unreadable directory) refuses. `openVerified` also refuses a read of a file that gained a link
+  after the check. Variant, cost and residuals: `docs/security/path-policy-hard-links-2026-10.md`.
 - Opens go through `openVerified` (`O_NOFOLLOW`, dev/ino/birth re-check, parent re-check). Reads decide "regular file?"
   on the **opened handle** (`fstat`), and open with `O_NONBLOCK` so a FIFO cannot hang the tool.
 - A write re-validates the destination (same real path, same file or still absent, same parent) immediately before the

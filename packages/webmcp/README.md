@@ -45,6 +45,12 @@ const reg = registerPlur1busTools(getModelContext(), tools); // no-op without We
 - By default the set contains the stable methods and the memory read ops. Experimental methods are
   added only through `include`. Authentication, lifecycle, supervisor, daemon, module, config and
   events methods are never exposed. Methods with `x-server` other than `core` are skipped.
+- Human-only admin methods are never exposed either (B15, `docs/rbac.md`): `user.*`, `breakglass.*` and
+  `device.*` by prefix; `agent.delete`, `agent.archive`, `agent.unarchive`, `agent.export`,
+  `agent.rights.get|set`, `pairing.qr` and `session.list` by exact name. They change who may act for a
+  person, or read other people's data (the owner-filtered session overview), and a browser agent has
+  no business with either. `agent.pause` and `agent.resume` stay exposed: a person may trigger them
+  through an assistant, and RBAC decides who may.
 - `readOnlyHint` is true only for read methods. Every other tool waits for `confirm`, run inside
   `requestUserInteraction` when the browser offers it. Without `confirm` the tool refuses. A
   declined or failed confirmation returns `{"error":"E_DENIED","reason":"user-declined"}`.
