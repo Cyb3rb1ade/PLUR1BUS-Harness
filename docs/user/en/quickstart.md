@@ -136,4 +136,8 @@ failure restores the snapshot. A release that changes the Node runtime or the mo
 
 ## Next
 
-[operations.md](operations.md): directories, logs, service management per operating system and troubleshooting.
+- [providers.md](providers.md): signing in to providers, model profiles and fallback.
+- [channels.md](channels.md): connecting Telegram, Discord, Slack, Matrix, Signal and e-mail.
+- [media.md](media.md): generating and editing images, with cloud providers or locally.
+- [operations.md](operations.md): directories, logs, service management per operating system, updating, uninstalling,
+  shell completion and troubleshooting.
