@@ -175,6 +175,68 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `voice.localRealtime.auditDetail` | enum | `"minimal"` | live | Detail of the audit record for real-time turns: minimal or full. |
 | `voice.localRealtime.perAgent` | object | `{}` | live | Per-agent override of any localRealtime key (same shape, no defaults), keyed by agent identifier. |
 | `modules` | object | `{}` | live | Per-module settings, keyed by module name (B13). A change restarts only that module; `enabled: false` keeps it stopped. |
+| `media.video.maxBytes` | integer | `536870912` | core | Maximum stored video bytes, default 512 MiB. |
+| `media.video.embedMetadata` | boolean | `false` | core | Global prompt embedding default, overridden by agent and call preferences. |
+| `media.video.adapters.openrouter.model` | string |  | core | Configured video model ID. No image-model fallback. |
+| `media.video.adapters.openrouter.textToVideo` | boolean | `true` | core | The selected model accepts a text prompt for video generation. |
+| `media.video.adapters.openrouter.imageToVideo` | boolean | `false` | core | The selected model accepts a starting image. |
+| `media.video.adapters.openrouter.videoToVideo` | boolean | `false` | core | The selected model accepts an uploaded video for editing or extension. |
+| `media.video.adapters.openrouter.durationSeconds` | array |  | core | Inclusive minimum and maximum supported clip duration in seconds. |
+| `media.video.adapters.openrouter.resolutions` | array |  | core | Supported provider resolution tiers or pixel dimensions. |
+| `media.video.adapters.openrouter.aspects` | array |  | core | Supported aspect ratio strings. |
+| `media.video.adapters.openrouter.fps` | array |  | core | Supported output frame rates; omit when not selectable. |
+| `media.video.adapters.openrouter.audio` | boolean | `false` | core | The selected protocol supports an audio generation switch. |
+| `media.video.adapters.openrouter.inputSchema` | object |  | core | Published model input properties for fal; Replicate discovers them from the model/version. |
+| `media.video.adapters.replicate.model` | string |  | core | Configured video model ID. No image-model fallback. |
+| `media.video.adapters.replicate.textToVideo` | boolean | `true` | core | The selected model accepts a text prompt for video generation. |
+| `media.video.adapters.replicate.imageToVideo` | boolean | `false` | core | The selected model accepts a starting image. |
+| `media.video.adapters.replicate.videoToVideo` | boolean | `false` | core | The selected model accepts an uploaded video for editing or extension. |
+| `media.video.adapters.replicate.durationSeconds` | array |  | core | Inclusive minimum and maximum supported clip duration in seconds. |
+| `media.video.adapters.replicate.resolutions` | array |  | core | Supported provider resolution tiers or pixel dimensions. |
+| `media.video.adapters.replicate.aspects` | array |  | core | Supported aspect ratio strings. |
+| `media.video.adapters.replicate.fps` | array |  | core | Supported output frame rates; omit when not selectable. |
+| `media.video.adapters.replicate.audio` | boolean | `false` | core | The selected protocol supports an audio generation switch. |
+| `media.video.adapters.replicate.inputSchema` | object |  | core | Published model input properties for fal; Replicate discovers them from the model/version. |
+| `media.video.adapters.fal.model` | string |  | core | Configured video model ID. No image-model fallback. |
+| `media.video.adapters.fal.textToVideo` | boolean | `true` | core | The selected model accepts a text prompt for video generation. |
+| `media.video.adapters.fal.imageToVideo` | boolean | `false` | core | The selected model accepts a starting image. |
+| `media.video.adapters.fal.videoToVideo` | boolean | `false` | core | The selected model accepts an uploaded video for editing or extension. |
+| `media.video.adapters.fal.durationSeconds` | array |  | core | Inclusive minimum and maximum supported clip duration in seconds. |
+| `media.video.adapters.fal.resolutions` | array |  | core | Supported provider resolution tiers or pixel dimensions. |
+| `media.video.adapters.fal.aspects` | array |  | core | Supported aspect ratio strings. |
+| `media.video.adapters.fal.fps` | array |  | core | Supported output frame rates; omit when not selectable. |
+| `media.video.adapters.fal.audio` | boolean | `false` | core | The selected protocol supports an audio generation switch. |
+| `media.video.adapters.fal.inputSchema` | object |  | core | Published model input properties for fal; Replicate discovers them from the model/version. |
+| `media.video.adapters.xai.model` | string |  | core | Configured video model ID. No image-model fallback. |
+| `media.video.adapters.xai.textToVideo` | boolean | `true` | core | The selected model accepts a text prompt for video generation. |
+| `media.video.adapters.xai.imageToVideo` | boolean | `false` | core | The selected model accepts a starting image. |
+| `media.video.adapters.xai.videoToVideo` | boolean | `false` | core | The selected model accepts an uploaded video for editing or extension. |
+| `media.video.adapters.xai.durationSeconds` | array |  | core | Inclusive minimum and maximum supported clip duration in seconds. |
+| `media.video.adapters.xai.resolutions` | array |  | core | Supported provider resolution tiers or pixel dimensions. |
+| `media.video.adapters.xai.aspects` | array |  | core | Supported aspect ratio strings. |
+| `media.video.adapters.xai.fps` | array |  | core | Supported output frame rates; omit when not selectable. |
+| `media.video.adapters.xai.audio` | boolean | `false` | core | The selected protocol supports an audio generation switch. |
+| `media.video.adapters.xai.inputSchema` | object |  | core | Published model input properties for fal; Replicate discovers them from the model/version. |
+| `media.video.adapters.openai.model` | string |  | core | Configured video model ID. No image-model fallback. |
+| `media.video.adapters.openai.textToVideo` | boolean | `true` | core | The selected model accepts a text prompt for video generation. |
+| `media.video.adapters.openai.imageToVideo` | boolean | `false` | core | The selected model accepts a starting image. |
+| `media.video.adapters.openai.videoToVideo` | boolean | `false` | core | The selected model accepts an uploaded video for editing or extension. |
+| `media.video.adapters.openai.durationSeconds` | array |  | core | Inclusive minimum and maximum supported clip duration in seconds. |
+| `media.video.adapters.openai.resolutions` | array |  | core | Supported provider resolution tiers or pixel dimensions. |
+| `media.video.adapters.openai.aspects` | array |  | core | Supported aspect ratio strings. |
+| `media.video.adapters.openai.fps` | array |  | core | Supported output frame rates; omit when not selectable. |
+| `media.video.adapters.openai.audio` | boolean | `false` | core | The selected protocol supports an audio generation switch. |
+| `media.video.adapters.openai.inputSchema` | object |  | core | Published model input properties for fal; Replicate discovers them from the model/version. |
+| `media.video.adapters.google.model` | string |  | core | Configured video model ID. No image-model fallback. |
+| `media.video.adapters.google.textToVideo` | boolean | `true` | core | The selected model accepts a text prompt for video generation. |
+| `media.video.adapters.google.imageToVideo` | boolean | `false` | core | The selected model accepts a starting image. |
+| `media.video.adapters.google.videoToVideo` | boolean | `false` | core | The selected model accepts an uploaded video for editing or extension. |
+| `media.video.adapters.google.durationSeconds` | array |  | core | Inclusive minimum and maximum supported clip duration in seconds. |
+| `media.video.adapters.google.resolutions` | array |  | core | Supported provider resolution tiers or pixel dimensions. |
+| `media.video.adapters.google.aspects` | array |  | core | Supported aspect ratio strings. |
+| `media.video.adapters.google.fps` | array |  | core | Supported output frame rates; omit when not selectable. |
+| `media.video.adapters.google.audio` | boolean | `false` | core | The selected protocol supports an audio generation switch. |
+| `media.video.adapters.google.inputSchema` | object |  | core | Published model input properties for fal; Replicate discovers them from the model/version. |
 | `media.adapters.openai.enabled` | boolean |  | core | Unset: on once `apiKeyRef` resolves to a secret. `false` keeps the adapter off whatever the key. |
 | `media.adapters.openai.apiKeyRef` | string |  | core | Name of the secret that holds the API key (a handle, never the key itself). Store the key with `plur1bus secret set <name>`, value on stdin. |
 | `media.adapters.openai.baseUrl` | string |  | core | Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers. |

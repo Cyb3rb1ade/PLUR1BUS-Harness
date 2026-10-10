@@ -266,3 +266,94 @@ allowed package scope; mock-server page tests do not establish that deployment.
 The two new D109 media catalogue entries are also a pending scope dependency:
 `policy/**` is excluded by this work package, so unknown capabilities currently
 fail closed. No D109 evaluator or budget behavior was changed.
+
+## Video v0.2
+
+[ADR-017](adr/ADR-017-media.md) records the 2026-10-07 owner decisions. Video uses
+exactly the existing JobRunner and media RPC methods; image callers retain their
+request/result shapes. `kind: "video"` may be supplied beside `request` in RPC or
+inside the request (conflicting values are refused). Request fields add
+`durationSeconds`, `resolution`, `aspect`, `fps`, `audio`, `videoFormat`, and
+`referenceVideoId`. Image-to-video uses existing `referenceIds`; video edits use a
+stored private `referenceVideoId`. References are authorized before reading and
+bounded to 16 MiB in RPC. Local byte references are bounded to 50 MiB. Agent tool definitions
+`media.generate` and `media.edit` use media capabilities and budget/store ports;
+registration requires the corresponding D109 catalog entries; legacy image tools remain available.
+
+```sh
+plur1bus media generate 'A forest in the wind' --video --agent main --adapter xai --duration 4 --resolution 720p --wait --out forest.mp4
+plur1bus media edit 'Add snow' --video --video-reference <output-id> --wait --out snow.mp4
+plur1bus media output <output-id> --out copy.mp4
+```
+
+CLI video options also include `--aspect`, `--fps`, `--audio true|false`,
+`--video-format mp4|mov|webm`, and existing `--embed-metadata true|false`. Unsupported
+provider/model parameters fail before submission. `--wait` displays job progress
+on stderr. `--out` reads bounded 4 MiB ranges through existing media.output.get,
+so large files do not become one base64 RPC response. The same authorization is
+checked for each range. Full non-range RPC transfers retain the 16 MiB bound.
+
+The library's video profile declares textToVideo/imageToVideo/videoToVideo,
+durationSeconds range, resolution/aspect lists, FPS list and audio support. No
+video model is guessed from an image model. OpenAI advertises video false because
+the checked SDK states that Sora shut down on 2026-09-24. Model profiles for fal
+must include their published inputSchema; Replicate loads the pinned version or
+latest model schema. OpenRouter checks its videos/models inventory before submit.
+
+Stored video files carry measured durationSeconds, width, height, fps and audio,
+plus a poster `{path, sha256, bytes}` in the manifest. Downloads stream directly
+into private store staging, with a default 512 MiB per-video bound and store quota.
+Quota accounts for poster and manifest too; failed/aborted processing removes
+staging. ffmpeg and ffprobe must be installed on the host PATH. They receive only
+local files, with file/pipe protocols allowed, and remove global/stream/chapter
+metadata. Reference video metadata is stripped before upload. Container conversion
+uses a lossless remux; incompatible codecs are refused. Prompt embedding writes
+MP4/MOV comment metadata or WebM Tags only when enabled; default off. Native tests
+verify both embedding states and removal of a synthetic GPS/device canary in all
+three containers. Manifests always retain the prompt independently of embedding.
+
+Budget requests use videoSecond quantities; successful settlement uses measured
+stored seconds, not one unit per file. `costUsd` comes from a vendor response when
+provided. Otherwise it is null, `costStatus: "unknown"`, with a separate
+`estimatedCostUsd` from the dated, resolution-specific prices.json table (null for
+unpriced models). Existing PriceBook controls budget ceilings, so an unpriced
+model under a hard cost ceiling remains refused. Estimates never become claims of
+actual provider billing. Cancellation can leave remote usage uncertain; submitted
+video errors retain a reservation for the existing reconciliation/expiry policy.
+
+Telegram's existing sendOutput supports MP4 via sendVideo and MOV/WebM as documents,
+up to 50 MiB. Larger files send a download hint through the existing media sending path. No
+sharing URL is invented, and destination authorization remains mandatory.
+
+### Baseline inventory
+
+Base: origin/main `433ca5b3` (refreshed 2026-10-10).
+
+| Requirement | On base | v0.2 addition |
+|---|---|---|
+| Jobs, progress, abort, checkpoints, recovery | images | video uses same runner/persistence |
+| Store quota and atomic publication | buffered images | bounded streaming, measured video fields, poster |
+| Cloud protocols | image adapters | OpenRouter, Replicate, fal, xAI, Google video; OpenAI false |
+| Metadata preferences and reference sanitization | images | video remux stripping and optional container comments/Tags |
+| Budget media units | videoSecond available | duration-based admission/settlement and explicit unknown cost |
+| RPC/CLI, Media RBAC | image surfaces | kind video, edit refs, bounded file ranges, CLI options |
+| Telegram output port | photos | video/document delivery within existing sending path |
+| ADR-017 | absent; owner decisions in docs | accepted decision record |
+
+Validation uses localhost fake servers with TCP_NODELAY and injected deterministic
+poll waits. No real keys, provider requests or model downloads occur in tests.
+Native video tests generate synthetic clips locally and skip when ffmpeg/ffprobe
+are absent; portable store/adapter tests still run. Cloud live acceptance remains
+unverified. Web video UI is outside this package.
+
+### Scope boundary awaiting owner decision
+
+The requested source allowlist excludes three files needed for full production
+acceptance: core composition/index.ts (bind media.video.* profiles),
+composition/media.ts (bind store maxBytes/embedMetadata), and
+policy/capabilities.ts (media.generate/edit default allowed). No changes to these
+files are included until the owner explicitly extends the allowlist. Existing
+image tools remain registered; new media agent tools are conditional on the missing
+capability entries. The existing human RPC policy binding also depends on those
+entries. Tests with injected policy/budget adapters prove the library and surface
+contract, not this outstanding live-host acceptance.

@@ -558,7 +558,7 @@
         }
       },
       "media.generate": {
-        "description": "Queue image generate after RBAC, D109 and budget admission. Returns a durable job id.",
+        "description": "Queue image/video generate after RBAC, D109 and budget admission. Returns a durable job id.",
         "x-server": "core",
         "x-stability": "experimental",
         "x-since": "1.5.0",
@@ -650,10 +650,51 @@
                 "maskId": {
                   "type": "string",
                   "pattern": "^[a-f0-9-]{36}$"
+                },
+                "kind": {
+                  "enum": [
+                    "image",
+                    "video"
+                  ]
+                },
+                "durationSeconds": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 600
+                },
+                "resolution": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "fps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 120
+                },
+                "audio": {
+                  "type": "boolean"
+                },
+                "videoFormat": {
+                  "enum": [
+                    "mp4",
+                    "webm",
+                    "mov"
+                  ]
+                },
+                "referenceVideoId": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9-]{36}$"
                 }
               },
               "required": [
                 "prompt"
+              ]
+            },
+            "kind": {
+              "enum": [
+                "image",
+                "video"
               ]
             }
           },
@@ -677,7 +718,7 @@
         }
       },
       "media.edit": {
-        "description": "Queue image edit after RBAC, D109 and budget admission. Returns a durable job id.",
+        "description": "Queue image/video edit after RBAC, D109 and budget admission. Returns a durable job id.",
         "x-server": "core",
         "x-stability": "experimental",
         "x-since": "1.5.0",
@@ -769,10 +810,51 @@
                 "maskId": {
                   "type": "string",
                   "pattern": "^[a-f0-9-]{36}$"
+                },
+                "kind": {
+                  "enum": [
+                    "image",
+                    "video"
+                  ]
+                },
+                "durationSeconds": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 600
+                },
+                "resolution": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                "fps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 120
+                },
+                "audio": {
+                  "type": "boolean"
+                },
+                "videoFormat": {
+                  "enum": [
+                    "mp4",
+                    "webm",
+                    "mov"
+                  ]
+                },
+                "referenceVideoId": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9-]{36}$"
                 }
               },
               "required": [
                 "prompt"
+              ]
+            },
+            "kind": {
+              "enum": [
+                "image",
+                "video"
               ]
             }
           },
@@ -882,7 +964,7 @@
         }
       },
       "media.output.get": {
-        "description": "Get a private manifest and optionally one bounded base64 image for display or download.",
+        "description": "Get a private manifest and optionally a bounded base64 file or 4 MiB range; video fields include measured duration, dimensions, FPS, audio and poster.",
         "x-server": "core",
         "x-stability": "experimental",
         "x-since": "1.5.0",
@@ -897,6 +979,15 @@
             "file": {
               "type": "integer",
               "minimum": 0
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "length": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4194304
             }
           },
           "required": [
@@ -921,6 +1012,17 @@
             },
             "canShare": {
               "type": "boolean"
+            },
+            "nextOffset": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "totalBytes": {
+              "type": "integer",
+              "minimum": 0
             }
           },
           "required": [

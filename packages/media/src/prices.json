@@ -1,7 +1,19 @@
 {
-  "asOf": "2026-10-07",
+  "asOf": "2026-10-10",
   "currency": "USD",
   "disclaimer": "Illustrative estimates only, not a quote. Token-based or unknown models have no fixed estimate. Verify provider billing before use.",
-  "perImage": { "together:stabilityai/stable-diffusion-xl-base-1.0": 0.0019 },
-  "sources": ["https://www.together.ai/pricing"]
+  "perImage": {
+    "together:stabilityai/stable-diffusion-xl-base-1.0": 0.0019
+  },
+  "sources": [
+    "https://www.together.ai/pricing",
+    "https://ai.google.dev/gemini-api/docs/pricing",
+    "https://docs.x.ai/developers/pricing"
+  ],
+  "perVideoSecond": {
+    "google:veo-3.1-generate-preview:720p": 0.4,
+    "google:veo-3.1-generate-preview:1080p": 0.4,
+    "xai:grok-imagine-video:480p": 0.05,
+    "xai:grok-imagine-video:720p": 0.07
+  }
 }

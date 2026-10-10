@@ -10,6 +10,22 @@ use std::{
 #[derive(Debug, Args)]
 pub struct GenerateArgs {
     pub prompt: String,
+    #[arg(long)]
+    pub video: bool,
+    #[arg(long, requires = "video")]
+    pub duration: Option<f64>,
+    #[arg(long, requires = "video")]
+    pub resolution: Option<String>,
+    #[arg(long, requires = "video")]
+    pub fps: Option<u32>,
+    #[arg(long, requires = "video")]
+    pub audio: Option<bool>,
+    #[arg(long, requires = "video")]
+    pub video_reference: Option<String>,
+    #[arg(long, requires = "video")]
+    pub video_format: Option<String>,
+    #[arg(long)]
+    pub aspect: Option<String>,
     #[arg(long, default_value = "main")]
     pub agent: String,
     #[arg(long)]
@@ -33,11 +49,11 @@ pub struct GenerateArgs {
 }
 #[derive(Debug, Subcommand)]
 pub enum MediaCmd {
-    /// Queue an image generation (D109 and budget admission)
-    #[command(about = "[experimental] Queue an image generation")]
+    /// Queue an image or video generation (D109 and budget admission)
+    #[command(about = "[experimental] Queue an image or video generation")]
     Generate(GenerateArgs),
     /// Edit an existing private output, using --reference output IDs
-    #[command(about = "[experimental] Edit a stored image")]
+    #[command(about = "[experimental] Edit a stored image or video")]
     Edit(GenerateArgs),
     #[command(about = "[experimental] List visible media jobs")]
     Jobs {
@@ -69,24 +85,69 @@ pub enum MediaCmd {
     Adapters,
 }
 fn save(out: &Out, layout: &Layout, id: &str, index: u32, destination: &PathBuf) {
-    let value = call(
-        out,
-        layout,
-        "media.output.get",
-        json!({"id":id,"file":index}),
-    );
-    let bytes = decode(value["data"].as_str().unwrap_or(""))
-        .unwrap_or_else(|e| out.fail("E_INVALID_PARAMS", e, json!({}), 2));
+    use sha2::{Digest, Sha256};
     use std::io::Write;
-    let result = std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(destination)
-        .and_then(|mut f| {
-            f.write_all(&bytes)?;
-            f.sync_all()
-        });
-    if result.is_err() {
+    let parent = destination
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| std::path::Path::new("."));
+    let staging = parent.join(format!(".p1-media-{}", uuid::Uuid::new_v4()));
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(&staging).unwrap_or_else(|_| {
+        out.fail(
+            "E_STORAGE",
+            "cannot create output staging file",
+            json!({}),
+            1,
+        )
+    });
+    let mut offset = 0_u64;
+    let mut digest = Sha256::new();
+    let expected;
+    loop {
+        let value = call(
+            out,
+            layout,
+            "media.output.get",
+            json!({"id":id,"file":index,"offset":offset,"length":4*1024*1024}),
+        );
+        let bytes = decode(value["data"].as_str().unwrap_or(""))
+            .unwrap_or_else(|e| out.fail("E_INVALID_PARAMS", e, json!({}), 2));
+        digest.update(&bytes);
+        if file.write_all(&bytes).is_err() {
+            out.fail("E_STORAGE", "cannot write output", json!({}), 1);
+        }
+        match value["nextOffset"].as_u64() {
+            Some(next) if next == offset + bytes.len() as u64 && next > offset => offset = next,
+            Some(_) => out.fail("E_INVALID_PARAMS", "invalid output range", json!({}), 2),
+            None => {
+                if value["totalBytes"].as_u64() != Some(offset + bytes.len() as u64) {
+                    out.fail("E_INVALID_PARAMS", "incomplete output", json!({}), 2);
+                }
+                expected = value["manifest"]["files"][index as usize]["sha256"]
+                    .as_str()
+                    .unwrap_or("")
+                    .to_owned();
+                break;
+            }
+        }
+    }
+    if format!("{:x}", digest.finalize()) != expected {
+        out.fail("E_STORAGE", "output integrity failed", json!({}), 1);
+    }
+    if file.sync_all().is_err() {
+        out.fail("E_STORAGE", "cannot flush output", json!({}), 1);
+    }
+    drop(file);
+    let published = std::fs::hard_link(&staging, destination);
+    let _ = std::fs::remove_file(&staging);
+    if published.is_err() {
         out.fail(
             "E_STORAGE",
             "cannot create output file (existing files are preserved)",
@@ -95,6 +156,7 @@ fn save(out: &Out, layout: &Layout, id: &str, index: u32, destination: &PathBuf)
         );
     }
 }
+
 pub fn request(cmd: &MediaCmd) -> (&'static str, Value) {
     match cmd {
         MediaCmd::Generate(a) | MediaCmd::Edit(a) => {
@@ -111,7 +173,34 @@ pub fn request(cmd: &MediaCmd) -> (&'static str, Value) {
             if let Some(value) = a.embed_metadata {
                 request["embedMetadata"] = json!(value);
             }
+            if a.video {
+                request["kind"] = json!("video");
+                if let Some(v) = a.duration {
+                    request["durationSeconds"] = json!(v);
+                }
+                if let Some(v) = &a.resolution {
+                    request["resolution"] = json!(v);
+                }
+                if let Some(v) = a.fps {
+                    request["fps"] = json!(v);
+                }
+                if let Some(v) = a.audio {
+                    request["audio"] = json!(v);
+                }
+                if let Some(v) = &a.video_reference {
+                    request["referenceVideoId"] = json!(v);
+                }
+                if let Some(v) = &a.video_format {
+                    request["videoFormat"] = json!(v);
+                }
+            }
+            if let Some(v) = &a.aspect {
+                request["aspect"] = json!(v);
+            }
             let mut params = json!({"agentId":a.agent,"request":request});
+            if a.video {
+                params["kind"] = json!("video");
+            }
             if let Some(id) = &a.adapter {
                 params["adapter"] = json!(id);
             }
@@ -250,5 +339,49 @@ mod tests {
             panic!()
         };
         assert_eq!(request(&sub).0, "media.edit");
+    }
+}
+
+#[cfg(test)]
+mod video_tests {
+    use super::*;
+    use crate::cli::{Cli, Cmd};
+    use clap::Parser;
+    #[test]
+    fn video_uses_existing_media_methods() {
+        for op in ["generate", "edit"] {
+            let cli = Cli::try_parse_from([
+                "plur1bus",
+                "media",
+                op,
+                "forest",
+                "--video",
+                "--duration",
+                "4",
+                "--resolution",
+                "720p",
+                "--fps",
+                "24",
+                "--wait",
+                "--out",
+                "clip.mp4",
+            ])
+            .unwrap();
+            let Cmd::Media { sub } = cli.cmd else {
+                panic!()
+            };
+            let (method, p) = request(&sub);
+            assert_eq!(
+                method,
+                if op == "edit" {
+                    "media.edit"
+                } else {
+                    "media.generate"
+                }
+            );
+            assert_eq!(p["kind"], "video");
+            assert_eq!(p["request"]["durationSeconds"], 4.0);
+            assert_eq!(p["request"]["fps"], 24);
+        }
     }
 }

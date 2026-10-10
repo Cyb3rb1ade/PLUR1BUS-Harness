@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { mkdir, readFile, readdir, rm } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, open } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import {
   FileJobPersistence,
@@ -26,7 +26,7 @@ export function mediaActionHash(
   request: ImageRequest,
   agentId: string,
 ): string {
-  const { referenceImages, mask, ...parameters } = request;
+  const { referenceImages, referenceVideo, mask, ...parameters } = request;
   const hash = createHash("sha256").update(
     JSON.stringify({
       operation,
@@ -36,7 +36,7 @@ export function mediaActionHash(
       mask: !!mask,
     }),
   );
-  for (const image of [...(referenceImages ?? []), ...(mask ? [mask] : [])]) {
+  for (const image of [...(referenceImages ?? []), ...(referenceVideo ? [referenceVideo] : []), ...(mask ? [mask] : [])]) {
     hash
       .update(image.format)
       .update(String(image.bytes.byteLength))
@@ -102,7 +102,7 @@ export function createMediaSurface(d: MediaSurfaceDeps) {
       return JSON.parse(await readFile(prefsPath, "utf8")) as Preferences;
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === "ENOENT")
-        return { global: false, agents: {} };
+        return { global: d.store.options.embedMetadata ?? false, agents: {} };
       throw e;
     }
   };
@@ -119,6 +119,7 @@ export function createMediaSurface(d: MediaSurfaceDeps) {
     };
   const publicJob = (job: Job, o: Owner) => ({
     id: job.id,
+    kind: job.request.kind ?? "image",
     agentId: o.agentId,
     adapter: job.adapter,
     operation: job.operation,
@@ -155,24 +156,35 @@ export function createMediaSurface(d: MediaSurfaceDeps) {
       throw new MediaError("invalid_response");
     return { bytes, format: file.format as "png" | "jpeg" | "webp" };
   };
+  const video = async (id: string, a: Principal) => {
+    const {manifest} = await readOutput(id,a); const file = manifest.files[0];
+    if (!file || !/^0\.(mp4|webm|mov)$/.test(file.path) || file.bytes > 16*1024*1024) throw new MediaError('unsupported_parameter');
+    const bytes = await readFile(join(d.store.root,safeId(id),file.path));
+    if (bytes.length !== file.bytes || createHash('sha256').update(bytes).digest('hex') !== file.sha256) throw new MediaError('invalid_response');
+    return {bytes,format:file.format as import('../../../media/src/index.ts').VideoFormat};
+  };
   const submit = (operation: "generate" | "edit") =>
     bind(async (p, a, ctx) => {
       check(a, p.agentId, true);
       const adapter = d.adapters.find(
         (adapter) => adapter.id === (p.adapter ?? d.adapters[0]?.id),
       );
-      if (!adapter || !adapter.capabilities()[operation])
+      if (!adapter || (!(p.kind === 'video' || p.request?.kind === 'video') && !adapter.capabilities()[operation]))
         throw new MediaError("backend_unavailable");
-      const { referenceIds, maskId, ...request } = p.request as ImageRequest & {
+      const { referenceIds, referenceVideoId, maskId, ...request } = p.request as ImageRequest & {
         referenceIds?: string[];
-        maskId?: string;
+        maskId?: string; referenceVideoId?: string;
       };
+      if (p.kind && request.kind && p.kind !== request.kind) throw new MediaError('unsupported_parameter');
+      request.kind = p.kind ?? request.kind ?? 'image';
+      if (request.kind === 'video' && !(adapter.capabilities().video?.textToVideo || adapter.capabilities().video?.imageToVideo || adapter.capabilities().video?.videoToVideo)) throw new MediaError('unsupported_parameter');
+      if (referenceVideoId) request.referenceVideo = await video(referenceVideoId,a);
       if (referenceIds?.length)
         request.referenceImages = await Promise.all(
           referenceIds.map((id) => image(id, a)),
         );
       if (maskId) request.mask = await image(maskId, a);
-      if (operation === "edit" && !request.referenceImages?.length)
+      if (operation === "edit" && !request.referenceImages?.length && !request.referenceVideo)
         throw new MediaError("unsupported_parameter");
       const prefs = await preferences();
       request.embedMetadata = metadataEnabled({
@@ -189,18 +201,18 @@ export function createMediaSurface(d: MediaSurfaceDeps) {
         throw new RpcError("E_NOT_AVAILABLE", "budget unavailable");
       const units = [
         {
-          kind: "image" as const,
-          resolution: request.size
+          kind: request.kind === "video" ? "videoSecond" as const : "image" as const,
+          resolution: request.resolution ?? (request.size
             ? `${request.size.width}x${request.size.height}`
-            : "default",
-          quantity: request.n ?? 1,
+            : "default"),
+          quantity: request.kind === "video" ? request.durationSeconds ?? 8 : request.n ?? 1,
         },
       ];
       const admitted = d.budget.checkBeforeCall({
         principal: a.userId,
         agent: p.agentId,
         project: "direct",
-        model: adapter.model ?? adapter.id,
+        model: (request.kind === "video" ? adapter.capabilities().video?.model : undefined) ?? adapter.model ?? adapter.id,
         provider: adapter.id,
         estimatedInputTokens: 0,
         maxOutputTokens: 0,
@@ -228,11 +240,6 @@ export function createMediaSurface(d: MediaSurfaceDeps) {
           submitted = true;
           try {
             const result = await selectedAdapter[op](r, c);
-            d.budget!.settle(reservationId, {
-              inputTokens: 0,
-              outputTokens: 0,
-              media: [{ ...units[0]!, quantity: result.files.length }],
-            });
             return result;
           } catch (e) {
             if (c?.signal?.aborted)
@@ -241,7 +248,7 @@ export function createMediaSurface(d: MediaSurfaceDeps) {
                 outputTokens: 0,
                 media: units,
               });
-            else d.budget!.releaseUnused(reservationId);
+            else if (request.kind !== "video") d.budget!.releaseUnused(reservationId);
             throw e;
           }
         };
@@ -251,6 +258,7 @@ export function createMediaSurface(d: MediaSurfaceDeps) {
         list: () => jobs.list(),
         claim: (id: string) => jobs.claim(id),
         async put(job: Job) {
+          if (job.state === 'succeeded' && job.output) d.budget!.settle(reservationId,{inputTokens:0,outputTokens:0,media:[{...units[0]!,quantity:request.kind === 'video' ? job.output.files.reduce((n,f)=>n+(f.durationSeconds ?? request.durationSeconds ?? 8),0) : job.output.files.length}]});
           await jobs.put(job);
           if (
             job.state === "running" ||
@@ -332,17 +340,25 @@ export function createMediaSurface(d: MediaSurfaceDeps) {
     }),
     "media.output.get": bind(async (p, a) => {
       const { manifest, o } = await readOutput(p.id, a);
-      const file = p.file === undefined ? null : await image(p.id, a, p.file);
-      return {
-        manifest: { ...manifest, agentId: o.agentId },
-        canShare: false,
-        ...(file
-          ? {
-              data: Buffer.from(file.bytes).toString("base64"),
-              mimeType: `image/${file.format}`,
-            }
-          : {}),
-      };
+      let transfer: object = {};
+      if (p.file !== undefined) {
+        const f = manifest.files[p.file];
+        if (!f || !/^\d+\.(png|jpeg|webp|mp4|webm|mov)$/.test(f.path)) throw new MediaError('unsupported_parameter');
+        if (p.offset !== undefined) {
+          const offset = p.offset, length = p.length ?? 4*1024*1024;
+          if (!Number.isSafeInteger(offset) || offset < 0 || offset > f.bytes || !Number.isSafeInteger(length) || length < 1 || length > 4*1024*1024) throw new MediaError('unsupported_parameter');
+          const handle = await open(join(d.store.root,safeId(p.id),f.path),'r');
+          try {
+            if ((await handle.stat()).size !== f.bytes) throw new MediaError('invalid_response');
+            const bytes = Buffer.alloc(Math.min(length,f.bytes-offset));
+            let read = 0; while (read < bytes.length) { const part = await handle.read(bytes,read,bytes.length-read,offset+read); if (!part.bytesRead) throw new MediaError('invalid_response'); read += part.bytesRead; }
+            transfer = {data:bytes.toString('base64'),totalBytes:f.bytes,nextOffset:offset+read < f.bytes ? offset+read : null,mimeType:manifest.kind === 'video' ? `video/${f.format === 'mov' ? 'quicktime' : f.format}` : `image/${f.format}`};
+          } finally {await handle.close();}
+        } else if (manifest.kind === 'video') {
+          const v = await video(p.id,a); transfer = {data:Buffer.from(v.bytes).toString('base64'),mimeType:`video/${v.format === 'mov' ? 'quicktime' : v.format}`};
+        } else { const v = await image(p.id,a,p.file); transfer = {data:Buffer.from(v.bytes).toString('base64'),mimeType:`image/${v.format}`}; }
+      }
+      return {manifest:{...manifest,agentId:o.agentId},canShare:false,...transfer};
     }),
     "media.output.list": bind(async (p, a) => {
       await mkdir(ownerDir, { recursive: true, mode: 0o700 });

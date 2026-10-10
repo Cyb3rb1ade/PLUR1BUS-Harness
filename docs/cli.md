@@ -2386,8 +2386,8 @@ Assigned project agents
 
 ###### **Subcommands:**
 
-* `generate` — [experimental] Queue an image generation
-* `edit` — [experimental] Edit a stored image
+* `generate` — [experimental] Queue an image or video generation
+* `edit` — [experimental] Edit a stored image or video
 * `jobs` — [experimental] List visible media jobs
 * `job` — [experimental] Read a media job
 * `cancel` — [experimental] Cancel a media job
@@ -2400,7 +2400,7 @@ Assigned project agents
 
 ## `plur1bus media generate`
 
-[experimental] Queue an image generation
+[experimental] Queue an image or video generation
 
 **Usage:** `plur1bus media generate [OPTIONS] <PROMPT>`
 
@@ -2410,6 +2410,17 @@ Assigned project agents
 
 ###### **Options:**
 
+* `--video`
+* `--duration <DURATION>`
+* `--resolution <RESOLUTION>`
+* `--fps <FPS>`
+* `--audio <AUDIO>`
+
+  Possible values: `true`, `false`
+
+* `--video-reference <VIDEO_REFERENCE>`
+* `--video-format <VIDEO_FORMAT>`
+* `--aspect <ASPECT>`
 * `--agent <AGENT>`
 
   Default value: `main`
@@ -2432,7 +2443,7 @@ Assigned project agents
 
 ## `plur1bus media edit`
 
-[experimental] Edit a stored image
+[experimental] Edit a stored image or video
 
 **Usage:** `plur1bus media edit [OPTIONS] <PROMPT>`
 
@@ -2442,6 +2453,17 @@ Assigned project agents
 
 ###### **Options:**
 
+* `--video`
+* `--duration <DURATION>`
+* `--resolution <RESOLUTION>`
+* `--fps <FPS>`
+* `--audio <AUDIO>`
+
+  Possible values: `true`, `false`
+
+* `--video-reference <VIDEO_REFERENCE>`
+* `--video-format <VIDEO_FORMAT>`
+* `--aspect <ASPECT>`
 * `--agent <AGENT>`
 
   Default value: `main`

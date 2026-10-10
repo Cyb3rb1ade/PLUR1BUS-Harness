@@ -24,10 +24,14 @@ export class AdapterRegistry {
     for (const id of order) { const adapter = this.adapters.get(id); if (adapter?.capabilities()[capability]) return adapter; }
     throw new MediaError('backend_unavailable');
   }
+  selectVideo(operation: 'textToVideo' | 'imageToVideo' | 'videoToVideo', order = [...this.adapters.keys()]): ImageAdapter {
+    for (const id of order) { const adapter = this.adapters.get(id); if (adapter?.capabilities().video?.[operation]) return adapter; }
+    throw new MediaError('backend_unavailable');
+  }
   /** Only transport unavailability may fall back. Policy, quota, timeout and cancellation never trigger another provider. */
   async generate(req: ImageRequest, order: string[], context: GenerationContext = {}): Promise<ImageResult> {
     for (const id of order) {
-      const adapter = this.adapters.get(id); if (!adapter?.capabilities().generate) continue;
+      const adapter = this.adapters.get(id); if (!adapter?.capabilities().generate || req.kind === 'video' && !adapter.capabilities().video?.textToVideo) continue;
       try { return await adapter.generate(req, context); } catch (e) { if (!(e instanceof MediaError) || e.code !== 'backend_unavailable') throw e; }
     }
     throw new MediaError('backend_unavailable');

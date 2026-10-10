@@ -6,3 +6,5 @@ export * from './adapters.ts';
 export * from './coreml.ts';
 export * from './registry.ts';
 export * from './adapters/index.ts';
+export * from './video.ts';
+export * from './adapters/video.ts';

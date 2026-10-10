@@ -250,6 +250,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -556,6 +561,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -862,6 +872,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -1168,6 +1183,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -1474,6 +1494,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -1780,6 +1805,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -2086,6 +2116,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -2392,6 +2427,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -2698,6 +2738,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -3004,6 +3049,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -3310,6 +3360,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -3616,6 +3671,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -3922,6 +3982,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -4228,6 +4293,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -4534,6 +4604,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -4840,6 +4915,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -5146,6 +5226,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -5452,6 +5537,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -5758,6 +5848,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -6064,6 +6159,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -6370,6 +6470,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -6676,6 +6781,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -6982,6 +7092,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -7288,6 +7403,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -7594,6 +7714,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -7900,6 +8025,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -8206,6 +8336,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -8512,6 +8647,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -8818,6 +8958,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -9121,6 +9266,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -9424,6 +9574,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",

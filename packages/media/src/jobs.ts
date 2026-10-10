@@ -21,6 +21,7 @@ export class FileJobPersistence implements JobPersistence {
       const restore = (bytes: unknown): Uint8Array => Buffer.from((bytes as { type?: string; data?: number[] }).type === 'Buffer' ? (bytes as { data: number[] }).data : Object.values(bytes as Record<string, number>));
       for (const image of job.request.referenceImages ?? []) image.bytes = restore(image.bytes);
       if (job.request.mask) job.request.mask.bytes = restore(job.request.mask.bytes);
+      if (job.request.referenceVideo) job.request.referenceVideo.bytes = restore(job.request.referenceVideo.bytes);
       return job;
     } catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null; throw e; }
   }

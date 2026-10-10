@@ -65,10 +65,13 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
     const tool = createExecTool({ config: { ...o.exec, mode: o.exec?.mode ?? 'deny', roots: o.roots, deny }, process: createNodeProcessPort(), timers: systemTimers, audit: o.audit, policy: { grants: o.grants, clock: { now: Date.now } }, policyContext: { principal: { person: ctx.principal }, subject: { kind: 'agent', agentId: ctx.agentId }, surface: ctx.surface ?? 0, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), overrides: { 'shell.exec': 'allowed' } } });
     const run = tool.execute; return unwrap(await run(args, ctx));
   } });
-  if (o.media) for (const operation of ['generate', 'edit'] as const) {
-    if (!o.media.adapter.capabilities()[operation]) continue;
-    registry.register({ name: `image.${operation}`, description: `${operation} an image and return a durable output reference.`, inputSchema: { type: 'object', additionalProperties: false, properties: { referenceIds: { type: 'array', maxItems: 10, items: { type: 'string', pattern: '^[a-f0-9-]{36}$' } }, prompt: { type: 'string', minLength: 1, maxLength: 32000 }, n: { type: 'integer', minimum: 1, maximum: 10 }, format: { enum: ['png', 'jpeg', 'webp'] } }, required: ['prompt'] }, capability: 'net.submit', effect: 'money', risk: 'high', trust: 'first-party', execute: async (args, ctx) => {
-      const { referenceIds, ...input } = args as ImageRequest & { referenceIds?: string[] };
+  if (o.media) for (const name of ['image.generate', 'image.edit', 'media.generate', 'media.edit'] as const) {
+    if (name.startsWith('media.') && !CAPABILITIES.has(name)) continue;
+    const operation = name.endsWith('edit') ? 'edit' as const : 'generate' as const;
+    if (!o.media.adapter.capabilities()[operation] && !(name.startsWith('media.') && o.media.adapter.capabilities().video?.videoToVideo)) continue;
+    registry.register({ name, description: `${operation} an image or video and return a durable output reference.`, inputSchema: { type: 'object', additionalProperties: false, properties: { kind: {enum:['image','video']}, durationSeconds:{type:'number',exclusiveMinimum:0,maximum:600}, resolution:{type:'string',maxLength:64}, fps:{type:'integer',minimum:1,maximum:120}, audio:{type:'boolean'}, aspect:{type:'string',maxLength:128}, embedMetadata:{type:'boolean'}, videoFormat:{enum:['mp4','mov','webm']}, referenceVideoId:{type:'string',pattern:'^[a-f0-9-]{36}$'}, referenceIds: { type: 'array', maxItems: 10, items: { type: 'string', pattern: '^[a-f0-9-]{36}$' } }, prompt: { type: 'string', minLength: 1, maxLength: 32000 }, n: { type: 'integer', minimum: 1, maximum: 10 }, format: { enum: ['png', 'jpeg', 'webp'] } }, required: ['prompt'] }, capability: name.startsWith('media.') ? `media.${operation}` : 'net.submit', effect: name.startsWith('media.') ? 'local-write' : 'money', classify: () => ({flags:{outsideRoots:false,denyListHit:false}}), risk: name.startsWith('media.') ? 'low' : 'high', trust: 'first-party', execute: async (args, ctx) => {
+      if (name.startsWith('media.') && !o.budget) throw new MediaError('backend_unavailable');
+      const { referenceIds, referenceVideoId, ...input } = args as ImageRequest & { referenceIds?: string[]; referenceVideoId?: string };
       const references: NonNullable<ImageRequest['referenceImages']> = [];
       for (const id of referenceIds ?? []) {
         const manifest = await o.media!.store.get(id);
@@ -77,9 +80,14 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
         references.push({ bytes: await readFile(join(o.media!.store.root, id, file.path)), format: file.format as 'png' | 'jpeg' | 'webp' });
       }
       const request: ImageRequest = { ...input, ...(references.length ? { referenceImages: references } : {}) };
-      if (operation === 'edit' && !request.referenceImages?.length) throw new MediaError('unsupported_parameter');
-      const media = [{ kind: 'image' as const, resolution: request.size ? `${request.size.width}x${request.size.height}` : 'default', quantity: request.n ?? 1 }];
-      const admitted = o.budget?.checkBeforeCall({ principal: req.principal!, agent: ctx.agentId, project: req.projectId ?? 'direct', model: o.media!.adapter.model ?? o.media!.adapter.id, provider: o.media!.adapter.id, session: req.sessionId, ...(req.turnId ? { turn: req.turnId } : {}), estimatedInputTokens: 0, maxOutputTokens: 0, media });
+      if (referenceVideoId) {
+        const manifest = await o.media!.store.get(referenceVideoId), file = manifest?.files[0];
+        if (!file || !/^0\.(mp4|mov|webm)$/.test(file.path) || file.bytes > 16*1024*1024) throw new MediaError('unsupported_parameter');
+        request.referenceVideo = {bytes:await readFile(join(o.media!.store.root,referenceVideoId,file.path)),format:file.format as 'mp4'|'mov'|'webm'};
+      }
+      if (operation === 'edit'  && !request.referenceImages?.length && !request.referenceVideo) throw new MediaError('unsupported_parameter');
+      const media = [{ kind: request.kind === 'video' ? 'videoSecond' as const : 'image' as const, resolution: request.resolution ?? (request.size ? `${request.size.width}x${request.size.height}` : 'default'), quantity: request.kind === 'video' ? request.durationSeconds ?? 8 : request.n ?? 1 }];
+      const admitted = o.budget?.checkBeforeCall({ principal: req.principal!, agent: ctx.agentId, project: req.projectId ?? 'direct', model: (request.kind === 'video' ? o.media!.adapter.capabilities().video?.model : undefined) ?? o.media!.adapter.model ?? o.media!.adapter.id, provider: o.media!.adapter.id, session: req.sessionId, ...(req.turnId ? { turn: req.turnId } : {}), estimatedInputTokens: 0, maxOutputTokens: 0, media });
       if (admitted?.kind === 'refuse') throw new CallBudgetExceededError(admitted);
       let result: Awaited<ReturnType<ImageAdapter['generate']>>;
       try { result = await o.media!.adapter[operation](request, { signal: ctx.signal }); }
@@ -88,13 +96,13 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
         // (and bill) remotely (docs/media.md), so it settles the requested quantity instead of leaving the reservation pending.
         if (admitted?.kind === 'allow') {
           if (ctx.signal.aborted) o.budget!.settle(admitted.reservationId, { inputTokens: 0, outputTokens: 0, media });
-          else o.budget!.releaseUnused(admitted.reservationId);
+          else if (request.kind !== 'video') o.budget!.releaseUnused(admitted.reservationId);
         }
         throw e;
       }
-      if (admitted?.kind === 'allow') o.budget!.settle(admitted.reservationId, { inputTokens: 0, outputTokens: 0, media: [{ ...media[0]!, quantity: result.files.length }] });
       ctx.signal.throwIfAborted();
       const manifest = await o.media!.store.put(randomUUID(), request, result);
+      if (admitted?.kind === 'allow') o.budget!.settle(admitted.reservationId, { inputTokens: 0, outputTokens: 0, media: [{ ...media[0]!, quantity: request.kind === 'video' ? manifest.files.reduce((n,f)=>n+(f.durationSeconds ?? request.durationSeconds ?? 8),0) : result.files.length }] });
       return { id: manifest.id, files: manifest.files, metadata: manifest.metadata };
     } });
   }
