@@ -5,7 +5,7 @@ import { ELEVENLABS } from "../constants.ts";
 import { VoiceProviderError, abortedError } from "../errors.ts";
 import type { AsrEvent, AsrProvider, AsrSession, AsrStreamOptions, AudioChunk, AudioFormat, CallOptions, ModelInfo, TranscribeOptions, TranscriptResult, TtsOptions, TtsProvider, TtsResult, UsageReport, VoiceInfo, WordTiming } from "../types.ts";
 import { AsyncQueue, fromBase64, pcm16Seconds, pcm16ToWav, textChunks, toBase64 } from "../util.ts";
-import { openSocket, parseJsonFrame, type WsLike } from "../ws.ts";
+import { closeError, openSocket, parseJsonFrame, upstreamProtocolError, type WsLike } from "../ws.ts";
 import { KeyHolder, frameError, httpToWs, loggerOf, makeHttp, trimBase, type CloudDeps } from "./common.ts";
 
 export interface ElevenLabsOptions extends CloudDeps {
@@ -153,9 +153,13 @@ export function createElevenLabs(o: ElevenLabsOptions): ElevenLabs {
         if (f["error"] !== undefined || f["message_type"] === "error") { q.fail(frameError(ID, f, keys.secrets)); return; }
         if (typeof f["audio"] === "string" && f["audio"] !== "") q.push({ data: fromBase64(f["audio"]), format, sampleRate: rate });
         if (f["isFinal"] === true) { finished = true; q.end(); }
-      } catch (e) { q.fail(e); }
+      } catch {
+        // A frame we cannot use ends the stream with one protocol error; the socket is closed, nothing escapes.
+        q.fail(upstreamProtocolError(ID));
+        try { ws.close(1002, "protocol error"); } catch { /* closed */ }
+      }
     });
-    ws.addEventListener("close", () => { if (!finished) q.fail(new VoiceProviderError("network", `${ID}: socket closed before the stream finished`, { provider: ID })); });
+    ws.addEventListener("close", (ev) => { if (!finished) q.fail(ev.code === 1000 || ev.code === 1005 || ev.code === 1001 ? new VoiceProviderError("network", `${ID}: socket closed before the stream finished`, { provider: ID }) : closeError(ID, ev.code)); });
     ws.addEventListener("error", () => q.fail(new VoiceProviderError("network", `${ID}: socket error`, { provider: ID })));
     const onAbort = () => { q.fail(abortedError(ID)); try { ws.close(1000, "aborted"); } catch { /* closed */ } };
     options.signal?.addEventListener("abort", onAbort, { once: true });
@@ -215,8 +219,13 @@ export function createElevenLabs(o: ElevenLabsOptions): ElevenLabs {
     },
   };
 
-  log.debug("elevenlabs ready", { base, zeroRetention: o.zeroRetention === true });
+  log.debug("elevenlabs ready", { host: hostOf(base), zeroRetention: o.zeroRetention === true });
   return { tts, asr };
+}
+
+/** Host only: a baseUrl may carry userinfo or a path that must not reach a log line. */
+function hostOf(url: string): string {
+  try { return new URL(url).host; } catch { return "invalid-url"; }
 }
 
 function wordsOf(raw: unknown): WordTiming[] | undefined {
@@ -235,6 +244,7 @@ class ElevenLabsAsrSession implements AsrSession {
   private closed = false;
   private closing = false;
   private readonly wantTimestamps: boolean;
+  private failed = false;
 
   constructor(ws: WsLike, rate: number, model: string, secrets: readonly string[], report: (r: UsageReport) => void, wantTimestamps: boolean, signal: AbortSignal | undefined) {
     this.ws = ws;
@@ -242,20 +252,19 @@ class ElevenLabsAsrSession implements AsrSession {
     this.events = this.q;
     this.wantTimestamps = wantTimestamps;
     ws.addEventListener("message", (ev) => {
-      let f: Record<string, unknown>;
-      try { f = parseJsonFrame(ev.data, ID); } catch (e) { this.q.push({ type: "error", error: e as Error }); return; }
-      const t = f["message_type"];
-      if (t === "session_started") { this.ready = true; for (const p of this.pending) this.ws.send(p); this.pending = []; this.q.push({ type: "ready" }); }
-      else if (t === "partial_transcript") this.q.push({ type: "partial", text: String(f["text"] ?? "") });
-      else if (t === "committed_transcript" && !this.wantTimestamps) this.q.push({ type: "final", text: String(f["text"] ?? "") });
-      else if (t === "committed_transcript_with_timestamps") {
-        const words = wordsOf(f["words"]);
-        this.q.push({ type: "final", text: String(f["text"] ?? ""), ...(typeof f["language_code"] === "string" ? { language: f["language_code"] } : {}), ...(words ? { words } : {}) });
-      } else if (typeof t === "string" && /error|exceeded|limit/.test(t)) this.q.push({ type: "error", error: frameError(ID, f, secrets) });
+      if (this.failed) return;
+      try { this.onFrame(parseJsonFrame(ev.data, ID), secrets); } catch {
+        // One protocol error, then a clean close: a hostile frame never escapes into the socket's data handler.
+        this.failed = true;
+        this.closing = true;
+        this.q.push({ type: "error", error: upstreamProtocolError(ID) });
+        try { this.ws.close(1002, "protocol error"); } catch { /* closed */ }
+      }
     });
-    ws.addEventListener("close", () => {
-      if (!this.closed) report({ provider: ID, operation: "asr", model, seconds: pcm16Seconds(this.bytes, this.rate) });
+    ws.addEventListener("close", (ev) => {
+      if (!this.closed) { try { report({ provider: ID, operation: "asr", model, seconds: pcm16Seconds(this.bytes, this.rate) }); } catch { /* usage sink */ } }
       this.closed = true;
+      if (!this.closing && !this.failed && ev.code !== 1000 && ev.code !== 1005 && ev.code !== 1001) this.q.push({ type: "error", error: closeError(ID, ev.code) });
       this.q.push({ type: "closed" });
       this.q.end();
     });
@@ -263,8 +272,19 @@ class ElevenLabsAsrSession implements AsrSession {
     signal?.addEventListener("abort", () => { this.q.push({ type: "error", error: abortedError(ID) }); void this.close(); }, { once: true });
   }
 
+  private onFrame(f: Record<string, unknown>, secrets: readonly string[]): void {
+    const t = f["message_type"];
+    if (t === "session_started") { this.ready = true; for (const p of this.pending) this.ws.send(p); this.pending = []; this.q.push({ type: "ready" }); }
+    else if (t === "partial_transcript") this.q.push({ type: "partial", text: String(f["text"] ?? "") });
+    else if (t === "committed_transcript" && !this.wantTimestamps) this.q.push({ type: "final", text: String(f["text"] ?? "") });
+    else if (t === "committed_transcript_with_timestamps") {
+      const words = wordsOf(f["words"]);
+      this.q.push({ type: "final", text: String(f["text"] ?? ""), ...(typeof f["language_code"] === "string" ? { language: f["language_code"] } : {}), ...(words ? { words } : {}) });
+    } else if (typeof t === "string" && /error|exceeded|limit|quota|throttl|overflow|invalid|exhausted|unaccepted/.test(t)) this.q.push({ type: "error", error: frameError(ID, f, secrets) });
+  }
+
   private send(frame: Record<string, unknown>): void {
-    if (this.closed || this.closing) throw new VoiceProviderError("closed", `${ID}: session is closed`, { provider: ID });
+    if (this.closed || this.closing || this.failed) throw new VoiceProviderError("closed", `${ID}: session is closed`, { provider: ID });
     const text = JSON.stringify(frame);
     if (this.ready) this.ws.send(text);
     else this.pending.push(text);
