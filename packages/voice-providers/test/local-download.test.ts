@@ -152,7 +152,7 @@ test("non-commercial or unconfirmed licences are refused before any request unle
     const nc = modelOf(v.httpUrl, files, "t-tts-de-nc");
     await assert.rejects(downloadModel(nc, { modelsDir: dir }), (e) => isVoiceProviderError(e) && e.code === "licence_required" && /NON-COMMERCIAL/.test(e.message));
     assert.equal(log.length, 0);
-    await downloadModel(nc, { modelsDir: dir, acceptNcLicence: true });
+    await downloadModel(nc, { modelsDir: dir, acceptedLicences: ["t-tts-de-nc@CC-BY-NC"] });
     assert.equal(log.length, 1);
   } finally { await v.close(); await rm(dir, { recursive: true, force: true }); }
 });

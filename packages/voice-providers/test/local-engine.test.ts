@@ -52,3 +52,26 @@ test("sherpa configs are built from the catalog roles (fake module records them)
   assert.equal(seen["vad"].sileroVad.model, "/m/vad/silero_vad.onnx");
   assert.equal(vad.isSpeech(), true);
 });
+
+test("dispose frees native objects where the binding offers a free/delete/destroy, tolerates their absence and failures", async () => {
+  const freed: string[] = [];
+  class Rec { createStream() { return { acceptWaveform() {}, free: () => freed.push("stream") }; } isReady() { return false; } decode() {} getResult() { return { text: "" }; } isEndpoint() { return false; } reset() {} free() { freed.push("rec"); } }
+  class Tts { sampleRate = 16000; delete() { freed.push("tts"); throw new Error("native failure"); } }
+  class Vad { acceptWaveform() {} isDetected() { return false; } }
+  const engine = createSherpaEngine({ loadModule: async () => ({ OnlineRecognizer: Rec, OfflineTts: Tts, Vad }) });
+  const c = builtinCatalog();
+  const asr = await engine.loadAsr(resolveModel(c.models["kroko-de"]!, "/m/k"));
+  const st = asr.createStream();
+  const open = asr.createStream();
+  st.dispose();
+  st.dispose();
+  assert.deepEqual(freed, ["stream"], "a stream is freed once");
+  asr.dispose();
+  assert.deepEqual(freed, ["stream", "stream", "rec"], "dispose frees streams still open, then the recogniser");
+  void open;
+  const tts = await engine.loadTts(resolveModel(c.models["kokoro-multi"]!, "/m/t"));
+  assert.doesNotThrow(() => tts.dispose());
+  assert.ok(freed.includes("tts"));
+  const vad = await engine.loadVad(resolveModel(c.models["silero-vad"]!, "/m/v"));
+  assert.doesNotThrow(() => vad.dispose());
+});

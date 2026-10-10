@@ -77,6 +77,22 @@ export interface SherpaEngineOptions {
   loadModule?: () => Promise<any>;
 }
 
+/**
+ * Free a native object. VERIFY at integration: the sherpa-onnx-node binding frees through the garbage collector in
+ * the releases we know of and may expose none of these; each name is called only when it exists, and a failing free
+ * never breaks the caller.
+ */
+function freeNative(x: unknown): void {
+  const o = x as Record<string, unknown> | null | undefined;
+  if (!o) return;
+  for (const name of ["free", "delete", "destroy"]) {
+    if (typeof o[name] === "function") {
+      try { (o[name] as () => void)(); } catch { /* best effort */ }
+      return;
+    }
+  }
+}
+
 const STT_ENGINES = new Set(["streaming-transducer", "nemo-transducer"]);
 const TTS_ENGINES = new Set(["vits", "kokoro"]);
 
@@ -109,17 +125,19 @@ export function createSherpaEngine(o: SherpaEngineOptions = {}): LocalEngine {
       const transducer = { encoder: p["encoder"], decoder: p["decoder"], joiner: p["joiner"] };
       const common = { tokens: p["tokens"], numThreads: threads, provider: "cpu", debug: 0 };
       if (streaming) {
+        const live = new Set<unknown>();
         const rec = new s.OnlineRecognizer({ featConfig: { sampleRate: 16000, featureDim: 80 }, modelConfig: { transducer, ...common }, decodingMethod: "greedy_search", enableEndpoint: 1 });
         return {
           streaming: true,
           createStream() {
             const st = rec.createStream();
+            live.add(st);
             return {
               acceptWaveform: (samples, sampleRate) => { st.acceptWaveform({ sampleRate, samples }); while (rec.isReady(st)) rec.decode(st); },
               result: () => ({ text: String(rec.getResult(st).text ?? "").trim(), isEndpoint: rec.isEndpoint(st) === true }),
               finish: () => { st.acceptWaveform({ sampleRate: 16000, samples: new Float32Array(8000) }); while (rec.isReady(st)) rec.decode(st); return { text: String(rec.getResult(st).text ?? "").trim() }; },
               reset: () => rec.reset(st),
-              dispose: () => {},
+              dispose: () => { if (live.delete(st)) freeNative(st); },
             };
           },
           async decodeOffline(samples, sampleRate) {
@@ -127,10 +145,12 @@ export function createSherpaEngine(o: SherpaEngineOptions = {}): LocalEngine {
             st.acceptWaveform({ sampleRate, samples });
             st.acceptWaveform({ sampleRate, samples: new Float32Array(Math.round(sampleRate / 2)) });
             while (rec.isReady(st)) rec.decode(st);
-            return { text: String(rec.getResult(st).text ?? "").trim() };
+            const text = String(rec.getResult(st).text ?? "").trim();
+            freeNative(st);
+            return { text };
           },
-          async warm() { const st = rec.createStream(); st.acceptWaveform({ sampleRate: 16000, samples: new Float32Array(16000) }); while (rec.isReady(st)) rec.decode(st); },
-          dispose() {},
+          async warm() { const st = rec.createStream(); st.acceptWaveform({ sampleRate: 16000, samples: new Float32Array(16000) }); while (rec.isReady(st)) rec.decode(st); freeNative(st); },
+          dispose() { for (const st of live) freeNative(st); live.clear(); freeNative(rec); },
         };
       }
       const rec = new s.OfflineRecognizer({ featConfig: { sampleRate: 16000, featureDim: 80 }, modelConfig: { transducer, ...common, modelType: "nemo_transducer" } });
@@ -138,14 +158,16 @@ export function createSherpaEngine(o: SherpaEngineOptions = {}): LocalEngine {
         const st = rec.createStream();
         st.acceptWaveform({ sampleRate, samples });
         await rec.decodeAsync(st);
-        return { text: String(rec.getResult(st).text ?? "").trim() };
+        const text = String(rec.getResult(st).text ?? "").trim();
+        freeNative(st);
+        return { text };
       };
       return {
         streaming: false,
         createStream() { throw new VoiceProviderError("unsupported", "this ASR model is not a streaming model"); },
         decodeOffline: run,
         warm: async () => { await run(new Float32Array(16000), 16000); },
-        dispose() {},
+        dispose() { freeNative(rec); },
       };
     },
 
@@ -160,7 +182,7 @@ export function createSherpaEngine(o: SherpaEngineOptions = {}): LocalEngine {
         const r = await tts.generateAsync({ text, sid: opt.speaker ?? 0, speed: opt.speed ?? 1.0 });
         return { samples: r.samples as Float32Array, sampleRate: Number(r.sampleRate) };
       };
-      return { sampleRate: Number(tts.sampleRate), speakers: Number(tts.numSpeakers ?? 1), generate: gen, warm: async () => { await gen("Hi.", {}); }, dispose() {} };
+      return { sampleRate: Number(tts.sampleRate), speakers: Number(tts.numSpeakers ?? 1), generate: gen, warm: async () => { await gen("Hi.", {}); }, dispose() { freeNative(tts); } };
     },
 
     async loadVad(m) {
@@ -170,7 +192,7 @@ export function createSherpaEngine(o: SherpaEngineOptions = {}): LocalEngine {
         acceptWaveform: (samples) => vad.acceptWaveform(samples),
         isSpeech: () => vad.isDetected() === true,
         reset: () => vad.reset?.(),
-        dispose() {},
+        dispose() { freeNative(vad); },
       };
     },
   };
