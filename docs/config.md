@@ -17,6 +17,8 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 
 | Key | Type | Default | Restart | Description |
 |---|---|---|---|---|
+| `containers` | object |  | live | Container distribution library settings. Installer/runtime wiring is separate from the core. |
+| `sidecars` | object |  | live | Optional sidecars keyed by id. Core consumers read configuration only; runtime wiring is separate. |
 | `remote` | object | `{}` | core | Remote exposure configuration (listener integration is separate). |
 | `$schema` | string |  | live | URI identifying the JSON Schema used to validate this configuration. |
 | `schemaVersion` | const |  | core | Configuration format version; this schema supports version 1. |

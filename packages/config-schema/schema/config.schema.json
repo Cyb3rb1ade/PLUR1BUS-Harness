@@ -7,6 +7,146 @@
   "additionalProperties": false,
   "required": ["schemaVersion"],
   "properties": {
+    "containers": {
+      "description": "Container distribution library settings. Installer/runtime wiring is separate from the core.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-restart": "live",
+      "x-tier": "advanced",
+      "properties": {
+        "runtime": {
+          "description": "Preferred runtime; auto prefers Apple container on supported Apple Silicon macOS.",
+          "enum": [
+            "auto",
+            "apple",
+            "docker"
+          ],
+          "default": "auto"
+        },
+        "image": {
+          "description": "Harness image reference; production installations should use an immutable digest.",
+          "type": "string",
+          "minLength": 1
+        },
+        "stateVolume": {
+          "description": "Runtime-managed state volume; never use a macOS virtiofs bind for SQLite state.",
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+          "default": "plur1bus-state"
+        },
+        "bindAddress": {
+          "description": "Explicit loopback or private LAN API host binding; the runtime refuses public/wildcard addresses and publishes no API by default.",
+          "type": "string",
+          "anyOf": [{ "type": "string", "format": "ipv4" }, { "type": "string", "format": "ipv6" }],
+          "not": { "enum": ["0.0.0.0", "::"] },
+          "default": "127.0.0.1"
+        },
+        "healthTimeoutMs": {
+          "description": "Time allowed for a stack service to pass its health gate.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300000,
+          "default": 120000
+        }
+      }
+    },
+    "sidecars": {
+      "description": "Optional sidecars keyed by id. Core consumers read configuration only; runtime wiring is separate.",
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+      },
+      "x-restart": "live",
+      "x-tier": "advanced",
+      "additionalProperties": {
+        "description": "One sidecar endpoint and its bounded health probe configuration.",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "description": "Bundled container, remote host, or disabled.",
+            "enum": [
+              "bundled",
+              "remote",
+              "off"
+            ],
+            "default": "off"
+          },
+          "url": {
+            "description": "Credential-free HTTP(S) endpoint, or valkey://HOST:PORT/0 for remote Valkey over Tailscale.",
+            "type": "string",
+            "format": "uri",
+            "pattern": "^(https?|valkey|redis)://[^/@#]+(?:/[^#]*)?$"
+          },
+          "caBundle": {
+            "description": "Optional PEM trust bundle for the remote HTTPS host.",
+            "type": "string",
+            "minLength": 1
+          },
+          "fingerprint": {
+            "description": "Explicit self-signed leaf-certificate pin, SHA-256 of DER in lowercase hex. Health probes only; consumers must use pinned TLS too.",
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "timeoutMs": {
+            "description": "Remote health request timeout in milliseconds.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120000,
+            "default": 5000
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "mode"
+              ],
+              "properties": {
+                "mode": {
+                  "const": "remote"
+                }
+              }
+            },
+            "then": {
+              "properties": { "url": {} },
+              "required": [
+                "url"
+              ]
+            }
+          },
+          {
+            "if": {
+              "anyOf": [
+                {
+                  "properties": { "fingerprint": {} },
+                  "required": [
+                    "fingerprint"
+                  ]
+                },
+                {
+                  "properties": { "caBundle": {} },
+                  "required": [
+                    "caBundle"
+                  ]
+                }
+              ]
+            },
+            "then": {
+              "required": [
+                "url"
+              ],
+              "properties": {
+                "url": {
+                  "type": "string",
+                  "pattern": "^https://"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
     "remote": { "type": "object", "additionalProperties": false, "default": {}, "x-restart": "core", "x-tier": "advanced", "description": "Remote exposure configuration (listener integration is separate).", "properties": { "publish": { "type": "string", "enum": ["local", "tailnet", "network"], "default": "tailnet", "x-restart": "core", "x-tier": "advanced", "description": "Requested exposure mode; never makes a listener public. Applying the remote-access listener plan is a separate integration." } } },
     "$schema": { "description": "URI identifying the JSON Schema used to validate this configuration.", "type": "string", "x-restart": "live", "x-tier": "advanced" },
     "schemaVersion": { "description": "Configuration format version; this schema supports version 1.", "const": 1, "x-restart": "core", "x-tier": "advanced" },
