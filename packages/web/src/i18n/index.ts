@@ -10,6 +10,7 @@
 //    typed `Record<keyof typeof en, string>` once it has keys, so a missing translation fails typecheck at the source.
 import * as activity from "./activity.ts";
 import * as agents from "./agents.ts";
+import * as approvals from "./approvals.ts";
 import * as budget from "./budget.ts";
 import * as chat from "./chat.ts";
 import * as core from "./core.ts";
@@ -49,6 +50,7 @@ export const AREAS = [
   { name: "logs", en: logs.en, de: logs.de },
   { name: "activity", en: activity.en, de: activity.de },
   { name: "sessions", en: sessions.en, de: sessions.de },
+  { name: "approvals", en: approvals.en, de: approvals.de },
 ] as const satisfies readonly Area[];
 
 type AreaEn = (typeof AREAS)[number]["en"];

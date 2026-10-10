@@ -1257,6 +1257,10 @@ pub enum ApprovalCmd {
     ///
     /// The request (command line or diff summary, targets, risk) is printed first. In a terminal you confirm with
     /// `y`; outside a terminal `--yes` is required, so nothing is approved silently.
+    ///
+    /// A request above low risk needs one more thing on a plain local connection: a fresh confirmation by the operating
+    /// system itself (Touch ID, Windows Hello or the consent prompt, polkit). The core asks for it and the dialog appears
+    /// on this machine; it covers this one approval and expires after 60 s. Without it the request stays pending.
     Approve {
         /// the request id (apr_...)
         id: String,

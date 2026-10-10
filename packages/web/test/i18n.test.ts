@@ -8,7 +8,7 @@ const placeholders = (s: string): string[] => [...s.matchAll(/\{(\w+)\}/g)].map(
 test("i18n areas: core plus the page areas are registered", () => {
   assert.deepEqual(AREAS.map((a) => a.name), [
     "surfaces", "core", "chat", "memory", "models", "budget", "doctor", "palette",
-    "shared", "setup", "agents", "settings", "users", "secrets", "devices", "logs", "activity", "sessions",
+    "shared", "setup", "agents", "settings", "users", "secrets", "devices", "logs", "activity", "sessions", "approvals",
   ]);
 });
 

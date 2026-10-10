@@ -163,10 +163,10 @@ risk (low T1, medium and high T2, critical T3); `always` for `fs.write` or `shel
   process an agent started as the same OS user. So a **person principal on a token connection without attestation is T1**
   (`UNATTESTED_LOCAL_SURFACE`; owner decision 2026-10-08, #192): only low-risk requests (`fs.read`, `fs.write` within roots,
   `clipboard.read`) are decidable, and no standing grant above T1 – in particular no long-lived blanket grant – can be created
-  without attestation. OS-backed attestation (Touch ID / Windows Hello / UAC / polkit, bound to the request) is the follow-up.
+  without attestation. One OS-backed confirmation can lift a single approval to T2 (3.2.1).
 - **T3 needs a server-side attestation**: `CoreOptions.rbac.attest` returns `desktop-app`, `cli` with TTY and owner, or
   `web-step-up`, and runs inside the core process; no request field reaches it. An attestation can only raise a person above T1.
-  Nothing in this repository supplies one yet, so **no T3 decision is possible over RPC today**: `money.spend`, `os.privilege`,
+  Nothing in this repository supplies one yet (the OS confirmation of 3.2.1 lifts to T2 only), so **no T3 decision is possible over RPC today**: `money.spend`, `os.privilege`,
   `remote.control`, a public `net.publish`, `os.grant`, and `always` for outside-roots `fs.write` or `shell.exec` cannot be
   approved or granted yet. The CLI's own TTY check (chapter 6) is a client-side guard against accidents, not a trust level the
   core sees.
@@ -176,9 +176,64 @@ risk (low T1, medium and high T2, critical T3); `always` for `fs.write` or `shel
 
 **Known limit.** An agent that can run shell commands as the same OS user can read `run/core.token` and connect as the local
 owner. Since #192 that connection is only T1, so it can decide low-risk requests but not medium or high ones, and cannot mint
-a standing grant above T1. The remaining exposure is the low-risk set itself; the exec sandbox should still deny `run/` and
-`state/` to agent processes, and no tool may ever hand out the token. The price of T1: no medium-risk request can be decided
-over RPC or the CLI before an attestation exists.
+a standing grant above T1 on its own: for a T2 decision it would need the person at the machine to answer an OS dialog
+(3.2.1), which the token does not give it. The remaining exposure is the low-risk set itself, a dialog the person confirms
+without reading it (the text names agent, capability and scope), and a replaced helper binary (see the threat model); the exec
+sandbox should still deny `run/` and `state/` to agent processes, and no tool may ever hand out the token.
+
+#### 3.2.1 OS-backed attestation: one confirmation lifts one approval to T2
+
+Owner decision (#192, option C): the promise "a person can approve anything for up to 90 days" stays, and it costs one
+confirmation by the operating system. A person on an unattested local connection (T1) who decides a request that needs T2
+(`requiredSurface` 2 for the chosen scope, for example `shell.exec`, `pkg.change`, an outside-roots `fs.write`) triggers this:
+
+1. `approval.decide` without `attest`: the core answers `E_APPROVAL_REQUIRED reason=attestation-required` with the method it
+   will ask for in `detail` (`touch-id`, `macos-password`, `windows-hello`, `uac`, `polkit`). Nothing is shown and nothing is
+   decided, so a surface can say "Confirmation by Touch ID needed" first.
+2. `approval.decide` with `attest: true`: **the core** starts the native helper `plur1bus-attest` (a child process, JSON over
+   stdin/stdout, one line each way) and the operating system shows its own dialog on this machine: Touch ID with the account
+   password as fallback (macOS, LocalAuthentication `deviceOwnerAuthentication`), Windows Hello or, without it, the UAC consent
+   prompt (Windows), polkit `org.plur1bus.approve` with the user's own password (Linux, policy file shipped in
+   `crates/plur1bus-attest/policy/`). The dialog text says which agent, which capability and which scope.
+3. On success the core decides this one request at surface 2 and records `decisionSurface 2`, the audit line carries
+   `attestedVia: "attested:<method>"`, and the grant (every scope, including `once`) stores the same origin (`attestedVia` on
+   `GrantRecord`, part of the chained grant definition, so it cannot be edited out of the row unnoticed). A `session` or
+   `always` grant created this way is a normal T2 grant, up to 90 days unused for `always`.
+
+What an attestation is bound to (all checked by the core, none of it taken from the helper's say-so alone):
+
+- **The concrete approval.** The hash sent to the helper covers the request id, its action hash, the capability, the scope (so the
+  duration), the delegable flag, the agent and the person. A confirmation for `session` is not one for `always`, and not one for
+  another request.
+- **A nonce, once.** A fresh random nonce per attempt; the helper must echo it with the action hash. A reply with a nonce the
+  core did not issue is `mismatch`; one the core already consumed is `replay`. A nonce is spent whatever the reply says.
+- **At most 60 s** (`MAX_ATTEST_TTL_MS`): the core kills a helper that is still waiting, and a confirmation time outside the
+  attempt's window is `mismatch`.
+- **Fresh.** Every request opens a new OS dialog; there is no cached `sudo`-style timestamp and no remembered authorization
+  (the polkit action has no `_keep`).
+
+When it does not apply or does not work, the approval simply stays where it was:
+
+| Situation | Answer |
+|---|---|
+| A request T1 may decide (low risk) | decided at T1; `attest` is ignored |
+| The request needs T3 (`critical` risk, `always` outside-roots `fs.write` or `shell.exec`, `net.publish`, `remote.control`, ...) | `E_DENIED surface-untrusted`, no dialog: the OS confirmation lifts to T2 only |
+| An agent principal | `E_DENIED agent-principal`, the helper is never started |
+| A decision relayed with a nonce (a chat channel) | never opens a dialog on the host; `surface-untrusted` |
+| No helper (not installed, container mode `PLUR1BUS_CONTAINER=1`, no graphical session, no polkit agent) | `E_NOT_AVAILABLE reason=attestation-unavailable`; the request stays pending at its T1 limits and nothing else breaks |
+| Cancelled, timed out, failed, replayed or mismatched confirmation | `E_DENIED reason=attestation-failed`, `detail` = `cancelled` \| `timeout` \| `failed` \| `replay` \| `mismatch`; the request stays pending |
+| A second decision of the same request while its dialog is open | `E_CONFLICT reason=attestation-in-progress` |
+
+A connection the embedder attests through `CoreOptions.rbac.attest` (T3) never reaches the helper. `grant.create` is **not**
+part of this flow: creating a standing grant directly (without an approval request) from a T1 connection is still
+`surface-untrusted`; the person approves a request and picks the scope there.
+
+Audit: `attestation.requested` (before the dialog; if it cannot be written, no dialog opens) and `attestation.result`
+(`attestationOutcome` `confirmed` \| `cancelled` \| `timeout` \| `unavailable` \| `failed` \| `replay` \| `mismatch`, `method`), both
+keyed to the request and the action hash, never the nonce. The core finds the helper through `PLUR1BUS_ATTEST_BIN` (set by the
+CLI and the supervisor to the `plur1bus-attest` beside their own executable) or `CoreOptions.attestation.helper`; it must be an
+absolute path to a regular file that is not group- or world-writable. Threat model and limits: `docs/rbac.md` ("OS-backed
+attestation") and `docs/security/os-attestation-2026-10.md`.
 
 ### 3.3 Timeouts and the absent person
 
@@ -304,7 +359,10 @@ Behaviour worth knowing:
   (exit 2, reason `confirmation-required`). With no `--scope` it uses the narrowest option the request offers; a scope the
   request does not offer is refused (reason `scope-not-offered`). There is no password path and no nonce argument.
 - `grant revoke --reason` is echoed in the output only; `grant.revoke` takes just an id.
-- The CLI sends no attestation, so the core sees the CLI as T1 (3.2). Requests that need T2 or T3 cannot be approved from the CLI yet.
+- The CLI sends no connection attestation, so the core sees it as T1 (3.2). For a request that needs T2, `approval approve`
+  prints what the core asks for ("This decision needs one confirmation by the operating system: Touch ID ..."), repeats the
+  decision with `attest: true` and the OS dialog appears on this machine; the result shows "confirmed by the operating system
+  (attested:touch-id)". Without a helper it exits 2 with `attestation-unavailable`. Requests that need T3 cannot be approved from the CLI yet.
 - Exit codes: **0** success. **1** the core refused or reported an error (`E_DENIED`, `E_NOT_FOUND`, `E_CONFLICT` for a request
   that is no longer pending, and so on), and `approval verify` when the chain is broken (it prints the first broken position and
   the reason). **2** a usage error found before any call (a missing `--task-id` or `--session-id`, `--limit` out of 1-500, `approve`
@@ -398,7 +456,11 @@ of the audit files (`docs/audit-chain.md`), not a D109 setting.
    A per-connection address in the notify API would make it selective.
 6. **No T3 attestation** (3.2): `CoreOptions.rbac.attest` has no supplier, so T3-only requests cannot be decided; the CLI TTY
    and the desktop app are not yet attested. The residual same-user-token risk stays until the exec sandbox denies `run/` and
-   `state/` to agent processes.
+   `state/` to agent processes. The OS confirmation of 3.2.1 lifts to T2 only. It is also **not yet shipped**: the release
+   archives, the installer and `update` carry `plur1bus` alone, so a released build has no `plur1bus-attest` (and no polkit
+   policy) and answers `attestation-unavailable` until they do; a source build finds the helper beside `plur1bus`. The web
+   approvals page is still a placeholder, so only the CLI drives the flow; the web texts (`approvals.attest.*`, de/en) and
+   `attestationText()` are ready for it. The interactive macOS and Windows dialogs are verified by hand, not in CI.
 7. **Ed25519 signatures and `1staid check approvals.integrity` are missing.** The spec has signed decisions for out-of-process
    verifiers (the host helper, a controlled desktop) and a start and daily integrity check; only the HMAC chain and the
    on-demand `approval verify` exist. Remote-control approvals on both ends (D108) are not built.
@@ -462,6 +524,7 @@ Scope) oder mit `plur1bus grant add` (`task`, `session`, `always`).
   Agenten, Modellausgabe, Tool-Ergebnisse: darf nichts entscheiden. Die nötige Stufe ist das Maximum aus dem Minimum der
   Fähigkeit und der Stufe des Risikos (low T1, medium und high T2, critical T3).
 - **Was der Core tatsächlich ableitet:** eine tokenauthentifizierte lokale Verbindung einer Person ohne Attestation ist **T1** (Owner-Entscheidung 2026-10-08, #192): nur `low` ist entscheidbar, und ohne Attestation entsteht keine Dauerfreigabe oberhalb T1.
+  Eine einzelne Freigabe lässt sich mit EINER Bestätigung des Betriebssystems auf T2 heben (3.2.1).
   Der Core kann am Socket nicht erkennen, ob ein Mensch am Terminal sitzt, ob es die Desktop-App ist oder ein Prozess, den ein
   Agent als derselbe OS-Nutzer gestartet hat. **T3 gibt es nur mit serverseitiger Attestation** (`CoreOptions.rbac.attest`, läuft
   im Core, kein Request-Feld erreicht sie). Heute liefert nichts eine solche Attestation; deshalb sind T2- und T3-Anfragen (mittleres und hohes Risiko, `money.spend`,
@@ -469,9 +532,25 @@ Scope) oder mit `plur1bus grant add` (`task`, `session`, `always`).
   über RPC noch nicht entscheidbar, auch nicht per CLI. Agent-Principals und fehlende Principals sind immer T0.
 - **Bekannte Grenze:** Ein Agent mit Shell als derselbe OS-Nutzer kann `run/core.token` lesen und sich als lokaler Besitzer
   verbinden. Seit #192 ist diese Verbindung nur T1: er kann Anfragen niedrigen Risikos entscheiden, aber weder mittleres oder
-  hohes Risiko noch eine Dauerfreigabe oberhalb T1 erzeugen. Die Exec-Sandbox sollte `run/` und `state/` weiterhin für
-  Agent-Prozesse sperren, und kein Tool darf das Token herausgeben. Preis: Ohne Attestation ist über RPC und CLI keine
-  Entscheidung mittleren Risikos möglich.
+  hohes Risiko noch eine Dauerfreigabe oberhalb T1 erzeugen. Für eine T2-Entscheidung bräuchte er den Menschen am Gerät, der einen
+  OS-Dialog beantwortet (3.2.1); das Token liefert das nicht. Die Exec-Sandbox sollte `run/` und `state/` weiterhin für
+  Agent-Prozesse sperren, und kein Tool darf das Token herausgeben.
+**OS-gestützte Attestation (#192, Option C).** Eine Freigabe, die T2 verlangt (etwa `shell.exec`, `pkg.change`, `fs.write`
+außerhalb der Roots), kann eine Person auf einer unattestierten lokalen Verbindung (T1) mit EINER Bestätigung des
+Betriebssystems erteilen: Touch ID (Passwort als Rückfall) auf macOS, Windows Hello oder die UAC-Abfrage auf Windows, polkit
+(`org.plur1bus.approve`, eigenes Passwort) auf Linux. Ablauf: `approval.decide` ohne `attest` antwortet
+`E_APPROVAL_REQUIRED reason=attestation-required` (`detail` = Methode, damit eine Oberfläche "Bestätigung durch Touch ID nötig"
+anzeigen kann); mit `attest: true` startet **der Core** den Helfer `plur1bus-attest` (Kindprozess, JSON über stdin/stdout), das OS
+zeigt seinen eigenen Dialog (Agent, Fähigkeit und Scope stehen im Text), und bei Erfolg wird genau diese Freigabe als T2 gebucht
+(`decisionSurface 2`, Audit `attestedVia: "attested:<methode>"`, der Grant trägt dieselbe Herkunft, auch bei `once`; bis zu 90
+Tage bei `always`). Die Bestätigung gilt nur für diese Freigabe: gebunden an Anfrage, Aktion, Scope (also Dauer), Agent und Person,
+Nonce nur einmal, höchstens 60 s, jedes Mal ein frischer Dialog ohne Zwischenspeicher. Nicht möglich bleibt: Agent-Principals
+(Helfer startet nie), per Nonce weitergereichte Kanal-Entscheidungen, Anfragen, die T3 brauchen (kein Dialog), und `grant.create`
+ohne Freigabe-Anfrage. Ohne Helfer (nicht installiert, Container-Modus, keine grafische Sitzung, kein polkit-Agent) antwortet der
+Core `E_NOT_AVAILABLE attestation-unavailable`, die Anfrage bleibt auf ihren T1-Grenzen und nichts bricht. Abbruch, Zeitüberschreitung,
+Fehler, Replay oder falsche Bindung: `E_DENIED attestation-failed` (`detail` nennt den Grund), die Anfrage bleibt offen. Siehe
+`docs/rbac.md` und `docs/security/os-attestation-2026-10.md` für Bedrohungsmodell und Grenzen.
+
 - **Zeitlimits:** Der Vordergrund wartet 10 Minuten, dann bekommt der Aufruf "nicht genehmigt, geparkt" und der Agent arbeitet
   an anderem weiter; die Anfrage bleibt entscheidbar. Nach 24 Stunden (ab Erstellung) ist sie `expired`, und das gilt als
   Ablehnung (`approval-expired`). Wird eine geparkte `once`-Anfrage später genehmigt, gilt der Grant 10 Minuten; der Agent muss
@@ -522,7 +601,8 @@ Befehle: `grant list|add|revoke`, `approval list|pending|approve|deny|verify`, j
 und `--home`; Beispiele im englischen Teil. `approval approve` zeigt die Anfrage zuerst (stderr) und fragt am Terminal `[y/N]`;
 ohne Terminal oder mit `--json` ist `--yes` Pflicht, sonst Abbruch vor dem Verbindungsaufbau (Exit 2). Exit-Codes: 0 Erfolg;
 1 Ablehnung oder Fehler des Core und gebrochene Kette bei `verify`; 2 Aufruffehler vor jedem Call, `E_NOT_AVAILABLE`,
-`E_APPROVAL_REQUIRED`; 3 `E_LOCKED`. Die CLI sendet keine Attestation, der Core sieht sie als T1.
+`E_APPROVAL_REQUIRED`; 3 `E_LOCKED`. Die CLI sendet keine Verbindungs-Attestation, der Core sieht sie als T1; verlangt eine Freigabe T2, zeigt `approval approve`, was
+das OS fragen wird, wiederholt die Entscheidung mit `attest: true` und das OS-Fenster erscheint auf diesem Rechner.
 
 RPC: `grant.list`, `grant.create`, `grant.revoke`, `approval.list`, `approval.get`, `approval.verify`, `approval.decide`,
 `approval.cancel`; nur für Personen, Person und Oberfläche stammen aus der Verbindung, nie aus Parametern; eine fremde Anfrage ist
@@ -555,7 +635,9 @@ Tool-Ergebnisse nie. Abweichung: `plur1bus approval audit` und eine 400-Tage-Auf
 3. Der Tool-Registry fehlt ein Namensschutz für `grant.*` und `approval.*`.
 4. Zwei ApprovalPorts: Der Exec-Port (`tools/exec/types.ts`) verbraucht weder Freigaben noch `once`-Grants.
 5. Benachrichtigungen werden nur zugestellt, wenn alle Abonnenten berechtigte Personen sind.
-6. Keine T3-Attestation; die Same-User-Token-Grenze (Kapitel 3) bleibt, bis die Sandbox `run/` und `state/` sperrt.
+6. Keine T3-Attestation; die OS-Bestätigung hebt nur auf T2. Der Helfer `plur1bus-attest` (und die polkit-Policy) ist noch nicht in
+   Release-Archiv, Installer und `update`; ein Release-Build antwortet bis dahin `attestation-unavailable`. Die Web-Freigabeseite ist
+   noch ein Platzhalter. Die Same-User-Token-Grenze (Kapitel 3) bleibt, bis die Sandbox `run/` und `state/` sperrt.
 7. Ed25519-Signaturen und `1staid check approvals.integrity` fehlen; D108 (Freigaben auf beiden Seiten) ist nicht gebaut.
 8. Taint hat keinen Lieferanten; Roots, Deny-List-Flag, `cwd` und Umgebungsnamen hängen an `classify()` des Tools.
 9. `GrantStore.endTask` und `endSession` werden vom Core noch nicht aufgerufen.

@@ -1,6 +1,7 @@
 // What the grant.* and approval.* handlers share: who is calling (a person, established by the core), at which surface level, and the
 // stores behind it. Every handler starts with `callerOf`, before any store is touched: an agent never causes the stores to open.
 import type { GrantRecord } from "@plur1bus/rpc-schema";
+import type { Attester } from "../attestation/index.ts";
 import type { GrantStore } from "../grants/store.ts";
 import type { PrincipalResolver } from "../rbac/guard.ts";
 import type { SurfaceTrustLevel } from "../rbac/surface.ts";
@@ -24,6 +25,8 @@ export interface ApprovalMethodDeps {
   /** Throws E_AGENT_UNKNOWN for an agent the core does not know. */
   requireAgent: (agentId: string) => void;
   clock: () => number;
+  /** Issue #192: asks the OS for one confirmation that lifts a single approval of an unattested local connection (T1) to T2. Absent: nothing can be lifted. */
+  attester?: Attester;
   /** `grant.changed` for grants this file creates or revokes (the service announces the ones a decision creates). */
   notify?: { grantChanged(change: "created" | "revoked", grant: GrantRecord): void };
 }

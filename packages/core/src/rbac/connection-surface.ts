@@ -18,8 +18,10 @@
 // Why T1 and not T2 (#192): an agent that can run commands as the same OS user and read `run/core.token` could present
 // itself as the local owner and, at T2, approve shell.exec/fs.delete/proc.signal/pkg.change/net.submit for itself or mint
 // a 90-day standing grant. T1 closes that for every capability above low risk. The price – no medium-risk approval over
-// RPC/CLI without attestation – is paid until OS-backed attestation (Touch ID / Windows Hello / UAC / polkit, bound to the
-// request) lands; with it a person reaches T3 with one confirmation and can grant up to 90 days at once.
+// RPC/CLI without attestation – is paid down by OS-backed attestation (Touch ID / Windows Hello / UAC / polkit, bound to the
+// request; `../attestation/`): ONE confirmation lifts ONE approval to T2 and so allows a grant up to 90 days. That lift is not
+// a property of the connection: this function still answers T1 for it, the approval handler decides that single request at
+// surface 2 (approvals/rpc.ts) and the connection stays T1 for its next call. T3 remains the embedder's `rbac.attest`.
 import { surfaceTrust, type SurfaceTrustLevel } from "./surface.ts";
 import type { Principal } from "./types.ts";
 
