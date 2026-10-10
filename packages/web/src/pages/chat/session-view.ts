@@ -1,5 +1,4 @@
-// The open chat: header, transcript (role=log), notices and composer.
-import { StoredImage } from "../surfaces/media.ts";
+import { StoredImage } from "../surfaces/stored-image.ts";
 import { h } from "preact";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { isApiError } from "../../api/index.ts";

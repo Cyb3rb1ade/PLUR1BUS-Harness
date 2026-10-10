@@ -1,0 +1,13 @@
+/* Devices & remote section */
+.devices { display: grid; gap: 16px; }
+.pairing-qr { display: grid; place-items: center; padding: 16px; background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); }
+.pairing-qr svg { display: block; max-width: 256px; height: auto; }
+.devices-qr-wrap { display: grid; gap: 8px; place-items: center; }
+.devices-pair-form { display: grid; gap: 12px; }
+.devices-list { display: grid; gap: 12px; }
+.devices-row { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; }
+.devices-who { display: grid; gap: 2px; overflow-wrap: anywhere; }
+.devices-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; margin: 0; }
+.devices-facts dt { font-size: 12.5px; color: var(--ink-2); }
+.devices-facts dd { margin: 0; overflow-wrap: anywhere; }
+.devices-actions { display: flex; flex-wrap: wrap; gap: 8px; }

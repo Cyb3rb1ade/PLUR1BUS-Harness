@@ -16,6 +16,8 @@ import { currentRole, getApi, roleIn, useLoad } from "../common/load.ts";
 import type { PageProps } from "../registry.ts";
 import { navigate } from "../../router.ts";
 
+import "../../styles/switchboard.css";
+
 registerArea("switchboard", area);
 
 export type ChannelSummary = {

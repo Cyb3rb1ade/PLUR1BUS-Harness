@@ -8,7 +8,7 @@ import { MockHarnessServer, OWNER_TOKEN, type MockOptions } from "./mock-server.
 
 /** Chromium: PLUR1BUS_CHROMIUM, else Playwright's own install, else the container's /opt/pw-browsers/chromium. No download. */
 function findChromium(): string | undefined {
-  const candidates = [process.env.PLUR1BUS_CHROMIUM, chromium.executablePath(), "/opt/pw-browsers/chromium"];
+  const candidates = [process.env.PLUR1BUS_CHROMIUM, chromium.executablePath(), "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/opt/pw-browsers/chromium"];
   return candidates.find((p): p is string => !!p && existsSync(p));
 }
 

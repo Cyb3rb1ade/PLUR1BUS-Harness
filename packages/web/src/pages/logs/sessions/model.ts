@@ -1,20 +1,28 @@
-// Sessions overview model (pure): filtering, sorting and paging of the `session.list` metadata. Only metadata is ever handled:
-// the record type has no message text, and nothing here reads any.
+// Sessions overview model (pure): filtering, sorting and paging of the `session.list` metadata.
+// Supports owner, model and usage fields and filtering by owner and agent.
 
 export type SessionMeta = {
   id: string; kind: string; agentId: string; title: string; pinned: boolean;
   createdAt: number; updatedAt: number; lastTurnAt: number | null; archivedAt: number | null; turnCount: number;
+  owner?: string;
+  model?: string | null;
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    costMicros: number | null;
+    pendingCalls?: number;
+  };
 };
 
 export type SortKey = "activity" | "created" | "title" | "turns";
 export type SortDir = "asc" | "desc";
 export type StatusFilter = "active" | "archived" | "all";
 export type Filters = {
-  text: string; agent: string; status: StatusFilter;
+  text: string; agent: string; owner: string; status: StatusFilter;
   /** Local `YYYY-MM-DD` bounds on the last activity, inclusive; "" = open. */
   from: string; to: string;
 };
-export const NO_FILTERS: Filters = { text: "", agent: "", status: "active", from: "", to: "" };
+export const NO_FILTERS: Filters = { text: "", agent: "", owner: "", status: "active", from: "", to: "" };
 export const PAGE_SIZE = 20;
 
 /** The moment a session was last used: its last turn, else when it was created. */
@@ -25,7 +33,9 @@ function dayStart(ymd: string): number | null {
   return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime() : null;
 }
 
-export function filtersActive(f: Filters): boolean { return f.text.trim() !== "" || f.agent !== "" || f.status !== NO_FILTERS.status || f.from !== "" || f.to !== ""; }
+export function filtersActive(f: Filters): boolean {
+  return f.text.trim() !== "" || f.agent !== "" || f.owner !== "" || f.status !== NO_FILTERS.status || f.from !== "" || f.to !== "";
+}
 
 export function applyFilters(all: readonly SessionMeta[], f: Filters): SessionMeta[] {
   const q = f.text.trim().toLowerCase();
@@ -36,7 +46,8 @@ export function applyFilters(all: readonly SessionMeta[], f: Filters): SessionMe
     if (f.status === "active" && s.archivedAt !== null) return false;
     if (f.status === "archived" && s.archivedAt === null) return false;
     if (f.agent !== "" && s.agentId !== f.agent) return false;
-    if (q !== "" && !`${s.title}\n${s.id}\n${s.agentId}`.toLowerCase().includes(q)) return false;
+    if (f.owner !== "" && (s.owner ?? "") !== f.owner) return false;
+    if (q !== "" && !`${s.title}\n${s.id}\n${s.agentId}\n${s.owner ?? ""}\n${s.model ?? ""}`.toLowerCase().includes(q)) return false;
     const a = activityOf(s);
     if (from !== null && a < from) return false;
     if (to !== null && a >= to) return false;
