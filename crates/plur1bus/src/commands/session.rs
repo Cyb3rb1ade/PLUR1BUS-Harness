@@ -214,7 +214,7 @@ pub(crate) fn pick_agent(out: &Out, config: &Value, agent: Option<String>) -> St
 }
 
 pub fn chat(out: &Out, layout: &Layout, args: ChatArgs) {
-    let config = cfg::read_unvalidated(&layout.config_path())
+    let config = cfg::read_for_lookup(&layout.config_path(), &[])
         .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1));
     let caller = identity::caller();
     let mut c = connect_sessions(out, layout);

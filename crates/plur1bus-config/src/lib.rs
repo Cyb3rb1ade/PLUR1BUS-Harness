@@ -277,6 +277,80 @@ pub fn read_unvalidated(path: &Path) -> Result<Config, ConfigError> {
     }
 }
 
+/// The read for CLI paths that only look something up: [`read_unvalidated`], then a cheap structural check against the schema
+/// (top-level keys, `schemaVersion`, the shape of `agents`, and the numeric `keys` the caller will use, as JSON pointers such as
+/// `/core/recall/softBudgetMs`, against their `type`/`minimum`/`maximum`). Only a file that fails that check is validated in full,
+/// and then reports the schema errors like [`read`]; a file that passes is returned without the validator ever being built.
+///
+/// Passing is not validity: unknown keys or bad values deeper in a section, and keys the caller did not list, are not looked at.
+/// Callers must use nothing but what they listed. The supervisor and the core validate the file they run on.
+pub fn read_for_lookup(path: &Path, keys: &[&str]) -> Result<Config, ConfigError> {
+    let v = read_unvalidated(path)?;
+    if lookup_shape_ok(&v, keys) {
+        return Ok(v);
+    }
+    validate(&v).map_err(ConfigError::Invalid)?;
+    Ok(v)
+}
+
+fn lookup_shape_ok(v: &Value, keys: &[&str]) -> bool {
+    let (Some(obj), Some(props)) = (v.as_object(), schema()["properties"].as_object()) else {
+        return false;
+    };
+    if !obj.keys().all(|k| props.contains_key(k))
+        || obj.get("schemaVersion") != props["schemaVersion"].get("const")
+    {
+        return false;
+    }
+    let agent_props = props["agents"]["additionalProperties"]["properties"].as_object();
+    let agent_name_ok = |n: &str| {
+        let b = n.as_bytes();
+        (1..=64).contains(&b.len())
+            && (b[0].is_ascii_lowercase() || b[0].is_ascii_digit())
+            && b.iter()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'_' || *c == b'-')
+    };
+    let Some(agents) = obj.get("agents").and_then(Value::as_object) else {
+        return false;
+    };
+    for (name, a) in agents {
+        let (Some(a), Some(agent_props)) = (a.as_object(), agent_props) else {
+            return false;
+        };
+        if !agent_name_ok(name) || !a.keys().all(|k| agent_props.contains_key(k)) {
+            return false;
+        }
+    }
+    keys.iter().all(|ptr| {
+        let Some(val) = v.pointer(ptr) else {
+            return true; // absent: the schema default applies
+        };
+        // The schema node for the pointer: through `properties` at each level.
+        let mut node = schema();
+        for seg in ptr.split('/').skip(1) {
+            match node.get("properties").and_then(|p| p.get(seg)) {
+                Some(n) => node = n,
+                None => return false,
+            }
+        }
+        let Some(n) = val
+            .as_i64()
+            .or_else(|| val.as_u64().and_then(|u| i64::try_from(u).ok()))
+        else {
+            return false;
+        };
+        node.get("type").and_then(Value::as_str) == Some("integer")
+            && node
+                .get("minimum")
+                .and_then(Value::as_i64)
+                .is_none_or(|m| n >= m)
+            && node
+                .get("maximum")
+                .and_then(Value::as_i64)
+                .is_none_or(|m| n <= m)
+    })
+}
+
 /// [`parse`] without the schema validation (see [`read_unvalidated`]).
 pub fn parse_unvalidated(text: &str) -> Result<Config, ConfigError> {
     let mut v: Value =
