@@ -1,0 +1,15 @@
+{
+  "id": "searxng",
+  "image": "docker.io/searxng/searxng@sha256:cc026dbee25b864d7f9731957cd5ef36ba2e2d61abd2996d57f1b863483e7409",
+  "port": 8080,
+  "health_command": [
+    "/usr/local/searxng/.venv/bin/python",
+    "-c",
+    "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"
+  ],
+  "memory": 536870912,
+  "pids": 256,
+  "user": "977:977",
+  "volumes": [],
+  "license": "AGPL-3.0-or-later"
+}

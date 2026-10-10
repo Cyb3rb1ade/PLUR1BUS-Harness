@@ -562,3 +562,5 @@ pub fn target_binary() -> Result<PathBuf, String> {
 
 #[cfg(test)]
 mod tests;
+
+pub mod containers;

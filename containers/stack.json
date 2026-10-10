@@ -1,0 +1,20 @@
+{
+  "schema": "plur1bus.container-stack/1",
+  "harness": {
+    "image": "plur1bus-harness:local",
+    "stateVolume": "plur1bus-state",
+    "network": "plur1bus-internal",
+    "bind": "127.0.0.1",
+    "publish": null
+  },
+  "sidecars": {
+    "searxng": {
+      "mode": "off",
+      "manifest": "sidecars/searxng/manifest.json"
+    },
+    "valkey": {
+      "mode": "off",
+      "manifest": "sidecars/valkey/manifest.json"
+    }
+  }
+}
