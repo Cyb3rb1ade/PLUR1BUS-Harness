@@ -205,7 +205,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -511,7 +511,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -817,7 +817,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -1123,7 +1123,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -1429,7 +1429,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -1735,7 +1735,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -2041,7 +2041,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -2347,7 +2347,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -2653,7 +2653,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -2959,7 +2959,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -3265,7 +3265,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -3571,7 +3571,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -3877,7 +3877,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -4183,7 +4183,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -4489,7 +4489,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -4795,7 +4795,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -5101,7 +5101,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -5407,7 +5407,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -5713,7 +5713,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -6019,7 +6019,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -6325,7 +6325,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -6631,7 +6631,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -6937,7 +6937,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -7243,7 +7243,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -7549,7 +7549,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -7855,7 +7855,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -8161,7 +8161,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -8467,7 +8467,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -8773,7 +8773,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -9076,7 +9076,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -9379,7 +9379,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,

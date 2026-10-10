@@ -2,7 +2,8 @@ export * from "./errors.ts";
 export * from "./types.ts";
 export * from "./registry.ts";
 export { HttpClient, type FetchLike, type Sleep } from "./http.ts";
-export { openSocket, type WsFactory, type WsLike } from "./ws.ts";
+export { openSocket, type WsFactory, type WsInit, type WsLike, type WsLimits, type WsTimers } from "./ws.ts";
+export { voiceEgressHosts, toEgressConfig, GITHUB_RELEASE_HOSTS, type EgressConfigShape, type EgressDeclaration, type EgressHost, type VoiceEgressInput } from "./egress.ts";
 export { createElevenLabs, type ElevenLabs, type ElevenLabsOptions } from "./providers/elevenlabs.ts";
 export { createGrokVoice, type GrokOptions } from "./providers/grok.ts";
 export { createGeminiLive, type GeminiOptions } from "./providers/gemini.ts";
@@ -16,4 +17,4 @@ export { LocalVoice, type Capability, type LanguageInfo, type LocalVoiceConfig, 
 export { SentenceChunker, chunkSentences, type ChunkerOptions } from "./realtime/chunker.ts";
 export { createTurnDetector, type TurnDetector, type TurnDetectorOptions, type TurnEvent, type TurnOutput, type TurnState } from "./realtime/endpointing.ts";
 export { FeatureLatencyRecorder, type LatencyReport, type FeatureStats, type Stats } from "./realtime/latency.ts";
-export { FEATURE_NAMES, LOCAL_REALTIME_DEFAULTS, createFeatureRunner, resolveProfile, type BudgetResult, type FeatureEvent, type FeatureMode, type FeatureName, type FeatureRunner, type FeatureRunnerOptions, type FeatureSetting, type LocalRealtimeConfig, type LocalRealtimeProfile } from "./realtime/profile.ts";
+export { DEFAULT_FEATURE_BUDGET_MS, FEATURE_NAMES, LOCAL_REALTIME_DEFAULTS, createFeatureRunner, resolveProfile, type BudgetResult, type FeatureEvent, type FeatureMode, type FeatureName, type FeatureRunner, type FeatureRunnerOptions, type FeatureSetting, type LocalRealtimeConfig, type LocalRealtimeProfile } from "./realtime/profile.ts";
