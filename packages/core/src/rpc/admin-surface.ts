@@ -121,8 +121,8 @@ export function buildAdminSurface(d: AdminSurfaceDeps): Record<string, Handler> 
       return { id: pair.pairingId, userId: h.id, role, channel, expiresAt: pair.expiresAt, code: pair.code };
     }),
     "user.invite.list": bind("admin.users.read", () => {
-      const pairs = d.identity.list({}).pairings;
-      return { invites: d.people.invites().map(i => ({ id: i.id, userId: i.userId, role: i.role, channel: i.channel, expiresAt: i.expiresAt, state: i.revoked ? "revoked" : pairs.find(p => p.id === i.id)?.state === "confirmed" ? "confirmed" : i.expiresAt <= d.clock() ? "expired" : pairs.find(p => p.id === i.id)?.state ?? "expired" })) };
+      const pairs = new Map(d.identity.list({ includeResolvedPairings: true }).pairings.map(p => [p.id, p.state]));
+      return { invites: d.people.invites().map(i => ({ id: i.id, userId: i.userId, role: i.role, channel: i.channel, expiresAt: i.expiresAt, state: i.revoked ? "revoked" : pairs.get(i.id) ?? "expired" })) };
     }),
     "user.invite.revoke": bind("admin.users.write", (p, a) => {
       const id = text(p, "inviteId"), invite = d.people.invites().find(i => i.id === id);

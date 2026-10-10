@@ -92,7 +92,7 @@ test("invitations: lifetime is 1-60 minutes (default 60), never Owner, and field
   assert.equal(shortest.expiresAt - s.clock(), MIN);
 });
 
-test("user.invite.list reports pending, claimed, confirmed, revoked and expired invitations, never codes", { todo: "KNOWN GAP: user.invite.list reports a confirmed invitation as \"expired\" (identity.list returns only open pairings)" }, async t => {
+test("user.invite.list reports pending, claimed, confirmed, revoked and expired invitations, never codes", async t => {
   const s = harness(t);
   const invite = (displayName: string, expiresInMinutes = 60) => s.as(owner)["user.invite.create"]!({ displayName, role: "member", channel: "test", expiresInMinutes }, ctx()) as Promise<any>;
   const identity = (userId: string) => ({ channel: "test", accountId: "offline", userId });
@@ -101,6 +101,8 @@ test("user.invite.list reports pending, claimed, confirmed, revoked and expired 
   s.identity.claim({ code: claimed.code, identity: identity("claimed") });
   const confirmed = await invite("Confirmed");
   s.identity.confirm({ pairingId: s.identity.claim({ code: confirmed.code, identity: identity("confirmed") }).pairingId, approve: true }, actor);
+  const declined = await invite("Declined");
+  s.identity.confirm({ pairingId: s.identity.claim({ code: declined.code, identity: identity("declined") }).pairingId, approve: false }, actor);
   const revoked = await invite("Revoked");
   await s.as(owner)["user.invite.revoke"]!({ inviteId: revoked.id }, ctx());
   const expired = await invite("Expired", 1);
@@ -111,10 +113,23 @@ test("user.invite.list reports pending, claimed, confirmed, revoked and expired 
   assert.equal(state.get(pending.id), "pending");
   assert.equal(state.get(claimed.id), "claimed");
   assert.equal(state.get(confirmed.id), "confirmed");
+  assert.equal(state.get(declined.id), "declined");
   assert.equal(state.get(revoked.id), "revoked");
   assert.equal(state.get(expired.id), "expired");
   const serialized = JSON.stringify(listed);
-  for (const i of [pending, claimed, confirmed, revoked, expired]) assert.ok(!serialized.includes(i.code), i.id);
+  for (const i of [pending, claimed, confirmed, declined, revoked, expired]) assert.ok(!serialized.includes(i.code), i.id);
+  assert.deepEqual(s.identity.list({}).pairings.map(p => p.id).sort(), [pending.id, claimed.id].sort());
+
+  s.tick(59 * MIN);
+  const afterExpiry = await s.as(owner)["user.invite.list"]!({}, ctx()) as any;
+  const finalState = new Map(afterExpiry.invites.map((i: any) => [i.id, i.state]));
+  assert.equal(finalState.get(confirmed.id), "confirmed");
+  assert.equal(finalState.get(declined.id), "declined");
+  assert.equal(finalState.get(pending.id), "expired");
+  assert.equal(finalState.get(claimed.id), "expired");
+  assert.equal(finalState.get(revoked.id), "revoked");
+  assert.equal(finalState.get(expired.id), "expired");
+  assert.deepEqual(s.identity.list({}).pairings, []);
 });
 
 test("a confirmed invitation cannot be revoked", async t => {
