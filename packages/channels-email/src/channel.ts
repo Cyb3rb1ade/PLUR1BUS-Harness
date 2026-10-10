@@ -6,7 +6,7 @@ import { MESSAGES, type Messages } from "./messages.ts";
 import { buildMessage, type OutAttachment } from "./mime-build.ts";
 import { parseMessage, type ParsedMessage } from "./mime-parse.ts";
 import { markdownToHtml } from "./markdown.ts";
-import { normalizeConfig, type EmailConfig, type NormalizedConfig } from "./config.ts";
+import { ADDRESS, normalizeConfig, type EmailConfig, type NormalizedConfig } from "./config.ts";
 import {
   attachmentKind,
   authPasses,
@@ -284,6 +284,26 @@ export class EmailChannel implements Channel {
     return this.sendTurn({ chatId, text: "", attachments: [att] });
   }
 
+  /**
+   * The chat for a person's owner/test message: the thread key of a fixed per-address thread (created here), because send() only
+   * targets known threads. Only a well-formed address on dmAllowlist, other than the bot itself, and only for this mailbox's accountId.
+   */
+  async resolveOwnerTarget(who: { userId: string; accountId?: string }): Promise<string> {
+    if (typeof who?.userId !== "string") throw new Error("invalid email address");
+    const peer = who.userId.trim().toLowerCase();
+    try {
+      checkAddrSpec(peer);
+    } catch {
+      throw new Error("invalid email address");
+    }
+    if (!ADDRESS.test(peer) || peer === this.#cfg.address) throw new Error("invalid email address");
+    if (who.accountId !== undefined && who.accountId.toLowerCase() !== this.#cfg.address) throw new Error("identity belongs to another mailbox");
+    if (!senderMatches(this.#cfg.dmAllowlist, peer)) throw new Error("email address is not on the allowlist");
+    const key = threadKey(`owner-target:${peer}`);
+    if (!(await this.#threads.get(key))) await this.#threads.put(key, { peer, subject: "PLUR1BUS", chain: [] });
+    return key;
+  }
+
   async edit(_ref: SentRef, _text: string): Promise<void> {
     throw new UnsupportedError("email cannot edit a sent message");
   }
@@ -521,15 +541,14 @@ export class EmailChannel implements Channel {
         await this.#replyQuietly(key, this.#msgs.linkFail);
         return;
       }
-      let ok = false;
+      let pairingId: string | undefined;
       try {
-        this.#o.pairing.claim({ code: link, identity: { channel: "email", accountId: this.#cfg.address, userId: from } });
-        ok = true;
+        pairingId = this.#o.pairing.claim({ code: link, identity: { channel: "email", accountId: this.#cfg.address, userId: from } }).pairingId;
       } catch {
         /* uniform reply below; the identity port owns rate limits; the code is never logged */
       }
-      this.#log(ok ? "info" : "warn", "channel.email.link", { ok });
-      await this.#replyQuietly(key, ok ? this.#msgs.linkOk : this.#msgs.linkFail);
+      this.#log(pairingId ? "info" : "warn", "channel.email.link", { ok: pairingId !== undefined });
+      await this.#replyQuietly(key, pairingId ? this.#msgs.linkOk(pairingId) : this.#msgs.linkFail);
       return;
     }
 

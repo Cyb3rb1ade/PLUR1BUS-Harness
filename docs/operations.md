@@ -132,3 +132,11 @@ agent, invalid configuration, unknown module, internal error, locked, not found,
 required, conflict, or storage error. A `--json` failure always carries the code under `error` and a
 `schema` of `"error/1"`. "Not available" with the reason "container-managed" means a container
 manages this installation's lifecycle — that is expected, not something to repair.
+
+## Project board WIP refusal
+
+`E_PROJECT_WIP_LIMIT` is a workflow limit, not a damaged store. The rejected
+create, move, unarchive or column-transfer mutation commits no changes. Move or
+archive another active card to free capacity, choose another target column, or
+have a human project lead deliberately request `overrideWip`. Agents cannot
+bypass the limit. See [Project board backend](projects-board.md).

@@ -106,6 +106,95 @@ fn secret_refusal(e: &RpcError) -> Option<String> {
     }
 }
 
+/// The name a `*Secret` key takes: a letter or digit, then letters, digits and `._:/@-`, at most 128 characters. The
+/// `pattern` of every `*Secret` key in `config.schema.json`, the same rule as `secret set`.
+fn is_secret_name(v: &str) -> bool {
+    let mut chars = v.chars();
+    chars.next().is_some_and(|c| c.is_ascii_alphanumeric())
+        && v.len() <= 128
+        && chars
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | ':' | '/' | '@' | '-'))
+}
+
+/// Credential shapes, as the core's `looksLikeSecretValue` checks them (token prefixes, a Telegram or dotted token, a long
+/// string, a long separator-free mix). The CLI needs them too: a token is a valid name by format and must not reach the core.
+fn looks_like_secret_value(v: &str) -> bool {
+    const PREFIXES: [&str; 19] = [
+        "xoxa-",
+        "xoxb-",
+        "xoxp-",
+        "xoxr-",
+        "xoxs-",
+        "xapp-",
+        "sk-",
+        "sk_",
+        "pk_",
+        "rk_",
+        "ghp_",
+        "gho_",
+        "ghs_",
+        "github_pat_",
+        "glpat-",
+        "AKIA",
+        "AIza",
+        "ya29.",
+        "eyJ",
+    ];
+    let word = |s: &str| {
+        !s.is_empty()
+            && s.chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    };
+    if PREFIXES.iter().any(|p| v.starts_with(p))
+        || v.starts_with("syt_")
+        || v.starts_with("mfa.")
+        || v.len() > 64
+    {
+        return true;
+    }
+    let telegram = v.split_once(':').is_some_and(|(id, t)| {
+        id.len() >= 6 && id.bytes().all(|b| b.is_ascii_digit()) && t.len() >= 20 && word(t)
+    });
+    let parts: Vec<&str> = v.split('.').collect();
+    let dotted = parts.len() == 3
+        && parts[0].len() >= 20
+        && parts[1].len() >= 4
+        && parts[2].len() >= 20
+        && parts.iter().all(|p| word(p));
+    let mixed = v.len() >= 32
+        && !v.contains(['.', '/', ':', '@'])
+        && v.bytes().any(|b| b.is_ascii_digit())
+        && v.bytes().any(|b| b.is_ascii_alphabetic());
+    telegram || dotted || mixed
+}
+
+/// `Some(message)` when a `*Secret` key (the leaf of the key path ends in `Secret`) was given something other than a secret
+/// name. Checked before any core call, so a value typed for a secret key never leaves this command. The message names no
+/// part of the value.
+fn secret_name_refusal(cmd: &ChannelCmd) -> Option<String> {
+    let ChannelCmd::Set { key, value, .. } = cmd else {
+        return None;
+    };
+    if !key
+        .rsplit('.')
+        .next()
+        .is_some_and(|leaf| leaf.ends_with("Secret"))
+    {
+        return None;
+    }
+    if looks_like_secret_value(value) {
+        return Some(format!(
+            "{key} takes the NAME of a secret, not its value; store the value with `plur1bus secret set <name>` (read from stdin) and give the name here; {EXPOSED}"
+        ));
+    }
+    if is_secret_name(value) {
+        return None;
+    }
+    Some(format!(
+        "{key} takes the NAME of a secret (letters, digits and . _ : / @ -, at most 128 characters), not a value; store the value with `plur1bus secret set <name>` (read from stdin) and give the name here"
+    ))
+}
+
 fn s<'a>(v: &'a Value, key: &str) -> &'a str {
     v[key].as_str().unwrap_or("")
 }
@@ -358,6 +447,15 @@ pub(crate) fn render_test(v: &Value) -> String {
 }
 
 pub fn run(out: &Out, layout: &Layout, cmd: ChannelCmd) {
+    // Refused before the core is reached: a value typed for a `*Secret` key never leaves this command.
+    if let Some(message) = secret_name_refusal(&cmd) {
+        out.fail(
+            "E_INVALID_PARAMS",
+            &message,
+            json!({ "reason": "secret-value" }),
+            2,
+        );
+    }
     let (method, params) = request(&cmd);
     let value = match try_call(out, layout, method, params) {
         Ok(v) => v,
@@ -506,6 +604,71 @@ mod tests {
         assert!(!m.contains(value));
         let other = RpcError::Protocol("x".into());
         assert!(secret_refusal(&other).is_none());
+    }
+
+    #[test]
+    fn a_secret_key_takes_only_a_secret_name() {
+        let set = |key: &str, value: &str| ChannelCmd::Set {
+            id: "slack".into(),
+            key: key.into(),
+            value: value.into(),
+        };
+        // Names in the `secret set` format pass.
+        for name in ["channels.slack.bot", "a.b", "bot-token", "x"] {
+            assert!(
+                secret_name_refusal(&set("botTokenSecret", name)).is_none(),
+                "{name}"
+            );
+        }
+        // The leaf decides: a nested secret key is checked too.
+        let nested = set("imap.passwordSecret", "not a name");
+        let m = secret_name_refusal(&nested).unwrap();
+        assert!(m.contains("imap.passwordSecret") && m.contains("secret set <name>"));
+        // Anything else is refused before the core: empty, spaces, `=`, a leading separator, over 128 characters.
+        for bad in [
+            "",
+            "two words",
+            "a=b",
+            "-leading",
+            ".leading",
+            &"a".repeat(129),
+        ] {
+            assert!(
+                secret_name_refusal(&set("tokenSecret", bad)).is_some(),
+                "{bad:?}"
+            );
+        }
+        assert!(is_secret_name(&"a".repeat(128)));
+    }
+
+    #[test]
+    fn a_credential_shaped_value_is_refused_without_the_value_and_says_treat_as_exposed() {
+        let typed = ["xoxb", "1234567890", "abcdefghijklmnop"].join("-");
+        let cmd = ChannelCmd::Set {
+            id: "slack".into(),
+            key: "botTokenSecret".into(),
+            value: typed.clone(),
+        };
+        let m = secret_name_refusal(&cmd).unwrap();
+        assert!(m.contains(EXPOSED) && m.contains("secret set <name>"));
+        assert!(!m.contains(&typed));
+        // A long separator-free mix is a credential too, even though its characters are valid in a name.
+        let mix = ["Zk3", "pQ9vL2mX7", "cR5tY8wB1nA4dF6g", "H2jK8sN4"].join("");
+        assert!(secret_name_refusal(&ChannelCmd::Set {
+            id: "discord".into(),
+            key: "tokenSecret".into(),
+            value: mix.clone(),
+        })
+        .is_some_and(|m| !m.contains(&mix)));
+        // Telegram and dotted token shapes.
+        assert!(looks_like_secret_value(
+            "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ-12"
+        ));
+        assert!(looks_like_secret_value(
+            "abcdefghijklmnopqrstuvwxyz.abcd.abcdefghijklmnopqrstuvwxyz"
+        ));
+        // An ordinary name is not a credential.
+        assert!(!looks_like_secret_value("channels.discord.token"));
     }
 
     #[test]

@@ -26,13 +26,14 @@ the page for each id in `src/pages/registry.ts`.
 | `/models`, `/models/<provider>/<id>` | Models | Build | all five | Providers, filterable list, detail, "new" badges and acknowledge, scan, manual add, override edit, remove manual. Both id parts are percent-encoded. Unknown fields are shown with secret-named values masked. Live updates on `models.changed`. |
 | `/usage`, `/usage/<tab>` (`global`, `agents`, `other`, `usage`) | Usage & Quota (budget) | Control | all five | Limits with soft/hard state, set/edit/remove limit dialogs, usage per period, agent and model. Scopes the UI does not know (project, user) appear in the `other` tab. Money is micro-USD, converted without float drift. |
 | `/doctor` | Doctor | Control | each part separately: health, core status, agents (ok, unavailable, forbidden, error, `down` for a 503 `status: down`); whole page forbidden if health is | Re-check button, automatic refresh every 30 s (stops while the tab is hidden), provisioning check: loads a `1staid.check/1` JSON file chosen by the owner, shows it as a table, copy/download of the unchanged text. |
-| `/agents`, `/agents/new`, `/agents/<id>` | Agents | Build | all five; unknown id is not-found | List from `config.get agents`, detail, three-step create (name and id, skills, review) with a client idempotency key, pause/archive/export shown `unavailable`, delete flow (archive first, export offer, typed name) built and sends nothing (F39). Only owner/admin create. |
-| `/settings`, `/settings/<section>` (`general`, `models`, `memory`, `extensions`, `network`) | Settings | pinned | all five plus read-only | Section navigation 224 px, content up to 880 px. Fields from a static index of the config schema (F17), restart class badge, "Review changes" with a dry-run diff, save with `ifRevision`, `?focus=<key>` scrolls to and highlights a field. |
-| `/settings/users` | Users & roles | pinned | all five | People list (`identity.list`), role presets with plain text, simple mode and rights matrix per agent (draft), invite dialog and break-glass dialog; assignment and break-glass are `unavailable` (F40, F41). Owner/admin only. |
+| `/agents`, `/agents/new`, `/agents/<id>` | Agents | Build | all five; unknown id is not-found | List from `config.get agents`, detail, three-step create (name and id, skills, review) with a client idempotency key, pause/resume, archive/unarchive and export (bundle download) wired to `agent.*`, delete only for archived agents with export offer and typed name (F39), voice real-time profile override with reset. Only owner/admin create. |
+| `/settings`, `/settings/<section>` (`general`, `models`, `memory`, `extensions`, `network`, `voice`) | Settings | pinned | all five plus read-only | Section navigation 224 px, content up to 880 px. Fields from a static index of the config schema (F17), restart class badge, "Review changes" with a dry-run diff, save with `ifRevision`, `?focus=<key>` scrolls to and highlights a field. Voice section manages speech language, downloads, licences and real-time profile. |
+| `/settings/users` | Users & roles | pinned | all five | People list (`identity.list`), role presets with plain text, simple mode and rights matrix per agent (draft), invite dialog and break-glass dialog; role change, invitations (code shown once, copy button), use/manage rights per agent and the break-glass request are wired; the last Owner cannot be demoted and the error is explained (F40, F41). Owner/admin only. |
 | `/settings/secrets` | Secrets | pinned | all five | Names and metadata only; create, rotate (masked input, value cleared at submit) and delete (typed name). No value is ever in the DOM, storage, URL or console (tested). |
-| `/settings/devices` | Devices & remote | pinned | all but empty | Hidden behind a note when `remote.publish` is `local` or unknown; paired devices, QR and removal are `unavailable` (F44). |
-| `/logs`, `/logs/activity`, `/logs/sessions` | Logs (tabs Logs, Activity, Sessions) | Control | all five per tab | Log viewer: filters, cursor paging, live tail (long poll, pause with buffer), virtual list, detail with redaction marks, export. Activity: grouped, human-readable events and the `audit.verify` status. Sessions: metadata of the caller's direct chats, transcript only via the break-glass dialog (`unavailable`, F41). Links `?trace=`, `?q=`, `?stream=` prefill the viewer. |
-| `/setup`, `/setup?mode=bundled` | First-run wizard | none (not in the sidebar) | per step | Seven steps (six when bundled), progress, back/next/skip, resume after reload, licence gate for non-commercial embedding models only (the default, EmbeddingGemma 2, is Apache-2.0 and asks nothing). |
+| `/settings/devices` | Devices & remote | pinned | all but empty | Hidden behind a note when `remote.publish` is `local` or unknown; the pairing QR (`pairing.qr`) and the device list with rename and revoke (`device.list/rename/revoke`) are wired; Owner/Admin see all devices, everyone else only their own (F44). |
+| `/settings/voice` | Voice | pinned | all five plus read-only | Speech language with fast/quality profiles, download progress, licence confirmations without active links, research-only badges; real-time switches, endpointing slider, speculative turn-start, confirmation sound, feature switches with time budgets, cost metrics and engine-fixed indicator. |
+| `/logs`, `/logs/activity`, `/logs/sessions` | Logs (tabs Logs, Activity, Sessions) | Control | all five per tab | Log viewer: filters, cursor paging, live tail (long poll, pause with buffer), virtual list, detail with redaction marks, export. Activity: grouped, human-readable events and the `audit.verify` status. Sessions: operators see other people's sessions (filter owner/agent, columns owner, model, usage), transcripts only through an active break-glass window (F41, F42). Links `?trace=`, `?q=`, `?stream=` prefill the viewer. |
+| `/setup`, `/setup?mode=bundled` | First-run wizard | none (not in the sidebar) | per step | Eight steps (seven when bundled), progress, back/next/skip, resume after reload, licence gate for non-commercial embedding models, and voice language selection step with system language preselected. |
 | `/projects`, `/inbox`, `/library`, `/skills`, `/plugins`, `/switchboard`, `/recurring`, `/approvals`, `/help` | placeholder | as in `nav.ts` | none (fixed text `page.placeholder`) | `PlaceholderPage`. `approvals` stays a placeholder (grants and approvals, D109, are not part of this change). |
 | `/login` | Sign-in | none | form errors only | Owner token against `POST /api/v1/session`; see `ui/web-shell.md`. |
 | any other path | 404 | none | n/a | Link back to the landing route. |
@@ -77,11 +78,28 @@ the page for each id in `src/pages/registry.ts`.
 | Sessions | `session.list` (`kind: direct`, `archived: any`, `limit: 200`) | assumed | no |
 | Wizard | `GET /api/v1/whoami`, `models.list`, `config.set` (`agents.<id>`, `modelRoles.chat`, `modelRoles.rerank`, `embedding.*`), `admin.backup.snapshot` | real / assumed | set, snapshot: yes |
 | Palette | `config.get` (`agents`, and the whole configuration for setting values), `session.list` (`search`, `limit: 5`) | assumed | no |
+| Voice | `voice.language.list` (`agentId?`), `voice.language.get` (`agentId?`), `voice.realtime.profile.get` (`agentId?`), `voice.metrics.get` (`agentId?`) | assumed | no |
+| Voice | `voice.language.set` (`language`, `profile`, `acceptLicences`, `agentId?`), `voice.realtime.profile.set` (`agentId?`, `...`) | assumed | yes |
+| Voice | `/events`: `voice.download.progress` (`modelId`, `receivedBytes`, `totalBytes`, `done`, `error?`) | assumed | no |
 
 No page sends a `caller`: a browser never asserts identity or trust (the `memory.*`, `session.*`, `models.*`, `budget.*`,
 `dreams.*`, `core.status` and `config.get` calls all omit it; see F1). Event consumers accept an SSE message either named
 by its `event:` field or as a JSON-RPC notification object whose `method` is the name (memories, models); chat requires
 `event: session.event` with `data: { event: SessionEvent }`.
+
+## Administration backend status (F39–F42, F44)
+
+The [admin backends](admin-backends.md) now supply the RPC/CLI contracts below. The admin pages are now bound to these
+calls (**angebunden**). Every page shows only what the role may read, translates the error codes (de/en) and falls back to
+`unavailable` when the server does not know a method. Open gap: agent hard-erasure is blocked by the pinned engine API (delete then reports `engine-erasure-unavailable`).
+
+| What the UI needs | Backend status | Remaining UI work |
+|---|---|---|
+| Agent pause/resume, archive/unarchive, export/delete (F39) | RPC and CLI available; delete safely reports missing engine erasure API | Done: bound (F39); the erasure limitation is displayed |
+| Users, role presets, invitation, use/manage matrix (F40) | RPC and CLI available, stored roles/rights, one-time Identity proof | Done: bound (F40) |
+| Break-Glass window and affected-person notice (F41) | RPC/CLI, durable self-scoped notices, audited transcript/user-memory reads | Done: request, list with remaining time, revoke (F41); inbox/live notice follows |
+| Operator session overview (F42) | `session.list` owner/agent filters, explicit allOwners, owner/model/tokens/cost metadata | Done: filters and owner/model/usage columns (F42); transcripts stay behind Break-Glass |
+| Devices, QR payload and remote mode (F44) | Persistent device store, `device.list/revoke/rename`, CLI, `pairing.qr` and `remote.publish` available | Done: QR, device list, rename (own device) and revoke with confirmation that open connections close (F44) |
 
 ## M3 part 2: inventory (K1)
 
@@ -111,27 +129,30 @@ Two different questions decide a row:
 | Wizard: optional *Import* | none (`plur1bus import` is CLI only) | **no** | `unavailable` with the CLI command to copy (F37) |
 | **Agents** list, detail | `GET /api/v1/agents` (real), `agent.list`, `agent.status`, `config.get` key `agents` | yes | Built |
 | Agents: create (multi-step, client idempotency key) | `config.set` with `ifRevision` on `agents.<id>` | yes | Partial: the client key is the reserved id plus `ifRevision`; there is no `agent.create` with a saga or key (F38) |
-| Agents: pause | no lifecycle RPC (`agent.close` closes the runtime, it is not a pause) | **no** | `unavailable` (F39) |
-| Agents: archive, delete (archive-first, export offer, typed name), export bundle without secrets | none | **no** | `unavailable`; the confirmation dialog is built and tested but sends nothing (F39) |
+| Agents: pause, resume | `agent.pause`, `agent.resume` | yes | Built (F39) |
+| Agents: archive, unarchive, delete (archive-first, export offer, typed name), export bundle without secrets | `agent.archive`, `agent.unarchive`, `agent.delete`, `agent.export` | yes | Built (F39) |
 | **Users & roles**: list, create | `identity.list`, `identity.human.create` | yes | Built |
 | Users: pairing codes, link, unlink | `identity.pair.start`, `.claim`, `.confirm`, `identity.link`, `identity.unlink` | yes | Built |
-| Users: invite | none | **no** | Pairing code is the closest; no invite (F40) |
-| Users: role presets, simple mode | none to assign; presets are static text from `docs/rbac.md` | **no** (assign) | Presets and simple mode built as display; assignment `unavailable` (F40) |
-| Users: object rights per agent (use/manage) | none | **no** | `unavailable` (F40) |
+| Users: invite | `user.invite.create`, `.list`, `.revoke` | yes | Built; the code is shown once (F40) |
+| Users: role presets, simple mode | `user.list`, `user.role.set` | yes | Built; the last Owner is protected (F40) |
+| Users: object rights per agent (use/manage) | `agent.rights.get`, `agent.rights.set` | yes | Built (F40) |
 | Users: Member sees only shared agents | `agent.list` (the server decides), `principal.role` from `whoami` | yes | Built: the UI hides what the role may not see and shows a server `E_DENIED` as forbidden |
-| Break-glass dialog (reason, window, notice) | `breakglass.request`, log read | **no** (library only, `docs/rbac.md`) | Dialog built (reason 10 to 500 characters, 1 to 60 min, "the person concerned is notified"); submit shows `unavailable` (F41) |
+| Break-glass dialog (reason, window, notice) | `breakglass.request`, `.list`, `.revoke` | yes | Built (reason 10 to 500 characters, 1 to 60 min, "the person concerned is notified"); running windows with remaining time and revoke (F41) |
 | **Settings** routed sections, forms, restart class, diff before save | `config.get` (`key`, `tier`; returns `restartClass`, `revision`), `config.set` (`dryRun`, `ifRevision`) | yes | Built. Titles, help and enums come from the static index of the schema (no schema RPC; F17) |
 | **Secrets** list, create, rotate, delete | `secret.status`, `secret.list`, `secret.set`, `secret.delete` (`secret.get` is never called with `reveal`) | yes | Built |
-| **Sessions overview** | `session.list` | yes, own sessions only | Partial: metadata of the caller's own sessions (no owner, model or usage fields in `SessionRecord`). The all-users operator view and usage per session have no RPC (F42) |
-| Sessions: transcript via break-glass | `breakglass.request` | **no** | Same dialog, `unavailable` (F41) |
+| **Sessions overview** | `session.list` | yes | Built: owner/agent filters and owner, model, usage columns for operators; Member sees own sessions (F42) |
+| Sessions: transcript via break-glass | `breakglass.request` | yes | Same dialog; transcripts only while a window is active (F41) |
 | **Log viewer** query, filters, export | `logs.query` (`stream`, `minLevel`, `component`, `text`, `from`, `to`, `order`, `limit`, `cursor`) | yes | Built. `trace_id` has no parameter: it is matched with `text`; export is the loaded, filtered rows (F43) |
 | Log viewer live tail | `logs.tail` (long poll with `waitMs`) | yes | Built over `/rpc`; there is no log event on SSE (F2) |
 | **Activity feed** | `logs.query` (streams `audit` and `diagnostic`), `audit.verify` | yes | Built from the log streams only; `jobs.history`, `dreams.log` and `models.list` are not used (F43) |
-| Devices / pairing card | `config.get` key `remote.publish` | **no** (key is not in the config schema on main) | Card hidden at `local` and when the key is unknown; paired devices, QR or deep link, fingerprint and remove have no API (F44) |
+| Devices / pairing card | `config.get` key `remote.publish`, `pairing.qr`, `device.list`, `device.rename`, `device.revoke` | yes | Built: mode card hidden at `local` and when the key is unknown (Owner/Admin); the QR comes from `pairing.qr`; the device list shows name, platform, paired at/by, last seen and status for everyone (own devices, Owner/Admin all); rename for the device's own person, revoke with a confirmation (F44) |
 | **Command palette** entities | `config.get` (`agents`), `session.list`, static navigation, settings, actions and a log-search link | yes | Built as a client fan-out over those lists, capped and abortable (F14 is answered; a server endpoint stays a later option) |
+| **Settings: Providers** | `auth.credentials.list`, `auth.status`, `auth.login.start`, `auth.login.await`, `auth.login.cancel`, `auth.logout`, `secret.set` | yes | Built. Replaces unavailable provider login state. Masked secret key entry, headless SSH hint and callback paste flow. Interface wish: `auth.login.callback` RPC for manual callback URL forwarding (F33) |
+| **Switchboard** | `channel.list`, `channel.status`, `channel.get`, `channel.enable`, `channel.disable`, `channel.set`, `channel.test` | yes | Built. Channel list and detail, enable/disable toggles, field edit with secret rejection and link to secrets, test channel and test message to owner (`sendOwner: true`). When the channel host is missing, `not-registered` is rendered as "not started (host missing)" without an error state (F34) |
 | Grants and approvals (D109, PR #190) | not built | n/a | The existing `approvals` navigation entry stays a placeholder |
 
-Where a page lives: `/agents`, `/agents/new`, `/agents/<id>`; `/settings/<section>` with `general`, `users`, `secrets`, `devices`;
+Where a page lives: `/agents`, `/agents/new`, `/agents/<id>`; `/settings/<section>` with `general`, `users`, `secrets`, `devices`, `providers`;
+`/switchboard` and `/switchboard/<id>`;
 `/logs` with the tabs Logs (`/logs`), Activity (`/logs/activity`) and Sessions (`/logs/sessions`); `/setup` (not in the sidebar).
 
 ## API client (`src/api/**`)
@@ -280,7 +301,7 @@ Numbers are stable; other documents refer to them.
 - **F22. Fonts.** Bundle Atkinson Hyperlegible Next, Lilita One and JetBrains Mono (ADR-004: local files, no remote origin); the
   tokens fall back to system fonts.
 - **F23. Wordmark morph** (`V2LogoMorph`).
-- **F24. Sidebar.** Projects list and badges.
+- **F24. Sidebar.** Projects list and badges. The [project board backend](projects-board.md) now provides columns, cards, assignments, comments, activity, paging and authorized live events; board UI binding remains follow-up.
 - **F25. Chat.** Context column, recents, fork, archive (`session.archive`), search (`session.list` with `search`), model selection and
   attachments (the last three need F6), rename and pin (F5).
 - **F26. Memories.** Accepting and rejecting proposals (`memory.proposals.accept`, `.reject`), forget and correct (`memory.forget`,
@@ -289,7 +310,7 @@ Numbers are stable; other documents refer to them.
 - **F27. State in the URL.** The router drops the query (`#/path?x` is read as `#/path`), so the chosen agent, search text, filters
   and `?focus=` are lost on reload and cannot be linked; the agent choice lives in memory only. (`?theme=` is read separately.)
 - **F28. Doctor file picker.** The text of the native file input follows the OS language, not the UI language.
-- **F29. Placeholders.** Nine pages (Projects, Inbox, Library, Skills, Plugins, Switchboard, Recurring, Approvals, Help) are placeholders.
+- **F29. Placeholders.** The Projects Kanban backend is available; its board UI remains follow-up. Eight pages (Projects, Inbox, Library, Skills, Plugins, Recurring, Approvals, Help) are placeholders; Switchboard is built.
 
 ### M3 part 2
 
@@ -298,8 +319,8 @@ Numbers are stable; other documents refer to them.
 - **F31. Owner bootstrap token** (Wizard, step "Your account"). There is no one-time bootstrap token and no route for it; the step
   shows the signed-in principal, or the owner token form.
 - **F32. Persona** (Wizard). `SOUL.md` has no RPC; the persona text is shown as unavailable.
-- **F33. Provider login** (Wizard). `plur1bus login` is a stub; no RPC signs a provider in.
-- **F34. Switchboard channels** (Wizard). No `channel.*` RPC; the step is skippable.
+- **F33. Provider login** (Settings → Providers, `#/settings/providers`). Built against `auth.credentials.list`, `auth.status`, `auth.login.start`, `auth.login.await`, `auth.login.cancel`, `auth.logout`, and `secret.set`. Tokens are never displayed; API keys are masked and stored via Secret. Includes headless SSH forward hint and callback URL paste. Note: `auth.login.callback` RPC is requested as an interface improvement to forward pasted callbacks to the backend.
+- **F34. Switchboard channels** (`#/switchboard`, `#/switchboard/<id>`). Built against `channel.list`, `channel.status`, `channel.get`, `channel.enable`, `channel.disable`, `channel.set`, and `channel.test`. Secrets are displayed only by name; secret edits are rejected with a link to Secrets. Until the channel host is registered, `not-registered` state is displayed cleanly as "not started (host missing)" rather than an error.
 - **F35. Licence confirmation record** (Wizard, Memory). The config stores `embedding.acceptedNcLicence` and `...At` only; who confirmed,
   the licence and the model revision are shown in the dialog but not persisted. Also `modelRoles.embedding` is not writable while the
   engine forces its default (ADR-006 deviation O5), and several revisions are not pinned in the ADR-006 table.
@@ -307,18 +328,153 @@ Numbers are stable; other documents refer to them.
 - **F37. Import** (Wizard). `plur1bus import` is CLI only; the step shows the command.
 - **F38. `agent.create` with an idempotency key** (Agents). Create goes through `config.set` with `ifRevision`, an existence check and
   a client key; a real RPC with a server-side key would replace it. `agents.<id>.state` and `skills` are assumptions about the shape.
-- **F39. Agent lifecycle** (Agents). Pause, archive, export bundle (without secrets) and delete have no RPC; the delete dialog is built.
-- **F40. Users, roles and rights** (Users). No RPC reads or assigns roles, invites people or stores per-agent use/manage rights.
-  `identity.human.create` takes a display name only.
-- **F41. Break-glass** (Users, Sessions). `breakglass.request` and the log read are library code (`docs/rbac.md`), not RPCs; the
-  dialog validates and then reports `unavailable`.
-- **F42. Sessions of other people** (Sessions). `session.list` returns the caller's own sessions; no owner, model or usage fields.
+- **F39. Agent lifecycle — wired.** `agent.pause/resume/archive/unarchive/export/delete` and
+  matching CLI commands now exist. Pause retains state and rejects new work. Export is signed/redacted; delete requires
+  archive, typed name and an export offer. **Engine gap:** the pinned engine lacks hard-erasure; delete fails closed with
+  `engine-erasure-unavailable`. Large memory exports also need an exhaustive engine listing API (current list cap 100).
+- **F40. Users, roles and rights — wired.** `user.list`, `user.role.set`,
+  `user.invite.create/list/revoke`, `agent.rights.get/set` and CLI commands persist presets/rights and use Identity pairing
+  for one-time invitation redemption. Last Owner protection and immediate role/right enforcement are server-side.
+- **F41. Break-glass — wired.** `breakglass.request/list/revoke` wrap the existing read-only
+  library. Reasons/windows are validated and each use is audited. `breakglass.notices` is the affected person's durable
+  inbox; checked opt-in live notices use `breakglass.notice`. Foreign `session.get/resume/events` and targeted
+  `memory.list/show` reads require a live grant. No write is enabled by a grant.
+- **F42. Sessions of other people — wired.** `session.list` adds owner/model/usage metadata,
+  owner/agent filters and explicit `allOwners`. Operations roles may list metadata; Member sees own only. Costs/models join
+  the existing budget ledger; unknown/pending costs remain null. Transcripts and foreign transcript search are protected.
 - **F43. Log viewer** (Logs). `logs.query` has no `trace_id` parameter (matched with `text`, and not combinable with a search text);
   `logs.tail` is a long poll (no log event on SSE); `audit.verify` returns no check time; the activity feed relies on scheduler job
   names (`scheduler.run.*`) because the log schema registers no agent-run, dream, model-scan or backup events.
-- **F44. Devices** (Devices). `remote.publish` is not in the config schema on `origin/main`; paired devices, QR or deep link,
-  fingerprint and removal have no API.
+- **F44. Devices — wired.** `pairing.qr`/`plur1bus pairing qr --link`
+  format an existing offer using the package's read-only QR payload. `remote.publish` is now in the config schema.
+  `packages/remote-access` now supplies the persistent device store, enrollment, proof-of-key reconnect and immediate
+  revocation ports. `device.list/revoke/rename` and `plur1bus device` are available with RBAC and audit. The web
+  page is bound (list, rename, revoke); remote listener/route integration must share the core-owned store (see [remote access](remote-access.md#persistent-devices-f44)).
 - **F45. Config schema over RPC** (Settings). No `config.schema` method: types, bounds, enums and defaults come from a static table
   in `pages/settings/config/meta.ts`, guarded by a drift test against `config.schema.json`. `config.get` could return the restart
   class for a whole tier (the page asks once per key). `config.set` has no role rule in `docs/rbac.md` (the UI allows owner and admin).
 - **F46. Roles in `whoami`.** Only `owner` is emitted today; Operator, Member and Viewer paths are tested with a mock role only.
+
+## Media search (`src/pages/media-search/**`)
+
+The media index follows the binding contract `media-search-contract.md` (kept outside the repo). It adds a media part to the
+Memory setup step, the Memory settings, a per-agent override and a search in the Media view. Nothing here changes an existing
+component except one registration line per place (listed below).
+
+| Piece | File | Where it shows | Calls |
+|---|---|---|---|
+| Wire types | generated `packages/rpc-schema/generated/types.ts`, merged by `src/pages/media-search/rpc-types.ts`; config and error contract in `src/pages/media-search/contract.ts` | — | — |
+| Rules (pure: captioning preselection, validation mirror of E_MEDIA_*, config changes against the defaults, query params, time labels) | `src/pages/media-search/model.ts` | all of the below | — |
+| Setup, media part of the Memory step | `src/pages/media-search/setup.ts` | `/setup`, step Memory (the wizard model `setup/model.ts` carries the answers as `media`) | `config.set` on Next, only for values that differ from the defaults |
+| Memory settings panel (text and media index side by side, video and audio options, captioning, backfill, status card with pause, resume, re-index) | `src/pages/media-search/settings.ts` | `/settings/memory`, above the form | `config.get`, `config.set` (`ifRevision`), `media.index.status`, `media.index.pause\|resume\|reindex` |
+| Per-agent override | `src/pages/media-search/override.ts` | agent detail | `config.get`, `config.set` (`agents.<id>.memory.mediaEmbedding.*`) |
+| Search in the Media view, "Find similar" button, hits with segment and jump, caption edit | `src/pages/media-search/search.ts` | Media view | `media.index.status`, `media.search`, `media.caption.set`, `media.output.get` (playback) |
+| Typed RPC methods (merged into `RpcMethods`) | `src/pages/media-search/rpc-types.ts` | — | — |
+| Texts (de and en, one area) | `src/i18n/mediasearch.ts` | — | — |
+
+Registration lines in existing files (each is one line or one import): `src/i18n/index.ts` (area), `src/pages/setup/model.ts` (the
+`media` answer, its loading, the memory validation and the change list), `src/pages/setup/page.ts` (the memory step renders the media
+part and passes the error), `src/pages/settings/page.ts` (the panel above the Memory section), `src/pages/agents/detail.ts` (the
+override), `src/pages/surfaces/media.ts` (the search and the "Find similar" button per medium).
+
+### Rules the components rely on
+
+- **Free provider choice.** Text and media providers are chosen independently; there is no combination list. Validation checks only
+  capability (the media provider must take every chosen modality, so OpenAI can only be the text index), licence (a non-commercial
+  model needs its confirmation, `E_MEDIA_LICENSE`), privacy pin (`E_MEDIA_PRIVACY`) and availability. The pin is not in the wizard's
+  answers: the setup only explains it, and the server refuses the request.
+- **Defaults write nothing.** Config changes are computed against the contract defaults and the loaded values, so an untouched form
+  sends no media key. The existing setup test pins the exact `config.set` list of the default flow; this keeps it true.
+- **Captioning.** Preselected to local when the text provider is local. With a cloud text provider nothing is preselected and the
+  setup blocks until a choice is made (`caption-required`).
+- **Suggestions only fill fields.** The three suggestion buttons (EmbeddingGemma 2 only; OpenAI text with EmbeddingGemma 2 media;
+  Jina text with EmbeddingGemma 2 media) set the two provider fields and nothing else.
+- **Errors.** `E_MEDIA_*` codes are read from `error.data.error`. The API client maps only the closed list of harness codes, so these
+  codes reach the components through `RpcError.data`, read by `mediaErrorOf` in `model.ts`. Each code has a text under
+  `mediasearch.error.*`.
+- **Search.** Exactly one of `text` and `likeMediaId` is sent; the kinds filter is sent only when it narrows the search; `limit` is 20.
+  Results are not compared across spaces: the server runs a text-to-media search with the media model's text encoder.
+- **Playback.** A hit's file is read with the existing `media.output.get`, using the hit's `mediaId` as the output id. The contract
+  does not name a file URL for hits; if the backend serves one, the player should use it instead (see Follow-ups).
+- **Roles.** Index actions (pause, resume, re-index) are owner or admin; caption editing is owner, admin or operator. Both are client
+  hints; the server decides. Agents never edit captions (contract).
+
+### Mock API (`test/media-search-fixtures.ts`)
+
+`seedMedia(rpc, opts)` registers `media.index.status`, `media.index.pause`, `media.index.resume`, `media.index.reindex` (rejects a
+call without `confirm: true`), `media.search` (filters by `kinds`, excludes `likeMediaId` from its own results), `media.caption.set`,
+`media.output.get` and `media.output.list`. Options: `status` (initial status), `searchError` (a refused search with an E_MEDIA
+code), `noStatus` (the method is unknown, so the UI shows unavailable). The mock error list now carries the six `E_MEDIA_*` codes.
+Tests: `test/media-search-model.test.ts` (rules, pure) and `test/media-search.test.ts` (browser, 21 cases: settings, setup, Media view,
+override). The config mock writes into the objects it receives, so each test builds its own config (`memCfg()`).
+
+### Follow-ups (media search)
+
+- **F47. Generated RPC types. Done.** `src/api/media-search.types.ts` is deleted. The six `media.*` methods are merged from the
+  generated types, and the forms, settings and tests use them. What the placeholder had that is not an RPC shape moved to
+  `src/pages/media-search/contract.ts`: the `memory.mediaEmbedding.*` types and defaults, the catalogue capabilities and the
+  `E_MEDIA_*` codes (checked against the schema's `ErrorCode` at compile time). Deviations from the placeholder, all resolved to
+  the schema: `MediaKind` is `MediaIndexKind` and `MediaHit` is `MediaSearchHit`; `kinds` is a tuple of one to three kinds (a
+  guard in `model.ts` builds it); `MediaSearchParams` has no compile-time "exactly one of `text` and `likeMediaId`" (the schema
+  has no `oneOf`; the server answers `text-or-like-required` and `text-and-like-exclusive`, and `model.ts` sends one of them);
+  `dimensions` is any integer of at least 1 in `config.schema.json` (768, 512, 256 and 128 are the model's list, checked in the
+  forms); `Segment`, `BackfillState`, `PausedReason`, `CaptionSource` and `MEDIA_METHODS` were unused and are gone.
+  **Open, not changed here:** the schema default of `memory.mediaEmbedding.provider` is `local-transformers`, while the forms
+  preselect the catalogue entry `egemma2`. Until F48 unifies the two lists, the forms can show a provider the core does not
+  name by that ID.
+- **F48. Catalogue for the forms.** The provider list, licence, dimensions and capabilities come from the static table in
+  `pages/setup/licences.ts` (plus the capability table in `pages/media-search/model.ts`). The contract extends the embedding
+  catalogue with `capabilities`; the forms should read it from there. The catalogue's size field is not in the contract, so the forms
+  show "not stated in the catalogue".
+- **F49. Text index keys.** The contract names no keys for the text index. The forms write `memory.embedding.provider` and
+  `memory.embedding.dimensions` (following the `agents.<id>.memory.embedding` structure the contract names for overrides) and read the
+  same. This must be confirmed against the backend.
+- **F50. Playback source.** Hits play from `media.output.get` (`data:` URL with a `#t=` start fragment). A file URL in the hit or a
+  streaming route would avoid base64 for large videos.
+- **F51. Caption provider ids.** The forms use `local`, `off` and `openai` as caption provider values. The contract says only "local"
+  as the default; the cloud id must match the backend's provider registry.
+- **F52. Agent override clearing.** Clearing a field writes `null`. The contract does not say whether `config.set` accepts `null` for
+  an `agents.<id>.memory.mediaEmbedding.*` key; if it does not, clearing needs a dedicated delete.
+- **F53. Privacy pin.** The setup only explains the pin. The Settings panel does not show whether it is set; the server's refusal
+  (`E_MEDIA_PRIVACY`) is the only signal.
+- **F54. Size.** The contract's catalogue has no size; the forms show "not stated". A size field would make the setup's "Größe" useful.
+- **F55. Playback test.** The browser test checks the `#t=` fragment and `data-start`, not actual playback.
+
+## Voice UI (V3 contract)
+
+Voice settings, real-time profiles and first-run wizard integration are built against the V3 RPC contract.
+The backend RPCs (`voice.*`) are in development in parallel. While the generated RPC types are pending,
+hand-written wire types live in `packages/web/src/api/voice.types.ts` and merge into `RpcMethods`. If the server
+does not serve a method or rejects with `E_VOICE_UNAVAILABLE`, the UI gracefully shows the existing `unavailable` state.
+
+### Surfaces
+
+- **Settings > Voice (`/settings/voice`):**
+  - **Language panel (`LanguagePanel`):** Lists available languages and profiles (`fast` / `quality`) with download sizes and licences per model (`asr`, `tts`, `vad`). Models requiring licence confirmation (`needsConfirmation: true`) must be confirmed via checkboxes (`modelId@licenceId`) before download. Licence identifiers are rendered as text without active external links. Research-only / non-commercial licences (e.g. `blizzard-2013`, `CC-BY-NC-4.0`) are clearly badged ("Research only, no commercial use" / "nur Forschung, keine kommerzielle Nutzung"). Download progress is streamed via `/events` (`voice.download.progress`) with accessible progress bars and polite live region announcements.
+  - **Real-time profile panel (`RealtimePanel`):** Controls real-time speech interaction: on/off switch, endpointing slider (200–2000 ms), speculative turn-start switch, and confirmation sound switch.
+  - **Feature switches:** Individual feature controls (`autoRecall`, `promptEnrichment`, `reranker`, `decisionService`, `postTurnRefine`, `memoryWrite`, `compaction`, `toolSchemas`) supporting modes `on`, `deferred`, and `off` (`toolSchemas` additionally supports `reduced`), each with a configurable time budget (10–5000 ms).
+  - **Metrics and effective status:** Measured costs per feature and speech-end-to-first-audio latency (median / p95) from `voice.metrics.get` are displayed alongside each switch. Features reported with `effective="engine-fixed"` are visually tagged ("Fixed by the engine" / "Takes effect only with engine support").
+- **Agent Detail override (`/agents/<id>`):**
+  - Integrated `VoiceOverride` component allowing per-agent overrides of the real-time profile.
+  - Clearly indicates inherited versus overridden fields and provides a one-click reset to inherited values.
+- **First-run setup wizard (`/setup`):**
+  - Step "Language for voice features" (`setup.step.voice`): preselects the browser/system language; offers `fast` or `quality` profile with model sizes and licences; download flow; skippable without blocking setup.
+  - English preselection: never preselects a research-only voice (such as `piper-en-lessac`); English suggests the `quality` profile (Kokoro).
+  - German preselection: selects `fast` with Piper Thorsten + Kroko, gating on CC-BY-SA licence confirmation.
+  - Step completion reflects in the wizard summary.
+
+### Mock API (`test/voice-fixtures.ts`)
+
+`installVoice(server, world)` registers:
+- `voice.language.list`: lists languages, profiles, model metadata, and licence confirmation requirements.
+- `voice.language.get`: returns current language and profile.
+- `voice.language.set`: validates licence acceptance (`acceptLicences`), returns `{ ok: true, downloading: boolean }`.
+- `voice.realtime.profile.get`: returns global profile or per-agent profile when `agentId` is supplied.
+- `voice.realtime.profile.set`: saves editable profile parameters.
+- `voice.metrics.get`: returns latency percentiles and feature cost medians/p95s.
+- `pushProgress(server, ...)`: emits SSE `voice.download.progress` events.
+Simulates error conditions `E_VOICE_LICENCE` and `E_VOICE_UNAVAILABLE`.
+
+### Follow-ups (voice)
+
+- **F56. Generated RPC types.** Replace `packages/web/src/api/voice.types.ts` with auto-generated RPC types once the backend's `voice.*` schemas are merged into `rpc.schema.json`.

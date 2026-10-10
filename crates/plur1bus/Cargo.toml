@@ -9,6 +9,8 @@ name = "plur1bus"
 path = "src/main.rs"
 
 [dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+plur1bus-containers = { path = "../plur1bus-containers" }
 plur1bus-rpc = { path = "../plur1bus-rpc" }
 plur1bus-config = { path = "../plur1bus-config" }
 clap.workspace = true

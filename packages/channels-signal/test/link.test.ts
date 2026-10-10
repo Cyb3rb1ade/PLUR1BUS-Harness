@@ -26,7 +26,7 @@ test("link: /link in a DM claims the code with channel, bot account and the send
   try {
     await push(r, textEnvelope({ message: `/link ${CODE}` }));
     assert.deepEqual(p.claims, [{ code: CODE, identity: { channel: "signal", accountId: ACCOUNT, userId: DM } }]);
-    assert.equal(r.daemon.sent().at(-1)!.message, "Pairing claimed. Confirm this link in My identities.");
+    assert.equal(r.daemon.sent().at(-1)!.message, "Pairing claimed. Pairing ID: p1. Confirm this link in My identities. Run: plur1bus identity approve p1");
     assert.equal(r.received.length, 0, "commands are not forwarded as text");
   } finally {
     await r.close();
@@ -105,7 +105,7 @@ test("link: German locale uses the German strings", async () => {
   const r = await rig({ pairing: p.pairing, locale: "de" });
   try {
     await push(r, textEnvelope({ message: `/link ${CODE}` }));
-    assert.equal(r.daemon.sent().at(-1)!.message, "Kopplung angenommen. Bestätige die Verknüpfung unter Meine Identitäten.");
+    assert.equal(r.daemon.sent().at(-1)!.message, "Kopplung angenommen. ID: p1. Bestätige die Verknüpfung unter Meine Identitäten. Freigabe: plur1bus identity approve p1");
   } finally {
     await r.close();
   }

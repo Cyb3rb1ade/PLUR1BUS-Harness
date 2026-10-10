@@ -64,6 +64,7 @@ export function grantRecordOf(g: StoredGrant, state: GrantState): GrantRecord {
   if (g.sessionId !== undefined) out.sessionId = g.sessionId;
   if (g.projectId !== undefined) out.projectId = g.projectId;
   if (g.jobId !== undefined) out.jobId = g.jobId;
+  if (g.attestedVia !== undefined) out.attestedVia = g.attestedVia;
   return out;
 }
 

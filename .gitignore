@@ -1,5 +1,6 @@
 # Logs
 logs
+!packages/web/src/pages/logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -169,4 +170,3 @@ __pycache__/
 /fuzz/target/
 /fuzz/corpus/
 /fuzz/artifacts/
-/fuzz/Cargo.lock

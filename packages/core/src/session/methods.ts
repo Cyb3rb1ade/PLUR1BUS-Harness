@@ -14,7 +14,7 @@ import type { SessionStore } from "./store.ts";
 import { NoProviderError, type TurnRunner } from "./turn-loop.ts";
 import { SessionError, type EventRecord, type MessageRecord, type SessionRecord } from "./types.ts";
 
-export interface SessionMethodDeps { store: SessionStore; runner: TurnRunner; agents: AgentRegistry; isStopping: () => boolean; /** Resolves the submitting connection's approver; never refuses (a non-person is refused only when a tool needs approval). */
+export interface SessionMethodDeps { compactor?: import("./compaction.ts").Compactor; store: SessionStore; runner: TurnRunner; agents: AgentRegistry; isStopping: () => boolean; /** Resolves the submitting connection's approver; never refuses (a non-person is refused only when a tool needs approval). */
   approver?: (ctx: CallContext, params: unknown) => Promise<import("./provider.ts").TurnApprover> }
 
 /** The session owner: the engine's own user-principal hash of the caller. An identity that would not give the engine a
@@ -79,6 +79,7 @@ export function buildSessionMethods(d: SessionMethodDeps): Record<string, Handle
       const s = d.store.getOwned(p.sessionId, owner);
       return {
         session: toWireSession(s), runningTurnId: d.store.runningTurn(s.id)?.id ?? null,
+        ...(d.compactor ? { compaction: { hidden: d.compactor.view(s.id).hidden, summaries: d.store.listSummaries(s.id, "applied").map(s => ({ id: s.id, fromSeq: s.fromSeq, toSeq: s.toSeq })) } } : {}),
         ...(p.messages ? { messages: d.store.listMessages(s.id).slice(-p.messages).map(toWireMessage) } : {}),
       };
     }),

@@ -17,5 +17,5 @@ export function seed(rpc: MockRpc, o: Seed = {}): void {
   rpc.handle("config.get", (p) => ({ key: (p as { key?: string }).key ?? null, tier: null, value: o.agents ?? AGENTS, restartClass: "live", restart: "live", revision: "r1" }), { write: false });
 }
 
-/** Methods called other than the two reads: any of them would mean the page sent something it must not. */
-export const nonReads = (rpc: MockRpc): string[] => rpc.calls.map((c) => c.method).filter((m) => m !== "identity.list" && m !== "config.get");
+/** Methods called other than the reads: any of them would mean the page sent a mutation it must not. */
+export const nonReads = (rpc: MockRpc): string[] => rpc.calls.map((c) => c.method).filter((m) => m !== "identity.list" && m !== "config.get" && m !== "user.list" && m !== "user.invite.list" && m !== "breakglass.list");

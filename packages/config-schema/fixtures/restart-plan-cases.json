@@ -4,6 +4,9 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -73,6 +76,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -112,6 +143,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -178,6 +225,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -201,7 +258,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -307,6 +364,9 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -376,6 +436,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -415,6 +503,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -481,6 +585,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -504,7 +618,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -623,6 +737,9 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -692,6 +809,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -731,6 +876,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -797,6 +958,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -820,7 +991,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -926,6 +1097,9 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -995,6 +1169,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {
         "recallMinScore": 0.5
       },
@@ -1036,6 +1238,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -1102,6 +1320,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -1125,7 +1353,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -1244,6 +1472,9 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -1313,6 +1544,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -1352,6 +1611,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -1418,6 +1693,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -1441,7 +1726,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -1547,6 +1832,9 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -1620,6 +1908,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -1659,6 +1975,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -1725,6 +2057,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -1748,7 +2090,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -1869,6 +2211,9 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -1942,6 +2287,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -1981,6 +2354,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -2047,6 +2436,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -2070,7 +2469,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -2176,6 +2575,9 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -2245,6 +2647,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -2284,6 +2714,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -2350,6 +2796,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -2373,7 +2829,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -2494,6 +2950,9 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -2567,6 +3026,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -2606,6 +3093,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -2672,6 +3175,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -2695,7 +3208,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -2801,6 +3314,9 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -2874,6 +3390,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -2913,6 +3457,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -2979,6 +3539,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -3002,7 +3572,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -3125,6 +3695,9 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -3194,6 +3767,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -3233,6 +3834,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -3299,6 +3916,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -3322,7 +3949,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -3428,6 +4055,9 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -3497,6 +4127,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {
         "nvidia": {
@@ -3540,6 +4198,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -3606,6 +4280,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -3629,7 +4313,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -3750,6 +4434,9 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -3819,6 +4506,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -3858,6 +4573,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -3924,6 +4655,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -3947,7 +4688,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -4053,6 +4794,9 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -4122,6 +4866,34 @@
         "useClass": "research",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -4161,6 +4933,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -4227,6 +5015,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -4250,7 +5048,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -4372,6 +5170,9 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -4441,6 +5242,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -4480,6 +5309,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -4546,6 +5391,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -4569,7 +5424,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -4680,6 +5535,9 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -4749,6 +5607,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -4788,6 +5674,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -4854,6 +5756,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -4877,7 +5789,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -5003,6 +5915,9 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -5072,6 +5987,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -5111,6 +6054,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -5177,6 +6136,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -5200,7 +6169,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,
@@ -5306,6 +6275,9 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "remote": {
+        "publish": "tailnet"
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -5375,6 +6347,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -5414,6 +6414,22 @@
           443
         ],
         "allowLoopback": false
+      },
+      "session": {
+        "compaction": {
+          "softRatio": 0.65,
+          "hardRatio": 0.88,
+          "summaryMaxTokens": 1228,
+          "maxMessageTokens": 819,
+          "summarizer": "llm",
+          "prune": {
+            "enabled": true,
+            "keepLastTurns": 3,
+            "decider": "laya",
+            "maxMs": 100,
+            "batchSize": 16
+          }
+        }
       },
       "channels": {
         "discord": {
@@ -5480,6 +6496,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -5503,7 +6529,7 @@
         "local": {
           "profile": "fast",
           "perAgent": {},
-          "acceptNcLicence": false
+          "acceptedLicences": {}
         },
         "localRealtime": {
           "enabled": false,

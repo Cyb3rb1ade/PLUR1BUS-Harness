@@ -111,6 +111,7 @@ describe("activity: audit trail card", opts, () => {
       assert.ok(/Last checked .*2026/.test(text), "check time shown (the fixed browser clock is Oct 2026)");
       assert.equal(calls(app, "audit.verify").length, 1);
       await c.getByRole("button", { name: "Verify the audit trail again" }).click();
+      while (calls(app, "audit.verify").length < 2) await new Promise((r) => setTimeout(r, 10));
       await app.page.waitForFunction(() => document.querySelector('[data-verify="verified"]') !== null);
       assert.equal(calls(app, "audit.verify").length, 2);
     });

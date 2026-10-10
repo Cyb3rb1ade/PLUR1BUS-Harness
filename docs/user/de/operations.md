@@ -77,6 +77,169 @@ Unter Linux ist das Log der Einheit auch mit dem üblichen systemd-Werkzeug lesb
 Windows und macOS sind aus dem Code dieses Repositorys beschrieben; sie werden nicht bei jedem Release praktisch
 durchgespielt.
 
+## Aktualisieren
+
+Ein Update spielt ein signiertes Release ein. Der Ablauf ist immer gleich: Plan prüfen, zustimmen, einspielen. Dabei
+prüft Plur1bus den Zustand nach dem Einspielen. Schlägt etwas fehl, stellt Plur1bus den vorherigen Stand wieder her.
+
+### Plan prüfen
+
+```sh
+plur1bus update --check
+plur1bus update --plan
+plur1bus update --plan --lang de
+```
+
+`--check` vergleicht deine Installation mit dem Release-Manifest und zeigt den Plan. `--plan` zeigt denselben Plan
+ausführlicher: die Versionen, die Neuerungen, die Hinweise mit dem, was du tun musst, die Neustarts, die Migrationen,
+die Add-ons und die Download-Größe. Beide ändern nichts. Die Sprache des Plans richtet sich nach `--lang en|de`. Ohne
+diese Angabe zählt die Systemsprache; beginnt sie mit „de“, ist der Plan deutsch.
+
+### Einspielen
+
+```sh
+plur1bus update
+plur1bus update --yes
+```
+
+Im Terminal fragt Plur1bus nach, bevor es etwas ändert. In einem Skript brauchst du `--yes`, sonst bricht der Befehl ab.
+Der Daemon stoppt für das Update kurz.
+
+### Offline einspielen
+
+```sh
+plur1bus update --from <datei.tar.zst> --yes
+```
+
+Die Datei kann ein `.tar.zst` oder ein `.zip` sein. Sie muss `manifest.json`, `manifest.json.minisig` und die Dateien des
+Releases enthalten. Plur1bus prüft die Signatur, dann jede Datei per SHA-256 und Größe. Gehört die Datei zu einem anderen
+Kanal als dem installierten, weigert sich der Befehl, außer du nennst den Kanal mit `--channel`.
+
+### Status und Rollback
+
+```sh
+plur1bus update status
+plur1bus update --rollback
+```
+
+`update status` zeigt die Phase und das Ergebnis des letzten Updates und ob ein Rollback möglich ist. `update --rollback`
+stellt Programm, `config.json`, das Installationsmanifest und den Core von vor dem letzten Update wieder her. Den
+Gedächtnisspeicher berührt das nicht.
+
+### Add-ons
+
+Vor dem Einspielen prüft Plur1bus jeden installierten Skill, jedes Modul und jeden Kanal gegen die neue Version.
+
+- Ein **inkompatibles** Add-on schaltet Plur1bus für die neue Version aus. Eine spätere Version, mit der es wieder passt,
+  schaltet es wieder ein. Ein Rollback stellt den vorherigen Zustand her.
+- Ein Add-on, das du als **benötigt** markierst, bricht das Update ab, wenn es nicht passt (`addon-incompatible`). Mit
+  `--force` aktualisierst du trotzdem; das Add-on wird dann deaktiviert.
+
+```sh
+plur1bus update --require-addon <name>
+plur1bus update --unrequire-addon <name>
+```
+
+### In Firmennetzen
+
+Hinter einem Proxy liest Plur1bus `HTTPS_PROXY` (oder `ALL_PROXY`). `NO_PROXY` ist eine kommagetrennte Liste von
+Ausnahmen. Ein ungültiger Proxy-Wert bricht den Vorgang ab; Plur1bus verbindet sich dann nicht direkt.
+
+Nutzt dein Netz eine eigene Zertifizierungsstelle, etwa bei einem prüfenden Proxy, gibst du deren Zertifikate als
+PEM-Datei an. Sie ersetzen dann den Zertifikatsspeicher des Systems für HTTPS, nicht nur ergänzen ihn:
+
+```sh
+plur1bus update --ca-bundle <pfad>/firmen-ca.pem --check
+```
+
+Alternativ setzt du die Umgebungsvariable `PLUR1BUS_CA_BUNDLE` auf denselben Pfad.
+
+## Deinstallieren
+
+`plur1bus uninstall` entfernt die Installation. Deine Daten bleiben standardmäßig erhalten.
+
+```sh
+plur1bus uninstall --dry-run
+plur1bus uninstall
+```
+
+Zuerst zeigst du den Plan mit `--dry-run`; der Befehl ändert dabei nichts. Ohne Angabe fragt Plur1bus im Terminal nach.
+Mit `--yes` (kurz `-y`) überspringst du die Rückfrage, etwa in einem Skript. Außerhalb eines Terminals verweigert der
+Befehl die Ausführung ohne `--yes` mit Exit-Code 2.
+
+Entfernt werden: der Daemon, die Dienstregistrierung, das Programm selbst, `runtime/`, `update/`, `manifest.json` und
+`run/`.
+
+Bleiben erhalten: `config.json`, `agents/`, `skills/`, `modules/`, `extensions/`, `catalog/`, `models/`, `state/`, `data/`,
+`logs/` und `backups/`. Installierst du mit `plur1bus setup` im selben Home neu, sind alle Daten wieder da.
+
+Geheimnisse im Schlüsselbund bleiben bei einer normalen Deinstallation ebenfalls. Willst du sie entfernen, lösche sie
+vorher:
+
+```sh
+plur1bus secret ls
+plur1bus secret rm <name>
+```
+
+### Alles entfernen
+
+```sh
+plur1bus uninstall --purge --backup-out <pfad>/plur1bus-backup.tar.gz
+```
+
+`--purge` entfernt das ganze Home-Verzeichnis, Daten inklusive. Vorher schreibt Plur1bus ein Backup neben das Home. Den
+Ort wählst du mit `--backup-out`; er darf nicht im Home liegen. Ohne Backup geht es mit `--no-backup`. Kann das Backup
+nicht entstehen, etwa weil der Daemon nicht läuft, bricht die Deinstallation ab, bevor sie etwas ändert.
+
+Unter Windows entfernt ein kleines Skript das laufende Programm, sobald der Befehl beendet ist. Die Ausgabe nennt das
+Skript. In einem Container verweigert der Befehl die Ausführung, weil das Image die Installation verwaltet.
+
+## Shell-Komfort
+
+`plur1bus completions <shell>` gibt ein Vervollständigungsskript für Bash, Zsh, Fish, PowerShell oder Elvish aus. Du
+installierst es dort, wo deine Shell es lädt:
+
+```sh
+plur1bus completions bash > ~/.local/share/bash-completion/completions/plur1bus
+plur1bus completions zsh > "${fpath[1]}/_plur1bus"
+plur1bus completions fish > ~/.config/fish/completions/plur1bus.fish
+plur1bus completions powershell | Out-String | Invoke-Expression
+```
+
+Öffne danach eine neue Shell. Der PowerShell-Befehl gilt nur für die aktuelle Sitzung. Für dauerhafte Nutzung schreibst du
+die Ausgabe in eine Datei und lädst sie aus deinem Profil.
+
+**Manpages** liefert diese Version nicht aus. Die Hilfe bekommst du mit `plur1bus <befehl> --help`.
+
+**Farben.** Mit `--color` bestimmst du, ob die Ausgabe farbig ist:
+
+- `auto` (Standard): farbig nur im Terminal, und nur wenn `NO_COLOR` nicht gesetzt oder leer ist.
+- `always`: immer farbig, auch in eine Pipe oder mit gesetztem `NO_COLOR`.
+- `never`: nie farbig.
+
+```sh
+plur1bus --color never daemon status
+```
+
+## Wenn etwas nicht klappt
+
+| Fehler | Bedeutung | Was tun |
+|---|---|---|
+| `E_NOT_AVAILABLE`, Grund `not-installed` | Es gibt kein Installationsmanifest. | `plur1bus setup` ausführen. |
+| `E_NOT_AVAILABLE`, Grund `release-signature-invalid` | Die Signatur passt zu keinem vertrauten Schlüssel. | Nichts erzwingen. Quelle des Releases prüfen. |
+| `E_NOT_AVAILABLE`, Grund `digest-mismatch` oder `size-mismatch` | Eine Datei ist beschädigt oder verändert. | Datei neu laden und erneut versuchen. |
+| `E_NOT_AVAILABLE`, Grund `release-unreachable` | Der Feed ist nicht erreichbar. | Netzwerk, Proxy und `--ca-bundle` prüfen. |
+| `E_NOT_AVAILABLE`, Grund `downgrade-refused` oder `release-replay` | Das Release ist älter als dein Stand. | Nicht erzwingen. Nur wenn du das wirklich willst: `--allow-downgrade`. |
+| `E_NOT_AVAILABLE`, Grund `unit-unsupported` | Das Release ändert die Node-Laufzeit oder die Module. | `plur1bus setup` ausführen. |
+| `E_NOT_AVAILABLE`, Grund `addon-incompatible` | Ein benötigtes Add-on passt nicht zur neuen Version. | Add-on entfernen oder aktualisieren; sonst `--force`. |
+| `E_INVALID_PARAMS`, Grund `ca-bundle-invalid` (Exit 2) | Die PEM-Datei ist nicht lesbar oder enthält kein Zertifikat. | Pfad und Inhalt der Datei prüfen. |
+| `E_INVALID_PARAMS`, Grund `confirmation-required` (Exit 2) | Ohne Terminal fehlt `--yes`. | `--yes` angeben. |
+| `E_INVALID_PARAMS`, Grund `backup-inside-home` (Exit 2) | Das Backup soll im Home liegen. | Mit `--backup-out` einen anderen Ort wählen. |
+| `E_INVALID_PARAMS`, Grund `unsafe-home` oder `not-a-home` (Exit 2) | Das Home-Verzeichnis sieht nicht nach einer Installation aus. | Pfad mit `--home` prüfen; nichts wurde gelöscht. |
+| `E_INTERNAL`, Grund `remove-failed` (Exit 1) | Eine Datei ließ sich nicht entfernen. | Ursache beheben und den Befehl erneut ausführen. Die übrigen Teile wurden entfernt. |
+
+Ein Update, das fehlschlägt, stellt den vorherigen Stand selbst wieder her. `plur1bus update status` zeigt, was passiert ist.
+
 ## Fehlersuche
 
 ### Herausfinden, was nicht stimmt

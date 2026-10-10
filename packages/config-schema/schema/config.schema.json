@@ -7,6 +7,153 @@
   "additionalProperties": false,
   "required": ["schemaVersion"],
   "properties": {
+    "containers": {
+      "description": "Container distribution library settings. Installer/runtime wiring is separate from the core.",
+      "type": "object",
+      "additionalProperties": false,
+      "x-restart": "live",
+      "x-tier": "advanced",
+      "properties": {
+        "runtime": {
+          "description": "Preferred runtime; auto prefers Apple container on supported Apple Silicon macOS.",
+          "enum": [
+            "auto",
+            "apple",
+            "docker"
+          ],
+          "default": "auto"
+        },
+        "image": {
+          "description": "Harness image reference; production installations should use an immutable digest.",
+          "type": "string",
+          "minLength": 1
+        },
+        "stateVolume": {
+          "description": "Runtime-managed state volume; never use a macOS virtiofs bind for SQLite state.",
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+          "default": "plur1bus-state"
+        },
+        "bindAddress": {
+          "description": "Host address a published harness port is bound to (Docker `-p ADDR:HOST:CONTAINER`, Apple `--publish ADDR:HOST:CONTAINER`). Loopback by default. A private LAN, tailnet or unique-local address is accepted for a company network, with a security warning at install and in `container status`; the runtime refuses public and wildcard addresses. Only takes effect together with `containers.apiPort`: without it nothing is published.",
+          "type": "string",
+          "anyOf": [{ "type": "string", "format": "ipv4" }, { "type": "string", "format": "ipv6" }],
+          "not": { "enum": ["0.0.0.0", "::"] },
+          "default": "127.0.0.1"
+        },
+        "apiPort": {
+          "description": "Host port on which the harness API port (18700 inside the container) is published at `containers.bindAddress`. Absent: nothing is published. The API is never public and stays behind authentication.",
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 65535
+        },
+        "healthTimeoutMs": {
+          "description": "Time allowed for a stack service to pass its health gate.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300000,
+          "default": 120000
+        }
+      }
+    },
+    "sidecars": {
+      "description": "Optional sidecars keyed by id. Core consumers read configuration only; runtime wiring is separate.",
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+      },
+      "x-restart": "live",
+      "x-tier": "advanced",
+      "additionalProperties": {
+        "description": "One sidecar endpoint and its bounded health probe configuration.",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "description": "Bundled container, remote host, or disabled.",
+            "enum": [
+              "bundled",
+              "remote",
+              "off"
+            ],
+            "default": "off"
+          },
+          "url": {
+            "description": "Credential-free HTTP(S) endpoint, or valkey://HOST:PORT/0 for remote Valkey over Tailscale.",
+            "type": "string",
+            "format": "uri",
+            "pattern": "^(https?|valkey|redis)://[^/@#]+(?:/[^#]*)?$"
+          },
+          "caBundle": {
+            "description": "Optional PEM trust bundle for the remote HTTPS host.",
+            "type": "string",
+            "minLength": 1
+          },
+          "fingerprint": {
+            "description": "Explicit self-signed leaf-certificate pin, SHA-256 of DER in lowercase hex. Health probes only; consumers must use pinned TLS too.",
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "timeoutMs": {
+            "description": "Remote health request timeout in milliseconds.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120000,
+            "default": 5000
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "mode"
+              ],
+              "properties": {
+                "mode": {
+                  "const": "remote"
+                }
+              }
+            },
+            "then": {
+              "properties": { "url": {} },
+              "required": [
+                "url"
+              ]
+            }
+          },
+          {
+            "if": {
+              "anyOf": [
+                {
+                  "properties": { "fingerprint": {} },
+                  "required": [
+                    "fingerprint"
+                  ]
+                },
+                {
+                  "properties": { "caBundle": {} },
+                  "required": [
+                    "caBundle"
+                  ]
+                }
+              ]
+            },
+            "then": {
+              "required": [
+                "url"
+              ],
+              "properties": {
+                "url": {
+                  "type": "string",
+                  "pattern": "^https://"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "remote": { "type": "object", "additionalProperties": false, "default": {}, "x-restart": "core", "x-tier": "advanced", "description": "Remote exposure configuration (listener integration is separate).", "properties": { "publish": { "type": "string", "enum": ["local", "tailnet", "network"], "default": "tailnet", "x-restart": "core", "x-tier": "advanced", "description": "Requested exposure mode; never makes a listener public. Applying the remote-access listener plan is a separate integration." } } },
     "$schema": { "description": "URI identifying the JSON Schema used to validate this configuration.", "type": "string", "x-restart": "live", "x-tier": "advanced" },
     "schemaVersion": { "description": "Configuration format version; this schema supports version 1.", "const": 1, "x-restart": "core", "x-tier": "advanced" },
     "tools": {
@@ -216,7 +363,32 @@
               "pinned": { "description": "Skill names pinned for this agent; currently stored and displayed but not interpreted.", "type": "array", "items": { "type": "string" }, "default": [] },
               "applyAt": { "description": "When a changed skill selection takes effect for a running agent.", "enum": ["next-turn", "next-session"], "default": "next-turn" }
             }
-          }
+          },
+          "memory": {"description": "Per-agent memory settings.", "type": "object", "additionalProperties": false, "properties": {
+            "mediaEmbedding": {"description": "Per-agent override of the media index settings; unset keys inherit the installation values.", "type": "object", "additionalProperties": false, "x-restart": "core", "x-tier": "basic", "properties": {
+              "enabled": {"description": "Whether the separate media index (image, video, audio) is used.", "type": "boolean", "x-restart": "core", "x-tier": "basic"},
+              "provider": {"description": "Embedding provider id for the media index, or \"off\". Chosen independently of the text embedding provider.", "type": "string", "x-restart": "core", "x-tier": "basic"},
+              "model": {"description": "Model id used for the media index; the same model may serve text and media, the indexes stay separate.", "type": "string", "x-restart": "core", "x-tier": "basic"},
+              "dimensions": {"description": "Vector dimensions of the media index; must be supported by the model (EmbeddingGemma: 768, 512, 256 or 128).", "type": "integer", "minimum": 1, "x-restart": "core", "x-tier": "advanced"},
+              "modalities": {"description": "Media kinds that are indexed.", "type": "array", "items": {"type": "string", "enum": ["image", "video", "audio"], "description": "One media kind."}, "uniqueItems": true, "minItems": 1, "x-restart": "core", "x-tier": "basic"},
+              "video": {"description": "How video is cut into segments and frames before embedding.", "type": "object", "additionalProperties": false, "properties": {
+                "segmentSec": {"description": "Length of one video segment in seconds.", "type": "integer", "minimum": 1, "x-restart": "core", "x-tier": "advanced"},
+                "maxFrames": {"description": "Maximum number of frames embedded per video; capped by the model limit.", "type": "integer", "minimum": 1, "x-restart": "core", "x-tier": "advanced"},
+                "sceneDetect": {"description": "Whether frames are picked at scene changes instead of a fixed interval.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"}
+              }},
+              "audio": {"description": "How audio is cut into segments before embedding.", "type": "object", "additionalProperties": false, "properties": {
+                "segmentSec": {"description": "Length of one audio segment in seconds.", "type": "integer", "minimum": 1, "x-restart": "core", "x-tier": "advanced"},
+                "maxSeconds": {"description": "Maximum audio duration in seconds that is indexed; longer media is truncated.", "type": "integer", "minimum": 1, "x-restart": "core", "x-tier": "advanced"}
+              }},
+              "caption": {"description": "Captions: one text entry per medium in the text index, written by the prompt, the user or an automatic captioner.", "type": "object", "additionalProperties": false, "properties": {
+                "source": {"description": "Caption order: generation prompt, then user caption or alt text, then automatic captioning; user-only skips automatic captions; off disables captions.", "type": "string", "enum": ["prompt-then-user-then-auto", "user-only", "off"], "x-restart": "core", "x-tier": "advanced"},
+                "provider": {"description": "Caption provider id, or \"off\". Unset means local when the media embedding is local; with a cloud embedding setup asks.", "type": "string", "x-restart": "core", "x-tier": "advanced"},
+                "maxChars": {"description": "Maximum caption length in characters.", "type": "integer", "minimum": 20, "x-restart": "core", "x-tier": "advanced"},
+                "perSegment": {"description": "Whether video and audio get one caption per segment instead of one per medium.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"}
+              }},
+              "backfill": {"description": "Whether existing media are indexed automatically in the background (auto) or only on request (manual).", "type": "string", "enum": ["auto", "manual"], "x-restart": "core", "x-tier": "advanced"}
+            }}
+          }}
         }
       }
     },
@@ -245,6 +417,31 @@
         "acceptedNcLicenceAt": { "description": "Date-time when the non-commercial licence was accepted.", "type": "string", "format": "date-time", "x-restart": "core", "x-tier": "advanced" }
       }
     },
+    "memory": {"description": "Memory settings that the harness owns; the media index is separate from the text index.", "type": "object", "additionalProperties": false, "default": {}, "properties": {
+      "mediaEmbedding": {"description": "Media index (image, video, audio) with its own provider, independent of the text embedding. Captions land in the text index.", "type": "object", "additionalProperties": false, "default": {}, "x-restart": "core", "x-tier": "basic", "properties": {
+        "enabled": {"description": "Whether the separate media index (image, video, audio) is used.", "type": "boolean", "default": true, "x-restart": "core", "x-tier": "basic"},
+        "provider": {"description": "Embedding provider id for the media index, or \"off\". Chosen independently of the text embedding provider.", "type": "string", "default": "local-transformers", "x-restart": "core", "x-tier": "basic"},
+        "model": {"description": "Model id used for the media index; the same model may serve text and media, the indexes stay separate.", "type": "string", "default": "google/embeddinggemma-2", "x-restart": "core", "x-tier": "basic"},
+        "dimensions": {"description": "Vector dimensions of the media index; must be supported by the model (EmbeddingGemma: 768, 512, 256 or 128).", "type": "integer", "minimum": 1, "default": 768, "x-restart": "core", "x-tier": "advanced"},
+        "modalities": {"description": "Media kinds that are indexed.", "type": "array", "items": {"type": "string", "enum": ["image", "video", "audio"], "description": "One media kind."}, "uniqueItems": true, "minItems": 1, "default": ["image", "video", "audio"], "x-restart": "core", "x-tier": "basic"},
+        "video": {"description": "How video is cut into segments and frames before embedding.", "type": "object", "additionalProperties": false, "default": {}, "properties": {
+          "segmentSec": {"description": "Length of one video segment in seconds.", "type": "integer", "minimum": 1, "default": 10, "x-restart": "core", "x-tier": "advanced"},
+          "maxFrames": {"description": "Maximum number of frames embedded per video; capped by the model limit.", "type": "integer", "minimum": 1, "default": 32, "x-restart": "core", "x-tier": "advanced"},
+          "sceneDetect": {"description": "Whether frames are picked at scene changes instead of a fixed interval.", "type": "boolean", "default": true, "x-restart": "core", "x-tier": "advanced"}
+        }},
+        "audio": {"description": "How audio is cut into segments before embedding.", "type": "object", "additionalProperties": false, "default": {}, "properties": {
+          "segmentSec": {"description": "Length of one audio segment in seconds.", "type": "integer", "minimum": 1, "default": 30, "x-restart": "core", "x-tier": "advanced"},
+          "maxSeconds": {"description": "Maximum audio duration in seconds that is indexed; longer media is truncated.", "type": "integer", "minimum": 1, "default": 3600, "x-restart": "core", "x-tier": "advanced"}
+        }},
+        "caption": {"description": "Captions: one text entry per medium in the text index, written by the prompt, the user or an automatic captioner.", "type": "object", "additionalProperties": false, "default": {}, "properties": {
+          "source": {"description": "Caption order: generation prompt, then user caption or alt text, then automatic captioning; user-only skips automatic captions; off disables captions.", "type": "string", "enum": ["prompt-then-user-then-auto", "user-only", "off"], "default": "prompt-then-user-then-auto", "x-restart": "core", "x-tier": "advanced"},
+          "provider": {"description": "Caption provider id, or \"off\". Unset means local when the media embedding is local; with a cloud embedding setup asks.", "type": "string", "x-restart": "core", "x-tier": "advanced"},
+          "maxChars": {"description": "Maximum caption length in characters.", "type": "integer", "minimum": 20, "default": 280, "x-restart": "core", "x-tier": "advanced"},
+          "perSegment": {"description": "Whether video and audio get one caption per segment instead of one per medium.", "type": "boolean", "default": false, "x-restart": "core", "x-tier": "advanced"}
+        }},
+        "backfill": {"description": "Whether existing media are indexed automatically in the background (auto) or only on request (manual).", "type": "string", "enum": ["auto", "manual"], "default": "auto", "x-restart": "core", "x-tier": "advanced"}
+      }}
+    }},
     "engine": {
       "description": "Pass-through to the engine's EngineConfig (57 keys, see docs/config-engine-keys.md). Every key here is class core until the engine declares readAt: live (engine PR E5).",
       "type": "object", "default": {}, "x-restart": "core", "x-tier": "advanced",
@@ -395,9 +592,9 @@
     "oauth":     { "description": "Reserved namespace for OAuth configuration.", "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced", "x-reserved": "M2 (D16)", "additionalProperties": true },
     "decision":  { "description": "Reserved namespace for decision model configuration.", "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced", "x-reserved": "M2 (D18)", "additionalProperties": true },
     "modelRoles": {
-      "description": "Model identifiers assigned to the supported functional roles.",
+      "description": "Model identifiers assigned to the supported functional roles. The summarize role is the model that writes session compaction summaries (a profile name or provider/model); when it is unset, compaction falls back to its deterministic digest.",
       "type": "object", "default": {}, "x-restart": "live", "x-tier": "basic", "x-reserved": "M2 (D15, D18)",
-      "propertyNames": { "enum": ["chat", "reasoning", "capture", "dream", "embedding", "rerank", "decision"] },
+      "propertyNames": { "enum": ["chat", "reasoning", "capture", "dream", "embedding", "rerank", "decision", "summarize"] },
       "additionalProperties": { "description": "Model identifier assigned to the role.", "type": "string" }
     },
     "modelProfiles": {
@@ -498,6 +695,120 @@
         "allowLoopback": {
           "description": "Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused.",
           "type": "boolean", "default": false, "x-restart": "live", "x-tier": "advanced"
+        }
+      }
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "description": "Session context maintenance.",
+      "properties": {
+        "compaction": {
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "description": "Progressive session compaction (D23, L14); hide originals without deleting them.",
+          "properties": {
+            "softRatio": {
+              "type": "number",
+              "default": 0.65,
+              "description": "Prepare a summary above this fraction of the model context window.",
+              "exclusiveMinimum": 0,
+              "exclusiveMaximum": 1,
+              "x-restart": "core",
+              "x-tier": "advanced"
+            },
+            "hardRatio": {
+              "type": "number",
+              "default": 0.88,
+              "description": "Swap prepared summary above this fraction. Must exceed softRatio.",
+              "exclusiveMinimum": 0,
+              "exclusiveMaximum": 1,
+              "x-restart": "core",
+              "x-tier": "advanced"
+            },
+            "summaryMaxTokens": {
+              "type": "integer",
+              "default": 1228,
+              "description": "Maximum summary tokens; also capped to 15 percent of the catalogue window.",
+              "minimum": 32,
+              "x-restart": "core",
+              "x-tier": "advanced"
+            },
+            "maxMessageTokens": {
+              "type": "integer",
+              "default": 819,
+              "description": "Maximum tokens per context message; originals stay in the transcript.",
+              "minimum": 32,
+              "x-restart": "core",
+              "x-tier": "advanced"
+            },
+            "summarizer": {
+              "type": "string",
+              "default": "llm",
+              "description": "Background summarize role; unavailable model or refused budget uses deterministic digest.",
+              "enum": [
+                "llm",
+                "digest"
+              ],
+              "x-restart": "core",
+              "x-tier": "advanced"
+            },
+            "prune": {
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "description": "Background tool-pair visibility settings.",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Enable post-turn tool-output pruning.",
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "keepLastTurns": {
+                  "type": "integer",
+                  "default": 3,
+                  "description": "Never hide tool pairs in the latest N turns.",
+                  "minimum": 1,
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "decider": {
+                  "type": "string",
+                  "default": "laya",
+                  "description": "Local CPU Laya first, conservative heuristic if unavailable; off disables pruning.",
+                  "enum": [
+                    "laya",
+                    "heuristic",
+                    "off"
+                  ],
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "maxMs": {
+                  "type": "integer",
+                  "default": 100,
+                  "description": "Total decision time budget. Timeout retains original context.",
+                  "minimum": 1,
+                  "maximum": 60000,
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "batchSize": {
+                  "type": "integer",
+                  "default": 16,
+                  "description": "Maximum tool pairs in one decision request.",
+                  "minimum": 1,
+                  "maximum": 256,
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -1271,6 +1582,174 @@
               }
             }
           ]
+        },
+        "telegram": {
+          "description": "Telegram channel adapter (long polling or webhook, topics, media, command menus, inline button callbacks).",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "enabled": {
+              "description": "Whether the Telegram channel is started. Off by default; nothing connects until this is true.",
+              "type": "boolean",
+              "default": false,
+              "x-restart": "module:telegram",
+              "x-tier": "advanced"
+            },
+            "tokenSecret": {
+              "description": "Name of the secret holding the Telegram bot token. The value never appears in config or logs.",
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+              "default": "channels.telegram.botToken",
+              "x-restart": "module:telegram",
+              "x-tier": "advanced"
+            },
+            "allowlist": {
+              "description": "Decimal chat IDs (users, groups, supergroups) that may talk to the bot. Empty allows nothing, inbound and outbound.",
+              "type": "array",
+              "maxItems": 1024,
+              "uniqueItems": true,
+              "items": {
+                "oneOf": [
+                  { "type": "string", "pattern": "^-?[0-9]{1,20}$" },
+                  { "type": "integer" }
+                ]
+              },
+              "default": [],
+              "x-restart": "module:telegram",
+              "x-tier": "advanced"
+            },
+            "userAllowlist": {
+              "description": "When present, only these numeric user IDs are heard in groups and direct chats.",
+              "type": "array",
+              "maxItems": 1024,
+              "uniqueItems": true,
+              "items": {
+                "oneOf": [
+                  { "type": "string", "pattern": "^-?[0-9]{1,20}$" },
+                  { "type": "integer" }
+                ]
+              },
+              "x-restart": "module:telegram",
+              "x-tier": "advanced"
+            },
+            "mode": {
+              "description": "Connection transport: `polling` for long polling (default), or `webhook` for host HTTP webhook dispatch.",
+              "enum": [
+                "polling",
+                "webhook"
+              ],
+              "default": "polling",
+              "x-restart": "module:telegram",
+              "x-tier": "advanced"
+            },
+            "webhook": {
+              "description": "Webhook mode parameters (required when mode is `webhook`).",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "url": {
+                  "description": "HTTPS webhook URL Telegram will deliver updates to.",
+                  "type": "string",
+                  "format": "uri",
+                  "pattern": "^https://",
+                  "x-restart": "module:telegram",
+                  "x-tier": "advanced"
+                },
+                "secret": {
+                  "description": "Secret token sent in the X-Telegram-Bot-Api-Secret-Token header (1..256 alphanumeric/dash/underscore chars).",
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,256}$",
+                  "x-restart": "module:telegram",
+                  "x-tier": "advanced"
+                },
+                "maxBodyBytes": {
+                  "description": "Maximum accepted request body size in bytes.",
+                  "type": "integer",
+                  "minimum": 1024,
+                  "maximum": 52428800,
+                  "default": 1048576,
+                  "x-restart": "module:telegram",
+                  "x-tier": "advanced"
+                }
+              },
+              "required": ["url", "secret"],
+              "x-restart": "module:telegram",
+              "x-tier": "advanced"
+            },
+            "botId": {
+              "description": "Explicit bot user ID override (normally discovered via getMe).",
+              "type": "integer",
+              "x-restart": "module:telegram",
+              "x-tier": "advanced"
+            },
+            "botUsername": {
+              "description": "Explicit bot username override without @ (normally discovered via getMe).",
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_]{5,32}$",
+              "x-restart": "module:telegram",
+              "x-tier": "advanced"
+            },
+            "groupPolicy": {
+              "description": "When the bot answers in a group: `addressed` accepts mentions, replies or bot commands; `all` accepts all group messages.",
+              "enum": [
+                "addressed",
+                "all"
+              ],
+              "default": "addressed",
+              "x-restart": "module:telegram",
+              "x-tier": "advanced"
+            },
+            "maxMediaBytes": {
+              "description": "Largest attachment accepted or sent, in bytes (1..20 MiB).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20971520,
+              "default": 20971520,
+              "x-restart": "module:telegram",
+              "x-tier": "advanced"
+            },
+            "pollTimeoutSec": {
+              "description": "Long polling timeout in seconds (1..60).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60,
+              "default": 30,
+              "x-restart": "module:telegram",
+              "x-tier": "advanced"
+            },
+            "maxSendRetries": {
+              "description": "Maximum retries on 429 rate limit or transient network errors.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10,
+              "default": 3,
+              "x-restart": "module:telegram",
+              "x-tier": "advanced"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "mode": {
+                    "const": "webhook"
+                  }
+                },
+                "required": [
+                  "mode"
+                ]
+              },
+              "then": {
+                "required": [
+                  "webhook"
+                ],
+                "properties": {
+                  "webhook": {}
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -1356,7 +1835,12 @@
             },
             "catalogOverride": { "description": "Data that adds or replaces catalog models and languages (adding a language is data, not code). Same shape as the built-in catalog.", "type": "object", "additionalProperties": true , "x-restart": "live", "x-tier": "advanced" },
             "modelsDir": { "description": "Directory for downloaded voice models. Empty: a directory under the harness data directory.", "type": "string", "maxLength": 500 , "x-restart": "live", "x-tier": "advanced" },
-            "acceptNcLicence": { "description": "Confirm that models under non-commercial or unconfirmed licences may be downloaded and used. Off by default; the licence text is shown first.", "type": "boolean", "default": false , "x-restart": "live", "x-tier": "advanced" }
+            "acceptedLicences": {
+              "description": "Licences the owner confirmed, one entry per model: the key is the model id, an @ sign and the licence id (for example kroko-de@CC-BY-SA), the value the date-time of the confirmation. A model under a non-commercial or unconfirmed licence is downloaded and used only with its own entry; a new model or a changed licence needs a new confirmation.",
+              "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced",
+              "propertyNames": { "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}@[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$" , "x-restart": "live", "x-tier": "advanced" },
+              "additionalProperties": { "description": "Date-time at which this model's licence was confirmed.", "type": "string", "format": "date-time" , "x-restart": "live", "x-tier": "advanced" }
+            }
           }
         },
         "localRealtime": {
@@ -1392,7 +1876,39 @@
               "description": "Per-agent override of any localRealtime key (same shape, no defaults), keyed by agent identifier.",
               "type": "object", "default": {}, "x-restart": "live", "x-tier": "advanced",
               "propertyNames": { "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$" , "x-restart": "live", "x-tier": "advanced" },
-              "additionalProperties": { "description": "Overrides for one agent.", "type": "object", "additionalProperties": true , "x-restart": "live", "x-tier": "advanced" }
+              "additionalProperties": {
+                "description": "Overrides for one agent: the same keys and limits as voice.localRealtime, without defaults. Unknown keys are refused.",
+                "type": "object", "additionalProperties": false,
+                "properties": {
+                  "enabled": { "description": "Whether the local real-time profile applies to this agent.", "type": "boolean" , "x-restart": "live", "x-tier": "advanced" },
+                  "endpointingMs": { "description": "Silence after speech, in milliseconds, before this agent's user turn counts as finished.", "type": "integer", "minimum": 50, "maximum": 5000 , "x-restart": "live", "x-tier": "advanced" },
+                  "speculativeTurnStart": { "description": "Start this agent's turn on the final transcript before the silence window ends.", "type": "boolean" , "x-restart": "live", "x-tier": "advanced" },
+                  "ackSound": { "description": "Play a short acknowledgement sound when this agent's user turn ends.", "type": "boolean" , "x-restart": "live", "x-tier": "advanced" },
+                  "sentenceChunking": {
+                    "description": "How this agent's streamed answer text is cut into speakable chunks.",
+                    "type": "object", "additionalProperties": false,
+                    "properties": { "maxWords": { "description": "Maximum words in one spoken chunk for this agent.", "type": "integer", "minimum": 3, "maximum": 200, "x-restart": "live", "x-tier": "advanced" } },
+                    "x-restart": "live", "x-tier": "advanced"
+                  },
+                  "features": {
+                    "description": "Per-feature mode and time budget for this agent.",
+                    "type": "object", "additionalProperties": false,
+                    "properties": {
+                    "autoRecall": { "description": "Automatic memory recall before the answer.", "type": "object", "additionalProperties": false, "properties": { "mode": { "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.", "enum": ["on", "deferred", "off"] }, "maxMs": { "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.", "type": "integer", "minimum": 1, "maximum": 5000 } } , "x-restart": "live", "x-tier": "advanced" },
+                    "reranker": { "description": "Reranking of recalled memories.", "type": "object", "additionalProperties": false, "properties": { "mode": { "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.", "enum": ["on", "deferred", "off"] }, "maxMs": { "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.", "type": "integer", "minimum": 1, "maximum": 5000 } } , "x-restart": "live", "x-tier": "advanced" },
+                    "recallMultiIdentity": { "description": "Recall across several linked identities.", "type": "object", "additionalProperties": false, "properties": { "mode": { "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.", "enum": ["on", "deferred", "off"] }, "maxMs": { "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.", "type": "integer", "minimum": 1, "maximum": 5000 } } , "x-restart": "live", "x-tier": "advanced" },
+                    "promptEnrichment": { "description": "Prompt enrichment with short context.", "type": "object", "additionalProperties": false, "properties": { "mode": { "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.", "enum": ["on", "deferred", "off"] }, "maxMs": { "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.", "type": "integer", "minimum": 1, "maximum": 5000 } } , "x-restart": "live", "x-tier": "advanced" },
+                    "decisionService": { "description": "Decision-model call before the answer.", "type": "object", "additionalProperties": false, "properties": { "mode": { "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.", "enum": ["on", "deferred", "off"] }, "maxMs": { "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.", "type": "integer", "minimum": 1, "maximum": 5000 } } , "x-restart": "live", "x-tier": "advanced" },
+                    "postTurnRefine": { "description": "Refinement work after the answer has been spoken.", "type": "object", "additionalProperties": false, "properties": { "mode": { "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.", "enum": ["on", "deferred", "off"] }, "maxMs": { "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.", "type": "integer", "minimum": 1, "maximum": 5000 } } , "x-restart": "live", "x-tier": "advanced" },
+                    "memoryWrite": { "description": "Memory capture of the turn.", "type": "object", "additionalProperties": false, "properties": { "mode": { "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.", "enum": ["on", "deferred", "off"] }, "maxMs": { "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.", "type": "integer", "minimum": 1, "maximum": 5000 } } , "x-restart": "live", "x-tier": "advanced" },
+                    "compaction": { "description": "Conversation compaction.", "type": "object", "additionalProperties": false, "properties": { "mode": { "description": "on: runs before the answer within maxMs; deferred: runs after the turn; off: does not run.", "enum": ["on", "deferred", "off"] }, "maxMs": { "description": "Time budget in milliseconds for an on feature; the feature is skipped when it takes longer.", "type": "integer", "minimum": 1, "maximum": 5000 } } , "x-restart": "live", "x-tier": "advanced" }
+                    },
+                    "x-restart": "live", "x-tier": "advanced"
+                  },
+                  "toolSchemas": { "description": "Tool schemas given to the model for this agent: reduced or full.", "enum": ["reduced", "full"] , "x-restart": "live", "x-tier": "advanced" },
+                  "auditDetail": { "description": "Detail of the audit record for this agent's real-time turns: minimal or full.", "enum": ["minimal", "full"] , "x-restart": "live", "x-tier": "advanced" }
+                }
+              }
             }
           }
         }

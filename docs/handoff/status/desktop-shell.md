@@ -1207,7 +1207,17 @@ Files: `apps/desktop/src-tauri/src/{profile_audit,windows_spa_profile,lib,spa_pr
 - Local Windows target check unavailable: MSVC `assert.h` missing in `ring`; native Windows CI remains required. Guarded-SPA WebView2 compatibility remains an explicit gap.
 - The native `no_cookie_database_in_app_dirs` test remains in `production_spa`; no vacuous directory-only substitute. Bundled pinned SQLite supports the Windows WAL audit.
 
-## WP6 — IN PROGRESS (automatic acceptance pending)
+## WP6 — MERGED implementation; native acceptance carryovers remain
+
+Current correction (2026-10-10): `origin/main` at `251bdabb` contains the
+WP6 lifecycle merge #87 (`4e936f49`) and acceptance-audit merge #233 (`4b63a651`).
+WP08/#305 is also merged (`44aa9ebb`, implementation head `9ecc564f`).
+The continuation below is historical, not a statement that WP6 is absent from
+main. Current CI was **Not run / not queried**, per the owner's no-polling rule.
+Windows interactive checks and the previously recorded OS logout/restart gate
+remain owner acceptance items; a merge does not prove them.
+
+### Historical WP6 continuation record
 
 **Owner continuation:** PR #235 is merged; its workflow repair was merged into this branch without rebase.
 Manual checks requiring unavailable hardware are **offen – manuell, Owner** and do not block WP6.
@@ -1443,3 +1453,171 @@ Full validation Root/docs9, desktop alltargets/Rustdoc/Clippy/fmt, UI58, scripts
 ### Owner-authorized launcher skip round · maximum two pushes
 
 Previous head4d26f738 Root/Desktop evidence remains historical; Windows jobs failed, including ARM launcher occlusion and x64 DIAGNOSTICS_MODAL_MISSING. New fixture-only skip policy above is authorized by the owner. Zero pushes in this round; Root check/gen/build/test/lint/workspace Rust/Clippy/fmt/docs PASS, desktop alltargets370PASS/one existingIGNORE and Rustdoc PASS, UI58PASS, scripts47PASS/5platformSKIP. Initial Root bin.test file failed without a cause; isolated TAP8PASS and complete Root rerun PASS, no Core/Hermes edit. Desktop Clippy/fmt PASS. Windows ARM target attempt UNAVAILABLE101: ring assert.h requires missing MSVC SDK. Logs /tmp/wp06-launcher-skip-*.log. No product change or observer/budget increase. PR87 stays Draft until exact-head Root/all7Desktop plus strict-x64 summary are green. Skips are explicitly not passes; owner verifies ARM manually before D1 release.
+
+
+## WP7 — MERGED implementation via WP08/#305; acceptance partly open
+
+Current correction (2026-10-10): `origin/main` at `251bdabb` contains runtime
+adapter commit `4813fde1` and WP08 controller progress `1c73cae3`, through
+[#305](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/305), merge `44aa9ebb`,
+implementation head `9ecc564f`. WP7 is present on main, rather than an unstarted
+or exclusively local dependency of WP8. The standalone #263 status below is
+historical; its current state was not queried. Source still returns
+`apple-rename-unavailable` and refuses a config ID as a repository manifest
+digest. Recorded Apple fixtures/full runtime contracts and interactive
+Windows/Linux acceptance therefore remain open. Docker is available locally
+(Engine 29.4.0); no user runtime objects were used for WP9 tests. Current CI was
+**Not run / not queried**, per the owner's no-polling rule.
+
+### Historical WP7 implementation and acceptance record
+
+- PR: [#263](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/263), Draft, depends on #233.
+
+- Branch: `feat/desktop-shell-wp07-runtime-adapters`; stacked on WP6 acceptance audit (#233), because its compilation/crash fixes are not on main. Main baseline remains `bedf063146003c86a7dabb5382763fa76162c1e1`.
+- Owner instruction: continue WP7/WP8 locally **without CI polling**. No current-head CI result is asserted; no automatic ready/GREEN transition.
+- Implementation: shared native Runtime trait, single ContainerSpec policy, signed Apple CLI adapter, local-only Docker Engine API adapter (`bollard =0.21.1`, pipe feature only, SSL/HTTP features disabled), deterministic candidate ordering/context lookup/socket deduplication, current runtime preservation, closed de/en runtime messages.
+- Evidence: tests use temporary homes, synthetic JSON, the `test-bins/fake-container` executable and an Engine wire fixture (Unix socket / Windows named pipe); no Docker subprocess is spawned by the Docker adapter, no real keychain or runtime objects are used.
+- Fresh independent review: no Critical findings; five Important findings reproduced and fixed: Apple conflict cleanup; unregistered service status; one-shot nonzero exit/stdout/stderr; total stream deadlines/output limits; refusing configuration IDs as manifest digests. Additional cancellation regression proves owned one-shot cleanup.
+
+### Acceptance matrix
+
+| Acceptance point | Test / evidence | Status |
+|---|---|---|
+| Apple version minimum; unknown fields ignored, required fields mandatory | `apple_runtime::{detect_parses_version_and_refuses_too_old,unknown_json_fields_are_ignored_required_ones_are_not,malformed_versions_are_refused_instead_of_zero_filled,inspect_uses_the_nested_status_and_required_configuration}` | local PASS |
+| Apple signature refused; fixed absolute production CLI + Apple Team ID | `apple_runtime::detect_refuses_an_unsigned_binary` (macOS); installed executable public TeamIdentifier `UPBK2H6LZM`; strict codesign requirement | local PASS; injected signature trait coverage open |
+| Apple stopped/unregistered; system start; stop 150 s; stdin + exit code | `test-bins/tests/apple_runtime.rs`; `apple_runtime::unregistered_services_are_stopped_and_can_be_started` | local PASS; complete stateful successful start scenario open |
+| Apple exact create flags, no restart flag | `apple_runtime::create_passes_exactly_the_spec_flags` | local PASS; complete harness golden argv and image mismatch/load scenarios open |
+| Detection candidate order per OS; Docker contexts (OrbStack, Colima, Rancher, Podman, rootless); TCP ignored | `detect::{detection_candidate_table,contexts_cover_orbstack_colima_rancher_and_podman,tcp_docker_host_is_ignored_with_a_note}` | local PASS |
+| Linux containers required; rootless/Podman access hint; deduplicated socket; never adopt new runtime | `docker_runtime::a_windows_containers_engine_is_wrong_mode`; `detect::{permission_denied_is_no_access_with_the_rootless_hint,the_same_socket_via_two_sources_is_listed_once,a_new_runtime_is_listed_not_adopted,choose_default_table}` | local PASS |
+| Docker Desktop, Engine, Podman, Colima, Rancher, OrbStack, WSL2-backed Docker through one adapter | `docker_runtime::every_docker_compatible_runtime_uses_the_same_api` | local PASS; standalone WSL distribution remains D2 per spec §4.12 |
+| Docker exact body: loopback, read-only, uid10001, ALL capabilities dropped, no-new-privileges, pids1024, memory/cpus, named mounts, no privileged/host binds | `docker_runtime::create_body_is_exactly_the_spec` | local PASS |
+| Digest-verified load/pull; config ID never accepted as manifest digest | `docker_runtime::{image_load_returns_the_manifest_digest,image_load_refuses_a_config_id_without_manifest_digest,config_id_is_not_a_manifest_digest,pull_verifies_the_digest}` | local PASS; offline archives lacking RepoDigests need verified OCI manifest identity follow-up |
+| Shared full runtime contract for both adapters | Docker `runtime_contract`, one-shot exit7/stdout/stderr and cancellation; Apple conflict refusal + binary stdin/stop tests | **open**: full Apple contract including rename; Docker additional volumes/network/error/oneshot scenarios |
+| Bounded image/load/pull/log/exec processing | `runtime::docker::stream_tests::{stalled_body_has_a_total_deadline,oversized_output_is_refused}`; native CLI and exec byte limits | local PASS; SDK can transiently decode a single large JSON event before retained-output limit |
+| Real Docker and Podman contracts | no `/var/run/docker.sock`, OrbStack socket or Docker Desktop socket available in this environment; no Podman runtime provisioned | **open – native engines unavailable, Owner** |
+| Recorded Apple fixtures / spike | `tests/fixtures/apple/synthetic-1.3/README.md` explicitly unrecorded; isolated-HOME read-only version/status recorder | **open – manuell, Owner** (WP7 excludes spike; no recorded full-runtime claim) |
+| fmt/clippy/locked workspace tests, UI build/tests, unchanged Root lint/hygiene | locked Rust workspace: 320 PASS / 0 FAIL / 1 opt-in keychain IGNORE; UI 59/59; fmt/clippy/build/Root lint+hygiene PASS | local PASS |
+| desktop.yml all five targets + Root unit CI | not inspected after Owner's no-polling instruction | **open – CI evidence, Owner** |
+
+### Follow-ups / rulings
+
+- Apple CLI has no rename subcommand (installed CLI help and current upstream command tree checked). Adapter returns a closed `apple-rename-unavailable` failure rather than issuing invented argv. A supported rename/recreate strategy is needed for the full contract and later upgrade swapping; WP7 is not claimed accepted.
+- Offline Docker load without RepoDigests fails closed; returning the config image ID would falsely equate different digest identities. Verified OCI manifest metadata integration is still needed for that archive case.
+- Review minors deferred: detector should preserve ignored-endpoint notes/access hint/too-old version in its public result; Apple version probe currently has a separate 3 s budget rather than a single documented detection budget. These limitations remain visible and do not justify GREEN.
+- Root hygiene's slash-command lexical rule collides with the required state mount spelling. `STATE_MOUNT = concat!("/", "state")` names the native container mount explicitly; Root rules remain unchanged.
+- Ledger is scratch under `/tmp`, overriding skill's root `.superpowers` location to honor the user's allowed-file boundary. User-authorized pushes/PRs override the historical plan's never-push restriction; no fictitious co-author attribution is added.
+- Core remains unchanged. Runtime and bundled setup will target desktop-contract / mock-harness; WP8 records owner-bootstrap/pairing gaps separately.
+
+WP7 final local verification (2026-10-08): locked workspace tests **320 PASS / 0 FAIL / 1 opt-in real-keychain IGNORE**; UI **59/59**; fmt, all-target clippy, UI build and Root lint/typecheck/hygiene/i18n checks PASS. Logs retained locally in `/tmp/desktop-wp07-final-*` and `/tmp/desktop-wp07-root-lint-final.log`. The branch remains draft/IN PROGRESS for the explicit acceptance gaps and unqueried CI.
+
+
+## WP9 — IMPLEMENTED (local acceptance; native production acceptance not claimed)
+
+Status: PASS for local unit, transport and UI acceptance. Delivery ends at this
+WP boundary; WP10–WP12 below remain open in the same PR.
+Branch: `codex/desktop-wp09-12`.
+Base: `origin/main` at `251bdabb`.
+Implementation Head: `9f7ba9b9c625bf8b29b8525cc0b39099975d726b`.
+This following documentation commit records verification only.
+
+### Verification
+
+- PASS: `pnpm install --frozen-lockfile`, Node 24.21.0 / pnpm 10.28.0.
+- PASS: root `pnpm lint` (typecheck, hygiene, i18n and dependency-lint regressions).
+  Staged-blob hygiene and `git diff --check` also pass.
+- PASS: desktop `cargo fmt --all -- --check`, locked all-target Clippy and
+  `cargo test --locked --workspace --no-fail-fast`: **379 passed, zero failures,
+  three pre-existing opt-in ignores**. Ignores are real OS keychain and the
+  Docker/Podman controller E2E gates; they are not passes.
+- PASS: UI build and strict source typecheck; **70 tests, zero failures/skips**.
+  New card DOM order/escaping/default action, axe and de/en empty permission
+  frame tests run in the local browser fixture.
+- PASS: Tauri debug `.app` build with `--locked`; both native app and helper
+  are ad-hoc signed. No notarization or release signing was attempted.
+- PASS: final-build macOS startup with HOME/CFFIXED_USER_HOME, XDG config/cache/
+  data, TMPDIR and the desktop config directory redirected to fresh scratch.
+  The final scratch root is a short `/private/tmp/p1t-wp09-*` path (the first
+  long macOS TMPDIR root exceeded the diagnostic Unix-socket path limit).
+  Final launch log is empty. Native accessibility shows Runtime's real WP9
+  switch, Computer access,
+  "No feature needs a system permission yet" and a ready helper with zero
+  capabilities. The native menu closes the test app; no owned helper remains.
+  No real keychain, grant, user home or container object was used.
+- Not run: Windows/Linux interactive execution (unavailable locally), real
+  keychain acceptance (explicit opt-in remains off), production host bridge
+  (the desktop HTTP/WS contract is still provisional).
+- Not run: CI; **no status queries or polling**, per the owner's instruction.
+
+### Required acceptance names and stack behavior
+
+| Required test | Evidence |
+|---|---|
+| `hello_lists_only_enabled_capabilities` | PASS; bounded native negotiation |
+| `provision_creates_and_stores_a_key_once` | PASS; generated 32-byte base64url key |
+| `provision_never_overwrites_an_existing_key` | PASS; `E_EXISTS` and unchanged value |
+| `get_returns_the_stored_key` | PASS; same key and missing-account refusal |
+| `capability_off_answers_E_DENIED` | PASS |
+| `reconnects_with_backoff` | PASS; shared exponential/jitter policy |
+| `revoked_stops_and_requests_pairing` | PASS; HTTP terminal auth classification; connected WebSocket revocation also exercised |
+| `remote_connections_do_not_start_the_bridge_in_d1` | PASS; native-local/remote/foreign endpoints refused |
+| `memory_only_store_refuses_provision` | PASS; storage remains unprovisioned |
+| `helper_hello_reports_no_capabilities` | PASS; real sidecar stdio also tested |
+| `helper_is_restarted_with_backoff` | PASS; real exiting child plus deterministic delay policy |
+| `helper_gets_no_inherited_env` | PASS; actual child sees only allowed variable names |
+| `permissions_open_pane_accepts_only_known_panes` | PASS; closed enum, no grant-request API |
+| `approval_card_shows_targets_before_reason` | PASS; actual DOM/axe/default-action test in addition to field order |
+
+Acceptance 7's locked → bridge provision/get → unlocked sequence, a simulated
+harness restart/reconnect reusing the key, and disabled negotiation staying
+locked pass against the local provisional mock. Authenticated approval SSE
+reaches the bounded native projection; nonce and raw arguments are excluded.
+This is **mock stack evidence, not Docker-container or production acceptance**.
+
+### Interfaces and deviations
+
+- Rust credentials stay under the existing mutation owner. Settings writes
+  serialize the host switch with appearance changes. Provisioning never
+  overwrites, and MemoryOnly refuses it with the explanatory banner.
+- The bundled bridge resumes at startup/controller port reconciliation without
+  depending on the SPA selection. Metadata gates bearer reconnects. Selecting
+  a remote connection does not start a remote bridge or retire the bundled one.
+- `plur1bus-host` is a local desktop workspace package and a Tauri externalBin.
+  Its ignored staged binary is built for the Tauri target by the UI prebuild.
+  The desktop lockfile adds only that local package; no registry pin changes
+  or pnpm lockfile changes are required.
+- G-2 retained: production decisions are unavailable. The debug mock path
+  additionally checks bundled loopback plus the mock's test capability. D109
+  RPC/OS attestation exists in Core, but the provisional desktop bearer route
+  and scope have no equivalent without scope expansion. No Core/RPC changes.
+- D1 has no OS grants. Linux has no universal system-permissions pane and
+  returns `E_NOT_AVAILABLE`; no portal grant request is invented. Exact native
+  pane opening on Windows/Linux remains unverified.
+- Existing Glow components/tokens, focus restoration and de/en catalogues are
+  used. Async helper status refresh preserves the existing wordmark morph.
+- Logs: `/tmp/desktop-wp09-{rust-release-check,clippy-release-check,
+  ui-release-check,lint-final,ui-typecheck,tauri-final,staged-hygiene}.log`.
+
+## WP10 — NOT STARTED (remaining work)
+
+Status: Not run. Head: no implementation head.
+Signed feed/schema/render script, harness-feed compatibility verification,
+channel key policy, updater artifact/digest gate, update policy/dialog/Settings,
+Store build and all named acceptance tests remain open. No claim about current
+Rust updater compatibility is made because this WP has not been implemented.
+
+## WP11 — NOT STARTED (remaining work)
+
+Status: Not run. Head: no implementation head.
+Journal, upgrade steps 1–9, gate, automatic/manual rollback, crash resume,
+diagnostic redaction and progress/Version UI remain open. `upgrade_e2e` is
+Not run because that state machine/test does not exist yet. Docker Engine
+29.4.0 is available; Podman is not installed. No runtime objects were created.
+The existing controller E2E tests also require an explicitly supplied endpoint
+and verified stub manifest, and remain gated.
+
+## WP12 — NOT STARTED (remaining work)
+
+Status: Not run. Head: no implementation head.
+Scheme and `.p1x` association, pair confirmation, relative allow-list routing,
+chat/install unavailable responses, shared argv parsing and single-instance
+forwarding with all named tests remain open.

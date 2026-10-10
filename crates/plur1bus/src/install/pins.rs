@@ -107,6 +107,22 @@ pub fn core_payload_sha256() -> Option<&'static str> {
     seam(&SEAM, "PLUR1BUS_TEST_CORE_SHA256").or(option_env!("PLUR1BUS_CORE_SHA256"))
 }
 
+/// What a release build expects of the `plur1bus-attest` helper shipped beside it (issue #192 follow-up): its SHA-256, the Apple team id
+/// its code signature must carry (macOS) and the thumbprint of its Authenticode signer (Windows). Baked from `PLUR1BUS_ATTEST_SHA256`,
+/// `PLUR1BUS_ATTEST_TEAM_ID`, `PLUR1BUS_ATTEST_WIN_THUMBPRINT` at build time; each is `None` in a dev build, which then pins the
+/// helper by owner and mode only. The core re-checks them before every start (`packages/core/src/attestation/helper.ts`).
+pub fn attest_helper_pins() -> (
+    Option<&'static str>,
+    Option<&'static str>,
+    Option<&'static str>,
+) {
+    (
+        option_env!("PLUR1BUS_ATTEST_SHA256"),
+        option_env!("PLUR1BUS_ATTEST_TEAM_ID"),
+        option_env!("PLUR1BUS_ATTEST_WIN_THUMBPRINT"),
+    )
+}
+
 /// Where a release build finds its payloads and `{channel}.json` (`PLUR1BUS_RELEASE_BASE_URL`); `None` in a dev
 /// build.
 pub fn release_base_url() -> Option<&'static str> {

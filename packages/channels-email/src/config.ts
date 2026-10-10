@@ -52,7 +52,7 @@ export interface NormalizedConfig {
 }
 
 const HOST = /^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$/;
-const ADDRESS = /^[^\s@*"<>,;()\\]+@[a-z0-9.-]+\.[a-z0-9-]+$/i;
+export const ADDRESS = /^[^\s@*"<>,;()\\]+@[a-z0-9.-]+\.[a-z0-9-]+$/i;
 const PLAIN = /^[^\0\r\n]{1,256}$/;
 const SECRET_NAME = /^[A-Za-z0-9_.:/-]{1,200}$/;
 const MAX_ATTACHMENT = 25 * 1024 * 1024;

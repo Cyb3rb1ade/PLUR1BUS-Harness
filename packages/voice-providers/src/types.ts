@@ -1,9 +1,14 @@
 // Provider interfaces (AL1). The usage numbers use the same units as core's VoiceUsage (seconds, input/output tokens);
 // `UsageSink` is the single reporting hook: a caller maps a report onto VoiceBudgetPort.record, the package never
 // imports or changes the budget code.
-import type { VoiceUsage } from "../../core/src/voice/ports.ts";
 
-export type { VoiceUsage };
+/**
+ * Restated structurally from core's `VoiceUsage` (packages/core/src/voice/ports.ts), the way embedding-adapters restates
+ * core's egress shape: no other package imports core's sources, `@plur1bus/core` exports no types, and core will depend
+ * on this package once it is wired, so a real import would break the package boundary (and later form a cycle). The
+ * wiring package asserts the two stay assignable.
+ */
+export interface VoiceUsage { seconds: number; costMicros: number; inputTokens: number; outputTokens: number }
 
 export type AudioFormat = "pcm16" | "opus" | "mp3";
 export interface AudioSpec { format: AudioFormat; sampleRate: number }
@@ -19,6 +24,8 @@ export interface UsageReport {
   seconds?: number;
   inputTokens?: number;
   outputTokens?: number;
+  /** Stable id of the billable event, so a consumer that records usage (VoiceBudgetPort.record) can de-duplicate. Absent when the vendor gives none. */
+  eventId?: string;
 }
 export type UsageSink = (report: UsageReport) => void;
 

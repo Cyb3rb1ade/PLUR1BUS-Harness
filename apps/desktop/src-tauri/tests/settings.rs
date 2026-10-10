@@ -116,7 +116,8 @@ fn only_shell_at_exact_bundled_top_level_origin_may_call_settings() {
     assert!(allowed_command("shell", "settings_set"));
     assert!(allowed_command("shell", "app_info"));
     assert!(!allowed_command("spa", "settings_get"));
-    assert!(!allowed_command("shell", "runtime_start"));
+    assert!(allowed_command("shell", "runtime_start"));
+    assert!(!allowed_command("spa", "runtime_start"));
 }
 
 fn store(path: &std::path::Path) -> SettingsStore {

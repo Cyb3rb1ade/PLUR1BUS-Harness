@@ -482,7 +482,10 @@ fn config_schema_tier_basic_filters() {
         .map(String::as_str)
         .collect();
     keys.sort();
-    assert_eq!(keys, ["agents", "embedding", "modelRoles", "providers"]);
+    assert_eq!(
+        keys,
+        ["agents", "embedding", "memory", "modelRoles", "providers"]
+    );
 
     // default (no --tier) is unfiltered and tagged "all"
     let out = bin()
@@ -1202,6 +1205,60 @@ fn memory_ops_without_a_core_fail_fast_with_core_unavailable() {
             "{args:?} took {took:?}"
         );
     }
+}
+
+#[test]
+fn read_paths_report_a_schema_invalid_config_as_config_invalid() {
+    for (doc, args) in [
+        (
+            r#"{"schemaVersion":"not-a-number","agents":{"bernd":{}}}"#,
+            vec!["memory", "list", "--agent", "bernd"],
+        ),
+        (
+            r#"{"schemaVersion":1,"nope":true,"agents":{"bernd":{}}}"#,
+            vec!["memory", "list", "--agent", "bernd"],
+        ),
+        (
+            r#"{"schemaVersion":1,"agents":{"bernd":{}},"core":{"recall":{"softBudgetMs":5}}}"#,
+            vec!["memory", "recall", "--agent", "bernd", "q"],
+        ),
+        (
+            r#"{"schemaVersion":1,"agents":{"bernd":{}}}"#,
+            vec!["config", "get"],
+        ),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let h = dir.path().to_str().unwrap();
+        let valid = doc.contains(r#""schemaVersion":1,"agents":{"bernd":{}}}"#);
+        std::fs::write(dir.path().join("config.json"), doc).unwrap();
+        let mut full = vec!["--json", "--home", h];
+        full.extend(args.iter());
+        let out = bin().args(&full).output().unwrap().stdout;
+        let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+        if valid {
+            // control: a valid file is not reported as invalid by any path
+            assert_ne!(v["error"], "E_CONFIG_INVALID", "{args:?} {v}");
+        } else {
+            assert_eq!(v["error"], "E_CONFIG_INVALID", "{args:?} {v}");
+        }
+    }
+    // A valid file on a read path still reaches the core lookup.
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    std::fs::write(
+        dir.path().join("config.json"),
+        r#"{"schemaVersion":1,"agents":{"bernd":{}}}"#,
+    )
+    .unwrap();
+    let out = bin()
+        .args(["--json", "--home", h, "memory", "list", "--agent", "bernd"])
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["error"], "E_CORE_UNAVAILABLE", "{v}");
 }
 
 #[test]

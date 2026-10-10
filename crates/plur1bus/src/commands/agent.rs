@@ -34,6 +34,10 @@ fn try_core(layout: &Layout) -> Option<Client> {
 }
 
 pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
+    if let Some(request) = super::admin_backend::agent_request(&cmd) {
+        super::admin_backend::run(out, layout, request);
+        return;
+    }
     // The registry is the running configuration's `agents` map: the supervisor's when it answers (B6).
     let (config, revision) = super::config::running(out, layout);
     match cmd {
@@ -180,6 +184,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
                 ),
             }
         }
+        _ => unreachable!("admin commands dispatched above"),
     }
 }
 

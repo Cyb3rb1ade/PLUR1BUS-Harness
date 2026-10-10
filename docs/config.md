@@ -10,13 +10,17 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 |---|---|---|---|---|
 | `agents` | object | `{}` | live | Per-agent settings keyed by a lowercase agent identifier. |
 | `embedding.useClass` | enum | `"general"` | core | Intended use of the embedding model: general, research, or commercial. |
+| `memory.mediaEmbedding` | object | `{}` | core | Media index (image, video, audio) with its own provider, independent of the text embedding. Captions land in the text index. |
 | `providers` | object | `{}` | live | Reserved namespace for model-provider configuration. |
-| `modelRoles` | object | `{}` | live | Model identifiers assigned to the supported functional roles. |
+| `modelRoles` | object | `{}` | live | Model identifiers assigned to the supported functional roles. The summarize role is the model that writes session compaction summaries (a profile name or provider/model); when it is unset, compaction falls back to its deterministic digest. |
 
 ## Advanced settings
 
 | Key | Type | Default | Restart | Description |
 |---|---|---|---|---|
+| `containers` | object |  | live | Container distribution library settings. Installer/runtime wiring is separate from the core. |
+| `sidecars` | object |  | live | Optional sidecars keyed by id. Core consumers read configuration only; runtime wiring is separate. |
+| `remote` | object | `{}` | core | Remote exposure configuration (listener integration is separate). |
 | `$schema` | string |  | live | URI identifying the JSON Schema used to validate this configuration. |
 | `schemaVersion` | const |  | core | Configuration format version; this schema supports version 1. |
 | `tools.hostctl.enabled` | boolean | `true` | core | Register local hostctl tools. |
@@ -64,6 +68,16 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `egress.allowHosts` | array | `[]` | live | Exact names, `*.suffix` (subdomains of any depth, not the apex), `*` (any name, never an IP literal) or an exact canonical IP literal (IPv6 in brackets). |
 | `egress.allowPorts` | array | `[443]` | live | Destination ports allowed for outgoing requests. |
 | `egress.allowLoopback` | boolean | `false` | live | Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused. |
+| `session.compaction.softRatio` | number | `0.65` | core | Prepare a summary above this fraction of the model context window. |
+| `session.compaction.hardRatio` | number | `0.88` | core | Swap prepared summary above this fraction. Must exceed softRatio. |
+| `session.compaction.summaryMaxTokens` | integer | `1228` | core | Maximum summary tokens; also capped to 15 percent of the catalogue window. |
+| `session.compaction.maxMessageTokens` | integer | `819` | core | Maximum tokens per context message; originals stay in the transcript. |
+| `session.compaction.summarizer` | string | `"llm"` | core | Background summarize role; unavailable model or refused budget uses deterministic digest. |
+| `session.compaction.prune.enabled` | boolean | `true` | core | Enable post-turn tool-output pruning. |
+| `session.compaction.prune.keepLastTurns` | integer | `3` | core | Never hide tool pairs in the latest N turns. |
+| `session.compaction.prune.decider` | string | `"laya"` | core | Local CPU Laya first, conservative heuristic if unavailable; off disables pruning. |
+| `session.compaction.prune.maxMs` | integer | `100` | core | Total decision time budget. Timeout retains original context. |
+| `session.compaction.prune.batchSize` | integer | `16` | core | Maximum tool pairs in one decision request. |
 | `channels.discord.enabled` | boolean | `false` | module:discord | Whether the discord channel is started. Off by default; nothing connects until this is true. |
 | `channels.discord.tokenSecret` | string | `"channels.discord.token"` | module:discord | Name of the secret holding the Discord bot token. The value never appears in config or logs. |
 | `channels.discord.applicationId` | string |  | module:discord | Discord application id (needed to register slash commands). Taken from the gateway READY event when omitted. |
@@ -129,6 +143,18 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `channels.email.authServId` | string |  | module:email | Authserv-id of the mail server that delivers into the bot mailbox. Only Authentication-Results headers from this server are read; without it every SPF/DKIM/DMARC result counts as none. |
 | `channels.email.requireAuthPass` | boolean | `false` | module:email | Drop mail whose Authentication-Results do not show a pass (dmarc, or spf and dkim). The channel only reads the verdict; it does not verify mail itself. |
 | `channels.email.locale` | enum | `"en"` | module:email | Language of the bot's own messages (pairing replies, refusals, approval prompts). |
+| `channels.telegram.enabled` | boolean | `false` | module:telegram | Whether the Telegram channel is started. Off by default; nothing connects until this is true. |
+| `channels.telegram.tokenSecret` | string | `"channels.telegram.botToken"` | module:telegram | Name of the secret holding the Telegram bot token. The value never appears in config or logs. |
+| `channels.telegram.allowlist` | array | `[]` | module:telegram | Decimal chat IDs (users, groups, supergroups) that may talk to the bot. Empty allows nothing, inbound and outbound. |
+| `channels.telegram.userAllowlist` | array |  | module:telegram | When present, only these numeric user IDs are heard in groups and direct chats. |
+| `channels.telegram.mode` | enum | `"polling"` | module:telegram | Connection transport: `polling` for long polling (default), or `webhook` for host HTTP webhook dispatch. |
+| `channels.telegram.webhook` | object |  | module:telegram | Webhook mode parameters (required when mode is `webhook`). |
+| `channels.telegram.botId` | integer |  | module:telegram | Explicit bot user ID override (normally discovered via getMe). |
+| `channels.telegram.botUsername` | string |  | module:telegram | Explicit bot username override without @ (normally discovered via getMe). |
+| `channels.telegram.groupPolicy` | enum | `"addressed"` | module:telegram | When the bot answers in a group: `addressed` accepts mentions, replies or bot commands; `all` accepts all group messages. |
+| `channels.telegram.maxMediaBytes` | integer | `20971520` | module:telegram | Largest attachment accepted or sent, in bytes (1..20 MiB). |
+| `channels.telegram.pollTimeoutSec` | integer | `30` | module:telegram | Long polling timeout in seconds (1..60). |
+| `channels.telegram.maxSendRetries` | integer | `3` | module:telegram | Maximum retries on 429 rate limit or transient network errors. |
 | `voice.providers.elevenlabs.enabled` | boolean | `false` | live | Whether ElevenLabs may be used. Off until enabled and given an apiKeyRef. |
 | `voice.providers.elevenlabs.apiKeyRef` | string |  | live | Secret-store reference holding the ElevenLabs API key. |
 | `voice.providers.elevenlabs.region` | enum | `"default"` | live | Data-residency region: default (global), us, eu or in. Ignored when baseUrl is set. |
@@ -157,7 +183,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `voice.local.perAgent` | object | `{}` | live | Per-agent override of language and tier, keyed by agent identifier. |
 | `voice.local.catalogOverride` | object |  | live | Data that adds or replaces catalog models and languages (adding a language is data, not code). Same shape as the built-in catalog. |
 | `voice.local.modelsDir` | string |  | live | Directory for downloaded voice models. Empty: a directory under the harness data directory. |
-| `voice.local.acceptNcLicence` | boolean | `false` | live | Confirm that models under non-commercial or unconfirmed licences may be downloaded and used. Off by default; the licence text is shown first. |
+| `voice.local.acceptedLicences` | object | `{}` | live | Licences the owner confirmed, one entry per model: the key is the model id, an @ sign and the licence id (for example kroko-de@CC-BY-SA), the value the date-time of the confirmation. A model under a non-commercial or unconfirmed licence is downloaded and used only with its own entry; a new model or a changed licence needs a new confirmation. |
 | `voice.localRealtime.enabled` | boolean | `false` | live | Whether the local real-time profile applies. When off, every feature runs without a time budget. |
 | `voice.localRealtime.endpointingMs` | integer | `400` | live | Silence after speech, in milliseconds, before the user's turn counts as finished. |
 | `voice.localRealtime.speculativeTurnStart` | boolean | `false` | live | Start the agent turn on the final transcript before the silence window ends, and cancel it if the user keeps talking. |

@@ -14,6 +14,29 @@ fn generate_tauri_build() {
 }
 
 fn main() {
+    println!("cargo:rerun-if-changed=../bundle/bundle.json.tmpl");
+    println!("cargo:rerun-if-env-changed=PLUR1BUS_DESKTOP_ALLOW_PLACEHOLDER_KEY");
+    if std::env::var("PROFILE").as_deref() == Ok("release")
+        && std::env::var("PLUR1BUS_DESKTOP_ALLOW_PLACEHOLDER_KEY").as_deref() != Ok("1")
+    {
+        let bundle: serde_json::Value =
+            serde_json::from_str(include_str!("../bundle/bundle.json.tmpl")).expect("bundle JSON");
+        let placeholder = bundle["images"]
+            .as_object()
+            .expect("bundle images")
+            .values()
+            .any(|v| {
+                v.as_str()
+                    .is_none_or(|d| d == format!("sha256:{}", "0".repeat(64)))
+            })
+            || bundle["apple"]["pkgSha256"].as_str()
+                == Some("0000000000000000000000000000000000000000000000000000000000000000");
+        assert!(
+            !placeholder,
+            "release build refuses placeholder bundle digests"
+        );
+    }
+
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").expect("Cargo target OS");
     let target_env = std::env::var("CARGO_CFG_TARGET_ENV").expect("Cargo target environment");
     let out = std::path::PathBuf::from(std::env::var_os("OUT_DIR").expect("Cargo OUT_DIR"));

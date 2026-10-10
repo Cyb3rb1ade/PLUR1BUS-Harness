@@ -33,7 +33,7 @@ One JSON object per line, UTF-8. Keys are written in this order (grep-stable); a
 
 `source` is `{ kind, id, version }`, all three required (`version` may be `null`). `source.kind`: `harness`, `extension`, `provider`, `model`, `cli`, `channel`, `host`, `desktop`, `os`.
 A source key (for `logs.levels` and filters) is `<kind>` or `<kind>:<id>`, matching `^(harness|extension|provider|model|cli|channel|host|desktop|os)(:[a-z0-9][a-z0-9._@/-]{0,127})?$`.
-`err` is `{ code, reason?, retryable?, hint? }` with `code` one of `E_AGENT_UNKNOWN`, `E_APPROVAL_REQUIRED`, `E_CONFIG_INVALID`, `E_CONFLICT`, `E_CORE_UNAVAILABLE`, `E_DENIED`, `E_INTERNAL`, `E_INVALID_PARAMS`, `E_LOCKED`, `E_MODULE_UNKNOWN`, `E_NOT_AVAILABLE`, `E_NOT_FOUND`, `E_RPC_VERSION`, `E_STORAGE`, `E_UNAUTHORIZED`, `rate-limited`, `overloaded`, `auth`, `invalid-request`, `server`, `timeout`, `network`.
+`err` is `{ code, reason?, retryable?, hint? }` with `code` one of `E_AGENT_UNKNOWN`, `E_APPROVAL_REQUIRED`, `E_CONFIG_INVALID`, `E_CONFLICT`, `E_CORE_UNAVAILABLE`, `E_DENIED`, `E_INTERNAL`, `E_INVALID_PARAMS`, `E_LOCKED`, `E_MEDIA_CAPABILITY`, `E_MEDIA_DIMENSION`, `E_MEDIA_LICENSE`, `E_MEDIA_PRIVACY`, `E_MEDIA_UNAVAILABLE`, `E_MEDIA_UNSUPPORTED_KIND`, `E_PROJECT_WIP_LIMIT`, `E_MODULE_UNKNOWN`, `E_NOT_AVAILABLE`, `E_NOT_FOUND`, `E_RPC_VERSION`, `E_STORAGE`, `E_UNAUTHORIZED`, `rate-limited`, `overloaded`, `auth`, `invalid-request`, `server`, `timeout`, `network`.
 
 Limits: `msg` ≤ 2048 bytes, `attrs` ≤ 8192 bytes (compact JSON), a wrapped output line ≤ 4096 bytes, dedup window 60000 ms,
 child output rate 100 lines/s sustained with a burst of 500.
@@ -99,6 +99,9 @@ emitters land in later parts of D111; the names are already reserved.
 
 | Event | Kinds | Level | Attrs group | Required attrs | Flags | Notes |
 |---|---|---|---|---|---|---|
+| `compaction.summary.created` | harness | info | compaction | `sessionId`, `fromSeq`, `toSeq`, `tier` | experimental | Session context visibility changed; originals remain available. |
+| `compaction.prune.hidden` | harness | info | compaction | `sessionId`, `ref` | experimental | Session context visibility changed; originals remain available. |
+| `compaction.prune.restored` | harness | info | compaction | `sessionId`, `ref` | experimental | Session context visibility changed; originals remain available. |
 | `log.level.changed` | any | info | log_level | `source_key`, `to` |  | Log level changed. |
 | `log.level.expired` | any | info | log_level | `source_key`, `from` |  | Log level expired. |
 | `log.suppressed` | any | warn | log_suppressed | `dropped` |  | Log records suppressed. |
@@ -194,6 +197,10 @@ emitters land in later parts of D111; the names are already reserved.
 | `os.service.restarted` | os | warn | os_service | `manager` | experimental | OS service restarted by the service manager. |
 | `os.service.failed` | os | fatal | os_service | `manager`, `reason` | experimental | OS service failed. |
 | `os.power.resumed` | os | info | os_service | `manager` | experimental | System resumed from sleep. |
+| `model.discovered` | provider | info | model_discovery | `provider`, `count`, `models`, `reappeared` | activity | Model discovery event (D112 Task 12). |
+| `model.unavailable` | provider | warn / **info** | model_discovery | `provider`, `count`, `models`, `roles` | activity | warn when roles is non-empty, otherwise info; Model discovery event (D112 Task 12). |
+| `model.scan.failed` | provider | error / **warn** | model_discovery | `provider`, `result`, `next_scan_at`, `consecutive_failures`, `err` |  | error for failed:auth and failed:invalid, otherwise warn; Model discovery event (D112 Task 12). |
+| `model.scan.completed` | provider | debug | model_discovery | `provider`, `result`, `duration_ms`, `counts` |  | Model discovery event (D112 Task 12). |
 
 ### Audit stream
 
@@ -255,6 +262,18 @@ Every event's `attrs` are closed: the common attributes below plus the event's g
 | `untrusted` | `boolean` | true on wrapped third-party output |
 | `truncated` | `boolean` | the value was cut to its limit |
 | `bytes` | `integer` | original size in bytes when truncated |
+
+#### `compaction`
+
+Compaction view changes; references only, never transcript content.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `sessionId` | `string` |  |
+| `ref` | `string` |  |
+| `fromSeq` | `integer` |  |
+| `toSeq` | `integer` |  |
+| `tier` | `integer` |  |
 
 #### `log_level`
 
@@ -848,6 +867,26 @@ Break-glass access.
 |---|---|---|
 | `target` | `string` | what was accessed |
 | `reason` | `string` | stated reason |
+
+#### `model_discovery`
+
+D112 provider discovery metadata only; no credential values, URLs or provider bodies.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `provider` | `string` |  |
+| `count` | `integer` |  |
+| `models` | `array` |  |
+| `reappeared` | `array` |  |
+| `roles` | `array` |  |
+| `result` | `ok` \| `failed:auth` \| `failed:network` \| `failed:server` \| `failed:invalid` \| `failed:empty` |  |
+| `http_status` | `integer` |  |
+| `retry_after_s` | `number` |  |
+| `next_scan_at` | `string` |  |
+| `consecutive_failures` | `integer` |  |
+| `duration_ms` | `integer` |  |
+| `counts` | `object` |  |
+| `err` | `object` |  |
 
 ## Redaction data
 

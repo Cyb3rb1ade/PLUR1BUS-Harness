@@ -25,6 +25,11 @@ const catalogue = (area: string): ActionSpec[] => [
 ];
 
 export const POLICY: readonly ActionSpec[] = Object.freeze([
+  spec("project.board.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A }),
+  spec("project.board.move", "system", { owner: A, admin: A, operator: A, member: A }),
+  spec("project.board.comment", "system", { owner: A, admin: A, operator: A, member: A }),
+  humanOnly(spec("project.board.write", "system", { owner: A, admin: A, operator: A, member: A })),
+  humanOnly(spec("project.board.manage", "system", { owner: A, admin: A, operator: A, member: A })),
   // Memory — scopes follow ADR-007 "Privacy": `user` only for the owning user (others by break-glass, read only),
   // `agent-private` only with `manage` on that agent, the workspace scope with at least `use`.
   spec("memory.user.read", "memory-user", { owner: OB, admin: OB, operator: O, member: O, viewer: O }),
@@ -71,6 +76,10 @@ export const POLICY: readonly ActionSpec[] = Object.freeze([
   // Surface gates; handlers apply the stored agent/project/self object rights as well.
   humanOnly(spec("media.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A })),
   humanOnly(spec("media.write", "system", { owner: A, admin: A, operator: A, member: A })),
+  // Media index: reading is for every role and for agents (their own scope, enforced by the handler); operating and caption edits are people only.
+  spec("media.index.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A }),
+  humanOnly(spec("media.index.operate", "system", OA)),
+  humanOnly(spec("media.caption.write", "system", { owner: A, admin: A, operator: A, member: A })),
   humanOnly(spec("project.surface.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A })),
   humanOnly(spec("project.surface.write", "system", { owner: A, admin: A, operator: A, member: A })),
   humanOnly(spec("project.create", "system", OA)),
@@ -84,6 +93,25 @@ export const POLICY: readonly ActionSpec[] = Object.freeze([
   // connection and (with --send-owner) send a message, so it is narrower than the catalogue's `channels.read` (Operator/Viewer).
   humanOnly(spec("channel.read", "system", OA)),
   humanOnly(spec("channel.write", "system", OA)),
+
+  // F39-F42/F44: admin backends, people only. Roles are intersected with token scopes and stored rights.
+  humanOnly(spec("admin.agent.operate", "agent", { owner: A, admin: A, operator: A })),
+  humanOnly(spec("admin.agent.manage", "agent", OA)),
+  humanOnly(spec("admin.agent.delete", "agent", OA)),
+  humanOnly(spec("admin.agent.rights", "agent", OA)),
+  humanOnly(spec("admin.users.read", "system", OA)),
+  humanOnly(spec("admin.users.write", "system", OA)),
+  humanOnly(spec("admin.breakglass.read", "system", OA)),
+  humanOnly(spec("admin.breakglass.write", "system", OA)),
+  humanOnly(spec("admin.sessions.write", "system", { owner: A, admin: A, operator: A, member: A })),
+  humanOnly(spec("admin.sessions.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A })),
+  humanOnly(spec("admin.pairing.read", "system", OA)),
+  // F44: person/token gate; device-surface reads stored ownership for filtering/revoke/rename.
+  ...["device.list", "device.revoke", "device.rename"].map(a => humanOnly(spec(a, "system", { owner: A, admin: A, operator: A, member: A, viewer: A }))),
+
+  humanOnly(spec("admin.notices.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A })),
+  humanOnly(spec("admin.sessions.transcript", "system", { owner: A, admin: A, operator: A, member: A, viewer: A })),
+  humanOnly(spec("admin.memory.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A })),
 
   // My area and projects.
   spec("my.read", "user", { owner: O, admin: O, operator: O, member: O, viewer: O }),

@@ -34,11 +34,14 @@ test("live session: setup message, ready on setupComplete, audio/transcripts/too
     assert.deepEqual(evs.map((e) => e.type), ["ready", "transcript", "transcript", "tool.call", "audio", "transcript", "transcript", "transcript", "turn.done", "usage", "closed"]);
     const finals = evs.filter((e) => e.type === "transcript" && e.final).map((e) => (e as { role: string; text: string }).role + ":" + (e as { text: string }).text);
     assert.deepEqual(finals, ["user:wetter morgen", "assistant:Sonnig."]);
-    assert.deepEqual(reports, [{ provider: "gemini", operation: "realtime", model: "models/gemini-live-test", inputTokens: 40, outputTokens: 9 }]);
+    assert.equal(reports.length, 1);
+    assert.match(reports[0]!.eventId ?? "", /^gemini:[0-9a-f]{12}:0$/);
+    const { eventId: _id, ...rest } = reports[0]!;
+    assert.deepEqual(rest, { provider: "gemini", operation: "realtime", model: "models/gemini-live-test", inputTokens: 40, outputTokens: 9 });
 
     const sock = v.sockets[0]!;
-    assert.ok((sock.req.url ?? "").startsWith(`${WS_PATH}?key=`));
-    assert.equal(decodeURIComponent((sock.req.url ?? "").split("key=")[1]!), SENTINEL_KEY);
+    assert.equal(sock.req.url, WS_PATH, "the key is not in the URL");
+    assert.equal(sock.req.headers["x-goog-api-key"], SENTINEL_KEY);
     const [setup, audio, tool] = sock.jsonFrames();
     assert.equal(setup.setup.model, "models/gemini-live-test");
     assert.deepEqual(setup.setup.generationConfig.responseModalities, ["AUDIO"]);

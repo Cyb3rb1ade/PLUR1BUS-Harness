@@ -5,6 +5,8 @@
   "type": "module",
   "engines": { "node": ">=24.16.0 <25 || >=26.1.0" },
   "scripts": {
+    "gen": "node scripts/gen-settings-index.mjs",
+    "check:settings-index": "node scripts/gen-settings-index.mjs --check",
     "build": "node --experimental-strip-types --no-warnings=ExperimentalWarning build.ts",
     "test": "node ../../scripts/test-package.mjs"
   },

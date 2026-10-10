@@ -4,6 +4,9 @@ import type { AgentRegistry } from "../agents.ts";
 import type { HarnessLogger } from "../logger.ts";
 import type { Handler } from "../rpc/server.ts";
 import { Compactor, defaultCompaction, type CompactionConfig } from "./compaction.ts";
+import { createLlmSummarizer } from "./summarizer.ts";
+import { ToolPruner, defaultPrune, type PruneConfig, type LayaDecisionPort } from "./pruning.ts";
+import { catalogWindow, type ReadCatalog } from "./tokens.ts";
 import type { TurnMemory } from "./memory-port.ts";
 import { buildSessionMethods, toWireEvent, type SessionMethodDeps } from "./methods.ts";
 import type { ChatProvider } from "./provider.ts";
@@ -20,20 +23,39 @@ export interface SessionServiceDeps {
   /** The core's shutdown signal. */
   signal: AbortSignal;
   compaction?: CompactionConfig;
+  prune?: PruneConfig;
+  laya?: LayaDecisionPort;
+  catalog?: ReadCatalog;
   /** Local resources owned by an archived session; observes committed archive/replacement only. */
   onSessionEnd?: (id: string) => void;
   approver?: SessionMethodDeps["approver"];
 }
 
-export interface SessionService { store: SessionStore; runner: TurnRunner; methods: Record<string, Handler>; recovered: number; close(budgetMs?: number): Promise<void> }
+export interface SessionService { compactor: Compactor; pruner: ToolPruner; store: SessionStore; runner: TurnRunner; methods: Record<string, Handler>; recovered: number; close(budgetMs?: number): Promise<void> }
 
 export function openSessionService(d: SessionServiceDeps): SessionService {
   const store = new SessionStore({ path: d.dbPath, clock: d.clock });
   if (d.onSessionEnd) store.onArchived(d.onSessionEnd);
   // Acceptance 7: a turn that was running when the previous core died is marked failed before anything is served.
+  const maintenanceAbort = new AbortController();
+  const maintenanceSignal = AbortSignal.any([d.signal,maintenanceAbort.signal]);
   const recovered = store.recoverRunningTurns().length;
   if (recovered > 0) d.logger.warn("session turns recovered as failed", { count: recovered });
+  const pruner = new ToolPruner(store, d.prune ?? defaultPrune(), { ...(d.laya ? { decide: d.laya } : {}), signal: maintenanceSignal, emit: (type, attrs) => d.logger.info(type, attrs) });
   const compactor = new Compactor(store, d.compaction ?? defaultCompaction(), {
+    pruner,
+    emit: (type, attrs) => d.logger.info(type, attrs),
+    summarizer: async (messages, maxTokens, sessionId, caller) => {
+      const provider = d.provider(); const session = sessionId && store.getSession(sessionId);
+      if (!provider || !session || maintenanceSignal.aborted) throw Error("summary-model-unavailable");
+      const windows = (provider.roleModels?.("summarize") ?? []).map(m => (d.catalog ? catalogWindow(d.catalog,m) : undefined) ?? 8192);
+      const window = windows.length ? Math.min(...windows) : 8192;
+      const inputMax = Math.min(2048,window - maxTokens - 256);
+      if (inputMax < 32) throw Error("summary-context-unavailable");
+      return createLlmSummarizer(provider, { sessionId: session.id, agentId: session.agentId, principal: session.owner, ...(caller ? { caller } : {}), signal: maintenanceSignal },inputMax, chunk => {
+        for (const sample of chunk.measurements ?? []) compactor.meter.observe(sample.model,sample.estimatedInputTokens,sample.inputTokens);
+      })(messages, maxTokens);
+    },
     // D23: the engine checkpoint `compaction` precedes every swap; an incognito session never checkpoints (D92 §3.3).
     beforeSwap: async ({ sessionId }) => {
       const s = store.getSession(sessionId);
@@ -43,16 +65,18 @@ export function openSessionService(d: SessionServiceDeps): SessionService {
     onError: (what, err) => d.logger.warn(`${what} failed`, { err }),
   });
   const runner = new TurnRunner({
-    store, compactor, memory: d.memory, provider: d.provider, signal: d.signal,
+    store, compactor, ...(d.catalog ? { catalog: d.catalog } : {}), memory: d.memory, provider: d.provider, signal: d.signal,
     logger: { info: (m, f) => d.logger.info(m, f), warn: (m, f) => d.logger.warn(m, f) },
     notify: (e, s) => d.notify("session.event", { agentId: s.agentId, event: toWireEvent(e) }, { optIn: true }),
   });
-  const methods = buildSessionMethods({ store, runner, agents: d.agents, isStopping: d.isStopping, ...(d.approver ? { approver: d.approver } : {}) });
+  const methods = buildSessionMethods({ store, runner, compactor, agents: d.agents, isStopping: d.isStopping, ...(d.approver ? { approver: d.approver } : {}) });
   return {
-    store, runner, methods, recovered,
+    store, runner, compactor, pruner, methods, recovered,
     // A turn that ignores the shutdown abort is not waited for beyond the budget: it stays `running` in the file and the
     // next start marks it failed (recovery), so nothing is lost by closing the store under it.
     async close(budgetMs = 5_000) {
+      maintenanceAbort.abort(Error("session-maintenance-closed"));
+      compactor.stop();
       let timer: NodeJS.Timeout | undefined;
       await Promise.race([runner.idle(), new Promise<void>((res) => { timer = setTimeout(res, budgetMs); timer.unref(); })]);
       clearTimeout(timer);

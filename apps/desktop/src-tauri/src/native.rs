@@ -51,8 +51,18 @@ impl NativeState {
 /// Invoked inside the credential mutation owner, before removing or replacing a credential.
 pub fn retire_connection(app: &tauri::AppHandle, id: uuid::Uuid) {
     let state = app.state::<NativeState>();
+    if let Some(host) = app.try_state::<crate::host_commands::HostState>() {
+        let mut connection = host.bridge_connection.lock().unwrap();
+        if connection.as_ref().is_some_and(|row| row.id == id) {
+            host.bridge.stop();
+            connection.take();
+        }
+    }
     if !state.cancel_connection(id) {
         return;
+    }
+    if let Some(host) = app.try_state::<crate::host_commands::HostState>() {
+        host.cards.lock().unwrap().clear();
     }
     let generation = state.events.generation();
     let gui = app.clone();
@@ -187,11 +197,23 @@ pub fn start_events(
         return;
     };
     let generation = state.events.begin();
+    if let Some(host) = app.try_state::<crate::host_commands::HostState>() {
+        host.cards.lock().unwrap().clear();
+    }
     *state.connection.lock().unwrap() = Some(connection.clone());
+    crate::host_commands::start_bridge(
+        app,
+        connection.clone(),
+        SecretString::new(token.expose().into()),
+    );
     let handle = app.clone();
     let task = tokio::spawn(async move {
         let (_cancel, stop) = tokio::sync::watch::channel(false);
         let mut stream = EventStream::default();
+        let approval_app = handle.clone();
+        stream.approval_sink(std::sync::Arc::new(move |name, value| {
+            crate::host_commands::event(&approval_app, generation, name, value);
+        }));
         let mut transport = client;
         let mut row = connection;
         loop {
@@ -783,4 +805,32 @@ pub fn guard_exit(app: &tauri::AppHandle, event: &tauri::RunEvent) -> bool {
         }
     }
     false
+}
+
+pub(crate) fn publish_controller(app: &tauri::AppHandle, status: crate::controller::HarnessStatus) {
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        let state = handle.state::<NativeState>();
+        if state
+            .connection
+            .lock()
+            .unwrap()
+            .as_ref()
+            .is_some_and(|c| c.kind != crate::connections::Kind::Bundled)
+        {
+            return;
+        }
+        let mut view = state.view.lock().unwrap();
+        view.harness = match status {
+            crate::controller::HarnessStatus::Ready { .. } => crate::tray::HarnessState::Ready,
+            crate::controller::HarnessStatus::Starting => crate::tray::HarnessState::Starting,
+            crate::controller::HarnessStatus::Crashed { .. } => crate::tray::HarnessState::Crashed,
+            crate::controller::HarnessStatus::NotInstalled => crate::tray::HarnessState::Unpaired,
+            _ => crate::tray::HarnessState::Down,
+        };
+        let value = view.clone();
+        drop(view);
+        update_tray(&handle, &value);
+        let _ = handle.emit_to("shell", "desktop-tray-state", value);
+    });
 }

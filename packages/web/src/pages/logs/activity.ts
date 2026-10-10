@@ -10,17 +10,14 @@ import { icon, type IconName } from "../../icons.ts";
 import { currentRole, roleIn } from "../common/load.ts";
 import { FailureState, Notice } from "../common/states.ts";
 import { useFeed, useVerify } from "./activity/data.ts";
-import { groupEntries, logLink, sentenceKey, type ActivityEntry, type ActivityKind, type ActivityOutcome } from "./activity/model.ts";
+import { groupEntries, logLink, sentence, sentenceKey, type ActivityEntry, type ActivityKind, type ActivityOutcome } from "./activity/model.ts";
 import { VerifyCard } from "./activity/verify-card.ts";
+import "../../styles/activity.css";
+
+export { sentence };
 
 const ICON: Record<ActivityKind, IconName> = { agentRun: "agents", dreams: "memories", modelScan: "models", backup: "library", login: "lock", logout: "lock", breakGlass: "alert" };
 const TONE: Record<ActivityOutcome, "ok" | "err" | "warn" | "neutral"> = { completed: "ok", failed: "err", skipped: "warn", none: "neutral" };
-
-/** The entry as a sentence in the current language. A parameter the record lacks reads "unknown". */
-export function sentence(e: ActivityEntry): string {
-  const p = (v: string): string => (v === "" ? t("activity.unknown") : v);
-  return t(sentenceKey(e) as Key, { agent: p(e.params.agent), job: p(e.params.job), profile: p(e.params.profile), target: p(e.params.target) });
-}
 
 function Entry({ e }: { e: ActivityEntry }): View {
   const text = sentence(e);

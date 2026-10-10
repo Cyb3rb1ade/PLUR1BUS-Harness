@@ -1,3 +1,5 @@
+import {approvalCards} from "../src/views/approvals.ts";
+import {translate} from "../src/i18n.ts";
 import {showCrashOffers} from "../src/views/crash-offer.ts";
 import { showBackgroundHint } from "../src/views/background-hint.ts";
 import { createShell } from "../src/shell.ts";
@@ -14,7 +16,7 @@ let autostartFail = false;
 const autostartCalls: boolean[] = [];
 let deferredSaves = false;
 const pendingSaves: Array<{ value: Settings; resolve: (value: Settings) => void; reject: (error: Error) => void }> = [];
-const boot = (window as any).__fixtureBoot as { platform?: "mac" | "win" | "gnome" | "kde"; autostartUnknown?: boolean; failGet?: boolean; deferLoad?: boolean; locale?: string; rows?: import("../src/ipc.ts").Connection[]; deferConnections?: boolean; failConnections?: boolean } | undefined;
+const boot = (window as any).__fixtureBoot as { bundled?: boolean; platform?: "mac" | "win" | "gnome" | "kde"; autostartUnknown?: boolean; failGet?: boolean; deferLoad?: boolean; locale?: string; rows?: import("../src/ipc.ts").Connection[]; deferConnections?: boolean; failConnections?: boolean } | undefined;
 autostart = boot?.autostartUnknown ? null : false;
 let rows: import("../src/ipc.ts").Connection[]=boot?.rows??[];
 let active:string|null=null;
@@ -25,6 +27,8 @@ const connectionGate = boot?.deferConnections ? new Promise<void>(resolve=>{rele
 let completeLoads: () => void = () => {};
 const loaded = boot?.deferLoad ? new Promise<void>(resolve => { completeLoads = resolve; }) : Promise.resolve();
 const transport: DesktopTransport = {
+ async helperStatus(){return {ready:true,restarting:false,capabilities:[],grants:[]};},
+ async bridgeSettings(enabled){return {enabled:enabled??true,memoryOnly:true,secretsLocked:true};},
  async autostartGet(){return autostart;},
  async autostartSet(value){autostartCalls.push(value);if(autostartFail)throw new Error("injected autostart error");autostart=value;return autostart;},
  async connectionsList(){await connectionGate;if(failConnections)throw "storage";return {connections:rows,active,tokenStore:"memory-only"};},
@@ -41,11 +45,21 @@ const transport: DesktopTransport = {
     settings = value; return settings;
   },
 };
+if(boot?.bundled){
+ transport.runtimeDetect=async()=>[{id:"p1t-runtime",kind:"docker",endpoint:"unix:///p1t/engine.sock",source:"podman",engine:"Podman",version:"5.0",state:"ready"}];
+ transport.bundleInstall=async()=>({connectionId:"p1t-bundled"});
+ transport.bundleCancel=async()=>{};
+ transport.harnessStatus=async()=>({state:"ready"});
+ transport.harnessStart=async()=>{};transport.harnessStop=async()=>{};
+ transport.harnessLogsTail=async()=>"synthetic redacted log";
+}
 const shellRoot = document.createElement("div");
 document.body.append(shellRoot);
 const shell = createShell(shellRoot, transport);
 Object.assign(window, { testShell: {
   ...shell,
+  approvalActions:[] as string[],
+  showApprovals:(cards:import("../src/views/approvals.ts").ApprovalCard[],locale:"de"|"en"="en",enabled=false)=>{shellRoot.replaceChildren(approvalCards(cards,key=>translate(locale,key),async id=>{(window as any).testShell.approvalActions.push(`open:${id}`);},enabled,async(id,decision)=>{(window as any).testShell.approvalActions.push(`${decision}:${id}`);}));},
   showBackgroundHint,
   autostartCalls: () => autostartCalls,
   failAutostart: () => { autostartFail = true; },

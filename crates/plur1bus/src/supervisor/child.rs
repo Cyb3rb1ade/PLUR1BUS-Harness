@@ -74,7 +74,7 @@ pub fn core_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String
         role: "core".into(),
         program: locate_node(layout),
         args,
-        env: Vec::new(),
+        env: crate::commands::core::attest_env(),
         cwd: None,
     })
 }

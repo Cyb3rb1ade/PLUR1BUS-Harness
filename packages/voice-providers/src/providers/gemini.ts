@@ -1,6 +1,7 @@
 // Google Gemini Live: duplex audio over the Live API WebSocket (BidiGenerateContent). Native-audio models come from
 // discovery (models whose supportedGenerationMethods include bidiGenerateContent); config defaultModel wins over
 // discovery and the constant is only the last fallback. The API key goes in the server-side handshake only.
+import { randomBytes } from "node:crypto";
 import { GEMINI } from "../constants.ts";
 import type { AudioChunk, RealtimeConnectOptions, RealtimeEvent, RealtimeProvider, RealtimeSession, UsageReport } from "../types.ts";
 import { fromBase64, toBase64 } from "../util.ts";
@@ -13,6 +14,12 @@ export interface GeminiOptions extends CloudDeps {
   baseUrl?: string;
   defaultModel?: string;
   defaultVoice?: string;
+  /**
+   * Where the API key goes on the Live WebSocket handshake. `header` (default) sends x-goog-api-key, like every other
+   * provider here, so the key never sits in a URL (proxy and load-balancer logs). `query` is the documented fallback
+   * (`?key=`) for a deployment whose gateway drops the header; the URL is then never logged or put in an error.
+   */
+  keyTransport?: "header" | "query";
 }
 const ID = "gemini";
 
@@ -30,7 +37,7 @@ export function createGeminiLive(o: GeminiOptions): RealtimeProvider {
     for (let page = 0; page < 10; page++) {
       const q = new URLSearchParams({ pageSize: "100" });
       if (token) q.set("pageToken", token);
-      const j = await http.json<{ models?: Array<Record<string, any>>; nextPageToken?: string }>(`${base}${GEMINI.modelsPath}?${q}`, { headers: { "x-goog-api-key": key }, ...(options.signal ? { signal: options.signal } : {}) });
+      const j = await http.json<{ models?: Array<Record<string, any>>; nextPageToken?: string }>(`${base}${GEMINI.modelsPath}?${q}`, { headers: { [GEMINI.headerKey]: key }, ...(options.signal ? { signal: options.signal } : {}) });
       for (const m of j.models ?? []) {
         if (typeof m?.["name"] !== "string") continue;
         const methods: string[] = Array.isArray(m["supportedGenerationMethods"]) ? m["supportedGenerationMethods"] : [];
@@ -66,8 +73,9 @@ export function createGeminiLive(o: GeminiOptions): RealtimeProvider {
     async connect(options = {}): Promise<RealtimeSession> {
       const model = await pickModel(options);
       const key = await keys.get();
-      const url = `${wsBase}${GEMINI.liveWsPath}?key=${encodeURIComponent(key)}`;
-      const ws = await openSocket({ provider: ID, url, ...(o.wsFactory ? { factory: o.wsFactory } : {}), ...(options.signal ? { signal: options.signal } : {}), secrets: keys.secrets });
+      const inQuery = o.keyTransport === "query";
+      const url = `${wsBase}${GEMINI.liveWsPath}${inQuery ? `?key=${encodeURIComponent(key)}` : ""}`;
+      const ws = await openSocket({ provider: ID, url, ...(inQuery ? {} : { headers: { [GEMINI.headerKey]: key } }), ...(o.wsFactory ? { factory: o.wsFactory } : {}), ...(options.signal ? { signal: options.signal } : {}), secrets: keys.secrets });
       return startRealtimeSession({ provider: ID, ws, codec: geminiCodec(model, withVoice(options, o.defaultVoice), keys.secrets), report: (r) => o.usage?.(r), signal: options.signal });
     },
   };
@@ -75,6 +83,16 @@ export function createGeminiLive(o: GeminiOptions): RealtimeProvider {
 
 function geminiCodec(model: string, opt: RealtimeConnectOptions, secrets: readonly string[]): RealtimeCodec {
   const callNames = new Map<string, string>();
+  const sessionId = randomBytes(6).toString("hex");
+  // Usage: the service attaches usageMetadata to messages of a turn, probably cumulative within the turn (VERIFY at
+  // integration). Summing every message would double count, so only the last value of a turn is reported, once, under
+  // a stable eventId that VoiceBudgetPort.record can de-duplicate on. A usageMetadata that arrives after its turn's
+  // turnComplete is reported at once when that turn has not reported yet.
+  let turn = 0;
+  let pendingUsage: { inputTokens?: number; outputTokens?: number } | undefined;
+  /** Turn index that completed without usage and may still receive its usageMetadata. */
+  let lateTurn: number | undefined;
+  const usageEvent = (u: { inputTokens?: number; outputTokens?: number }, id: number): RealtimeEvent => ({ type: "usage", report: { provider: ID, operation: "realtime", model, eventId: `${ID}:${sessionId}:${id}`, ...u } });
   const inputMime = opt.inputSampleRate ? `audio/pcm;rate=${opt.inputSampleRate}` : GEMINI.inputMime;
   let userText = "";
   let modelText = "";
@@ -102,9 +120,25 @@ function geminiCodec(model: string, opt: RealtimeConnectOptions, secrets: readon
     toolResult: (callId, result) => [JSON.stringify({ toolResponse: { functionResponses: [{ id: callId, name: callNames.get(callId) ?? "", response: typeof result === "object" && result !== null ? result : { output: result } }] } })],
     decode(f): RealtimeEvent[] {
       const out: RealtimeEvent[] = [];
+      // usageMetadata first: when it rides on the turnComplete message, the turn reports it in that same pass.
+      const u = f["usageMetadata"] as Record<string, any> | undefined;
+      if (u !== undefined && u !== null) {
+        if (typeof u !== "object" || Array.isArray(u)) throw new TypeError("usageMetadata is not an object");
+        const tokens = {
+          ...(Number.isFinite(u["promptTokenCount"]) ? { inputTokens: Number(u["promptTokenCount"]) } : {}),
+          ...(Number.isFinite(u["responseTokenCount"]) ? { outputTokens: Number(u["responseTokenCount"]) } : {}),
+        };
+        if (lateTurn !== undefined) { out.push(usageEvent(tokens, lateTurn)); lateTurn = undefined; }
+        else pendingUsage = tokens;
+      }
       const sc = f["serverContent"] as Record<string, any> | undefined;
-      if (sc) {
-        const parts: Array<Record<string, any>> = sc["modelTurn"]?.parts ?? [];
+      if (sc !== undefined && sc !== null) {
+        if (typeof sc !== "object" || Array.isArray(sc)) throw new TypeError("serverContent is not an object");
+        const rawParts = sc["modelTurn"]?.parts;
+        // A hostile or changed shape throws here and ends the session as upstream_protocol (realtime-base).
+        if (rawParts !== undefined && !Array.isArray(rawParts)) throw new TypeError("modelTurn.parts is not a list");
+        const parts: Array<Record<string, any>> = rawParts ?? [];
+        if (parts.length > 0 || sc["inputTranscription"] !== undefined || sc["outputTranscription"] !== undefined) lateTurn = undefined; // a new turn has begun
         for (const p of parts) {
           const d = p?.inlineData;
           if (d && typeof d.data === "string" && !muted) {
@@ -121,18 +155,17 @@ function geminiCodec(model: string, opt: RealtimeConnectOptions, secrets: readon
           if (userText) { out.push({ type: "transcript", role: "user", text: userText, final: true }); userText = ""; }
           if (modelText) { out.push({ type: "transcript", role: "assistant", text: modelText, final: true }); modelText = ""; }
           out.push({ type: "turn.done" });
+          if (pendingUsage) { out.push(usageEvent(pendingUsage, turn)); pendingUsage = undefined; }
+          else lateTurn = turn;
+          turn++;
         }
       }
       const calls = (f["toolCall"] as Record<string, any> | undefined)?.["functionCalls"];
+      if (calls !== undefined && !Array.isArray(calls)) throw new TypeError("functionCalls is not a list");
       if (Array.isArray(calls)) for (const c of calls) {
         const id = String(c?.id ?? "");
         callNames.set(id, String(c?.name ?? ""));
         out.push({ type: "tool.call", callId: id, name: String(c?.name ?? ""), arguments: c?.args ?? {} });
-      }
-      const u = f["usageMetadata"] as Record<string, any> | undefined;
-      if (u) {
-        const report: UsageReport = { provider: ID, operation: "realtime", model, ...(Number.isFinite(u["promptTokenCount"]) ? { inputTokens: Number(u["promptTokenCount"]) } : {}), ...(Number.isFinite(u["responseTokenCount"]) ? { outputTokens: Number(u["responseTokenCount"]) } : {}) };
-        out.push({ type: "usage", report });
       }
       if (f["error"] !== undefined) out.push({ type: "error", error: frameError(ID, typeof f["error"] === "object" ? (f["error"] as Record<string, unknown>) : f, secrets) });
       return out;

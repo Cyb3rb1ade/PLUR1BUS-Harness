@@ -17,6 +17,9 @@ export function createCoreLog(o: WriterOptions): HarnessLogger {
         if (msg === "dreams run.finished" && f.outcome === "skipped" && typeof f.reason === "string") {
           writer.write("scheduler.run.skipped", { job: `dream.${String(f.phase ?? "rem")}`, reason: f.reason }, { source: { kind: "harness", id: "scheduler", version: o.source.version } }); return;
         }
+        if (["compaction.summary.created", "compaction.prune.hidden", "compaction.prune.restored"].includes(msg)) {
+          writer.write(msg, f); return;
+        }
         // Untouched callers keep the legacy wire format, but cannot bypass writer-side redaction.
         writer.writeLegacy(level, msg, f);
       } catch { /* A logger failure must not escape into Core timer callbacks or shutdown steps. */ }

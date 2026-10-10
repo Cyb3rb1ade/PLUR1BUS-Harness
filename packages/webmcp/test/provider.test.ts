@@ -40,7 +40,7 @@ describe("tool naming and selection", () => {
   });
 
   it("forbidden methods are never exposed, even when included", () => {
-    const forbidden = ["core.auth", "core.shutdown", "core.adopt", "events.subscribe", "events.unsubscribe", "memory.checkpoint", "agent.open", "agent.close", "supervisor.auth", "daemon.stop", "config.set", "config.get", "module.restart"];
+    const forbidden = ["core.auth", "core.shutdown", "core.adopt", "events.subscribe", "events.unsubscribe", "memory.checkpoint", "agent.open", "agent.close", "supervisor.auth", "daemon.stop", "config.set", "config.get", "module.restart", "grant.list", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.decide", "approval.cancel", "approval.verify", "grant.future.op", "approval.future.op", "user.list", "user.role.set", "user.invite.create", "breakglass.request", "breakglass.list", "device.list", "device.future.op", "agent.delete", "agent.archive", "agent.unarchive", "agent.export", "agent.rights.get", "agent.rights.set", "pairing.qr", "session.list"];
     const fakeCaps = { methods: { ...caps.methods } as Record<string, any> };
     const fakeSchema = structuredClone(SCHEMA) as any;
     for (const m of forbidden) {
@@ -98,6 +98,14 @@ describe("tool naming and selection", () => {
     assert.deepEqual(selectMethods({ capabilities: fakeCaps, schema: fakeSchema, include: mutations }).filter((m) => m.startsWith("ext.")), []);
     const tools = buildWebMcpTools({ capabilities: fakeCaps, schema: fakeSchema, call: fakeCall(), include: mutations });
     for (const m of mutations) assert.equal(byName(tools, m), undefined, m);
+  });
+
+  it("human-only admin groups are refused by name; agent pause and resume stay exposed", () => {
+    for (const m of ["agent.delete", "agent.archive", "agent.unarchive", "agent.export", "agent.rights.get", "agent.rights.set", "pairing.qr", "session.list", "user.invite.list", "breakglass.notices", "device.anything"]) {
+      assert.ok(isForbiddenMethod(m), m);
+    }
+    // Exact entries only: the prefix must not swallow the agent's own read and run methods.
+    for (const m of ["agent.pause", "agent.resume", "agent.list", "agent.status"]) assert.equal(isForbiddenMethod(m), false, m);
   });
 
   it("budget.set is refused (a limit is a person's decision); budget.status is not", () => {
@@ -310,5 +318,14 @@ describe("execute", () => {
     ac.abort();
     assert.equal((await t.execute({ agentId: "main", query: "q" }, { signal: ac.signal })).isError, true);
     assert.equal(call.calls.length, 0);
+  });
+});
+describe("project column management remains human controlled", () => {
+  it("blocks the entire prefix even on explicit inclusion", () => {
+    const methods = ["project.column.list", "project.column.create", "project.column.update", "project.column.move", "project.column.delete"];
+    for (const method of methods) assert.equal(isForbiddenMethod(method), true);
+    const tools = buildWebMcpTools({ capabilities: caps, schema: SCHEMA, include: methods, call: fakeCall() });
+    for (const method of methods) assert.equal(byName(tools, method), undefined);
+    assert.equal(isForbiddenMethod("project.card.get"), false);
   });
 });

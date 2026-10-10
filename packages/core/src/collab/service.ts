@@ -51,6 +51,8 @@ interface Chain {
 }
 
 export interface Collab {
+  readonly boardStore: import("./board.ts").ProjectBoardStore;
+  boardProject(id: string): Project | null;
   close(): void;
   /** Aborts every chain, waits up to `budgetMs` (default 5 s) for in-flight runs, then abandons the rest (`chain.abandoned`). */
   shutdown(budgetMs?: number): Promise<void>;
@@ -271,6 +273,8 @@ export function createCollab(o: CollabOptions): Collab {
       store.close();
     },
 
+    boardStore: store.board,
+    boardProject: id => store.getProject(id),
     createProject(principal, input) {
       const id = store.id("prj");
       authz(principal, "project.write", { kind: "project", projectId: id });

@@ -12,9 +12,15 @@ export interface Manifest {
   referenceHashes: string[]; maskHash?: string; metadata: Omit<ImageResult['metadata'], 'seed' | 'costUsd'> & { seed: number | null; costUsd: number | null; origin: string }; partial: boolean;
   files: { path: string; sha256: string; bytes: number; format: string; durationSeconds?: number; width?: number; height?: number; fps?: number; audio?: boolean; poster?: { path: string; sha256: string; bytes: number } }[];
 }
+/** Additive observer hooks: called after a manifest is published or an output is deleted; failures never reach the store. */
+export interface OutputStoreListener { onPut?(manifest: Manifest): void; onDelete?(id: string): void }
 const hash = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 export class OutputStore {
   readonly root: string; readonly options: { quotaBytes?: number; retentionMs?: number; embedMetadata?: boolean; maxVideoBytes?: number; videoProcessor?: VideoProcessor };
+  readonly #listeners = new Set<OutputStoreListener>();
+  /** Observe puts and deletes (e.g. media indexing); returns the unsubscribe function. */
+  addListener(listener: OutputStoreListener): () => void { this.#listeners.add(listener); return () => { this.#listeners.delete(listener); }; }
+  #notify(call: (l: OutputStoreListener) => void): void { for (const l of this.#listeners) { try { call(l); } catch { /* observers must not fail the store */ } } }
   constructor(root: string, options: OutputStore['options'] = {}) {
     this.root = root; this.options = options;
     if ([options.quotaBytes, options.retentionMs, options.maxVideoBytes].some(v => v !== undefined && (!Number.isFinite(v) || v < 0))) throw new MediaError('unsupported_parameter');
@@ -33,6 +39,7 @@ export class OutputStore {
   async delete(id: string): Promise<void> {
     safeId(id);
     await this.locked(async () => { await rm(join(this.root, id), { recursive: true, force: true }); });
+    this.#notify(l => l.onDelete?.(id));
   }
   async get(id: string): Promise<Manifest | null> {
     try { return JSON.parse(await readFile(join(this.root, safeId(id), 'manifest.json'), 'utf8')) as Manifest; }
@@ -46,7 +53,7 @@ export class OutputStore {
   async prune(now = Date.now()): Promise<number> {
     return this.locked(async () => {
       let removed = 0;
-      for (const m of await this.manifests()) if (now - m.createdAt >= (this.options.retentionMs ?? Infinity)) { await rm(join(this.root, safeId(m.id)), { recursive: true }); removed++; }
+      for (const m of await this.manifests()) if (now - m.createdAt >= (this.options.retentionMs ?? Infinity)) { await rm(join(this.root, safeId(m.id)), { recursive: true }); removed++; this.#notify(l => l.onDelete?.(m.id)); }
       return removed;
     });
   }
@@ -62,7 +69,7 @@ export class OutputStore {
       const bytes = embed ? embedImage(f.bytes, f.format as import('./types.ts').ImageFormat, { prompt: req.prompt, parameters, metadata: result.metadata }) : f.bytes;
       manifest.files.push({ path: `${index}.${f.format}`, sha256: hash(bytes), bytes: bytes.length, format: f.format }); return bytes;
     });
-    return this.locked(async () => {
+    const published = await this.locked(async () => {
       const current = await this.manifests();
       if (current.some(m => m.id === id)) throw new MediaError('unsupported_parameter');
       const json = JSON.stringify(manifest);
@@ -80,12 +87,14 @@ export class OutputStore {
         await rename(stage, join(this.root, id)); return manifest;
       } finally { await rm(stage, { recursive: true, force: true }); }
     });
+    this.#notify(l => l.onPut?.(published));
+    return published;
   }
   private async putVideo(id: string, req: ImageRequest, result: ImageResult, agentMetadata?: boolean): Promise<Manifest> {
     if (result.files.length !== 1) throw new MediaError('invalid_response');
     const { referenceImages, referenceVideo, mask: _mask, ...parameters } = req;
     const embed = metadataEnabled({ global: this.options.embedMetadata ?? false, agent: agentMetadata ?? this.options.embedMetadata ?? false, call: req.embedMetadata ?? agentMetadata ?? this.options.embedMetadata ?? false });
-    return this.locked(async () => {
+    const published = await this.locked(async () => {
       const current = await this.manifests();
       if (current.some(m => m.id === id)) throw new MediaError('unsupported_parameter');
       let used = 0;
@@ -126,6 +135,8 @@ export class OutputStore {
         result.processingSignal?.throwIfAborted(); await rename(stage,join(this.root,id)); return manifest;
       } finally { await rm(stage,{recursive:true,force:true}); }
     });
+    this.#notify(l => l.onPut?.(published));
+    return published;
   }
 
 }

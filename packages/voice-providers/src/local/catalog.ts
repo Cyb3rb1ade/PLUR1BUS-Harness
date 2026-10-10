@@ -96,11 +96,22 @@ export function parseCatalog(raw: unknown): Catalog {
   return { version: 1, vad: vad as string, models, languages };
 }
 
-/** Overlay: entries in `override` replace or add models and languages by key. Parsed again as a whole. */
+/**
+ * Overlay: entries in `override` replace or add models and languages by key. Parsed again as a whole.
+ * The licence of a built-in model id is not overridable: an override entry with a built-in id keeps everything it
+ * brings except `licence`, which stays the built-in record. New ids carry their own licence and are gated like any other.
+ */
 export function mergeCatalog(base: Catalog, override: unknown): Catalog {
   if (override === undefined || override === null) return base;
   if (!isObj(override)) return fail("catalogOverride is not an object");
-  return parseCatalog({ version: 1, vad: override["vad"] ?? base.vad, models: { ...base.models, ...(isObj(override["models"]) ? override["models"] : {}) }, languages: { ...base.languages, ...(isObj(override["languages"]) ? override["languages"] : {}) } });
+  const overrideModels: Record<string, unknown> = {};
+  if (isObj(override["models"])) {
+    for (const [id, m] of Object.entries(override["models"] as Record<string, unknown>)) {
+      const builtin = base.models[id];
+      overrideModels[id] = builtin && isObj(m) ? { ...m, licence: builtin.licence } : m;
+    }
+  }
+  return parseCatalog({ version: 1, vad: override["vad"] ?? base.vad, models: { ...base.models, ...overrideModels }, languages: { ...base.languages, ...(isObj(override["languages"]) ? override["languages"] : {}) } });
 }
 
 let builtin: Catalog | undefined;
@@ -149,8 +160,15 @@ export function licenceNotice(m: CatalogModel): string {
   return `${m.displayName}: ${l.name} (${terms}${l.status === "unconfirmed" ? "; licence status UNCONFIRMED" : ""})${l.url ? ` ${l.url}` : ""}${l.notice ? ` ${l.notice}` : ""}`;
 }
 
-/** The same gate as embeddings: refuse unless the owner confirmed non-commercial / unconfirmed terms. */
-export function assertLicenceAccepted(m: CatalogModel, accepted: boolean): void {
-  if (!needsLicenceConfirmation(m) || accepted) return;
-  throw new VoiceProviderError("licence_required", `licence confirmation required before using ${licenceNotice(m)}`);
+/** Identity of one confirmation: the model and the licence it was shown under. A new model or a changed licence id is a new key. */
+export function licenceKey(m: CatalogModel): string {
+  return `${m.id}@${m.licence.id}`;
+}
+
+/** The same gate as embeddings, but per model and licence: refuse unless this exact key was confirmed. */
+export function assertLicenceAccepted(m: CatalogModel, accepted: ReadonlySet<string> | readonly string[]): void {
+  if (!needsLicenceConfirmation(m)) return;
+  const key = licenceKey(m);
+  if (accepted instanceof Set ? accepted.has(key) : (accepted as readonly string[]).includes(key)) return;
+  throw new VoiceProviderError("licence_required", `licence confirmation required for "${key}" before using ${licenceNotice(m)}`);
 }

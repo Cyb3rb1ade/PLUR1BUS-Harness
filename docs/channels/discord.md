@@ -10,8 +10,8 @@ pairing, limits and troubleshooting. The package README covers the code layout.
    absent, which is the normal case for bots). Keep it if you have one.
 3. Open **Bot**. The bot user already exists. Check **Public Bot** only if you want strangers to be able to invite it; for a
    private switchboard leave it off.
-4. Click **Reset Token** and copy the token once. Store it in the host secret store under a name of your choice, for example
-   `discord-bot-token`. Never paste it into the config, a command line, a commit or a chat.
+4. Click **Reset Token** and copy the token once. Store it in the host secret store as `channels.discord.token` (`plur1bus secret set channels.discord.token`; the
+   switchboard only reads secrets named `channels.discord.*`). Never paste it into the config, a command line, a commit or a chat.
 
 ## 2. Privileged intents
 
@@ -52,7 +52,7 @@ The config holds secret **names** only.
 ```json
 {
   "enabled": true,
-  "tokenSecret": "discord-bot-token",
+  "tokenSecret": "channels.discord.token",
   "allowlist": ["123456789012345678"],
   "dmAllowlist": ["234567890123456789"],
   "replyPolicy": "mention",

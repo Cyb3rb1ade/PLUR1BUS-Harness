@@ -100,10 +100,11 @@ function grokCodec(model: string, opt: RealtimeConnectOptions, secrets: readonly
         return [{ type: "tool.call", callId: String(f["call_id"] ?? ""), name: String(f["name"] ?? ""), arguments: args }];
       }
       if (t === "response.done") {
-        const u = (f["response"] as Record<string, any> | undefined)?.["usage"];
+        const resp = f["response"] as Record<string, any> | undefined;
+        const u = resp?.["usage"];
         const out: RealtimeEvent[] = [];
         if (u && typeof u === "object") {
-          const report: UsageReport = { provider: ID, operation: "realtime", model, ...(Number.isFinite(u.input_tokens) ? { inputTokens: Number(u.input_tokens) } : {}), ...(Number.isFinite(u.output_tokens) ? { outputTokens: Number(u.output_tokens) } : {}) };
+          const report: UsageReport = { provider: ID, operation: "realtime", model, ...(typeof resp?.["id"] === "string" && resp["id"] !== "" ? { eventId: `${ID}:${resp["id"]}` } : {}), ...(Number.isFinite(u.input_tokens) ? { inputTokens: Number(u.input_tokens) } : {}), ...(Number.isFinite(u.output_tokens) ? { outputTokens: Number(u.output_tokens) } : {}) };
           out.push({ type: "usage", report });
         }
         out.push({ type: "turn.done" });

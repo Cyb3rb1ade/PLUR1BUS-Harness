@@ -63,6 +63,13 @@ pub enum Cmd {
     /// (asking only the basic-tier questions), copies the bundled skills, registers the OS service, starts the
     /// supervisor and runs `1staid check`. Safe to run again: a step whose result is already installed is skipped.
     Setup(SetupArgs),
+    /// [experimental] Install the harness on a host using a container runtime
+    Install(ContainerInstallArgs),
+    /// Manage the host container stack
+    Container {
+        #[command(subcommand)]
+        sub: ContainerCmd,
+    },
     /// Check and repair the installation
     #[command(name = "1staid")]
     FirstAid {
@@ -73,6 +80,16 @@ pub enum Cmd {
     Agent {
         #[command(subcommand)]
         sub: AgentCmd,
+    },
+    /// Read-only break-glass windows and affected-person notices
+    Breakglass {
+        #[command(subcommand)]
+        sub: BreakglassCmd,
+    },
+    /// Pairing payload tools (does not create a device store)
+    Pairing {
+        #[command(subcommand)]
+        sub: PairingCmd,
     },
     /// Memory: add and recall through the core
     Memory {
@@ -164,6 +181,11 @@ pub enum Cmd {
     Secret {
         #[command(subcommand)]
         sub: SecretCmd,
+    },
+    /// [experimental] Paired devices: list, revoke and rename (F44)
+    Device {
+        #[command(subcommand)]
+        sub: DeviceCmd,
     },
     /// [experimental] Standing permissions: list, add and revoke grants (D109)
     ///
@@ -349,6 +371,11 @@ pub enum OnConflict {
 /// `plur1bus setup` (spec §6.5, HB11).
 #[derive(Args, Debug)]
 pub struct SetupArgs {
+    /// Install in container mode on this host
+    #[arg(long)]
+    pub container: bool,
+    #[command(flatten)]
+    pub container_options: ContainerOptions,
     /// Never prompt: answers come from the flags and the defaults (agent `main`, use class `general`)
     #[arg(long)]
     pub non_interactive: bool,
@@ -373,6 +400,27 @@ pub struct SetupArgs {
     /// Install profile: host (supervisor and core only, for Hermes host mode) or full (default for a new home; an existing home keeps its profile)
     #[arg(long, value_name = "PROFILE", value_parser = ["host", "full"])]
     pub profile: Option<String>,
+    /// Do not set up media search (image, video, audio); it can be enabled later with `plur1bus config set memory.mediaEmbedding.enabled true`
+    #[arg(long)]
+    pub skip_media_search: bool,
+    /// Provider of the text memory, recorded only (default: local-transformers = EmbeddingGemma 2); the text index changes through `memory reembed`
+    #[arg(long, value_name = "ID")]
+    pub text_provider: Option<String>,
+    /// Provider of the media index: local-transformers (EmbeddingGemma 2, Apache-2.0, default), a cloud provider id, or off
+    #[arg(long, value_name = "ID")]
+    pub media_provider: Option<String>,
+    /// Model of the media index (required for a cloud provider; default google/embeddinggemma-2)
+    #[arg(long, value_name = "MODEL")]
+    pub media_model: Option<String>,
+    /// Vector dimensions of the media index (default 768; EmbeddingGemma 2: 768, 512, 256 or 128)
+    #[arg(long, value_name = "N", value_parser = clap::value_parser!(u32).range(1..))]
+    pub media_dimensions: Option<u32>,
+    /// Media kinds to index, comma separated (default: image,video,audio)
+    #[arg(long, value_name = "KINDS", value_delimiter = ',', value_parser = ["image", "video", "audio"])]
+    pub media_modalities: Option<Vec<String>>,
+    /// Automatic captions: local, cloud (the media provider), off, or a provider id (a cloud media provider has no default)
+    #[arg(long, value_name = "WHERE")]
+    pub caption_provider: Option<String>,
 }
 
 /// `plur1bus update` (spec §6.5, D78, HB10): apply a signed release (snapshot, swap, health gate, automatic
@@ -456,13 +504,6 @@ pub struct BundleArgs {
     pub lines: usize,
 }
 
-#[derive(Args, Debug)]
-#[allow(dead_code)] // every milestone stub has become a real command; kept for the next one
-pub struct StubArgs {
-    #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
-    pub rest: Vec<String>,
-}
-
 #[derive(Subcommand, Debug)]
 pub enum FirstAidCmd {
     /// [experimental] Read-only diagnostics over the installation (spec §6.6)
@@ -483,6 +524,33 @@ pub enum AgentCmd {
     Remove { id: String },
     /// [experimental] Show an agent's activity and workspace
     Status { id: String },
+    /// [experimental] Pause new turns and background work while retaining state
+    Pause { id: String },
+    /// [experimental] Resume a paused agent (unarchive first)
+    Resume { id: String },
+    /// [experimental] Archive an agent, retaining its data
+    Archive { id: String },
+    /// [experimental] Unarchive an agent, preserving its pause state
+    Unarchive { id: String },
+    /// [experimental] Export a signed, secret-redacted JSON bundle or obtain a deletion offer
+    Export {
+        id: String,
+        #[arg(long)]
+        offer_only: bool,
+    },
+    /// [experimental] Erase an archived agent via the engine API (unavailable with the current engine)
+    Delete {
+        id: String,
+        #[arg(long)]
+        confirm_name: String,
+        #[arg(long)]
+        export_offer: String,
+    },
+    /// Per-person agent use/manage rights
+    Rights {
+        #[command(subcommand)]
+        sub: RightsCmd,
+    },
 }
 #[derive(Subcommand, Debug)]
 pub enum MemoryCmd {
@@ -941,6 +1009,12 @@ pub enum AcpCmd {
 pub enum SessionCmd {
     /// [experimental] List your chat sessions (pinned first, then by last turn)
     List {
+        /// Owner principal filter (operator metadata view)
+        #[arg(long)]
+        owner: Option<String>,
+        /// Include all owners' metadata; transcripts remain protected
+        #[arg(long)]
+        all_owners: bool,
         #[arg(long)]
         agent: Option<String>,
         /// direct, card, project, channel or acp
@@ -961,6 +1035,9 @@ pub enum SessionCmd {
         /// How many of the last messages to show
         #[arg(long, default_value_t = 20)]
         messages: u32,
+        /// Also show the tool outputs hidden from the context view, with their originals
+        #[arg(long)]
+        include_hidden: bool,
     },
     /// [experimental] Archive a session (nothing is deleted)
     Archive { id: String },
@@ -1257,6 +1334,10 @@ pub enum ApprovalCmd {
     ///
     /// The request (command line or diff summary, targets, risk) is printed first. In a terminal you confirm with
     /// `y`; outside a terminal `--yes` is required, so nothing is approved silently.
+    ///
+    /// A request above low risk needs one more thing on a plain local connection: a fresh confirmation by the operating
+    /// system itself (Touch ID, Windows Hello or the consent prompt, polkit). The core asks for it and the dialog appears
+    /// on this machine; it covers this one approval and expires after 60 s. Without it the request stays pending.
     Approve {
         /// the request id (apr_...)
         id: String,
@@ -1665,6 +1746,7 @@ mod tests {
                         search,
                         limit,
                         agent,
+                        ..
                     },
             } => {
                 assert_eq!(
@@ -1683,8 +1765,22 @@ mod tests {
         }
         match parse(&["session", "show", "ses_1"]).cmd {
             Cmd::Session {
-                sub: SessionCmd::Show { id, messages },
-            } => assert_eq!((id.as_str(), messages), ("ses_1", 20)),
+                sub:
+                    SessionCmd::Show {
+                        id,
+                        messages,
+                        include_hidden,
+                    },
+            } => assert_eq!(
+                (id.as_str(), messages, include_hidden),
+                ("ses_1", 20, false)
+            ),
+            other => panic!("{other:?}"),
+        }
+        match parse(&["session", "show", "ses_1", "--include-hidden"]).cmd {
+            Cmd::Session {
+                sub: SessionCmd::Show { include_hidden, .. },
+            } => assert!(include_hidden),
             other => panic!("{other:?}"),
         }
         match parse(&["chat", "--agent", "bernd", "--no-memory", "hello"]).cmd {
@@ -1816,6 +1912,19 @@ mod tests {
 
 #[derive(Subcommand, Debug)]
 pub enum UserCmd {
+    /// [experimental] List people and role presets
+    List,
+    /// [experimental] Assign a role preset (last Owner protected)
+    Role {
+        user: String,
+        #[arg(value_parser=["owner","admin","operator","member","viewer"])]
+        role: String,
+    },
+    /// One-time invitations through the existing identity pairing path
+    Invite {
+        #[command(subcommand)]
+        sub: InviteCmd,
+    },
     /// [experimental] List humans with their linked identities and the pairings still waiting
     Ls {
         /// Include revoked links
@@ -1877,4 +1986,121 @@ pub enum PairCmd {
         #[arg(long)]
         reject: bool,
     },
+}
+
+#[derive(Args, Debug)]
+pub struct ContainerInstallArgs {
+    /// Signed release channel for the container image
+    #[arg(long, value_parser = ["stable", "beta"], default_value = "stable")]
+    pub channel: String,
+    /// Select container distribution
+    #[arg(long, required = true)]
+    pub container: bool,
+    #[command(flatten)]
+    pub options: ContainerOptions,
+    /// Apply without prompting (runtime download still requires separate consent)
+    #[arg(long)]
+    pub non_interactive: bool,
+}
+#[derive(Args, Debug, Default)]
+pub struct ContainerOptions {
+    /// Signed release manifest path or HTTPS URL (default: the channel feed); used when no image is supplied
+    #[arg(long = "container-manifest")]
+    pub manifest: Option<String>,
+    /// Container runtime; automatic selection prefers Apple on macOS ARM
+    #[arg(long, value_parser = ["auto", "apple", "docker"])]
+    pub runtime: Option<String>,
+    /// Image reference (production: registry/repository@sha256:digest)
+    #[arg(long)]
+    pub image: Option<String>,
+    /// Load an offline OCI/Docker image archive
+    #[arg(long)]
+    pub image_from: Option<PathBuf>,
+    /// Sidecar selection, repeatable: ID=bundled, ID=off, or ID=http(s)://HOST:PORT
+    #[arg(long = "sidecar")]
+    pub sidecars: Vec<String>,
+    /// Display detection and installation plan without changes
+    #[arg(long = "container-plan")]
+    pub plan: bool,
+    /// Consent to downloading the official runtime installer after viewing its licence
+    #[arg(long)]
+    pub accept_runtime_download: bool,
+}
+#[derive(Subcommand, Debug)]
+pub enum ContainerCmd {
+    /// [experimental] Diagnose runtime and show container stack status
+    Status,
+    /// [experimental] Start the configured stack and check its health
+    Up,
+    /// [experimental] Stop and remove owned containers, retain state volumes
+    Down,
+    /// [experimental] Stream one service's logs (JSON lines with --json)
+    Logs {
+        #[arg(default_value = "plur1bus-harness")]
+        service: String,
+    },
+}
+#[derive(Subcommand, Debug)]
+pub enum RightsCmd {
+    /// [experimental] List explicit agent rights
+    Get { id: String },
+    /// [experimental] Set use/manage, or none to revoke the explicit right
+    Set {
+        id: String,
+        user: String,
+        #[arg(value_parser=["use","manage","none"])]
+        right: String,
+    },
+}
+#[derive(Subcommand, Debug)]
+pub enum InviteCmd {
+    /// [experimental] Create a fixed-role pairing invitation; code is returned once
+    Create {
+        name: String,
+        #[arg(long,value_parser=["admin","operator","member","viewer"])]
+        role: String,
+        #[arg(long)]
+        channel: String,
+        #[arg(long,default_value_t=60,value_parser=clap::value_parser!(u32).range(1..=60))]
+        minutes: u32,
+    },
+    /// [experimental] List invitation metadata without codes
+    List,
+    /// [experimental] Revoke an unconfirmed invitation
+    Revoke { id: String },
+}
+#[derive(Subcommand, Debug)]
+pub enum BreakglassCmd {
+    /// [experimental] Request a read-only access window for another person
+    Request {
+        user: String,
+        #[arg(long)]
+        reason: String,
+        #[arg(long,default_value_t=15,value_parser=clap::value_parser!(u32).range(1..=60))]
+        minutes: u32,
+    },
+    /// [experimental] List your live read-only grants
+    List,
+    /// [experimental] Revoke a grant
+    Revoke { id: String },
+    /// [experimental] Read notices affecting your own account
+    Notices,
+}
+#[derive(Subcommand, Debug)]
+pub enum PairingCmd {
+    /// [experimental] Get QR byte payload for an existing pairing deep link; never mints a code
+    Qr {
+        #[arg(long)]
+        link: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DeviceCmd {
+    /// [experimental] List your devices (Owner/Admin: all), including revoked devices
+    List,
+    /// [experimental] Revoke a device and close its connections immediately
+    Revoke { id: String },
+    /// [experimental] Rename a device you own
+    Rename { id: String, name: String },
 }

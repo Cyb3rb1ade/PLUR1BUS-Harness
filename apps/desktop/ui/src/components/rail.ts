@@ -5,7 +5,7 @@ import type { Section } from "../router.ts";
 import type { SettingsPage } from "../router.ts";
 import { icon } from "./icon.ts";
 
-export function rail(labels: { main: string; home: string; settings: string; connections: string; open: string; close: string; runtime: string; updates: string; version: string; advanced: string }, active: Section, activePage: SettingsPage, navigate: (section: Section) => void, navigateSettings: (page: SettingsPage) => void): HTMLElement {
+export function rail(labels: { main: string; home: string; settings: string; connections: string; open: string; close: string; runtime: string; updates: string; version: string; advanced: string; "computer-access": string }, active: Section, activePage: SettingsPage, navigate: (section: Section) => void, navigateSettings: (page: SettingsPage) => void): HTMLElement {
   const aside = element("aside", "sidebar");
   const nav = element("nav", "sidebar-nav");
   nav.setAttribute("aria-label", labels.main);
@@ -33,7 +33,7 @@ export function rail(labels: { main: string; home: string; settings: string; con
     links.append(item);
     if (section === "settings" && active === "settings") {
       const children = element("div", "rail-subsections");
-      for (const page of ["runtime", "updates", "version", "advanced"] as const) {
+      for (const page of ["runtime", "updates", "version", "advanced", "computer-access"] as const) {
         const child = button(labels[page], () => navigateSettings(page), "quiet");
         child.dataset.focusKey = `settings-${page}`;
         if (activePage === page) child.setAttribute("aria-current", "page");

@@ -201,3 +201,43 @@ test("the webhook-free transport never asks for scopes we do not list", async ()
   await up();
   for (const c of fake.calls) assert.ok(!/users\.|conversations\.open|im\.write/.test(c.method), c.method);
 });
+
+test("resolveOwnerTarget: opens the IM for an allowed user, caches it and lets the bot send into it", async () => {
+  await up();
+  const dm = await w.ch.resolveOwnerTarget({ userId: "UHUMAN01", accountId: "UBOT0001" });
+  assert.equal(dm, "DHUMAN01");
+  assert.notEqual(dm, "UHUMAN01");
+  assert.deepEqual(fake.callsOf("conversations.open").map((c) => c.body), [{ users: "UHUMAN01" }]);
+  assert.equal(await w.ch.resolveOwnerTarget({ userId: "UHUMAN01" }), dm);
+  assert.equal(fake.callsOf("conversations.open").length, 1, "cached");
+  await w.ch.send({ chatId: dm, text: "owner test" });
+  assert.equal(posts()[0]!.body.channel, dm);
+});
+
+test("resolveOwnerTarget: a DM channel is not sendable before it is resolved, and a user off the dm allowlist is rejected", async () => {
+  await up();
+  await assert.rejects(w.ch.send({ chatId: "DHUMAN01", text: "x" }), /allowlist/);
+  await assert.rejects(w.ch.resolveOwnerTarget({ userId: "USTRANGER" }), /dm allowlist/);
+  assert.equal(fake.callsOf("conversations.open").length, 0, "no API call for a refused user");
+  await assert.rejects(w.ch.send({ chatId: "DSTRANGER", text: "x" }), /allowlist/);
+});
+
+test("resolveOwnerTarget: invalid ids, a stopped channel and API errors", async () => {
+  await up();
+  for (const bad of ["", "uhuman01", "C0FAKE01", "U1", "UHUMAN01 ", 7 as never]) await assert.rejects(w.ch.resolveOwnerTarget({ userId: bad }), /invalid slack user id/);
+  fake.failNext("conversations.open", 200, { ok: false, error: "cannot_dm_bot" });
+  await assert.rejects(w.ch.resolveOwnerTarget({ userId: "UHUMAN01" }), /conversations\.open forbidden: cannot_dm_bot/);
+  fake.failNext("conversations.open", 200, { ok: true, channel: { id: "C0FAKE01" } });
+  await assert.rejects(w.ch.resolveOwnerTarget({ userId: "UHUMAN01" }), /no direct message channel/);
+  await w.ch.stop();
+  await assert.rejects(w.ch.resolveOwnerTarget({ userId: "UHUMAN01" }), /not started/);
+});
+
+test("resolveOwnerTarget: error text is redacted", async () => {
+  await up();
+  for (let i = 0; i < 4; i++) fake.failNext("conversations.open", 500, `boom ${["xoxb", "000000000000", "FAKEBOTTOKENFORTESTSONLY"].join("-")}`);
+  const err = await w.ch.resolveOwnerTarget({ userId: "UHUMAN01" }).catch((e: Error) => e);
+  assert.ok(err instanceof Error);
+  assert.match(err.message, /conversations\.open failed with HTTP 500/);
+  assert.doesNotMatch(err.message, /xoxb-|FAKEBOT/);
+});

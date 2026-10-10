@@ -211,6 +211,11 @@ export class FakeSlack {
       }
       case "chat.update":
         return this.#json(res, { ok: true, channel: body.channel, ts: body.ts, text: body.text });
+      case "conversations.open": {
+        const user = String(body.users ?? "");
+        if (user.startsWith("UGONE")) return this.#json(res, { ok: false, error: "user_not_found" });
+        return this.#json(res, { ok: true, channel: { id: `D${user.slice(1)}` } });
+      }
       case "chat.postEphemeral":
         return this.#json(res, { ok: true, message_ts: this.nextTs() });
       case "files.getUploadURLExternal": {

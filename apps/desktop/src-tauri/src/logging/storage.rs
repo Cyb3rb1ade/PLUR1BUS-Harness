@@ -162,7 +162,11 @@ impl OwnedDirectory {
             options.read(true).write(new).append(append).create_new(new);
             options
                 .custom_flags(windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT)
-                .share_mode(windows_sys::Win32::Storage::FileSystem::FILE_SHARE_READ);
+                .share_mode(
+                    windows_sys::Win32::Storage::FileSystem::FILE_SHARE_READ
+                        | windows_sys::Win32::Storage::FileSystem::FILE_SHARE_WRITE
+                        | windows_sys::Win32::Storage::FileSystem::FILE_SHARE_DELETE,
+                );
             if new {
                 options.access_mode(
                     windows_sys::Win32::Foundation::GENERIC_READ

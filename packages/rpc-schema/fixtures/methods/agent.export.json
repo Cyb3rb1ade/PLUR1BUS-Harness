@@ -1,0 +1,10 @@
+{
+  "params": {
+    "agentId": "alpha"
+  },
+  "result": {
+    "agentId": "alpha",
+    "offerId": "offer-fixture",
+    "expiresAt": 2000
+  }
+}

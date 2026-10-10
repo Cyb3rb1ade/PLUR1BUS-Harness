@@ -1,0 +1,24 @@
+import { it } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { createWriter } from '../../src/logs/writer.ts';
+import { createD111Events } from '../../src/discovery/events-logger.ts';
+import { validateLine } from '@plur1bus/log-schema';
+import { tempDir } from '../helpers/temp-dir.ts';
+it('D111 discovery catalogue levels, trace correlation and redaction apply to every event', () => {
+  const dir = tempDir('p1b-discovery-logs-'), traceId = '12345678-1234-1234-1234-123456789abc';
+  const writer = createWriter({ dir, role: 'core', source: { kind: 'provider', id: 'fixture', version: '1' }, strict: true, timers: false, levels: { defaultLevel: 'debug' } });
+  const secret = 'synthetic-registered-secret'; writer.registerSecret(secret);
+  const events = createD111Events(writer);
+  events.discovered({ provider: 'openai:fixture', count: 1, models: [secret], reappeared: [], truncated: false, traceId });
+  events.unavailable({ provider: 'fixture', count: 1, models: ['model'], roles: ['chat'], truncated: false, traceId });
+  events.scanFailed({ provider: 'fixture', result: 'failed:auth', nextScanAt: '2026-10-11T00:00:00.000Z', consecutiveFailures: 0, err: { code: 'auth', reason: 'no_credential', retryable: false, hint: 'renew sign-in' }, traceId });
+  events.scanCompleted({ provider: 'fixture', result: 'ok', durationMs: 1, counts: { new: 1, reappeared: 0, unavailable: 0, unchanged: 0, duplicates: 0 }, traceId });
+  writer.close();
+  const text = readFileSync(join(dir, 'core.log'), 'utf8'); assert(!text.includes(secret));
+  const records = text.trim().split('\n').map(line => { assert.equal(validateLine(line).ok, true, line); return JSON.parse(line); });
+  assert.deepEqual(records.map(r => r.level), ['info','warn','error','debug']);
+  assert(records.every(r => r.source.kind === 'provider' && r.trace_id === traceId.replaceAll('-', '')));
+  assert.equal(records[0].source.id, 'openai/fixture');
+});

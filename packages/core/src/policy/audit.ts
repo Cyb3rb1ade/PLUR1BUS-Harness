@@ -16,7 +16,8 @@ export type PolicyAuditAction =
   | "policy.decision" | "policy.outcome"
   | "approval.requested" | "approval.decided" | "approval.parked" | "approval.expired" | "approval.cancelled" | "approval.consumed" | "approval.refused"
   | "grant.created" | "grant.used" | "grant.consumed" | "grant.revoked" | "grant.ended"
-  | "approvals.integrity-failure" | "approvals.held-rejected";
+  | "approvals.integrity-failure" | "approvals.held-rejected"
+  | "attestation.requested" | "attestation.result";
 
 /** The closed reasons for a hand-off reference the receiver refused (D104). */
 export type HeldRejection = "unknown" | "revoked" | "not-delegable" | "task-mismatch" | "foreign-person";
@@ -65,6 +66,12 @@ export interface PolicyAuditFields {
   failure?: string;
   expiresAt?: number;
   rejected?: readonly { id: string; reason: HeldRejection }[];
+  /** Attestation method the OS confirmed with (`touch-id`, `windows-hello`, `polkit` ...). */
+  method?: string;
+  /** `confirmed` | `cancelled` | `timeout` | `unavailable` | `failed` | `replay` | `mismatch`. */
+  attestationOutcome?: string;
+  /** `attested:<method>` on a decision or grant that an OS confirmation lifted to T2. */
+  attestedVia?: string;
 }
 
 export interface PolicyAudit {
@@ -90,6 +97,7 @@ const AUTH_SCHEME = /\b(?:bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}/gi;
 const STRING_KEYS = [
   "person", "agentId", "subjectKind", "sessionId", "taskId", "jobId", "tool", "capability", "effect", "risk", "outcome", "via", "rule", "reason",
   "grantId", "grantScope", "matchKind", "requestId", "actionHash", "decision", "scope", "by", "resultCode", "payloadHash", "failure",
+  "method", "attestationOutcome", "attestedVia",
 ] as const;
 const NUMBER_KEYS = ["surface", "decisionSurface", "argsBytes", "durationMs", "resultBytes", "payloadBytes", "brokenAt", "expiresAt"] as const;
 const FLAG_KEYS = ["outsideRoots", "denyListHit", "privileged", "irreversible", "batch", "shellAllowlisted", "sandboxed", "secretSlotDeclared", "publishPublic", "systemTree"] as const;
@@ -101,7 +109,7 @@ export function hashAndSize(text: string): { hash: string; bytes: number } {
 
 function targetOf(action: PolicyAuditAction, f: PolicyAuditFields): string {
   if (action.startsWith("grant.")) return `grant:${f.grantId ?? "-"}`;
-  if (action.startsWith("approval.")) return `approval:${f.requestId ?? "-"}`;
+  if (action.startsWith("approval.") || action.startsWith("attestation.")) return `approval:${f.requestId ?? "-"}`;
   if (action.startsWith("approvals.")) return "approvals";
   return `tool:${f.tool ?? f.capability ?? "-"}`;
 }

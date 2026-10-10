@@ -1,0 +1,125 @@
+name: container distribution
+on:
+  pull_request:
+    paths: [containers/**, crates/**, packages/**, Cargo.lock, .github/workflows/containers.yml]
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths: [containers/**, crates/**, packages/**, Cargo.lock, .github/workflows/containers.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: containers-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+env:
+  IMAGE: ghcr.io/cyb3rb1ade/plur1bus-harness-distribution
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Reproducible build metadata
+        run: |
+          echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
+          echo "CREATED=$(git log -1 --format=%cI)" >> "$GITHUB_ENV"
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: containers/harness/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: false
+          outputs: type=oci,dest=/tmp/harness.tar,rewrite-timestamp=true
+          sbom: true
+          provenance: mode=max
+          build-args: |
+            SOURCE_DATE_EPOCH=${{ env.SOURCE_DATE_EPOCH }}
+            VCS_REF=${{ github.sha }}
+            CREATED=${{ env.CREATED }}
+          secrets: |
+            engine_token=${{ secrets.GH_ENGINE_READ_TOKEN }}
+      - name: Scan report (informational until release)
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          version: v0.69.3
+          input: /tmp/harness.tar
+          format: json
+          output: trivy.json
+          exit-code: '0'
+          severity: HIGH,CRITICAL
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: container-scan
+          path: trivy.json
+          if-no-files-found: warn
+  push:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Verify package visibility before publishing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          status=$(gh api --include /users/Cyb3rb1ade/packages/container/plur1bus-harness-distribution 2>package-error.txt) || {
+            if grep -q 'HTTP 404' package-error.txt; then exit 0; fi
+            cat package-error.txt >&2
+            exit 1
+          }
+          visibility=$(printf '%s\n' "$status" | sed '1,/^\r\{0,1\}$/d' | jq -r .visibility)
+          if [ "${{ github.ref_type }}" = tag ]; then
+            case "$visibility" in private|public) ;; *) exit 1 ;; esac
+          else
+            test "$visibility" = private
+          fi
+      - uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Reproducible build metadata
+        run: |
+          echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
+          echo "CREATED=$(git log -1 --format=%cI)" >> "$GITHUB_ENV"
+      # New GHCR packages default to private. Visibility is changed manually at release.
+      - id: publish
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: containers/harness/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:sha-${{ github.sha }}
+            ${{ env.IMAGE }}:${{ github.ref_name }}
+          outputs: type=image,rewrite-timestamp=true
+          sbom: true
+          provenance: mode=max
+          build-args: |
+            SOURCE_DATE_EPOCH=${{ env.SOURCE_DATE_EPOCH }}
+            VCS_REF=${{ github.sha }}
+            CREATED=${{ env.CREATED }}
+          secrets: |
+            engine_token=${{ secrets.GH_ENGINE_READ_TOKEN }}
+      - name: Container offer for the signed channel feed
+        env:
+          DIGEST: ${{ steps.publish.outputs.digest }}
+        run: |
+          jq -n --arg image "$IMAGE@$DIGEST" '{containers: {image: $image, storeSchema: 1}}' > container-release.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: container-release-fragment
+          path: container-release.json
+          if-no-files-found: error

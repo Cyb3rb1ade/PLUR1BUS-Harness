@@ -1,5 +1,6 @@
 // The origin-pinned HTTP client for model scans (spec §2.4, R10, R11; plan Task 3, P8).
 // node:http / node:https, not fetch: control over the connect timeout, redirects and the decompression cap.
+// Core composition supplies its egress gate: each hop is allowlisted and pinned to its vetted IP.
 // A credential goes in a header only, never into a URL, an Error message or a log field.
 import http from "node:http";
 import https from "node:https";
@@ -36,6 +37,9 @@ export interface PinnedClient {
 export interface PinnedClientOptions {
   baseUrl: string; lease: CredentialLease | null; userAgent: string; signal?: AbortSignal;
   limits?: Partial<Limits>; lookup?: net.LookupFunction;
+  egress?: import("../egress/service.ts").Egress;
+  /** In-process test transport; the real egress decision still runs before each hop. */
+  request?: typeof http.request;
 }
 
 const MAX_RETRY_AFTER_MS = 86_400_000;
@@ -80,7 +84,17 @@ export function createPinnedClient(o: PinnedClientOptions): PinnedClient {
   let pages = 0;
   let totalBytes = 0;
 
-  function once(url: URL, extra: Record<string, string> | undefined): Promise<Reply> {
+  async function once(url: URL, extra: Record<string, string> | undefined): Promise<Reply> {
+    let pinnedLookup = o.lookup;
+    if (o.egress) {
+      const decision = await o.egress.decide(url.toString());
+      if (!decision.allowed) throw new ScanError("failed:invalid", "egress_" + decision.reason);
+      pinnedLookup = ((_hostname: string, options: any, cb: any) => {
+        if (options?.all) cb(null, [{ address: decision.address, family: decision.family }]);
+        else cb(null, decision.address, decision.family);
+      }) as net.LookupFunction;
+    }
+    if (o.egress && scanSignal.aborted) throw new ScanError("failed:network", o.signal?.aborted ? "aborted" : "scan_timeout");
     return new Promise<Reply>((resolve, reject) => {
       let done = false;
       let connectTimer: NodeJS.Timeout | undefined; let requestTimer: NodeJS.Timeout | undefined;
@@ -98,7 +112,7 @@ export function createPinnedClient(o: PinnedClientOptions): PinnedClient {
       if (o.lease) headers[o.lease.headerName] = o.lease.headerValue;
       const isHttps = url.protocol === "https:";
 
-      let lookupFn = o.lookup;
+      let lookupFn = pinnedLookup;
       if (o.lease !== null && url.protocol === "http:" && url.hostname.toLowerCase() === "localhost") {
         const baseLookup = lookupFn ?? dns.lookup;
         lookupFn = ((hostname: string, options: any, callback: any) => {
@@ -124,7 +138,7 @@ export function createPinnedClient(o: PinnedClientOptions): PinnedClient {
         }) as typeof o.lookup;
       }
 
-      const req = (isHttps ? https : http).request(url, { method: "GET", agent: false, headers, ...(lookupFn ? { lookup: lookupFn } : {}) }, (res) => {
+      const req = (o.request ?? (isHttps ? https : http).request)(url, { method: "GET", agent: false, headers, ...(lookupFn ? { lookup: lookupFn } : {}) }, (res) => {
         const status = res.statusCode ?? 0;
         if (status >= 300) { // errors and redirects never have their body read
           res.destroy();

@@ -238,6 +238,7 @@ const SHOTS: Shot[] = [
     await toSwitchboard(app);
     await p.getByRole("button", { name: "Skip this step" }).click();
     await stepHeading(p, /Memory/).waitFor(); await next(p);
+    await stepHeading(p, /Language for voice features/).waitFor(); await p.getByRole("button", { name: "Skip this step" }).click();
     await stepHeading(p, /Backups/).waitFor();
     await p.getByRole("button", { name: "Create a backup now" }).click();
     await p.getByText("Backup created: plur1bus-20261007-setup").waitFor(); await next(p);

@@ -152,7 +152,7 @@ test("non-commercial or unconfirmed licences are refused before any request unle
     const nc = modelOf(v.httpUrl, files, "t-tts-de-nc");
     await assert.rejects(downloadModel(nc, { modelsDir: dir }), (e) => isVoiceProviderError(e) && e.code === "licence_required" && /NON-COMMERCIAL/.test(e.message));
     assert.equal(log.length, 0);
-    await downloadModel(nc, { modelsDir: dir, acceptNcLicence: true });
+    await downloadModel(nc, { modelsDir: dir, acceptedLicences: ["t-tts-de-nc@CC-BY-NC"] });
     assert.equal(log.length, 1);
   } finally { await v.close(); await rm(dir, { recursive: true, force: true }); }
 });
@@ -161,9 +161,13 @@ test("unpinned or URL-less catalog entries refuse to download", async () => {
   const dir = await tmp();
   try {
     const c = loadCatalog({});
-    await assert.rejects(downloadModel(c.models["kokoro-multi"]!, { modelsDir: dir, fetch: async () => { throw new Error("must not fetch"); } }), (e) => isVoiceProviderError(e) && e.code === "catalog" && /sha256/.test(e.message));
-    const kroko = { ...c.models["kroko-de"]!, licence: { ...c.models["kroko-de"]!.licence, commercial: true as const, status: "confirmed" as const } };
-    await assert.rejects(downloadModel(kroko, { modelsDir: dir }), (e) => isVoiceProviderError(e) && e.code === "catalog");
+    const kokoro = c.models["kokoro-multi"]!;
+    const unpinned = { ...kokoro, download: [{ ...kokoro.download[0]!, sha256: null }] };
+    await assert.rejects(downloadModel(unpinned, { modelsDir: dir, fetch: async () => { throw new Error("must not fetch"); } }), (e) => isVoiceProviderError(e) && e.code === "catalog" && /sha256/.test(e.message));
+    const martin = c.models["voice-martin-de"]!;
+    assert.equal(martin.download[0]!.url, null, "Martin has no verified package");
+    const confirmed = { ...martin, licence: { ...martin.licence, commercial: true as const, status: "confirmed" as const } };
+    await assert.rejects(downloadModel(confirmed, { modelsDir: dir }), (e) => isVoiceProviderError(e) && e.code === "catalog");
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 

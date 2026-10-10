@@ -12,7 +12,9 @@ use std::{
 use tokio::io::AsyncReadExt;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PairError {
+    Cancelled,
     CliMissing,
+    Runtime(&'static str),
     Denied,
     InsecureOrigin,
     Invalid,
@@ -37,7 +39,9 @@ impl PairError {
     }
     pub fn code(&self) -> &'static str {
         match self {
+            Self::Cancelled => "cancelled",
             Self::CliMissing => "cli-missing",
+            Self::Runtime(_) => "runtime",
             Self::Denied => "denied",
             Self::InsecureOrigin => "insecure-origin",
             Self::Invalid => "invalid",
@@ -273,6 +277,22 @@ pub async fn pair(
 }
 #[allow(clippy::too_many_arguments)]
 pub async fn pair_using_client(
+    client: HarnessClient,
+    code: &str,
+    name: &str,
+    kind: Kind,
+    expected: Option<&str>,
+    existing: Option<Connection>,
+    tokens: &dyn TokenStore,
+    store: &Store,
+) -> Result<Connection, PairError> {
+    pair_using_client_inner(
+        client, code, name, kind, expected, existing, tokens, store, None, None,
+    )
+    .await
+}
+#[allow(clippy::too_many_arguments)]
+async fn pair_using_client_inner(
     mut client: HarnessClient,
     code: &str,
     name: &str,
@@ -281,6 +301,8 @@ pub async fn pair_using_client(
     existing: Option<Connection>,
     tokens: &dyn TokenStore,
     store: &Store,
+    bundled: Option<crate::connections::BundledRef>,
+    control: Option<&PairControl>,
 ) -> Result<Connection, PairError> {
     let origin = client.origin().clone();
     if existing.as_ref().is_some_and(|c| c.origin != origin) {
@@ -295,6 +317,9 @@ pub async fn pair_using_client(
     {
         return Err(ClientError::InstallationMismatch.into());
     }
+    if let Some(control) = control {
+        control.checkpoint()?;
+    }
     let redeemed = client.redeem_for(&meta.installation_id, code, name).await?;
     let mut connection = Connection::new(
         name.into(),
@@ -304,6 +329,7 @@ pub async fn pair_using_client(
         redeemed.device_id,
         token_hint(&redeemed.token),
     );
+    connection.bundled = bundled;
     connection.credential_provenance = match tokens.kind() {
         StoreKind::Keychain => CredentialProvenance::Keychain,
         StoreKind::MemoryOnly => CredentialProvenance::MemoryOnly,
@@ -321,6 +347,15 @@ pub async fn pair_using_client(
     client
         .refresh_trust(&mut connection, &redeemed.token)
         .await?;
+    let mut boundary = control
+        .map(|c| c.boundary.lock().map_err(|_| PairError::Invalid))
+        .transpose()?;
+    if boundary
+        .as_ref()
+        .is_some_and(|s| **s == PairBoundary::Cancelled)
+    {
+        return Err(PairError::Cancelled);
+    }
     tokens
         .set(&token_account(connection.id), &redeemed.token)
         .map_err(PairError::Token)?;
@@ -328,6 +363,10 @@ pub async fn pair_using_client(
         let _ = tokens.delete(&token_account(connection.id));
         return Err(PairError::Storage);
     }
+    if let Some(boundary) = boundary.as_mut() {
+        **boundary = PairBoundary::Committed;
+    }
+    drop(boundary);
     if let Err(error) = client.ack_trust(&connection, &redeemed.token).await {
         mark_failure(&mut connection, &error, tokens, store)?;
         return Err(error.into());
@@ -522,4 +561,222 @@ pub fn remove_connection(
             .map_err(PairError::Token)?;
     }
     store.remove_metadata(id).map_err(|_| PairError::Storage)
+}
+
+/// Bundled pairing stays entirely native: fixed exec, loopback redemption, credential store.
+pub async fn pair_bundled(
+    ctl: &crate::controller::Controller,
+    tokens: &dyn TokenStore,
+    store: &Store,
+    name: &str,
+    progress: impl Fn(crate::controller::InstallStep),
+) -> Result<Connection, PairError> {
+    pair_bundled_controlled(ctl, tokens, store, name, progress, None).await
+}
+pub async fn pair_bundled_controlled(
+    ctl: &crate::controller::Controller,
+    tokens: &dyn TokenStore,
+    store: &Store,
+    name: &str,
+    progress: impl Fn(crate::controller::InstallStep),
+    control: Option<&PairControl>,
+) -> Result<Connection, PairError> {
+    use crate::controller::{CtlError, InstallStep};
+    if name.trim().is_empty() || name.len() > 120 || name.chars().any(char::is_control) {
+        return Err(PairError::Invalid);
+    }
+    let i = ctl
+        .installed()
+        .map_err(|e| PairError::Runtime(e.code()))?
+        .ok_or(PairError::Invalid)?;
+    let origin =
+        Origin::parse(&format!("http://127.0.0.1:{}", i.port)).map_err(|_| PairError::Invalid)?;
+    let old = store
+        .load()
+        .map_err(|_| PairError::Storage)?
+        .into_iter()
+        .find(|c| {
+            c.kind == Kind::Bundled
+                && c.bundled
+                    .as_ref()
+                    .is_some_and(|b| b.endpoint == i.endpoint && b.container == i.container)
+        });
+    let old_token = old
+        .as_ref()
+        .map(|c| tokens.get(&token_account(c.id)))
+        .transpose()
+        .map_err(PairError::Token)?
+        .flatten();
+    if let Some(control) = control {
+        control.checkpoint()?;
+    }
+    progress(InstallStep::Owner);
+    match ctl
+        .exec_json(
+            &["plur1bus", "user", "create", "--owner", "--json"],
+            Duration::from_secs(15),
+        )
+        .await
+    {
+        Ok(value)
+            if value.get("schema").and_then(|v| v.as_str()) == Some("user.create/1")
+                && value
+                    .get("userId")
+                    .and_then(|v| v.as_str())
+                    .is_some_and(|s| !s.is_empty()) => {}
+        Err(CtlError::ExecFailed {
+            error_code: Some(ref code),
+            ..
+        }) if code == "E_EXISTS" => {}
+        Ok(_) => return Err(PairError::Invalid),
+        Err(e) => return Err(PairError::Runtime(e.code())),
+    }
+    if let Some(control) = control {
+        control.checkpoint()?;
+    }
+    progress(InstallStep::Pairing);
+    let args = crate::contract::exec::bundled_pair(name);
+    let mut full = vec!["plur1bus".to_string()];
+    full.extend(args);
+    let argv = full.iter().map(String::as_str).collect::<Vec<_>>();
+    let value = ctl
+        .exec_json(&argv, Duration::from_secs(15))
+        .await
+        .map_err(|e| PairError::Runtime(e.code()))?;
+    let code: PairCode = serde_json::from_value(value).map_err(|_| PairError::Invalid)?;
+    if code.schema != "device.pair/1" || code.code.is_empty() {
+        return Err(PairError::Invalid);
+    }
+    let secret_code = zeroize::Zeroizing::new(code.code);
+    let mut pending: Vec<String> = if ctl.dir.join("pair-revocations.json").exists() {
+        serde_json::from_str(
+            &crate::controller::read_private_json(&ctl.dir, "pair-revocations.json", 16384)
+                .map_err(|_| PairError::Storage)?,
+        )
+        .map_err(|_| PairError::Storage)?
+    } else {
+        vec![]
+    };
+    if pending.len() > 64 {
+        return Err(PairError::Storage);
+    }
+    if let Some(old) = &old {
+        if !pending.contains(&old.device_id) {
+            pending.push(old.device_id.clone());
+        }
+    }
+    crate::controller::atomic_json(&ctl.dir, "pair-revocations.json", &pending)
+        .map_err(|_| PairError::Storage)?;
+    let bundled = crate::connections::BundledRef {
+        runtime: match i.runtime {
+            crate::runtime::RuntimeKind::Apple => crate::connections::RuntimeKind::Apple,
+            crate::runtime::RuntimeKind::Docker => crate::connections::RuntimeKind::Docker,
+        },
+        endpoint: i.endpoint.clone(),
+        container: i.container.clone(),
+        image_digest: i.image_digest.clone(),
+    };
+    let paired = pair_using_client_inner(
+        HarnessClient::new(origin, None),
+        &secret_code,
+        name,
+        Kind::Bundled,
+        old.as_ref().map(|c| c.installation_id.as_str()),
+        old.clone(),
+        tokens,
+        store,
+        Some(bundled),
+        control,
+    )
+    .await;
+    let connection = match paired {
+        Ok(c) => c,
+        Err(e) => {
+            if matches!(e, PairError::Storage) {
+                if let (Some(old), Some(token)) = (&old, &old_token) {
+                    tokens
+                        .set(&token_account(old.id), token)
+                        .map_err(PairError::Token)?
+                }
+            }
+            return Err(e);
+        }
+    };
+    // IDs survive process termination and retry; only revoke after durable token+ownership metadata.
+    while let Some(id) = pending.first().cloned() {
+        if id != connection.device_id {
+            ctl.exec_json(
+                &["plur1bus", "device", "revoke", &id, "--json"],
+                Duration::from_secs(15),
+            )
+            .await
+            .map_err(|e| PairError::Runtime(e.code()))?;
+        }
+        pending.remove(0);
+        crate::controller::atomic_json(&ctl.dir, "pair-revocations.json", &pending)
+            .map_err(|_| PairError::Storage)?;
+    }
+    store
+        .set_active(connection.id)
+        .map_err(|_| PairError::Storage)?;
+    progress(InstallStep::Done);
+    Ok(connection)
+}
+#[derive(Default)]
+pub struct BundledRepair {
+    attempted: std::collections::HashSet<uuid::Uuid>,
+}
+impl BundledRepair {
+    pub fn manual_retry(&mut self, id: uuid::Uuid) {
+        self.attempted.remove(&id);
+    }
+    pub async fn repair_once(
+        &mut self,
+        ctl: &crate::controller::Controller,
+        connection: &Connection,
+        tokens: &dyn TokenStore,
+        store: &Store,
+    ) -> Result<Connection, PairError> {
+        if connection.kind != Kind::Bundled || !self.attempted.insert(connection.id) {
+            return Err(PairError::PairingNeeded);
+        }
+        pair_bundled(ctl, tokens, store, &connection.name, |_| {}).await
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PairBoundary {
+    Pending,
+    Cancelled,
+    Committed,
+}
+pub struct PairControl {
+    boundary: std::sync::Mutex<PairBoundary>,
+}
+impl Default for PairControl {
+    fn default() -> Self {
+        Self {
+            boundary: std::sync::Mutex::new(PairBoundary::Pending),
+        }
+    }
+}
+impl PairControl {
+    /// Runs on a blocking worker if a native credential commit is in flight.
+    pub fn cancel(&self) -> bool {
+        let Ok(mut boundary) = self.boundary.lock() else {
+            return false;
+        };
+        if *boundary == PairBoundary::Committed {
+            return false;
+        }
+        *boundary = PairBoundary::Cancelled;
+        true
+    }
+    fn checkpoint(&self) -> Result<(), PairError> {
+        if *self.boundary.lock().map_err(|_| PairError::Invalid)? == PairBoundary::Cancelled {
+            Err(PairError::Cancelled)
+        } else {
+            Ok(())
+        }
+    }
 }

@@ -270,7 +270,8 @@ for (const cmd of ["/link", "!link"]) {
     assert.deepEqual(claimed[0], { code: "ABCD-1234", identity: { channel: "matrix", accountId: BOT, userId: ALICE } });
     assert.equal(rig.rich.length, 0, "the command is not dispatched to the host");
     const reply = rig.fake.sent.at(-1)!;
-    assert.equal(reply.content.body, "Pairing claimed. Confirm this link in My identities.");
+    assert.equal(reply.content.body, "Pairing claimed. Pairing ID: p1. Confirm this link in My identities. Run: plur1bus identity approve p1");
+    assert.ok(!reply.content.body.includes("ABCD-1234"), "the pairing code is not echoed");
     assert.ok(!rig.allLogText().includes("ABCD-1234"), "the code never reaches a log line");
   });
 }

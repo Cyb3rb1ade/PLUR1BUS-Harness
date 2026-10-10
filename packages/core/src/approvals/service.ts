@@ -88,6 +88,8 @@ export interface ServiceDecideInput {
   delegable?: boolean;
   /** `shell.exec` without a sandbox: the person knowingly accepted "not sandboxed" (Q17). */
   acknowledgedUnsandboxed?: boolean;
+  /** `attested:<method>`: an OS confirmation (the RPC layer asked for it and checked it) lifted this one decision from T1 to `surface` 2. Only `decideForSession` accepts it. */
+  attestedVia?: string;
 }
 export type ServiceDecideResult =
   | { ok: true; status: "approved" | "denied"; scope?: GrantScope; grantIds: readonly string[] }
@@ -324,6 +326,7 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
       ...(input.delegable === true ? { delegable: true } : {}), ...(d.projectId !== undefined ? { projectId: d.projectId } : {}),
       ...(d.taskId !== undefined ? { taskId: d.taskId } : {}), ...(d.sessionId !== undefined ? { sessionId: d.sessionId } : {}),
       ...(input.acknowledgedUnsandboxed === true ? { acknowledgedUnsandboxed: true } : {}),
+      ...(input.attestedVia !== undefined ? { attestedVia: input.attestedVia } : {}),
     };
     if (scope === "once") {
       try {
@@ -377,6 +380,7 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
           person: input.person, requestId: input.requestId, decision: input.decision, ...(input.decision === "approve" ? { scope } : {}), decisionSurface: input.surface,
           capability: r!.capability, actionHash: r!.bound.actionHash, agentId: r!.bound.subject.id, subjectKind: r!.bound.subject.kind, taskId: r!.bound.taskId,
           sessionId: r!.bound.sessionId, ...(d?.tool ? { tool: d.tool } : {}), ...(d?.risk ? { risk: d.risk } : {}), ...(grantIds[0] ? { grantId: grantIds[0] } : {}),
+          ...(input.attestedVia !== undefined ? { attestedVia: input.attestedVia } : {}),
         });
         return { res, grantIds };
       });
@@ -520,7 +524,8 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
 
   return {
     request, begin,
-    decide: decideCore,
+    // A relayed decision (a channel holding the nonce) can never carry an attestation: that field is dropped here.
+    decide: ({ attestedVia: _dropped, ...input }) => decideCore(input),
     decideForSession(input) {
       const row = db.prepare("SELECT nonce FROM approvals WHERE id = ?").get(input.requestId) as { nonce: string } | undefined;
       return decideCore({ ...input, nonce: row?.nonce ?? "" });

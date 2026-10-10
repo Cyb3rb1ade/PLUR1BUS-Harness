@@ -1,0 +1,15 @@
+{
+  "params": {
+    "displayName": "Alex",
+    "role": "viewer",
+    "channel": "test"
+  },
+  "result": {
+    "id": "invite-fixture",
+    "userId": "person-fixture",
+    "role": "viewer",
+    "channel": "test",
+    "expiresAt": 2000,
+    "code": "ABCD-EFGH"
+  }
+}

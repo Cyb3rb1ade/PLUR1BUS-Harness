@@ -286,3 +286,23 @@ Voice is a separate capability from `chat`, `embedding` and `rerank`. Details, s
 | Gemini Live | no | no | yes | `api-key` |
 | Amazon Polly | yes | no | no | AWS default credential chain |
 | Local (sherpa-onnx) | yes | yes | no | none |
+
+## D112 runtime discovery routes (Task 12)
+
+The live Core now reads its configured provider definitions and resolves credentials through
+its existing Auth profile pool and Secret-Store. The complete configuration, allowlist,
+scheduler and CLI instructions are in [Operating model discovery](model-discovery.md).
+
+| Route | Runtime discovery |
+| --- | --- |
+| OpenAI-compatible API profile (`chat_completions`) | `openai-models` |
+| Anthropic API profile (`anthropic_messages`) | `anthropic-models` |
+| Google AI Studio API profile (`gemini`) | `google-models` |
+| Ollama root endpoint, explicit `discovery: "ollama-tags"` | `ollama-tags`; explicit Core loopback allowlist required |
+| D110 direct SIWC ChatGPT plan at its documented `https://api.openai.com/v1` resource with an owner credential binding | `openai-models`; existing AuthService lease, never CLI credentials |
+| Codex CLI, Claude CLI, other plan backends or non-SIWC Responses routes | `manual`; no Models request |
+| Vertex/ADC, federated workload and restricted/prohibited profiles | `manual`; credential-specific listing adapters are not implemented |
+
+Scan failures preserve the existing `no_credential`, `renew_sign_in`, HTTP and egress
+failure reasons. Newly discovered models are available immediately and retain the optional
+`new` marker until `models.acknowledge`; model-role assignments remain explicit.

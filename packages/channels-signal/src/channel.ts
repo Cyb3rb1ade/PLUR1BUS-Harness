@@ -455,6 +455,13 @@ export class SignalChannel implements Channel {
     return { promptId: created.promptId, refs };
   }
 
+  /** The DM chat id of a person is their number or uuid; refused unless it is a DM id the allowlists let us message. */
+  async resolveOwnerTarget(who: { userId: string; accountId?: string }): Promise<string> {
+    if (who.accountId !== undefined && who.accountId !== this.#o.account) throw new Error("identity belongs to another signal account");
+    if (typeof who.userId !== "string" || !isDmId(who.userId)) throw new Error("not a signal number or uuid");
+    return this.#target(who.userId).chatId;
+  }
+
   // ---- outbound helpers ------------------------------------------------------------------------------------------
 
   async sendOutput(chatId: string, outputId: string, index = 0): Promise<SentRef[]> {
@@ -744,11 +751,11 @@ export class SignalChannel implements Channel {
     let reply: string = m.linkFail;
     if (this.#o.pairing) {
       try {
-        this.#o.pairing.claim({
+        const pairing = this.#o.pairing.claim({
           code,
           identity: { channel: "signal", accountId: this.#o.account, userId: senderId },
         });
-        reply = m.linkOk;
+        reply = m.linkOk(pairing.pairingId);
       } catch {
         /* Uniform reply; the identity port owns rate limits. The submitted code is never logged. */
       }
@@ -817,4 +824,3 @@ function findAccountUuid(accounts: unknown, number: string): string | undefined 
 export function createSignalChannel(cfg: SignalConfig, deps: SignalDeps = {}): SignalChannel {
   return new SignalChannel({ ...cfg, ...deps });
 }
-

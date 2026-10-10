@@ -1,4 +1,4 @@
-export { TelegramChannel, defaultSleep } from "./channel.ts";
+export { TelegramChannel, createTelegramChannel, defaultSleep } from "./channel.ts";
 export type { TelegramChannelOptions } from "./channel.ts";
 export { TelegramApi, TelegramApiError } from "./api.ts";
 export type { TelegramErrorKind, TelegramUpdate } from "./api.ts";

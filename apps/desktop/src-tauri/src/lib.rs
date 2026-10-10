@@ -1,4 +1,5 @@
-//! Native desktop shell. Harness services are introduced by later work packages.
+//! Native desktop shell.
+pub mod bridge;
 pub mod client;
 pub mod commands;
 pub mod connections;
@@ -9,7 +10,10 @@ pub mod discovery;
 pub mod events;
 #[cfg(unix)]
 pub mod gnome;
+pub mod helper;
+pub mod host_commands;
 pub mod ids;
+pub mod install;
 pub mod lifecycle;
 pub mod logging;
 pub mod native;
@@ -18,6 +22,8 @@ pub mod pair;
 pub mod policy;
 #[cfg(any(windows, test))]
 mod profile_audit;
+pub mod runtime;
+pub mod runtime_commands;
 pub mod secrets;
 pub mod settings;
 mod shell_commands;
@@ -91,7 +97,9 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .manage(native::NativeState::default())
         .manage(commands::ConnectionState::default())
+        .manage(runtime_commands::RuntimeState::default())
         .manage(spa::SpaState::default())
+        .manage(host_commands::HostState::default())
         .on_window_event(native::close)
         .setup(|app| {
             // Until Linux tray/background capability is confirmed, keep its dash entry reachable.
@@ -138,6 +146,13 @@ pub fn run() {
             { let _ = app; Ok(()) }
         })
         .invoke_handler(tauri::generate_handler![
+            runtime_commands::runtime_detect,
+            runtime_commands::runtime_start,
+            runtime_commands::bundle_install,
+            runtime_commands::harness_start,
+            runtime_commands::harness_stop,
+            runtime_commands::harness_status,
+            runtime_commands::harness_logs_tail,
             commands::app_info,
             commands::settings_get,
             commands::settings_set,
@@ -154,6 +169,12 @@ pub fn run() {
             commands::background_hint,
             commands::crash_offers,
             commands::crash_handled,
+            host_commands::bridge_settings,
+            host_commands::helper_status,
+            host_commands::permissions_open_pane,
+            host_commands::approvals_list,
+            host_commands::approval_open,
+            host_commands::approval_decide,
             commands::quit_response,
             commands::shell_info
         ])
@@ -167,7 +188,11 @@ pub fn run() {
                 if autostart && app.state::<native::NativeState>().consume_autostart() {
                     let background = app.state::<native::NativeState>().background.load(std::sync::atomic::Ordering::SeqCst);
                     if let Err(reason) = controller::autostart::on_login(&native::Windows(app), background) { eprintln!("{}", reason.code()); }
-                } else if !autostart && webview.window().show().is_err() { eprintln!("SHELL_WINDOW_SHOW_FAILED"); }
+                    if let Some(window)=app.get_webview_window("shell"){tauri::async_runtime::spawn(async move {if let Err(code)=runtime_commands::on_login(window).await{eprintln!("{code}");}});}
+                } else if !autostart {
+                    if webview.window().show().is_err(){eprintln!("SHELL_WINDOW_SHOW_FAILED");}
+                    if let Some(window)=app.get_webview_window("shell"){tauri::async_runtime::spawn(async move {let _=host_commands::resume_bundled(window.app_handle()).await; if let Err(code)=runtime_commands::monitor_existing(window).await{eprintln!("{code}");}});}
+                }
             }
         })
         .build(context)

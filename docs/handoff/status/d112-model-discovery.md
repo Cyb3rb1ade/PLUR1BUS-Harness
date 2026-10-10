@@ -1,4 +1,4 @@
-Status: COMPLETED (Tasks 1–11; Task 12 blocked per instruction; Review fixes round 3 completed) · head SHA: see `git log` · 2026-10-04
+Status: COMPLETED (Tasks 1–12; Review fixes round 3 completed) · head SHA: see `git log` · 2026-10-10
 
 | Task | Commit | Tests added (file::name) | Result | Notes |
 |---|---|---|---|---|
@@ -100,4 +100,41 @@ Status: COMPLETED (Tasks 1–11; Task 12 blocked per instruction; Review fixes r
 - A commit cannot contain its own SHA, so the table's SHA column lags one commit behind.
 
 ## Open
-- None for review findings. Task 12 remains blocked until D15, D110, D111 as instructed.
+- None for review findings or Task 12. Non-listable CLI, ADC, federated and unsupported plan routes remain explicitly manual.
+
+## Task 12 — real adapters completed (2026-10-10)
+
+Base: `origin/main` at `433ca5b3`; branch: `codex/d112-wire-real-adapters`.
+
+| Adapter on the base | Gap closed |
+| --- | --- |
+| `EmptyProfileSource` in `discovery/defaults.ts` | Live provider definitions from Core configuration; D15 modelProfiles remain model selection/fallback definitions |
+| `NoCredentialResolver` | Same turn-composition Auth pool/refresh owner and Secret-Store; D110 AuthService lease for its direct SIWC Models route; origin-bound, redacted leases |
+| Direct pinned scanner HTTP | Each hop now uses the real Core egress decision and its vetted IP; existing bounded reader, redirects, loopback checks and cursors retained |
+| Legacy discovery event logger | Four registered D111 provider events with schema validation, redaction, trace correlation, levels and Core log rotation |
+| Scheduler, client notification, metadata merge and acknowledge | Existing real implementations retained and covered through the fully wired Core; provider changes also replan timers |
+
+The additive RPC 1.6.0 change exposes optional boolean `ModelEntry.new` without changing
+`newCount`, `newOnly` or closed-object validation. It is derived from acknowledgement
+state, survives restart and appears in CLI text/JSON (including offline catalog reads).
+TS/Python generation, Rust typify roundtrips, RPC docs and OpenAPI generation were run.
+
+Local verification on macOS:
+- `pnpm install --frozen-lockfile`, `pnpm prep` / `pnpm gen`, `pnpm lint`.
+- Discovery, Core, auth, D110, D111 logs, model RPC, system-job, log-schema and RPC-schema
+  tests: **877 passed, 6 platform/live skips, 0 failures**.
+- Real Core plus `PLUR1BUS_BIN=target/debug/plur1bus`: scanner protocols, profile/pool/secret,
+  D110 plan, missing credentials, notifications, API/table merge, new/acknowledge,
+  daily fake-timer scheduling and restart catch-up; CLI scan/list text and JSON passed.
+- `cargo test -p plur1bus`: **1312 passed**; model CLI rerun after the final renderer change passed.
+- `cargo test -p plur1bus-rpc` and `cargo test -p plur1bus-log-schema`: passed.
+- `pnpm docs:gen`, `pnpm docs:check`, and `git diff --check`.
+
+New HTTP integration fixtures open no sockets and never contact a provider. Existing
+security regressions retain their synthetic, explicitly allowlisted loopback endpoints.
+No CI polling, native Windows acceptance or live-provider validation is claimed.
+
+Operating instructions and the route matrix are in [model-discovery.md](../../model-discovery.md)
+and [provider-matrix.md](../../provider-matrix.md). Secret value updates apply immediately;
+changes to auth profile/origin/pool definitions require rebuilding the shared composition
+with a Core restart. Until then discovery refuses a stale credential binding.

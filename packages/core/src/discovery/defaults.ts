@@ -1,6 +1,8 @@
 // Default adapters for model discovery ports (spec P1; plan Task 6).
-import type { Clock, CredentialLease, CredentialResolver, DiscoveryEvents, ProfileInfo, ProfileSource, Rng, TimerHandle } from "./ports.ts";
+import type { Clock, CredentialResolver, DiscoveryEvents, ProfileSource, Rng, TimerHandle } from "./ports.ts";
 import { createLoggerEvents, type LoggerLike } from "./events-logger.ts";
+import { createRealDiscoveryAdapters, type RealAdapterDeps } from "./real-adapters.ts";
+import type { SCANNERS } from "./scanners/index.ts";
 
 export const systemClock: Clock = {
   now(): number {
@@ -19,25 +21,12 @@ export const systemClock: Clock = {
   },
 };
 
-export class EmptyProfileSource implements ProfileSource {
-  list(): readonly ProfileInfo[] {
-    return [];
-  }
-}
-
-export class NoCredentialResolver implements CredentialResolver {
-  async resolve(_profileId: string, _origin: string): Promise<CredentialLease | null> {
-    return null;
-  }
-}
-
 export const defaultRng: Rng = () => Math.random();
 
 export interface DefaultAdaptersDeps {
+  runtime: RealAdapterDeps;
   logger: LoggerLike;
 }
-
-import type { SCANNERS } from "./scanners/index.ts";
 
 export interface DiscoveryAdapters {
   profiles: ProfileSource;
@@ -50,8 +39,7 @@ export interface DiscoveryAdapters {
 
 export function defaultDiscoveryAdapters(deps: DefaultAdaptersDeps): DiscoveryAdapters {
   return {
-    profiles: new EmptyProfileSource(),
-    credentials: new NoCredentialResolver(),
+    ...createRealDiscoveryAdapters(deps.runtime),
     events: createLoggerEvents(deps.logger),
     clock: systemClock,
     rng: defaultRng,

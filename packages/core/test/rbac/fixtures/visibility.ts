@@ -51,6 +51,10 @@ const owner = cells("yes", "none", "none", "none", "none"); // ADR-007 role tabl
 const ownerAdmin = cells("yes", "yes", "none", "none", "none");
 
 export const ENTRIES: readonly Entry[] = [
+  { action: "project.board.read", page: "My area, Projects", verb: "read" },
+  ...["project.board.write", "project.board.manage", "project.board.move", "project.board.comment"].map(action => ({ action, page: "My area, Projects" as const, verb: "write" as const })),
+  // F44 method admission; stored ownership is independently exercised by device-surface.test.ts.
+  ...["device.list", "device.revoke", "device.rename"].map(action => ({ action, page: "My area, Projects" as const, verb: "read" as const, cells: cells("yes", "yes", "yes", "yes", "yes") })),
   // Memory (own user scope) — and who may read another user's: break-glass for Owner/Admin only.
   { action: "memory.user.read", page: "Memory (own user scope)", verb: "read", gate: { ...ALL_O, owner: "OB", admin: "OB" } },
   { action: "memory.user.write", page: "Memory (own user scope)", verb: "write", gate: ALL_O },
@@ -97,6 +101,9 @@ export const ENTRIES: readonly Entry[] = [
 
   { action: "media.read", page: "My area, Projects", verb: "read" },
   { action: "media.write", page: "My area, Projects", verb: "write" },
+  { action: "media.index.read", page: "My area, Projects", verb: "read" },
+  { action: "media.index.operate", page: "My area, Projects", verb: "write", cells: ownerAdmin },
+  { action: "media.caption.write", page: "My area, Projects", verb: "write" },
   { action: "project.surface.read", page: "My area, Projects", verb: "read" },
   { action: "project.surface.write", page: "My area, Projects", verb: "write" },
   { action: "project.create", page: "My area, Projects", verb: "write", cells: ownerAdmin },
@@ -106,6 +113,20 @@ export const ENTRIES: readonly Entry[] = [
   { action: "channel.read", page: "Models, Providers & logins, Channels, Plugins, MCP/ACP/A2A", verb: "read", cells: ownerAdmin }, // R3: channel.* RPC, people only
   { action: "channel.write", page: "Models, Providers & logins, Channels, Plugins, MCP/ACP/A2A", verb: "write", cells: ownerAdmin },
   { action: "auth.credentials.write", page: "Models, Providers & logins, Channels, Plugins, MCP/ACP/A2A", verb: "write", cells: owner },
+  { action: "admin.agent.delete", page: "Users & roles", verb: "read", cells: ownerAdmin },
+  { action: "admin.agent.manage", page: "Users & roles", verb: "read", cells: ownerAdmin },
+  { action: "admin.agent.operate", page: "Users & roles", verb: "read", cells: cells("yes", "yes", "yes", "none", "none") },
+  { action: "admin.agent.rights", page: "Users & roles", verb: "read", cells: ownerAdmin },
+  { action: "admin.breakglass.read", page: "Users & roles", verb: "read", cells: ownerAdmin },
+  { action: "admin.breakglass.write", page: "Users & roles", verb: "read", cells: ownerAdmin },
+  { action: "admin.pairing.read", page: "Users & roles", verb: "read", cells: ownerAdmin },
+  { action: "admin.sessions.write", page: "Users & roles", verb: "read", cells: cells("yes", "yes", "yes", "yes", "none") },
+  { action: "admin.sessions.read", page: "Users & roles", verb: "read", cells: cells("yes", "yes", "yes", "yes", "yes") },
+  { action: "admin.users.read", page: "Users & roles", verb: "read", cells: ownerAdmin },
+  { action: "admin.users.write", page: "Users & roles", verb: "read", cells: ownerAdmin },
+  { action: "admin.notices.read", page: "Users & roles", verb: "read", cells: cells("yes", "yes", "yes", "yes", "yes") },
+  { action: "admin.sessions.transcript", page: "Users & roles", verb: "read", cells: cells("yes", "yes", "yes", "yes", "yes") },
+  { action: "admin.memory.read", page: "Users & roles", verb: "read", cells: cells("yes", "yes", "yes", "yes", "yes") },
   { action: "my.read", page: "My area, Projects", verb: "read", gate: ALL_O },
   { action: "my.write", page: "My area, Projects", verb: "write", gate: { owner: "O", admin: "O", operator: "O", member: "O" } },
   { action: "project.read", page: "My area, Projects", verb: "read" },

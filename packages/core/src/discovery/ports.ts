@@ -1,5 +1,5 @@
 // The four narrow ports through which discovery reaches profiles, credentials, events and time (plan P1).
-// Nothing outside this file and defaults.ts names a D15, D110 or D111 type.
+// The Task 12 composition bridge in real-adapters.ts owns D15/D110 types; scanners depend only on these ports.
 import type { DiscoveryKind, ScanErrorInfo, ScanResultCode } from "./types.ts";
 
 export interface ProfileInfo { id: string; discovery: DiscoveryKind; baseUrl: string; vendor?: string }

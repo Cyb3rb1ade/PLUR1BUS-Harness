@@ -25,7 +25,7 @@ paragraphs lag several merged libraries; source/API ownership below is authorita
 | Cache breakpoint translation | prompt metadata, composition HTTP adapter | exact Anthropic system/tool/conversation markers applied to built body; volatile recall unmarked | Actual wire body checked; interior tool-block mapping and vendor live hit rates are separate acceptance work |
 | Cache telemetry | prompt/telemetry | normalised provider cache read/creation/input counts → hook/logger | Synthetic ≥.90 cache-read share from turn 3; no claim of live vendor cache hits |
 | Pre-call budget / reservations | budget/calls | router BudgetGuard before **every** initial, retry, fallback and repair attempt | Pre-call refusal, real usage settlement, unknown usage remains reserved |
-| Context zone allocation | budget/context, model catalogue | Existing session bound and prompt zone caps remain; no silent budget-driven prompt clipping | Model-window/tokenizer binding to allocateContext/checkZones remains a follow-up; initial call admission already refuses before invocation |
+| Context zone allocation | budget/context, model catalogue | Existing session bound and prompt zone caps remain; no silent budget-driven prompt clipping | Session context uses catalogue windows and calibrated provider usage (M2); full prompt-zone tokenizer binding to allocateContext/checkZones remains a follow-up; initial call admission refuses before invocation |
 | Pending usage / retention | budget call ledger, future reconciliation host | Uncertain charges remain reserved across restart and calendar rollover | Reconciliation and pruning require authoritative provider usage; no expiry frees an unknown charge |
 | Retry budget | budget/retry | same turn counter for transient retries/fallbacks and argument repair, actual cost settlement | Matrix covers fallback and repair. Unpriced retries reserve the whole retry-class ceiling instead of zero |
 | Tool and subagent return caps | toolcall/results, budget/subagent | private full-result files + valid JSON reference; collab runner enforces 2000-token return | Real output reference and scoped subagent tests; full-result retrieval RPC/retention policy remains follow-up |
@@ -43,7 +43,7 @@ paragraphs lag several merged libraries; source/API ownership below is authorita
 | Audit | existing audit-chain tee and PolicyAudit | decisions/outcomes plus budget refusal use existing sinks; no second policy evaluator | Actual audit file checked; known policy hard-link name-alias TODO remains outside scope |
 | Discovery modelRoles | discovery + future composition profile resolver | Existing discovery remains live; this pipeline selects configured router profiles via decision.classProfiles | Automatic discovery-role → router-profile resolution is a follow-up; no compatible public profile resolver exists |
 | OpenRouter sticky routing | prompt session_id + composition HTTP | Session identity feeds cache telemetry; no vendor routing header is added | Vendor-specific routing-header contract remains a follow-up |
-| Context compaction | existing session/Compactor | Bounded history and checkpoint-before-swap retained | LLM summarizer adapter remains a follow-up; no additional summarization model call is claimed |
+| Context compaction | existing session/Compactor | Bounded history and checkpoint-before-swap retained | Post-turn summarize role through the same routed provider/budget; digest on missing role or budget refusal; measured usage calibration and read-only model windows; see [compaction](compaction.md) |
 | D110 / voice (#288) | unmerged branch | No conditional code loaded | Revisit after #288 lands; no subscription flow or realtime claim |
 
 Every former follow-up is either connected above or named with its owner and reason.
@@ -111,7 +111,7 @@ sequenceDiagram
 The server resolves the D109 approving person from the authenticated connection, never from session params. Memory/budget and MCP visibility retain the canonical turn principal; those identities are deliberately carried separately.
 
 `TurnRunner` owns persisted events, context preparation, cancellation, completion and
-post-turn capture. The composition ChatProvider owns the complete model/tool loop.
+post-turn capture. Compaction/pruning is scheduled afterward and is drained separately; the turn promise never awaits a summary/decision model. The composition ChatProvider owns the complete model/tool loop.
 The existing legacy provider seam is adapted through the router and budget too;
 provider-reported tool results never bypass the composition dispatcher.
 

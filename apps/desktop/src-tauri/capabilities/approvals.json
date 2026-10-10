@@ -1,0 +1,17 @@
+{
+  "identifier": "approvals",
+  "description": "Public approval cards in the local native approval window.",
+  "local": true,
+  "webviews": [
+    "approvals"
+  ],
+  "permissions": [
+    "allow-app-info",
+    "allow-settings-get",
+    "allow-approvals-list",
+    "allow-approval-open",
+    "allow-approval-decide",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten"
+  ]
+}

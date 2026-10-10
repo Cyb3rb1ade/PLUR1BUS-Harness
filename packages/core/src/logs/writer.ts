@@ -31,10 +31,13 @@ export function createWriter(o: WriterOptions) {
     pending.push(`${JSON.stringify(record)}\n`);
     if (pending.length >= 64) flush();
   }
-  function flush(): void {
+  function flush(durable = true): void {
     if (flushing) return;
     flushing = true;
-    try { while (pending.length) { sink.append(pending[0]!); pending.shift(); } }
+    try {
+      while (pending.length) { sink.append(pending[0]!, false); pending.shift(); }
+      if (durable) sink.sync();
+    }
     finally { flushing = false; }
   }
   function fit(record: RecordValue): RecordValue {
@@ -120,7 +123,10 @@ export function createWriter(o: WriterOptions) {
         const record = { at: new Date(now()).toISOString(), level, role: o.role, ...safe, msg: cap(redactor.text(msg), LIMITS.msgBytes) };
         let line = JSON.stringify(record);
         if (Buffer.byteLength(line) > LIMITS.lineBytes) line = JSON.stringify({ at: record.at, level, role: o.role, msg: record.msg, truncated: true, bytes: Buffer.byteLength(line) });
-        pending.push(`${line}\n`); flush(); // Legacy callers relied on synchronous file visibility.
+        // Preserve synchronous diagnostic visibility without blocking every capture/
+        // recall on fsync. The 1 s timer and explicit flush/close sync the batch;
+        // warn/error still sync before returning. Audit sinks are separate.
+        pending.push(`${line}\n`); flush(level !== "info" && level !== "debug");
       } catch { emit("log.redaction.failed", { attempted_event: "log.unregistered" }, {}, true); }
     },
     registerSecret(value: string) { secrets.add(value); redactor = createRedactor({ pii: o.redactPii ?? false, secrets }); },

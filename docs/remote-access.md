@@ -2,7 +2,7 @@
 
 `packages/remote-access` (`@plur1bus/remote-access`) is the library behind remote access to the harness: **exposure modes**, **TLS material**, **pairing with certificate pinning**, **pair-proof for typed codes**, **trust rollover**, the **client-subnet allow-list**, the **security notice** and the **1staid warnings**.
 
-It is a library with injected ports (clock, exec, secret store). It opens no listener, serves no route and reads no configuration file. Wiring it into `packages/api` and the web UI is a follow-up (see [Follow-ups](#follow-ups)). Normative sources: `docs/milestones.md` §M3 (*Remote access*), the desktop spec (`docs/superpowers/specs/2026-09-27-desktop-app-design.md` §13.5 C8, C9 and §6.2), ADR-004 (binding, TLS) and ADR-007 (devices, pairing).
+It is a library with injected ports (clock, exec, secret store). It opens no listener, serves no route and reads no configuration file. The device store and management RPC/CLI are integrated with the core (F44). Listener/route wiring into `packages/api` and the web UI is a follow-up (see [Follow-ups](#follow-ups)). Normative sources: `docs/milestones.md` §M3 (*Remote access*), the desktop spec (`docs/superpowers/specs/2026-09-27-desktop-app-design.md` §13.5 C8, C9 and §6.2), ADR-004 (binding, TLS) and ADR-007 (devices, pairing).
 
 The API is **never public**: there is no Funnel at any level. The configuration parser rejects the word at any depth, no plan or command contains it, and `1staid` warns if Tailscale reports one active.
 
@@ -111,7 +111,7 @@ Any change of what a client pins — a new self-signed certificate, `self-signed
 | `company-ca`: chain + key upload; key matches, chain complete, SAN covers host, not expired | `company-ca.ts` | `company-ca.test`, `pinning-e2e.test` | admin upload route; PKCS#12; config mapping `certFile`/`keyRef` |
 | Root CA held on the harness and handed to devices through pairing (`caPin`, `GET /api/v1/devices/ca`) | `importCompanyCa` returns `caPem` + `caPin`; `pairing.ts` carries `caPin` | `company-ca.test`, `pairing.test` | `GET /api/v1/devices/ca` route; `caFile` storage |
 | `POST /api/v1/devices/pair-proof` for typed codes; rate-limited per source and per open code | `pair-proof.ts` handler + client check; `pair-code.ts`, `rate-limit.ts` | `pair-proof.test`, `pair-bruteforce.test`, `pinning-e2e.test` | route, OpenAPI/RPC schema entry (not touched here) |
-| Typed code `XXXX-XXXX`, one use, about one hour (C10); hashed storage | `pair-code.ts` | `pair-code.test` | link to the device-pairing store of ADR-007 / PR #143 |
+| Typed code `XXXX-XXXX`, one use, about one hour (C10); hashed storage | `pair-code.ts` | `pair-code.test` | F44 `DeviceStore.pair` consumes codes and enrolls; remote route mounting follows |
 | Pairing card hidden at `local` | `planListeners` states the mode; nothing else | `exposure.test` | SPA decides from the mode |
 | Trust rollover: stage, announce over the trusted connection, switch; only devices that missed it pair again | `trust-rollover.ts` | `trust-rollover.test`, `pinning-e2e.test` | `GET /api/v1/devices/trust`, `trust/ack`, SSE `devices.trust.next`, persistence |
 | Optional client-subnet allow-list | `security.ts` `compileAllowlist`, `admitSocket`; plan carries the rules | `security.test`, `pinning-e2e.test` | listener integration; container caveat refusal in the app |
@@ -123,9 +123,59 @@ Any change of what a client pins — a new self-signed certificate, `self-signed
 ## Follow-ups
 
 - **Listener integration in `packages/api`:** read the `remote.*` keys, call `planListeners`, bind the loopback listener and the TLS listener, `admitSocket` on `connection`, run the Tailscale serve plan, feed `1staid`.
-- **Routes `/api/v1/devices/*`:** `pair` offer, `redeem`, `pair-proof`, `ca`, `trust`, `trust/ack`, the SSE event `devices.trust.next`, RPC schema, OpenAPI and RBAC entries (all outside this package's scope).
+- **Routes `/api/v1/devices/*`:** `pair` offer, `redeem`, `pair-proof`, `ca`, `trust`, `trust/ack`, the SSE event `devices.trust.next`, HTTP/OpenAPI binding; the device management RPC schema and RBAC are available (F44).
 - **Persistence:** the trust state (`serializeTrust`), the offer-tag key and the notice confirmation need a home in the core's store.
 - **Web UI:** the pairing card (code, QR, deep link), the certificate and root CA upload, the rollover progress, the security notice, the allow-list editor.
 - **Desktop app:** pairing from the deep link or a typed code with pair-proof, the pinned rustls client, the SPA proxy, *Certificate changed* and *Company CA not known* states.
 - **Mobile clients:** the same pairing and pinning rules.
 - **Open points:** PKCS#12 import; tsnet inside the harness; with several open codes `handlePairProof` answers for the newest, so a client holding an older code has to retry after it expires (the spec's single-answer shape leaves this open); a UI-facing text for each `firstAidChecks` and notice code (they are stable keys for translation).
+
+## Persistent devices (F44)
+
+The core registers `device.list`, `device.revoke` and `device.rename`, backed by
+`<home>/state/devices.json`. `DeviceStore` in `packages/remote-access` records a paired
+Ed25519 device's id, name, platform, canonical public key, SHA-256 fingerprint,
+`pairedAt`, `lastSeenAt`, `pairedBy` (owning person), scopes and revocation metadata.
+Times are epoch milliseconds. Revoked records remain visible as tombstones; the same
+key cannot enroll again. Pair a fresh key after revocation.
+
+The store uses a private temporary file (0600 / the host's owner-only Windows ACL),
+fsync and atomic rename. Existing files are secured before reading. Malformed state,
+unknown versions and duplicate ids/keys fail closed. One core process owns the file;
+all transport adapters must share that core's store instance.
+
+`DeviceStore.pair(codes, code, metadata, source)` consumes a valid one-use pairing
+code and persists the device before returning success. Invalid or spent codes add
+nothing. `pairedBy` and `scope` must come from the authenticated server context,
+never anonymous client metadata. `recordPairing` is the port for another pairing
+flow that has already authenticated the person and bound the public key.
+
+For reconnects, obtain `challenge()` on the server and send it over the TLS
+connection being authenticated. The client signs those 32 bytes with its paired
+Ed25519 key; `connect({ publicKey, challenge, signature, close })` verifies the
+one-use challenge (30 seconds), rejects unknown/revoked keys, updates `lastSeenAt`
+at most once per minute and registers the transport's synchronous close callback.
+Call the returned cleanup when the connection ends. The transport must bind the
+challenge to that connection, enforce the stored scopes and stop dispatching work
+when closed. No claimed id or fingerprint authenticates a handshake.
+
+Revocation durably marks the entry and invokes every live close callback before
+returning; one failing callback does not prevent the others. A persistence failure
+reports `E_STORAGE`, denies the key in memory and still closes its connections;
+retry revocation to persist that denial before restarting the core. Audit failure
+refuses mutations. Audit records `device.paired`, `device.revoked` and
+`device.renamed` record the authorized mutation intent before its state write,
+so a failed write may have an audit record without a successful mutation. No key,
+code or name is included in audit detail. No metrics or device-id metric labels
+are introduced.
+
+CLI: `plur1bus device list`, `plur1bus device revoke <id>` and
+`plur1bus device rename <id> <name>`, each with global `--json`. See
+[RBAC](rbac.md#device-management-f44) for person/ownership restrictions and
+[errors](errors.md#device-management-f44) for refusal reasons.
+
+The backend store, lifecycle ports and RPC/CLI are available. The existing remote
+TLS listener and `/api/v1/devices/*` routing remain integration work: mount the
+pairing/reconnect ports on the same core-owned store, with server-established
+ownership and scopes. The web device page binding is separate follow-up work;
+its current unavailable state is unchanged.

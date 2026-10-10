@@ -100,6 +100,98 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
 
     for (name, fixture) in &fixtures {
         match name.as_str() {
+            "device.list" => check_pair::<types::DeviceListParams, types::DeviceListResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "device.revoke" => {
+                check_pair::<types::DeviceRevokeParams, types::Device>(name, fixture, &root_schema)
+            }
+            "device.rename" => {
+                check_pair::<types::DeviceRenameParams, types::Device>(name, fixture, &root_schema)
+            }
+            "agent.pause" => check_pair::<types::AgentPauseParams, types::AgentPauseResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "agent.resume" => check_pair::<types::AgentResumeParams, types::AgentResumeResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "agent.archive" => check_pair::<types::AgentArchiveParams, types::AgentArchiveResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "agent.unarchive" => check_pair::<
+                types::AgentUnarchiveParams,
+                types::AgentUnarchiveResult,
+            >(name, fixture, &root_schema),
+            "agent.export" => check_pair::<types::AgentExportParams, types::AgentExportResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "agent.delete" => check_pair::<types::AgentDeleteParams, types::AgentDeleteResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "agent.rights.get" => check_pair::<
+                types::AgentRightsGetParams,
+                types::AgentRightsGetResult,
+            >(name, fixture, &root_schema),
+            "agent.rights.set" => check_pair::<
+                types::AgentRightsSetParams,
+                types::AgentRightsSetResult,
+            >(name, fixture, &root_schema),
+            "user.list" => check_pair::<types::UserListParams, types::UserListResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "user.role.set" => check_pair::<types::UserRoleSetParams, types::UserRoleSetResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "user.invite.create" => check_pair::<
+                types::UserInviteCreateParams,
+                types::UserInviteCreateResult,
+            >(name, fixture, &root_schema),
+            "user.invite.list" => check_pair::<
+                types::UserInviteListParams,
+                types::UserInviteListResult,
+            >(name, fixture, &root_schema),
+            "user.invite.revoke" => check_pair::<
+                types::UserInviteRevokeParams,
+                types::UserInviteRevokeResult,
+            >(name, fixture, &root_schema),
+            "breakglass.request" => check_pair::<
+                types::BreakglassRequestParams,
+                types::BreakglassRequestResult,
+            >(name, fixture, &root_schema),
+            "breakglass.list" => check_pair::<
+                types::BreakglassListParams,
+                types::BreakglassListResult,
+            >(name, fixture, &root_schema),
+            "breakglass.revoke" => check_pair::<
+                types::BreakglassRevokeParams,
+                types::BreakglassRevokeResult,
+            >(name, fixture, &root_schema),
+            "breakglass.notices" => check_pair::<
+                types::BreakglassNoticesParams,
+                types::BreakglassNoticesResult,
+            >(name, fixture, &root_schema),
+            "pairing.qr" => check_pair::<types::PairingQrParams, types::PairingQrResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+
             "auth.login.start" => check_pair::<
                 types::AuthLoginStartParams,
                 types::AuthLoginStartResult,
@@ -289,6 +381,31 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
             "identity.principals" => check_pair::<
                 types::IdentityPrincipalsParams,
                 types::IdentityPrincipalsResult,
+            >(name, fixture, &root_schema),
+            "media.search" => check_pair::<types::MediaSearchParams, types::MediaSearchResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "media.index.status" => check_pair::<
+                types::MediaIndexStatusParams,
+                types::MediaIndexStatusResult,
+            >(name, fixture, &root_schema),
+            "media.index.pause" => check_pair::<
+                types::MediaIndexPauseParams,
+                types::MediaIndexPauseResult,
+            >(name, fixture, &root_schema),
+            "media.index.resume" => check_pair::<
+                types::MediaIndexResumeParams,
+                types::MediaIndexResumeResult,
+            >(name, fixture, &root_schema),
+            "media.index.reindex" => check_pair::<
+                types::MediaIndexReindexParams,
+                types::MediaIndexReindexResult,
+            >(name, fixture, &root_schema),
+            "media.caption.set" => check_pair::<
+                types::MediaCaptionSetParams,
+                types::MediaCaptionSetResult,
             >(name, fixture, &root_schema),
             "media.preferences.get" => check_pair::<
                 types::MediaPreferencesGetParams,
@@ -840,7 +957,109 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::ApprovalVerifyParams,
                 types::ApprovalVerifyResult,
             >(name, fixture, &root_schema),
+            "project.column.list" => check_pair::<
+                types::ProjectColumnListParams,
+                types::ProjectColumnListResult,
+            >(name, fixture, &root_schema),
+            "project.column.create" => check_pair::<
+                types::ProjectColumnCreateParams,
+                types::BoardColumn,
+            >(name, fixture, &root_schema),
+            "project.column.update" => check_pair::<
+                types::ProjectColumnUpdateParams,
+                types::BoardColumn,
+            >(name, fixture, &root_schema),
+            "project.column.move" => {
+                check_pair::<types::ProjectColumnMoveParams, types::BoardColumn>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "project.column.delete" => check_pair::<
+                types::ProjectColumnDeleteParams,
+                types::ProjectColumnDeleteResult,
+            >(name, fixture, &root_schema),
+            "project.card.list" => check_pair::<
+                types::ProjectCardListParams,
+                types::ProjectCardListResult,
+            >(name, fixture, &root_schema),
+            "project.card.get" => check_pair::<types::ProjectCardGetParams, types::BoardCard>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "project.card.create" => {
+                check_pair::<types::ProjectCardCreateParams, types::BoardCard>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "project.card.update" => {
+                check_pair::<types::ProjectCardUpdateParams, types::BoardCard>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "project.card.move" => check_pair::<types::ProjectCardMoveParams, types::BoardCard>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "project.card.assign" => {
+                check_pair::<types::ProjectCardAssignParams, types::BoardCard>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "project.card.unassign" => check_pair::<
+                types::ProjectCardUnassignParams,
+                types::BoardCard,
+            >(name, fixture, &root_schema),
+            "project.card.archive" => {
+                check_pair::<types::ProjectCardArchiveParams, types::BoardCard>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "project.card.unarchive" => check_pair::<
+                types::ProjectCardUnarchiveParams,
+                types::BoardCard,
+            >(name, fixture, &root_schema),
+            "project.card.comment.add" => check_pair::<
+                types::ProjectCardCommentAddParams,
+                types::BoardComment,
+            >(name, fixture, &root_schema),
+            "project.card.comment.list" => check_pair::<
+                types::ProjectCardCommentListParams,
+                types::ProjectCardCommentListResult,
+            >(name, fixture, &root_schema),
+            "project.card.activity.list" => check_pair::<
+                types::ProjectCardActivityListParams,
+                types::ProjectCardActivityListResult,
+            >(name, fixture, &root_schema),
             other => panic!("method fixture {other} has no Rust type mapping"),
         }
     }
+}
+
+#[test]
+fn discovery_new_flag_roundtrips_and_remains_optional() {
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../packages/rpc-schema/fixtures/methods/models.list.json"
+    ))
+    .unwrap();
+    let mut model = fixture["result"]["models"][0].clone();
+    for flag in [true, false] {
+        model["new"] = serde_json::json!(flag);
+        let typed: types::ModelEntry = serde_json::from_value(model.clone()).unwrap();
+        assert_eq!(serde_json::to_value(typed).unwrap()["new"], flag);
+    }
+    model.as_object_mut().unwrap().remove("new");
+    let typed: types::ModelEntry = serde_json::from_value(model).unwrap();
+    assert!(serde_json::to_value(typed).unwrap().get("new").is_none());
 }

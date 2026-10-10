@@ -21,7 +21,7 @@ import { InMemoryProfileSource, StaticCredentialResolver } from "../../src/disco
 import type { CredentialResolver } from "../../src/discovery/ports.ts";
 import { createLoggerEvents } from "../../src/discovery/events-logger.ts";
 
-function newHome(extraConfig?: (cfg: any) => void): string {
+function newHome(endpointPort: number, extraConfig?: (cfg: any) => void): string {
   const home = mkdtempSync(join(tmpdir(), "p1b-e2e-"));
   const cfg = defaults();
   cfg.agents.bernd = {};
@@ -38,6 +38,7 @@ function newHome(extraConfig?: (cfg: any) => void): string {
     runtime: { recallTimeoutMs: 10_000 },
   };
   cfg.engine.duplicateThreshold = 1.01;
+  cfg.egress = { allowHosts: ["127.0.0.1"], allowPorts: [endpointPort], allowLoopback: true };
   if (extraConfig) extraConfig(cfg);
   writeFileSync(layout(home).configPath, JSON.stringify(cfg));
   return home;
@@ -53,7 +54,7 @@ describe("model discovery end-to-end", () => {
       return { status: 404 };
     });
 
-    const home = newHome();
+    const home = newHome(endpoint.port);
     const profiles = new InMemoryProfileSource([
       { id: "example-compat", vendor: "example-vendor", discovery: "openai-models", baseUrl: `${endpoint.origin}/v1` },
     ]);
@@ -137,7 +138,7 @@ describe("model discovery end-to-end", () => {
       return { status: 404 };
     });
 
-    const home = newHome();
+    const home = newHome(endpoint.port);
     const profiles = new InMemoryProfileSource([
       { id: "ollama-local", discovery: "ollama-tags", baseUrl: endpoint.origin },
     ]);
@@ -208,7 +209,7 @@ describe("model discovery end-to-end", () => {
       return { status: 404 };
     });
 
-    const home = newHome();
+    const home = newHome(endpoint.port);
     const profiles = new InMemoryProfileSource([
       { id: "example-compat", vendor: "example-vendor", discovery: "openai-models", baseUrl: `${endpoint.origin}/v1` },
     ]);
@@ -270,7 +271,7 @@ describe("model discovery end-to-end", () => {
     });
 
     // Configure modelRoles.chat pointing to example-compat/example-chat-small
-    const home = newHome((cfg) => {
+    const home = newHome(endpoint.port, (cfg) => {
       cfg.modelRoles = { chat: "example-compat/example-chat-small" };
     });
     const profiles = new InMemoryProfileSource([
@@ -348,7 +349,7 @@ describe("model discovery end-to-end", () => {
       return { status: 404 };
     });
 
-    const home = newHome();
+    const home = newHome(endpoint.port);
     const profiles = new InMemoryProfileSource([
       { id: "example-compat", vendor: "example-vendor", discovery: "openai-models", baseUrl: `${endpoint.origin}/v1` },
     ]);
@@ -397,7 +398,7 @@ describe("model discovery end-to-end", () => {
       return { status: 404 };
     });
 
-    const home = newHome();
+    const home = newHome(endpoint.port);
     const cfgPath = layout(home).configPath;
     const cfg = JSON.parse(readFileSync(cfgPath, "utf8"));
     cfg.modelRoles = { chat: "example-compat/example-chat-small" };
@@ -450,7 +451,7 @@ describe("model discovery end-to-end", () => {
       return { status: 404 };
     });
 
-    const home = newHome();
+    const home = newHome(endpoint.port);
     const realHome = realpathSync(home);
     const profiles = new InMemoryProfileSource([
       { id: "example-compat", vendor: "example-vendor", discovery: "openai-models", baseUrl: `${endpoint.origin}/v1` },
@@ -573,7 +574,7 @@ describe("model discovery end-to-end", () => {
       return { status: 404 };
     });
 
-    const home = newHome();
+    const home = newHome(endpoint.port);
     const realHome = realpathSync(home);
     const profiles = new InMemoryProfileSource([
       { id: "example-compat", vendor: "example-vendor", discovery: "openai-models", baseUrl: `${endpoint.origin}/v1` },
@@ -692,7 +693,7 @@ describe("model discovery end-to-end", () => {
       return { status: 404 };
     });
 
-    const home = newHome();
+    const home = newHome(endpoint.port);
     const profiles = new InMemoryProfileSource([
       { id: "canary-prof", vendor: "example-vendor", discovery: "openai-models", baseUrl: `${endpoint.origin}/v1/canary-401` },
       { id: "canary-success", vendor: "example-vendor", discovery: "openai-models", baseUrl: `${endpoint.origin}/v1/canary-success` },

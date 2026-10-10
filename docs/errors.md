@@ -23,7 +23,7 @@ that maps an error to an exit code.
 
 ## Error codes
 
-The first fifteen codes are the closed set of the RPC schema ([rpc.md](rpc.md#error-codes)); the CLI reports the code
+The RPC codes below are the closed set of the RPC schema ([rpc.md](rpc.md#error-codes)); the CLI reports the code
 the core sent. The last two are raised by the CLI itself.
 
 | Code | Exit | Meaning |
@@ -42,7 +42,14 @@ the core sent. The last two are raised by the CLI itself.
 | `E_DENIED` | 1 | Policy or permissions refuse the operation. |
 | `E_APPROVAL_REQUIRED` | 2 | The operation waits for an approval or an acknowledgement (`reason` says which). A script must not treat it as success. |
 | `E_CONFLICT` | 1 | The operation conflicts with the current state (name taken, concurrent change). |
+| `E_PROJECT_WIP_LIMIT` | 1 | The active-card count would exceed the target column WIP limit. The whole board mutation rolls back; a human with project manage may explicitly request `overrideWip`. |
 | `E_STORAGE` | 1 | A storage operation failed; `ids` may carry the ids needed to recover a half-finished step. |
+| `E_MEDIA_CAPABILITY` | 1 | The media index's provider or model cannot handle the modality (for example OpenAI embeddings in the media index). |
+| `E_MEDIA_LICENSE` | 1 | The licence of the media model has not been confirmed (for example a non-commercial licence). |
+| `E_MEDIA_PRIVACY` | 1 | The privacy pin is set and a cloud provider is configured for the media index; no request was sent. |
+| `E_MEDIA_UNAVAILABLE` | 1 | The media model is not installed, its key is missing, or the engine has no media index. |
+| `E_MEDIA_DIMENSION` | 1 | The query and the indexed documents differ in dimension, or the model does not support the configured dimension. |
+| `E_MEDIA_UNSUPPORTED_KIND` | 1 | The medium cannot be processed (decoder or frame extractor missing, format unknown). |
 | `E_IMPORT_FAILED` | 1 | `plur1bus import` could not run or finish the importer (`reason`: `importer-missing`, `node-unavailable`, `importer-crashed`). The importer's own errors keep the exit code it reports. |
 | `E_CANCELLED` | 1 | The user declined a confirmation prompt; nothing was changed. |
 
@@ -65,7 +72,7 @@ the core sent. The last two are raised by the CLI itself.
 
 | `reason` | Code | Exit | Meaning |
 |---|---|---|---|
-| `secret-value` | `E_INVALID_PARAMS` | 2 | A value that looks like a credential was given for a `*Secret` key (or a recognisable token for any key). It is not echoed, stored or logged; treat what was typed as exposed and rotate it. Store secrets with `plur1bus secret set <name>` and pass the name. |
+| `secret-value` | `E_INVALID_PARAMS` | 2 | A `*Secret` key was given something other than a secret name: a value that looks like a credential, or any text outside the name format (`[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}`). The CLI refuses it before the core is called, so nothing is sent; the core refuses it too and stores nothing. A value is never echoed, stored or logged. A credential-shaped value is to be treated as exposed: rotate it. Store secrets with `plur1bus secret set <name>` and pass the name. |
 | `invalid-id`, `invalid-key`, `unknown-key`, `value-required`, `invalid-params` | `E_INVALID_PARAMS` | 1 | Usage: the id or key is not well formed, the key does not exist for that channel, or the value is missing. Nothing was written. |
 | `invalid-value` | `E_INVALID_PARAMS` | 1 | The value does not validate against the config schema; `detail` names the schema complaint (never the value). Nothing was written. |
 | `unknown-channel` | `E_NOT_FOUND` | 1 | No such channel in the config schema or the registry. |
@@ -96,3 +103,45 @@ the core sent. The last two are raised by the CLI itself.
 | `addon-disable-failed` | (Outcome `rolled-back`.) An add-on could not be disabled after the swap; the update was rolled back. |
 | `bundle-unreadable`, `bundle-invalid`, `archive-unsupported`, `archive-unsafe-entry`, `channel-mismatch` | An offline bundle (`--from`) is missing, lacks `manifest.json`, `manifest.json.minisig` or an artefact, is not a `.tar.zst`/`.zip`, holds an entry that is not a plain file or directory (traversal, absolute name, link, duplicate), or is for another channel. |
 | `ca-bundle-invalid` | `--ca-bundle` / `PLUR1BUS_CA_BUNDLE` is unreadable or holds no certificate (`E_INVALID_PARAMS`, exit 2). |
+
+## Voice provider error codes (`@plur1bus/voice-providers`)
+
+Not CLI codes: `VoiceProviderError.code` of the voice package, stable like the ones above. Callers branch on the code, never on the text; messages carry no key and no vendor text.
+
+| Code | Meaning |
+|---|---|
+| `auth` | 401/403, a missing secret reference, or a socket closed with policy code 1008. Retrying cannot help. |
+| `rate_limited` | 429 or a quota frame; `retryAfterMs` when the service said how long. |
+| `overloaded` | 5xx/529, transient. |
+| `invalid_request` | A 4xx the caller caused (bad voice, model or format). |
+| `unsupported` | The provider does not offer this capability or option. |
+| `network` | No response, or a socket that ended without a protocol reason. |
+| `timeout` | A deadline expired. |
+| `aborted` | The caller's `AbortSignal` fired. |
+| `bad_response` | An HTTP response or handshake the package refuses to interpret. |
+| `upstream_protocol` | New. A socket frame or close code that breaks the WebSocket protocol (reserved bits, bad UTF-8, oversize, bad fragmentation: close codes 1002, 1007, 1009) or the vendor's own message schema. The session is closed cleanly after one error event; nothing is thrown into the process. |
+| `closed` | The session is already closed. |
+| `unavailable` | The local engine or platform cannot run. |
+| `licence_required` | A non-commercial or unconfirmed licence needs the owner's confirmation for this model and licence id. |
+| `download_failed` | A model download failed: network, size limit, an archive with links or paths outside its directory, or a swap that could not complete (the previous version is kept). |
+| `checksum_mismatch` | Downloaded bytes do not match the catalog sha256. |
+| `catalog` | A catalog entry is missing, malformed, or has no verified package. |
+| `config` | Provider configuration is invalid. |
+
+## Device management (F44)
+
+Device RPC uses existing `E_*` codes with these additive `reason` values; there
+are no new top-level error codes. Messages contain no key material or pairing code.
+
+| Reason | Error | Meaning |
+|---|---|---|
+| `device-invalid` | `E_INVALID_PARAMS` | Invalid id, name, metadata or public key. |
+| `device-not-found` | `E_NOT_FOUND` | No device with that id. |
+| `device-owner` | `E_DENIED` | The stored device belongs to another person; rename has no admin override. |
+| `device-denied`, `device-revoked` | `E_DENIED` | Pairing proof/handshake refused, or the key has been revoked. |
+| `device-conflict` | `E_CONFLICT` | This public key is already enrolled. |
+| `device-storage` | `E_STORAGE` | State/ACL/audit could not be read or written; fail closed. A failed revocation write still disconnects and denies the key in memory; retry before restarting. |
+
+The central RBAC gate additionally returns `E_UNAUTHORIZED` for a missing
+principal and `E_DENIED` for forbidden role/kind/token scope, using the existing
+RBAC reasons. Repeating a completed revocation is idempotent.

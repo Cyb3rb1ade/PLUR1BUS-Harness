@@ -156,7 +156,21 @@ export function createIdentityService(o: IdentityOptions) {
     },
 
     /** Mints a code for `humanId` on `channel`. The code is returned here once and exists nowhere else but as a salted hash. */
-    startPairing(p: { humanId: string; channel: string }, actor: Actor): { pairingId: string; code: string; channel: string; expiresAt: number } {
+    /** Revoking an invitation invalidates both unclaimed and claimed proofs before confirmation. */
+    revokePairing(id: string, actor: Actor): void {
+      tx(() => {
+        const row = one("SELECT * FROM pairings WHERE id=?", text(id, "pairingId", 64));
+        if (!row) throw new IdentityError("not-found", "pairing not found");
+        authorizeAction("confirm", row.human_id as string, actor);
+        if (row.state === "confirmed") throw new IdentityError("conflict", "a confirmed pairing cannot be revoked as an invitation");
+        run("UPDATE pairings SET state='declined',resolved_at=? WHERE id=?", now(), id);
+      });
+      audit({ action: "identity.pair.revoke", target: id, detail: { result: "revoked" }, actor });
+    },
+
+    startPairing(p: { humanId: string; channel: string; ttlMs?: number }, actor: Actor): { pairingId: string; code: string; channel: string; expiresAt: number } {
+      const lifetime = p.ttlMs ?? ttl;
+      if (p.ttlMs !== undefined && (!Number.isInteger(lifetime) || lifetime < 60_000 || lifetime > ttl)) throw bad("ttlMs", "pairing TTL must be 1-60 minutes");
       authorizeAction("pair", p.humanId, actor);
       const channel = channelOf(p?.channel);
       const out = tx(() => {
@@ -175,8 +189,8 @@ export function createIdentityService(o: IdentityOptions) {
         limiter.failure(issueGlobal, { limit: 100, windowMs: 15 * 60_000, lockMs: 15 * 60_000 });
         const code = generateCode(); const salt = newSalt(); const id = uuidv7(t);
         run("INSERT INTO pairings(id, human_id, channel, salt, code_hash, state, created_at, created_by, expires_at) VALUES (?,?,?,?,?,'pending',?,?,?)",
-          id, p.humanId, channel, salt, hashCode(salt, code), t, actor.user, t + ttl);
-        return { pairingId: id, code, channel, expiresAt: t + ttl };
+          id, p.humanId, channel, salt, hashCode(salt, code), t, actor.user, t + lifetime);
+        return { pairingId: id, code, channel, expiresAt: t + lifetime };
       });
       audit({ action: "identity.pair.start", target: out.pairingId, detail: { humanId: p.humanId, channel, expiresAt: out.expiresAt }, actor });
       return out;
@@ -211,7 +225,7 @@ export function createIdentityService(o: IdentityOptions) {
         if (userWait) return { locked: userWait };
         limiter.failure(userKey, SOURCE_LIMIT);
         run("UPDATE pairings SET state = 'claimed', claim_account_id = ?, claim_user_id = ?, claim_display_name = ?, claimed_at = ?, confirm_by = ? WHERE id = ?",
-          i.accountId, i.userId, i.displayName ?? null, t, t + ttl, hit.id as string);
+          i.accountId, i.userId, i.displayName ?? null, t, Number(hit.expires_at) - Number(hit.created_at) < ttl ? Math.min(t + ttl, Number(hit.expires_at)) : t + ttl, hit.id as string);
         limiter.success(srcKey);
         return { ok: pairingOf(one("SELECT * FROM pairings WHERE id = ?", hit.id as string)!) };
       });
@@ -270,13 +284,19 @@ export function createIdentityService(o: IdentityOptions) {
       return l;
     },
 
-    list(p: { includeRevoked?: boolean }): { humans: Array<Human & { identities: Link[] }>; pairings: Pairing[] } {
+    list(p: { includeRevoked?: boolean; includeResolvedPairings?: boolean }): { humans: Array<Human & { identities: Link[] }>; pairings: Pairing[] } {
       const links = all(p?.includeRevoked ? "SELECT * FROM identities ORDER BY linked_at, id" : "SELECT * FROM identities WHERE revoked_at IS NULL ORDER BY linked_at, id").map(linkOf);
       const humans = all("SELECT * FROM humans ORDER BY created_at, id").map((h) => ({
         id: h.id as string, displayName: h.display_name as string, createdAt: h.created_at as number, identities: links.filter((l) => l.humanId === h.id),
       }));
       const t = now();
-      const pairings = all("SELECT * FROM pairings WHERE (state = 'pending' AND expires_at > ?) OR (state = 'claimed' AND confirm_by > ?) ORDER BY created_at, id", t, t).map(pairingOf);
+      const pairings = (p?.includeResolvedPairings
+        ? all("SELECT * FROM pairings ORDER BY created_at, id")
+        : all("SELECT * FROM pairings WHERE (state = 'pending' AND expires_at > ?) OR (state = 'claimed' AND confirm_by > ?) ORDER BY created_at, id", t, t)).map(pairingOf);
+      for (const pairing of pairings) {
+        if ((pairing.state === "pending" && pairing.expiresAt <= t) || (pairing.state === "claimed" && pairing.confirmBy! <= t))
+          pairing.state = "expired";
+      }
       return { humans, pairings };
     },
 

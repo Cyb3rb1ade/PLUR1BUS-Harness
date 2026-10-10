@@ -53,12 +53,12 @@ test("full keyboard traversal: ordered accessible names, wrap and visible 3:1 fo
         await page.evaluate(([section, subpage]) => (window as any).testShell.navigate(section, subpage), [section, subpage]);
         const expected = [
           ...(width < 1024 ? ["Open navigation"] : []), "Home", "Connections", "Settings",
-          ...(section === "settings" && width >= 1024 ? ["Runtime", "Updates", "Version", "Advanced"] : []), "Home",
+          ...(section === "settings" && width >= 1024 ? ["Runtime", "Updates", "Version", "Advanced", "Computer access"] : []), "Home",
           ...(section === "home" ? ["View connections", "Open settings"] : [
             ...(section === "settings" && width < 1024 ? ["Sections"] : []),
             ...(section === "connections" ? ["Add remote", "Attach native local", "Refresh", ...(width < 1024 ? ["Choose connection"] : [])] : []),
             ...(width <= 1600 ? [section === "settings" ? "About this page" : "Connection details"] : []),
-            ...(section === "settings" && subpage === "runtime" ? ["Start PLUR1BUS at login"] : []),
+            ...(section === "settings" && subpage === "runtime" ? ["Refresh status", "Unlock secrets with the system keyring", "Start PLUR1BUS at login"] : []),
             ...(section === "settings" && subpage === "advanced" ? ["System", "Light", "Dark", "System", "English", "Deutsch"] : []),
           ]), "How preferences work",
         ];

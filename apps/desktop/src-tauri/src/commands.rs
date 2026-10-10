@@ -2,14 +2,27 @@ use crate::settings::{Settings, SettingsStore};
 use serde::{Deserialize, Serialize};
 use tauri::{Manager, WebviewWindow};
 
+pub use crate::host_commands::{
+    approval_decide, approval_open, approvals_list, bridge_settings, helper_status,
+    permissions_open_pane,
+};
 pub use crate::shell_commands::{APP_COMMANDS, SHELL_COMMANDS};
 
 pub fn allowed_command(label: &str, command: &str) -> bool {
-    label == "shell" && SHELL_COMMANDS.contains(&command)
+    (label == "shell" && SHELL_COMMANDS.contains(&command))
+        || (label == "approvals"
+            && [
+                "app_info",
+                "settings_get",
+                "approvals_list",
+                "approval_open",
+                "approval_decide",
+            ]
+            .contains(&command))
 }
 
 pub fn authorized_shell(label: &str, current_url: &str) -> bool {
-    if label != "shell" {
+    if label != "shell" && label != "approvals" {
         return false;
     }
     let Ok(url) = tauri::Url::parse(current_url) else {
@@ -24,7 +37,7 @@ pub fn authorized_shell(label: &str, current_url: &str) -> bool {
     exact_origin && url.username().is_empty() && url.password().is_none()
 }
 
-fn check(window: &WebviewWindow, command: &str) -> Result<(), String> {
+pub(crate) fn check(window: &WebviewWindow, command: &str) -> Result<(), String> {
     let current_url = window.url().map_err(|_| "shell URL unavailable")?;
     if !allowed_command(window.label(), command)
         || !authorized_shell(window.label(), current_url.as_str())
@@ -330,6 +343,9 @@ pub async fn open_connection(
     let store = connection_store(&window)?;
     let app = window.app_handle().clone();
     credential_action(&state, move |tokens, runtime| {
+        if app.try_state::<crate::native::NativeState>().is_some() {
+            crate::native::retire_connection(&app, request.id);
+        }
         let tokens = tokens.get_or_insert_with(crate::secrets::open_default);
         let mut row = store
             .load()
@@ -337,13 +353,36 @@ pub async fn open_connection(
             .into_iter()
             .find(|c| c.id == request.id)
             .ok_or("invalid")?;
-        runtime
-            .block_on(crate::pair::validate_connection(
-                &mut row,
-                tokens.as_ref(),
-                &store,
-            ))
-            .map_err(|e| e.public_message())?;
+        let validated = runtime.block_on(crate::pair::validate_connection(
+            &mut row,
+            tokens.as_ref(),
+            &store,
+        ));
+        if let Err(error) = validated {
+            if row.kind != crate::connections::Kind::Bundled
+                || !matches!(
+                    error,
+                    crate::pair::PairError::PairingNeeded
+                        | crate::pair::PairError::Client(
+                            crate::client::ClientError::Revoked
+                                | crate::client::ClientError::Unauthorized
+                        )
+                )
+            {
+                return Err(error.public_message());
+            }
+            row = runtime.block_on(async {
+                let window = app.get_webview_window("shell").ok_or("invalid")?;
+                let owner = app.state::<crate::runtime_commands::RuntimeState>();
+                let mut owner = owner.0.lock().await;
+                let ctl = crate::runtime_commands::resolve(&window, &mut owner, None).await?;
+                owner
+                    .repair
+                    .repair_once(&ctl, &row, tokens.as_ref(), &store)
+                    .await
+                    .map_err(|e| e.public_message())
+            })?;
+        }
         let monitor = if app.try_state::<crate::native::NativeState>().is_some() {
             let client = runtime
                 .block_on(crate::client::HarnessClient::from_connection(&row))
@@ -457,6 +496,11 @@ pub async fn quit_response(
             // Bundled harness stopping is not available until WP8's controller adapter.
             state.quit.approve(choice, false).map_err(str::to_owned)?;
             state.events.stop();
+            // Native fixtures and the diagnostics shells do not manage the host bridge state.
+            if let Some(host) = window.try_state::<crate::host_commands::HostState>() {
+                host.bridge.stop();
+                host.helper.stop();
+            }
             #[cfg(unix)]
             state.gnome.stop();
             let diagnostics = { state.diagnostics.lock().unwrap().take() };

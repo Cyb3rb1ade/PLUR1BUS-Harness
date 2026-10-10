@@ -1,0 +1,1 @@
+{"jsonrpc": "2.0", "id": 25, "error": {"code": -32000, "message": "this media kind cannot be processed", "data": {"error": "E_MEDIA_UNSUPPORTED_KIND", "reason": "unsupported-kind"}}}

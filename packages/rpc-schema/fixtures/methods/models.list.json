@@ -8,13 +8,19 @@
         "displayName": "Example Chat Large",
         "kind": "chat",
         "contextWindow": 128000,
-        "capabilities": ["tools", "vision"],
-        "aliases": ["large"],
+        "capabilities": [
+          "tools",
+          "vision"
+        ],
+        "aliases": [
+          "large"
+        ],
         "status": "available",
         "firstSeen": "2026-10-03T12:00:00.000Z",
         "lastSeen": "2026-10-03T12:00:00.000Z",
         "source": "scan",
-        "overrides": {}
+        "overrides": {},
+        "new": true
       }
     ],
     "providers": [

@@ -5,15 +5,29 @@ import schemaJson from "../schema/config.schema.json" with { type: "json" };
 export const CONFIG_SCHEMA = schemaJson as Record<string, any>;
 export const SCHEMA_VERSION = 1 as const;
 
+export interface MediaEmbeddingConfig {
+  enabled: boolean; provider: string; model: string; dimensions: number;
+  modalities: ("image" | "video" | "audio")[];
+  video: { segmentSec: number; maxFrames: number; sceneDetect: boolean };
+  audio: { segmentSec: number; maxSeconds: number };
+  caption: { source: "prompt-then-user-then-auto" | "user-only" | "off"; provider?: string; maxChars: number; perSegment: boolean };
+  backfill: "auto" | "manual";
+}
+type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
+
 export interface HarnessConfig {
+  containers?: { runtime: "auto" | "apple" | "docker"; image?: string; stateVolume: string; bindAddress: string; apiPort?: number; healthTimeoutMs: number };
+  sidecars?: Record<string, { mode: "bundled" | "remote" | "off"; url?: string; caBundle?: string; fingerprint?: string; timeoutMs: number }>;
   $schema?: string;
   schemaVersion: 1;
+  session: { compaction: { softRatio: number; hardRatio: number; summaryMaxTokens: number; maxMessageTokens: number; summarizer: "llm" | "digest"; prune: { enabled: boolean; keepLastTurns: number; decider: "laya" | "heuristic" | "off"; maxMs: number; batchSize: number } } };
   tools: { hostctl: { enabled: boolean; shell: { allowed: boolean; default: "bash" | "zsh" | "pwsh" }; exec: { timeoutMs: number }; output: { maxBytes: number }; env: { allow: string[] }; denyPatterns: string[]; search: { maxResults: number } } };
   core: { logLevel: "debug" | "info" | "warn" | "error"; recall: { softBudgetMs: number; hardBudgetMs: number; capChars: number }; capture: { waitMs: number }; shutdownBudgetMs: number };
   supervisor: { graceMs: number; healthIntervalMs: number };
   logs: { maxBytes: number; keep: number };
   metrics: { enabled: boolean; port: number };
-  agents: Record<string, { createdAt?: string; displayName?: string }>;
+  agents: Record<string, { createdAt?: string; displayName?: string; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> } }>;
+  memory: { mediaEmbedding: MediaEmbeddingConfig };
   embedding: { useClass: "general" | "research" | "commercial"; acceptedNcLicence: boolean; acceptedNcLicenceAt?: string };
   engine: Record<string, unknown> & { baseDbPathOverride?: string };
   providers: Record<string, unknown>;
@@ -34,6 +48,20 @@ export interface HarnessConfig {
       enabled: boolean; address?: string; displayName?: string; dmAllowlist: string[]; maxAttachmentBytes: number; requireAuthPass: boolean; locale: "en" | "de";
       imap: MailServerConfig & { folder: string; idle: boolean; pollIntervalSec: number };
       smtp: MailServerConfig;
+    };
+    telegram: {
+      enabled: boolean;
+      tokenSecret: string;
+      allowlist: (string | number)[];
+      userAllowlist?: (string | number)[];
+      mode: "polling" | "webhook";
+      webhook?: { url: string; secret: string; maxBodyBytes?: number };
+      botId?: number;
+      botUsername?: string;
+      groupPolicy: "addressed" | "all";
+      maxMediaBytes: number;
+      pollTimeoutSec: number;
+      maxSendRetries: number;
     };
   };
   modules: Record<string, Record<string, unknown> & { enabled: boolean }>;
@@ -56,7 +84,8 @@ export interface VoiceConfig {
     perAgent: Record<string, { language?: string; profile?: "fast" | "quality" }>;
     catalogOverride?: Record<string, unknown>;
     modelsDir?: string;
-    acceptNcLicence: boolean;
+    /** `<model id>@<licence id>` -> ISO date-time of the owner's confirmation (per model and licence, never global). */
+    acceptedLicences: Record<string, string>;
   };
   localRealtime: {
     enabled: boolean;
@@ -67,8 +96,20 @@ export interface VoiceConfig {
     features: Record<"autoRecall" | "reranker" | "recallMultiIdentity" | "promptEnrichment" | "decisionService" | "postTurnRefine" | "memoryWrite" | "compaction", VoiceFeatureConfig>;
     toolSchemas: "reduced" | "full";
     auditDetail: "minimal" | "full";
-    perAgent: Record<string, Record<string, unknown>>;
+    perAgent: Record<string, VoiceLocalRealtimeOverride>;
   };
+}
+
+/** `voice.localRealtime.perAgent.<id>`: the same keys as `voice.localRealtime`, all optional. */
+export interface VoiceLocalRealtimeOverride {
+  enabled?: boolean;
+  endpointingMs?: number;
+  speculativeTurnStart?: boolean;
+  ackSound?: boolean;
+  sentenceChunking?: { maxWords?: number };
+  features?: Partial<Record<"autoRecall" | "reranker" | "recallMultiIdentity" | "promptEnrichment" | "decisionService" | "postTurnRefine" | "memoryWrite" | "compaction", VoiceFeatureConfig>>;
+  toolSchemas?: "reduced" | "full";
+  auditDetail?: "minimal" | "full";
 }
 
 /** Keys every chat channel shares (`channels.<id>.*`); secrets are referenced by name, never held here. */
@@ -111,7 +152,11 @@ export function defaults(): HarnessConfig {
 
 export function validate(value: unknown): { ok: true; config: HarnessConfig } | { ok: false; errors: string[] } {
   const copy = structuredClone(value);
-  if (validateFn(copy)) return { ok: true, config: copy as HarnessConfig };
+  if (validateFn(copy)) {
+    const c = (copy as HarnessConfig).session.compaction;
+    if (c.softRatio >= c.hardRatio) return { ok: false, errors: ["/session/compaction softRatio must be below hardRatio"] };
+    return { ok: true, config: copy as HarnessConfig };
+  }
   return { ok: false, errors: (validateFn.errors ?? []).map((e) => `${e.instancePath || "/"} ${e.message ?? ""}${e.params && "additionalProperty" in e.params ? ` (${(e.params as any).additionalProperty})` : ""}`.trim()) };
 }
 

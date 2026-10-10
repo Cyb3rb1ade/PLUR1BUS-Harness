@@ -38,6 +38,8 @@ struct StoredSettings {
     extra: serde_json::Map<String, serde_json::Value>,
 }
 
+static WRITE_OWNER: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 pub struct SettingsStore {
     dir: PathBuf,
 }
@@ -101,11 +103,34 @@ impl SettingsStore {
         ))
     }
 
+    pub fn key_unlock(&self) -> Result<bool, String> {
+        let stored = self.read()?;
+        Ok(stored
+            .extra
+            .get("hostKeyUnlock")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true))
+    }
+
+    pub fn set_key_unlock(&self, enabled: bool) -> Result<(), String> {
+        let _guard = WRITE_OWNER.lock().map_err(|_| "settings unavailable")?;
+        let mut stored = self.read()?;
+        stored
+            .extra
+            .insert("hostKeyUnlock".into(), serde_json::json!(enabled));
+        self.write(&stored)
+    }
+
     pub fn set(&self, settings: &Settings) -> Result<(), String> {
+        let _guard = WRITE_OWNER.lock().map_err(|_| "settings unavailable")?;
         // Re-read immediately before every save, including when settings_get failed.
         let mut stored = self.read()?;
         stored.theme = settings.theme;
         stored.locale = settings.locale;
+        self.write(&stored)
+    }
+
+    fn write(&self, stored: &StoredSettings) -> Result<(), String> {
         fs::create_dir_all(&self.dir)
             .map_err(|error| format!("settings directory failed: {error}"))?;
         let bytes = serde_json::to_vec_pretty(&stored)

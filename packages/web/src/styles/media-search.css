@@ -1,0 +1,12 @@
+/* media search (src/pages/media-search): the two indexes side by side, the facts lists, hits and the player. */
+.setup-areas, .media-areas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+.setup-area h3, .setup-area h4 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
+.setup-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 12px; margin: 8px 0 12px; }
+.setup-facts dt { color: var(--ink-2); }
+.setup-facts dd { margin: 0; overflow-wrap: anywhere; }
+.media-hits li { padding: 10px 0; border-top: 1px solid var(--line); }
+.media-player { display: grid; gap: 8px; margin-top: 12px; }
+.media-player video, .media-player audio { width: 100%; max-width: 640px; }
+@media (max-width: 640px) {
+  .setup-areas, .media-areas { grid-template-columns: minmax(0, 1fr); }
+}

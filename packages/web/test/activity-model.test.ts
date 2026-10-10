@@ -2,8 +2,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { catalogues, t } from "../src/i18n.ts";
-import { classify, groupEntries, groupOf, jobKind, logLink, mergeEntries, sentenceKey, toEntries } from "../src/pages/logs/activity/model.ts";
-import { sentence } from "../src/pages/logs/activity.ts";
+import { classify, groupEntries, groupOf, jobKind, logLink, mergeEntries, sentence, sentenceKey, toEntries } from "../src/pages/logs/activity/model.ts";
 import { at, audit, diag, NOW } from "./activity-fixtures.ts";
 
 describe("activity: event to sentence mapping", () => {

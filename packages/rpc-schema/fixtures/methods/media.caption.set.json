@@ -1,0 +1,9 @@
+{
+  "params": {
+    "mediaId": "m-img-1",
+    "text": "A red bicycle leaning on a sea wall"
+  },
+  "result": {
+    "ok": true
+  }
+}

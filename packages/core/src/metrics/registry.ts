@@ -6,6 +6,8 @@
 // a label value or grow the number of series.
 
 export const MAX_SERIES_PER_METRIC = 1024;
+/** Hard ceiling even for a metric that declares its own bound (see CounterOptions.maxSeries): a runaway enumeration still fails at declaration. */
+export const MAX_SERIES_HARD_LIMIT = 16384;
 const OTHER = "other";
 const METRIC_NAME = /^[a-zA-Z_:][a-zA-Z0-9_:]*$/;
 const LABEL_NAME = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
@@ -22,14 +24,14 @@ function fmt(n: number): string { return n === Infinity ? "+Inf" : n === -Infini
 
 class Labels {
   readonly names: string[]; readonly allowed: Set<string>[];
-  constructor(spec: LabelSpec, extraSeriesFactor: number, metric: string) {
+  constructor(spec: LabelSpec, extraSeriesFactor: number, metric: string, cap = MAX_SERIES_PER_METRIC) {
     this.names = Object.keys(spec);
     this.allowed = this.names.map((n) => {
       if (!LABEL_NAME.test(n) || n.startsWith("__") || n === "le") throw new Error(`invalid label name ${JSON.stringify(n)} on ${metric}`);
       return new Set([...(spec[n] ?? []), OTHER]);
     });
     const combos = this.allowed.reduce((a, s) => a * s.size, 1);
-    if (combos * extraSeriesFactor > MAX_SERIES_PER_METRIC) throw new Error(`${metric}: label space of ${combos * extraSeriesFactor} series exceeds the cap of ${MAX_SERIES_PER_METRIC}`);
+    if (combos * extraSeriesFactor > cap) throw new Error(`${metric}: label space of ${combos * extraSeriesFactor} series exceeds the cap of ${cap}`);
   }
   /** The normalised values in declaration order. */
   values(given: LabelValues): string[] {
@@ -48,11 +50,19 @@ class Labels {
   }
 }
 
+export interface CounterOptions {
+  /**
+   * An explicit series bound for a metric whose label enumerations are closed sets derived from a generated source (the RPC
+   * method list), so the bound grows with the schema instead of silently breaking core start. Must not exceed MAX_SERIES_HARD_LIMIT;
+   * the metric is still refused at declaration if its label space exceeds it. Omit for hand-written enumerations (cap 1024).
+   */
+  readonly maxSeries?: number;
+}
 export interface Counter { inc(labels?: LabelValues, by?: number): void; initAll(): void }
 export interface Gauge { set(labels: LabelValues, value: number): void }
 export interface Histogram { observe(labels: LabelValues, value: number): void; initAll(): void }
 export interface Registry {
-  counter(name: string, help: string, labels: LabelSpec): Counter;
+  counter(name: string, help: string, labels: LabelSpec, options?: CounterOptions): Counter;
   gauge(name: string, help: string, labels: LabelSpec): Gauge;
   /** An unlabelled gauge computed at render time; a throwing or non-finite callback is skipped. */
   gaugeFn(name: string, help: string, fn: () => number): void;
@@ -70,8 +80,10 @@ export function createRegistry(): Registry {
   const key = (v: readonly string[]) => v.join("\u0000");
 
   return {
-    counter(name, help, spec) {
-      const labels = new Labels(spec, 1, name);
+    counter(name, help, spec, options = {}) {
+      const max = options.maxSeries;
+      if (max !== undefined && !(Number.isInteger(max) && max >= 1 && max <= MAX_SERIES_HARD_LIMIT)) throw new Error(`${name}: maxSeries must be an integer in 1..${MAX_SERIES_HARD_LIMIT}`);
+      const labels = new Labels(spec, 1, name, max);
       const series = new Map<string, { v: string[]; n: number }>();
       const bump = (v: string[], by: number) => { const k = key(v); const s = series.get(k) ?? { v, n: 0 }; s.n += by; series.set(k, s); };
       declare(name, help, "counter", () => [...series.values()].sort((a, b) => key(a.v).localeCompare(key(b.v))).map((s) => `${name}${labels.render(s.v)} ${fmt(s.n)}`));

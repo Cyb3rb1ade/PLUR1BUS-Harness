@@ -192,7 +192,7 @@ describe("palette: keyboard operation", opts, () => {
       await page.waitForFunction(() => document.activeElement?.tagName === "H1");
       // Same page again: the query changes, focus must not be lost to <body>.
       await open(page);
-      await combo(page).fill("loopback");
+      await combo(page).fill("allow loopback");
       await dlg(page).getByRole("option", { name: /Allow loopback/ }).waitFor();
       await page.keyboard.press("Enter");
       await page.locator("dialog.palette").waitFor({ state: "detached" });

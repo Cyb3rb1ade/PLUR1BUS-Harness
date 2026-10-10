@@ -44,7 +44,9 @@ test("/plur1bus link CODE in a DM claims the pairing with the bot id and the sen
   assert.deepEqual(p.calls[0]!.identity, { channel: "slack", accountId: BOT_USER, userId: "UHUMAN01" });
   assert.equal(replies.length, 1);
   assert.equal(replies[0]!.user, "UHUMAN01");
-  assert.match(replies[0]!.text, /Pairing claimed/);
+  assert.match(replies[0]!.text, /Pairing ID: p1/);
+  assert.match(replies[0]!.text, /plur1bus identity approve p1/);
+  assert.doesNotMatch(replies[0]!.text, /PAIR-7Q2X|FAKECODE/);
 });
 
 test("link outside a DM is refused: no claim, no code use", async () => {

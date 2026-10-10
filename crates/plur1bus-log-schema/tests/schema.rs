@@ -133,7 +133,7 @@ fn every_catalogue_entry_is_consistent() {
         assert!(c.events.len() >= 120);
         for e in &c.events {
             assert!(c.attr_groups.contains_key(&e.attrs), "{}", e.event);
-            assert_eq!(e.since, "D111");
+            assert!(matches!(e.since.as_str(), "D111" | "D112"));
             if e.stream == "audit" {
                 assert_eq!(e.kinds, ["harness"], "{}", e.event);
             }

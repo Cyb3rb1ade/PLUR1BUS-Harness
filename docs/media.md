@@ -357,3 +357,6 @@ image tools remain registered; new media agent tools are conditional on the miss
 capability entries. The existing human RPC policy binding also depends on those
 entries. Tests with injected policy/budget adapters prove the library and surface
 contract, not this outstanding live-host acceptance.
+## Media search
+
+Indexing, captions and search over generated media are described in [media-search.md](media-search.md).

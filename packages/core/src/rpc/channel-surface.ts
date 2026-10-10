@@ -28,6 +28,8 @@ export interface ChannelRegistryView {
   manifestOf(name: string): ChannelManifest | undefined;
   probe(name: string): Promise<ChannelHealth | undefined>;
   sendTo(name: string, msg: OutboundMessage): Promise<boolean>;
+  /** The chat in which a message reaches the person behind a channel handle directly (an adapter may need to open it first). Absent: the handle is the chat. */
+  ownerTarget?(name: string, who: { userId: string; accountId?: string }): Promise<string>;
 }
 
 export interface ChannelSurfaceDeps {
@@ -207,7 +209,7 @@ export function buildChannelSurface(d: ChannelSurfaceDeps): Record<string, Handl
     const own = channelConfig(cfg, id);
     const secrets = secretRefs(own).map((r) => ({ ...r, present: present.has(r.name) }));
     const state = status?.state ?? "not-registered";
-    const health = state === "running" ? "ok" : state === "backoff" || state === "failed" ? "failing" : "unknown";
+    const health = state === "running" ? (status?.health?.ok === false ? "failing" : "ok") : state === "backoff" || state === "failed" || state === "misconfigured" ? "failing" : "unknown";
     return {
       id, displayName: displayNameOf(id, manifest), configurable: hasOwn(channelSchemas(), id), enabled: own.enabled === true,
       missing: secrets.filter((s) => !s.present).map((s) => `secret:${s.name}`), secrets, state, health,
@@ -377,7 +379,9 @@ export function buildChannelSurface(d: ChannelSurfaceDeps): Record<string, Handl
       const mine = identity.list({}).humans.find((h) => h.id === principal.userId)?.identities.find((l) => l.channel === id && l.revokedAt === null);
       if (!mine) throw new RpcError("E_NOT_FOUND", "you have no linked identity on this channel", { reason: "owner-not-linked" });
       try {
-        const delivered = await registry.sendTo(id, { chatId: mine.userId, text: TEST_MESSAGE });
+        // The chat is the channel's own direct-message target for this person (a Discord DM channel, a Slack IM, a Matrix room …).
+        const chatId = registry.ownerTarget ? await registry.ownerTarget(id, { userId: mine.userId, accountId: mine.accountId }) : mine.userId;
+        const delivered = await registry.sendTo(id, { chatId, text: TEST_MESSAGE });
         if (!delivered) throw new RpcError("E_NOT_AVAILABLE", "the channel is not running", { reason: "channel-not-running" });
       } catch (e) {
         if (e instanceof RpcError) throw e;

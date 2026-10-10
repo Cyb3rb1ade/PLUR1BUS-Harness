@@ -1,0 +1,1 @@
+{"jsonrpc": "2.0", "id": 21, "error": {"code": -32000, "message": "the model licence has not been confirmed", "data": {"error": "E_MEDIA_LICENSE", "reason": "licence-unconfirmed"}}}

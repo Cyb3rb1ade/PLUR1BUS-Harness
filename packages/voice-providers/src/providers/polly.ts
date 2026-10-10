@@ -3,7 +3,7 @@
 // dependencies loaded lazily; tests (and hosts that bundle their own client) inject `clientFactory`.
 import { POLLY } from "../constants.ts";
 import { VoiceProviderError, abortedError } from "../errors.ts";
-import type { AudioChunk, AudioFormat, ModelInfo, TtsOptions, TtsProvider, UsageReport, VoiceInfo } from "../types.ts";
+import type { AudioChunk, AudioFormat, CallOptions, ModelInfo, TtsOptions, TtsProvider, UsageReport, VoiceInfo } from "../types.ts";
 import { concatBytes } from "../util.ts";
 import { chunkedSynthesis } from "./common.ts";
 import type { CloudDeps } from "./common.ts";
@@ -69,6 +69,34 @@ export function createPolly(o: PollyOptions): TtsProvider {
     return { audio: { data: audio, format: r.out, sampleRate: r.rate } as AudioChunk, usage };
   }
 
+  // A closure, not a method read off `this`: a detached `const { listModels } = provider` still works.
+  async function listVoices(options: CallOptions = {}): Promise<VoiceInfo[]> {
+    const c = await client();
+    const out: VoiceInfo[] = [];
+    let token: string | undefined;
+    try {
+      for (let page = 0; page < 20; page++) {
+        const r = await c.describeVoices({ ...(token ? { NextToken: token } : {}) }, options.signal);
+        for (const v of r.Voices ?? []) {
+          if (!v.Id) continue;
+          const langs = [v.LanguageCode, ...(v.AdditionalLanguageCodes ?? [])].filter((x): x is string => !!x);
+          out.push({ id: v.Id, name: v.Name ?? v.Id, ...(langs.length ? { languages: langs } : {}), ...(v.Gender ? { gender: v.Gender } : {}), ...(v.SupportedEngines?.length ? { engines: v.SupportedEngines } : {}) });
+        }
+        if (!r.NextToken) break;
+        token = r.NextToken;
+      }
+    } catch (e) {
+      throw mapAwsError(e, options.signal);
+    }
+    return out;
+  }
+  /** Polly's "models" are its engines; they come from the voices' SupportedEngines. */
+  async function listModels(options: CallOptions = {}): Promise<ModelInfo[]> {
+    const engines = new Set<string>();
+    for (const v of await listVoices(options)) for (const e of v.engines ?? []) engines.add(e);
+    return [...engines].sort().map((id) => ({ id, name: id, capabilities: ["tts"] }));
+  }
+
   return {
     id: ID,
     kind: "tts",
@@ -82,32 +110,8 @@ export function createPolly(o: PollyOptions): TtsProvider {
       // Polly takes whole requests, so text is sentence-chunked and each sentence is one call.
       yield* chunkedSynthesis(textChunks(input), async (sentence) => [(await one(sentence, options)).audio], o.maxWords);
     },
-    async listVoices(options = {}) {
-      const c = await client();
-      const out: VoiceInfo[] = [];
-      let token: string | undefined;
-      try {
-        for (let page = 0; page < 20; page++) {
-          const r = await c.describeVoices({ ...(token ? { NextToken: token } : {}) }, options.signal);
-          for (const v of r.Voices ?? []) {
-            if (!v.Id) continue;
-            const langs = [v.LanguageCode, ...(v.AdditionalLanguageCodes ?? [])].filter((x): x is string => !!x);
-            out.push({ id: v.Id, name: v.Name ?? v.Id, ...(langs.length ? { languages: langs } : {}), ...(v.Gender ? { gender: v.Gender } : {}), ...(v.SupportedEngines?.length ? { engines: v.SupportedEngines } : {}) });
-          }
-          if (!r.NextToken) break;
-          token = r.NextToken;
-        }
-      } catch (e) {
-        throw mapAwsError(e, options.signal);
-      }
-      return out;
-    },
-    /** Polly's "models" are its engines; they come from the voices' SupportedEngines. */
-    async listModels(options = {}): Promise<ModelInfo[]> {
-      const engines = new Set<string>();
-      for (const v of await this.listVoices(options)) for (const e of v.engines ?? []) engines.add(e);
-      return [...engines].sort().map((id) => ({ id, name: id, capabilities: ["tts"] }));
-    },
+    listVoices,
+    listModels,
   };
 }
 
@@ -127,7 +131,7 @@ export function mapAwsError(e: unknown, signal?: AbortSignal): VoiceProviderErro
   return new VoiceProviderError("network", `${ID}: AWS request failed (${name || "error"})`, init);
 }
 
-async function loadSdkClient(o: PollyOptions): Promise<PollyClientLike> {
+export async function loadSdkClient(o: PollyOptions, requestHandler?: unknown): Promise<PollyClientLike> {
   let sdk: any;
   try {
     // Optional peers: resolved at call time so the package works (and typechecks) without them installed.
@@ -146,7 +150,7 @@ async function loadSdkClient(o: PollyOptions): Promise<PollyClientLike> {
       throw new VoiceProviderError("unavailable", `${ID}: @aws-sdk/credential-providers is needed to use a named profile`, { provider: ID });
     }
   }
-  const raw = new sdk.PollyClient({ ...(o.region ? { region: o.region } : {}), ...(credentials ? { credentials } : {}) });
+  const raw = new sdk.PollyClient({ ...(requestHandler ? { requestHandler } : {}), ...(o.region ? { region: o.region } : {}), ...(credentials ? { credentials } : {}) });
   return {
     async synthesize(input, signal) {
       const r = await raw.send(new sdk.SynthesizeSpeechCommand(input), signal ? { abortSignal: signal } : undefined);

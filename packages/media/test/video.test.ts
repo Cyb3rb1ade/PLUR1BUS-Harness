@@ -23,8 +23,11 @@ test('streaming store publishes poster and measured fields, metadata defaults of
   const root = await mkdtemp(join(tmpdir(), 'video-store-'));
   try {
     const store = new OutputStore(root, { videoProcessor: processor, maxVideoBytes: 4096 });
+    const published: unknown[] = [];
+    store.addListener({ onPut: manifest => published.push(manifest) });
     const result = () => ({ files: [{ bytes: new Uint8Array(), format: 'mp4' as const, stream: (async function*(){ yield mp4.subarray(0,10); yield mp4.subarray(10); })() }], metadata: { adapter: 'fake', model: 'configured', durationMs: 1 } });
     const m = await store.put('off', { kind: 'video', prompt: 'private prompt', durationSeconds: 4 }, result());
+    assert.deepEqual(published, [m]);
     assert.equal(m.kind, 'video'); assert.equal(m.files[0]?.durationSeconds, 4); assert.equal(m.files[0]?.poster?.path, '0.poster.png');
     assert.equal((await readFile(join(root, 'off', '0.mp4'))).includes(Buffer.from('private prompt')), false);
     await store.put('on', { kind: 'video', prompt: 'private prompt', embedMetadata: true }, result());

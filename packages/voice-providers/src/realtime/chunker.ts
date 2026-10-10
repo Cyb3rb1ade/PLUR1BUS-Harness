@@ -11,6 +11,7 @@ const ABBREVIATIONS = new Set([
   "mr", "mrs", "ms", "st", "vs", "e.g", "i.e", "approx", "no", "inc", "ltd", "co", "jr", "sr", "mt", "dept", "fig",
 ]);
 const MONTHS = new Set(["januar", "februar", "märz", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "dezember"]);
+const DETERMINERS = new Set(["der", "die", "das", "den", "dem", "des", "am", "im", "zum", "zur", "beim", "vom", "auf", "ein", "eine", "einen", "einem", "einer", "mein", "dein", "sein", "unser", "euer"]);
 const TERMINATORS = new Set([".", "!", "?", "…", "。", "！", "？"]);
 const CLOSERS = new Set(['"', "'", ")", "]", "”", "’", "»", "«", "“"]);
 
@@ -22,6 +23,9 @@ export interface ChunkerOptions {
 export class SentenceChunker {
   private buffer = "";
   private readonly maxWords: number;
+  /** Everything before this index was scanned and holds no boundary yet; a push only scans the new tail. */
+  private scanFrom = 0;
+  private scanned = 0;
 
   constructor(options: ChunkerOptions = {}) {
     this.maxWords = options.maxWords !== undefined && options.maxWords > 0 ? Math.floor(options.maxWords) : Infinity;
@@ -37,7 +41,13 @@ export class SentenceChunker {
   flush(): string[] {
     const out = this.drain(true);
     this.buffer = "";
+    this.scanFrom = 0;
     return out;
+  }
+
+  /** Characters the boundary scanner has examined so far (grows linearly with the input; for tests). */
+  get scannedChars(): number {
+    return this.scanned;
   }
 
   /** Text held back (not yet emitted). */
@@ -47,19 +57,23 @@ export class SentenceChunker {
 
   reset(): void {
     this.buffer = "";
+    this.scanFrom = 0;
   }
 
   private drain(final: boolean): string[] {
     const out: string[] = [];
     for (;;) {
-      const end = findBoundary(this.buffer);
-      if (end === undefined) break;
-      const sentence = this.buffer.slice(0, end).trim();
-      this.buffer = this.buffer.slice(end);
+      const b = findBoundary(this.buffer, this.scanFrom);
+      this.scanned += b.scannedTo - this.scanFrom;
+      if (b.end === undefined) { this.scanFrom = b.scannedTo; break; }
+      const sentence = this.buffer.slice(0, b.end).trim();
+      this.buffer = this.buffer.slice(b.end);
+      this.scanFrom = 0;
       if (sentence !== "") out.push(...splitLong(sentence, this.maxWords, true).chunks);
     }
     const r = splitLong(this.buffer, this.maxWords, final);
     out.push(...r.chunks);
+    if (r.rest !== this.buffer) this.scanFrom = 0; // text was cut from the front: indexes shifted
     this.buffer = r.rest;
     return out;
   }
@@ -71,12 +85,15 @@ export function chunkSentences(text: string, options: ChunkerOptions = {}): stri
   return [...c.push(text), ...c.flush()];
 }
 
-/** Index just after the first valid sentence boundary, or undefined. */
-function findBoundary(text: string): number | undefined {
-  for (let i = 0; i < text.length; i++) {
+/**
+ * Index just after the first valid sentence boundary at or after `from`, or undefined. `scannedTo` is where a later
+ * call may resume: everything before it is settled (no boundary), a held-back terminator is re-examined next time.
+ */
+function findBoundary(text: string, from: number): { end: number | undefined; scannedTo: number } {
+  for (let i = from; i < text.length; i++) {
     const ch = text[i]!;
     if (ch === "\n") {
-      if (text.slice(0, i).trim() !== "") return i + 1;
+      if (text.slice(0, i).trim() !== "") return { end: i + 1, scannedTo: i + 1 };
       continue;
     }
     if (!TERMINATORS.has(ch)) continue;
@@ -84,17 +101,17 @@ function findBoundary(text: string): number | undefined {
     while (j < text.length && (TERMINATORS.has(text[j]!) || CLOSERS.has(text[j]!))) j++;
     if (j >= text.length) {
       // The terminator run touches the buffer end: wait for the next delta (the final flush emits the remainder).
-      return undefined;
+      return { end: undefined, scannedTo: i };
     }
     if (!/\s/.test(text[j]!)) { i = j - 1; continue; }
     if (ch === ".") {
       const stop = isRealStop(text, i, j);
-      if (stop === "wait") return undefined;
+      if (stop === "wait") return { end: undefined, scannedTo: i };
       if (!stop) { i = j - 1; continue; }
     }
-    return j;
+    return { end: j, scannedTo: j };
   }
-  return undefined;
+  return { end: undefined, scannedTo: text.length };
 }
 
 /** Decide whether the "." at index i (run ends before j) closes a sentence. */
@@ -119,6 +136,8 @@ function isRealStop(text: string, i: number, j: number): boolean | "wait" {
     if (next === "") return true;
     if (k + next.length >= text.length) return "wait"; // next word may still be arriving
     if (/^\p{Ll}/u.test(next) || /^\d/.test(next) || MONTHS.has(next.toLowerCase())) return false;
+    // "der 1. Platz": a German determiner or preposition before the number makes it an ordinal before a noun.
+    if (/^\p{Lu}/u.test(next) && DETERMINERS.has(wordBefore(text, s))) return false;
   }
   return true;
 }
@@ -144,4 +163,13 @@ function splitLong(text: string, maxWords: number, final: boolean): { chunks: st
     chunks.push(rest.slice(0, idx).trim());
     rest = rest.slice(idx).replace(/^\s+/, "");
   }
+}
+
+/** The lower-cased word that ends just before index `end` (skipping spaces), or "". */
+function wordBefore(text: string, end: number): string {
+  let e = end;
+  while (e > 0 && /\s/.test(text[e - 1]!)) e--;
+  let b = e;
+  while (b > 0 && !/\s/.test(text[b - 1]!)) b--;
+  return text.slice(b, e).toLowerCase().replace(/^[("'“«\[]+|[,;:]+$/g, "");
 }

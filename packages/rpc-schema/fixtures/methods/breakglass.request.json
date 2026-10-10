@@ -1,0 +1,15 @@
+{
+  "params": {
+    "targetUserId": "person-fixture",
+    "reason": "Investigate incident",
+    "windowMinutes": 1
+  },
+  "result": {
+    "id": "grant-fixture",
+    "holderUserId": "owner-fixture",
+    "targetUserId": "person-fixture",
+    "reason": "Investigate incident",
+    "issuedAt": 1000,
+    "expiresAt": 2000
+  }
+}

@@ -8,7 +8,8 @@ import { outputAttachment, TELEGRAM_PHOTO_MAX_BYTES } from "../src/outputs.ts";
 import { createIdentityService } from "../../core/src/identity/service.ts";
 import { deriveUserPrincipal } from "../../core/src/identity/principals.ts";
 import { OutputStore } from "../../media/src/index.ts";
-const token = "123456789:AAFakeTokenForTestsOnly_abcdefghijklmnop";
+import { FAKE_TELEGRAM_TOKEN } from "./helpers/fake-telegram.ts";
+const token = FAKE_TELEGRAM_TOKEN;
 const json = (result: unknown) =>
   new Response(JSON.stringify({ ok: true, result }), {
     headers: { "content-type": "application/json" },
@@ -82,7 +83,9 @@ test("Telegram /link consumes code with authenticated bot/sender, rate limits, c
       "123456789",
     );
     assert.equal(service.list({}).pairings[0]!.claimedBy?.userId, "42");
-    assert.match(replies[0]!, /Confirm/);
+    assert.match(replies[0]!, new RegExp(`Pairing ID: ${pair.pairingId}`));
+    assert.match(replies[0]!, new RegExp(`plur1bus identity approve ${pair.pairingId}`));
+    assert.ok(!replies[0]!.includes(pair.code), "the pairing code is not echoed");
     service.confirm({ pairingId: pair.pairingId, approve: true }, actor);
     assert.equal(
       service.resolvePrincipals(deriveUserPrincipal(human.id)).length,

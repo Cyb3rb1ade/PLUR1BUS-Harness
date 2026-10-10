@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.5.0)
+# RPC reference (rpc 1.6.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -42,6 +42,13 @@ A closed enum; the core puts the code into every error response as `error.data.e
 - `E_APPROVAL_REQUIRED`
 - `E_CONFLICT`
 - `E_STORAGE`
+- `E_MEDIA_CAPABILITY`
+- `E_MEDIA_LICENSE`
+- `E_MEDIA_PRIVACY`
+- `E_MEDIA_UNAVAILABLE`
+- `E_MEDIA_DIMENSION`
+- `E_MEDIA_UNSUPPORTED_KIND`
+- `E_PROJECT_WIP_LIMIT`
 
 ## Stability
 
@@ -57,6 +64,1102 @@ A closed enum; the core puts the code into every error response as `error.data.e
 Everything else is experimental and may change in any minor release (ADR-016 §4).
 
 ## Methods
+
+### `project.column.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board column.list. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "projectId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "columns": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BoardColumn"
+      }
+    }
+  },
+  "required": [
+    "columns"
+  ]
+}
+```
+
+### `project.column.create`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board column.create. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "titleKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "wipLimit": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000
+    }
+  },
+  "required": [
+    "projectId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardColumn"
+}
+```
+
+### `project.column.update`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board column.update. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "columnId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "titleKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "wipLimit": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    }
+  },
+  "required": [
+    "projectId",
+    "columnId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardColumn"
+}
+```
+
+### `project.column.move`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board column.move. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "columnId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000
+    }
+  },
+  "required": [
+    "projectId",
+    "columnId",
+    "position"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardColumn"
+}
+```
+
+### `project.column.delete`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board column.delete. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "columnId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "targetColumnId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "overrideWip": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "projectId",
+    "columnId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "deleted": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "deleted"
+  ]
+}
+```
+
+### `project.card.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.list. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "columnId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "assignee": {
+      "$ref": "#/$defs/BoardActor"
+    },
+    "label": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "archived": {
+      "type": "boolean"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    }
+  },
+  "required": [
+    "projectId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "cards": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BoardCard"
+      }
+    },
+    "nextCursor": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "cards",
+    "nextCursor"
+  ]
+}
+```
+
+### `project.card.get`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.get. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardCard"
+}
+```
+
+### `project.card.create`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.create. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 65536
+    },
+    "labels": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "normal",
+        "high",
+        "urgent"
+      ]
+    },
+    "dueAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "links": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/BoardLink"
+      }
+    },
+    "columnId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000
+    },
+    "overrideWip": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "projectId",
+    "title",
+    "columnId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardCard"
+}
+```
+
+### `project.card.update`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.update. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 65536
+    },
+    "labels": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "normal",
+        "high",
+        "urgent"
+      ]
+    },
+    "dueAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "links": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/BoardLink"
+      }
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardCard"
+}
+```
+
+### `project.card.move`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.move. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "columnId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000
+    },
+    "overrideWip": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId",
+    "columnId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardCard"
+}
+```
+
+### `project.card.assign`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.assign. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "assignee": {
+      "$ref": "#/$defs/BoardActor"
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId",
+    "assignee"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardCard"
+}
+```
+
+### `project.card.unassign`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.unassign. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "assignee": {
+      "$ref": "#/$defs/BoardActor"
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId",
+    "assignee"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardCard"
+}
+```
+
+### `project.card.archive`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.archive. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardCard"
+}
+```
+
+### `project.card.unarchive`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.unarchive. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "overrideWip": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardCard"
+}
+```
+
+### `project.card.comment.add`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.comment.add. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 65536
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId",
+    "text"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardComment"
+}
+```
+
+### `project.card.comment.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.comment.list. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BoardComment"
+      }
+    },
+    "nextCursor": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "items",
+    "nextCursor"
+  ]
+}
+```
+
+### `project.card.activity.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.activity.list. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BoardActivity"
+      }
+    },
+    "nextCursor": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "items",
+    "nextCursor"
+  ]
+}
+```
+
+### `device.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+List paired devices, including revoked entries. Owner/Admin see all; other people see their own. Agents are always denied.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "devices"
+  ],
+  "properties": {
+    "devices": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Device"
+      }
+    }
+  }
+}
+```
+
+### `device.revoke`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Persist revocation and immediately close all live connections for this device. Owner/Admin or the stored pairedBy person; future handshakes with the key are denied.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^dev_[a-f0-9-]{36}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/Device"
+}
+```
+
+### `device.rename`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Rename a device owned by the authenticated person (stored pairedBy); no administrator override. Agents are always denied.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^dev_[a-f0-9-]{36}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/Device"
+}
+```
 
 ### `media.preferences.set`
 
@@ -2113,6 +3216,8 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 
 **Served by:** core
 
+ targetUserId reads user-scope data only through a live audited Break-Glass grant; not available on write methods.
+
 **params**
 
 ```json
@@ -2147,6 +3252,11 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
       "type": "integer",
       "minimum": 1,
       "maximum": 100
+    },
+    "targetUserId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
     }
   }
 }
@@ -2189,6 +3299,8 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 
 **Served by:** core
 
+ targetUserId reads user-scope data only through a live audited Break-Glass grant; not available on write methods.
+
 **params**
 
 ```json
@@ -2209,6 +3321,11 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
     },
     "id": {
       "$ref": "#/$defs/MemoryId"
+    },
+    "targetUserId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
     }
   }
 }
@@ -2810,6 +3927,26 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
           },
           "activity": {
             "$ref": "#/$defs/Activity"
+          },
+          "lifecycle": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "paused",
+              "archived",
+              "deleted"
+            ],
+            "properties": {
+              "paused": {
+                "type": "boolean"
+              },
+              "archived": {
+                "type": "boolean"
+              },
+              "deleted": {
+                "type": "boolean"
+              }
+            }
           }
         }
       }
@@ -2958,6 +4095,26 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
       "type": "array",
       "items": {
         "$ref": "#/$defs/JobRun"
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "paused",
+        "archived",
+        "deleted"
+      ],
+      "properties": {
+        "paused": {
+          "type": "boolean"
+        },
+        "archived": {
+          "type": "boolean"
+        },
+        "deleted": {
+          "type": "boolean"
+        }
       }
     }
   }
@@ -7346,6 +8503,1325 @@ Removes a saved provider login and its local token state (provider revocation is
 }
 ```
 
+### `agent.pause`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Human-only lifecycle state. Paused agents admit no new work; archive retains all data. Unarchive preserves the pause flag.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "paused",
+    "archived",
+    "deleted"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "paused": {
+      "type": "boolean"
+    },
+    "archived": {
+      "type": "boolean"
+    },
+    "deleted": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `agent.resume`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Human-only lifecycle state. Paused agents admit no new work; archive retains all data. Unarchive preserves the pause flag.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "paused",
+    "archived",
+    "deleted"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "paused": {
+      "type": "boolean"
+    },
+    "archived": {
+      "type": "boolean"
+    },
+    "deleted": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `agent.archive`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Human-only lifecycle state. Paused agents admit no new work; archive retains all data. Unarchive preserves the pause flag.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "paused",
+    "archived",
+    "deleted"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "paused": {
+      "type": "boolean"
+    },
+    "archived": {
+      "type": "boolean"
+    },
+    "deleted": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `agent.unarchive`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Human-only lifecycle state. Paused agents admit no new work; archive retains all data. Unarchive preserves the pause flag.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "paused",
+    "archived",
+    "deleted"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "paused": {
+      "type": "boolean"
+    },
+    "archived": {
+      "type": "boolean"
+    },
+    "deleted": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `agent.export`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Secret-redacted UTF-8 JSON bundle with an Ed25519 signature of the SHA-256 manifest hash. offerOnly offers an export without reading data; the offer is actor-bound and valid for ten minutes. Agent-private/workspace engine cards plus the authenticated exporter's own user cards only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "offerOnly": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "offerId",
+    "expiresAt"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "offerId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "files",
+        "manifest",
+        "manifestHash",
+        "algorithm",
+        "publicKey",
+        "signature"
+      ],
+      "properties": {
+        "format": {
+          "enum": [
+            "plur1bus.agent-export/1"
+          ]
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "text"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "text": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "manifest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "format",
+            "agentId",
+            "files"
+          ],
+          "properties": {
+            "format": {
+              "enum": [
+                "plur1bus.agent-export/1"
+              ]
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "bytes",
+                  "sha256"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "bytes": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  }
+                }
+              }
+            }
+          }
+        },
+        "manifestHash": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "algorithm": {
+          "enum": [
+            "Ed25519"
+          ]
+        },
+        "publicKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "signature": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    }
+  }
+}
+```
+
+### `agent.delete`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Archive-first erasure with typed display name and a live export offer. E_NOT_AVAILABLE engine-erasure-unavailable until the pinned engine supplies an erasure API. Never deletes a store directly.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "confirmName",
+    "exportOfferId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "confirmName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "exportOfferId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "deleted"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "deleted": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `user.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+People and role presets, Owner/Admin only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "users"
+  ],
+  "properties": {
+    "users": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "displayName",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "admin",
+              "operator",
+              "member",
+              "viewer"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `user.role.set`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Assign a role preset; only an Owner may change ownership. Last Owner cannot be demoted. Audited.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "userId",
+    "role"
+  ],
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "role": {
+      "enum": [
+        "owner",
+        "admin",
+        "operator",
+        "member",
+        "viewer"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "userId",
+    "role"
+  ],
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "role": {
+      "enum": [
+        "owner",
+        "admin",
+        "operator",
+        "member",
+        "viewer"
+      ]
+    }
+  }
+}
+```
+
+### `user.invite.create`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Create a human and an ephemeral one-time Identity pairing invitation with a fixed role (never Owner). Code returned here only; redeem/confirm through identity.pair.claim/confirm.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "displayName",
+    "role",
+    "channel"
+  ],
+  "properties": {
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "role": {
+      "enum": [
+        "owner",
+        "admin",
+        "operator",
+        "member",
+        "viewer"
+      ]
+    },
+    "channel": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "expiresInMinutes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 60
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "userId",
+    "role",
+    "channel",
+    "expiresAt",
+    "code"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "role": {
+      "enum": [
+        "owner",
+        "admin",
+        "operator",
+        "member",
+        "viewer"
+      ]
+    },
+    "channel": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16
+    }
+  }
+}
+```
+
+### `user.invite.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Invitation metadata without codes. Pending proofs and invitation metadata expire on restart.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "invites"
+  ],
+  "properties": {
+    "invites": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "userId",
+          "role",
+          "channel",
+          "expiresAt",
+          "state"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "userId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "admin",
+              "operator",
+              "member",
+              "viewer"
+            ]
+          },
+          "channel": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "expiresAt": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "claimed",
+              "confirmed",
+              "declined",
+              "expired",
+              "revoked"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `user.invite.revoke`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Revoke pending or claimed invitation proof before confirmation. A confirmed link must be unlinked through Identity.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "inviteId"
+  ],
+  "properties": {
+    "inviteId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "revoked"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "revoked": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `agent.rights.get`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+List explicitly assigned per-agent rights, Owner/Admin only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "rights"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "rights": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "userId",
+          "right"
+        ],
+        "properties": {
+          "userId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "right": {
+            "enum": [
+              "use",
+              "manage"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `agent.rights.set`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Assign use/manage; null revokes the explicit right. Role and token scopes still narrow it.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "userId",
+    "right"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "right": {
+      "enum": [
+        "use",
+        "manage",
+        null
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "userId",
+    "right"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "right": {
+      "enum": [
+        "use",
+        "manage",
+        null
+      ]
+    }
+  }
+}
+```
+
+### `breakglass.request`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Request an audited read-only window for another person. Affected person receives a durable notice; reason 10-500 trimmed characters, window 1-60 minutes.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "targetUserId",
+    "reason"
+  ],
+  "properties": {
+    "targetUserId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 500
+    },
+    "windowMinutes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 60
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "holderUserId",
+    "targetUserId",
+    "reason",
+    "issuedAt",
+    "expiresAt"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "holderUserId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "targetUserId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "issuedAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `breakglass.notices`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Read up to 200 durable break-glass notices affecting the authenticated person. Self-scoped; all human roles. Live grants still require Owner/Admin.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "notices"
+  ],
+  "properties": {
+    "notices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "userId",
+          "grantId",
+          "holderUserId",
+          "reason",
+          "expiresAt"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "granted"
+            ]
+          },
+          "userId": {
+            "type": "string"
+          },
+          "grantId": {
+            "type": "string"
+          },
+          "holderUserId": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `breakglass.list`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+List the authenticated holder's live grants; sweeps expiry and audits it.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "grants"
+  ],
+  "properties": {
+    "grants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "holderUserId",
+          "targetUserId",
+          "reason",
+          "issuedAt",
+          "expiresAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "holderUserId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "targetUserId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "issuedAt": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expiresAt": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `breakglass.revoke`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Revoke a read-only grant; only the holder or an Owner may revoke it.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "grantId"
+  ],
+  "properties": {
+    "grantId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "revoked"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "revoked": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `pairing.qr`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Read-only formatting of an existing, unexpired pairing link with packages/remote-access QR payload. Does not issue a code, verify an offer tag, pair or store a device. Owner/Admin people only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "link"
+  ],
+  "properties": {
+    "link": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2331
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "link",
+    "qr",
+    "expiresAt"
+  ],
+  "properties": {
+    "link": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2331
+    },
+    "qr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "text",
+        "mode",
+        "errorCorrection",
+        "length",
+        "maxLength",
+        "fits"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2331
+        },
+        "mode": {
+          "enum": [
+            "byte"
+          ]
+        },
+        "errorCorrection": {
+          "enum": [
+            "M"
+          ]
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxLength": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fits": {
+          "type": "boolean"
+        }
+      }
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
 ### `auth.status`
 
 **Stability:** experimental · since 1.5.0
@@ -7748,6 +10224,239 @@ All channels, compact: id, enabled, state, health and the last error. Owner/Admi
           }
         }
       }
+    }
+  }
+}
+```
+
+### `media.search`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Searches the media index (image, video, audio) with text or by a medium it already knows: give exactly one of `text` and `likeMediaId`. A text query is embedded by the TEXT encoder of the MEDIA model (vectors of different spaces are never compared). `kinds` narrows the result, `limit` defaults to 20. With `fuseCaptions` the ranks are fused with the caption hits of the text index (reciprocal rank fusion over ranks, never over vectors). Results are filtered to the media the caller may read; an agent sees its own scope. Reasons: `text-or-like-required` / `text-and-like-exclusive` (E_INVALID_PARAMS). E_MEDIA_* codes: the media index refused or cannot run (capability, licence, privacy pin, availability, dimension, unsupported kind). Every principal with read access; agents within their own scope.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "likeMediaId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "kinds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MediaIndexKind"
+      },
+      "uniqueItems": true,
+      "minItems": 1,
+      "maxItems": 3
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "default": 20
+    },
+    "fuseCaptions": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "hits"
+  ],
+  "properties": {
+    "hits": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MediaSearchHit"
+      }
+    }
+  }
+}
+```
+
+### `media.index.status`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+State of the media index: whether it is enabled, provider, model, dimension and fingerprint, counts per state and the backfill progress. Every principal with read access (agents included).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/MediaIndexStatus"
+}
+```
+
+### `media.index.pause`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Pauses the background backfill of the media index (pausedReason `user`). Idempotent. Returns the new status. Owner/Admin, people only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/MediaIndexStatus"
+}
+```
+
+### `media.index.resume`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Resumes a paused backfill of the media index. Idempotent. Returns the new status. Owner/Admin, people only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/MediaIndexStatus"
+}
+```
+
+### `media.index.reindex`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Starts a full re-index of the media index in the background. `confirm` must be true (E_INVALID_PARAMS reason=confirmation-required otherwise). Returns the new status. Owner/Admin, people only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "confirm"
+  ],
+  "properties": {
+    "confirm": {
+      "const": true
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/MediaIndexStatus"
+}
+```
+
+### `media.caption.set`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Sets the caption of a medium (source `user`); the caption is a memory entry of the text index and is re-embedded. E_NOT_FOUND when the medium is unknown or the caller may not see it, E_DENIED when the caller may not edit it. People who may edit the medium; agents never.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mediaId",
+    "text"
+  ],
+  "properties": {
+    "mediaId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ok"
+  ],
+  "properties": {
+    "ok": {
+      "const": true
     }
   }
 }
@@ -8315,7 +11024,7 @@ Opens a session for the caller (the owner is derived from the caller identity). 
 
 **Served by:** core
 
-The caller's sessions: pinned first, then by last turn. Archived ones are excluded unless archived is only or any. search is a full-text query over titles and messages (every word must match).
+Authenticated metadata listing: Owner/Admin/Operator/Viewer may filter all owners and agents; Member sees only their own sessions. No transcripts; searching another owner's transcript is denied. Omitting owner and allOwners preserves own-session listing; allOwners=true selects all metadata.
 
 **params**
 
@@ -8323,9 +11032,7 @@ The caller's sessions: pinned first, then by last turn. Archived ones are exclud
 {
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "caller"
-  ],
+  "required": [],
   "properties": {
     "caller": {
       "$ref": "#/$defs/CallerIdentity"
@@ -8352,6 +11059,14 @@ The caller's sessions: pinned first, then by last turn. Archived ones are exclud
       "type": "integer",
       "minimum": 1,
       "maximum": 200
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "allOwners": {
+      "type": "boolean"
     }
   }
 }
@@ -8387,7 +11102,7 @@ The caller's sessions: pinned first, then by last turn. Archived ones are exclud
 
 **Served by:** core
 
-One session of the caller's (archived ones included), with the id of its running turn (if any) and, when messages is given, the last that many messages. Another owner's session is E_NOT_FOUND.
+One session of the caller's (archived ones included), with the id of its running turn (if any) and, when messages is given, the last that many messages. Another owner's session is E_NOT_FOUND. Foreign transcripts require a live audited Break-Glass grant; the authenticated principal determines ownership.
 
 **params**
 
@@ -8396,8 +11111,8 @@ One session of the caller's (archived ones included), with the id of its running
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "caller",
-    "sessionId"
+    "sessionId",
+    "caller"
   ],
   "properties": {
     "caller": {
@@ -8410,6 +11125,11 @@ One session of the caller's (archived ones included), with the id of its running
       "type": "integer",
       "minimum": 0,
       "maximum": 1000
+    },
+    "includeHidden": {
+      "type": "boolean",
+      "default": false,
+      "description": "Also return the tool outputs the context view hides (hiddenToolOutputs). Off by default; it adds no rights, the same transcript gate applies."
     }
   }
 }
@@ -8440,6 +11160,101 @@ One session of the caller's (archived ones included), with the id of its running
       "items": {
         "$ref": "#/$defs/SessionMessage"
       }
+    },
+    "hiddenToolOutputs": {
+      "type": "array",
+      "description": "Present only with includeHidden: the tool outputs hidden from the context view, with their originals from the event log.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ref",
+          "reason",
+          "name",
+          "callId",
+          "turnId",
+          "output"
+        ],
+        "properties": {
+          "ref": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "callId": {
+            "type": "string"
+          },
+          "turnId": {
+            "type": "string"
+          },
+          "args": {},
+          "output": {
+            "type": "string"
+          },
+          "isError": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "compaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Context-only hidden tool refs and applied summary original ranges. Full transcript is unchanged.",
+      "required": [
+        "hidden",
+        "summaries"
+      ],
+      "properties": {
+        "hidden": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ref"
+            ],
+            "properties": {
+              "ref": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string",
+                "maxLength": 256
+              }
+            }
+          }
+        },
+        "summaries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "fromSeq",
+              "toSeq"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "fromSeq": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "toSeq": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
@@ -8451,7 +11266,7 @@ One session of the caller's (archived ones included), with the id of its running
 
 **Served by:** core
 
-Get plus the transcript (the last `limit` messages, default 100) and the last event seq, so a client can continue from the next one. An archived session is E_CONFLICT.
+Get plus the transcript (the last `limit` messages, default 100) and the last event seq, so a client can continue from the next one. An archived session is E_CONFLICT. Foreign transcripts require a live audited Break-Glass grant; the authenticated principal determines ownership.
 
 **params**
 
@@ -8460,8 +11275,8 @@ Get plus the transcript (the last `limit` messages, default 100) and the last ev
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "caller",
-    "sessionId"
+    "sessionId",
+    "caller"
   ],
   "properties": {
     "caller": {
@@ -8644,7 +11459,7 @@ Submits one user message and starts a turn. Returns at once with state running (
 
 **Served by:** core
 
-The session's persisted events after afterSeq (default 0), oldest first: the same stream session.event delivers, for replay and catch-up. running tells whether a turn is still producing events.
+The session's persisted events after afterSeq (default 0), oldest first: the same stream session.event delivers, for replay and catch-up. running tells whether a turn is still producing events. Foreign transcripts require a live audited Break-Glass grant; the authenticated principal determines ownership.
 
 **params**
 
@@ -8653,8 +11468,8 @@ The session's persisted events after afterSeq (default 0), oldest first: the sam
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "caller",
-    "sessionId"
+    "sessionId",
+    "caller"
   ],
   "properties": {
     "caller": {
@@ -9045,7 +11860,7 @@ D109 §5: one approval request with everything a person needs to decide it. Owne
 
 **Served by:** core
 
-D109 §5: a person approves or denies a pending request; the first valid answer wins and the other surfaces close. approve may pick one of the request's grantOptions as `scope`; the narrowest is the default. The surface level is derived by the core from the connection and checked against the request's requiredSurface; nothing is ever approved by a timeout or a surface default. nonce is the request's one-time nonce, required where the answer is relayed by a channel. Owner/Admin only (RBAC action approval.decide), refused for every agent principal. Audited. E_NOT_FOUND for an unknown id. E_DENIED reason=surface-untrusted (the connection's surface is below requiredSurface) | approval-expired | approval-used (already decided or consumed) | approval-mismatch (nonce or binding differs).
+D109 §5: a person approves or denies a pending request; the first valid answer wins and the other surfaces close. approve may pick one of the request's grantOptions as `scope`; the narrowest is the default. The surface level is derived by the core from the connection and checked against the request's requiredSurface; nothing is ever approved by a timeout or a surface default. nonce is the request's one-time nonce, required where the answer is relayed by a channel. Owner/Admin only (RBAC action approval.decide), refused for every agent principal. Audited. E_NOT_FOUND for an unknown id. E_DENIED reason=surface-untrusted (the connection's surface is below requiredSurface) | approval-expired | approval-used (already decided or consumed) | approval-mismatch (nonce or binding differs). OS attestation (issue #192): a request that needs T2 and is decided on an unattested local connection (T1) can be lifted to T2 by ONE confirmation of the operating system (Touch ID, Windows Hello, UAC consent, polkit), valid for this approval only (bound to the request, scope and agent, used once, at most 60 s). Without `attest` such a call is E_APPROVAL_REQUIRED reason=attestation-required (detail = the method that will be asked, e.g. touch-id) and nothing is shown; with `attest: true` the core opens the OS dialog itself and decides at T2 when the person confirms. E_DENIED reason=attestation-failed (detail = cancelled | timeout | failed | replay | mismatch; the request stays pending); E_NOT_AVAILABLE reason=attestation-unavailable (no helper, container mode, no graphical session: the T1 limits stand); E_CONFLICT reason=attestation-in-progress (another decision of the same request is waiting for its dialog). Never for a nonce-relayed decision, an agent principal or a request that needs T3.
 
 **params**
 
@@ -9072,6 +11887,10 @@ D109 §5: a person approves or denies a pending request; the first valid answer 
     },
     "delegable": {
       "type": "boolean"
+    },
+    "attest": {
+      "type": "boolean",
+      "description": "Consent to the OS confirmation dialog this decision may need (see the method description). Default false."
     },
     "nonce": {
       "type": "string",
@@ -9232,6 +12051,161 @@ D109 §6: verifies the HMAC-SHA256 chain of the approval store (the `1staid chec
 ## Notifications
 
 Delivered on the same connection to clients that called `events.subscribe`.
+
+### `project.card.changed`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Committed project board invalidation delivered only to current authorized readers. Refresh the project board, including reordered siblings.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "change": {
+      "type": "string",
+      "enum": [
+        "create",
+        "update",
+        "move",
+        "delete",
+        "assign",
+        "unassign",
+        "archive",
+        "unarchive",
+        "add",
+        "column-deleted"
+      ]
+    }
+  },
+  "required": [
+    "projectId",
+    "change"
+  ],
+  "x-server": "core",
+  "x-stability": "experimental",
+  "x-since": "1.6.0",
+  "description": "Committed project board invalidation delivered only to current authorized readers. Refresh the project board, including reordered siblings."
+}
+```
+
+### `project.column.changed`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Committed project board invalidation delivered only to current authorized readers. Refresh the project board, including reordered siblings.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "columnId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "change": {
+      "type": "string",
+      "enum": [
+        "create",
+        "update",
+        "move",
+        "delete",
+        "assign",
+        "unassign",
+        "archive",
+        "unarchive",
+        "add",
+        "column-deleted"
+      ]
+    }
+  },
+  "required": [
+    "projectId",
+    "change"
+  ],
+  "x-server": "core",
+  "x-stability": "experimental",
+  "x-since": "1.6.0",
+  "description": "Committed project board invalidation delivered only to current authorized readers. Refresh the project board, including reordered siblings."
+}
+```
+
+### `breakglass.notice`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "x-server": "core",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "notice"
+  ],
+  "properties": {
+    "notice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "userId",
+        "grantId",
+        "holderUserId",
+        "reason",
+        "expiresAt"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "granted"
+          ]
+        },
+        "userId": {
+          "type": "string"
+        },
+        "grantId": {
+          "type": "string"
+        },
+        "holderUserId": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "expiresAt": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}
+```
 
 ### `media.job.progress`
 
@@ -10091,6 +13065,395 @@ D109 §4: a grant was created or revoked (use, expiry and suspension are not not
 
 Shared `$defs` referenced above as `#/$defs/<Name>`.
 
+### `BoardActor`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "person",
+        "agent"
+      ]
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "kind",
+    "id"
+  ]
+}
+```
+
+### `BoardColumn`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "title": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "titleKey": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "wipLimit": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "titleKey",
+    "position",
+    "wipLimit"
+  ]
+}
+```
+
+### `BoardLink`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "session",
+        "job",
+        "media",
+        "url"
+      ]
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    }
+  },
+  "required": [
+    "kind",
+    "id"
+  ]
+}
+```
+
+### `BoardCard`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 65536
+    },
+    "labels": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "normal",
+        "high",
+        "urgent"
+      ]
+    },
+    "dueAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "links": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/BoardLink"
+      }
+    },
+    "columnId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "assignees": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BoardActor"
+      }
+    },
+    "createdBy": {
+      "$ref": "#/$defs/BoardActor"
+    },
+    "updatedBy": {
+      "$ref": "#/$defs/BoardActor"
+    },
+    "createdAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "updatedAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "archived": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "projectId",
+    "title",
+    "description",
+    "labels",
+    "priority",
+    "dueAt",
+    "links",
+    "columnId",
+    "position",
+    "assignees",
+    "createdBy",
+    "updatedBy",
+    "createdAt",
+    "updatedAt",
+    "archived"
+  ]
+}
+```
+
+### `BoardActivity`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "created",
+        "updated",
+        "moved",
+        "assigned",
+        "unassigned",
+        "commented",
+        "archived",
+        "unarchived"
+      ]
+    },
+    "actor": {
+      "$ref": "#/$defs/BoardActor"
+    },
+    "at": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "detail": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "cardId",
+    "kind",
+    "actor",
+    "at",
+    "detail"
+  ]
+}
+```
+
+### `BoardComment`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "author": {
+      "$ref": "#/$defs/BoardActor"
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 65536
+    },
+    "createdAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "id",
+    "cardId",
+    "author",
+    "text",
+    "createdAt"
+  ]
+}
+```
+
+### `Device`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "platform",
+    "publicKey",
+    "fingerprint",
+    "pairedBy",
+    "pairedAt",
+    "lastSeenAt",
+    "scope",
+    "revoked"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^dev_[a-f0-9-]{36}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "platform": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "publicKey": {
+      "type": "string",
+      "maxLength": 4096,
+      "description": "Canonical base64 DER Ed25519 SubjectPublicKeyInfo."
+    },
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "pairedBy": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "pairedAt": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Epoch milliseconds."
+    },
+    "lastSeenAt": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Epoch milliseconds."
+    },
+    "revokedAt": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Epoch milliseconds."
+    },
+    "revokedBy": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "scope": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "revoked": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
 ### `ErrorCode`
 
 ```json
@@ -10111,7 +13474,14 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "E_DENIED",
     "E_APPROVAL_REQUIRED",
     "E_CONFLICT",
-    "E_STORAGE"
+    "E_STORAGE",
+    "E_MEDIA_CAPABILITY",
+    "E_MEDIA_LICENSE",
+    "E_MEDIA_PRIVACY",
+    "E_MEDIA_UNAVAILABLE",
+    "E_MEDIA_DIMENSION",
+    "E_MEDIA_UNSUPPORTED_KIND",
+    "E_PROJECT_WIP_LIMIT"
   ]
 }
 ```
@@ -10650,6 +14020,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "jobs": {
       "$ref": "#/$defs/JobsStatus"
     },
+    "webSearch": {
+      "$ref": "#/$defs/WebSearchStatus"
+    },
     "config": {
       "$ref": "#/$defs/CoreConfigStatus"
     },
@@ -10659,6 +14032,62 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "type": "string"
       },
       "description": "Deprecated methods/notifications used at least once since start, as `method:<name>`/`notification:<name>`, sorted (ADR-016 §5, S13)."
+    }
+  }
+}
+```
+
+### `WebSearchStatus`
+
+```json
+{
+  "description": "Experimental (1.6.0). The state of web.search: which sidecar answers it and what the last attempt showed. Configuration plus the outcome of the last search; no probe runs for this call. `state` is `off` (sidecars.searxng.mode is off), `not-running` (bundled, but the container layer published no address), `misconfigured` (a bad or missing URL), `unknown` (configured, not yet used), `ok`, `unreachable` (connection refused or timed out) or `error` (any other failure, see `lastError`). Never carries a query or a result.",
+  "x-stability": "experimental",
+  "x-since": "1.6.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "provider",
+    "mode",
+    "state",
+    "endpoint"
+  ],
+  "properties": {
+    "provider": {
+      "const": "searxng"
+    },
+    "mode": {
+      "enum": [
+        "bundled",
+        "remote",
+        "off"
+      ]
+    },
+    "state": {
+      "enum": [
+        "off",
+        "not-running",
+        "misconfigured",
+        "unknown",
+        "ok",
+        "unreachable",
+        "error"
+      ]
+    },
+    "endpoint": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Origin and path prefix of the configured SearXNG, without credentials."
+    },
+    "lastCheckedAt": {
+      "type": "string",
+      "description": "ISO time of the last search attempt."
+    },
+    "lastError": {
+      "type": "string",
+      "description": "The web tool failure code of the last attempt, when it failed."
     }
   }
 }
@@ -12995,7 +16424,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The owner principal is never sent: a caller sees only its own sessions.",
+  "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The overview adds owner, model/provider and usage metadata. Transcript access stays owner-scoped or explicitly audited through break-glass.",
   "x-stability": "experimental",
   "x-since": "1.5.0",
   "type": "object",
@@ -13064,6 +16493,47 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "turnCount": {
       "type": "integer",
       "minimum": 0
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inputTokens",
+        "outputTokens",
+        "costMicros"
+      ],
+      "properties": {
+        "inputTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outputTokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "costMicros": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "pendingCalls": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
     }
   }
 }
@@ -13842,6 +17312,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "displayName": {
       "type": "string"
     },
+    "new": {
+      "type": "boolean",
+      "description": "true until the person acknowledges the model via models.acknowledge"
+    },
     "kind": {
       "$ref": "#/$defs/ModelKind"
     },
@@ -14203,7 +17677,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "starting",
         "running",
         "backoff",
-        "failed"
+        "failed",
+        "misconfigured"
       ]
     },
     "health": {
@@ -14259,7 +17734,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "starting",
         "running",
         "backoff",
-        "failed"
+        "failed",
+        "misconfigured"
       ]
     },
     "health": {
@@ -14386,6 +17862,186 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "type": "array",
       "items": {
         "type": "string"
+      }
+    }
+  }
+}
+```
+
+### `MediaIndexKind`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "image",
+    "video",
+    "audio"
+  ]
+}
+```
+
+### `MediaSearchHit`
+
+```json
+{
+  "description": "Experimental (1.5.0). One hit of `media.search`; `segment` locates the match inside a video or audio, `caption` is the caption text when the caller may read it, `thumbnailUrl` is a URL the web UI can load.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mediaId",
+    "kind",
+    "score"
+  ],
+  "properties": {
+    "mediaId": {
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/MediaIndexKind"
+    },
+    "score": {
+      "type": "number"
+    },
+    "segment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "idx",
+        "startMs",
+        "endMs"
+      ],
+      "properties": {
+        "idx": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "startMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "caption": {
+      "type": "string"
+    },
+    "thumbnailUrl": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `MediaIndexStatus`
+
+```json
+{
+  "description": "Experimental (1.5.0). The state of the media index and its backfill.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "enabled",
+    "provider",
+    "model",
+    "dim",
+    "fingerprint",
+    "counts",
+    "backfill"
+  ],
+  "properties": {
+    "enabled": {
+      "type": "boolean"
+    },
+    "provider": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "variant": {
+      "type": "string"
+    },
+    "dim": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "fingerprint": {
+      "type": "string"
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "indexed",
+        "pending",
+        "failed",
+        "unsupported"
+      ],
+      "properties": {
+        "indexed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pending": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unsupported": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "backfill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "done",
+        "total"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "idle",
+            "running",
+            "paused",
+            "cancelled",
+            "done"
+          ]
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "startedAt": {
+          "type": "string"
+        },
+        "pausedReason": {
+          "type": "string",
+          "enum": [
+            "budget",
+            "user",
+            "error"
+          ]
+        }
       }
     }
   }
@@ -14852,6 +18508,11 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "surface": {
       "$ref": "#/$defs/SurfaceTrustLevel",
       "description": "The surface level the grant was given on."
+    },
+    "attestedVia": {
+      "type": "string",
+      "pattern": "^attested:[a-z0-9][a-z0-9-]{0,31}$",
+      "description": "Present when an OS confirmation (attested:touch-id, attested:windows-hello, attested:polkit ...) lifted the approval that created this grant to T2."
     }
   }
 }

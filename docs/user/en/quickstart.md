@@ -136,4 +136,14 @@ failure restores the snapshot. A release that changes the Node runtime or the mo
 
 ## Next
 
-[operations.md](operations.md): directories, logs, service management per operating system and troubleshooting.
+- [providers.md](providers.md): signing in to providers, model profiles and fallback.
+- [channels.md](channels.md): connecting Telegram, Discord, Slack, Matrix, Signal and e-mail.
+- [media.md](media.md): generating and editing images, with cloud providers or locally.
+- [operations.md](operations.md): directories, logs, service management per operating system, updating, uninstalling,
+  shell completion and troubleshooting.
+- [containers.md](containers.md): the harness as a container, on macOS with Apple Containers or Docker, and the sidecars.
+- [os-confirmation.md](os-confirmation.md): approvals that need a confirmation by Touch ID, Windows Hello or polkit, and what
+  "not available" means.
+- [long-conversations.md](long-conversations.md): how long sessions are summarized and which settings exist.
+- [voice.md](voice.md): speech languages, fast and quality model profiles, and real-time interaction settings.
+

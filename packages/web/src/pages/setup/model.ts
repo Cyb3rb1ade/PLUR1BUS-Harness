@@ -2,20 +2,26 @@
 // the owner token is never put in it (steps.ts keeps the token in a local field until it has been sent).
 import { getPref, setPref } from "../../prefs.ts";
 import { DEFAULT_EMBEDDING, DEFAULT_RERANK, choiceById } from "./licences.ts";
+import { CAPTION_CHOICES, CAPTION_SOURCES, mediaSetupChanges, mediaSetupDefaults, validateMedia, type CaptionChoice, type MediaSetup } from "../media-search/model.ts";
+import { ALL_MODALITIES } from "../media-search/model.ts";
+import type { VoiceProfileName } from "../../api/voice.types.ts";
+import type { CaptionSourceSetting, MediaBackfillSetting, MediaModality } from "../media-search/contract.ts";
 
-export type StepId = "account" | "persona" | "model" | "switchboard" | "memory" | "backup" | "import";
+export type StepId = "account" | "persona" | "model" | "switchboard" | "memory" | "voice" | "backup" | "import";
 export type Status = "done" | "skipped";
 export type UseClass = "general" | "research" | "commercial";
 export const USE_CLASSES: readonly UseClass[] = ["general", "research", "commercial"];
 
+export type VoiceChoice = { language: string; profile: VoiceProfileName };
 export type StepDef = { id: StepId; skippable: boolean; unavailable: boolean };
-/** The seven steps; `?mode=bundled` leaves out the account step (a bundled app signs in by itself). */
+/** The eight steps; `?mode=bundled` leaves out the account step (a bundled app signs in by itself). */
 export const STEPS: readonly StepDef[] = [
   { id: "account", skippable: false, unavailable: false },
   { id: "persona", skippable: false, unavailable: false },
   { id: "model", skippable: true, unavailable: false },
   { id: "switchboard", skippable: true, unavailable: true },
   { id: "memory", skippable: true, unavailable: false },
+  { id: "voice", skippable: true, unavailable: false },
   { id: "backup", skippable: true, unavailable: false },
   { id: "import", skippable: true, unavailable: true },
 ];
@@ -30,12 +36,16 @@ export type Answers = {
   /** The acceptance flag is in config.json already (so unselecting an NC model writes `false` again). */
   ncWritten: boolean;
   backupId: string;
+  /** The media index part of the Memory step (media-search/model.ts). */
+  media: MediaSetup;
+  /** The voice language the person downloaded in the Voice step; null = not done (the step is then skipped). */
+  voice: VoiceChoice | null;
 };
 export type Saved = { v: 1; step: StepId | "summary"; status: Partial<Record<StepId, Status>>; answers: Answers };
 
 export const initial = (): Saved => ({
   v: 1, step: "account", status: {},
-  answers: { agentId: "main", displayName: "", createdAt: "", chatModel: "", useClass: "general", embedding: DEFAULT_EMBEDDING, rerank: DEFAULT_RERANK, nc: null, ncWritten: false, backupId: "" },
+  answers: { agentId: "main", displayName: "", createdAt: "", chatModel: "", useClass: "general", embedding: DEFAULT_EMBEDDING, rerank: DEFAULT_RERANK, nc: null, ncWritten: false, backupId: "", media: mediaSetupDefaults(), voice: null },
 });
 
 const KEY = "setup";
@@ -55,6 +65,7 @@ export function load(): Saved {
       agentId: str(a.agentId, base.answers.agentId), displayName: str(a.displayName, ""), createdAt: str(a.createdAt, ""), chatModel: str(a.chatModel, ""),
       useClass: USE_CLASSES.includes(a.useClass as UseClass) ? (a.useClass as UseClass) : "general",
       embedding: str(a.embedding, DEFAULT_EMBEDDING), rerank: str(a.rerank, DEFAULT_RERANK), nc, ncWritten: a.ncWritten === true, backupId: str(a.backupId, ""),
+      media: loadMedia(a.media), voice: loadVoice(a.voice),
     };
     // A non-commercial model is only ever kept together with its confirmation (and never for the commercial use class).
     const bad = (id: string, kind: "embedding" | "rerank"): boolean => { const c = choiceById(id); return !c || c.kind !== kind || (c.nc && (nc === null || answers.useClass === "commercial")); };
@@ -69,7 +80,7 @@ export function load(): Saved {
 export function save(s: Saved): void { try { setPref(KEY, JSON.stringify(s)); } catch { /* the wizard works without storage */ } }
 
 export const AGENT_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
-export type Errors = Partial<Record<"agentId" | "displayName" | "chatModel" | "backup" | "account", "required" | "format" | "tooLong" | "signin">>;
+export type Errors = Partial<Record<"agentId" | "displayName" | "chatModel" | "backup" | "account", "required" | "format" | "tooLong" | "signin">> & { media?: string };
 
 /** Per-step validation; an empty object lets the person go on. */
 export function validate(step: StepId, a: Answers, signedIn: boolean): Errors {
@@ -82,6 +93,10 @@ export function validate(step: StepId, a: Answers, signedIn: boolean): Errors {
   }
   if (step === "model" && a.chatModel === "") e.chatModel = "required";
   if (step === "backup" && a.backupId === "") e.backup = "required";
+  if (step === "memory") {
+    const first = validateMedia({ textProvider: a.embedding, media: a.media, privacyPin: false, ncConfirmed: a.nc !== null })[0];
+    if (first) e.media = first.code;
+  }
   return e;
 }
 
@@ -97,5 +112,29 @@ export function changesFor(step: StepId, a: Answers): Change[] {
   if (wantsNc && a.nc) out.push({ key: "embedding.acceptedNcLicence", value: true }, { key: "embedding.acceptedNcLicenceAt", value: a.nc.at });
   else if (a.ncWritten) out.push({ key: "embedding.acceptedNcLicence", value: false });
   if (rerank) out.push({ key: "modelRoles.rerank", value: rerank.hf });
+  out.push(...mediaSetupChanges(a.media, a.embedding));
   return out;
+}
+
+/** Reads the saved voice answer; anything unexpected means "not done". */
+function loadVoice(raw: unknown): VoiceChoice | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const o = raw as Record<string, unknown>;
+  return typeof o.language === "string" && o.language !== "" && (o.profile === "fast" || o.profile === "quality") ? { language: o.language, profile: o.profile } : null;
+}
+
+/** Reads the saved media answers; anything unexpected falls back to the contract defaults. */
+function loadMedia(raw: unknown): MediaSetup {
+  const d = mediaSetupDefaults();
+  if (typeof raw !== "object" || raw === null) return d;
+  const o = raw as Record<string, unknown>;
+  const modalities = Array.isArray(o.modalities) ? o.modalities.filter((x): x is MediaModality => ALL_MODALITIES.includes(x as MediaModality)) : d.modalities;
+  return {
+    enabled: typeof o.enabled === "boolean" ? o.enabled : d.enabled,
+    provider: typeof o.provider === "string" ? o.provider : d.provider,
+    modalities: [...new Set(modalities)],
+    caption: CAPTION_CHOICES.includes(o.caption as CaptionChoice) ? (o.caption as CaptionChoice) : null,
+    captionSource: CAPTION_SOURCES.includes(o.captionSource as CaptionSourceSetting) ? (o.captionSource as CaptionSourceSetting) : d.captionSource,
+    backfill: o.backfill === "manual" ? ("manual" as MediaBackfillSetting) : d.backfill,
+  };
 }

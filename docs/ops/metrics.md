@@ -37,7 +37,7 @@ implements the same port against its policy.
 ## Metrics
 
 Labels come only from fixed enumerations (`registry.ts` folds anything else into `other` and refuses a metric whose
-label space could exceed 1024 series). There are no agent, user, path, host, model or error-text labels.
+label space could exceed 1024 series; `plur1bus_rpc_calls_total` alone declares a bound derived from the schema's core method count times the result classes, capped at 16384, so adding RPC methods does not break core start). There are no agent, user, path, host, model or error-text labels.
 
 | Metric | Type | Labels | Meaning |
 |---|---|---|---|

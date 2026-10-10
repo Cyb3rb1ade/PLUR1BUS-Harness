@@ -1,0 +1,38 @@
+{
+  "params": {
+    "projectId": "prj1",
+    "title": "Task",
+    "columnId": "col1"
+  },
+  "result": {
+    "id": "card1",
+    "projectId": "prj1",
+    "title": "Task",
+    "description": "**markdown**",
+    "labels": [
+      "bug"
+    ],
+    "priority": "normal",
+    "dueAt": null,
+    "links": [],
+    "columnId": "col1",
+    "position": 0,
+    "assignees": [
+      {
+        "kind": "person",
+        "id": "alice"
+      }
+    ],
+    "createdBy": {
+      "kind": "person",
+      "id": "alice"
+    },
+    "updatedBy": {
+      "kind": "person",
+      "id": "alice"
+    },
+    "createdAt": 1000,
+    "updatedAt": 1000,
+    "archived": false
+  }
+}

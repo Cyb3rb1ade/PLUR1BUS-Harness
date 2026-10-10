@@ -382,7 +382,8 @@ test("/link: claimed for the sender address, uniform reply, the code is never lo
     fail = true;
     await fx.deliverRaw(fixtureMail({ from: ALLOWED, body: "link ANOTHERCODE", messageId: "l3@x" }));
     const replies = fx.smtp.received.map((r) => parseMessage(r.data).text.trim());
-    assert.ok(replies.some((t) => t.startsWith("Pairing claimed")));
+    assert.ok(replies.some((t) => t.includes("Pairing ID: p") && t.includes("plur1bus identity approve p")));
+    assert.ok(replies.every((t) => !t.includes("LINKCODE9") && !t.includes("ANOTHERCODE")));
     assert.ok(replies.some((t) => t.startsWith("Pairing failed")));
     assert.ok(!JSON.stringify(fx.logs).includes("LINKCODE9") && !JSON.stringify(fx.logs).includes("ANOTHERCODE"));
     assert.equal(h.received.length, 0, "link commands are not forwarded as text");

@@ -2,6 +2,7 @@ FROM rust:1.95-bookworm@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92e
 WORKDIR /build
 COPY Cargo.toml Cargo.lock ./
 COPY desktop-contract/ desktop-contract/
+COPY host-helper/ host-helper/
 COPY mock-harness/ mock-harness/
 COPY test-bins/ test-bins/
 COPY src-tauri/Cargo.toml src-tauri/Cargo.toml
@@ -15,6 +16,6 @@ COPY --from=builder /build/target/release/plur1bus-mock-harness /usr/local/bin/p
 COPY --from=builder /build/target/release/fake-plur1bus /usr/local/bin/plur1bus
 USER 10001:10001
 WORKDIR /var/lib/plur1bus
-ENV PLUR1BUS_CONTAINER=1
+ENV PLUR1BUS_CONTAINER=1 PLUR1BUS_DESKTOP_TEST_CONTROL=1
 EXPOSE 18700
 ENTRYPOINT ["/usr/local/bin/plur1bus-mock-harness", "--bind", "0.0.0.0", "--port", "18700", "--state-dir", "/var/lib/plur1bus"]

@@ -62,6 +62,7 @@ pub(crate) fn decide_params(
     decision: &str,
     scope: Option<&str>,
     delegable: bool,
+    attest: bool,
 ) -> Value {
     let mut p = json!({ "id": id, "decision": decision });
     if let Some(s) = scope {
@@ -70,7 +71,44 @@ pub(crate) fn decide_params(
     if delegable {
         p["delegable"] = json!(true);
     }
+    if attest {
+        p["attest"] = json!(true);
+    }
     p
+}
+
+/// Issue #192: the core answers `E_APPROVAL_REQUIRED reason=attestation-required` (detail: the method it will ask) when this
+/// connection can decide the request only with one confirmation by the operating system.
+pub(crate) fn attestation_needed(e: &plur1bus_rpc::RpcError) -> Option<String> {
+    match e {
+        plur1bus_rpc::RpcError::Call { reason, detail, .. }
+            if e.code_name() == "E_APPROVAL_REQUIRED"
+                && reason.as_deref() == Some("attestation-required") =>
+        {
+            Some(detail.clone().unwrap_or_default())
+        }
+        _ => None,
+    }
+}
+
+/// What the person will be asked to do, in the words of their system.
+pub(crate) fn method_label(method: &str) -> String {
+    match method {
+        "touch-id" => "Touch ID (or your Mac password)".into(),
+        "macos-password" => "your Mac password".into(),
+        "windows-hello" => "Windows Hello".into(),
+        "uac" => "the Windows consent prompt (UAC)".into(),
+        "polkit" => "your system password (polkit)".into(),
+        "" => "the operating system".into(),
+        other => clean(other),
+    }
+}
+
+pub(crate) fn attestation_notice(method: &str) -> String {
+    format!(
+        "This decision needs one confirmation by the operating system: {}. Confirm in the dialog on this machine (it covers this approval only and expires after 60 s).",
+        method_label(method)
+    )
 }
 
 /// `Some(reason)` when `scope` is not among the request's `grantOptions` (an empty list offers no choice).
@@ -212,6 +250,12 @@ pub(crate) fn render_verify(v: &Value) -> String {
 pub(crate) fn render_decision(v: &Value) -> String {
     let a = &v["approval"];
     let mut t = format!("{} {}", s(a, "id"), s(a, "status"));
+    if let Some(via) = v["grant"]["attestedVia"].as_str() {
+        t.push_str(&format!(
+            "\nconfirmed by the operating system ({})",
+            clean(via)
+        ));
+    }
     if v["grant"].is_object() {
         t.push_str(&format!(
             "\ngrant created: {}",
@@ -230,7 +274,8 @@ fn call(out: &Out, client: &mut plur1bus_rpc::Client, method: &str, params: Valu
 }
 
 fn connect(out: &Out, layout: &Layout) -> plur1bus_rpc::Client {
-    connect_core(out, layout, "approvals", Duration::from_secs(30))
+    // Longer than the 60 s an OS confirmation dialog may stay open (issue #192).
+    connect_core(out, layout, "approvals", Duration::from_secs(90))
 }
 
 pub fn run(out: &Out, layout: &Layout, cmd: ApprovalCmd) {
@@ -320,12 +365,25 @@ pub fn run(out: &Out, layout: &Layout, cmd: ApprovalCmd) {
                     );
                 }
             }
-            let v = call(
-                out,
-                &mut client,
+            let v = match client.call(
                 "approval.decide",
-                decide_params(&id, "approve", scope, delegable),
-            );
+                decide_params(&id, "approve", scope, delegable, false),
+            ) {
+                Ok(v) => v,
+                Err(e) => match attestation_needed(&e) {
+                    // The person said yes above; the OS now asks the one thing a stolen token cannot answer.
+                    Some(method) => {
+                        eprintln!("{}", attestation_notice(&method));
+                        call(
+                            out,
+                            &mut client,
+                            "approval.decide",
+                            decide_params(&id, "approve", scope, delegable, true),
+                        )
+                    }
+                    None => out.from_rpc_error(&e),
+                },
+            };
             out.ok("approval.decide/1", &v, || render_decision(&v));
         }
         ApprovalCmd::Deny { id } => {
@@ -333,7 +391,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: ApprovalCmd) {
                 out,
                 &mut connect(out, layout),
                 "approval.decide",
-                decide_params(&id, "deny", None, false),
+                decide_params(&id, "deny", None, false, false),
             );
             out.ok("approval.decide/1", &v, || render_decision(&v));
         }
@@ -451,16 +509,84 @@ mod tests {
         );
         assert!(list_params(None, None, Some(501)).is_err());
         assert_eq!(
-            decide_params("apr_1", "approve", None, false),
+            decide_params("apr_1", "approve", None, false, false),
             json!({"id":"apr_1","decision":"approve"})
         );
         assert_eq!(
-            decide_params("apr_1", "approve", Some("session"), true),
+            decide_params("apr_1", "approve", Some("session"), true, false),
             json!({"id":"apr_1","decision":"approve","scope":"session","delegable":true})
         );
         assert_eq!(
-            decide_params("apr_1", "deny", None, false),
+            decide_params("apr_1", "deny", None, false, false),
             json!({"id":"apr_1","decision":"deny"})
+        );
+        assert_eq!(
+            decide_params("apr_1", "approve", Some("session"), false, true),
+            json!({"id":"apr_1","decision":"approve","scope":"session","attest":true})
+        );
+    }
+
+    fn call_error(
+        code: plur1bus_rpc::types::ErrorCode,
+        reason: &str,
+        detail: Option<&str>,
+    ) -> plur1bus_rpc::RpcError {
+        plur1bus_rpc::RpcError::Call {
+            error: code,
+            jsonrpc: -32000,
+            message: "m".into(),
+            reason: Some(reason.into()),
+            detail: detail.map(String::from),
+            ids: None,
+            ext: None,
+        }
+    }
+
+    #[test]
+    fn only_attestation_required_starts_the_confirmation_flow() {
+        use plur1bus_rpc::types::ErrorCode as C;
+        assert_eq!(
+            attestation_needed(&call_error(
+                C::EApprovalRequired,
+                "attestation-required",
+                Some("touch-id")
+            )),
+            Some("touch-id".to_string())
+        );
+        for e in [
+            call_error(C::EApprovalRequired, "acknowledge-unsigned", None),
+            call_error(C::EDenied, "attestation-failed", Some("cancelled")),
+            call_error(C::EDenied, "surface-untrusted", None),
+            call_error(C::ENotAvailable, "attestation-unavailable", None),
+        ] {
+            assert_eq!(attestation_needed(&e), None, "{e:?}");
+        }
+    }
+
+    #[test]
+    fn the_notice_names_what_the_person_will_be_asked_to_do() {
+        for (m, words) in [
+            ("touch-id", "Touch ID"),
+            ("windows-hello", "Windows Hello"),
+            ("uac", "UAC"),
+            ("polkit", "polkit"),
+            ("", "the operating system"),
+        ] {
+            let n = attestation_notice(m);
+            assert!(n.contains(words), "{m}: {n}");
+            assert!(n.contains("this approval only"), "{n}");
+        }
+        assert!(!attestation_notice("x\u{1b}[2J").contains('\u{1b}'));
+    }
+
+    #[test]
+    fn a_decision_confirmed_by_the_os_says_so() {
+        let v = json!({"approval":{"id":"apr_1","status":"approved"},"grant":null});
+        assert!(!render_decision(&v).contains("operating system"));
+        let mut g = json!({"approval":{"id":"apr_1","status":"approved"},"grant":{"id":"grt_1","capability":"shell.exec","agent":"a","scope":"session","match":{"kind":"capability"},"state":"active","createdBy":"p","createdAt":"2026-10-10T00:00:00Z","delegable":false,"surface":2}});
+        g["grant"]["attestedVia"] = json!("attested:touch-id");
+        assert!(
+            render_decision(&g).contains("confirmed by the operating system (attested:touch-id)")
         );
     }
 

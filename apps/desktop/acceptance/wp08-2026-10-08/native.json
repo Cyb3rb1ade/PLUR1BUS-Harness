@@ -1,0 +1,12 @@
+{
+  "bundledStored": true,
+  "nativeWizard": true,
+  "noTokenOnDisk": true,
+  "spaCreated": true,
+  "tokenStore": "memory-only",
+  "homeIsolated": true,
+  "cffixedIsolated": true,
+  "platform": "macos-arm64",
+  "engine": "synthetic",
+  "harness": "mock-harness"
+}

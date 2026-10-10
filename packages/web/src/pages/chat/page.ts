@@ -15,6 +15,11 @@ import { NewChat } from "./new-chat.ts";
 import type { SessionRecord } from "./rpc-types.ts";
 import { SessionView } from "./session-view.ts";
 import { list, refreshList, stateFor } from "./store.ts";
+import { registerArea } from "../../i18n/index.ts";
+import * as chatArea from "../../i18n/chat.ts";
+import "../../styles/chat.css";
+
+registerArea("chat", chatArea);
 
 function History({ sessions, truncated, current }: { sessions: SessionRecord[]; truncated: boolean; current: string | null }): View {
   return h("div", null,

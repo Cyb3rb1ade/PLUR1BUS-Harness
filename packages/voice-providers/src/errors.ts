@@ -10,7 +10,8 @@ export const VOICE_ERROR_CODES = [
   "network", // no response at all
   "timeout", // a deadline expired
   "aborted", // the caller's AbortSignal fired
-  "bad_response", // a response or frame we refuse to interpret
+  "bad_response", // a response we refuse to interpret
+  "upstream_protocol", // a socket frame or close code that violates the protocol or the vendor's own schema; the session is closed
   "closed", // the session is already closed
   "unavailable", // local engine or platform cannot run (capability "unavailable")
   "licence_required", // a non-commercial or unconfirmed licence needs explicit confirmation first

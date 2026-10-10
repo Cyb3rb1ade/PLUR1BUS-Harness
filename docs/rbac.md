@@ -63,7 +63,37 @@ unlisted or malformed is T0. `surfaceSatisfies(have, required)`: T0 satisfies no
 
 A person on a local token-authenticated RPC connection (`connectionSurface`, `connection-surface.ts`) is **T1** unless the embedder
 supplies a server-side attestation that raises it to T3 (#192): reading `run/core.token` proves only same-OS-user access, which an
-agent process has too. So without attestation only low-risk requests are decidable and no standing grant above T1 can be created.
+agent process has too. So without attestation only low-risk requests are decidable and no standing grant above T1 can be created,
+unless the person confirms that one approval with the operating system (next section).
+
+### OS-backed attestation (#192, option C)
+
+One confirmation by the operating system lifts **one approval** of an unattested local connection from T1 to T2. The core asks
+for it and reads the answer itself (`packages/core/src/attestation/`); the native helper `plur1bus-attest`
+(`crates/plur1bus-attest`) is a child process with a one-line JSON protocol and shows the OS's own dialog: Touch ID or the account
+password (macOS, LocalAuthentication), Windows Hello or the UAC consent prompt (Windows), polkit `org.plur1bus.approve` (Linux).
+It happens inside `approval.decide` (`attest: true`; without it the core answers `E_APPROVAL_REQUIRED attestation-required`
+and names the method). Details, error reasons, audit and what is bound to the confirmation: `docs/approvals.md` 3.2.1.
+
+Rules the RBAC layer keeps: an agent principal (and any principal that is not `kind: "person"`) never reaches the helper (the
+`humanOnly` actions are refused first); a connection already at T3 through `CoreOptions.rbac.attest` never needs it; a request
+that needs T3 is refused without a dialog; the lift is for exactly one decision at surface 2 and does not change the
+connection's own level for the next call.
+
+**Threat model: token theft by an agent.** The agent runs as the same OS user, can read `run/core.token` and connects as the
+local owner. Before this change that gave T1 only; with it the agent can still do only what T1 can do on its own, and every T2
+decision needs a human to answer an OS dialog on the machine, which the token does not provide and which the agent cannot answer
+(Touch ID needs the finger; the password prompt is the OS's secure dialog, not an RPC parameter). It cannot pre-confirm, replay or
+reuse a confirmation: the hash covers the concrete approval, the nonce is single-use, the lifetime is 60 s, every attempt is
+fresh. What remains: (1) a person who confirms without reading the dialog text, so the text names agent, capability and scope and
+nothing the model wrote; an agent can also raise approval requests to wear the person down (the fatigue limits of approvals.md 3.4
+apply); (2) **a replaced helper**: the core checks that `PLUR1BUS_ATTEST_BIN` is an absolute, regular file that is not group- or
+world-writable, which stops other users, but an agent running as the owner who can write the helper's location can substitute a
+program that always says yes. Install the helper where only an administrator can write (a package-manager install), and keep the
+exec sandbox from writing to it; a signature check of the helper (macOS code signature, Windows Authenticode) is a follow-up, see
+`docs/security/os-attestation-2026-10.md`; (3) a shell-capable agent on a machine where it also drives the logged-in desktop
+session (UI automation) could in principle click an OS dialog itself; the `ui.control` capability is T2 and `os.privilege` /
+`remote.control` are T3 for that reason.
 
 ## Privacy (ADR-007 §Privacy)
 
@@ -240,3 +270,96 @@ The R3 methods are declared in RPC_RULES and are human-only; both actions are gr
 | channel.list, channel.get, channel.status | channel.read | Secrets appear as names only (`{ secret, present }`), never a value |
 | channel.test | channel.read | `sendOwner: true` additionally requires `channel.write` (checked in the handler) and sends one fixed text to the caller's own linked identity on that channel |
 | channel.enable, channel.disable, channel.set | channel.write | A write is a `config.set` through the supervisor, so the per-key restart class applies; `channel.set` refuses secret values |
+
+## Media index (`media.search`, `media.index.*`, `media.caption.set`)
+
+Three actions cover the media search surface. Everything is denied by default: an unauthenticated call is `E_UNAUTHORIZED`, a principal with an unknown or missing role is `E_DENIED`, and the handler never runs in either case.
+
+| RPC | Coarse action | Who | Notes |
+|---|---|---|---|
+| media.search, media.index.status | media.index.read | Every role, agents included | Not human-only. The handler searches in the caller's scope (`scopeOf`: an agent sees its own scope) and drops every hit the caller may not read (`readable`); `likeMediaId` needs read access to the seed medium, otherwise `E_NOT_FOUND` |
+| media.index.pause, media.index.resume, media.index.reindex | media.index.operate | Owner and Admin, people only | Agents are denied with `agent-principal`. `reindex` needs `confirm: true` |
+| media.caption.set | media.caption.write | Owner, Admin, Operator, Member, people only | Agents are denied with `agent-principal`; the handler also needs edit rights on the medium (`editable`: `agent.use` on the agent that made it, from the owner file under `<home>/media/owners`), otherwise `E_DENIED reason=not-editable`; an unreadable medium is `E_NOT_FOUND` |
+
+The `E_MEDIA_*` codes (capability, licence, privacy pin, availability, dimension, unsupported kind) are not RBAC outcomes; they report that the media index itself cannot do what was asked (see [errors.md](errors.md)).
+
+## F39–F42/F44 administration backend
+
+See [Administration backends](admin-backends.md) for format, lifecycle, invitation redemption, notices and engine limitations.
+Every rule below is human-only, including reads; an agent principal is denied regardless of role, scopes or object rights.
+Assigned roles and explicit agent rights are read from `state/admin.sqlite` on every authenticated core invocation.
+
+| RPC methods | Policy action | Human roles |
+|---|---|---|
+| `agent.pause`, `agent.resume` | `admin.agent.operate` | Owner, Admin, Operator |
+| `agent.archive`, `agent.unarchive`, `agent.export` | `admin.agent.manage` | Owner, Admin |
+| `agent.delete` | `admin.agent.delete` | Owner, Admin; archived, typed display name and actor-bound export offer required; engine erasure currently unavailable |
+| `agent.rights.get`, `agent.rights.set` | `admin.agent.rights` | Owner, Admin |
+| `user.list`, `user.invite.list` | `admin.users.read` | Owner, Admin |
+| `user.role.set`, `user.invite.create`, `user.invite.revoke` | `admin.users.write` | Owner, Admin; ownership changes Owner only, last Owner protected |
+| `breakglass.request`, `breakglass.revoke` | `admin.breakglass.write` | Owner, Admin; library also enforces request/revoke rules |
+| `breakglass.list` | `admin.breakglass.read` | Owner, Admin; holder's grants only |
+| `breakglass.notices` | `admin.notices.read` | All five; affected person's own inbox only |
+| `session.list` | `admin.sessions.read` | All five; Member own only; Owner/Admin/Operator/Viewer may filter all metadata |
+| `session.get`, `session.resume`, `session.events` | `admin.sessions.transcript` | All five; own session or live audited Break-Glass grant |
+| `session.create`, `session.submit`, `session.cancel`, `session.archive` | `admin.sessions.write` | Owner, Admin, Operator, Member; own session and `agent.use` required |
+| `memory.list`, `memory.show` | `admin.memory.read` | All five; optional `targetUserId` requires `agent.read` and live library `memory.user.read` authorization |
+| `pairing.qr` | `admin.pairing.read` | Owner, Admin; existing payload only, no code issuance |
+
+Token scopes intersect **every** gate. For example, a scoped invitation caller also needs the existing Identity `users.manage`
+scope; a scoped Break-Glass request needs `breakglass.request` as well as the new surface action. These nested checks never
+widen a token. Explicit `manage` implies `use`; Viewer still cannot write. Break-Glass never authorizes a session mutation.
+All these method names occur in `RPC_RULES`, the independent role-matrix fixture and deny-by-default guard tests.
+
+D109's `harness.admin` capability is never available to agents; its specification explicitly delegates direct harness admin
+operations to human CLI/UI callers. These backends do not route human actions through an agent tool grant. Destructive
+operations use mandatory audit and the existing human RBAC gates; the pinned engine's missing hard-erasure API fails closed.
+The existing D109 approval service is unchanged.
+
+`createBreakGlass({ requireNotification: true })` adds a fail-closed notice gate used by the core: a failed durable notice write
+leaves no usable grant. Existing library callers retain their default behavior. Core notices are persisted, self-scoped, and
+optionally delivered through the checked `breakglass.notice` audience. A lapsed/revoked window cannot read foreign transcripts
+or user cards, and every allowed use is audited. Web binding remains follow-up; no web sources are changed.
+
+## Device management (F44)
+
+All `device.*` methods are human-only and intersected with exact token scopes
+(`device.list`, `device.revoke`, `device.rename`) or `device.*`. Agents, missing
+principal kinds, unknown roles and unscoped tokens are denied regardless of rights
+or Break-Glass grants. The central system-resource rules admit the person; the
+handler applies the stored `pairedBy` ownership gate, as for identity self-service.
+Ownership is never accepted from RPC params.
+
+| Method | Owner/Admin | Operator/Member/Viewer |
+|---|---|---|
+| `device.list` | All, including revoked entries | Own entries only |
+| `device.revoke` | Any device | Own device only |
+| `device.rename` | Own device only | Own device only |
+
+The matrix fixture covers method admission. The guard/handler tests independently
+cover stored ownership, spoofed ownership params, token scopes, unknown roles and
+agent principals. Successful pairing, revocation and rename use the existing audit
+sink with `device.paired`, `device.revoked`, `device.renamed`; audit failure prevents
+the mutation. UI binding and remote transport mounting remain follow-up work.
+
+## Project board
+
+See [Project board backend](projects-board.md#rights) for the stored-role matrix.
+All 17 board methods are declared in `RPC_RULES`. The independent policy fixture
+covers `project.board.read/write/move/comment/manage`; the guard/handler tests
+cover every method, absent/unknown principals, empty token scopes, Viewer writes,
+forged object rights, foreign projects and live agent assignment.
+
+Read, move and comment admit agents at the coarse guard. The object gate then
+requires their trusted identity in the persisted project's agents. Agents may
+move only cards explicitly assigned to themselves and cannot override WIP.
+Write and manage are human-only. Human mutations require `project.write`
+(member), column administration and WIP override require `project.manage`
+(lead); stored membership replaces caller-supplied rights. Owner/Admin retain
+the existing object policy override. Viewer cannot mutate even as a lead.
+Board token scopes are the corresponding `project.board.*` action names;
+object checks do not require an additional unrelated token scope.
+
+Events reauthorize stored membership and read scopes for each recipient. The
+WebMCP provider blocks `project.column.` even on explicit inclusion; workflow
+structure and WIP policy remain human-managed.

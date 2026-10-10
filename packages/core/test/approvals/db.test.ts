@@ -17,13 +17,25 @@ describe("approvals db: path and migration (D109 §6)", () => {
     assert.equal(approvalsDbPath(home), join(layout(home).state, "approvals.sqlite"));
   });
 
-  it("empty file migrates to v1 with grants, approvals and approval_chain", T, () => {
+  it("empty file migrates to v2 with grants, approvals and approval_chain", T, () => {
     const p = join(tempDir("p1b-apr-"), "state", "approvals.sqlite");
     const db = openApprovalsDb({ path: p });
-    assert.equal(APPROVALS_SCHEMA_VERSION, 1);
-    assert.equal(version(db), 1);
+    assert.equal(APPROVALS_SCHEMA_VERSION, 2);
+    assert.equal(version(db), 2);
     for (const t of ["grants", "approvals", "approval_chain"]) assert.ok(tables(db).includes(t), t);
     db.close();
+  });
+
+  it("a v1 file gains grants.attested_via (NULL for every existing row) and keeps its rows", T, () => {
+    const p = join(tempDir("p1b-apr-"), "state", "approvals.sqlite");
+    const a = openApprovalsDb({ path: p });
+    a.exec("INSERT INTO grants (id, person, agent, capability, match_kind, duration, created_by, created_at, surface, def_hash, chain_seq) VALUES ('g1','p','a','fs.read','capability','always','p',1,3,'h',1)");
+    a.exec("ALTER TABLE grants DROP COLUMN attested_via; PRAGMA user_version = 1");
+    a.close();
+    const b = openApprovalsDb({ path: p });
+    assert.equal(version(b), 2);
+    assert.deepEqual(b.prepare("SELECT id, attested_via FROM grants").all().map((r) => ({ ...r })), [{ id: "g1", attested_via: null }]);
+    b.close();
   });
 
   it("the file is owner-only on POSIX", { ...T, skip: process.platform === "win32" }, () => {
@@ -39,7 +51,7 @@ describe("approvals db: path and migration (D109 §6)", () => {
     a.close();
     const b = openApprovalsDb({ path: p });
     const c = openApprovalsDb({ path: p });
-    assert.equal(version(b), 1);
+    assert.equal(version(b), 2);
     assert.equal((b.prepare("SELECT COUNT(*) AS n FROM approval_chain").get() as { n: number }).n, 1);
     b.close(); c.close();
   });
@@ -53,7 +65,7 @@ describe("approvals db: path and migration (D109 §6)", () => {
     assert.throws(() => openApprovalsDb({ path: p }), (e: unknown) => {
       assert.ok(e instanceof ApprovalsDbError);
       assert.equal(e.code, "newer-schema");
-      assert.match(e.message, /schema 7 is newer than this core's 1/);
+      assert.match(e.message, /schema 7 is newer than this core's 2/);
       return true;
     });
     const again = new DatabaseSync(p);

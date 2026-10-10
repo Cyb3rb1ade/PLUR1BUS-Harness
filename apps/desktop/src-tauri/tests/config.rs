@@ -66,7 +66,20 @@ fn shell_capability_is_local_only() {
             "core:event:allow-listen",
             "core:event:allow-unlisten",
             "allow-autostart-get",
-            "allow-autostart-set"
+            "allow-autostart-set",
+            "allow-runtime-detect",
+            "allow-runtime-start",
+            "allow-bundle-install",
+            "allow-harness-start",
+            "allow-harness-stop",
+            "allow-harness-status",
+            "allow-harness-logs-tail",
+            "allow-bridge-settings",
+            "allow-helper-status",
+            "allow-permissions-open-pane",
+            "allow-approvals-list",
+            "allow-approval-open",
+            "allow-approval-decide"
         ])
     );
     assert_eq!(c["webviews"], serde_json::json!(["shell"]));
@@ -78,7 +91,7 @@ fn shell_capability_is_local_only() {
     assert!(c.get("remote").is_none());
     assert_eq!(
         config()["app"]["security"]["capabilities"],
-        serde_json::json!(["shell-ui"])
+        serde_json::json!(["shell-ui", "approvals"])
     );
 }
 #[test]
@@ -98,6 +111,13 @@ fn every_wp4_command_is_registered_guarded_and_no_pin_or_runtime_path_is_an_ipc_
     assert_eq!(
         SHELL_COMMANDS,
         [
+            "runtime_detect",
+            "runtime_start",
+            "bundle_install",
+            "harness_start",
+            "harness_stop",
+            "harness_status",
+            "harness_logs_tail",
             "app_info",
             "settings_get",
             "settings_set",
@@ -114,12 +134,21 @@ fn every_wp4_command_is_registered_guarded_and_no_pin_or_runtime_path_is_an_ipc_
             "background_hint",
             "crash_offers",
             "crash_handled",
+            "bridge_settings",
+            "helper_status",
+            "permissions_open_pane",
+            "approvals_list",
+            "approval_open",
+            "approval_decide",
             "quit_response"
         ]
     );
     let registration = include_str!("../src/lib.rs");
     for command in SHELL_COMMANDS {
-        assert!(registration.contains(&format!("commands::{command}")));
+        assert!(
+            registration.contains(&format!("commands::{command}"))
+                || registration.contains(&format!("host_commands::{command}"))
+        );
         assert!(allowed_command("shell", command));
         assert!(!allowed_command("spa", command));
     }
@@ -149,7 +178,7 @@ fn registered_handlers_match_the_application_acl_table() {
         .split(',')
         .map(str::trim)
         .filter(|s| !s.is_empty())
-        .map(|s| s.strip_prefix("commands::").unwrap())
+        .map(|s| s.split("::").last().unwrap())
         .collect();
     assert_eq!(actual, plur1bus_desktop::commands::APP_COMMANDS);
 }

@@ -241,6 +241,14 @@ impl SpaState {
             probe(stage, hresult);
         }
     }
+    /// Origin of the active SPA carrier, in every build profile.
+    pub fn active_origin(&self) -> Option<Origin> {
+        self.current
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|a| a.proxy.origin().clone())
+    }
     /// Native fixture only: use the active carrier in memory for negative transport checks.
     #[cfg(debug_assertions)]
     pub fn active_proxy(&self) -> Option<SpaProxy> {

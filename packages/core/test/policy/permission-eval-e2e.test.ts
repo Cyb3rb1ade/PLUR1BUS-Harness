@@ -63,7 +63,7 @@ describe("permission-eval-e2e", () => {
   });
 
   it("the known gaps are exactly the ones written down (a new one needs a decision, a fixed one must lose its flag)", { timeout: TIMEOUT }, () => {
-    assert.deepEqual(ROWS.filter((r) => r.knownGap).map((r) => r.id), ["path-hard-link-to-name-entry"]);
+    assert.deepEqual(ROWS.filter((r) => r.knownGap).map((r) => r.id), []);
   });
 
   it("at least 95 % of the harmless twins went through", { timeout: TIMEOUT }, () => {

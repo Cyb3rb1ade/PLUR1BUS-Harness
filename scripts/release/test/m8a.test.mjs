@@ -4,21 +4,68 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, readdirSyn
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { generateAssets, hostBinary } from '../package.mjs';
 const root = resolve(import.meta.dirname, '../../..');
 const cli = (name, args, cwd = root) => execFileSync(process.execPath, [join(root, 'scripts/release', name), ...args], { cwd, env: { ...process.env, SOURCE_DATE_EPOCH: '1700000000' } }).toString();
 const fixture = fn => { const d = mkdtempSync(join(tmpdir(), 'release-')); try { fn(d); } finally { rmSync(d, { recursive: true, force: true }); } };
 
 test('tar and zip have the expected layout and identical hashes across runs', () => fixture(d => {
   writeFileSync(join(d, 'cli'), 'synthetic executable'); writeFileSync(join(d, 'core.tar.gz'), 'synthetic core');
+  const assets = join(d, 'assets');
+  for (const [name, body] of [
+    ['completions/plur1bus.bash', 'bash completion'],
+    ['completions/_plur1bus', 'zsh completion'],
+    ['completions/plur1bus.fish', 'fish completion'],
+    ['completions/plur1bus.ps1', 'powershell completion'],
+    ['man/man1/plur1bus.1', '.TH plur1bus 1'],
+  ]) {
+    const path = join(assets, name); mkdirSync(join(path, '..'), { recursive: true }); writeFileSync(path, body);
+  }
   for (const ext of ['tar.gz', 'zip']) {
     const a = join(d, `a.${ext}`), b = join(d, `b.${ext}`);
     const args = ['0.1.0', 'linux-x64', join(d, 'cli'), join(d, 'core.tar.gz')];
-    cli('package.mjs', [...args, a]); cli('package.mjs', [...args, b]);
+    cli('package.mjs', [...args, a, assets]); cli('package.mjs', [...args, b, assets]);
     assert.deepEqual(readFileSync(a), readFileSync(b));
     const list = ext === 'zip' ? execFileSync('unzip', ['-Z1', a]).toString() : execFileSync('tar', ['-tf', a]).toString();
     assert.match(list, /bin\/plur1bus/); assert.match(list, /runtime\/core.tar.gz/); assert.match(list, /licenses\/LICENSE/);
+    for (const name of ['completions/plur1bus.bash', 'completions/_plur1bus', 'completions/plur1bus.fish', 'completions/plur1bus.ps1', 'man/man1/plur1bus.1']) {
+      assert.ok(list.includes(name), `${name} in ${list}`);
+    }
   }
 }));
+test('completion and manpage generation uses the four supported shells', () => fixture(d => {
+  const calls = [];
+  generateAssets('host-cli', d, (binary, args) => {
+    calls.push([binary, ...args]);
+    if (args[0] === 'completions') return `${args[1]} completion\n`;
+    mkdirSync(args[1], { recursive: true });
+    writeFileSync(join(args[1], 'plur1bus.1'), '.TH plur1bus 1\n');
+    return '';
+  });
+  assert.deepEqual(calls.map((call) => call.slice(1)), [
+    ['completions', 'bash'],
+    ['completions', 'zsh'],
+    ['completions', 'fish'],
+    ['completions', 'powershell'],
+    ['__manpages', join(d, 'man/man1')],
+  ]);
+  assert.equal(readFileSync(join(d, 'completions/plur1bus.ps1'), 'utf8'), 'powershell completion\n');
+  assert.equal(readFileSync(join(d, 'man/man1/plur1bus.1'), 'utf8'), '.TH plur1bus 1\n');
+}));
+test('cross-compiled targets use a host CLI instead of executing the release binary', () => {
+  let built = 0;
+  assert.equal(hostBinary('linux-x64-musl', '/foreign/plur1bus', {
+    platform: 'linux',
+    arch: 'x64',
+    buildHost: () => { built += 1; return '/host/plur1bus'; },
+  }), '/host/plur1bus');
+  assert.equal(built, 1);
+  assert.equal(hostBinary('linux-x64', '/host/plur1bus', {
+    platform: 'linux',
+    arch: 'x64',
+    buildHost: () => { throw new Error('native release binary should be used'); },
+  }), '/host/plur1bus');
+});
 test('checksum format, sorting, verification and tamper rejection', () => fixture(d => {
   writeFileSync(join(d, 'z.zip'), 'z'); writeFileSync(join(d, 'a.tar.gz'), 'a');
   cli('checksums.mjs', [d]);
@@ -79,7 +126,11 @@ test('shell package/checksum wrappers and offline SBOM scanner contract', () => 
   const tools = join(d, 'tools'), out = join(d, 'out'); mkdirSync(tools); mkdirSync(out);
   writeFileSync(join(d, 'cli'), 'fake-linux-binary'); writeFileSync(join(d, 'core.tar.gz'), 'fake-core');
   const sh = (script, args, env = {}) => execFileSync('bash', [join(root, 'scripts/release', script), ...args], { env: { ...process.env, SOURCE_DATE_EPOCH: '1700000000', ...env } });
-  sh('package.sh', ['0.1.0', 'linux-x64', join(d, 'cli'), join(d, 'core.tar.gz'), join(out, 'plur1bus.tar.gz')]);
+  const assets = join(d, 'assets');
+  for (const name of ['completions/plur1bus.bash', 'completions/_plur1bus', 'completions/plur1bus.fish', 'completions/plur1bus.ps1', 'man/man1/plur1bus.1']) {
+    const path = join(assets, name); mkdirSync(join(path, '..'), { recursive: true }); writeFileSync(path, 'fixture asset');
+  }
+  sh('package.sh', ['0.1.0', 'linux-x64', join(d, 'cli'), join(d, 'core.tar.gz'), join(out, 'plur1bus.tar.gz'), assets]);
   sh('checksums.sh', [out]); sh('checksums.sh', ['--verify', out]);
   const syft = join(tools, 'syft');
   writeFileSync(syft, `#!/usr/bin/env node

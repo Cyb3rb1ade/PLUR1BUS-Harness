@@ -19,3 +19,4 @@ export * from "./pair-proof.ts";
 export * from "./trust-rollover.ts";
 export * from "./pinning.ts";
 export * from "./security.ts";
+export * from "./device-store.ts";

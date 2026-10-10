@@ -22,3 +22,22 @@ tempfile = "3"
 # crate brings the 80 MB to about 0.4 s; release builds are unaffected.
 [profile.dev.package.sha2]
 opt-level = 3
+
+# The config schema (packages/config-schema) is compiled by `jsonschema` on every CLI start that reads config.json, after
+# first being validated against the draft 2020-12 meta-schema. At opt-level 0 that costs ~0.7 s once the schema carries
+# the `containers`/`sidecars` sections, which put the fast-fail CLI paths (`memory add`/`memory list` without a core,
+# 1 s budget) over the line. Optimising the schema-compilation crates removes it; release builds are unaffected.
+[profile.dev.package.jsonschema]
+opt-level = 3
+[profile.dev.package.referencing]
+opt-level = 3
+[profile.dev.package.fancy-regex]
+opt-level = 3
+[profile.dev.package.regex]
+opt-level = 3
+[profile.dev.package.regex-automata]
+opt-level = 3
+[profile.dev.package.regex-syntax]
+opt-level = 3
+[profile.dev.package.serde_json]
+opt-level = 3

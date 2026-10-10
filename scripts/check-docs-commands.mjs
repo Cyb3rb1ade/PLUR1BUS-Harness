@@ -11,18 +11,36 @@ import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export function parseCliMd(text) {
-  const commands = new Map(); // "agent create" -> Set of long flags
+  const commands = new Map(); // "agent create" -> { flags, arguments }
   let current = null;
+  let section = null;
   for (const line of text.split(/\r?\n/)) {
     const h = /^## `plur1bus(?: ([^`]+))?`\s*$/.exec(line);
     if (h) {
       current = h[1] ?? "";
-      commands.set(current, new Set());
+      commands.set(current, { flags: new Set(), arguments: new Set() });
+      section = null;
       continue;
     }
     if (current === null) continue;
-    const f = /^\* `(--[a-z0-9-]+)/.exec(line);
-    if (f) commands.get(current).add(f[1]);
+    const heading = /^###### \*\*(Arguments|Options):\*\*/.exec(line);
+    if (heading) {
+      section = heading[1];
+      continue;
+    }
+    const item = /^\* `([^`]+)`/.exec(line);
+    if (!item) continue;
+    if (section === "Arguments") {
+      const argument = /^<([^>]+)>/.exec(item[1]);
+      if (argument) commands.get(current).arguments.add(argument[1]);
+    } else if (section === "Options") {
+      const label = line.split(" — ", 1)[0];
+      for (const span of label.matchAll(/`([^`]+)`/g)) {
+        for (const flag of span[1].match(/--[a-z0-9-]+|-[A-Za-z0-9]/g) ?? []) {
+          commands.get(current).flags.add(flag);
+        }
+      }
+    }
   }
   return commands;
 }
@@ -64,12 +82,13 @@ export function checkCommand(text, commands) {
     i++;
   }
   const flags = new Set(["--home", "--json", "--help", "--version", "-h", "-V"]);
-  for (const f of commands.get(path) ?? []) flags.add(f);
+  const command = commands.get(path);
+  for (const f of command?.flags ?? []) flags.add(f);
   const hasChildren = [...commands.keys()].some((k) => k !== path && (path === "" ? k !== "" : k.startsWith(`${path} `)));
   const errs = [];
   const rest = toks.slice(i);
   const firstArg = rest.find((t) => !t.startsWith("-"));
-  if (hasChildren && firstArg && !/^[<\[]/.test(firstArg) && !rest[0]?.startsWith("-")) {
+  if (hasChildren && command?.arguments.size === 0 && firstArg && !/^[<\[]/.test(firstArg) && !rest[0]?.startsWith("-")) {
     errs.push(`\`${firstArg}\` is not a subcommand of \`plur1bus ${path}\``.replace("plur1bus ", "plur1bus" + (path ? " " : "")));
   }
   for (const t of rest) {

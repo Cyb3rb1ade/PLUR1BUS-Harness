@@ -1,3 +1,4 @@
+import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import type { LocaleChoice } from "./i18n.ts";
 
@@ -10,7 +11,20 @@ export type ConnectionList = { connections: Connection[]; active: string | null;
 export type ConnectionSnapshot = { status: "loading" | "ready" | "error"; data: ConnectionList | null };
 export type PairRequest = { name: string; origin: string; code: string; repairId: string | null };
 export type Paired = { connection: Connection; tokenStore: TokenStoreKind };
+export type HelperStatus={ready:boolean;restarting:boolean;capabilities:string[];grants:string[]};
+export type BridgeSettings={enabled:boolean;memoryOnly:boolean;secretsLocked:boolean;secretsState?:"locked"|"unlocked"|"unknown"};
 export type DesktopTransport = {
+  helperStatus?():Promise<HelperStatus>;
+  bridgeSettings?(enabled?:boolean):Promise<BridgeSettings>;
+  bundleProgress?(onStep:(step:string)=>void):Promise<()=>void>;
+  runtimeDetect?(): Promise<import("./models/wizard-model.ts").RuntimeItem[]>;
+  bundleCancel?(runtimeId:string):Promise<void>;
+  bundleInstall?(runtimeId: string, agreed: boolean): Promise<{connectionId: string}>;
+  harnessStart?(memoryGib?: number): Promise<void>;
+  harnessStop?(): Promise<void>;
+  harnessStatus?(): Promise<{state: string;resources?:{memoryMiB:number}}>;
+  harnessStatusEvents?(onStatus:(status:{state:string})=>void):Promise<()=>void>;
+  harnessLogsTail?(): Promise<string>;
   autostartGet?(): Promise<boolean | null>;
   autostartSet?(enabled: boolean): Promise<boolean>;
   connectionsList(): Promise<ConnectionList>;
@@ -25,6 +39,17 @@ export type DesktopTransport = {
 };
 
 export const nativeTransport: DesktopTransport = {
+  helperStatus:()=>invoke("helper_status"),
+  bridgeSettings:enabled=>invoke("bridge_settings",{request:{enabled:enabled??null}}),
+  bundleProgress: onStep => listen<string>("desktop-bundle-progress",event=>onStep(event.payload)),
+  runtimeDetect: () => invoke("runtime_detect"),
+  bundleCancel: runtimeId => invoke("bundle_install",{request:{runtimeId,agreed:true,action:"cancel"}}),
+  bundleInstall: (runtimeId, agreed) => invoke("bundle_install", {request:{runtimeId,agreed}}),
+  harnessStart: memoryGib => invoke("harness_start",{request:{memoryGib:memoryGib??null}}),
+  harnessStop: () => invoke("harness_stop"),
+  harnessStatus: () => invoke("harness_status"),
+  harnessStatusEvents: onStatus => listen<{state:string}>("desktop-harness-status",event=>onStatus(event.payload)),
+  harnessLogsTail: () => invoke("harness_logs_tail"),
   autostartGet: () => invoke("autostart_get"),
   autostartSet: enabled => invoke("autostart_set", {enabled}),
   connectionsList: () => invoke("connections_list"),

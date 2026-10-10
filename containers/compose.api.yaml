@@ -1,0 +1,4 @@
+services:
+  harness:
+    ports:
+      - "127.0.0.1:${PLUR1BUS_API_PORT:-18700}:18700"

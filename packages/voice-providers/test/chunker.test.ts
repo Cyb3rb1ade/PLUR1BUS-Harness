@@ -52,3 +52,27 @@ test("maxWords never cuts inside a word that is still arriving", () => {
   assert.deepEqual(c.push("a epsilon "), ["alpha beta gamma"]);
   assert.deepEqual(c.flush(), ["delta epsilon"]);
 });
+
+test("F13: a German ordinal after a determiner before a capitalised noun is not a sentence end", () => {
+  assert.deepEqual(chunkSentences("Das ist der 1. Platz im Ranking. Weiter."), ["Das ist der 1. Platz im Ranking.", "Weiter."]);
+  assert.deepEqual(chunkSentences("Er wurde am 3. Platz geführt. Ende."), ["Er wurde am 3. Platz geführt.", "Ende."]);
+  assert.deepEqual(chunkSentences("Sie gewann den 2. Preis. Danke."), ["Sie gewann den 2. Preis.", "Danke."]);
+});
+
+test("F13: a number before a capitalised word after other words still ends the sentence", () => {
+  assert.deepEqual(chunkSentences("Es sind 3. Dann geht es los."), ["Es sind 3.", "Dann geht es los."]);
+});
+
+test("F13: the ordinal rule also works when the next word arrives in later deltas", () => {
+  const c = new SentenceChunker();
+  const out = [...c.push("Das ist der 1. "), ...c.push("Pla"), ...c.push("tz hier. Dann")];
+  assert.deepEqual(out, ["Das ist der 1. Platz hier."]);
+  assert.deepEqual(c.flush(), ["Dann"]);
+});
+
+test("F13: pushing long unpunctuated text in small deltas scans each character a bounded number of times", () => {
+  const c = new SentenceChunker();
+  let total = 0;
+  for (let i = 0; i < 4000; i++) { const d = "wort wort "; total += d.length; c.push(d); }
+  assert.ok(c.scannedChars <= total * 2, `scanned ${c.scannedChars} for ${total} chars`);
+});

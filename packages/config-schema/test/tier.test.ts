@@ -35,7 +35,7 @@ describe("x-tier", () => {
 
   it("filterSchemaByTier basic keeps agents, embedding.useClass, providers, modelRoles only", () => {
     const f = filterSchemaByTier(CONFIG_SCHEMA, "basic");
-    assert.deepEqual(Object.keys(f.properties).sort(), ["agents", "embedding", "modelRoles", "providers"]);
+    assert.deepEqual(Object.keys(f.properties).sort(), ["agents", "embedding", "memory", "modelRoles", "providers"]);
     assert.deepEqual(Object.keys(f.properties.embedding.properties), ["useClass"]);
     assert.deepEqual(f.required, []);
   });

@@ -182,7 +182,7 @@ test("batch ASR uploads WAV with model, language and timestamps and maps words",
     assert.match(req.url, /^\/v1\/speech-to-text\?/);
     assert.match(req.url, /enable_logging=false/);
     const body = req.body.toString("latin1");
-    assert.match(body, /name="model_id"\r\n\r\nscribe_v1/);
+    assert.match(body, /name="model_id"\r\n\r\nscribe_v2/);
     assert.match(body, /name="language_code"\r\n\r\nde/);
     assert.match(body, /name="timestamps_granularity"\r\n\r\nword/);
     assert.ok(body.includes("RIFF"));
@@ -234,4 +234,12 @@ test("realtime ASR maps a handshake 401 to auth", async () => {
     const { asr } = createElevenLabs({ getSecret, apiKeyRef: "voice.key", baseUrl: v.httpUrl });
     await assert.rejects(asr.openStream(), (e) => { assert.ok(isVoiceProviderError(e)); assert.equal(e.code, "auth"); assertNoKey(e, "error"); return true; });
   } finally { await v.close(); }
+});
+
+test("output_format uses only variants the vendor documents (mp3 bitrate depends on the rate)", async () => {
+  const { ELEVENLABS } = await import("../src/constants.ts");
+  assert.equal(ELEVENLABS.outputFormat("mp3", 22050), "mp3_22050_32");
+  assert.equal(ELEVENLABS.outputFormat("mp3", 24000), "mp3_24000_48");
+  assert.equal(ELEVENLABS.outputFormat("mp3", 44100), "mp3_44100_128");
+  assert.equal(ELEVENLABS.outputFormat("mp3", 16000), undefined);
 });
