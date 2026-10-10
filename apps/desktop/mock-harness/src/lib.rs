@@ -105,6 +105,8 @@ struct Store {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     reason: Option<String>,
     provisioned: bool,
+    #[serde(default)]
+    secret_key_digest: Option<String>,
 }
 impl Store {
     fn new() -> Self {
@@ -118,6 +120,7 @@ impl Store {
             secrets: "locked".into(),
             reason: None,
             provisioned: false,
+            secret_key_digest: None,
         }
     }
 }
@@ -407,6 +410,15 @@ impl MockControl {
         }
         Ok(call_id)
     }
+    pub fn bridge_connection_count(&self, device_id: &str) -> u32 {
+        self.shared
+            .accepted_bridge
+            .lock()
+            .unwrap()
+            .get(device_id)
+            .copied()
+            .unwrap_or(0)
+    }
     pub fn take_bridge_result(&self, call_id: &str) -> Option<Value> {
         self.shared.bridge_results.lock().unwrap().remove(call_id)
     }
@@ -498,6 +510,9 @@ impl MockControl {
     }
     pub fn inject_upgrade_failure(&self, step: Option<&str>) {
         *self.shared.failure.lock().unwrap() = step.map(str::to_owned);
+    }
+    pub fn secrets_locked(&self) -> bool {
+        self.shared.store.lock().unwrap().secrets == "locked"
     }
     pub fn set_provisioned(&self, value: bool) {
         let mut store = self.shared.store.lock().unwrap();
@@ -670,7 +685,7 @@ fn err(reason: &str, status: StatusCode) -> Response {
 async fn meta(State(s): State<Arc<Shared>>) -> Json<Value> {
     let store = s.store.lock().unwrap();
     Json(
-        json!({"apiVersion":*s.api_version.lock().unwrap(),"version":"0.1.0", "installationId":s.reported_id.lock().unwrap().clone().unwrap_or_else(||store.installation_id.clone()),"capabilities":if s.session_ticket_capability.load(Ordering::SeqCst) { vec![capability::SESSION_TICKET,capability::HOST_BRIDGE] } else { vec![capability::HOST_BRIDGE] }}),
+        json!({"apiVersion":*s.api_version.lock().unwrap(),"version":"0.1.0", "installationId":s.reported_id.lock().unwrap().clone().unwrap_or_else(||store.installation_id.clone()),"capabilities":if s.session_ticket_capability.load(Ordering::SeqCst) { vec![capability::SESSION_TICKET,capability::HOST_BRIDGE,"test.mock"] } else { vec![capability::HOST_BRIDGE,"test.mock"] }}),
     )
 }
 
@@ -995,7 +1010,7 @@ async fn events(
     } else {
         Vec::new()
     };
-    let initial = if topics.iter().any(|topic| topic == "harness.status")
+    let mut initial = if topics.iter().any(|topic| topic == "harness.status")
         && (last.is_none() || (replay.is_empty() && recovery))
     {
         let store = s.store.lock().unwrap();
@@ -1007,6 +1022,20 @@ async fn events(
     } else {
         replay
     };
+    // Bootstrap pending cards after subscribing, so requests before a reconnect
+    // cannot disappear between the desktop's initial status and live SSE events.
+    if (last.is_none() || recovery) && topics.iter().any(|topic| topic == "approval") {
+        initial.extend(
+            s.approvals
+                .lock()
+                .unwrap()
+                .values()
+                .filter(|v| v["state"] == "pending")
+                .take(200)
+                .cloned()
+                .map(|v| (latest, "approval.requested".into(), v)),
+        );
+    }
     let sent_through = initial
         .last()
         .map(|(id, _, _)| *id)
@@ -1135,6 +1164,18 @@ async fn bridge_socket(
                             if op == "provision" && value["ok"] == true {
                                 let mut store = shared.store.lock().unwrap(); store.provisioned = true;
                                 if shared.save(&store).is_err() { break }
+                            }
+                            if value["ok"] == true {
+                                if let Some(key) = value["value"].as_str().filter(|key| URL_SAFE_NO_PAD.decode(key).is_ok_and(|b| b.len() == 32)) {
+                                    let digest = hash(key);
+                                    let mut store = shared.store.lock().unwrap();
+                                    if op == "provision" && store.secret_key_digest.is_none() { store.secret_key_digest = Some(digest.clone()); }
+                                    let unlocked = store.secret_key_digest.as_ref() == Some(&digest);
+                                    store.secrets = if unlocked { "unlocked" } else { "locked" }.into();
+                                    store.reason = (!unlocked).then(|| "key-mismatch".into());
+                                    if shared.save(&store).is_err() { break; }
+                                    shared.publish("harness.status", json!({"state":store.status,"secrets":store.secrets,"reason":store.reason}));
+                                }
                             }
                             shared.bridge_results.lock().unwrap().insert(call_id.into(), value);
                         }

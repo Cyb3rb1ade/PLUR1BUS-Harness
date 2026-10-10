@@ -31,7 +31,7 @@ async fn mock_meta_is_unauthenticated() {
     assert_eq!(body["apiVersion"], "1.0.0");
     assert_eq!(
         body["capabilities"],
-        serde_json::json!(["desktop.sessionTicket", "host.bridge"])
+        serde_json::json!(["desktop.sessionTicket", "host.bridge", "test.mock"])
     );
 }
 

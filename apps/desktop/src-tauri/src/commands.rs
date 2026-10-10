@@ -2,14 +2,27 @@ use crate::settings::{Settings, SettingsStore};
 use serde::{Deserialize, Serialize};
 use tauri::{Manager, WebviewWindow};
 
+pub use crate::host_commands::{
+    approval_decide, approval_open, approvals_list, bridge_settings, helper_status,
+    permissions_open_pane,
+};
 pub use crate::shell_commands::{APP_COMMANDS, SHELL_COMMANDS};
 
 pub fn allowed_command(label: &str, command: &str) -> bool {
-    label == "shell" && SHELL_COMMANDS.contains(&command)
+    (label == "shell" && SHELL_COMMANDS.contains(&command))
+        || (label == "approvals"
+            && [
+                "app_info",
+                "settings_get",
+                "approvals_list",
+                "approval_open",
+                "approval_decide",
+            ]
+            .contains(&command))
 }
 
 pub fn authorized_shell(label: &str, current_url: &str) -> bool {
-    if label != "shell" {
+    if label != "shell" && label != "approvals" {
         return false;
     }
     let Ok(url) = tauri::Url::parse(current_url) else {
@@ -483,6 +496,14 @@ pub async fn quit_response(
             // Bundled harness stopping is not available until WP8's controller adapter.
             state.quit.approve(choice, false).map_err(str::to_owned)?;
             state.events.stop();
+            window
+                .state::<crate::host_commands::HostState>()
+                .bridge
+                .stop();
+            window
+                .state::<crate::host_commands::HostState>()
+                .helper
+                .stop();
             #[cfg(unix)]
             state.gnome.stop();
             let diagnostics = { state.diagnostics.lock().unwrap().take() };

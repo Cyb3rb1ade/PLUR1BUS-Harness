@@ -434,6 +434,30 @@ impl HarnessClient {
         let bytes = zeroize::Zeroizing::new(self.bytes(response, trust::MAX_BODY).await?);
         serde_json::from_slice(&bytes).map_err(|_| ClientError::Protocol)
     }
+    pub async fn mock_approval_decide(
+        &self,
+        installation: &str,
+        token: &SecretString,
+        id: &str,
+        decision: &crate::host_commands::Decision,
+    ) -> Result<(), ClientError> {
+        self.check_meta(installation).await?;
+        if id.is_empty()
+            || id.len() > 128
+            || !id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        {
+            return Err(ClientError::Protocol);
+        }
+        let _: serde_json::Value = self
+            .request(
+                &format!("/api/v1/approvals/{id}/decision"),
+                Some(&serde_json::json!({"decision":decision,"scope":"once"})),
+                Some(token),
+            )
+            .await?;
+        Ok(())
+    }
+
     pub async fn meta(&self) -> Result<Meta, ClientError> {
         let meta: Meta = self.request(route::META, None, None).await?;
         if meta.api_version.split('.').next() != Some("1") {
@@ -652,7 +676,7 @@ impl HarnessClient {
         let mut request = self
             .streaming_http()?
             .get(format!("{}{}", self.origin.as_str(), route::EVENTS))
-            .query(&[("topics", "harness.status")])
+            .query(&[("topics", "harness.status,approval")])
             .bearer_auth(token.expose());
         if let Some(last) = last {
             if last.len() > 256 || !last.bytes().all(|b| (32..127).contains(&b)) {

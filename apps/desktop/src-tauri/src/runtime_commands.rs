@@ -507,7 +507,9 @@ async fn sync_origins(app: &tauri::AppHandle, c: Arc<Controller>) -> Result<(), 
         c.reconcile_connection_origins(&store, |id| crate::native::retire_connection(&handle, id))
             .map_err(|e| e.code().into())
     })
-    .await
+    .await?;
+    let _ = crate::host_commands::resume_bundled(app).await;
+    Ok(())
 }
 fn native_watch(app: &tauri::AppHandle, c: Arc<Controller>) -> tokio::task::JoinHandle<()> {
     let handle = app.clone();

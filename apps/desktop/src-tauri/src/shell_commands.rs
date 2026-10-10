@@ -23,6 +23,12 @@ pub const SHELL_COMMANDS: &[&str] = &[
     "background_hint",
     "crash_offers",
     "crash_handled",
+    "bridge_settings",
+    "helper_status",
+    "permissions_open_pane",
+    "approvals_list",
+    "approval_open",
+    "approval_decide",
     "quit_response",
 ];
 
@@ -51,6 +57,12 @@ pub const APP_COMMANDS: &[&str] = &[
     "background_hint",
     "crash_offers",
     "crash_handled",
+    "bridge_settings",
+    "helper_status",
+    "permissions_open_pane",
+    "approvals_list",
+    "approval_open",
+    "approval_decide",
     "quit_response",
     "shell_info",
 ];
