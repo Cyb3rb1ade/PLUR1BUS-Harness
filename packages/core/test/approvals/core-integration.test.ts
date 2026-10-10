@@ -1,5 +1,6 @@
 // The eight grant.* / approval.* methods in a running core: the real RPC server, schema validators, RBAC guard, lazy stores and notifications.
 import { fakeHelper } from "../attestation/fixtures/pinned-fake.ts";
+import type { HelperSpec } from "../../src/attestation/index.ts";
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -204,7 +205,7 @@ describe("OS attestation in a running core (#192 option C)", () => {
   const PERSON: Principal = { userId: "christian", kind: "person", role: "owner" };
   after(() => restore());
 
-  async function run<T>(attestation: { helper: { path: string; args?: string[] } | null }, body: (c: CoreClient, core: Core) => Promise<T>): Promise<T> {
+  async function run<T>(attestation: { helper: HelperSpec | null }, body: (c: CoreClient, core: Core) => Promise<T>): Promise<T> {
     const core = createCore({ home: newHome(), testInternals: flatTestInternals(), attestation, rbac: { resolve: () => PERSON, audit: memoryAuditSink() } });
     await core.start();
     const c = await connect({ address: core.address, token: core.token });
