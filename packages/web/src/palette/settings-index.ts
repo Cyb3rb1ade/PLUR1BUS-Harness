@@ -12,6 +12,8 @@
 export type SettingSpec = { readonly key: string; readonly type: string; readonly tier: "basic" | "advanced"; readonly help?: string };
 
 export const SETTINGS: readonly SettingSpec[] = [
+  { key: "remote", type: "object", tier: "advanced", help: "Remote exposure configuration (listener integration is separate)." },
+  { key: "remote.publish", type: "string", tier: "advanced", help: "Requested exposure mode; never makes a listener public. Applying the remote-access listener plan is a separate integration." },
   { key: "tools.hostctl.enabled", type: "boolean", tier: "advanced", help: "Register local hostctl tools." },
   { key: "tools.hostctl.shell.allowed", type: "boolean", tier: "advanced", help: "Allow proc.shell after normal D109 approval." },
   { key: "tools.hostctl.shell.default", type: "string", tier: "advanced", help: "Shell executable; set pwsh on Windows." },

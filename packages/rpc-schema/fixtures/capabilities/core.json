@@ -368,6 +368,78 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "agent.pause": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "agent.resume": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "agent.archive": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "agent.unarchive": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "agent.export": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "agent.delete": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "user.list": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "user.role.set": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "user.invite.create": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "user.invite.list": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "user.invite.revoke": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "agent.rights.get": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "agent.rights.set": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "breakglass.request": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "breakglass.notices": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "breakglass.list": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "breakglass.revoke": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "pairing.qr": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "auth.status": {
       "stability": "experimental",
       "since": "1.5.0"
@@ -506,6 +578,10 @@
     }
   },
   "notifications": {
+    "breakglass.notice": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "media.job.progress": {
       "stability": "experimental",
       "since": "1.5.0"

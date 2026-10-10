@@ -24,6 +24,13 @@
     "core:event:allow-listen",
     "core:event:allow-unlisten",
     "allow-autostart-get",
-    "allow-autostart-set"
+    "allow-autostart-set",
+    "allow-runtime-detect",
+    "allow-runtime-start",
+    "allow-bundle-install",
+    "allow-harness-start",
+    "allow-harness-stop",
+    "allow-harness-status",
+    "allow-harness-logs-tail"
   ]
 }

@@ -100,6 +100,87 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
 
     for (name, fixture) in &fixtures {
         match name.as_str() {
+            "agent.pause" => check_pair::<types::AgentPauseParams, types::AgentPauseResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "agent.resume" => check_pair::<types::AgentResumeParams, types::AgentResumeResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "agent.archive" => check_pair::<types::AgentArchiveParams, types::AgentArchiveResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "agent.unarchive" => check_pair::<
+                types::AgentUnarchiveParams,
+                types::AgentUnarchiveResult,
+            >(name, fixture, &root_schema),
+            "agent.export" => check_pair::<types::AgentExportParams, types::AgentExportResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "agent.delete" => check_pair::<types::AgentDeleteParams, types::AgentDeleteResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "agent.rights.get" => check_pair::<
+                types::AgentRightsGetParams,
+                types::AgentRightsGetResult,
+            >(name, fixture, &root_schema),
+            "agent.rights.set" => check_pair::<
+                types::AgentRightsSetParams,
+                types::AgentRightsSetResult,
+            >(name, fixture, &root_schema),
+            "user.list" => check_pair::<types::UserListParams, types::UserListResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "user.role.set" => check_pair::<types::UserRoleSetParams, types::UserRoleSetResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "user.invite.create" => check_pair::<
+                types::UserInviteCreateParams,
+                types::UserInviteCreateResult,
+            >(name, fixture, &root_schema),
+            "user.invite.list" => check_pair::<
+                types::UserInviteListParams,
+                types::UserInviteListResult,
+            >(name, fixture, &root_schema),
+            "user.invite.revoke" => check_pair::<
+                types::UserInviteRevokeParams,
+                types::UserInviteRevokeResult,
+            >(name, fixture, &root_schema),
+            "breakglass.request" => check_pair::<
+                types::BreakglassRequestParams,
+                types::BreakglassRequestResult,
+            >(name, fixture, &root_schema),
+            "breakglass.list" => check_pair::<
+                types::BreakglassListParams,
+                types::BreakglassListResult,
+            >(name, fixture, &root_schema),
+            "breakglass.revoke" => check_pair::<
+                types::BreakglassRevokeParams,
+                types::BreakglassRevokeResult,
+            >(name, fixture, &root_schema),
+            "breakglass.notices" => check_pair::<
+                types::BreakglassNoticesParams,
+                types::BreakglassNoticesResult,
+            >(name, fixture, &root_schema),
+            "pairing.qr" => check_pair::<types::PairingQrParams, types::PairingQrResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+
             "auth.login.start" => check_pair::<
                 types::AuthLoginStartParams,
                 types::AuthLoginStartResult,
