@@ -11,7 +11,7 @@
 //! can reach a release server. Unix only (the stand-in binary is `/bin/sh`).
 #![cfg(unix)]
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};

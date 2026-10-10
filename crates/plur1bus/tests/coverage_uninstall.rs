@@ -166,13 +166,11 @@ fn the_plan_is_the_same_on_every_dry_run() {
     assert_eq!((c1, c2), (0, 0));
     assert_eq!(a["plan"], b["plan"]);
     assert_eq!(a["plan"]["purge"], true);
-    assert!(
-        a["plan"]["remove"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|r| r["kind"] == "home")
-    );
+    assert!(a["plan"]["remove"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|r| r["kind"] == "home"));
 }
 
 #[test]
