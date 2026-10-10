@@ -55,6 +55,8 @@ export interface CanonicalPath {
   /** Identity of the directory that holds (or would hold) the leaf. */
   parentIdentity: Identity;
   hardLinked: boolean;
+  /** True when deny-list `name` entries were in force: `openVerified` then also refuses a read of a file that gained a hard link. */
+  nameGuarded: boolean;
   access: Access;
 }
 
@@ -76,6 +78,9 @@ export interface CanonicaliseOptions {
   allowUnc?: boolean;
   /** Overrides `os.homedir()` for the "home is never a root" rule. */
   home?: string;
+  /** Entries visited per deny-list scan before it gives up and a hard-linked target is refused (default 20 000 for the `path`
+   *  entries, 100 000 for the `name` scan over the roots). Tests lower it. */
+  scanCap?: number;
 }
 
 const refuse = (reason: RefusalReason, detail: string): PathRefusal => ({ ok: false, reason, detail });
@@ -298,6 +303,45 @@ export function isForbiddenRoot(real: string, windows: boolean, home: string): b
 }
 
 const DENY_SCAN_CAP = 20_000;
+const NAME_SCAN_CAP = 100_000;
+
+/**
+ * Hard links versus deny-list `name` entries. A `name` entry (`.env`, `.ssh`) protects by spelling, which a second directory
+ * entry for the same inode escapes. VARIANT: identity scan, not "refuse every nlink > 1" (that would block pnpm stores and the
+ * `ln`-based layouts build tools use). Only for a target that is a regular file with link count > 1 and only when the deny-list
+ * has a `name` entry, every root is walked once (symbolic links are not followed) and the dev+ino of every regular file that is
+ * called like an entry, or lies below a directory called like one, is compared with the target's. A walk that exceeds the cap is
+ * "unknown" and refuses (fail closed). The identity is `dev:ino` as Node reports it: on Windows the volume serial number and
+ * the NTFS file index. RESIDUAL: a protected file outside every root cannot be found; the `path` entries (`denyEntriesFor`)
+ * cover the well-known ones by identity. The time-of-use half is `openVerified` (identity of the open handle, plus a refusal when
+ * a read file gained a link).
+ */
+async function nameEntryAlias(key: string, roots: readonly ResolvedRoot[], names: readonly DenyEntry[], cap: number): Promise<"alias" | "incomplete" | null> {
+  let budget = cap;
+  let overflow = false;
+  const seen = new Set<string>();
+  const visit = async (dir: string, protectedBelow: boolean): Promise<boolean> => {
+    let ents: import("node:fs").Dirent[];
+    try { ents = await readdir(dir, { withFileTypes: true }); } catch { return false; }
+    for (const d of ents) {
+      if (budget-- <= 0) { overflow = true; return false; }
+      const full = path.join(dir, d.name);
+      const hit = protectedBelow || matchDeny(d.name, names) !== null;
+      if (d.isDirectory()) { if (await visit(full, hit)) return true; if (overflow) return false; }
+      else if (hit && d.isFile()) {
+        try { const st = await stat(full, { bigint: true }); if (`${st.dev}:${st.ino}` === key) return true; } catch { /* vanished */ }
+      }
+    }
+    return false;
+  };
+  for (const r of roots) {
+    if (seen.has(r.real)) continue;
+    seen.add(r.real);
+    if (await visit(r.real, matchDeny(path.basename(r.real), names) !== null)) return "alias";
+    if (overflow) return "incomplete";
+  }
+  return null;
+}
 
 interface DenyView { entries: DenyEntry[]; ids: Set<string>; scanOverflow: boolean }
 
@@ -308,11 +352,11 @@ interface DenyView { entries: DenyEntry[]; ids: Set<string>; scanOverflow: boole
  * below it with link count > 1. RULING: if a directory holds more than DENY_SCAN_CAP entries, any hard-linked target is
  * refused (fail closed). `name` entries cannot be resolved and are matched by spelling only.
  */
-async function resolveDeny(deny: readonly DenyEntry[], windows: boolean, platform: NodeJS.Platform): Promise<DenyView> {
+async function resolveDeny(deny: readonly DenyEntry[], windows: boolean, platform: NodeJS.Platform, cap: number): Promise<DenyView> {
   const entries: DenyEntry[] = [...deny];
   const ids = new Set<string>();
   let scanOverflow = false;
-  let budget = DENY_SCAN_CAP;
+  let budget = cap;
   const walk = async (dir: string): Promise<void> => {
     let names: import("node:fs").Dirent[];
     try { names = await readdir(dir, { withFileTypes: true }); } catch { return; }
@@ -352,7 +396,8 @@ export async function canonicalisePath(input: string, o: CanonicaliseOptions): P
   const allowUnc = o.allowUnc ?? false;
   const home = o.home ?? osHomedir();
   const sep = windows ? "\\" : "/";
-  const denyView = await resolveDeny(o.deny ?? [], windows, platform);
+  const denyView = await resolveDeny(o.deny ?? [], windows, platform, o.scanCap ?? DENY_SCAN_CAP);
+  const nameEntries = (o.deny ?? []).filter((e) => "name" in e);
   const deny = denyView.entries;
 
   const syn = checkSyntax(input, { platform, windowsRules: windows, allowUnc });
@@ -388,6 +433,11 @@ export async function canonicalisePath(input: string, o: CanonicaliseOptions): P
     const st = await stat(res.real, { bigint: true });
     if (denyView.ids.has(`${st.dev}:${st.ino}`)) return refuse("deny-listed", "the target is a hard link to a deny-listed file");
     if (denyView.scanOverflow) return refuse("deny-listed", "hard-linked target while the deny-list scan was incomplete (fail closed)");
+    if (nameEntries.length > 0) {
+      const alias = await nameEntryAlias(`${st.dev}:${st.ino}`, roots, nameEntries, o.scanCap ?? NAME_SCAN_CAP);
+      if (alias === "alias") return refuse("deny-listed", "the target is a hard link to a file protected by a deny-list name entry");
+      if (alias === "incomplete") return refuse("deny-listed", "hard-linked target while the name-entry scan was incomplete (fail closed)");
+    }
   }
   const st2 = specialTree(res.real, platform);
   if (st2) return refuse("special-tree", `the real target is under /${st2}`);
@@ -408,7 +458,7 @@ export async function canonicalisePath(input: string, o: CanonicaliseOptions): P
   }
   if (rootId === null && requireRoot) return refuse("outside-root", "the real target is outside every root");
 
-  return { ok: true, canonical: res.real, rootId, exists: res.exists, identity: res.identity, parentIdentity: res.parentIdentity, hardLinked: res.hardLinked, access };
+  return { ok: true, canonical: res.real, rootId, exists: res.exists, identity: res.identity, parentIdentity: res.parentIdentity, hardLinked: res.hardLinked, nameGuarded: nameEntries.length > 0, access };
 }
 
 /**
@@ -464,7 +514,7 @@ export async function openVerified(c: CanonicalPath, flags: number): Promise<Fil
     const st = await fh.stat({ bigint: true });
     const id = identityOf(st);
     if (c.exists && !sameIdentity(id, c.identity)) return await fail(refuse("identity-changed", "the opened file is not the one that was checked"));
-    if (write && st.isFile() && st.nlink > 1n && !c.hardLinked) return await fail(refuse("hard-link", "the file gained a hard link since it was checked"));
+    if ((write || c.nameGuarded) && st.isFile() && st.nlink > 1n && !c.hardLinked) return await fail(refuse("hard-link", "the file gained a hard link since it was checked"));
     const post = await checkParent();
     if (post) return await fail(post);
     if (windows && !c.exists) {
