@@ -83,6 +83,8 @@ const SEARCH_TEXT = {
   inputs: "query, count?, freshness?, site?, lang?",
 };
 
+export const WEB_SEARCH_DESCRIPTION = SEARCH_TEXT.description;
+
 const version = (name: string, t: typeof FETCH_TEXT, schema: unknown): string =>
   createHash("sha256").update(JSON.stringify({ n: name, s: t.summary, u: t.useWhen, x: t.notFor, i: t.inputs, schema })).digest("hex").slice(0, 16);
 

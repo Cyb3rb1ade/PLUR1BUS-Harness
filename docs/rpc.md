@@ -13918,6 +13918,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "jobs": {
       "$ref": "#/$defs/JobsStatus"
     },
+    "webSearch": {
+      "$ref": "#/$defs/WebSearchStatus"
+    },
     "config": {
       "$ref": "#/$defs/CoreConfigStatus"
     },
@@ -13927,6 +13930,62 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "type": "string"
       },
       "description": "Deprecated methods/notifications used at least once since start, as `method:<name>`/`notification:<name>`, sorted (ADR-016 §5, S13)."
+    }
+  }
+}
+```
+
+### `WebSearchStatus`
+
+```json
+{
+  "description": "Experimental (1.6.0). The state of web.search: which sidecar answers it and what the last attempt showed. Configuration plus the outcome of the last search; no probe runs for this call. `state` is `off` (sidecars.searxng.mode is off), `not-running` (bundled, but the container layer published no address), `misconfigured` (a bad or missing URL), `unknown` (configured, not yet used), `ok`, `unreachable` (connection refused or timed out) or `error` (any other failure, see `lastError`). Never carries a query or a result.",
+  "x-stability": "experimental",
+  "x-since": "1.6.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "provider",
+    "mode",
+    "state",
+    "endpoint"
+  ],
+  "properties": {
+    "provider": {
+      "const": "searxng"
+    },
+    "mode": {
+      "enum": [
+        "bundled",
+        "remote",
+        "off"
+      ]
+    },
+    "state": {
+      "enum": [
+        "off",
+        "not-running",
+        "misconfigured",
+        "unknown",
+        "ok",
+        "unreachable",
+        "error"
+      ]
+    },
+    "endpoint": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Origin and path prefix of the configured SearXNG, without credentials."
+    },
+    "lastCheckedAt": {
+      "type": "string",
+      "description": "ISO time of the last search attempt."
+    },
+    "lastError": {
+      "type": "string",
+      "description": "The web tool failure code of the last attempt, when it failed."
     }
   }
 }

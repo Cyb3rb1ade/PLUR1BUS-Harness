@@ -1,5 +1,6 @@
 //! Container distribution ports. No CLI, installer or update orchestration is wired here.
 mod apple;
+mod bind;
 mod docker;
 mod install;
 mod model;
@@ -8,6 +9,7 @@ mod registry;
 mod sidecar;
 mod stack;
 pub use apple::*;
+pub use bind::*;
 pub use docker::*;
 pub use install::*;
 pub use model::*;
