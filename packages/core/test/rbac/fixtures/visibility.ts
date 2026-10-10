@@ -51,6 +51,8 @@ const owner = cells("yes", "none", "none", "none", "none"); // ADR-007 role tabl
 const ownerAdmin = cells("yes", "yes", "none", "none", "none");
 
 export const ENTRIES: readonly Entry[] = [
+  // F44 method admission; stored ownership is independently exercised by device-surface.test.ts.
+  ...["device.list", "device.revoke", "device.rename"].map(action => ({ action, page: "My area, Projects" as const, verb: "read" as const, cells: cells("yes", "yes", "yes", "yes", "yes") })),
   // Memory (own user scope) — and who may read another user's: break-glass for Owner/Admin only.
   { action: "memory.user.read", page: "Memory (own user scope)", verb: "read", gate: { ...ALL_O, owner: "OB", admin: "OB" } },
   { action: "memory.user.write", page: "Memory (own user scope)", verb: "write", gate: ALL_O },

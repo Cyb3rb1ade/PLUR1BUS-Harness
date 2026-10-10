@@ -30,7 +30,7 @@ the page for each id in `src/pages/registry.ts`.
 | `/settings`, `/settings/<section>` (`general`, `models`, `memory`, `extensions`, `network`) | Settings | pinned | all five plus read-only | Section navigation 224 px, content up to 880 px. Fields from a static index of the config schema (F17), restart class badge, "Review changes" with a dry-run diff, save with `ifRevision`, `?focus=<key>` scrolls to and highlights a field. |
 | `/settings/users` | Users & roles | pinned | all five | People list (`identity.list`), role presets with plain text, simple mode and rights matrix per agent (draft), invite dialog and break-glass dialog; assignment and break-glass are `unavailable` (F40, F41). Owner/admin only. |
 | `/settings/secrets` | Secrets | pinned | all five | Names and metadata only; create, rotate (masked input, value cleared at submit) and delete (typed name). No value is ever in the DOM, storage, URL or console (tested). |
-| `/settings/devices` | Devices & remote | pinned | all but empty | Hidden behind a note when `remote.publish` is `local` or unknown; paired devices, QR and removal are `unavailable` (F44). |
+| `/settings/devices` | Devices & remote | pinned | all but empty | Hidden behind a note when `remote.publish` is `local` or unknown; paired devices, QR and removal still render `unavailable`; the F44 backend is available for follow-up UI binding. |
 | `/logs`, `/logs/activity`, `/logs/sessions` | Logs (tabs Logs, Activity, Sessions) | Control | all five per tab | Log viewer: filters, cursor paging, live tail (long poll, pause with buffer), virtual list, detail with redaction marks, export. Activity: grouped, human-readable events and the `audit.verify` status. Sessions: metadata of the caller's direct chats, transcript only via the break-glass dialog (`unavailable`, F41). Links `?trace=`, `?q=`, `?stream=` prefill the viewer. |
 | `/setup`, `/setup?mode=bundled` | First-run wizard | none (not in the sidebar) | per step | Seven steps (six when bundled), progress, back/next/skip, resume after reload, licence gate for non-commercial embedding models only (the default, EmbeddingGemma 2, is Apache-2.0 and asks nothing). |
 | `/projects`, `/inbox`, `/library`, `/skills`, `/plugins`, `/switchboard`, `/recurring`, `/approvals`, `/help` | placeholder | as in `nav.ts` | none (fixed text `page.placeholder`) | `PlaceholderPage`. `approvals` stays a placeholder (grants and approvals, D109, are not part of this change). |
@@ -86,7 +86,7 @@ by its `event:` field or as a JSON-RPC notification object whose `method` is the
 ## Administration backend status (F39–F42, F44)
 
 The [admin backends](admin-backends.md) now supply the RPC/CLI contracts below. The original page inventory and
-`unavailable` UI flows remain unchanged; binding those pages is follow-up work. `device.list/revoke` are absent, and agent
+`unavailable` UI flows remain unchanged; binding those pages is follow-up work. `device.list/revoke/rename` are now available (F44); agent
 hard-erasure is blocked by the pinned engine API. No `packages/web` code is changed by this backend PR.
 
 | What the UI needs | Backend status | Remaining UI work |
@@ -95,7 +95,7 @@ hard-erasure is blocked by the pinned engine API. No `packages/web` code is chan
 | Users, role presets, invitation, use/manage matrix (F40) | RPC and CLI available, stored roles/rights, one-time Identity proof | Bind list/mutations and invite redemption/confirmation |
 | Break-Glass window and affected-person notice (F41) | RPC/CLI, durable self-scoped notices, audited transcript/user-memory reads | Bind dialog, inbox/live notice and read flows |
 | Operator session overview (F42) | `session.list` owner/agent filters, explicit allOwners, owner/model/tokens/cost metadata | Request overview filters and show additive fields; keep transcripts behind Break-Glass |
-| QR payload and remote mode (F44) | `pairing.qr` and `remote.publish` config available | Bind existing-offer QR payload; **Geräte-Store mit List/Revoke fehlt in packages/remote-access** |
+| Devices, QR payload and remote mode (F44) | Persistent device store, `device.list/revoke/rename`, CLI, `pairing.qr` and `remote.publish` available | Bind device list/revoke/rename and existing-offer QR payload; mount remote pairing/handshake transport ports |
 
 ## M3 part 2: inventory (K1)
 
@@ -341,10 +341,11 @@ Numbers are stable; other documents refer to them.
 - **F43. Log viewer** (Logs). `logs.query` has no `trace_id` parameter (matched with `text`, and not combinable with a search text);
   `logs.tail` is a long poll (no log event on SSE); `audit.verify` returns no check time; the activity feed relies on scheduler job
   names (`scheduler.run.*`) because the log schema registers no agent-run, dream, model-scan or backup events.
-- **F44. Devices — pairing payload backend available, UI binding follows.** `pairing.qr`/`plur1bus pairing qr --link`
+- **F44. Devices — backend available, UI binding follows.** `pairing.qr`/`plur1bus pairing qr --link`
   format an existing offer using the package's read-only QR payload. `remote.publish` is now in the config schema.
-  **Geräte-Store mit List/Revoke fehlt in packages/remote-access**. `device.list` and `device.revoke` are intentionally absent;
-  listener integration and actual device enrollment remain existing remote-access follow-ups.
+  `packages/remote-access` now supplies the persistent device store, enrollment, proof-of-key reconnect and immediate
+  revocation ports. `device.list/revoke/rename` and `plur1bus device` are available with RBAC and audit. Bind the web
+  page as follow-up work; remote listener/route integration must share the core-owned store (see [remote access](remote-access.md#persistent-devices-f44)).
 - **F45. Config schema over RPC** (Settings). No `config.schema` method: types, bounds, enums and defaults come from a static table
   in `pages/settings/config/meta.ts`, guarded by a drift test against `config.schema.json`. `config.get` could return the restart
   class for a whole tier (the page asks once per key). `config.set` has no role rule in `docs/rbac.md` (the UI allows owner and admin).
