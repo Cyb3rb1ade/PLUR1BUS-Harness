@@ -12,6 +12,10 @@ path = "src/fake_plur1bus.rs"
 name = "fake-container"
 path = "src/fake_container.rs"
 
+[[bin]]
+name = "fake-host"
+path = "src/fake_host.rs"
+
 [dependencies]
 plur1bus-desktop-contract = { path = "../desktop-contract", version = "=0.1.0" }
 serde = { version = "=1.0.228", features = ["derive"] }

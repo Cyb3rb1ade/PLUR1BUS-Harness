@@ -32,7 +32,7 @@ export function bundledRuntime(transport:DesktopTransport,t:(key:MessageKey,valu
   const apply=button(t("runtime.applyMemory"),()=>void action(()=>transport.harnessStart?.(memory)??Promise.reject()));apply.disabled=busy;body.append(apply);
   for(const [key,fn] of [["runtime.start",()=>transport.harnessStart?.()],["runtime.stop",()=>transport.harnessStop?.()]] as const){const control=button(t(key),()=>void action(()=>fn()??Promise.reject()));control.disabled=busy;body.append(control);}
   const logs=button(t("runtime.logs"),()=>void action(async()=>{log=await transport.harnessLogsTail?.()??"";}));body.append(logs);if(log)body.append(element("pre","runtime-log",log));
-  const unlock=button(t("runtime.unlock"),()=>{});unlock.disabled=true;append(body,unlock,element("p",undefined,t("runtime.unlockLater")));return body;
+  return body;
  }
  return {wizard,settings,reset:()=>{state=initialWizard();refresh();},detect};
 }

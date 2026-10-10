@@ -51,8 +51,18 @@ impl NativeState {
 /// Invoked inside the credential mutation owner, before removing or replacing a credential.
 pub fn retire_connection(app: &tauri::AppHandle, id: uuid::Uuid) {
     let state = app.state::<NativeState>();
+    if let Some(host) = app.try_state::<crate::host_commands::HostState>() {
+        let mut connection = host.bridge_connection.lock().unwrap();
+        if connection.as_ref().is_some_and(|row| row.id == id) {
+            host.bridge.stop();
+            connection.take();
+        }
+    }
     if !state.cancel_connection(id) {
         return;
+    }
+    if let Some(host) = app.try_state::<crate::host_commands::HostState>() {
+        host.cards.lock().unwrap().clear();
     }
     let generation = state.events.generation();
     let gui = app.clone();
@@ -187,11 +197,23 @@ pub fn start_events(
         return;
     };
     let generation = state.events.begin();
+    if let Some(host) = app.try_state::<crate::host_commands::HostState>() {
+        host.cards.lock().unwrap().clear();
+    }
     *state.connection.lock().unwrap() = Some(connection.clone());
+    crate::host_commands::start_bridge(
+        app,
+        connection.clone(),
+        SecretString::new(token.expose().into()),
+    );
     let handle = app.clone();
     let task = tokio::spawn(async move {
         let (_cancel, stop) = tokio::sync::watch::channel(false);
         let mut stream = EventStream::default();
+        let approval_app = handle.clone();
+        stream.approval_sink(std::sync::Arc::new(move |name, value| {
+            crate::host_commands::event(&approval_app, generation, name, value);
+        }));
         let mut transport = client;
         let mut row = connection;
         loop {

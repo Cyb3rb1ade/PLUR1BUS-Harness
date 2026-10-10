@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-permissions-open-pane"
+description = "Enables the permissions_open_pane command without any pre-configured scope."
+commands.allow = ["permissions_open_pane"]
+
+[[permission]]
+identifier = "deny-permissions-open-pane"
+description = "Denies the permissions_open_pane command without any pre-configured scope."
+commands.deny = ["permissions_open_pane"]
