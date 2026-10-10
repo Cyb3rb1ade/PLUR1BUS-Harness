@@ -33,7 +33,7 @@ One JSON object per line, UTF-8. Keys are written in this order (grep-stable); a
 
 `source` is `{ kind, id, version }`, all three required (`version` may be `null`). `source.kind`: `harness`, `extension`, `provider`, `model`, `cli`, `channel`, `host`, `desktop`, `os`.
 A source key (for `logs.levels` and filters) is `<kind>` or `<kind>:<id>`, matching `^(harness|extension|provider|model|cli|channel|host|desktop|os)(:[a-z0-9][a-z0-9._@/-]{0,127})?$`.
-`err` is `{ code, reason?, retryable?, hint? }` with `code` one of `E_AGENT_UNKNOWN`, `E_APPROVAL_REQUIRED`, `E_CONFIG_INVALID`, `E_CONFLICT`, `E_CORE_UNAVAILABLE`, `E_DENIED`, `E_INTERNAL`, `E_INVALID_PARAMS`, `E_LOCKED`, `E_MODULE_UNKNOWN`, `E_NOT_AVAILABLE`, `E_NOT_FOUND`, `E_RPC_VERSION`, `E_STORAGE`, `E_UNAUTHORIZED`, `rate-limited`, `overloaded`, `auth`, `invalid-request`, `server`, `timeout`, `network`.
+`err` is `{ code, reason?, retryable?, hint? }` with `code` one of `E_AGENT_UNKNOWN`, `E_APPROVAL_REQUIRED`, `E_CONFIG_INVALID`, `E_CONFLICT`, `E_CORE_UNAVAILABLE`, `E_DENIED`, `E_INTERNAL`, `E_INVALID_PARAMS`, `E_LOCKED`, `E_MEDIA_CAPABILITY`, `E_MEDIA_DIMENSION`, `E_MEDIA_LICENSE`, `E_MEDIA_PRIVACY`, `E_MEDIA_UNAVAILABLE`, `E_MEDIA_UNSUPPORTED_KIND`, `E_MODULE_UNKNOWN`, `E_NOT_AVAILABLE`, `E_NOT_FOUND`, `E_RPC_VERSION`, `E_STORAGE`, `E_UNAUTHORIZED`, `rate-limited`, `overloaded`, `auth`, `invalid-request`, `server`, `timeout`, `network`.
 
 Limits: `msg` ≤ 2048 bytes, `attrs` ≤ 8192 bytes (compact JSON), a wrapped output line ≤ 4096 bytes, dedup window 60000 ms,
 child output rate 100 lines/s sustained with a burst of 500.

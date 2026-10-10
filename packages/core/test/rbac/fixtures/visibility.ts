@@ -99,6 +99,9 @@ export const ENTRIES: readonly Entry[] = [
 
   { action: "media.read", page: "My area, Projects", verb: "read" },
   { action: "media.write", page: "My area, Projects", verb: "write" },
+  { action: "media.index.read", page: "My area, Projects", verb: "read" },
+  { action: "media.index.operate", page: "My area, Projects", verb: "write", cells: ownerAdmin },
+  { action: "media.caption.write", page: "My area, Projects", verb: "write" },
   { action: "project.surface.read", page: "My area, Projects", verb: "read" },
   { action: "project.surface.write", page: "My area, Projects", verb: "write" },
   { action: "project.create", page: "My area, Projects", verb: "write", cells: ownerAdmin },

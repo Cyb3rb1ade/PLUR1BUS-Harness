@@ -10,6 +10,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 |---|---|---|---|---|
 | `agents` | object | `{}` | live | Per-agent settings keyed by a lowercase agent identifier. |
 | `embedding.useClass` | enum | `"general"` | core | Intended use of the embedding model: general, research, or commercial. |
+| `memory.mediaEmbedding` | object | `{}` | core | Media index (image, video, audio) with its own provider, independent of the text embedding. Captions land in the text index. |
 | `providers` | object | `{}` | live | Reserved namespace for model-provider configuration. |
 | `modelRoles` | object | `{}` | live | Model identifiers assigned to the supported functional roles. |
 
