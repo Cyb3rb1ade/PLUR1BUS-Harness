@@ -19,6 +19,8 @@ export interface UsageReport {
   seconds?: number;
   inputTokens?: number;
   outputTokens?: number;
+  /** Stable id of the billable event, so a consumer that records usage (VoiceBudgetPort.record) can de-duplicate. Absent when the vendor gives none. */
+  eventId?: string;
 }
 export type UsageSink = (report: UsageReport) => void;
 

@@ -56,6 +56,8 @@ export const GEMINI = {
   wsHost: "wss://generativelanguage.googleapis.com", // VERIFY
   liveWsPath: "/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent", // VERIFY
   modelsPath: "/v1beta/models", // VERIFY
+  /** VERIFY: header for the API key on the Live WebSocket handshake and on REST calls (the query form `?key=` is the fallback). */
+  headerKey: "x-goog-api-key",
   /** VERIFY: Live API model methods marker used to filter the models list. */
   liveMethod: "bidiGenerateContent",
   /** VERIFY: only a fallback; discovery picks native-audio models first. */
