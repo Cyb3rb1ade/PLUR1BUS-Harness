@@ -12,7 +12,7 @@ const opts = { skip: browserSkip };
 const open = async (app: App, lang: "en" | "de" = "en"): Promise<void> => { await openRoute(app.page, "#/settings/voice", lang); };
 const ready = async (app: App): Promise<void> => { await app.page.locator("#voice-language").waitFor(); await app.page.locator("#voice-rt-save").waitFor(); };
 
-describe("voice settings: language", () => {
+describe("voice settings: language", opts, () => {
   test("shows the current setting, sizes and licence per model", async () => {
     await withApp({}, async (app) => {
       installVoice(app.server); await open(app); await ready(app);
@@ -133,7 +133,7 @@ describe("voice settings: language", () => {
   });
 });
 
-describe("voice settings: real-time profile", () => {
+describe("voice settings: real-time profile", opts, () => {
   test("save sends exactly the edited fields (keyboard slider, switches, mode, budget)", async () => {
     await withApp({}, async (app) => {
       installVoice(app.server); await open(app); await ready(app);
@@ -218,7 +218,7 @@ describe("voice settings: real-time profile", () => {
   });
 });
 
-describe("voice settings: states", () => {
+describe("voice settings: states", opts, () => {
   test("a server that does not know the methods: unavailable, no crash", async () => {
     await withApp({}, async (app) => {
       app.server.rpc.enable(); await open(app);
@@ -258,7 +258,7 @@ describe("voice settings: states", () => {
   });
 });
 
-describe("voice settings: a11y, German, layout", () => {
+describe("voice settings: a11y, German, layout", opts, () => {
   test("axe clean (light and dark), every control has a name", async () => {
     for (const colorScheme of ["light", "dark"] as const) {
       await withApp({ colorScheme }, async (app) => {
