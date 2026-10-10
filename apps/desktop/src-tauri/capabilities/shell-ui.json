@@ -37,6 +37,12 @@
     "allow-permissions-open-pane",
     "allow-approvals-list",
     "allow-approval-open",
-    "allow-approval-decide"
+    "allow-approval-decide",
+    "allow-update-check",
+    "allow-update-settings",
+    "allow-update-install",
+    "allow-update-skip",
+    "allow-update-later",
+    "allow-update-store-open"
   ]
 }

@@ -6,8 +6,11 @@ COPY host-helper/ host-helper/
 COPY mock-harness/ mock-harness/
 COPY test-bins/ test-bins/
 COPY src-tauri/Cargo.toml src-tauri/Cargo.toml
-COPY src-tauri/build.rs src-tauri/build.rs
+COPY src-tauri/build.rs src-tauri/build_keys.rs src-tauri/build_support.rs src-tauri/
+COPY src-tauri/keys/ src-tauri/keys/
+COPY bundle/ bundle/
 COPY src-tauri/src/ src-tauri/src/
+ENV PLUR1BUS_DESKTOP_ALLOW_PLACEHOLDER_KEY=1
 RUN cargo build --locked --release -p plur1bus-mock-harness -p plur1bus-desktop-test-bins
 
 FROM debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251

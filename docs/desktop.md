@@ -407,3 +407,58 @@ WP10–WP12 (signed feed/updater, harness upgrade/rollback, deep links) are not
 implemented by the WP9 delivery. No root updater, RPC schema or core changes
 are included. The desktop Cargo lockfile adds only the local helper package;
 the pnpm lockfile and all registry dependency versions are unchanged.
+
+## Signed desktop update metadata (WP10)
+
+Settings → Updates exposes Stable/Beta, automatic patches (on for a new
+installation), local quiet hours (03:00–05:00), a held version, and startup
+checks. Checks reserve a six-hour interval before requesting the feed; no
+installation identifier or device credential is sent. Hold suppresses offers;
+Skip remembers the exact version, with security releases offered again after
+seven days. Later suppresses for at least 24 hours; an early restart does not bypass that
+floor (§6.16.3). The next startup consumes an expired reminder.
+
+The shell verifies the exact `{channel}.json` bytes and `.minisig` before
+parsing the desktop schema. Its `version`, `channel`, `minFromVersion`, and
+optional `native` extension remain compatible with the current native
+`plur1bus update` release-manifest schema (#314). The root updater is unchanged. #314's separate signed channel key-list rotation
+and persisted highest-seen native replay guard are not shared stores: desktop
+trust uses its baked channel key and a running-version downgrade check. Deploy
+replacement desktop trust in a release signed by the old key before rotating
+the shared feed signer.
+The desktop adds bilingual notes, migration notes for majors, release kind and
+date, and SHA-256 pins for `bundle.json` and a separate Tauri `latest.json`.
+The publisher helper is `apps/desktop/scripts/render-feed.mjs`; it hashes exact
+file bytes, preserves native assets, and refuses mismatched product versions.
+
+`tauri-plugin-updater` is pinned to 2.13.0. Its actual static manifest accepts
+`notes` as a string and `platforms` keyed by updater target; the bilingual notes
+stay in the signed feed (handoff G7/G8). Installation checks the SHA-256 of
+`latest.json`, its product version, and the plugin's second response against
+the pinned JSON before downloading. The plugin then verifies the archive with
+the selected channel's independent updater key. Rust writes private, atomic
+`upgrades.json { pending: version }` before invoking the installer, which can
+exit the process on Windows. Windows updater install mode is passive.
+
+Only public **placeholders** are committed in `src-tauri/keys/`: one feed key
+and one updater key per channel. A release build refuses them unless explicitly
+marked as an unsigned PR artifact with `PLUR1BUS_DESKTOP_ALLOW_PLACEHOLDER_KEY=1`.
+Feed keys accept minisign's raw public key or public file; updater keys also
+accept Tauri's base64-wrapped public file. The debug-only feed/updater URL and
+public-key seams are never read by a release binary. Direct builds enable
+updater artifacts; Store packaging uses `--no-default-features --features store`
+and `src-tauri/tauri.store.conf.json`, omits the updater plugin at runtime, and
+shows notes plus a fixed native Microsoft Store search action. The final Store
+listing URI belongs to the packaging follow-up.
+
+Key rotation must be delivered in an update trusted by the previous key. If a
+channel key is lost, its consumers must reinstall once from an independently
+verified installer; a feed cannot restore trust by announcing a replacement key.
+
+**WP boundary:** bundled installs cannot execute an app-only update. They show
+an explicit unavailable message until WP11 provides the shared snapshot,
+migration, health gate and rollback path. The automatic-patch decision function
+is tested, but native automatic execution is conservatively held back while
+there is no proven active-run signal and shared WP11 upgrade path. An attached
+installation may install an explicitly approved app update. The Version page,
+crash resume, harness rollback and deep-link actions remain WP11/WP12 work.

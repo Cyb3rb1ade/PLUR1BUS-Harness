@@ -1,3 +1,4 @@
+mod build_keys;
 mod build_support;
 #[path = "src/shell_commands.rs"]
 mod shell_commands;
@@ -14,6 +15,19 @@ fn generate_tauri_build() {
 }
 
 fn main() {
+    println!("cargo:rerun-if-changed=keys");
+    println!("cargo:rerun-if-changed=build_keys.rs");
+    build_keys::check(
+        std::env::var("PROFILE").as_deref() == Ok("release"),
+        std::env::var("PLUR1BUS_DESKTOP_ALLOW_PLACEHOLDER_KEY").as_deref() == Ok("1"),
+        [
+            include_str!("keys/stable.feed.pub"),
+            include_str!("keys/beta.feed.pub"),
+            include_str!("keys/stable.updater.pub"),
+            include_str!("keys/beta.updater.pub"),
+        ],
+    )
+    .expect("release update key guard");
     println!("cargo:rerun-if-changed=../bundle/bundle.json.tmpl");
     println!("cargo:rerun-if-env-changed=PLUR1BUS_DESKTOP_ALLOW_PLACEHOLDER_KEY");
     if std::env::var("PROFILE").as_deref() == Ok("release")

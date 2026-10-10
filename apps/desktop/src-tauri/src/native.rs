@@ -593,7 +593,7 @@ fn tray_menu(
         false,
         None::<&str>,
     )?;
-    let update = MenuItem::with_id(app, "update", language.text("update"), false, None::<&str>)?;
+    let update = MenuItem::with_id(app, "update", language.text("update"), true, None::<&str>)?;
     let connections = MenuItem::with_id(
         app,
         "connections",
@@ -654,6 +654,7 @@ pub fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
             "open" => focus(app),
             "connections" => navigate_shell(app, "#/connections"),
             "settings" => navigate_shell(app, "#/settings/runtime"),
+            "update" => navigate_shell(app, "#/settings/updates"),
             "quit" => {
                 request_quit(app);
             }
@@ -832,5 +833,14 @@ pub(crate) fn publish_controller(app: &tauri::AppHandle, status: crate::controll
         drop(view);
         update_tray(&handle, &value);
         let _ = handle.emit_to("shell", "desktop-tray-state", value);
+    });
+}
+
+/// Refresh signed update availability and held-version words on the native tray.
+pub fn refresh_updates(app: &tauri::AppHandle) {
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        let view = handle.state::<NativeState>().view.lock().unwrap().clone();
+        update_tray(&handle, &view);
     });
 }

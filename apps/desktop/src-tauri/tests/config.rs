@@ -79,7 +79,13 @@ fn shell_capability_is_local_only() {
             "allow-permissions-open-pane",
             "allow-approvals-list",
             "allow-approval-open",
-            "allow-approval-decide"
+            "allow-approval-decide",
+            "allow-update-check",
+            "allow-update-settings",
+            "allow-update-install",
+            "allow-update-skip",
+            "allow-update-later",
+            "allow-update-store-open"
         ])
     );
     assert_eq!(c["webviews"], serde_json::json!(["shell"]));
@@ -118,6 +124,12 @@ fn every_wp4_command_is_registered_guarded_and_no_pin_or_runtime_path_is_an_ipc_
             "harness_stop",
             "harness_status",
             "harness_logs_tail",
+            "update_store_open",
+            "update_check",
+            "update_settings",
+            "update_install",
+            "update_skip",
+            "update_later",
             "app_info",
             "settings_get",
             "settings_set",
