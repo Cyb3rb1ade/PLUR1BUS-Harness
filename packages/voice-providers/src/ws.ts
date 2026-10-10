@@ -38,6 +38,8 @@ export interface WsTimers {
   clearTimeout(handle: unknown): void;
 }
 export interface WsInit {
+  /** Host integration: vetted DNS lookup, preserving original TLS hostname. */
+  lookup?: import("node:http").RequestOptions["lookup"];
   headers?: Record<string, string>;
   signal?: AbortSignal;
   provider?: string;
@@ -354,7 +356,7 @@ export const defaultWsFactory: WsFactory = (url, init) => {
     for (const [k, v] of Object.entries(init.headers ?? {})) if (!RESERVED_HEADERS.has(k.toLowerCase()) && !k.toLowerCase().startsWith("sec-websocket-")) headers[k] = v;
     Object.assign(headers, { Connection: "Upgrade", Upgrade: "websocket", "Sec-WebSocket-Version": "13", "Sec-WebSocket-Key": key });
     const req = (secure ? httpsRequest : httpRequest)({
-      protocol: secure ? "https:" : "http:", hostname: u.hostname.replace(/^\[|\]$/g, ""), port: u.port || (secure ? 443 : 80), path: `${u.pathname}${u.search}`, method: "GET", headers,
+      protocol: secure ? "https:" : "http:", hostname: u.hostname.replace(/^\[|\]$/g, ""), port: u.port || (secure ? 443 : 80), path: `${u.pathname}${u.search}`, method: "GET", headers, ...(init.lookup ? { lookup: init.lookup } : {}),
     });
     let settled = false;
     const done = (fn: () => void) => { if (settled) return; settled = true; init.signal?.removeEventListener("abort", onAbort); fn(); };

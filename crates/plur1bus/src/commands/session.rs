@@ -76,6 +76,26 @@ fn messages_block(v: &Value) -> String {
         .unwrap_or_default()
 }
 
+/// The tool outputs hidden from the context view. Each one is shown with its original output, which stays in the event log.
+fn hidden_block(v: &Value) -> String {
+    let Some(items) = v.as_array().filter(|a| !a.is_empty()) else {
+        return "no hidden tool outputs".into();
+    };
+    let mut lines = vec![format!("hidden tool outputs ({}):", items.len())];
+    for h in items {
+        lines.push(format!(
+            "- {} {} (call {}, turn {}): {}",
+            h["ref"].as_str().unwrap_or("?"),
+            h["name"].as_str().unwrap_or("?"),
+            h["callId"].as_str().unwrap_or("?"),
+            h["turnId"].as_str().unwrap_or("?"),
+            h["reason"].as_str().unwrap_or("")
+        ));
+        lines.push(format!("  {}", h["output"].as_str().unwrap_or("")));
+    }
+    lines.join("\n")
+}
+
 fn connect_sessions(out: &Out, layout: &Layout) -> Client {
     connect_core(out, layout, "sessions", TURN_TIMEOUT)
 }
@@ -153,13 +173,16 @@ pub fn run(out: &Out, layout: &Layout, cmd: SessionCmd) {
                 lines.join("\n")
             });
         }
-        SessionCmd::Show { id, messages } => {
-            let v = call(
-                out,
-                &mut c,
-                "session.get",
-                json!({ "caller": &caller, "sessionId": id, "messages": messages }),
-            );
+        SessionCmd::Show {
+            id,
+            messages,
+            include_hidden,
+        } => {
+            let mut p = json!({ "caller": &caller, "sessionId": id, "messages": messages });
+            if include_hidden {
+                p["includeHidden"] = json!(true);
+            }
+            let v = call(out, &mut c, "session.get", p);
             out.ok("session.get/1", &v, || {
                 let mut s = session_line(&v["session"]);
                 if let Some(t) = v["runningTurnId"].as_str() {
@@ -168,6 +191,9 @@ pub fn run(out: &Out, layout: &Layout, cmd: SessionCmd) {
                 let m = messages_block(&v["messages"]);
                 if !m.is_empty() {
                     s.push_str(&format!("\n\n{m}"));
+                }
+                if include_hidden {
+                    s.push_str(&format!("\n\n{}", hidden_block(&v["hiddenToolOutputs"])));
                 }
                 s
             });
@@ -278,5 +304,31 @@ pub fn chat(out: &Out, layout: &Layout, args: ChatArgs) {
     }
     if failed {
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hidden_block_lists_each_original_with_its_reason() {
+        let v = json!([{
+            "ref": "event:7", "reason": "superseded-by-later-read", "name": "fs.read",
+            "callId": "c1", "turnId": "t1", "output": "original body"
+        }]);
+        let text = hidden_block(&v);
+        assert!(text.starts_with("hidden tool outputs (1):"), "{text}");
+        assert!(
+            text.contains("- event:7 fs.read (call c1, turn t1): superseded-by-later-read"),
+            "{text}"
+        );
+        assert!(text.contains("  original body"), "{text}");
+    }
+
+    #[test]
+    fn hidden_block_says_so_when_nothing_is_hidden() {
+        assert_eq!(hidden_block(&json!([])), "no hidden tool outputs");
+        assert_eq!(hidden_block(&Value::Null), "no hidden tool outputs");
     }
 }

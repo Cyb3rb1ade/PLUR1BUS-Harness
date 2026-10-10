@@ -1,0 +1,2 @@
+/* Pattern gallery fixture */
+.gallery { display: grid; gap: 24px; padding: 24px; }

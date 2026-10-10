@@ -80,6 +80,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -201,6 +229,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -405,6 +443,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -526,6 +592,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -730,6 +806,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -851,6 +955,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -1055,6 +1169,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -1176,6 +1318,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -1380,6 +1532,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -1501,6 +1681,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -1705,6 +1895,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -1826,6 +2044,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -2030,6 +2258,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -2151,6 +2407,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -2355,6 +2621,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -2476,6 +2770,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -2680,6 +2984,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -2801,6 +3133,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -3005,6 +3347,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -3126,6 +3496,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -3330,6 +3710,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -3451,6 +3859,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -3655,6 +4073,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -3776,6 +4222,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -3980,6 +4436,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -4101,6 +4585,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -4305,6 +4799,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -4426,6 +4948,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -4630,6 +5162,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -4751,6 +5311,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -4955,6 +5525,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -5076,6 +5674,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -5280,6 +5888,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -5401,6 +6037,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -5605,6 +6251,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -5726,6 +6400,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -5930,6 +6614,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -6051,6 +6763,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -6255,6 +6977,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -6376,6 +7126,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -6580,6 +7340,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -6701,6 +7489,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -6905,6 +7703,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -7026,6 +7852,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -7230,6 +8066,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -7351,6 +8215,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -7555,6 +8429,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -7676,6 +8578,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -7880,6 +8792,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -8001,6 +8941,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -8205,6 +9155,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -8326,6 +9304,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -8530,6 +9518,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -8651,6 +9667,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -8855,6 +9881,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -8976,6 +10030,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -9180,6 +10244,34 @@
         "useClass": "general",
         "acceptedNcLicence": false
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -9301,6 +10393,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -9502,6 +10604,34 @@
         "acceptedNcLicence": false,
         "acceptedNcLicenceAt": "2026-09-24T00:00:00Z"
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -9623,6 +10753,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {
@@ -9824,6 +10964,34 @@
         "acceptedNcLicence": false,
         "acceptedNcLicenceAt": "yesterday"
       },
+      "memory": {
+        "mediaEmbedding": {
+          "enabled": true,
+          "provider": "local-transformers",
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "modalities": [
+            "image",
+            "video",
+            "audio"
+          ],
+          "video": {
+            "segmentSec": 10,
+            "maxFrames": 32,
+            "sceneDetect": true
+          },
+          "audio": {
+            "segmentSec": 30,
+            "maxSeconds": 3600
+          },
+          "caption": {
+            "source": "prompt-then-user-then-auto",
+            "maxChars": 280,
+            "perSegment": false
+          },
+          "backfill": "auto"
+        }
+      },
       "engine": {},
       "providers": {},
       "auth": {
@@ -9945,6 +11113,16 @@
           "maxAttachmentBytes": 10485760,
           "requireAuthPass": false,
           "locale": "en"
+        },
+        "telegram": {
+          "enabled": false,
+          "tokenSecret": "channels.telegram.botToken",
+          "allowlist": [],
+          "mode": "polling",
+          "groupPolicy": "addressed",
+          "maxMediaBytes": 20971520,
+          "pollTimeoutSec": 30,
+          "maxSendRetries": 3
         }
       },
       "voice": {

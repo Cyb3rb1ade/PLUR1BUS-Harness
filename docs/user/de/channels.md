@@ -70,8 +70,8 @@ Kanals.
 
 - **Telegram:** Lege den Bot bei BotFather an. Für Gruppen trägst du die Gruppen-ID auf die Erlaubnisliste ein. Liest der
   Bot alle Nachrichten einer Gruppe, schaltest du bei BotFather den Privacy Mode mit `/setprivacy` aus. Die Konfiguration
-  steht auf [../../channels/telegram.md](../../channels/telegram.md); der Kanal ist in der Konfigurationsreferenz nicht
-  eingetragen.
+  steht in [../../config.md](../../config.md) unter `channels.telegram.*`; Details zu Berechtigungen und Einrichtung
+  unter [../../channels/telegram.md](../../channels/telegram.md).
 - **Discord:** Lege Anwendung und Bot im Developer Portal an. Aktiviere den privilegierten Intent MESSAGE_CONTENT dort
   ebenfalls. Lade den Bot auf deinen Server ein. Details: [../../channels/discord.md](../../channels/discord.md).
 - **Slack:** Lege eine App an. Du brauchst einen Bot-Token (`xoxb-…`) und einen App-Token (`xapp-…`) mit dem Recht

@@ -56,4 +56,11 @@ export const DEFAULT_BINDINGS: readonly ChannelBinding[] = [
       return ((c, d) => m.createEmailChannel(c as never, depsFor(d, ["secrets", "pairing", "outputs", "logger", "now"], { uidStore: new m.FileUidStore(d.stateDir), threadStore: new m.FileThreadStore(d.stateDir) }) as never)) as Create;
     },
   },
+  {
+    id: "telegram", manifest: manifest("telegram", "Telegram", ["direct", "group"]),
+    async load() {
+      const m = await import("../../../channels-telegram/src/index.ts");
+      return (((c: Record<string, unknown>, d: AdapterDeps) => m.createTelegramChannel(c as never, depsFor(d, ["secrets", "pairing", "outputs", "logger", "now"], { offsetStore: new m.FileOffsetStore(d.stateDir) }) as never)) as unknown) as Create;
+    },
+  },
 ];

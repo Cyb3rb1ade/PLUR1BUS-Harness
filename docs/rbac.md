@@ -271,6 +271,17 @@ The R3 methods are declared in RPC_RULES and are human-only; both actions are gr
 | channel.test | channel.read | `sendOwner: true` additionally requires `channel.write` (checked in the handler) and sends one fixed text to the caller's own linked identity on that channel |
 | channel.enable, channel.disable, channel.set | channel.write | A write is a `config.set` through the supervisor, so the per-key restart class applies; `channel.set` refuses secret values |
 
+## Media index (`media.search`, `media.index.*`, `media.caption.set`)
+
+Three actions cover the media search surface. Everything is denied by default: an unauthenticated call is `E_UNAUTHORIZED`, a principal with an unknown or missing role is `E_DENIED`, and the handler never runs in either case.
+
+| RPC | Coarse action | Who | Notes |
+|---|---|---|---|
+| media.search, media.index.status | media.index.read | Every role, agents included | Not human-only. The handler searches in the caller's scope (`scopeOf`: an agent sees its own scope) and drops every hit the caller may not read (`readable`); `likeMediaId` needs read access to the seed medium, otherwise `E_NOT_FOUND` |
+| media.index.pause, media.index.resume, media.index.reindex | media.index.operate | Owner and Admin, people only | Agents are denied with `agent-principal`. `reindex` needs `confirm: true` |
+| media.caption.set | media.caption.write | Owner, Admin, Operator, Member, people only | Agents are denied with `agent-principal`; the handler also needs edit rights on the medium (`editable`: `agent.use` on the agent that made it, from the owner file under `<home>/media/owners`), otherwise `E_DENIED reason=not-editable`; an unreadable medium is `E_NOT_FOUND` |
+
+The `E_MEDIA_*` codes (capability, licence, privacy pin, availability, dimension, unsupported kind) are not RBAC outcomes; they report that the media index itself cannot do what was asked (see [errors.md](errors.md)).
 
 ## F39–F42/F44 administration backend
 
@@ -330,3 +341,25 @@ cover stored ownership, spoofed ownership params, token scopes, unknown roles an
 agent principals. Successful pairing, revocation and rename use the existing audit
 sink with `device.paired`, `device.revoked`, `device.renamed`; audit failure prevents
 the mutation. UI binding and remote transport mounting remain follow-up work.
+
+## Project board
+
+See [Project board backend](projects-board.md#rights) for the stored-role matrix.
+All 17 board methods are declared in `RPC_RULES`. The independent policy fixture
+covers `project.board.read/write/move/comment/manage`; the guard/handler tests
+cover every method, absent/unknown principals, empty token scopes, Viewer writes,
+forged object rights, foreign projects and live agent assignment.
+
+Read, move and comment admit agents at the coarse guard. The object gate then
+requires their trusted identity in the persisted project's agents. Agents may
+move only cards explicitly assigned to themselves and cannot override WIP.
+Write and manage are human-only. Human mutations require `project.write`
+(member), column administration and WIP override require `project.manage`
+(lead); stored membership replaces caller-supplied rights. Owner/Admin retain
+the existing object policy override. Viewer cannot mutate even as a lead.
+Board token scopes are the corresponding `project.board.*` action names;
+object checks do not require an additional unrelated token scope.
+
+Events reauthorize stored membership and read scopes for each recipient. The
+WebMCP provider blocks `project.column.` even on explicit inclusion; workflow
+structure and WIP policy remain human-managed.

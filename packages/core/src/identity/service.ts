@@ -284,13 +284,19 @@ export function createIdentityService(o: IdentityOptions) {
       return l;
     },
 
-    list(p: { includeRevoked?: boolean }): { humans: Array<Human & { identities: Link[] }>; pairings: Pairing[] } {
+    list(p: { includeRevoked?: boolean; includeResolvedPairings?: boolean }): { humans: Array<Human & { identities: Link[] }>; pairings: Pairing[] } {
       const links = all(p?.includeRevoked ? "SELECT * FROM identities ORDER BY linked_at, id" : "SELECT * FROM identities WHERE revoked_at IS NULL ORDER BY linked_at, id").map(linkOf);
       const humans = all("SELECT * FROM humans ORDER BY created_at, id").map((h) => ({
         id: h.id as string, displayName: h.display_name as string, createdAt: h.created_at as number, identities: links.filter((l) => l.humanId === h.id),
       }));
       const t = now();
-      const pairings = all("SELECT * FROM pairings WHERE (state = 'pending' AND expires_at > ?) OR (state = 'claimed' AND confirm_by > ?) ORDER BY created_at, id", t, t).map(pairingOf);
+      const pairings = (p?.includeResolvedPairings
+        ? all("SELECT * FROM pairings ORDER BY created_at, id")
+        : all("SELECT * FROM pairings WHERE (state = 'pending' AND expires_at > ?) OR (state = 'claimed' AND confirm_by > ?) ORDER BY created_at, id", t, t)).map(pairingOf);
+      for (const pairing of pairings) {
+        if ((pairing.state === "pending" && pairing.expiresAt <= t) || (pairing.state === "claimed" && pairing.confirmBy! <= t))
+          pairing.state = "expired";
+      }
       return { humans, pairings };
     },
 

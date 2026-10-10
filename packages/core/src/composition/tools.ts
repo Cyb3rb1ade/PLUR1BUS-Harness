@@ -18,6 +18,9 @@ import type { GrantSource } from '../policy/index.ts';
 import { mcpToolDefs, type McpToolPort } from '../tools/mcp-bridge.ts';
 import { OutputStore, MediaError, type ImageAdapter, type ImageRequest } from '../../../media/src/index.ts';
 import type { ChatRequest } from '../session/provider.ts';
+import { WebFailure } from '../tools/web/failure.ts';
+import type { WebSearch } from '../tools/web/search.ts';
+import { WEB_SEARCH_DESCRIPTION, WEB_SEARCH_SCHEMA } from '../tools/web/tools.ts';
 
 export interface ToolCompositionOptions {
   home: string; budget?: CallBudget; degraded?: (service: string, error: unknown) => void; roots: readonly PathRoot[]; deny?: readonly DenyEntry[];
@@ -26,6 +29,8 @@ export interface ToolCompositionOptions {
   media?: { adapter: ImageAdapter; store: OutputStore };
   extra?: readonly ToolDef[];
   hostctl?: ReturnType<typeof createHostctlPool>;
+  /** web.search over the configured SearXNG sidecar. Absent, the tool is not offered. */
+  webSearch?: WebSearch;
 }
 function unwrap(value: unknown): unknown {
   if (value && typeof value === 'object' && 'isError' in value) {
@@ -96,6 +101,14 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
       ctx.signal.throwIfAborted();
       const manifest = await o.media!.store.put(randomUUID(), request, result);
       return { id: manifest.id, files: manifest.files, metadata: manifest.metadata };
+    } });
+  }
+  if (o.webSearch) {
+    const webSearch = o.webSearch;
+    // D109: a search is a network read (`net.fetch`). The sidecar is the only destination and it is fixed by configuration.
+    registry.register({ name: 'web.search', description: WEB_SEARCH_DESCRIPTION, inputSchema: WEB_SEARCH_SCHEMA, capability: 'net.fetch', effect: CAPABILITIES.get('net.fetch')!.intrinsicEffect, risk: 'low', trust: 'first-party', execute: async (args, ctx) => {
+      try { return await webSearch.search(args as never, { signal: ctx.signal }); }
+      catch (e) { throw new ToolAdapterError('tool-failed', (e instanceof WebFailure ? e : new WebFailure('internal-error', 'unexpected failure')).toResult()); }
     } });
   }
   for (const tool of o.roots.length ? (o.hostctl?.forRoots(o.roots, deny).definitions() ?? []) : []) registry.register(tool);

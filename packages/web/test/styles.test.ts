@@ -39,11 +39,10 @@ describe("styles", () => {
     }
   });
 
-  test("every stylesheet is imported (directly) by app.css", () => {
+  test("app.css imports only tokens, layout and shared components", () => {
     const app = read(join(stylesDir, "app.css"));
-    const imported = new Set([...app.matchAll(/@import\s+"\.\/([\w.-]+\.css)"/g)].map((m) => m[1]));
-    const all = files(stylesDir, /\.css$/).map((f) => relative(stylesDir, f)).filter((n) => n !== "app.css");
-    assert.deepEqual(all.filter((n) => !imported.has(n)).sort(), [], "add an @import to app.css (build.ts bundles it into styles.css)");
+    const imported = [...app.matchAll(/@import\s+"\.\/([\w.-]+\.css)"/g)].map((m) => m[1]).sort();
+    assert.deepEqual(imported, ["data.css", "shared.css", "tokens.css"]);
   });
 
   test("@import lines come first in app.css (later ones are ignored by browsers and esbuild)", () => {

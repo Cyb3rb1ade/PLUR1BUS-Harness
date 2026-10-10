@@ -492,6 +492,23 @@ impl ContainerRuntime for DockerRuntime {
             owned: v["Config"]["Labels"][OWNER_LABEL] == "distribution",
         }))
     }
+    fn address(&self, name: &str, network: &str) -> Result<String> {
+        validate_name(name)?;
+        validate_name(network)?;
+        let container = self.api("GET", &format!("/containers/{name}/json"), None)?;
+        if container["Config"]["Labels"][OWNER_LABEL] != "distribution" {
+            return Err("unowned connection dependency".into());
+        }
+        let address = container["NetworkSettings"]["Networks"][network]["IPAddress"]
+            .as_str()
+            .filter(|address| !address.is_empty())
+            .ok_or_else(|| format!("network address absent for {name} on {network}"))?;
+        let ip: std::net::IpAddr = address.parse().map_err(|_| "invalid network address")?;
+        if !private_bind(ip) {
+            return Err("public container address refused".into());
+        }
+        Ok(ip.to_string())
+    }
     fn exec(&self, name: &str, args: &[String]) -> Result<String> {
         validate_name(name)?;
         let v = self.api(

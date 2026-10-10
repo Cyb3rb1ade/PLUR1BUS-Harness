@@ -1,0 +1,32 @@
+{
+  "params": {
+    "text": "red bicycle by the sea",
+    "kinds": [
+      "image",
+      "video"
+    ],
+    "limit": 5,
+    "fuseCaptions": false
+  },
+  "result": {
+    "hits": [
+      {
+        "mediaId": "m-img-1",
+        "kind": "image",
+        "score": 0.83,
+        "caption": "A red bicycle leaning on a sea wall",
+        "thumbnailUrl": "/media/thumb/m-img-1"
+      },
+      {
+        "mediaId": "m-vid-2",
+        "kind": "video",
+        "score": 0.71,
+        "segment": {
+          "idx": 2,
+          "startMs": 20000,
+          "endMs": 30000
+        }
+      }
+    ]
+  }
+}

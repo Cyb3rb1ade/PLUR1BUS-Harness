@@ -1,5 +1,73 @@
 {
   "methods": {
+    "project.column.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "project.column.create": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "project.column.update": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "project.column.move": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "project.column.delete": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "project.card.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "project.card.get": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "project.card.create": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "project.card.update": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "project.card.move": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "project.card.assign": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "project.card.unassign": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "project.card.archive": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "project.card.unarchive": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "project.card.comment.add": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "project.card.comment.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "project.card.activity.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "device.list": {
       "stability": "experimental",
       "since": "1.6.0"
@@ -484,6 +552,30 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "media.search": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "media.index.status": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "media.index.pause": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "media.index.resume": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "media.index.reindex": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "media.caption.set": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "secret.set": {
       "stability": "experimental",
       "since": "1.5.0"
@@ -590,6 +682,14 @@
     }
   },
   "notifications": {
+    "project.card.changed": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "project.column.changed": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "breakglass.notice": {
       "stability": "experimental",
       "since": "1.5.0"

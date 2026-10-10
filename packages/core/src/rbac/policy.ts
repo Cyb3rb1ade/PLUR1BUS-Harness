@@ -25,6 +25,11 @@ const catalogue = (area: string): ActionSpec[] => [
 ];
 
 export const POLICY: readonly ActionSpec[] = Object.freeze([
+  spec("project.board.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A }),
+  spec("project.board.move", "system", { owner: A, admin: A, operator: A, member: A }),
+  spec("project.board.comment", "system", { owner: A, admin: A, operator: A, member: A }),
+  humanOnly(spec("project.board.write", "system", { owner: A, admin: A, operator: A, member: A })),
+  humanOnly(spec("project.board.manage", "system", { owner: A, admin: A, operator: A, member: A })),
   // Memory — scopes follow ADR-007 "Privacy": `user` only for the owning user (others by break-glass, read only),
   // `agent-private` only with `manage` on that agent, the workspace scope with at least `use`.
   spec("memory.user.read", "memory-user", { owner: OB, admin: OB, operator: O, member: O, viewer: O }),
@@ -71,6 +76,10 @@ export const POLICY: readonly ActionSpec[] = Object.freeze([
   // Surface gates; handlers apply the stored agent/project/self object rights as well.
   humanOnly(spec("media.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A })),
   humanOnly(spec("media.write", "system", { owner: A, admin: A, operator: A, member: A })),
+  // Media index: reading is for every role and for agents (their own scope, enforced by the handler); operating and caption edits are people only.
+  spec("media.index.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A }),
+  humanOnly(spec("media.index.operate", "system", OA)),
+  humanOnly(spec("media.caption.write", "system", { owner: A, admin: A, operator: A, member: A })),
   humanOnly(spec("project.surface.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A })),
   humanOnly(spec("project.surface.write", "system", { owner: A, admin: A, operator: A, member: A })),
   humanOnly(spec("project.create", "system", OA)),

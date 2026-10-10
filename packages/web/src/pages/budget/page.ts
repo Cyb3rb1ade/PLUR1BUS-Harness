@@ -16,6 +16,11 @@ import { LimitDialog, RemoveLimitDialog } from "./dialogs.ts";
 import { groupLimits, limitView, normalizeStatus, type Limit, type Status } from "./model.ts";
 import type { BudgetPeriod, UsageTotals } from "./rpc-types.ts";
 import { amount, failState, fullTitle, isAborted, limitKey, limitTitle, money, when, type FailState } from "./shared.ts";
+import { registerArea } from "../../i18n/index.ts";
+import * as budgetArea from "../../i18n/budget.ts";
+import "../../styles/budget.css";
+
+registerArea("budget", budgetArea);
 
 type Load = { kind: "loading" } | { kind: "ready"; status: Status } | { kind: "fail"; state: FailState };
 type Dlg = null | { kind: "limit"; limit?: Limit } | { kind: "remove"; limit: Limit };

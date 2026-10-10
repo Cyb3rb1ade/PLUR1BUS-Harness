@@ -16,7 +16,7 @@ describe("setup wizard: flow", opts, () => {
       const { page } = app;
       await stepHeading(page, "Your account").waitFor();
       assert.match((await page.locator("main").textContent()) ?? "", /signed in as owner/i);
-      assert.equal(await page.locator("ol.setup-progress li").count(), 7);
+      assert.equal(await page.locator("ol.setup-progress li").count(), 8);
       assert.equal(await page.locator("ol.setup-progress li[aria-current=step]").count(), 1);
       await toSwitchboard(app);
       await page.getByText("cannot be done from the browser yet").waitFor();
@@ -24,6 +24,8 @@ describe("setup wizard: flow", opts, () => {
       await skip(page);
       await stepHeading(page, /Memory/).waitFor();
       await next(page);
+      await stepHeading(page, /Language for voice features/).waitFor();
+      await skip(page);
       await stepHeading(page, /Backups/).waitFor();
       await page.getByRole("button", { name: "Create a backup now" }).click();
       await page.getByText("Backup created: plur1bus-20261007-setup").waitFor();
@@ -44,7 +46,7 @@ describe("setup wizard: flow", opts, () => {
 
       const sum = (await page.locator(".setup-summary").textContent()) ?? "";
       assert.match(sum, /Your account\s*done/); assert.match(sum, /Agent main, named Hal/); assert.match(sum, /Chat model anthropic\/claude-x/);
-      assert.match(sum, /Switchboard\s*skipped/); assert.match(sum, /Import\s*skipped/); assert.match(sum, /Backup plur1bus-20261007-setup/);
+      assert.match(sum, /Switchboard\s*skipped/); assert.match(sum, /Language for voice features\s*skipped/); assert.match(sum, /Import\s*skipped/); assert.match(sum, /Backup plur1bus-20261007-setup/);
       assert.equal(await page.getByRole("link", { name: "Go to the chat" }).getAttribute("href"), "#/chat");
       assert.deepEqual(app.problems, []);
     });
@@ -54,8 +56,8 @@ describe("setup wizard: flow", opts, () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app, "#/setup?mode=bundled");
       await stepHeading(app.page, "Name & persona").waitFor();
-      assert.equal(await app.page.locator("ol.setup-progress li").count(), 6);
-      assert.match((await app.page.locator(".setup-count").textContent()) ?? "", /Step 1 of 6/);
+      assert.equal(await app.page.locator("ol.setup-progress li").count(), 7);
+      assert.match((await app.page.locator(".setup-count").textContent()) ?? "", /Step 1 of 7/);
       assert.equal(await app.page.locator("ol.setup-progress").getByText("Your account").count(), 0);
     });
   });
@@ -66,10 +68,10 @@ describe("setup wizard: flow", opts, () => {
       const { page } = app;
       await stepHeading(page, "Your account").waitFor();
       const live = page.locator("main [role=status][aria-live=polite]").first();
-      assert.equal(((await live.textContent()) ?? "").trim(), "Step 1 of 7: Your account");
+      assert.equal(((await live.textContent()) ?? "").trim(), "Step 1 of 8: Your account");
       await next(page);
       await stepHeading(page, "Name & persona").waitFor();
-      assert.equal(((await live.textContent()) ?? "").trim(), "Step 2 of 7: Name & persona");
+      assert.equal(((await live.textContent()) ?? "").trim(), "Step 2 of 8: Name & persona");
       await page.waitForFunction(() => document.activeElement?.tagName === "H2" && document.activeElement?.textContent === "Name & persona");
     });
   });
@@ -102,7 +104,7 @@ describe("setup wizard: resume and storage", opts, () => {
       await toSwitchboard(app);
       await page.reload();
       await stepHeading(page, /Switchboard/).waitFor();
-      assert.match((await page.locator(".setup-count").textContent()) ?? "", /Step 4 of 7/);
+      assert.match((await page.locator(".setup-count").textContent()) ?? "", /Step 4 of 8/);
       await page.getByRole("button", { name: "Back" }).click();
       await page.getByRole("button", { name: "Back" }).click();
       assert.equal(await page.getByLabel("Display name").inputValue(), "Hal");
@@ -212,6 +214,7 @@ describe("setup wizard: validation and failures", opts, () => {
       const { page } = app;
       await toSwitchboard(app); await skip(page);
       await stepHeading(page, /Memory/).waitFor(); await next(page);
+      await stepHeading(page, /Language for voice features/).waitFor(); await skip(page);
       await stepHeading(page, /Backups/).waitFor();
       await next(page);
       await page.getByText("Create a backup, or skip this step.").waitFor();

@@ -47,11 +47,11 @@ Pinned packages (url, size, sha256) are in `src/local/catalog.json`; each was ch
 
 ### Model lifetime
 
-Loaded models are reference counted: every ASR/TTS call, stream and session holds the models it uses. A language switch, `unload()` or `dispose()` retires the old models and frees them once the last holder is done, so a running stream is never cut off. `vad()` returns the resident detector without a hold: fetch it again after a language switch. The sherpa engine calls the binding's `free`/`delete` where it has one (names to verify against the pinned binding).
+Loaded models are reference counted: every ASR/TTS call, stream and session holds the models it uses. A language switch, `unload()` or `dispose()` retires the old models and frees them once the last holder is done, so a running stream is never cut off. `leaseVad()` returns a reference-counted detector for core sessions. `vad()` returns the resident detector without a hold: fetch it again after a language switch. The sherpa engine calls the binding's `free`/`delete` where it has one (names to verify against the pinned binding).
 
 ## Local real-time profile
 
-A simulated real-time mode for local ASR and TTS: speech is cut into turns, the answer is spoken sentence by sentence, and optional memory features run under a time budget. This package holds the logic only; wiring into the turn loop is a later PR.
+A simulated real-time mode for local ASR and TTS: speech is cut into turns, the answer is spoken sentence by sentence, and optional memory features run under a time budget. The package holds the logic; [Voice V2](voice-v2.md) wires it into the existing core turn loop.
 
 Keys under `voice.localRealtime`:
 

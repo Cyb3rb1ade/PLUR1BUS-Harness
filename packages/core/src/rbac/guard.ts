@@ -38,6 +38,23 @@ export function authenticatedPrincipal(ctx: CallContext): Principal {
 }
 
 export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
+  "project.column.list": rule("project.board.read", system),
+  "project.card.list": rule("project.board.read", system),
+  "project.card.get": rule("project.board.read", system),
+  "project.card.comment.list": rule("project.board.read", system),
+  "project.card.activity.list": rule("project.board.read", system),
+  "project.column.create": rule("project.board.manage", system),
+  "project.column.update": rule("project.board.manage", system),
+  "project.column.move": rule("project.board.manage", system),
+  "project.column.delete": rule("project.board.manage", system),
+  "project.card.create": rule("project.board.write", system),
+  "project.card.update": rule("project.board.write", system),
+  "project.card.assign": rule("project.board.write", system),
+  "project.card.unassign": rule("project.board.write", system),
+  "project.card.archive": rule("project.board.write", system),
+  "project.card.unarchive": rule("project.board.write", system),
+  "project.card.move": rule("project.board.move", system),
+  "project.card.comment.add": rule("project.board.comment", system),
   "media.preferences.get": rule("media.read", system),
   "media.preferences.set": rule("media.write", system),
   "media.generate": rule("media.write", system),
@@ -49,6 +66,14 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "media.output.list": rule("media.read", system),
   "media.output.delete": rule("media.write", system),
   "media.adapters.list": rule("media.read", system),
+  // Media index (image, video, audio search): search and status are open to every role including agents (the handler narrows the
+  // hits to what the caller may read); operating the index is Owner/Admin and people only; a caption edit needs edit rights on the medium.
+  "media.search": rule("media.index.read", system),
+  "media.index.status": rule("media.index.read", system),
+  "media.index.pause": rule("media.index.operate", system),
+  "media.index.resume": rule("media.index.operate", system),
+  "media.index.reindex": rule("media.index.operate", system),
+  "media.caption.set": rule("media.caption.write", system),
   "project.create": rule("project.create", system),
   "project.get": rule("project.surface.read", system),
   "project.list": rule("project.surface.read", system),

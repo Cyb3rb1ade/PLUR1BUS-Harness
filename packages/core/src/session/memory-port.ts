@@ -13,10 +13,10 @@ import { AGENT_CONTEXT_CLI, callerToPrincipal } from "../principal.ts";
 
 export interface TurnMemory {
   /** One call per turn, before the provider runs. Never throws for a degraded recall (returns `degraded`). */
-  recall(a: { agentId: string; caller: CallerIdentity; query: string; signal: AbortSignal }): Promise<{ text: string; degraded: Degraded | null }>;
+  recall(a: { agentId: string; caller: CallerIdentity; query: string; signal: AbortSignal; turnProfile?: import("../voice/turn-profile.ts").TurnProfile }): Promise<{ text: string; degraded: Degraded | null }>;
   /** One call per turn, after it completed, and never for an incognito session. `incognito` is derived by the core from
    *  the session (F10): it is never a client parameter. */
-  capture(a: { agentId: string; caller: CallerIdentity; sessionId: string; turnId: string; messages: { role: "user" | "assistant"; content: string }[]; incognito: boolean }): Promise<void>;
+  capture(a: { agentId: string; caller: CallerIdentity; sessionId: string; turnId: string; messages: { role: "user" | "assistant"; content: string }[]; incognito: boolean; turnProfile?: import("../voice/turn-profile.ts").TurnProfile }): Promise<void>;
   /** D23: the `compaction` checkpoint before a swap; never called for an incognito session. */
   checkpoint(a: { agentId: string; reason: "compaction" | "session-end" }): Promise<void>;
 }
@@ -38,11 +38,11 @@ export function engineTurnMemory(d: EnginePortDeps): TurnMemory {
     return result;
   };
   return {
-    async recall({ agentId, caller, query, signal }) {
+    async recall({ agentId, caller, query, signal, turnProfile }) {
       const { principal, degraded } = identity(caller, agentId);
       const r = d.config().core.recall;
       const hard = AbortSignal.timeout(r.hardBudgetMs);
-      const principals = principal.user?.startsWith('user:v2:') && d.scope ? d.scope.resolvePrincipals(principal.user) as NonNullable<typeof principal.user>[] : [principal.user];
+      const principals = (!turnProfile?.localRealtime.enabled || turnProfile.localRealtime.features.recallMultiIdentity.mode === 'on') && principal.user?.startsWith('user:v2:') && d.scope ? d.scope.resolvePrincipals(principal.user) as NonNullable<typeof principal.user>[] : [principal.user];
       const results = await Promise.all(principals.map(user => d.engine.recall({ query, principal: { ...principal, ...(user ? { user } : {}) }, agent: AGENT_CONTEXT_CLI, budget: { softMs: r.softBudgetMs, hardMs: r.hardBudgetMs, capChars: r.capChars }, signal: AbortSignal.any([signal, hard]) })));
       signal.throwIfAborted();
       const res = results[0]!;

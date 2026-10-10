@@ -12,6 +12,7 @@ import type { SectionProps } from "../page.ts";
 import { FieldRow, groupOf, groupTitle, RestartBadge } from "../config/fields.ts";
 import { fieldId } from "../config/meta.ts";
 import { buildFields, collectChanges, initialDraft, mapInvalid, restartKind, show, type Change, type Draft, type Field } from "../config/model.ts";
+import "../../../styles/config.css";
 
 type Loaded = { config: unknown; revision: string; restart: Record<string, string | null> };
 type Plan = { live?: string[]; core?: boolean; modules?: string[] };

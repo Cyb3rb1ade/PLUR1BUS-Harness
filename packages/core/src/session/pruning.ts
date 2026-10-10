@@ -110,3 +110,26 @@ export class ToolPruner {
     } finally { clearTimeout(timer); }
   }
 }
+
+/** A tool output the pruner hid from the context view. The original is read back from the append-only events. */
+export interface HiddenToolOutput { ref: string; reason: string; name: string; callId: string; turnId: string; args?: unknown; output: string; isError?: boolean }
+
+/** The outputs whose stored visibility is hidden, newest last. Only the session's own transcript readers call this (the RPC
+ *  gate decides who); it never writes, so the event log and the context view are unchanged. */
+export function hiddenToolOutputs(store: SessionStore, sessionId: string): HiddenToolOutput[] {
+  const hidden = new Map(store.toolVisibility(sessionId).filter(v => v.hidden).map(v => [v.ref, v.reason]));
+  if (hidden.size === 0) return [];
+  const events = store.toolEvents(sessionId);
+  const results = new Map<string, EventRecord>();
+  for (const e of events) if (e.type === 'tool.result' && e.turnId) results.set(`${e.turnId}:${String(e.data.id)}`, e);
+  const out: HiddenToolOutput[] = [];
+  for (const call of events) {
+    const ref = `event:${call.seq}`, reason = hidden.get(ref);
+    if (call.type !== 'tool.call' || !call.turnId || reason === undefined) continue;
+    const result = results.get(`${call.turnId}:${String(call.data.id)}`);
+    out.push({ ref, reason, name: String(call.data.name), callId: String(call.data.id), turnId: call.turnId,
+      ...(call.data.args !== undefined ? { args: call.data.args } : {}), output: String(result?.data.output ?? ''),
+      ...(result?.data.isError !== undefined ? { isError: Boolean(result.data.isError) } : {}) });
+  }
+  return out;
+}

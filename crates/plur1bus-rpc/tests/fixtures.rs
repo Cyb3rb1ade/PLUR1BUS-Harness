@@ -40,6 +40,29 @@ fn pair<P: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize>(name: 
 fn method_fixture(name: &str, f: &Value) {
     use types::*;
     match name {
+        "project.column.list" => pair::<ProjectColumnListParams, ProjectColumnListResult>(name, f),
+        "project.column.create" => pair::<ProjectColumnCreateParams, BoardColumn>(name, f),
+        "project.column.update" => pair::<ProjectColumnUpdateParams, BoardColumn>(name, f),
+        "project.column.move" => pair::<ProjectColumnMoveParams, BoardColumn>(name, f),
+        "project.column.delete" => {
+            pair::<ProjectColumnDeleteParams, ProjectColumnDeleteResult>(name, f)
+        }
+        "project.card.list" => pair::<ProjectCardListParams, ProjectCardListResult>(name, f),
+        "project.card.get" => pair::<ProjectCardGetParams, BoardCard>(name, f),
+        "project.card.create" => pair::<ProjectCardCreateParams, BoardCard>(name, f),
+        "project.card.update" => pair::<ProjectCardUpdateParams, BoardCard>(name, f),
+        "project.card.move" => pair::<ProjectCardMoveParams, BoardCard>(name, f),
+        "project.card.assign" => pair::<ProjectCardAssignParams, BoardCard>(name, f),
+        "project.card.unassign" => pair::<ProjectCardUnassignParams, BoardCard>(name, f),
+        "project.card.archive" => pair::<ProjectCardArchiveParams, BoardCard>(name, f),
+        "project.card.unarchive" => pair::<ProjectCardUnarchiveParams, BoardCard>(name, f),
+        "project.card.comment.add" => pair::<ProjectCardCommentAddParams, BoardComment>(name, f),
+        "project.card.comment.list" => {
+            pair::<ProjectCardCommentListParams, ProjectCardCommentListResult>(name, f)
+        }
+        "project.card.activity.list" => {
+            pair::<ProjectCardActivityListParams, ProjectCardActivityListResult>(name, f)
+        }
         "device.list" => pair::<DeviceListParams, DeviceListResult>(name, f),
         "device.revoke" => pair::<DeviceRevokeParams, Device>(name, f),
         "device.rename" => pair::<DeviceRenameParams, Device>(name, f),
@@ -118,6 +141,12 @@ fn method_fixture(name: &str, f: &Value) {
         "identity.principals" => {
             pair::<IdentityPrincipalsParams, IdentityPrincipalsResult>(name, f)
         }
+        "media.search" => pair::<MediaSearchParams, MediaSearchResult>(name, f),
+        "media.index.status" => pair::<MediaIndexStatusParams, MediaIndexStatusResult>(name, f),
+        "media.index.pause" => pair::<MediaIndexPauseParams, MediaIndexPauseResult>(name, f),
+        "media.index.resume" => pair::<MediaIndexResumeParams, MediaIndexResumeResult>(name, f),
+        "media.index.reindex" => pair::<MediaIndexReindexParams, MediaIndexReindexResult>(name, f),
+        "media.caption.set" => pair::<MediaCaptionSetParams, MediaCaptionSetResult>(name, f),
         "media.preferences.get" => {
             pair::<MediaPreferencesGetParams, MediaPreferencesGetResult>(name, f)
         }
@@ -283,6 +312,13 @@ fn all_error_codes() -> BTreeSet<ErrorCode> {
         ErrorCode::EApprovalRequired,
         ErrorCode::EConflict,
         ErrorCode::EStorage,
+        ErrorCode::EProjectWipLimit,
+        ErrorCode::EMediaCapability,
+        ErrorCode::EMediaLicense,
+        ErrorCode::EMediaPrivacy,
+        ErrorCode::EMediaUnavailable,
+        ErrorCode::EMediaDimension,
+        ErrorCode::EMediaUnsupportedKind,
     ];
     for c in all {
         match c {
@@ -300,7 +336,14 @@ fn all_error_codes() -> BTreeSet<ErrorCode> {
             | ErrorCode::EDenied
             | ErrorCode::EApprovalRequired
             | ErrorCode::EConflict
-            | ErrorCode::EStorage => {}
+            | ErrorCode::EStorage
+            | ErrorCode::EProjectWipLimit
+            | ErrorCode::EMediaCapability
+            | ErrorCode::EMediaLicense
+            | ErrorCode::EMediaPrivacy
+            | ErrorCode::EMediaUnavailable
+            | ErrorCode::EMediaDimension
+            | ErrorCode::EMediaUnsupportedKind => {}
         }
     }
     all.into_iter().collect()
@@ -389,6 +432,10 @@ fn every_notification_fixture_round_trips() {
     assert!(!files.is_empty());
     for (name, v) in &files {
         match name.as_str() {
+            "project.card.changed" => round_trip::<types::ProjectCardChangedNotification>(v, name),
+            "project.column.changed" => {
+                round_trip::<types::ProjectColumnChangedNotification>(v, name)
+            }
             "breakglass.notice" => round_trip::<types::BreakglassNoticeNotification>(v, name),
             "media.job.progress" => round_trip::<types::MediaJobProgressNotification>(v, name),
             "media.job.finished" => round_trip::<types::MediaJobFinishedNotification>(v, name),

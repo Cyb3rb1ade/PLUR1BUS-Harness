@@ -9,6 +9,7 @@ export const en = {
   "setup.step.model": "Main model",
   "setup.step.switchboard": "Switchboard",
   "setup.step.memory": "Memory",
+  "setup.step.voice": "Language for voice features",
   "setup.step.backup": "Backups",
   "setup.step.import": "Import",
   "setup.optional": "optional",
@@ -90,6 +91,7 @@ export const en = {
   "setup.summary.model": "Chat model {model}",
   "setup.summary.memory": "Use class {useClass}, embedding {embedding}, reranker {rerank}",
   "setup.summary.backup": "Backup {id}",
+  "setup.summary.voice": "Voice language {language}, profile {profile}",
   "setup.summary.nothing": "Nothing was changed.",
   "setup.summary.chat": "Go to the chat",
 } as const;
@@ -104,6 +106,7 @@ export const de: Record<keyof typeof en, string> = {
   "setup.step.model": "Hauptmodell",
   "setup.step.switchboard": "Schaltzentrale",
   "setup.step.memory": "Gedächtnis",
+  "setup.step.voice": "Sprache für Sprachfunktionen",
   "setup.step.backup": "Backups",
   "setup.step.import": "Import",
   "setup.optional": "optional",
@@ -185,6 +188,7 @@ export const de: Record<keyof typeof en, string> = {
   "setup.summary.model": "Chat-Modell {model}",
   "setup.summary.memory": "Nutzungsart {useClass}, Embedding {embedding}, Reranker {rerank}",
   "setup.summary.backup": "Backup {id}",
+  "setup.summary.voice": "Sprache für Sprachfunktionen {language}, Profil {profile}",
   "setup.summary.nothing": "Es wurde nichts geändert.",
   "setup.summary.chat": "Zum Chat",
 };

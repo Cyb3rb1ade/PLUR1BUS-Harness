@@ -1,0 +1,4 @@
+/* Projects surface */
+.projects { display: grid; gap: 16px; }
+.trace-summary { cursor: pointer; padding: 8px 12px; border-radius: 8px; }
+.trace-summary:hover { background: var(--hover-bg); }

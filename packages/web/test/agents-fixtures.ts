@@ -1,4 +1,5 @@
-// Mock /rpc for the Agents page tests: config.get / config.set over an in-memory `agents` map with a revision counter, ext.list.
+// Mock /rpc for the Agents page tests: config.get / config.set over an in-memory `agents` map with a revision counter, ext.list,
+// and lifecycle RPCs (agent.pause, agent.resume, agent.archive, agent.unarchive, agent.export, agent.delete).
 import { rpcError } from "./mock-rpc.ts";
 import type { MockHarnessServer } from "./mock-server.ts";
 
@@ -28,6 +29,48 @@ export function installAgents(server: MockHarnessServer, w: World = world()): Wo
     return { applied: true, dryRun: false, changed: q.changes.map((c) => c.key), restart: {}, revision: `r${w.revision}`, restarted: [], durationMs: 1 };
   });
   rpc.handle("ext.list", () => ({ items: w.skills.map((name) => ({ name, kind: "skill" })) }), { write: false });
+  rpc.handle("agent.pause", (p) => {
+    const id = (p as { agentId: string }).agentId;
+    if (w.agents[id]) w.agents[id].state = "paused";
+    return { agentId: id, paused: true, archived: false, deleted: false };
+  });
+  rpc.handle("agent.resume", (p) => {
+    const id = (p as { agentId: string }).agentId;
+    if (w.agents[id]) w.agents[id].state = "active";
+    return { agentId: id, paused: false, archived: false, deleted: false };
+  });
+  rpc.handle("agent.archive", (p) => {
+    const id = (p as { agentId: string }).agentId;
+    if (w.agents[id]) w.agents[id].state = "archived";
+    return { agentId: id, paused: false, archived: true, deleted: false };
+  });
+  rpc.handle("agent.unarchive", (p) => {
+    const id = (p as { agentId: string }).agentId;
+    if (w.agents[id]) w.agents[id].state = "active";
+    return { agentId: id, paused: false, archived: false, deleted: false };
+  });
+  rpc.handle("agent.export", (p) => {
+    const id = (p as { agentId: string }).agentId;
+    return {
+      agentId: id,
+      offerId: "off_1",
+      expiresAt: Date.now() + 60000,
+      bundle: {
+        format: "plur1bus.agent-export/1",
+        files: [],
+        manifest: { format: "plur1bus.agent-export/1", agentId: id, files: [] },
+        manifestHash: "h1",
+        algorithm: "Ed25519",
+        publicKey: "k",
+        signature: "s",
+      },
+    };
+  });
+  rpc.handle("agent.delete", (p) => {
+    const id = (p as { agentId: string }).agentId;
+    delete w.agents[id];
+    return { agentId: id, deleted: true };
+  });
   return w;
 }
 

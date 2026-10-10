@@ -496,14 +496,11 @@ pub async fn quit_response(
             // Bundled harness stopping is not available until WP8's controller adapter.
             state.quit.approve(choice, false).map_err(str::to_owned)?;
             state.events.stop();
-            window
-                .state::<crate::host_commands::HostState>()
-                .bridge
-                .stop();
-            window
-                .state::<crate::host_commands::HostState>()
-                .helper
-                .stop();
+            // Native fixtures and the diagnostics shells do not manage the host bridge state.
+            if let Some(host) = window.try_state::<crate::host_commands::HostState>() {
+                host.bridge.stop();
+                host.helper.stop();
+            }
             #[cfg(unix)]
             state.gnome.stop();
             let diagnostics = { state.diagnostics.lock().unwrap().take() };

@@ -14,6 +14,7 @@ import { getApi } from "./data.ts";
 import { DreamsTab } from "./dreams-tab.ts";
 import { MemoriesTab } from "./memories-tab.ts";
 import "./rpc-types.ts";
+import "../../styles/memory.css";
 
 export type MemoriesRoute = { tab: "memories"; id: string | null } | { tab: "dreams"; runId: string | null };
 

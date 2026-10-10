@@ -241,8 +241,8 @@ impl SpaState {
             probe(stage, hresult);
         }
     }
-    /// The production approval handover needs only its trusted carrier origin.
-    pub(crate) fn active_origin(&self) -> Option<crate::connections::Origin> {
+    /// Origin of the active SPA carrier, in every build profile.
+    pub fn active_origin(&self) -> Option<Origin> {
         self.current
             .lock()
             .unwrap()

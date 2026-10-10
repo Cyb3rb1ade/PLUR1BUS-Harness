@@ -10,6 +10,7 @@ import { Tabs } from "../components/tabs.ts";
 import { t } from "../i18n.ts";
 import { navigate } from "../router.ts";
 import type { PageProps } from "./registry.ts";
+import "../styles/gallery.css";
 
 // Development and test fixture (see nav.ts GALLERY_ENABLED): one route per shared pattern, so each can be exercised, measured
 // and axe-checked in isolation. Texts reuse core keys; example data is deliberately plain.

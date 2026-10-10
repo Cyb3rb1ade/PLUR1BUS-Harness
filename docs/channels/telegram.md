@@ -33,11 +33,34 @@ Add the bot to a group; explicitly allowlist the negative group ID. Enable Topic
 
 ## Configuration and lifecycle
 
-All options belong to the host's channel factory and take effect on channel restart. This package does not add root config-schema/RPC keys or a module process.
+The Telegram channel is configured under `channels.telegram.*` in `config.json` and hosted by the switchboard. Secrets are referenced by name, never held in config.
+
+Store your BotFather token in the secret store under `channels.telegram.botToken`:
+
+```sh
+printf %s "$TELEGRAM_BOT_TOKEN" | plur1bus secret set channels.telegram.botToken
+```
+
+Example configuration in `config.json`:
+
+```json
+{
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "tokenSecret": "channels.telegram.botToken",
+      "allowlist": ["424242", "-100123456789"],
+      "mode": "polling"
+    }
+  }
+}
+```
+
+Options take effect on channel restart (restart class `module:telegram`).
 
 | Option | Default / meaning |
 | --- | --- |
-| `tokenSecret`, `secrets` | Required secret name and reader |
+| `tokenSecret` | Secret name holding the Telegram bot token (default: `channels.telegram.botToken`) |
 | `allowlist` | Required decimal chat IDs; empty allows nothing, inbound and outbound |
 | `userAllowlist` | Omitted allows any human in an allowed chat; empty allows none |
 | `offsetStore` | Required; use `FileOffsetStore` in a private persistent host state directory |

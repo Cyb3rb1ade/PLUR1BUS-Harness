@@ -68,8 +68,9 @@ own page.
 ### Each channel in brief
 
 - **Telegram:** Create the bot with BotFather. For groups, add the group ID to the allowlist. If the bot should read every
-  message in a group, turn off Privacy Mode with `/setprivacy` in BotFather. The configuration is on
-  [../../channels/telegram.md](../../channels/telegram.md); this channel is not listed in the configuration reference.
+  message in a group, turn off Privacy Mode with `/setprivacy` in BotFather. The configuration is in
+  [../../config.md](../../config.md) under `channels.telegram.*`; details on permissions and setup are on
+  [../../channels/telegram.md](../../channels/telegram.md).
 - **Discord:** Create the application and the bot in the Developer Portal. Turn on the privileged intent MESSAGE_CONTENT
   there as well. Invite the bot to your server. Details: [../../channels/discord.md](../../channels/discord.md).
 - **Slack:** Create an app. You need a bot token (`xoxb-…`) and an app token (`xapp-…`) with the `connections:write`

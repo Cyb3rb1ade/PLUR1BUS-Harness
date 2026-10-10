@@ -1,6 +1,6 @@
 # Voice providers (AL1)
 
-`packages/voice-providers` holds the cloud voice providers and the logic for the local real-time profile. It adds no RPC, CLI, UI, network listener or credential wiring: a caller (the D110 broker, a future integration PR) builds a registry from config and passes it a secret reader. The package consumes core's `VoiceUsage` type only (`packages/core/src/voice/ports.ts`, type import) and never changes core.
+`packages/voice-providers` holds the cloud voice providers and the logic for the local real-time profile. It adds no RPC, CLI, UI, network listener or credential wiring: a caller (the D110 broker or the [Voice V2 core integration](voice-v2.md)) builds a registry from config and passes it a secret reader. The package consumes core's `VoiceUsage` type only (`packages/core/src/voice/ports.ts`, type import) and never changes core.
 
 ## Capability table
 

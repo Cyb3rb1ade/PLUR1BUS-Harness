@@ -12,6 +12,7 @@ export const en = {
   "settings.section.providers": "Providers",
   "settings.section.secrets": "Secrets",
   "settings.section.devices": "Devices & remote",
+  "settings.section.voice": "Voice",
   // Config sections (general, models, memory, extensions, network)
   "settings.cfg.default": "Default: {value}",
   "settings.cfg.noDefault": "No default",
@@ -81,6 +82,7 @@ export const de: Record<keyof typeof en, string> = {
   "settings.section.providers": "Provider",
   "settings.section.secrets": "Geheimnisse",
   "settings.section.devices": "Geräte & Fernzugriff",
+  "settings.section.voice": "Sprache",
   "settings.cfg.default": "Standard: {value}",
   "settings.cfg.noDefault": "Kein Standardwert",
   "settings.cfg.unset": "(nicht gesetzt)",

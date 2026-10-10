@@ -84,3 +84,41 @@ export async function createAgent(a: Attempt, v: CreateInput): Promise<CreateOut
     return { ok: false, kind: "failed" };
   }
 }
+
+export async function pauseAgent(agentId: string): Promise<void> {
+  await getApi().rpc("agent.pause", { agentId });
+}
+
+export async function resumeAgent(agentId: string): Promise<void> {
+  await getApi().rpc("agent.resume", { agentId });
+}
+
+export async function archiveAgent(agentId: string): Promise<void> {
+  await getApi().rpc("agent.archive", { agentId });
+}
+
+export async function unarchiveAgent(agentId: string): Promise<void> {
+  await getApi().rpc("agent.unarchive", { agentId });
+}
+
+export async function exportAgent(agentId: string, offerOnly = false) {
+  return await getApi().rpc("agent.export", { agentId, offerOnly });
+}
+
+export type DeleteAgentOutcome = { ok: true } | { ok: false; kind: "unavailable" | "engine-erasure-unavailable" | "forbidden" | "failed"; message?: string };
+
+export async function deleteAgent(agentId: string, confirmName: string, exportOfferId: string): Promise<DeleteAgentOutcome> {
+  try {
+    await getApi().rpc("agent.delete", { agentId, confirmName, exportOfferId });
+    return { ok: true };
+  } catch (e) {
+    const o = (typeof e === "object" && e !== null ? e : {}) as { kind?: unknown; errorCode?: unknown; message?: unknown; reason?: unknown };
+    if (o.kind === "unavailable" || o.errorCode === "E_NOT_AVAILABLE") return { ok: false, kind: "unavailable" };
+    if (o.kind === "forbidden" || o.errorCode === "E_DENIED") return { ok: false, kind: "forbidden" };
+    if (o.reason === "engine-erasure-unavailable" || o.errorCode === "E_ENGINE_ERASURE_UNAVAILABLE" || (typeof o.message === "string" && o.message.includes("engine erasure"))) {
+      return { ok: false, kind: "engine-erasure-unavailable" };
+    }
+    return { ok: false, kind: "failed", ...(typeof o.message === "string" ? { message: o.message } : {}) };
+  }
+}
+

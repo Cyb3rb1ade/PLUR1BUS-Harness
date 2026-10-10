@@ -299,8 +299,8 @@ freshness test keeps it in step with the CLI it documents.
   The harness talks to the engine only through its public `EngineConfig`/plugin surface, never
   through anything OpenClaw-shaped.
 - **Commit identity**: commits in this repo are authored as `Cyb3rb1ade
-  <84099452+Cyb3rb1ade@users.noreply.github.com>` (the owner's identity); trailers (co-author,
-  session links) are kept, not stripped.
+  <cyb3rblade@me.com>` (the owner's identity); trailers (co-author, session links) are kept,
+  not stripped.
 - **Secrets**: don't commit any. `GH_ENGINE_READ_TOKEN` (CI-only, set by the owner) is the one
   secret this repo's CI touches, used solely to fetch the pinned engine dependency if that repo is
   private; it is never written to a file or a lockfile. A local `pnpm link --global` override for

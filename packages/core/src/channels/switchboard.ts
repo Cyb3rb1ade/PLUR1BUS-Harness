@@ -175,6 +175,7 @@ class Host implements Switchboard {
   readonly #o: SwitchboardOptions;
   readonly #registry: ChannelRegistry;
   readonly #bindings = new Map<string, ChannelBinding>();
+  readonly #registered = new Set<string>();
   readonly #creators = new Map<string, (cfg: Record<string, unknown>, deps: AdapterDeps) => HostedChannel>();
   /** The adapter instance currently built for a channel (the registry builds a fresh one per start attempt). */
   readonly #live = new Map<string, HostedChannel>();
@@ -219,8 +220,10 @@ class Host implements Switchboard {
   async start(): Promise<void> {
     this.#stopped = false;
     for (const b of this.#bindings.values()) {
+      if (this.#registered.has(b.id)) continue;
       const ok = this.#registry.register({ manifest: b.manifest, factory: () => this.#build(b.id) });
       if (!ok.ok) this.#o.log.error("switchboard.register.failed", { channel: b.id, errors: ok.errors.join("; ") });
+      else this.#registered.add(b.id);
     }
     this.#unwatch = this.#o.config.onChange((prev, next) => {
       for (const id of this.#bindings.keys()) {
