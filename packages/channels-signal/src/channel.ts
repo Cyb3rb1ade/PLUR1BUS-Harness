@@ -744,11 +744,11 @@ export class SignalChannel implements Channel {
     let reply: string = m.linkFail;
     if (this.#o.pairing) {
       try {
-        this.#o.pairing.claim({
+        const pairing = this.#o.pairing.claim({
           code,
           identity: { channel: "signal", accountId: this.#o.account, userId: senderId },
         });
-        reply = m.linkOk;
+        reply = m.linkOk(pairing.pairingId);
       } catch {
         /* Uniform reply; the identity port owns rate limits. The submitted code is never logged. */
       }
@@ -817,4 +817,3 @@ function findAccountUuid(accounts: unknown, number: string): string | undefined 
 export function createSignalChannel(cfg: SignalConfig, deps: SignalDeps = {}): SignalChannel {
   return new SignalChannel({ ...cfg, ...deps });
 }
-

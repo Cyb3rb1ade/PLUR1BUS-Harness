@@ -24,7 +24,7 @@ import {
   type SyncResponse,
 } from "./events.ts";
 import { toMatrixText } from "./markdown.ts";
-import { message as t } from "./messages.ts";
+import { message as t, pairingClaimed } from "./messages.ts";
 import { outputAttachment, type OutputPort } from "./outputs.ts";
 import { TokenBucket } from "./rate-limit.ts";
 import { redactAttrs } from "./redact.ts";
@@ -676,8 +676,8 @@ export class MatrixChannel implements Channel {
     let reply = t(this.#cfg.locale, "linkFailed");
     if (this.#deps.pairing) {
       try {
-        await this.#deps.pairing.claim({ code, identity: { channel: this.name, accountId: this.#cfg.userId, userId: senderId } });
-        reply = t(this.#cfg.locale, "linkClaimed");
+        const pairing = await this.#deps.pairing.claim({ code, identity: { channel: this.name, accountId: this.#cfg.userId, userId: senderId } });
+        reply = pairingClaimed(this.#cfg.locale, pairing.pairingId);
       } catch {
         /* Uniform reply. The identity port owns durable rate limits. The submitted code is never logged. */
       }

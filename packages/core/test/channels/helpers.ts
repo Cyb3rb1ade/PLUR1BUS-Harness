@@ -47,7 +47,7 @@ export class FakeIdentity implements IdentityPort {
     if (!u) return { ok: false };
     this.codes.delete(code);
     this.links.set(`${s.channel}\0${s.senderId}`, u);
-    return { ok: true, userId: u };
+    return { ok: true, userId: u, pairingId: "pair-1" };
   }
   link(channel: string, senderId: string, userId: string) { this.links.set(`${channel}\0${senderId}`, userId); }
 }
