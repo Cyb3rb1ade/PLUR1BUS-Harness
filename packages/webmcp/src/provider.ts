@@ -54,8 +54,12 @@ const FORBIDDEN_EXACT = new Set([
   "ext.install", "ext.uninstall", "ext.restore", "ext.enable", "ext.disable", "ext.update",
   "models.scan", "models.setOverride", "models.removeManual", "models.acknowledge",
   "budget.set",
+  // Human-only admin (B15, docs/rbac.md): agent lifecycle, rights, pairing and other people's data. Agent pause/resume
+  // stay exposed: a person may trigger them through an assistant, and RBAC decides who may.
+  "agent.delete", "agent.archive", "agent.unarchive", "agent.export", "agent.rights.get", "agent.rights.set",
+  "pairing.qr", "session.list",
 ]);
-const FORBIDDEN_PREFIX = ["supervisor.", "daemon.", "events.", "config.", "module.", "admin.", "service.", "identity.", "update.", "secret.", "secrets.", "login.", "auth.", "grant.", "approval."];
+const FORBIDDEN_PREFIX = ["supervisor.", "daemon.", "events.", "config.", "module.", "admin.", "service.", "identity.", "update.", "secret.", "secrets.", "login.", "auth.", "grant.", "approval.", "user.", "breakglass.", "device."];
 const FORBIDDEN_SUFFIX = [".auth", ".adopt", ".shutdown"];
 
 export function isForbiddenMethod(method: string): boolean {
