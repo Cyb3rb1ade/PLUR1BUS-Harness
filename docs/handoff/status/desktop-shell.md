@@ -1601,7 +1601,8 @@ This is **mock stack evidence, not Docker-container or production acceptance**.
 
 Branch: `codex/desktop-wp10-12`. Base: `origin/codex/desktop-wp09-12`
 (`#367` OPEN at start, base commit `4216f909`); PR targets `main`, with the
-controller required to merge #367 first. PR/head: recorded after publication.
+controller required to merge #367 first. PR: #368 (Draft). Implementation head: `13bad8f0` (WP10 green code commit).
+The documentation follow-up records this PR; final branch head is visible in #368.
 Target exercised locally: macOS arm64, Node 24.21.0, Rust 1.95.
 
 Delivered:
