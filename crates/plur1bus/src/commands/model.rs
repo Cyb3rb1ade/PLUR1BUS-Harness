@@ -7,7 +7,7 @@ use crate::output::Out;
 use crate::paths::Layout;
 use plur1bus_rpc::is_unavailable;
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::fs;
 use std::time::Duration;
 

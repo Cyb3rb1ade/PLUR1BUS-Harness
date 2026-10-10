@@ -1,9 +1,9 @@
 //! The Rust side of the acceptance list that does not need the TypeScript fixtures: the level map, unknown events,
 //! invalid levels, and the rules `validate_line` enforces.
 use plur1bus_log_schema::{
-    Level, catalogue, is_source_key, lookup_event, validate_audit_line, validate_line,
+    catalogue, is_source_key, lookup_event, validate_audit_line, validate_line, Level,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 /// Hard timeout for every test (the work is a few milliseconds; a hang fails with a name instead of eating the job).
 fn within<F: FnOnce() + Send + 'static>(f: F) {
