@@ -44,6 +44,7 @@ const params: Record<string, unknown> = {
   "identity.link.remove": {},
   "identity.principals": {},
   "auth.login.start": {}, "auth.login.await": {}, "auth.login.cancel": {}, "auth.credentials.list": {}, "auth.logout": {}, "auth.status": {},
+  "media.search": { text: "x" }, "media.index.status": {}, "media.index.pause": {}, "media.index.resume": {}, "media.index.reindex": { confirm: true }, "media.caption.set": { mediaId: "m", text: "t" },
   "channel.list": {}, "channel.get": { id: "discord" }, "channel.status": {}, "channel.test": { id: "discord" }, "channel.enable": { id: "discord" }, "channel.disable": { id: "discord" }, "channel.set": { id: "discord", key: "locale", text: "de" },
   "agent.pause": { agentId: "bernd" },
   "agent.resume": { agentId: "bernd" },

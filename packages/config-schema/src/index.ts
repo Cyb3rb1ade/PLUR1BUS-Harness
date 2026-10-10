@@ -5,6 +5,16 @@ import schemaJson from "../schema/config.schema.json" with { type: "json" };
 export const CONFIG_SCHEMA = schemaJson as Record<string, any>;
 export const SCHEMA_VERSION = 1 as const;
 
+export interface MediaEmbeddingConfig {
+  enabled: boolean; provider: string; model: string; dimensions: number;
+  modalities: ("image" | "video" | "audio")[];
+  video: { segmentSec: number; maxFrames: number; sceneDetect: boolean };
+  audio: { segmentSec: number; maxSeconds: number };
+  caption: { source: "prompt-then-user-then-auto" | "user-only" | "off"; provider?: string; maxChars: number; perSegment: boolean };
+  backfill: "auto" | "manual";
+}
+type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
+
 export interface HarnessConfig {
   containers?: { runtime: "auto" | "apple" | "docker"; image?: string; stateVolume: string; bindAddress: string; healthTimeoutMs: number };
   sidecars?: Record<string, { mode: "bundled" | "remote" | "off"; url?: string; caBundle?: string; fingerprint?: string; timeoutMs: number }>;
@@ -16,7 +26,8 @@ export interface HarnessConfig {
   supervisor: { graceMs: number; healthIntervalMs: number };
   logs: { maxBytes: number; keep: number };
   metrics: { enabled: boolean; port: number };
-  agents: Record<string, { createdAt?: string; displayName?: string }>;
+  agents: Record<string, { createdAt?: string; displayName?: string; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> } }>;
+  memory: { mediaEmbedding: MediaEmbeddingConfig };
   embedding: { useClass: "general" | "research" | "commercial"; acceptedNcLicence: boolean; acceptedNcLicenceAt?: string };
   engine: Record<string, unknown> & { baseDbPathOverride?: string };
   providers: Record<string, unknown>;
@@ -37,6 +48,20 @@ export interface HarnessConfig {
       enabled: boolean; address?: string; displayName?: string; dmAllowlist: string[]; maxAttachmentBytes: number; requireAuthPass: boolean; locale: "en" | "de";
       imap: MailServerConfig & { folder: string; idle: boolean; pollIntervalSec: number };
       smtp: MailServerConfig;
+    };
+    telegram: {
+      enabled: boolean;
+      tokenSecret: string;
+      allowlist: (string | number)[];
+      userAllowlist?: (string | number)[];
+      mode: "polling" | "webhook";
+      webhook?: { url: string; secret: string; maxBodyBytes?: number };
+      botId?: number;
+      botUsername?: string;
+      groupPolicy: "addressed" | "all";
+      maxMediaBytes: number;
+      pollTimeoutSec: number;
+      maxSendRetries: number;
     };
   };
   modules: Record<string, Record<string, unknown> & { enabled: boolean }>;

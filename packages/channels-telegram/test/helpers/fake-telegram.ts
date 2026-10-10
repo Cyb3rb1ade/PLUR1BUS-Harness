@@ -6,9 +6,11 @@ export interface Call {
   body: Record<string, unknown>;
 }
 
+export const FAKE_TELEGRAM_TOKEN = ["123456789", "AAFakeTokenForTestsOnly_abcdefghijklmnop"].join(":");
+
 /** A local Bot API stand-in. getUpdates holds the request open (like long polling) until updates are queued or close(). */
 export class FakeTelegram {
-  readonly token = "123456789:AAFakeTokenForTestsOnly_abcdefghijklmnop";
+  readonly token = FAKE_TELEGRAM_TOKEN;
   readonly calls: Call[] = [];
   readonly files = new Map<string, { path: string; mime: string; data: Buffer }>();
   readonly queue: Record<string, unknown>[] = [];
@@ -21,6 +23,7 @@ export class FakeTelegram {
 
   async listen(): Promise<void> {
     this.#server = createServer((req, res) => void this.#handle(req, res));
+    this.#server.on("connection", (s) => s.setNoDelay(true));
     await new Promise<void>((r) => this.#server.listen(0, "127.0.0.1", r));
     this.baseUrl = `http://127.0.0.1:${(this.#server.address() as AddressInfo).port}`;
   }
@@ -38,6 +41,12 @@ export class FakeTelegram {
   }
   callsOf(method: string): Call[] {
     return this.calls.filter((c) => c.method === method);
+  }
+  reset(): void {
+    this.calls.length = 0;
+    this.queue.length = 0;
+    for (const k of Object.keys(this.failures)) delete this.failures[k];
+    this.#wake();
   }
   #wake(): void {
     const w = this.#waiters;
@@ -86,7 +95,8 @@ export class FakeTelegram {
         body[k] = typeof v === "string" ? v : { size: v.size, type: v.type, name: v.name };
       });
     } else body = JSON.parse(raw.toString("utf8") || "{}") as Record<string, unknown>;
-    this.calls.push({ method, body });
+    const call = { method, body };
+    this.calls.push(call);
     const fail = this.failures[method]?.shift();
     if (fail) return send(fail[0], fail[1]);
     if (method === "getMe") return send(200, { ok: true, result: { id: 999, username: "testbot" } });
@@ -116,9 +126,24 @@ export class FakeTelegram {
       let ready = this.queue.filter((u) => (u.update_id as number) >= offset);
       if (ready.length === 0) {
         let closed = false;
-        res.on("close", () => (closed = true));
-        await new Promise<void>((r) => this.#waiters.push(r));
-        if (closed) return;
+        let wake: (() => void) | undefined;
+        const onClose = () => {
+          closed = true;
+          const i = this.#waiters.indexOf(wake!);
+          if (i >= 0) this.#waiters.splice(i, 1);
+          wake?.();
+        };
+        res.on("close", onClose);
+        await new Promise<void>((r) => {
+          wake = r;
+          this.#waiters.push(r);
+        });
+        res.off("close", onClose);
+        if (closed) {
+          const idx = this.calls.lastIndexOf(call);
+          if (idx >= 0) this.calls.splice(idx, 1);
+          return;
+        }
         ready = this.queue.filter((u) => (u.update_id as number) >= offset);
       }
       return send(200, { ok: true, result: ready });

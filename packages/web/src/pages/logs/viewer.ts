@@ -16,6 +16,11 @@ import { FilterBar } from "./viewer/filters.ts";
 import { LogList } from "./viewer/list.ts";
 import { buildQuery, DEFAULT_FILTERS, exportName, isDefaultFilters, toJson, toNdjson, type BuildError, type Filters } from "./viewer/model.ts";
 import { useLogData, type Row } from "./viewer/use-log.ts";
+import { registerArea } from "../../i18n/index.ts";
+import * as logsArea from "../../i18n/logs.ts";
+import "../../styles/logs.css";
+
+registerArea("logs", logsArea);
 
 const plural = (n: number, one: Key, other: Key): string => (n === 1 ? t(one) : t(other, { n: formatNumber(n) }));
 

@@ -1,6 +1,7 @@
 // The submit/event turn loop (ADR-010 L2): `submit` records the user's message and a running turn atomically and returns
 // at once; the turn then runs in the background, every step persisted as an ordered per-session event and relayed to
 // subscribers. recall once before, capture once after (acceptance 4); no memory loop of its own.
+import { voiceTurnContext, waitForVoiceConfirmation, type TurnProfile } from "../voice/turn-profile.ts";
 import { stage } from "../composition/trace.ts";
 import { currentTrace, newTrace, withTrace } from "../logs/trace.ts";
 import type { CallerIdentity } from "@plur1bus/rpc-schema";
@@ -47,7 +48,7 @@ export class TurnRunner {
   constructor(d: TurnRunnerDeps) { this.#d = d; }
 
   /** The caller has authorised `session` (owner check) already. */
-  submit(a: { session: SessionRecord; caller: CallerIdentity; text: string; approver?: TurnApprover }): TurnHandle {
+  submit(a: { session: SessionRecord; caller: CallerIdentity; text: string; approver?: TurnApprover; turnProfile?: TurnProfile }): TurnHandle {
     const provider = this.#d.provider();
     if (!provider) throw new NoProviderError();
     if (a.text.length === 0) throw new SessionError("invalid", "message text is empty", "text-empty");
@@ -55,7 +56,8 @@ export class TurnRunner {
     this.#emit(event, a.session);
     const cancel = new AbortController();
     this.#cancels.set(turn.id, cancel);
-    const run = withTrace(currentTrace() ?? newTrace(), () => this.#run(a.session, a.caller, a.text, turn.id, turn.incognito, provider, cancel.signal, a.approver));
+    const execute = () => withTrace(currentTrace() ?? newTrace(), () => this.#run(a.session, a.caller, a.text, turn.id, turn.incognito, provider, cancel.signal, a.approver, a.turnProfile));
+    const run = a.turnProfile ? voiceTurnContext.run(a.turnProfile, execute) : execute();
     this.#inflight.add(run); void run.finally(() => { this.#inflight.delete(run); this.#cancels.delete(turn.id); });
     return { turnId: turn.id, sessionId: a.session.id, messageId: message.id, done: run };
   }
@@ -80,14 +82,15 @@ export class TurnRunner {
     this.#emit(this.#d.store.appendEvent(turnId, type, data), session);
   }
 
-  async #run(session: SessionRecord, caller: CallerIdentity, text: string, turnId: string, incognito: boolean, provider: ChatProvider, cancelled: AbortSignal, approver?: TurnApprover): Promise<TurnOutcome> {
+  async #run(session: SessionRecord, caller: CallerIdentity, text: string, turnId: string, incognito: boolean, provider: ChatProvider, cancelled: AbortSignal, approver?: TurnApprover, turnProfile?: TurnProfile): Promise<TurnOutcome> {
     const { store, memory, compactor } = this.#d;
-    const signal = this.#d.signal ? AbortSignal.any([this.#d.signal, cancelled]) : cancelled;
+    const signal = turnProfile?.signal ? AbortSignal.any([cancelled, turnProfile.signal, ...(this.#d.signal ? [this.#d.signal] : [])]) : this.#d.signal ? AbortSignal.any([this.#d.signal, cancelled]) : cancelled;
     const trace = (r: import("../composition/trace.ts").PipelineRecord) => this.#d.logger?.info("turn.stage", { ...r });
     try {
       // 1. recall: exactly one call. A recall that fails or degrades never fails the turn.
       let recalled: { text: string; degraded: unknown } = { text: "", degraded: null };
-      try { recalled = await stage("recall", signal, trace, () => memory.recall({ agentId: session.agentId, caller, query: text, signal })); }
+      try { const recall = (signal: AbortSignal) => stage("recall", signal, trace, () => memory.recall({ agentId: session.agentId, caller, query: text, signal, ...(turnProfile ? { turnProfile } : {}) }));
+        recalled = turnProfile?.privacyPin ? recalled : turnProfile ? await turnProfile.run("autoRecall", recall, recalled, signal) : await recall(signal); }
       catch (e) { recalled = { text: "", degraded: { reason: "recall-error", detail: e instanceof Error ? e.message : String(e) } }; this.#d.logger?.warn("session recall failed", { sessionId: session.id, turnId, err: e }); }
       signal.throwIfAborted();
 
@@ -101,13 +104,14 @@ export class TurnRunner {
       // 3. the provider stream, persisted event by event.
       let reply = ""; let usage: { inputTokens: number; outputTokens: number; model?: string; measurements?: import("./provider.ts").UsageMeasurement[] } | null = null; let index = 0;
       for await (const chunk of provider.stream({
-        sessionId: session.id, turnId, caller, ...(approver ? { approver } : {}), principal: session.owner, agentId: session.agentId, summaries: view.summaries.map((s) => s.text), memory: recalled.text,
+        sessionId: session.id, turnId, caller, ...(turnProfile ? { turnProfile } : {}), ...(approver ? { approver } : {}), principal: session.owner, agentId: session.agentId, summaries: view.summaries.map((s) => s.text), memory: recalled.text,
         messages: view.messages.map((m) => ({ role: m.role, text: m.text })), signal,
         ...(this.#d.toolCalls ? { tools: this.#d.toolCalls.dispatcher.describe() } : {}),
       })) {
         signal.throwIfAborted();
-        if (chunk.type === "delta") { reply += chunk.text; this.#event(turnId, "delta", { index: index++, text: chunk.text }, session); }
+        if (chunk.type === "delta") { turnProfile?.onDelta?.(chunk.text); reply += chunk.text; this.#event(turnId, "delta", { index: index++, text: chunk.text }, session); }
         else if (chunk.type === "tool.call") {
+          if (turnProfile?.confirmed) await waitForVoiceConfirmation(turnProfile, signal);
           this.#event(turnId, "tool.call", { id: chunk.id, name: chunk.name, ...(chunk.args !== undefined ? { args: chunk.args } : {}) }, session);
           const tc = this.#d.toolCalls;
           if (tc) {
@@ -123,6 +127,8 @@ export class TurnRunner {
       }
 
       // 4. complete, then capture (once) and keep the context small. The turn is complete for the client at this point.
+      if (turnProfile?.confirmed) await stage("voice-confirm", signal, trace, () => waitForVoiceConfirmation(turnProfile, signal));
+      if (turnProfile) signal.throwIfAborted();
       const done = store.completeTurn(turnId, {
         text: reply, tokens: usage?.outputTokens ?? estimateTokens(reply),
         data: { provider: provider.id, ...(usage ? { usage } : {}), recall: { degraded: recalled.degraded }, ...(view.compaction.swapped || view.clipped ? { compaction: view.compaction, clipped: view.clipped } : {}) },
@@ -137,7 +143,7 @@ export class TurnRunner {
       }
       if (!done) return { state: "failed", error: "turn-not-running" };
       this.#emit(done.event, session);
-      await this.#after(session, caller, turnId, text, reply, incognito);
+      await this.#after(session, caller, turnId, text, reply, incognito, turnProfile);
       return { state: "completed", assistantMessageId: done.message.id, reply };
     } catch (e) {
       const error = cancelled.aborted ? "cancelled" : signal.aborted ? "aborted" : e && typeof e === 'object' && 'code' in e && typeof e.code === 'string' ? e.code : e && typeof e === 'object' && 'kind' in e && typeof e.kind === 'string' ? e.kind : e instanceof Error ? e.message : String(e);
@@ -148,7 +154,17 @@ export class TurnRunner {
     }
   }
 
-  async #after(session: SessionRecord, caller: CallerIdentity, turnId: string, user: string, assistant: string, incognito: boolean): Promise<void> {
+  async #after(session: SessionRecord, caller: CallerIdentity, turnId: string, user: string, assistant: string, incognito: boolean, turnProfile?: TurnProfile): Promise<void> {
+    // The fixed engine can call remote embedding/refinement providers. A privacy pin fails closed for memory work.
+    if (turnProfile?.privacyPin) return;
+    if (turnProfile?.localRealtime.enabled) {
+      const signal = this.#d.signal ?? new AbortController().signal;
+      if (!incognito) await turnProfile.after("memoryWrite", () => this.#d.memory.capture({ agentId: session.agentId, caller, sessionId: session.id, turnId, messages: [{ role: "user", content: user }, { role: "assistant", content: assistant }], incognito, turnProfile }), signal);
+      await turnProfile.after("compaction", async () => { await this.#d.compactor.afterTurn(session.id, caller); }, signal);
+      const work = new Promise<void>(resolve => setTimeout(() => { void turnProfile.drain(signal).catch(err => this.#d.logger?.warn("voice deferred work failed", { err })).finally(resolve); }, 0));
+      this.#background.add(work); void work.finally(() => this.#background.delete(work));
+      return;
+    }
     if (!incognito) {
       // RULING: incognito (D92 §3.3) means no capture call at all, not a capture flagged incognito; the flag is still passed, derived here from the session.
       try { await stage("capture", this.#d.signal ?? new AbortController().signal, r => this.#d.logger?.info("turn.stage", { ...r }), () => this.#d.memory.capture({ agentId: session.agentId, caller, sessionId: session.id, turnId, messages: [{ role: "user", content: user }, { role: "assistant", content: assistant }], incognito })); }

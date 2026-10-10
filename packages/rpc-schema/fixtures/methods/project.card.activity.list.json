@@ -1,0 +1,22 @@
+{
+  "params": {
+    "projectId": "prj1",
+    "cardId": "card1"
+  },
+  "result": {
+    "items": [
+      {
+        "id": "0000000000000001",
+        "cardId": "card1",
+        "kind": "created",
+        "actor": {
+          "kind": "person",
+          "id": "alice"
+        },
+        "at": 1000,
+        "detail": ""
+      }
+    ],
+    "nextCursor": null
+  }
+}

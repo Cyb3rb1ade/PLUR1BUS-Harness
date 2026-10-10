@@ -9,6 +9,8 @@ import { Field } from "../common/field.ts";
 import { useLoad, currentRole } from "../common/load.ts";
 import { FailureState } from "../common/states.ts";
 import { rpc, type IdentityList } from "./data.ts";
+import "../../styles/identities.css";
+
 export function IdentitiesPage(): View {
   const { state, reload } = useLoad(
     (signal) => rpc<IdentityList>("identity.link.list", {}, signal),

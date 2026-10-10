@@ -1,23 +1,6 @@
 @import "./tokens.css";
 @import "./data.css"; /* shared value pieces: facts, tables, meter, nested cards */
-@import "./models.css"; /* models page */
-@import "./budget.css"; /* usage & quota page */
-@import "./doctor.css"; /* doctor page */
-@import "./memory.css"; /* memories & dreams page */
-@import "./chat.css"; /* chat page (src/pages/chat) */
 @import "./shared.css";
-@import "./settings.css";
-@import "./agents.css";
-@import "./users.css";
-@import "./providers.css";
-@import "./secrets.css";
-@import "./switchboard.css";
-@import "./setup.css";
-@import "./logs.css";
-@import "./activity.css";
-@import "./sessions.css";
-@import "./palette.css"; /* command palette (src/palette); declared after the shared rules it overrides via specificity, not order */
-@import "./media-search.css"; /* media search: the two indexes, hits and the player (src/pages/media-search) */
 
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }

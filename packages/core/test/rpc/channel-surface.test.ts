@@ -13,6 +13,10 @@ import type { IdentityService } from "../../src/identity/service.ts";
 
 const schema = JSON.parse(readFileSync(new URL("../../../rpc-schema/schema/rpc.schema.json", import.meta.url), "utf8"));
 const METHODS = ["channel.list", "channel.get", "channel.enable", "channel.disable", "channel.set", "channel.test", "channel.status"];
+// The channel ids the config schema declares, derived so a newly hosted channel needs no fixture edit.
+const SCHEMA_CHANNELS = Object.keys(defaults().channels).sort();
+// A channel a switchboard could register that the config schema does not declare.
+const UNSCHEMAED = "irc";
 const OWNER = { userId: "local-owner", role: "owner", kind: "person" } as const;
 // A credential-shaped string built at runtime so no secret scanner sees a literal token in the repository.
 const TOKEN = ["xoxb", "1234567890", "abcdefghijklmnop"].join("-");
@@ -90,7 +94,8 @@ test("list: every schema channel, disabled and unconfigured by default, not-regi
   const s = setup({ registry: false });
   const r = await s.call("channel.list");
   assert.equal(r.host, false);
-  assert.deepEqual(r.channels.map((c: any) => c.id), ["discord", "email", "matrix", "signal", "slack"]);
+  assert.deepEqual(r.channels.map((c: any) => c.id), SCHEMA_CHANNELS);
+  assert.ok(SCHEMA_CHANNELS.includes("telegram"));
   for (const c of r.channels) assert.equal(c.enabled, false);
   const discord = r.channels.find((c: any) => c.id === "discord");
   assert.deepEqual(discord, { id: "discord", displayName: "Discord", enabled: false, configured: false, state: "not-registered", health: "unknown" });
@@ -100,15 +105,15 @@ test("list: configured follows the stored secrets; running and failing channels 
   const s = setup({ stored: ["channels.discord.token"] });
   s.registry.add("discord", "running", {}, { displayName: "Discord (switchboard)" });
   s.registry.add("slack", "backoff", { attempts: 2, lastError: "boom" });
-  s.registry.add("telegram", "stopped");
+  s.registry.add(UNSCHEMAED, "stopped");
   await s.call("channel.enable", { id: "discord" });
   const r = await s.call("channel.list");
   const by = Object.fromEntries(r.channels.map((c: any) => [c.id, c]));
   assert.deepEqual(by.discord, { id: "discord", displayName: "Discord (switchboard)", enabled: true, configured: true, state: "running", health: "ok" });
   assert.equal(by.slack.configured, false);
   assert.equal(by.slack.health, "failing");
-  assert.equal(by.telegram.configured, false); // no configuration here
-  assert.equal(by.telegram.state, "stopped");
+  assert.equal(by[UNSCHEMAED].configured, false); // no configuration here
+  assert.equal(by[UNSCHEMAED].state, "stopped");
   assert.equal(r.host, true);
 });
 
@@ -147,7 +152,7 @@ test("status: compact rows for every channel; last errors scrubbed", async () =>
   s.registry.add("slack", "failed", { lastError: `bad ${TOKEN}` });
   const r = await s.call("channel.status");
   assert.equal(r.host, true);
-  assert.equal(r.channels.length, 5);
+  assert.equal(r.channels.length, SCHEMA_CHANNELS.length);
   assert.deepEqual(r.channels.find((c: any) => c.id === "slack"), { id: "slack", enabled: false, state: "failed", health: "failing", lastError: "bad [redacted]" });
   assert.equal(JSON.stringify(r).includes(TOKEN), false);
 });
@@ -173,9 +178,9 @@ test("enable: no supervisor, a refused write, an unknown or unconfigurable chann
   t.state.refuse = true;
   assert.equal((await t.refusal("channel.enable", { id: "discord" })).error, "E_CONFIG_INVALID");
   assert.equal((await t.refusal("channel.enable", { id: "nosuch" })).reason, "unknown-channel");
-  t.registry.add("telegram", "stopped");
-  assert.equal((await t.refusal("channel.enable", { id: "telegram" })).reason, "not-configurable");
-  assert.equal((await t.refusal("channel.set", { id: "telegram", key: "x", text: "1" })).reason, "not-configurable");
+  t.registry.add(UNSCHEMAED, "stopped");
+  assert.equal((await t.refusal("channel.enable", { id: UNSCHEMAED })).reason, "not-configurable");
+  assert.equal((await t.refusal("channel.set", { id: UNSCHEMAED, key: "x", text: "1" })).reason, "not-configurable");
 });
 
 test("set: validates against the schema, interprets text by type, reports the restart plan", async () => {

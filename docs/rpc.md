@@ -42,6 +42,13 @@ A closed enum; the core puts the code into every error response as `error.data.e
 - `E_APPROVAL_REQUIRED`
 - `E_CONFLICT`
 - `E_STORAGE`
+- `E_MEDIA_CAPABILITY`
+- `E_MEDIA_LICENSE`
+- `E_MEDIA_PRIVACY`
+- `E_MEDIA_UNAVAILABLE`
+- `E_MEDIA_DIMENSION`
+- `E_MEDIA_UNSUPPORTED_KIND`
+- `E_PROJECT_WIP_LIMIT`
 
 ## Stability
 
@@ -57,6 +64,989 @@ A closed enum; the core puts the code into every error response as `error.data.e
 Everything else is experimental and may change in any minor release (ADR-016 §4).
 
 ## Methods
+
+### `project.column.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board column.list. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "projectId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "columns": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BoardColumn"
+      }
+    }
+  },
+  "required": [
+    "columns"
+  ]
+}
+```
+
+### `project.column.create`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board column.create. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "titleKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "wipLimit": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000
+    }
+  },
+  "required": [
+    "projectId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardColumn"
+}
+```
+
+### `project.column.update`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board column.update. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "columnId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "titleKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "wipLimit": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    }
+  },
+  "required": [
+    "projectId",
+    "columnId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardColumn"
+}
+```
+
+### `project.column.move`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board column.move. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "columnId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000
+    }
+  },
+  "required": [
+    "projectId",
+    "columnId",
+    "position"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardColumn"
+}
+```
+
+### `project.column.delete`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board column.delete. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "columnId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "targetColumnId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "overrideWip": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "projectId",
+    "columnId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "deleted": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "deleted"
+  ]
+}
+```
+
+### `project.card.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.list. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "columnId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "assignee": {
+      "$ref": "#/$defs/BoardActor"
+    },
+    "label": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "archived": {
+      "type": "boolean"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    }
+  },
+  "required": [
+    "projectId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "cards": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BoardCard"
+      }
+    },
+    "nextCursor": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "cards",
+    "nextCursor"
+  ]
+}
+```
+
+### `project.card.get`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.get. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardCard"
+}
+```
+
+### `project.card.create`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.create. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 65536
+    },
+    "labels": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "normal",
+        "high",
+        "urgent"
+      ]
+    },
+    "dueAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "links": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/BoardLink"
+      }
+    },
+    "columnId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000
+    },
+    "overrideWip": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "projectId",
+    "title",
+    "columnId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardCard"
+}
+```
+
+### `project.card.update`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.update. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 65536
+    },
+    "labels": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "normal",
+        "high",
+        "urgent"
+      ]
+    },
+    "dueAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "links": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/BoardLink"
+      }
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardCard"
+}
+```
+
+### `project.card.move`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.move. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "columnId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000
+    },
+    "overrideWip": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId",
+    "columnId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardCard"
+}
+```
+
+### `project.card.assign`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.assign. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "assignee": {
+      "$ref": "#/$defs/BoardActor"
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId",
+    "assignee"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardCard"
+}
+```
+
+### `project.card.unassign`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.unassign. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "assignee": {
+      "$ref": "#/$defs/BoardActor"
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId",
+    "assignee"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardCard"
+}
+```
+
+### `project.card.archive`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.archive. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardCard"
+}
+```
+
+### `project.card.unarchive`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.unarchive. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "overrideWip": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardCard"
+}
+```
+
+### `project.card.comment.add`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.comment.add. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 65536
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId",
+    "text"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/BoardComment"
+}
+```
+
+### `project.card.comment.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.comment.list. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BoardComment"
+      }
+    },
+    "nextCursor": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "items",
+    "nextCursor"
+  ]
+}
+```
+
+### `project.card.activity.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Project board card.activity.list. Live stored membership and token scopes are enforced; WIP override requires project manage.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BoardActivity"
+      }
+    },
+    "nextCursor": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "items",
+    "nextCursor"
+  ]
+}
+```
 
 ### `device.list`
 
@@ -9137,6 +10127,239 @@ All channels, compact: id, enabled, state, health and the last error. Owner/Admi
 }
 ```
 
+### `media.search`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Searches the media index (image, video, audio) with text or by a medium it already knows: give exactly one of `text` and `likeMediaId`. A text query is embedded by the TEXT encoder of the MEDIA model (vectors of different spaces are never compared). `kinds` narrows the result, `limit` defaults to 20. With `fuseCaptions` the ranks are fused with the caption hits of the text index (reciprocal rank fusion over ranks, never over vectors). Results are filtered to the media the caller may read; an agent sees its own scope. Reasons: `text-or-like-required` / `text-and-like-exclusive` (E_INVALID_PARAMS). E_MEDIA_* codes: the media index refused or cannot run (capability, licence, privacy pin, availability, dimension, unsupported kind). Every principal with read access; agents within their own scope.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "likeMediaId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "kinds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MediaIndexKind"
+      },
+      "uniqueItems": true,
+      "minItems": 1,
+      "maxItems": 3
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "default": 20
+    },
+    "fuseCaptions": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "hits"
+  ],
+  "properties": {
+    "hits": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MediaSearchHit"
+      }
+    }
+  }
+}
+```
+
+### `media.index.status`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+State of the media index: whether it is enabled, provider, model, dimension and fingerprint, counts per state and the backfill progress. Every principal with read access (agents included).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/MediaIndexStatus"
+}
+```
+
+### `media.index.pause`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Pauses the background backfill of the media index (pausedReason `user`). Idempotent. Returns the new status. Owner/Admin, people only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/MediaIndexStatus"
+}
+```
+
+### `media.index.resume`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Resumes a paused backfill of the media index. Idempotent. Returns the new status. Owner/Admin, people only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/MediaIndexStatus"
+}
+```
+
+### `media.index.reindex`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Starts a full re-index of the media index in the background. `confirm` must be true (E_INVALID_PARAMS reason=confirmation-required otherwise). Returns the new status. Owner/Admin, people only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "confirm"
+  ],
+  "properties": {
+    "confirm": {
+      "const": true
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/MediaIndexStatus"
+}
+```
+
+### `media.caption.set`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Sets the caption of a medium (source `user`); the caption is a memory entry of the text index and is re-embedded. E_NOT_FOUND when the medium is unknown or the caller may not see it, E_DENIED when the caller may not edit it. People who may edit the medium; agents never.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mediaId",
+    "text"
+  ],
+  "properties": {
+    "mediaId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ok"
+  ],
+  "properties": {
+    "ok": {
+      "const": true
+    }
+  }
+}
+```
+
 ### `secret.set`
 
 **Stability:** experimental · since 1.5.0
@@ -10682,6 +11905,106 @@ D109 §6: verifies the HMAC-SHA256 chain of the approval store (the `1staid chec
 
 Delivered on the same connection to clients that called `events.subscribe`.
 
+### `project.card.changed`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Committed project board invalidation delivered only to current authorized readers. Refresh the project board, including reordered siblings.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "change": {
+      "type": "string",
+      "enum": [
+        "create",
+        "update",
+        "move",
+        "delete",
+        "assign",
+        "unassign",
+        "archive",
+        "unarchive",
+        "add",
+        "column-deleted"
+      ]
+    }
+  },
+  "required": [
+    "projectId",
+    "change"
+  ],
+  "x-server": "core",
+  "x-stability": "experimental",
+  "x-since": "1.6.0",
+  "description": "Committed project board invalidation delivered only to current authorized readers. Refresh the project board, including reordered siblings."
+}
+```
+
+### `project.column.changed`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Committed project board invalidation delivered only to current authorized readers. Refresh the project board, including reordered siblings.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "columnId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "change": {
+      "type": "string",
+      "enum": [
+        "create",
+        "update",
+        "move",
+        "delete",
+        "assign",
+        "unassign",
+        "archive",
+        "unarchive",
+        "add",
+        "column-deleted"
+      ]
+    }
+  },
+  "required": [
+    "projectId",
+    "change"
+  ],
+  "x-server": "core",
+  "x-stability": "experimental",
+  "x-since": "1.6.0",
+  "description": "Committed project board invalidation delivered only to current authorized readers. Refresh the project board, including reordered siblings."
+}
+```
+
 ### `breakglass.notice`
 
 **Stability:** experimental · since 1.5.0
@@ -11595,6 +12918,312 @@ D109 §4: a grant was created or revoked (use, expiry and suspension are not not
 
 Shared `$defs` referenced above as `#/$defs/<Name>`.
 
+### `BoardActor`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "person",
+        "agent"
+      ]
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "kind",
+    "id"
+  ]
+}
+```
+
+### `BoardColumn`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "title": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "titleKey": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "wipLimit": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "titleKey",
+    "position",
+    "wipLimit"
+  ]
+}
+```
+
+### `BoardLink`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "session",
+        "job",
+        "media",
+        "url"
+      ]
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    }
+  },
+  "required": [
+    "kind",
+    "id"
+  ]
+}
+```
+
+### `BoardCard`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 65536
+    },
+    "labels": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "none",
+        "low",
+        "normal",
+        "high",
+        "urgent"
+      ]
+    },
+    "dueAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "links": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/BoardLink"
+      }
+    },
+    "columnId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "assignees": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/BoardActor"
+      }
+    },
+    "createdBy": {
+      "$ref": "#/$defs/BoardActor"
+    },
+    "updatedBy": {
+      "$ref": "#/$defs/BoardActor"
+    },
+    "createdAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "updatedAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "archived": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "projectId",
+    "title",
+    "description",
+    "labels",
+    "priority",
+    "dueAt",
+    "links",
+    "columnId",
+    "position",
+    "assignees",
+    "createdBy",
+    "updatedBy",
+    "createdAt",
+    "updatedAt",
+    "archived"
+  ]
+}
+```
+
+### `BoardActivity`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "created",
+        "updated",
+        "moved",
+        "assigned",
+        "unassigned",
+        "commented",
+        "archived",
+        "unarchived"
+      ]
+    },
+    "actor": {
+      "$ref": "#/$defs/BoardActor"
+    },
+    "at": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "detail": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "cardId",
+    "kind",
+    "actor",
+    "at",
+    "detail"
+  ]
+}
+```
+
+### `BoardComment`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "author": {
+      "$ref": "#/$defs/BoardActor"
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 65536
+    },
+    "createdAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "id",
+    "cardId",
+    "author",
+    "text",
+    "createdAt"
+  ]
+}
+```
+
 ### `Device`
 
 ```json
@@ -11698,7 +13327,14 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "E_DENIED",
     "E_APPROVAL_REQUIRED",
     "E_CONFLICT",
-    "E_STORAGE"
+    "E_STORAGE",
+    "E_MEDIA_CAPABILITY",
+    "E_MEDIA_LICENSE",
+    "E_MEDIA_PRIVACY",
+    "E_MEDIA_UNAVAILABLE",
+    "E_MEDIA_DIMENSION",
+    "E_MEDIA_UNSUPPORTED_KIND",
+    "E_PROJECT_WIP_LIMIT"
   ]
 }
 ```
@@ -16020,6 +17656,186 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "type": "array",
       "items": {
         "type": "string"
+      }
+    }
+  }
+}
+```
+
+### `MediaIndexKind`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "image",
+    "video",
+    "audio"
+  ]
+}
+```
+
+### `MediaSearchHit`
+
+```json
+{
+  "description": "Experimental (1.5.0). One hit of `media.search`; `segment` locates the match inside a video or audio, `caption` is the caption text when the caller may read it, `thumbnailUrl` is a URL the web UI can load.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mediaId",
+    "kind",
+    "score"
+  ],
+  "properties": {
+    "mediaId": {
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/MediaIndexKind"
+    },
+    "score": {
+      "type": "number"
+    },
+    "segment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "idx",
+        "startMs",
+        "endMs"
+      ],
+      "properties": {
+        "idx": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "startMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "caption": {
+      "type": "string"
+    },
+    "thumbnailUrl": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `MediaIndexStatus`
+
+```json
+{
+  "description": "Experimental (1.5.0). The state of the media index and its backfill.",
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "enabled",
+    "provider",
+    "model",
+    "dim",
+    "fingerprint",
+    "counts",
+    "backfill"
+  ],
+  "properties": {
+    "enabled": {
+      "type": "boolean"
+    },
+    "provider": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "variant": {
+      "type": "string"
+    },
+    "dim": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "fingerprint": {
+      "type": "string"
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "indexed",
+        "pending",
+        "failed",
+        "unsupported"
+      ],
+      "properties": {
+        "indexed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pending": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unsupported": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "backfill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "done",
+        "total"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "idle",
+            "running",
+            "paused",
+            "cancelled",
+            "done"
+          ]
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "startedAt": {
+          "type": "string"
+        },
+        "pausedReason": {
+          "type": "string",
+          "enum": [
+            "budget",
+            "user",
+            "error"
+          ]
+        }
       }
     }
   }
