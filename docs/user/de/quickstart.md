@@ -148,3 +148,5 @@ oder den Modulsatz ändert, wird abgelehnt: führe stattdessen `plur1bus setup` 
 - [bestaetigung-betriebssystem.md](bestaetigung-betriebssystem.md): Freigaben, die eine Bestätigung durch Touch ID, Windows
   Hello oder polkit brauchen, und was „nicht verfügbar" bedeutet.
 - [lange-gespraeche.md](lange-gespraeche.md): wie lange Sitzungen zusammengefasst werden und welche Einstellungen es gibt.
+- [sprachfunktionen.md](sprachfunktionen.md): Sprachauswahl, Modellprofile (schnell und Qualität) und Echtzeiteinstellungen.
+

@@ -145,3 +145,5 @@ failure restores the snapshot. A release that changes the Node runtime or the mo
 - [os-confirmation.md](os-confirmation.md): approvals that need a confirmation by Touch ID, Windows Hello or polkit, and what
   "not available" means.
 - [long-conversations.md](long-conversations.md): how long sessions are summarized and which settings exist.
+- [voice.md](voice.md): speech languages, fast and quality model profiles, and real-time interaction settings.
+

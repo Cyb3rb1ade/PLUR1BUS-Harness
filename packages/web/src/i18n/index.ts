@@ -28,6 +28,7 @@ import type * as sessions from "./sessions.ts";
 import * as settings from "./settings.ts";
 import type * as setup from "./setup.ts";
 import * as surfaces from "./surfaces.ts";
+import type * as voice from "./voice.ts";
 import type * as switchboard from "./switchboard.ts";
 import * as shared from "./shared.ts";
 import type * as users from "./users.ts";
@@ -63,11 +64,12 @@ type LazyAreaName =
   | "devices"
   | "logs"
   | "activity"
-  | "sessions";
+  | "sessions"
+  | "voice";
 
 const LAZY_ORDER: readonly string[] = [
   "surfaces", "core", "chat", "memory", "mediasearch", "models", "budget", "doctor", "palette", "shared", "setup", "agents", "settings", "users",
-  "providers", "secrets", "switchboard", "devices", "logs", "activity", "sessions", "approvals",
+  "providers", "secrets", "switchboard", "devices", "logs", "activity", "sessions", "approvals", "voice",
 ];
 
 type AreaEn =
@@ -86,7 +88,8 @@ type AreaEn =
   | typeof devices.en
   | typeof logs.en
   | typeof activity.en
-  | typeof sessions.en;
+  | typeof sessions.en
+  | typeof voice.en;
 type Intersect<U> = (U extends unknown ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
 
 export type Key = keyof Intersect<AreaEn> & string;
