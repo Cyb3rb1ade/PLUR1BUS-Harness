@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {appleReport} from './apple-e2e.mjs';
-import {containerPlan} from './container-e2e.mjs';
+import {containerPlan,podmanRegistryConfig} from './container-e2e.mjs';
 test('container acceptance is explicit, local and uses prebuilt fixtures',()=>{
  for(const runtime of ['docker','podman']) {
   const plan=containerPlan(runtime);
@@ -34,4 +34,10 @@ test('unsigned builds disable updater artifacts; only the release overlay enable
  const release=JSON.parse(readFileSync(new URL('../src-tauri/tauri.release.conf.json',import.meta.url)));
  assert.equal(base.bundle.createUpdaterArtifacts,false);
  assert.equal(release.bundle.createUpdaterArtifacts,true);
+});
+
+test('owned Podman service trusts only the exact loopback registry port',()=>{
+ assert.equal(podmanRegistryConfig('127.0.0.1:32768'),'[[registry]]\nlocation = "127.0.0.1:32768"\ninsecure = true\n');
+ assert.throws(()=>podmanRegistryConfig('registry.example:5000'));
+ assert.throws(()=>podmanRegistryConfig('0.0.0.0:5000'));
 });

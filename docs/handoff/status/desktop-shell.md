@@ -1849,7 +1849,7 @@ in this branch; report included in that commit. No CI status queried.
 - Nightly actual-shell Tauri 3/CEF compile patch and twice-built Linux `.deb`
   comparison are advisory and allowed to fail. No promotion/release gate.
 - All actions use the exact desktop.yml SHAs; contents:read, no secrets,
-  no pull_request_target. New offline policy regression: 4 PASS (red first).
+  no pull_request_target. New offline policy regressions: 5 PASS (red first).
 
 ### Verification and acceptance
 
@@ -1882,3 +1882,11 @@ hit the existing proxy p95 bound under concurrent compilation; the unchanged
 serial acceptance run passed without changing its budget. Registry setup accepts
 OCI/Docker manifest indexes as well as manifests; temporary aliases cannot block
 the controller's image uninstall. WP15 follows in its own commit.
+
+
+WP14 follow-up: the owned Podman API service uses a scratch registries.conf for
+its exact dynamically allocated loopback port; no home registry configuration
+is edited. External provided Podman endpoints need their own registry policy.
+Offline loopback-policy regression PASS. API configuration follows
+[Podman registry configuration](https://docs.podman.io/en/v6.1.3/markdown/podman.1.html)
+and [containers/image prefix rules](https://github.com/containers/image/blob/main/docs/containers-registries.conf.5.md).

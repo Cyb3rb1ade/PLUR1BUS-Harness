@@ -44,8 +44,6 @@ jobs:
           fi
           if [[ "$MODE" == podman-rootless ]]; then
             echo 'PLUR1BUS_DESKTOP_E2E_RUNTIME=podman' >> "$GITHUB_ENV"
-            mkdir -p "$HOME/.config/containers/registries.conf.d"
-            printf '[[registry]]\nlocation = "127.0.0.1"\ninsecure = true\n' > "$HOME/.config/containers/registries.conf.d/p1t.conf"
           else
             echo 'PLUR1BUS_DESKTOP_E2E_RUNTIME=docker' >> "$GITHUB_ENV"
           fi

@@ -1,6 +1,6 @@
 // Setup builds/prefetches outside this test. Acceptance contacts only the local Engine/registry.
 import {spawn,spawnSync} from 'node:child_process';
-import {mkdtempSync,rmSync} from 'node:fs';
+import {mkdtempSync,rmSync,writeFileSync} from 'node:fs';
 import {tmpdir,networkInterfaces} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
@@ -9,6 +9,10 @@ import {randomUUID} from 'node:crypto';
 export function containerPlan(runtime) {
  if(!['docker','podman'].includes(runtime))throw new Error('docker|podman required');
  return {runtime,registry:'registry:2',controller:`controller_e2e_${runtime}_stub_install_restart_stop_uninstall`,upgrade:['apps/desktop/scripts/upgrade-e2e.mjs',runtime,'--prebuilt']};
+}
+export function podmanRegistryConfig(address) {
+ if(!/^127\.0\.0\.1:\d+$/.test(address))throw new Error('Loopback registry required');
+ return `[[registry]]\nlocation = "${address}"\ninsecure = true\n`;
 }
 async function run(runtime,dry) {
  const plan=containerPlan(runtime);
@@ -45,6 +49,13 @@ async function run(runtime,dry) {
   const hash=manifest.headers.get('docker-content-digest');
   if(!/^sha256:[a-f0-9]{64}$/.test(hash??''))throw new Error('Registry digest missing');
   cli(['image','rm',registryTag]);registryTag=null;
+  if(service) {
+   service.kill('SIGTERM');await new Promise(resolve=>service.once('exit',resolve));
+   const config=join(scratch,'registries.conf');
+   writeFileSync(config,podmanRegistryConfig(address));
+   service=spawn(runtime,['system','service','--time=0',endpoint],{stdio:'ignore',env:{...process.env,CONTAINERS_REGISTRIES_CONF:config}});
+   await delay(1000);
+  }
   registryPin=`${ref}@${hash}`;
   cargo('controller_e2e','controller_e2e_local_registry_pull_by_digest',{...env,PLUR1BUS_DESKTOP_E2E_REGISTRY:ref,PLUR1BUS_DESKTOP_E2E_REGISTRY_DIGEST:hash});
   cli(['image','rm',registryPin]);registryPin=null;
