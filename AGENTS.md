@@ -422,3 +422,27 @@ in JavaScript or files; future tests use injected seams and scratch state. The
 root hygiene check scans desktop sources and all tracked blobs for private keys
 and forbidden secret/image filenames; `node scripts/lint-hygiene.mjs --self-test`
 runs its regression suite. Do not commit generated native/UI build outputs.
+
+
+Desktop Green: from the root run `pnpm lint`, UI build/test, then from
+`apps/desktop` run fmt, `cargo clippy --locked --workspace --all-targets -- -D warnings`,
+`PLUR1BUS_DESKTOP_ALLOW_PLACEHOLDER_KEY=1 cargo clippy --locked --workspace --release -- -D warnings`,
+and `cargo test --offline --locked --workspace --no-fail-fast -- --test-threads=1`.
+Release all-targets includes debug-only native fixture examples and is not a
+production build gate. Never bypass missing debug APIs in release product code.
+Only `tauri.release.conf.json` enables signed updater artifacts; normal CI is unsigned.
+
+DR19 debug seams are documented in `docs/desktop.md` and the handoff: scratch
+`PLUR1BUS_DESKTOP_CONFIG_DIR` forces in-memory credentials; Apple CLI/Docker
+candidates, clock/feed/updater test pins and endpoints are injected. Native
+fixture state uses `try_state`, never unconditional state lookup at startup.
+`PLUR1BUS_DESKTOP_HELPER` selects a fake helper only in debug;
+`PLUR1BUS_DESKTOP_APPROVALS_DECIDE=1` enables mock decisions only in debug.
+Do not opt into a real keychain/service manager or personal runtime during tests.
+
+Run the mock with `cargo run --locked -p plur1bus-mock-harness -- --test-control --port 18700`.
+Prepare stub images/registry separately, then run
+`PLUR1BUS_DESKTOP_E2E_RUNTIME=docker node apps/desktop/scripts/container-e2e.mjs docker`
+(or podman); `--dry-run` prints the isolated plan without network/mutation.
+The optional Apple scaffold and nightly advisory canary/repro are not release gates.
+Never commit any key file, certificate secret, OCI tarball or generated build output.

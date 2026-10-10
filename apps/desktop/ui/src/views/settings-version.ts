@@ -1,4 +1,4 @@
-import {element,append,restoreFocus} from "../components/dom.ts";
+import {element,append,restoreFocus,trapDialogFocus} from "../components/dom.ts";
 import {button} from "../components/button.ts";
 import {translate,type MessageKey} from "../i18n.ts";
 import type {DesktopTransport} from "../ipc.ts";
@@ -22,7 +22,7 @@ export function versionPage(transport:DesktopTransport,changed:()=>void){
    void transport.harnessRollback!(true).then(o=>{outcome=o;step=o?.state??null;}).catch(()=>{failed=true;}).finally(()=>{busy=false;void load();});
   },"primary");
   append(dialog,cancel,restore);document.body.append(dialog);
-  dialog.addEventListener("close",()=>{dialog.remove();restoreFocus(opener);},{once:true});dialog.showModal();cancel.focus();
+  dialog.addEventListener("close",()=>{dialog.remove();restoreFocus(opener);},{once:true});trapDialogFocus(dialog);dialog.showModal();cancel.focus();
  }
  return ()=>{
   const root=element("section","version-page settings-stack");root.append(element("h2",undefined,t("upgrade.version")));

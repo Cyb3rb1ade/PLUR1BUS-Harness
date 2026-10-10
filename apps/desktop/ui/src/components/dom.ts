@@ -17,3 +17,16 @@ export function restoreFocus(opener: HTMLElement | null): void {
   if (key) Array.from(document.querySelectorAll<HTMLElement>("[data-focus-key]"))
     .find(node => node.dataset.focusKey === key)?.focus();
 }
+
+/** Keep keyboard traversal inside native modal dialogs, including dynamically disabled actions. */
+export function trapDialogFocus(dialog: HTMLDialogElement): void {
+  dialog.addEventListener("keydown", event => {
+    if (event.key !== "Tab") return;
+    const controls = Array.from(dialog.querySelectorAll<HTMLElement>("button,a[href],input,select,textarea,[tabindex]"))
+      .filter(node => !node.matches(":disabled") && node.tabIndex >= 0 && node.getClientRects().length > 0);
+    const first = controls[0], last = controls.at(-1);
+    if (!first || !last) { event.preventDefault(); dialog.focus(); return; }
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  });
+}
