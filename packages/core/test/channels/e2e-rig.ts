@@ -50,9 +50,16 @@ export async function startE2e(o: E2eOptions): Promise<E2e> {
     return methods[method]!(params, ctx);
   };
   const until = async (cond: () => boolean | Promise<boolean>, what: string): Promise<void> => {
+    // setImmediate turns never block in the poll phase, so on a busy host real socket I/O (the adapters talk to in-process fake
+    // servers over loopback) can need more turns than any fixed count. After the cheap spins, yield to the poll phase via a
+    // 1 ms timer turn (the rig's clock is virtual, so this never touches adapter timers). The cond is the only thing awaited.
     for (let i = 0; i < 2000; i++) {
       if (await cond()) return;
       await new Promise<void>((r) => setImmediate(r));
+    }
+    for (let i = 0; i < 20_000; i++) {
+      if (await cond()) return;
+      await new Promise<void>((r) => setTimeout(r, 1));
     }
     assert.fail(`timed out waiting for: ${what}`);
   };
