@@ -7,6 +7,7 @@
   "additionalProperties": false,
   "required": ["schemaVersion"],
   "properties": {
+    "remote": { "type": "object", "additionalProperties": false, "default": {}, "x-restart": "core", "x-tier": "advanced", "description": "Remote exposure configuration (listener integration is separate).", "properties": { "publish": { "type": "string", "enum": ["local", "tailnet", "network"], "default": "tailnet", "x-restart": "core", "x-tier": "advanced", "description": "Requested exposure mode; never makes a listener public. Applying the remote-access listener plan is a separate integration." } } },
     "$schema": { "description": "URI identifying the JSON Schema used to validate this configuration.", "type": "string", "x-restart": "live", "x-tier": "advanced" },
     "schemaVersion": { "description": "Configuration format version; this schema supports version 1.", "const": 1, "x-restart": "core", "x-tier": "advanced" },
     "tools": {

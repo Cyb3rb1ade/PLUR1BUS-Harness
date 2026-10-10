@@ -17,6 +17,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 
 | Key | Type | Default | Restart | Description |
 |---|---|---|---|---|
+| `remote` | object | `{}` | core | Remote exposure configuration (listener integration is separate). |
 | `$schema` | string |  | live | URI identifying the JSON Schema used to validate this configuration. |
 | `schemaVersion` | const |  | core | Configuration format version; this schema supports version 1. |
 | `tools.hostctl.enabled` | boolean | `true` | core | Register local hostctl tools. |

@@ -1,6 +1,9 @@
 {
   "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
   "schemaVersion": 1,
+  "remote": {
+    "publish": "tailnet"
+  },
   "tools": {
     "hostctl": {
       "enabled": true,

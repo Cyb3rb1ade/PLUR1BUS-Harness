@@ -1,5 +1,6 @@
 pub mod acp;
 pub mod admin;
+pub mod admin_backend;
 pub mod agent;
 pub mod approval;
 pub mod audit;
