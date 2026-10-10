@@ -198,7 +198,7 @@
     "local": {
       "profile": "fast",
       "perAgent": {},
-      "acceptNcLicence": false
+      "acceptedLicences": {}
     },
     "localRealtime": {
       "enabled": false,
