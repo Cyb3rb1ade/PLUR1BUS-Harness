@@ -2,7 +2,7 @@
 // either "inherits" (the global value, shown) or set for this agent. Saves only the changed fields as
 // `agents.<id>.memory.mediaEmbedding.<field>` with ifRevision. Clearing a field writes null (see the note in docs/web-ui.md).
 import { h } from "preact";
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { PageLoading } from "../../components/page-state.ts";
 import { t, type Key } from "../../i18n.ts";
@@ -42,6 +42,8 @@ export function overrideChanges(agentId: string, before: OverrideFields, after: 
 }
 
 export function MediaOverride({ agentId, canManage }: { agentId: string; canManage: boolean }): View {
+  const [msg, setMsg] = useState<Msg>(null);
+  useEffect(() => { setMsg(null); }, [agentId]);
   const { state, reload } = useLoad(async (signal) => {
     const cfg = (await getApi().rpc("config.get", undefined, { write: false, signal })) as unknown;
     const o = isObj(cfg) ? cfg : {};
@@ -49,12 +51,15 @@ export function MediaOverride({ agentId, canManage }: { agentId: string; canMana
   }, [agentId]);
   if (state.status === "loading") return h(PageLoading, { label: t("state.loading") });
   if (state.status === "fail") return h(FailureState, { failure: state.failure, unavailable: t("mediasearch.override.unavailable"), onRetry: reload });
-  return h(Form, { key: `${agentId}:${state.data.revision}`, agentId, canManage, data: state.data, reload });
+  // The message lives here, not in Form: a successful save reloads the config, the new revision remounts Form (its key), and
+  // a message kept in Form would be dropped right after it was shown.
+  return h(Form, { key: `${agentId}:${state.data.revision}`, agentId, canManage, data: state.data, reload, msg, setMsg });
 }
 
-function Form({ agentId, canManage, data, reload }: { agentId: string; canManage: boolean; data: { revision: string; inherited: MediaDraft; own: OverrideFields }; reload: () => void }): View {
+type Msg = { tone: "ok" | "err"; text: string } | null;
+
+function Form({ agentId, canManage, data, reload, msg, setMsg }: { agentId: string; canManage: boolean; data: { revision: string; inherited: MediaDraft; own: OverrideFields }; reload: () => void; msg: Msg; setMsg: (m: Msg) => void }): View {
   const [draft, setDraft] = useState<OverrideFields>(data.own);
-  const [msg, setMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const inh = data.inherited;
   const changes = overrideChanges(agentId, data.own, draft);
