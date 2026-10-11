@@ -297,6 +297,7 @@ Assigned roles and explicit agent rights are read from `state/admin.sqlite` on e
 | `agent.rights.get`, `agent.rights.set` | `admin.agent.rights` | Owner, Admin |
 | `user.list`, `user.invite.list` | `admin.users.read` | Owner, Admin |
 | `user.role.set`, `user.invite.create`, `user.invite.revoke` | `admin.users.write` | Owner, Admin; ownership changes Owner only, last Owner protected |
+| `user.invite.redeem` | none (no principal yet) | Any connection that passed the core handshake; the one-time token is the credential, failures are rate-limited and uniform ([invites.md](invites.md)) |
 | `breakglass.request`, `breakglass.revoke` | `admin.breakglass.write` | Owner, Admin; library also enforces request/revoke rules |
 | `breakglass.list` | `admin.breakglass.read` | Owner, Admin; holder's grants only |
 | `breakglass.notices` | `admin.notices.read` | All five; affected person's own inbox only |

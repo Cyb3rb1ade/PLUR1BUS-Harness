@@ -1,0 +1,11 @@
+{
+  "jsonrpc": "2.0",
+  "id": 24,
+  "error": {
+    "code": -32000,
+    "message": "invitation is not valid",
+    "data": {
+      "error": "E_INVITE_INVALID"
+    }
+  }
+}

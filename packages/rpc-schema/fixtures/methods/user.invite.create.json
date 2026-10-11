@@ -2,7 +2,9 @@
   "params": {
     "displayName": "Alex",
     "role": "viewer",
-    "channel": "test"
+    "channel": "test",
+    "ttlMinutes": 1440,
+    "origin": "https://harness.example"
   },
   "result": {
     "id": "invite-fixture",
@@ -10,6 +12,7 @@
     "role": "viewer",
     "channel": "test",
     "expiresAt": 2000,
-    "code": "ABCD-EFGH"
+    "code": "ABCD-EFGH",
+    "link": "https://harness.example/#/invite/not-a-real-value"
   }
 }
