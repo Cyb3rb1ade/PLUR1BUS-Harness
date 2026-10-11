@@ -4,12 +4,14 @@ import { INBOX_KINDS, InboxStore, type InboxCounts, type InboxDraft, type InboxE
 
 export type InboxTarget = { userId: string } | { audience: "admins" };
 export type InboxNotice = Omit<InboxDraft, "userId"> & InboxTarget;
+/** `settle` may also close an entry for everyone who has it, when the producer does not know whose it was. */
+export type SettleTarget = InboxTarget | { audience: "all" };
 export interface InboxChange { userId: string; change: "created" | "read" | "dismissed" | "settled"; kinds: InboxKind[] }
 
 /** What a source module is given: one call to publish, one to close the entry again. Both are synchronous and never throw. */
 export interface InboxPort {
   publish(n: InboxNotice): void;
-  settle(target: InboxTarget, dedupeKey: string): void;
+  settle(target: SettleTarget, dedupeKey: string): void;
 }
 export interface InboxService extends InboxPort {
   list(userId: string, q: InboxListQuery): { entries: InboxEntry[]; nextCursor?: string };
@@ -50,10 +52,10 @@ export function createInboxService(o: InboxServiceOptions): InboxService {
     },
     settle(target, dedupeKey) {
       try {
-        for (const userId of users(target)) {
-          const kind = dedupeKey.split(":")[0] as InboxKind;
-          if (o.store.settle(userId, dedupeKey)) emit({ userId, change: "settled", kinds: INBOX_KINDS.includes(kind) ? [kind] : [] });
-        }
+        const kind = dedupeKey.split(":")[0] as InboxKind;
+        const kinds = INBOX_KINDS.includes(kind) ? [kind] : [];
+        const closed = "audience" in target && target.audience === "all" ? o.store.settleEverywhere(dedupeKey) : users(target as InboxTarget).filter(userId => o.store.settle(userId, dedupeKey));
+        for (const userId of new Set(closed)) emit({ userId, change: "settled", kinds });
       } catch (e) { log("inbox settle failed", { error: e instanceof Error ? e.message : String(e) }); }
     },
     list: (userId, q) => o.store.list(userId, q),

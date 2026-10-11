@@ -43,6 +43,7 @@ the core sent. The last two are raised by the CLI itself.
 | `E_APPROVAL_REQUIRED` | 2 | The operation waits for an approval or an acknowledgement (`reason` says which). A script must not treat it as success. |
 | `E_CONFLICT` | 1 | The operation conflicts with the current state (name taken, concurrent change). |
 | `E_PROJECT_WIP_LIMIT` | 1 | The active-card count would exceed the target column WIP limit. The whole board mutation rolls back; a human with project manage may explicitly request `overrideWip`. |
+| `E_INBOX_CURSOR` | 1 | An `inbox.list` cursor is malformed (`reason: inbox-cursor`). Start again without a cursor. |
 | `E_STORAGE` | 1 | A storage operation failed; `ids` may carry the ids needed to recover a half-finished step. |
 | `E_MEDIA_CAPABILITY` | 1 | The media index's provider or model cannot handle the modality (for example OpenAI embeddings in the media index). |
 | `E_MEDIA_LICENSE` | 1 | The licence of the media model has not been confirmed (for example a non-commercial licence). |

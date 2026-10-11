@@ -97,7 +97,7 @@ calls (**angebunden**). Every page shows only what the role may read, translates
 |---|---|---|
 | Agent pause/resume, archive/unarchive, export/delete (F39) | RPC and CLI available; delete safely reports missing engine erasure API | Done: bound (F39); the erasure limitation is displayed |
 | Users, role presets, invitation, use/manage matrix (F40) | RPC and CLI available, stored roles/rights, one-time Identity proof | Done: bound (F40) |
-| Break-Glass window and affected-person notice (F41) | RPC/CLI, durable self-scoped notices, audited transcript/user-memory reads | Done: request, list with remaining time, revoke (F41); inbox/live notice follows |
+| Break-Glass window and affected-person notice (F41) | RPC/CLI, durable self-scoped notices, audited transcript/user-memory reads | Done: request, list with remaining time, revoke (F41); inbox backend available (`inbox.*`, docs/inbox.md), inbox page follows |
 | Operator session overview (F42) | `session.list` owner/agent filters, explicit allOwners, owner/model/tokens/cost metadata | Done: filters and owner/model/usage columns (F42); transcripts stay behind Break-Glass |
 | Devices, QR payload and remote mode (F44) | Persistent device store, `device.list/revoke/rename`, CLI, `pairing.qr` and `remote.publish` available | Done: QR, device list, rename (own device) and revoke with confirmation that open connections close (F44) |
 
@@ -310,7 +310,7 @@ Numbers are stable; other documents refer to them.
 - **F27. State in the URL.** The router drops the query (`#/path?x` is read as `#/path`), so the chosen agent, search text, filters
   and `?focus=` are lost on reload and cannot be linked; the agent choice lives in memory only. (`?theme=` is read separately.)
 - **F28. Doctor file picker.** The text of the native file input follows the OS language, not the UI language.
-- **F29. Placeholders.** The Projects Kanban backend is available; its board UI remains follow-up. Eight pages (Projects, Inbox, Library, Skills, Plugins, Recurring, Approvals, Help) are placeholders; Switchboard is built.
+- **F29. Placeholders.** The Projects Kanban backend is available; its board UI remains follow-up. The Inbox backend (`inbox.list|count|markRead|dismiss`, `inbox.changed`, [inbox.md](inbox.md)) is available; its page is follow-up. Eight pages (Projects, Inbox, Library, Skills, Plugins, Recurring, Approvals, Help) are placeholders; Switchboard is built.
 
 ### M3 part 2
 

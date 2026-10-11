@@ -2,6 +2,7 @@
 // user, path, host, model or error text is ever a label (see registry.ts for how that is enforced).
 import { METHODS_BY_SERVER } from "@plur1bus/rpc-schema";
 import { createRegistry } from "./registry.ts";
+import { INBOX_KINDS } from "../inbox/store.ts";
 
 /** Result classes of an RPC call: `ok` or the error code folded into a stable class. */
 const RESULT_BY_CODE: Readonly<Record<string, string>> = {
@@ -37,6 +38,8 @@ export interface MetricsOptions {
 export interface Metrics {
   /** One finished RPC call: `result` is `ok` or the RPC error code; both are folded into enumerations. */
   rpcCall(method: string, result: string): void;
+  /** One inbox entry created; `kind` is the closed InboxKind set and the only label. */
+  inboxPublished(kind: string): void;
   /** One finished chat turn, `seconds` long. */
   turn(seconds: number, outcome: string): void;
   /** One failed provider call. */
@@ -52,7 +55,8 @@ export function createMetrics(o: MetricsOptions): Metrics {
   const rpc = r.counter("plur1bus_rpc_calls_total", "RPC calls handled by the core, by method and result class.", { method: METHODS_BY_SERVER.core, result: RESULTS }, { maxSeries: RPC_CALLS_MAX_SERIES });
   const turns = r.histogram("plur1bus_turn_duration_seconds", "Duration of chat turns, by outcome.", { outcome: TURN_OUTCOMES }, TURN_BUCKETS);
   const provErrors = r.counter("plur1bus_provider_errors_total", "Failed provider calls, by provider and failure kind.", { provider: PROVIDERS, kind: PROVIDER_ERROR_KINDS });
-  turns.initAll(); provErrors.initAll();
+  const inbox = r.counter("plur1bus_inbox_entries_total", "Inbox entries created, by kind.", { kind: INBOX_KINDS });
+  turns.initAll(); provErrors.initAll(); inbox.initAll();
 
   r.gaugeFn("plur1bus_process_resident_memory_bytes", "Resident set size of the core process.", () => mem().rss);
   r.gaugeFn("plur1bus_process_heap_used_bytes", "V8 heap in use.", () => mem().heapUsed);
@@ -66,6 +70,7 @@ export function createMetrics(o: MetricsOptions): Metrics {
   r.gaugeFn("plur1bus_core_uptime_seconds", "Seconds since the core started.", () => health().uptimeSeconds);
 
   return {
+    inboxPublished(kind) { if ((INBOX_KINDS as readonly string[]).includes(kind)) inbox.inc({ kind }); },
     rpcCall(method, result) { rpc.inc({ method, result: RESULT_BY_CODE[result] ?? "other" }); },
     turn(seconds, outcome) { turns.observe({ outcome: (TURN_OUTCOMES as readonly string[]).includes(outcome) ? outcome : "error" }, seconds); },
     providerError(provider, kind) { provErrors.inc({ provider, kind }); },

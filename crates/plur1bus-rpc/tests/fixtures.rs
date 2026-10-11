@@ -47,6 +47,10 @@ fn method_fixture(name: &str, f: &Value) {
         "project.column.delete" => {
             pair::<ProjectColumnDeleteParams, ProjectColumnDeleteResult>(name, f)
         }
+        "inbox.list" => pair::<InboxListParams, InboxListResult>(name, f),
+        "inbox.count" => pair::<InboxCountParams, InboxCountResult>(name, f),
+        "inbox.markRead" => pair::<InboxMarkReadParams, InboxMarkReadResult>(name, f),
+        "inbox.dismiss" => pair::<InboxDismissParams, InboxDismissResult>(name, f),
         "project.card.list" => pair::<ProjectCardListParams, ProjectCardListResult>(name, f),
         "project.card.get" => pair::<ProjectCardGetParams, BoardCard>(name, f),
         "project.card.create" => pair::<ProjectCardCreateParams, BoardCard>(name, f),
@@ -313,6 +317,7 @@ fn all_error_codes() -> BTreeSet<ErrorCode> {
         ErrorCode::EConflict,
         ErrorCode::EStorage,
         ErrorCode::EProjectWipLimit,
+        ErrorCode::EInboxCursor,
         ErrorCode::EMediaCapability,
         ErrorCode::EMediaLicense,
         ErrorCode::EMediaPrivacy,
@@ -338,6 +343,7 @@ fn all_error_codes() -> BTreeSet<ErrorCode> {
             | ErrorCode::EConflict
             | ErrorCode::EStorage
             | ErrorCode::EProjectWipLimit
+            | ErrorCode::EInboxCursor
             | ErrorCode::EMediaCapability
             | ErrorCode::EMediaLicense
             | ErrorCode::EMediaPrivacy
@@ -432,6 +438,7 @@ fn every_notification_fixture_round_trips() {
     assert!(!files.is_empty());
     for (name, v) in &files {
         match name.as_str() {
+            "inbox.changed" => round_trip::<types::InboxChangedNotification>(v, name),
             "project.card.changed" => round_trip::<types::ProjectCardChangedNotification>(v, name),
             "project.column.changed" => {
                 round_trip::<types::ProjectColumnChangedNotification>(v, name)

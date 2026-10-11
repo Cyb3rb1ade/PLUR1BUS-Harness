@@ -161,6 +161,12 @@ export class InboxStore {
     return this.#tx(() => list.reduce((n, id) => n + Number(this.db.prepare("UPDATE inbox_entries SET dismissed_at=?, read_at=COALESCE(read_at,?) WHERE user_id=? AND id=? AND dismissed_at IS NULL").run(now, now, userId, id).changes), 0));
   }
 
+  /** Like `settle` for everyone who has the entry; returns the people whose entry was closed. */
+  settleEverywhere(dedupeKey: string): string[] {
+    const now = this.#clock();
+    return (this.db.prepare("UPDATE inbox_entries SET dismissed_at=?, read_at=COALESCE(read_at,?) WHERE dedupe_key=? AND dismissed_at IS NULL RETURNING user_id").all(now, now, dedupeKey) as { user_id: string }[]).map(r => r.user_id);
+  }
+
   /** Producer side: the thing the entry was about is settled, so close it. True when an open entry was closed. */
   settle(userId: string, dedupeKey: string): boolean {
     const now = this.#clock();

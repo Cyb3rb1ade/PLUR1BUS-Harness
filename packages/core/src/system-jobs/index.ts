@@ -71,6 +71,8 @@ export interface CreateSystemJobsOptions {
   securePath: (p: string) => unknown;
   logger: { warn(m: string, f?: object): void };
   engineHasJob: (name: string) => boolean;
+  /** Called after a run was recorded as failed (the inbox's job-failed notice); never allowed to break the run. */
+  onFailed?: (run: { runId: string; job: string; reason?: string }) => void;
 }
 
 export function createSystemJobs(options: CreateSystemJobsOptions): SystemJobs {
@@ -157,6 +159,7 @@ export function createSystemJobs(options: CreateSystemJobsOptions): SystemJobs {
       };
 
       ledger.finish(record);
+      if (record.outcome === "failed") try { options.onFailed?.(record); } catch { /* notification only */ }
       return { record, detail: outcome.detail };
     } catch (err) {
       const finishedAt = options.clock.now();
@@ -177,6 +180,7 @@ export function createSystemJobs(options: CreateSystemJobsOptions): SystemJobs {
       };
 
       ledger.finish(failedRecord);
+      try { options.onFailed?.(failedRecord); } catch { /* notification only */ }
       throw err;
     } finally {
       inFlight.delete(runId);
