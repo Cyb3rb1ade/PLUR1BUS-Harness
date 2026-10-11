@@ -7,6 +7,9 @@ use plur1bus_desktop::{
     secrets::MemoryStore,
 };
 use std::{sync::Arc, time::Duration};
+// Podman's compat API answers kill/inspect only once the container has actually changed state, which can take
+// longer than a couple of seconds on slow runners; the runtime under test itself uses 300 s.
+const CLIENT_TIMEOUT_SECS: u64 = 120;
 static SERIAL: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 async fn run(engine: &str) {
     let _serial = SERIAL.lock().await;
@@ -54,7 +57,7 @@ async fn run(engine: &str) {
         #[cfg(unix)]
         Endpoint::Unix(path) => bollard::Docker::connect_with_unix(
             path.to_str().unwrap(),
-            2,
+            CLIENT_TIMEOUT_SECS,
             bollard::API_DEFAULT_VERSION,
         )
         .unwrap(),
@@ -66,8 +69,12 @@ async fn run(engine: &str) {
         Endpoint::Pipe(path) => {
             #[cfg(windows)]
             {
-                bollard::Docker::connect_with_named_pipe(path, 2, bollard::API_DEFAULT_VERSION)
-                    .unwrap()
+                bollard::Docker::connect_with_named_pipe(
+                    path,
+                    CLIENT_TIMEOUT_SECS,
+                    bollard::API_DEFAULT_VERSION,
+                )
+                .unwrap()
             }
             #[cfg(not(windows))]
             {
@@ -85,6 +92,7 @@ async fn run(engine: &str) {
         .started_at
         .expect("initial start timestamp");
     let watch = ctl.clone().spawn_watch();
+    let killed_at = std::time::Instant::now();
     client
         .kill_container(
             &i.container,
@@ -95,7 +103,13 @@ async fn run(engine: &str) {
             ),
         )
         .await
-        .unwrap();
+        .unwrap_or_else(|e| {
+            panic!(
+                "kill_container failed after {:?}: {e:?}",
+                killed_at.elapsed()
+            )
+        });
+    eprintln!("kill_container returned after {:?}", killed_at.elapsed());
     tokio::time::timeout(Duration::from_secs(120), async {
         loop {
             let restarted = client
