@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32000,
+    "message": "Voice request declined",
+    "data": {
+      "error": "E_VOICE_BUDGET",
+      "reason": "voice-check",
+      "detail": "autoRecall"
+    }
+  }
+}

@@ -14,6 +14,7 @@ export interface TalkOptions {
   signal: AbortSignal; language?: string; sampleRate?: number;
   vad?: { value: LoadedVad; release(): void };
   /** A trusted host surface owns playback; no provider event or error object is forwarded. */
+  transcript?: (text: string, final: boolean) => void;
   receive(chunk: AudioChunk): Promise<void>; stopPlayback?: () => void; event(event: TalkEvent): void;
   timers?: Pick<TurnDetectorOptions, 'setTimeout' | 'clearTimeout'>;
 }
@@ -80,7 +81,7 @@ export async function createTalkSession(o: TalkOptions): Promise<TalkSession> {
   const reader = (async () => { for await (const e of asr.events) {
     if (closed) break;
     if (e.type === 'final') o.metrics.feature(inputId, 'asr', Date.now() - endAt);
-    if (e.type === 'partial' || e.type === 'final') detector.push({ type: 'transcript', text: e.text, final: e.type === 'final' });
+    if (e.type === 'partial' || e.type === 'final') { o.transcript?.(e.text, e.type === 'final'); detector.push({ type: 'transcript', text: e.text, final: e.type === 'final' }); }
     else if (e.type === 'error') { cancel(); o.event({ type: 'voice.failed' }); }
   } })().catch(() => { cancel(); o.event({ type: 'voice.failed' }); });
   let closing: Promise<void> | undefined;

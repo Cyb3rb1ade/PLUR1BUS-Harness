@@ -242,6 +242,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -610,6 +669,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -978,6 +1096,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -1346,6 +1523,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -1714,6 +1950,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -2082,6 +2377,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -2450,6 +2804,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -2818,6 +3231,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -3186,6 +3658,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -3554,6 +4085,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -3922,6 +4512,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -4290,6 +4939,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -4658,6 +5366,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -5026,6 +5793,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -5394,6 +6220,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -5762,6 +6647,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -6130,6 +7074,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -6498,6 +7501,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -6866,6 +7928,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -7234,6 +8355,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -7602,6 +8782,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -7970,6 +9209,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -8338,6 +9636,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -8706,6 +10063,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -9074,6 +10490,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -9442,6 +10917,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -9810,6 +11344,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -10178,6 +11771,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -10546,6 +12198,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -10911,6 +12622,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,
@@ -11276,6 +13046,65 @@
         }
       },
       "voice": {
+        "v3": {
+          "language": "de",
+          "profile": "fast",
+          "profiles": {
+            "de": {
+              "fast": "piper-de-thorsten-low",
+              "quality": "kokoro-multi"
+            },
+            "en": {
+              "fast": "kokoro-multi",
+              "quality": "kokoro-multi"
+            }
+          },
+          "budgetMs": 1000,
+          "realtime": {
+            "enabled": false,
+            "endpointingMs": 500,
+            "speculative": false,
+            "ackSound": false,
+            "features": {
+              "autoRecall": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "promptEnrichment": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "reranker": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "decisionService": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "postTurnRefine": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "memoryWrite": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "compaction": {
+                "mode": "off",
+                "maxMs": 0
+              },
+              "toolSchemas": {
+                "mode": "off",
+                "maxMs": 0
+              }
+            }
+          },
+          "selectedProfiles": {
+            "de": "fast",
+            "en": "quality"
+          }
+        },
         "providers": {
           "elevenlabs": {
             "enabled": false,

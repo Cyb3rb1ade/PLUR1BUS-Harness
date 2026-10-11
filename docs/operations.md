@@ -140,3 +140,23 @@ create, move, unarchive or column-transfer mutation commits no changes. Move or
 archive another active card to free capacity, choose another target column, or
 have a human project lead deliberately request `overrideWip`. Agents cannot
 bypass the limit. See [Project board backend](projects-board.md).
+
+## Voice V3 diagnostics
+
+`plur1bus --json voice status` reads runtime availability and active sessions;
+`plur1bus --json voice models list` reads model installation and licence metadata.
+A missing trusted audio transport is `E_VOICE_UNAVAILABLE` with
+`reason=no-audio-transport`; attach the host's audio transport before opening a
+realtime session. Downloads use verified catalog packages and the egress policy.
+
+`E_VOICE_BUDGET` means the combined active feature budgets exceed
+`voice.v3.budgetMs`. Its `detail` / `ids.feature` name the first overflowing
+switch; reduce budgets or disable work before retrying. Deferred switches count
+too. Agent overrides inherit the installation's other features.
+
+`E_VOICE_LICENSE` on individual model installation requires the person's explicit
+acceptance of the current model licence (`licenseAccepted: true`).
+`E_VOICE_LICENCE` on UI language selection requires the exact
+`modelId@licenceId` in `acceptLicences` for every gated selected model. Neither
+error authorizes silently accepting terms or switching to a research-only voice.
+Installing a model never changes the selected language/profile.

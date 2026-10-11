@@ -1,0 +1,16 @@
+{
+  "params": {
+    "modelId": "kokoro-multi",
+    "licenseAccepted": true
+  },
+  "result": {
+    "model": {
+      "modelId": "kokoro-multi",
+      "role": "tts",
+      "sizeBytes": 349906910,
+      "licenceId": "Apache-2.0",
+      "needsConfirmation": false,
+      "installed": true
+    }
+  }
+}

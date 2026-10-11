@@ -49,6 +49,10 @@ A closed enum; the core puts the code into every error response as `error.data.e
 - `E_MEDIA_DIMENSION`
 - `E_MEDIA_UNSUPPORTED_KIND`
 - `E_PROJECT_WIP_LIMIT`
+- `E_VOICE_BUDGET`
+- `E_VOICE_LICENSE`
+- `E_VOICE_UNAVAILABLE`
+- `E_VOICE_LICENCE`
 
 ## Stability
 
@@ -64,6 +68,717 @@ A closed enum; the core puts the code into every error response as `error.data.e
 Everything else is experimental and may change in any minor release (ADR-016 §4).
 
 ## Methods
+
+### `voice.status`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Voice V3: voice.status. Reads are available to all five human roles; writes require Owner/Admin. Agents may read only their own override. Realtime and download events are connection-bound. E_VOICE_BUDGET identifies the overflowing feature; E_VOICE_LICENSE requires explicit licence acceptance; E_VOICE_UNAVAILABLE reports runtime/model unavailability.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "available": {
+      "type": "boolean"
+    },
+    "language": {
+      "enum": [
+        "de",
+        "en"
+      ]
+    },
+    "profile": {
+      "enum": [
+        "fast",
+        "quality"
+      ]
+    },
+    "activeSessions": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "budgetMs": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "available",
+    "language",
+    "profile",
+    "activeSessions",
+    "budgetMs"
+  ]
+}
+```
+
+### `voice.agent.override.get`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Voice V3: voice.agent.override.get. Reads are available to all five human roles; writes require Owner/Admin. Agents may read only their own override. Realtime and download events are connection-bound. E_VOICE_BUDGET identifies the overflowing feature; E_VOICE_LICENSE requires explicit licence acceptance; E_VOICE_UNAVAILABLE reports runtime/model unavailability.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    }
+  },
+  "required": [
+    "agentId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "override": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/VoiceOverride"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "effective": {
+      "$ref": "#/$defs/VoiceRealtimeProfile"
+    }
+  },
+  "required": [
+    "agentId",
+    "override",
+    "effective"
+  ]
+}
+```
+
+### `voice.agent.override.set`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Voice V3: voice.agent.override.set. Reads are available to all five human roles; writes require Owner/Admin. Agents may read only their own override. Realtime and download events are connection-bound. E_VOICE_BUDGET identifies the overflowing feature; E_VOICE_LICENSE requires explicit licence acceptance; E_VOICE_UNAVAILABLE reports runtime/model unavailability.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "override": {
+      "$ref": "#/$defs/VoiceOverride"
+    }
+  },
+  "required": [
+    "agentId",
+    "override"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "override": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/VoiceOverride"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "effective": {
+      "$ref": "#/$defs/VoiceRealtimeProfile"
+    }
+  },
+  "required": [
+    "agentId",
+    "override",
+    "effective"
+  ]
+}
+```
+
+### `voice.agent.override.clear`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Voice V3: voice.agent.override.clear. Reads are available to all five human roles; writes require Owner/Admin. Agents may read only their own override. Realtime and download events are connection-bound. E_VOICE_BUDGET identifies the overflowing feature; E_VOICE_LICENSE requires explicit licence acceptance; E_VOICE_UNAVAILABLE reports runtime/model unavailability.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    }
+  },
+  "required": [
+    "agentId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "override": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/VoiceOverride"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "effective": {
+      "$ref": "#/$defs/VoiceRealtimeProfile"
+    }
+  },
+  "required": [
+    "agentId",
+    "override",
+    "effective"
+  ]
+}
+```
+
+### `voice.realtime.start`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Voice V3: voice.realtime.start. Reads are available to all five human roles; writes require Owner/Admin. Agents may read only their own override. Realtime and download events are connection-bound. E_VOICE_BUDGET identifies the overflowing feature; E_VOICE_LICENSE requires explicit licence acceptance; E_VOICE_UNAVAILABLE reports runtime/model unavailability.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "chatSessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "agentId",
+    "chatSessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "state": {
+      "enum": [
+        "running"
+      ]
+    }
+  },
+  "required": [
+    "sessionId",
+    "state"
+  ]
+}
+```
+
+### `voice.realtime.stop`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Voice V3: voice.realtime.stop. Reads are available to all five human roles; writes require Owner/Admin. Agents may read only their own override. Realtime and download events are connection-bound. E_VOICE_BUDGET identifies the overflowing feature; E_VOICE_LICENSE requires explicit licence acceptance; E_VOICE_UNAVAILABLE reports runtime/model unavailability.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "state": {
+      "enum": [
+        "stopped"
+      ]
+    }
+  },
+  "required": [
+    "sessionId",
+    "state"
+  ]
+}
+```
+
+### `voice.models.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Voice V3: voice.models.list. Reads are available to all five human roles; writes require Owner/Admin. Agents may read only their own override. Realtime and download events are connection-bound. E_VOICE_BUDGET identifies the overflowing feature; E_VOICE_LICENSE requires explicit licence acceptance; E_VOICE_UNAVAILABLE reports runtime/model unavailability.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "models": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/VoiceModel"
+      }
+    }
+  },
+  "required": [
+    "models"
+  ]
+}
+```
+
+### `voice.models.install`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Voice V3: voice.models.install. Reads are available to all five human roles; writes require Owner/Admin. Agents may read only their own override. Realtime and download events are connection-bound. E_VOICE_BUDGET identifies the overflowing feature; E_VOICE_LICENSE requires explicit licence acceptance; E_VOICE_UNAVAILABLE reports runtime/model unavailability.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "modelId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "licenseAccepted": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "modelId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "$ref": "#/$defs/VoiceModel"
+    }
+  },
+  "required": [
+    "model"
+  ]
+}
+```
+
+### `voice.language.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Voice V3: voice.language.list. Reads are available to all five human roles; writes require Owner/Admin. Agents may read only their own override. Realtime and download events are connection-bound. E_VOICE_BUDGET identifies the overflowing feature; E_VOICE_LICENSE requires explicit licence acceptance; E_VOICE_UNAVAILABLE reports runtime/model unavailability.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    }
+  },
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "languages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/VoiceLanguage"
+      }
+    }
+  },
+  "required": [
+    "languages"
+  ]
+}
+```
+
+### `voice.language.get`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Voice V3: voice.language.get. Reads are available to all five human roles; writes require Owner/Admin. Agents may read only their own override. Realtime and download events are connection-bound. E_VOICE_BUDGET identifies the overflowing feature; E_VOICE_LICENSE requires explicit licence acceptance; E_VOICE_UNAVAILABLE reports runtime/model unavailability.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    }
+  },
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "language": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16
+    },
+    "profile": {
+      "$ref": "#/$defs/VoiceProfileName"
+    }
+  },
+  "required": [
+    "language",
+    "profile"
+  ]
+}
+```
+
+### `voice.language.set`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Voice V3: voice.language.set. Reads are available to all five human roles; writes require Owner/Admin. Agents may read only their own override. Realtime and download events are connection-bound. E_VOICE_BUDGET identifies the overflowing feature; E_VOICE_LICENSE requires explicit licence acceptance; E_VOICE_UNAVAILABLE reports runtime/model unavailability.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "language": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16
+    },
+    "profile": {
+      "$ref": "#/$defs/VoiceProfileName"
+    },
+    "acceptLicences": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    }
+  },
+  "required": [
+    "language",
+    "profile"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "ok": {
+      "const": true
+    },
+    "downloading": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "ok",
+    "downloading"
+  ]
+}
+```
+
+### `voice.realtime.profile.get`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Voice V3: voice.realtime.profile.get. Reads are available to all five human roles; writes require Owner/Admin. Agents may read only their own override. Realtime and download events are connection-bound. E_VOICE_BUDGET identifies the overflowing feature; E_VOICE_LICENSE requires explicit licence acceptance; E_VOICE_UNAVAILABLE reports runtime/model unavailability.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    }
+  },
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/VoiceRealtimeProfile"
+}
+```
+
+### `voice.realtime.profile.set`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Voice V3: voice.realtime.profile.set. Reads are available to all five human roles; writes require Owner/Admin. Agents may read only their own override. Realtime and download events are connection-bound. E_VOICE_BUDGET identifies the overflowing feature; E_VOICE_LICENSE requires explicit licence acceptance; E_VOICE_UNAVAILABLE reports runtime/model unavailability.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "enabled": {
+      "type": "boolean"
+    },
+    "endpointingMs": {
+      "type": "integer",
+      "minimum": 200,
+      "maximum": 2000
+    },
+    "speculative": {
+      "type": "boolean"
+    },
+    "ackSound": {
+      "type": "boolean"
+    },
+    "features": {
+      "$ref": "#/$defs/VoiceFeatures"
+    },
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    }
+  },
+  "required": [
+    "enabled",
+    "endpointingMs",
+    "speculative",
+    "ackSound",
+    "features"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/VoiceRealtimeProfile"
+}
+```
+
+### `voice.metrics.get`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Voice V3: voice.metrics.get. Reads are available to all five human roles; writes require Owner/Admin. Agents may read only their own override. Realtime and download events are connection-bound. E_VOICE_BUDGET identifies the overflowing feature; E_VOICE_LICENSE requires explicit licence acceptance; E_VOICE_UNAVAILABLE reports runtime/model unavailability.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    }
+  },
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/VoiceMetrics"
+}
+```
 
 ### `project.column.list`
 
@@ -12052,6 +12767,138 @@ D109 §6: verifies the HMAC-SHA256 chain of the approval store (the `1staid chec
 
 Delivered on the same connection to clients that called `events.subscribe`.
 
+### `voice.realtime.state`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private Voice V3 event; delivered only to authenticated connections in the originating audience.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "state": {
+      "enum": [
+        "starting",
+        "running",
+        "stopped",
+        "failed"
+      ]
+    }
+  },
+  "required": [
+    "sessionId",
+    "agentId",
+    "state"
+  ],
+  "x-stability": "experimental",
+  "x-since": "1.6.0",
+  "x-server": "core",
+  "description": "Private Voice V3 event; delivered only to authenticated connections in the originating audience."
+}
+```
+
+### `voice.realtime.transcript`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private Voice V3 event; delivered only to authenticated connections in the originating audience.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 32768
+    },
+    "final": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "sessionId",
+    "agentId",
+    "text",
+    "final"
+  ],
+  "x-stability": "experimental",
+  "x-since": "1.6.0",
+  "x-server": "core",
+  "description": "Private Voice V3 event; delivered only to authenticated connections in the originating audience."
+}
+```
+
+### `voice.download.progress`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private Voice V3 event; delivered only to authenticated connections in the originating audience.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "modelId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "receivedBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "totalBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "done": {
+      "type": "boolean"
+    },
+    "error": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "modelId",
+    "receivedBytes",
+    "totalBytes",
+    "done"
+  ],
+  "x-stability": "experimental",
+  "x-since": "1.6.0",
+  "x-server": "core",
+  "description": "Private Voice V3 event; delivered only to authenticated connections in the originating audience."
+}
+```
+
 ### `project.card.changed`
 
 **Stability:** experimental · since 1.6.0
@@ -13065,6 +13912,707 @@ D109 §4: a grant was created or revoked (use, expiry and suspension are not not
 
 Shared `$defs` referenced above as `#/$defs/<Name>`.
 
+### `VoiceProfileName`
+
+```json
+{
+  "enum": [
+    "fast",
+    "quality"
+  ]
+}
+```
+
+### `VoiceFeatureName`
+
+```json
+{
+  "enum": [
+    "autoRecall",
+    "promptEnrichment",
+    "reranker",
+    "decisionService",
+    "postTurnRefine",
+    "memoryWrite",
+    "compaction",
+    "toolSchemas"
+  ]
+}
+```
+
+### `VoiceFeatureMode`
+
+```json
+{
+  "enum": [
+    "on",
+    "deferred",
+    "off",
+    "reduced"
+  ]
+}
+```
+
+### `VoiceFeatureEffective`
+
+```json
+{
+  "enum": [
+    "applied",
+    "engine-fixed"
+  ]
+}
+```
+
+### `VoiceFeatureSetting`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "mode": {
+      "enum": [
+        "on",
+        "deferred",
+        "off",
+        "reduced"
+      ]
+    },
+    "maxMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 60000
+    }
+  },
+  "required": [
+    "mode"
+  ]
+}
+```
+
+### `VoiceFeatures`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "autoRecall": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "on",
+            "deferred",
+            "off",
+            "reduced"
+          ]
+        },
+        "maxMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        }
+      },
+      "required": [
+        "mode"
+      ]
+    },
+    "promptEnrichment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "on",
+            "deferred",
+            "off",
+            "reduced"
+          ]
+        },
+        "maxMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        }
+      },
+      "required": [
+        "mode"
+      ]
+    },
+    "reranker": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "on",
+            "deferred",
+            "off",
+            "reduced"
+          ]
+        },
+        "maxMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        }
+      },
+      "required": [
+        "mode"
+      ]
+    },
+    "decisionService": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "on",
+            "deferred",
+            "off",
+            "reduced"
+          ]
+        },
+        "maxMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        }
+      },
+      "required": [
+        "mode"
+      ]
+    },
+    "postTurnRefine": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "on",
+            "deferred",
+            "off",
+            "reduced"
+          ]
+        },
+        "maxMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        }
+      },
+      "required": [
+        "mode"
+      ]
+    },
+    "memoryWrite": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "on",
+            "deferred",
+            "off",
+            "reduced"
+          ]
+        },
+        "maxMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        }
+      },
+      "required": [
+        "mode"
+      ]
+    },
+    "compaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "on",
+            "deferred",
+            "off",
+            "reduced"
+          ]
+        },
+        "maxMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        }
+      },
+      "required": [
+        "mode"
+      ]
+    },
+    "toolSchemas": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "on",
+            "deferred",
+            "off",
+            "reduced"
+          ]
+        },
+        "maxMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        }
+      },
+      "required": [
+        "mode"
+      ]
+    }
+  },
+  "required": [
+    "autoRecall",
+    "promptEnrichment",
+    "reranker",
+    "decisionService",
+    "postTurnRefine",
+    "memoryWrite",
+    "compaction",
+    "toolSchemas"
+  ]
+}
+```
+
+### `VoiceFeatureState`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "mode": {
+      "enum": [
+        "on",
+        "deferred",
+        "off",
+        "reduced"
+      ]
+    },
+    "maxMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 60000
+    },
+    "effective": {
+      "$ref": "#/$defs/VoiceFeatureEffective"
+    }
+  },
+  "required": [
+    "mode",
+    "effective"
+  ]
+}
+```
+
+### `VoiceRealtimeProfileInput`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "enabled": {
+      "type": "boolean"
+    },
+    "endpointingMs": {
+      "type": "integer",
+      "minimum": 200,
+      "maximum": 2000
+    },
+    "speculative": {
+      "type": "boolean"
+    },
+    "ackSound": {
+      "type": "boolean"
+    },
+    "features": {
+      "$ref": "#/$defs/VoiceFeatures"
+    }
+  },
+  "required": [
+    "enabled",
+    "endpointingMs",
+    "speculative",
+    "ackSound",
+    "features"
+  ]
+}
+```
+
+### `VoiceRealtimeProfile`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "enabled": {
+      "type": "boolean"
+    },
+    "endpointingMs": {
+      "type": "integer",
+      "minimum": 200,
+      "maximum": 2000
+    },
+    "speculative": {
+      "type": "boolean"
+    },
+    "ackSound": {
+      "type": "boolean"
+    },
+    "features": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "autoRecall": {
+          "$ref": "#/$defs/VoiceFeatureState"
+        },
+        "promptEnrichment": {
+          "$ref": "#/$defs/VoiceFeatureState"
+        },
+        "reranker": {
+          "$ref": "#/$defs/VoiceFeatureState"
+        },
+        "decisionService": {
+          "$ref": "#/$defs/VoiceFeatureState"
+        },
+        "postTurnRefine": {
+          "$ref": "#/$defs/VoiceFeatureState"
+        },
+        "memoryWrite": {
+          "$ref": "#/$defs/VoiceFeatureState"
+        },
+        "compaction": {
+          "$ref": "#/$defs/VoiceFeatureState"
+        },
+        "toolSchemas": {
+          "$ref": "#/$defs/VoiceFeatureState"
+        }
+      },
+      "required": [
+        "autoRecall",
+        "promptEnrichment",
+        "reranker",
+        "decisionService",
+        "postTurnRefine",
+        "memoryWrite",
+        "compaction",
+        "toolSchemas"
+      ]
+    }
+  },
+  "required": [
+    "enabled",
+    "endpointingMs",
+    "speculative",
+    "ackSound",
+    "features"
+  ]
+}
+```
+
+### `VoiceOverride`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "language": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16
+    },
+    "profile": {
+      "enum": [
+        "fast",
+        "quality"
+      ]
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "endpointingMs": {
+      "type": "integer",
+      "minimum": 200,
+      "maximum": 2000
+    },
+    "speculative": {
+      "type": "boolean"
+    },
+    "ackSound": {
+      "type": "boolean"
+    },
+    "features": {
+      "$ref": "#/$defs/VoiceFeatureOverrides"
+    }
+  },
+  "required": []
+}
+```
+
+### `VoiceModel`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "modelId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "role": {
+      "enum": [
+        "asr",
+        "tts",
+        "vad"
+      ]
+    },
+    "sizeBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "licenceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "needsConfirmation": {
+      "type": "boolean"
+    },
+    "installed": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "modelId",
+    "role",
+    "sizeBytes",
+    "licenceId",
+    "needsConfirmation",
+    "installed"
+  ]
+}
+```
+
+### `VoiceProfileModels`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "models": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/VoiceModel"
+      }
+    }
+  },
+  "required": [
+    "models"
+  ]
+}
+```
+
+### `VoiceLanguage`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "language": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16
+    },
+    "profiles": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fast": {
+          "$ref": "#/$defs/VoiceProfileModels"
+        },
+        "quality": {
+          "$ref": "#/$defs/VoiceProfileModels"
+        }
+      },
+      "required": []
+    }
+  },
+  "required": [
+    "language",
+    "profiles"
+  ]
+}
+```
+
+### `VoiceDownloadProgress`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "modelId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "receivedBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "totalBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "done": {
+      "type": "boolean"
+    },
+    "error": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "modelId",
+    "receivedBytes",
+    "totalBytes",
+    "done"
+  ]
+}
+```
+
+### `VoiceMetrics`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "speechEndToFirstAudio": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "medianMs": {
+          "type": "number",
+          "minimum": 0
+        },
+        "p95Ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "samples": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "medianMs",
+        "p95Ms",
+        "samples"
+      ]
+    },
+    "featureCost": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "medianMs": {
+            "type": "number",
+            "minimum": 0
+          },
+          "p95Ms": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "medianMs",
+          "p95Ms"
+        ]
+      }
+    },
+    "windowSec": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "required": [
+    "speechEndToFirstAudio",
+    "featureCost",
+    "windowSec"
+  ]
+}
+```
+
+### `VoiceFeatureOverrides`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "autoRecall": {
+      "$ref": "#/$defs/VoiceFeatureSetting"
+    },
+    "promptEnrichment": {
+      "$ref": "#/$defs/VoiceFeatureSetting"
+    },
+    "reranker": {
+      "$ref": "#/$defs/VoiceFeatureSetting"
+    },
+    "decisionService": {
+      "$ref": "#/$defs/VoiceFeatureSetting"
+    },
+    "postTurnRefine": {
+      "$ref": "#/$defs/VoiceFeatureSetting"
+    },
+    "memoryWrite": {
+      "$ref": "#/$defs/VoiceFeatureSetting"
+    },
+    "compaction": {
+      "$ref": "#/$defs/VoiceFeatureSetting"
+    },
+    "toolSchemas": {
+      "$ref": "#/$defs/VoiceFeatureSetting"
+    }
+  }
+}
+```
+
+### `VoiceErrorCode`
+
+```json
+{
+  "enum": [
+    "E_VOICE_LICENCE",
+    "E_VOICE_LICENSE",
+    "E_VOICE_BUDGET",
+    "E_VOICE_UNAVAILABLE"
+  ]
+}
+```
+
 ### `BoardActor`
 
 ```json
@@ -13481,7 +15029,11 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "E_MEDIA_UNAVAILABLE",
     "E_MEDIA_DIMENSION",
     "E_MEDIA_UNSUPPORTED_KIND",
-    "E_PROJECT_WIP_LIMIT"
+    "E_PROJECT_WIP_LIMIT",
+    "E_VOICE_BUDGET",
+    "E_VOICE_LICENSE",
+    "E_VOICE_UNAVAILABLE",
+    "E_VOICE_LICENCE"
   ]
 }
 ```

@@ -1,0 +1,14 @@
+{
+  "params": {
+    "language": "de",
+    "profile": "fast",
+    "agentId": "main",
+    "acceptLicences": [
+      "kokoro-multi@Apache-2.0"
+    ]
+  },
+  "result": {
+    "ok": true,
+    "downloading": false
+  }
+}

@@ -245,7 +245,7 @@ test("media surfaces: fake adapter -> durable store -> gallery result, budget/po
       return this.generate(r, c);
     },
   };
-  const events: { method: string; audience: readonly string[] | undefined }[] =
+  const events: { method: string; audience: import("../../src/rpc/server.ts").NotifyOptions["audience"] }[] =
     [];
   const surface = createMediaSurface({
     home,

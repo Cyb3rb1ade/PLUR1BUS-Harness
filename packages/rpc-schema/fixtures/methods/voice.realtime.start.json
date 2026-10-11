@@ -1,0 +1,10 @@
+{
+  "params": {
+    "agentId": "main",
+    "chatSessionId": "chat-main"
+  },
+  "result": {
+    "sessionId": "voice-main",
+    "state": "running"
+  }
+}

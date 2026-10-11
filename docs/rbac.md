@@ -363,3 +363,22 @@ object checks do not require an additional unrelated token scope.
 Events reauthorize stored membership and read scopes for each recipient. The
 WebMCP provider blocks `project.column.` even on explicit inclusion; workflow
 structure and WIP policy remain human-managed.
+
+
+## Voice V3
+
+Every human role (Owner, Admin, Operator, Member, Viewer) may read the canonical
+Voice UI RPCs and model/status metadata. Owner/Admin alone may write language
+selection, realtime profiles, sparse agent overrides, install models, or start /
+stop realtime sessions. Agent principals may only read their own
+`voice.agent.override.get`; the authenticated agent identity must equal `agentId`.
+The Voice surface resolves and checks identity before any config, disk or network
+mutation. Token scopes further narrow these grants through `voice.read`,
+`voice.write`, and `voice.override.read` (`voice.*` includes them).
+
+Realtime state/transcripts and download progress target only the originating
+connection and require named event subscriptions; foreign persons and agents
+cannot receive them through unfiltered subscriptions. A foreign voice session
+cannot be stopped, including by another Owner/Admin. The seven Voice write RPCs
+are blocked by the existing WebMCP forbidden-method list. Licence acceptance
+is an explicit request for the specific current model licence, never a default.

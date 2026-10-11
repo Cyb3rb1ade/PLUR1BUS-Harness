@@ -1,0 +1,98 @@
+{
+  "params": {
+    "agentId": "main"
+  },
+  "result": {
+    "agentId": "main",
+    "override": {
+      "enabled": false,
+      "endpointingMs": 500,
+      "speculative": false,
+      "ackSound": false,
+      "features": {
+        "autoRecall": {
+          "mode": "off",
+          "maxMs": 0
+        },
+        "promptEnrichment": {
+          "mode": "off",
+          "maxMs": 0
+        },
+        "reranker": {
+          "mode": "off",
+          "maxMs": 0
+        },
+        "decisionService": {
+          "mode": "off",
+          "maxMs": 0
+        },
+        "postTurnRefine": {
+          "mode": "off",
+          "maxMs": 0
+        },
+        "memoryWrite": {
+          "mode": "off",
+          "maxMs": 0
+        },
+        "compaction": {
+          "mode": "off",
+          "maxMs": 0
+        },
+        "toolSchemas": {
+          "mode": "off",
+          "maxMs": 0
+        }
+      },
+      "language": "en",
+      "profile": "quality"
+    },
+    "effective": {
+      "enabled": false,
+      "endpointingMs": 500,
+      "speculative": false,
+      "ackSound": false,
+      "features": {
+        "autoRecall": {
+          "mode": "off",
+          "maxMs": 0,
+          "effective": "applied"
+        },
+        "promptEnrichment": {
+          "mode": "off",
+          "maxMs": 0,
+          "effective": "applied"
+        },
+        "reranker": {
+          "mode": "off",
+          "maxMs": 0,
+          "effective": "engine-fixed"
+        },
+        "decisionService": {
+          "mode": "off",
+          "maxMs": 0,
+          "effective": "applied"
+        },
+        "postTurnRefine": {
+          "mode": "off",
+          "maxMs": 0,
+          "effective": "engine-fixed"
+        },
+        "memoryWrite": {
+          "mode": "off",
+          "maxMs": 0,
+          "effective": "applied"
+        },
+        "compaction": {
+          "mode": "off",
+          "maxMs": 0,
+          "effective": "applied"
+        },
+        "toolSchemas": {
+          "mode": "off",
+          "maxMs": 0,
+          "effective": "applied"
+        }
+      }
+    }
+  }
+}

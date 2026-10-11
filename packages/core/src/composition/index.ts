@@ -40,8 +40,9 @@ import { composeMediaSearch, mediaSearchMethods } from './media-search.ts';
 
 export interface CompositionOptions {
   /** Trusted in-process surfaces register here; no auth RPC is added. */
+  voiceAudio?: import("../voice/v3.ts").VoiceV3Deps["audio"];
   onOpenAI?: (auth: import('../openai-auth/service.ts').AuthService) => void;
-  onVoice?: (voice: import("../voice/runtime.ts").VoiceRuntime & Partial<Pick<VoiceRuntime, "openTalk" | "metrics" | "renderMetrics">>) => void;
+  onVoice?: (voice: import("../voice/runtime.ts").VoiceRuntime & Partial<Pick<VoiceRuntime, "openTalk" | "metrics" | "renderMetrics" | "v3">>) => void;
   definitions?: Readonly<Record<string, ProviderDefinition>>;
   fetch?: typeof fetch;
   providers?: Pick<TurnProviderOptions, 'profiles' | 'family' | 'router' | 'onPrompt' | 'maxTokens' | 'topK' | 'maxRounds' | 'billing'>;
@@ -50,6 +51,8 @@ export interface CompositionOptions {
   tools?: Partial<Pick<ToolCompositionOptions, 'roots' | 'deny' | 'exec' | 'host' | 'extra' | 'mcp' | 'media'>>;
 }
 export interface CompositionDeps {
+  voiceConfigSource?: import("../voice/v3.ts").VoiceV3Deps["set"];
+  resolvePrincipal?: import("../rbac/guard.ts").PrincipalResolver;
   home: string; config: () => HarnessConfig; engine: Engine; agents: AgentRegistry; logger: HarnessLogger;
   /** Already admitted turns retain memory access if the agent is paused while their reply is running. */
   memoryAgents?: AgentRegistry;

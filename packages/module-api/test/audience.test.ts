@@ -27,7 +27,7 @@ it('audiences isolate connections and persons, fail closed, and preserve events 
     people.set(ids[0]!, 'alice'); people.set(ids[1]!, 'bob');
     const received: string[][] = [[], [], []]; clients.forEach((c,i) => c.onNotification(name => received[i]!.push(name)));
     await clients[0]!.call('events.subscribe', {}); await clients[1]!.call('events.subscribe', {});
-    await clients[2]!.call('events.subscribe', { agentId: 'other-agent' });
+    await clients[2]!.call('events.subscribe', { agentId: 'main' });
     const transcript = { sessionId: 'voice-main', agentId: 'main', text: 'Private words', final: true };
     server.notify('voice.realtime.transcript', transcript, { audience: [{ connectionId: ids[0]! }] });
     await delay(25); assert.deepEqual(received, [['voice.realtime.transcript'], [], []]);
@@ -35,9 +35,9 @@ it('audiences isolate connections and persons, fail closed, and preserve events 
     await delay(25); assert.deepEqual(received, [['voice.realtime.transcript'], ['voice.realtime.transcript'], []]);
     server.notify('voice.realtime.transcript', transcript, { audience: [] });
     server.notify('voice.realtime.transcript', transcript, { audience: [{ personId: 'unknown' }] });
-    server.notify('voice.realtime.transcript', transcript, { audience: ['main'] });
+    server.notify('voice.realtime.transcript', transcript, { audience: ['unassigned-agent'] });
     await delay(25); assert.deepEqual(received, [['voice.realtime.transcript'], ['voice.realtime.transcript'], []]);
-    server.notify('agent.activity', { agentId: 'other-agent', activity: { state: 'idle', since: 0 } });
+    server.notify('agent.activity', { agentId: 'main', activity: { state: 'idle', since: 0 } });
     await delay(25); assert.deepEqual(received.map(r => r.at(-1)), ['agent.activity','agent.activity','agent.activity']);
     let release!: (id: string) => void; pendingIdentity = new Promise(resolve => { release = resolve; });
     server.notify('voice.realtime.transcript', transcript, { audience: [{ personId: 'alice' }] });

@@ -36,6 +36,10 @@ the core sent. The last two are raised by the CLI itself.
 | `E_AGENT_UNKNOWN` | 1 | The named agent is not registered. |
 | `E_CONFIG_INVALID` | 1 | A configuration value or file does not validate against the schema. |
 | `E_MODULE_UNKNOWN` | 1 | The named module does not exist. |
+| `E_VOICE_BUDGET` | 1 | Voice feature budgets exceed `voice.v3.budgetMs`; `detail` and `ids.feature` identify the first overflowing switch, `ids.totalMs` and `ids.budgetMs` give the totals. Nothing is saved. |
+| `E_VOICE_LICENSE` | 1 | `voice.models.install` needs explicit `licenseAccepted: true` for the model's current research-only, non-commercial or unconfirmed licence. No download starts. |
+| `E_VOICE_LICENCE` | 1 | The canonical UI's `voice.language.set` needs the exact `modelId@licenceId` in `acceptLicences`. No download starts until all selected model licences are accepted. |
+| `E_VOICE_UNAVAILABLE` | 1 | A verified model package, realtime provider, capacity or trusted audio transport is unavailable. Raw provider errors are withheld. |
 | `E_INTERNAL` | 1 | An unexpected failure inside the CLI or the core. |
 | `E_LOCKED` | 3 | The store or a lock is held by another process. |
 | `E_NOT_FOUND` | 1 | The named object (entry, session, extension, ...) does not exist. |

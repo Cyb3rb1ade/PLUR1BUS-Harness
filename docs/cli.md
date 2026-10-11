@@ -133,6 +133,22 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus model list`↴](#plur1bus-model-list)
 * [`plur1bus model scan`↴](#plur1bus-model-scan)
 * [`plur1bus model override`↴](#plur1bus-model-override)
+* [`plur1bus voice`↴](#plur1bus-voice)
+* [`plur1bus voice status`↴](#plur1bus-voice-status)
+* [`plur1bus voice profile`↴](#plur1bus-voice-profile)
+* [`plur1bus voice profile list`↴](#plur1bus-voice-profile-list)
+* [`plur1bus voice profile get`↴](#plur1bus-voice-profile-get)
+* [`plur1bus voice profile set`↴](#plur1bus-voice-profile-set)
+* [`plur1bus voice features`↴](#plur1bus-voice-features)
+* [`plur1bus voice features get`↴](#plur1bus-voice-features-get)
+* [`plur1bus voice features set`↴](#plur1bus-voice-features-set)
+* [`plur1bus voice override`↴](#plur1bus-voice-override)
+* [`plur1bus voice override get`↴](#plur1bus-voice-override-get)
+* [`plur1bus voice override set`↴](#plur1bus-voice-override-set)
+* [`plur1bus voice override clear`↴](#plur1bus-voice-override-clear)
+* [`plur1bus voice models`↴](#plur1bus-voice-models)
+* [`plur1bus voice models list`↴](#plur1bus-voice-models-list)
+* [`plur1bus voice models install`↴](#plur1bus-voice-models-install)
 * [`plur1bus budget`↴](#plur1bus-budget)
 * [`plur1bus budget status`↴](#plur1bus-budget-status)
 * [`plur1bus budget set`↴](#plur1bus-budget-set)
@@ -279,6 +295,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `update` — [experimental] Apply a signed release with snapshot, health gate and automatic rollback; `--check` shows the plan, `--rollback` undoes the last update
 * `user` — [experimental] Humans and their linked channel identities: list, add, pair, link, unlink
 * `model` — [experimental] Models and provider profiles: list, scan and override
+* `voice` — [experimental] Voice: language profiles, realtime features, agent overrides and licensed models
 * `budget` — [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
 * `audit` — [experimental] Audit trail: verify the hash-chained audit file (B5)
 * `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
@@ -2127,6 +2144,214 @@ One-time invitations through the existing identity pairing path
 * `--clear-all`
 * `--create`
 * `--remove`
+
+
+
+## `plur1bus voice`
+
+[experimental] Voice: language profiles, realtime features, agent overrides and licensed models
+
+**Usage:** `plur1bus voice <COMMAND>`
+
+###### **Subcommands:**
+
+* `status` — [experimental] Read voice availability and session count
+* `profile` — [experimental] Read or select a language and fast/quality profile
+* `features` — [experimental] Read or set the realtime profile and its eight feature budgets
+* `override` — [experimental] Read, replace or clear a sparse per-agent voice override
+* `models` — [experimental] List models or install one after licence confirmation
+
+
+
+## `plur1bus voice status`
+
+[experimental] Read voice availability and session count
+
+**Usage:** `plur1bus voice status`
+
+
+
+## `plur1bus voice profile`
+
+[experimental] Read or select a language and fast/quality profile
+
+**Usage:** `plur1bus voice profile <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List languages and profile models
+* `get` — [experimental] Read the selected language/profile
+* `set` — [experimental] Select a language/profile, installing the verified model packages
+
+
+
+## `plur1bus voice profile list`
+
+[experimental] List languages and profile models
+
+**Usage:** `plur1bus voice profile list`
+
+
+
+## `plur1bus voice profile get`
+
+[experimental] Read the selected language/profile
+
+**Usage:** `plur1bus voice profile get [OPTIONS]`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+
+
+## `plur1bus voice profile set`
+
+[experimental] Select a language/profile, installing the verified model packages
+
+**Usage:** `plur1bus voice profile set [OPTIONS] --language <LANGUAGE> --profile <PROFILE>`
+
+###### **Options:**
+
+* `--language <LANGUAGE>`
+
+  Possible values: `de`, `en`
+
+* `--profile <PROFILE>`
+
+  Possible values: `fast`, `quality`
+
+* `--agent <AGENT>`
+* `--accept-licence <ACCEPT_LICENCE>` — [experimental] Confirm exactly MODEL_ID@LICENCE_ID; repeatable
+
+
+
+## `plur1bus voice features`
+
+[experimental] Read or set the realtime profile and its eight feature budgets
+
+**Usage:** `plur1bus voice features <COMMAND>`
+
+###### **Subcommands:**
+
+* `get` — [experimental] Read the effective realtime profile
+* `set` — [experimental] Set the realtime profile (JSON object: enabled, endpointingMs, speculative, ackSound, features)
+
+
+
+## `plur1bus voice features get`
+
+[experimental] Read the effective realtime profile
+
+**Usage:** `plur1bus voice features get [OPTIONS]`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+
+
+## `plur1bus voice features set`
+
+[experimental] Set the realtime profile (JSON object: enabled, endpointingMs, speculative, ackSound, features)
+
+**Usage:** `plur1bus voice features set [OPTIONS] --value <VALUE>`
+
+###### **Options:**
+
+* `--value <VALUE>`
+* `--agent <AGENT>`
+
+
+
+## `plur1bus voice override`
+
+[experimental] Read, replace or clear a sparse per-agent voice override
+
+**Usage:** `plur1bus voice override <COMMAND>`
+
+###### **Subcommands:**
+
+* `get` — [experimental] Read the agent override and effective profile
+* `set` — [experimental] Replace the sparse agent override with a JSON object; absent keys inherit
+* `clear` — [experimental] Clear the agent override
+
+
+
+## `plur1bus voice override get`
+
+[experimental] Read the agent override and effective profile
+
+**Usage:** `plur1bus voice override get <AGENT>`
+
+###### **Arguments:**
+
+* `<AGENT>`
+
+
+
+## `plur1bus voice override set`
+
+[experimental] Replace the sparse agent override with a JSON object; absent keys inherit
+
+**Usage:** `plur1bus voice override set --value <VALUE> <AGENT>`
+
+###### **Arguments:**
+
+* `<AGENT>`
+
+###### **Options:**
+
+* `--value <VALUE>`
+
+
+
+## `plur1bus voice override clear`
+
+[experimental] Clear the agent override
+
+**Usage:** `plur1bus voice override clear <AGENT>`
+
+###### **Arguments:**
+
+* `<AGENT>`
+
+
+
+## `plur1bus voice models`
+
+[experimental] List models or install one after licence confirmation
+
+**Usage:** `plur1bus voice models <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List model licences and installation state
+* `install` — [experimental] Install a verified model package
+
+
+
+## `plur1bus voice models list`
+
+[experimental] List model licences and installation state
+
+**Usage:** `plur1bus voice models list`
+
+
+
+## `plur1bus voice models install`
+
+[experimental] Install a verified model package
+
+**Usage:** `plur1bus voice models install [OPTIONS] <MODEL>`
+
+###### **Arguments:**
+
+* `<MODEL>`
+
+###### **Options:**
+
+* `--license-accepted` — [experimental] Explicitly accept this model's current licence (required for research-only/unconfirmed licences)
 
 
 

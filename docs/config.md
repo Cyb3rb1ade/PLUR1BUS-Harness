@@ -155,6 +155,13 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `channels.telegram.maxMediaBytes` | integer | `20971520` | module:telegram | Largest attachment accepted or sent, in bytes (1..20 MiB). |
 | `channels.telegram.pollTimeoutSec` | integer | `30` | module:telegram | Long polling timeout in seconds (1..60). |
 | `channels.telegram.maxSendRetries` | integer | `3` | module:telegram | Maximum retries on 429 rate limit or transient network errors. |
+| `voice.v3.language` | enum | `"de"` | live | Voice V3 language. |
+| `voice.v3.profile` | enum | `"fast"` | live | Voice V3 profile. |
+| `voice.v3.profiles` | object | `{}` | live | Voice V3 profiles. |
+| `voice.v3.budgetMs` | integer | `1000` | live | Voice V3 budgetMs. |
+| `voice.v3.realtime` | object | `{}` | live | Voice V3 realtime. |
+| `voice.v3.selectedProfiles.de` | enum | `"fast"` | live | Selected profile for de. |
+| `voice.v3.selectedProfiles.en` | enum | `"quality"` | live | Selected profile for en. |
 | `voice.providers.elevenlabs.enabled` | boolean | `false` | live | Whether ElevenLabs may be used. Off until enabled and given an apiKeyRef. |
 | `voice.providers.elevenlabs.apiKeyRef` | string |  | live | Secret-store reference holding the ElevenLabs API key. |
 | `voice.providers.elevenlabs.region` | enum | `"default"` | live | Data-residency region: default (global), us, eu or in. Ignored when baseUrl is set. |

@@ -1,0 +1,10 @@
+{
+  "params": {},
+  "result": {
+    "available": true,
+    "language": "de",
+    "profile": "fast",
+    "activeSessions": 0,
+    "budgetMs": 1000
+  }
+}
