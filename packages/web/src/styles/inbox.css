@@ -1,0 +1,18 @@
+/* Inbox page (lazy chunk). The sidebar badge lives in app.css so the start-up stylesheet has it. */
+.inbox-filter { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.inbox-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.inbox-chip { min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); font: inherit; font-size: 13px; cursor: pointer; }
+.inbox-chip[aria-pressed="true"] { background: var(--active-bg); color: var(--ink); border-color: var(--ink-2); font-weight: 600; }
+.inbox-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.inbox-item { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.inbox-item[data-read="false"] { box-shadow: inset 3px 0 0 var(--accent); }
+.inbox-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); }
+.inbox-kind { font-weight: 600; }
+.inbox-time { margin-inline-start: auto; }
+.inbox-title { margin: 0; font-size: 14px; line-height: 1.45; color: var(--ink); overflow-wrap: anywhere; }
+.inbox-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.inbox-more { display: flex; justify-content: center; margin-top: 14px; }
+@media (max-width: 600px) {
+  .inbox-time { margin-inline-start: 0; width: 100%; }
+  .inbox-actions .btn { flex: 1 1 auto; }
+}

@@ -9,6 +9,8 @@ import { BOTTOM, GROUPS, LANDING, type NavItem } from "../nav.ts";
 import { route } from "../router.ts";
 import { shortcut } from "../palette/hotkey.ts";
 import { openPalette } from "../palette/state.ts";
+import { inboxUnread, watchInboxCount } from "../pages/inbox/count.ts";
+import { sessionState } from "../session.ts";
 import { V2LogoMorph } from "./morph.ts";
 
 export const menuOpen = signal(false);
@@ -16,10 +18,15 @@ export const closeMenu = (): void => { menuOpen.value = false; };
 
 function link(item: NavItem, activeId: string | null): View {
   const label = t(item.label);
+  // The inbox badge: the unread count (inbox.count, pages/inbox/count.ts). Hidden while unknown or zero; the number is for eyes
+  // only, the screen-reader text carries the count.
+  const unread = item.id === "inbox" ? inboxUnread.value : null;
   return h("li", { key: item.id }, h("a", {
     class: "nav-link", href: `#${item.path}`, title: label,
     ...(item.id === activeId ? { "aria-current": "page" } : {}),
-  }, icon(item.icon), h("span", { class: "label" }, label)));
+  }, icon(item.icon), h("span", { class: "label" }, label),
+  unread ? h("span", { class: "nav-badge", "aria-hidden": "true" }, unread > 99 ? "99+" : String(unread)) : null,
+  unread ? h("span", { class: "sr-only" }, t("nav.inboxUnread", { count: unread })) : null));
 }
 
 /** One sidebar element, three presentations by CSS: full 256 (normal, wide), rail 64 (compact), overlay 288 (compact,
@@ -42,6 +49,13 @@ export function Sidebar(): View {
   // The overlay is for compact windows only; route changes close it too.
   useEffect(() => { if (!compact.value) closeMenu(); }, [compact.value]);
   useEffect(() => { closeMenu(); }, [activeId]);
+
+  // The inbox badge follows the signed-in person (the count is per person); signing out clears it.
+  const signedIn = sessionState.value.status === "authenticated";
+  useEffect(() => {
+    if (!signedIn) { inboxUnread.value = null; return undefined; }
+    return watchInboxCount();
+  }, [signedIn]);
 
   const onKeyDown = (e: KeyboardEvent): void => {
     if (!open) return;
