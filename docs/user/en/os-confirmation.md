@@ -6,9 +6,11 @@ happens, what a single confirmation does, and what it means when it is "not avai
 this build (`docs/cli.md` is the full reference). The German version is
 [../de/bestaetigung-betriebssystem.md](../de/bestaetigung-betriebssystem.md).
 
-**Important first:** the helper program for the confirmation is not yet included in the release builds that are shipped
-today. There, every approval that needs a confirmation shows "not available". The dialogs of Touch ID, Windows Hello and
-polkit can only be seen in a build that includes the helper, for example a source build (see below).
+**Important first:** portable release archives include `plur1bus-attest` beside `plur1bus`. The harness checks its hash
+and file permissions before opening a dialog. A graphical session is still required; on Linux you also need a polkit
+agent and the bundled policy. nfpm installs the policy; for portable archives or Homebrew, install it as root at
+`/usr/share/polkit-1/actions/org.plur1bus.approve.policy` (mode `0644`). The separate native installer/update feed
+still needs helper integration. See the [release guide](../../release.md#attestation-helper-delivery).
 
 ## Approvals and risk levels
 
@@ -73,8 +75,7 @@ While a dialog is open, the harness does not accept a second decision for the sa
 The message is `attestation-unavailable`. The command then ends with exit code 2, the request stays open, and other parts
 of the harness keep running. The message appears in these cases:
 
-- The helper program `plur1bus-attest` is not installed next to `plur1bus`. With today's release builds, this is the
-  normal case.
+- The helper program `plur1bus-attest` is not installed next to `plur1bus`. Portable release archives include it.
 - The installation runs in a container. There is no dialog there that you could operate.
 - There is no graphical session, for example with a plain SSH connection.
 - On Linux, no polkit agent is running.
@@ -85,8 +86,8 @@ What you can do then:
 - **Decline the request** with `plur1bus approval deny <id>`. The agent then continues without the action.
 - **Wait.** An open request stays for 24 hours. After that it expires, and an expired request counts as declined. Nothing
   is approved by the passing of time.
-- **Use a source build.** There the harness finds the helper if it sits next to `plur1bus`. You then need a graphical
-  session, and on Linux a polkit agent.
+- **Check the installation.** Use the CLI and helper from the same release archive, in the same directory, owned by
+  you or root and not group/world-writable. On Linux also check the polkit policy.
 
 In that case `plur1bus approval approve` ends with exit code 2 and the reason `attestation-unavailable`.
 

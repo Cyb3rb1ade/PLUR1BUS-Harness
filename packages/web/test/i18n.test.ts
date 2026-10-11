@@ -9,9 +9,11 @@ import * as budget from "../src/i18n/budget.ts";
 import * as chat from "../src/i18n/chat.ts";
 import * as devices from "../src/i18n/devices.ts";
 import * as doctor from "../src/i18n/doctor.ts";
+import * as extensions from "../src/i18n/extensions.ts";
 import * as logs from "../src/i18n/logs.ts";
 import * as memory from "../src/i18n/memory.ts";
 import * as providers from "../src/i18n/providers.ts";
+import * as recurring from "../src/i18n/recurring.ts";
 import * as secrets from "../src/i18n/secrets.ts";
 import * as sessions from "../src/i18n/sessions.ts";
 import * as setup from "../src/i18n/setup.ts";
@@ -35,13 +37,15 @@ registerArea("activity", activity);
 registerArea("sessions", sessions);
 registerArea("approvals", approvals);
 registerArea("voice", voice);
+registerArea("extensions", extensions);
+registerArea("recurring", recurring);
 
 const placeholders = (s: string): string[] => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]!).sort();
 
 test("i18n areas: core plus the page areas are registered", () => {
   assert.deepEqual(AREAS.map((a) => a.name), [
     "surfaces", "core", "chat", "memory", "mediasearch", "models", "budget", "doctor", "palette",
-    "shared", "setup", "agents", "settings", "users", "providers", "secrets", "switchboard", "devices", "logs", "activity", "sessions", "approvals", "voice",
+    "shared", "setup", "agents", "settings", "users", "providers", "secrets", "switchboard", "devices", "logs", "activity", "sessions", "approvals", "voice", "extensions", "recurring",
   ]);
 });
 

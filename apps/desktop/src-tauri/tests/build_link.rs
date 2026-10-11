@@ -340,6 +340,15 @@ impl CargoLinkProbe {
             include_str!("../../bundle/bundle.json.tmpl"),
         );
         write("owner/desktop-build.rs", include_str!("../build.rs"));
+        write("owner/build_keys.rs", include_str!("../build_keys.rs"));
+        for (name, contents) in [
+            ("beta.feed", include_str!("../keys/beta.feed.pub")),
+            ("stable.feed", include_str!("../keys/stable.feed.pub")),
+            ("beta.updater", include_str!("../keys/beta.updater.pub")),
+            ("stable.updater", include_str!("../keys/stable.updater.pub")),
+        ] {
+            write(&format!("owner/keys/{name}.pub"), contents);
+        }
         write(
             "owner/build_support.rs",
             include_str!("../build_support.rs"),

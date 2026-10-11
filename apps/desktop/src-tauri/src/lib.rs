@@ -30,6 +30,8 @@ mod shell_commands;
 pub mod spa;
 pub mod spa_proxy;
 pub mod tray;
+pub mod update_commands;
+pub mod updates;
 pub mod windows_spa_profile;
 pub use plur1bus_desktop_contract as contract;
 
@@ -90,7 +92,10 @@ pub fn run() {
         context.config_mut().identifier =
             lifecycle::fixture_identifier(ids::BUNDLE_ID, &root.to_string_lossy());
     }
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(all(feature = "direct-updater", not(feature = "store")))]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    builder
         // The singleton plugin must run before other plugin/setup side effects.
         .plugin(tauri_plugin_single_instance::init(|app, _, _| native::focus(app)))
         .plugin(controller::autostart::plugin())
@@ -100,6 +105,7 @@ pub fn run() {
         .manage(runtime_commands::RuntimeState::default())
         .manage(spa::SpaState::default())
         .manage(host_commands::HostState::default())
+        .manage(update_commands::UpdateState::default())
         .on_window_event(native::close)
         .setup(|app| {
             // Until Linux tray/background capability is confirmed, keep its dash entry reachable.
@@ -153,6 +159,12 @@ pub fn run() {
             runtime_commands::harness_stop,
             runtime_commands::harness_status,
             runtime_commands::harness_logs_tail,
+            update_commands::update_store_open,
+            update_commands::update_check,
+            update_commands::update_settings,
+            update_commands::update_install,
+            update_commands::update_skip,
+            update_commands::update_later,
             commands::app_info,
             commands::settings_get,
             commands::settings_set,

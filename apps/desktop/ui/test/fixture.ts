@@ -1,3 +1,4 @@
+import {updatesPage} from "../src/views/settings-updates.ts";
 import {approvalCards} from "../src/views/approvals.ts";
 import {translate} from "../src/i18n.ts";
 import {showCrashOffers} from "../src/views/crash-offer.ts";
@@ -58,6 +59,11 @@ document.body.append(shellRoot);
 const shell = createShell(shellRoot, transport);
 Object.assign(window, { testShell: {
   ...shell,
+  showUpdates:(store=false)=>{
+    let snapshot:import("../src/models/update-model.ts").UpdateSnapshot={settings:{channel:"stable",held:false,autoPatch:true,quietHours:[3,5],checkOnStart:true},release:{version:"0.1.1",channel:"stable",kind:"patch",security:true,date:"2026-10-10",notes:{en:"<script>bad()</script>Fixed\n- [Docs](https://harness.test)",de:"Behoben"},minFromVersion:"0.1.0"},offer:{action:"show"},storeBuild:store,installAvailable:!store};
+    const renderer=updatesPage({...transport,updateSettings:async request=>{if(request)snapshot={...snapshot,settings:request};return snapshot;},updateCheck:async()=>snapshot,updateInstall:async()=>{throw new Error("synthetic failure");},updateSkip:async()=>snapshot={...snapshot,offer:{action:"none"}},updateLater:async()=>snapshot={...snapshot,offer:{action:"none"}},updateStoreOpen:async()=>{}},()=>{shellRoot.replaceChildren(renderer());});
+    shellRoot.replaceChildren(renderer());
+  },
   approvalActions:[] as string[],
   showApprovals:(cards:import("../src/views/approvals.ts").ApprovalCard[],locale:"de"|"en"="en",enabled=false)=>{shellRoot.replaceChildren(approvalCards(cards,key=>translate(locale,key),async id=>{(window as any).testShell.approvalActions.push(`open:${id}`);},enabled,async(id,decision)=>{(window as any).testShell.approvalActions.push(`${decision}:${id}`);}));},
   showBackgroundHint,

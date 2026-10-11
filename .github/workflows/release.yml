@@ -54,8 +54,68 @@ jobs:
     secrets:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
 
-  build:
+  attest:
     needs: meta
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-15, target: darwin-universal, triple: aarch64-apple-darwin }
+          - { os: ubuntu-24.04, target: linux-x64, triple: x86_64-unknown-linux-gnu }
+          - { os: ubuntu-24.04-arm, target: linux-arm64, triple: aarch64-unknown-linux-gnu }
+          - { os: ubuntu-24.04, target: linux-x64-musl, triple: x86_64-unknown-linux-musl }
+          - { os: windows-2025, target: win-x64, triple: x86_64-pc-windows-msvc }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_INCREMENTAL: '0'
+      TRIPLE: ${{ matrix.triple }}
+      PLUR1BUS_ATTEST_TEAM_ID: ${{ vars.PLUR1BUS_ATTEST_TEAM_ID }}
+      PLUR1BUS_ATTEST_SIGN_IDENTITY: ${{ vars.PLUR1BUS_ATTEST_SIGN_IDENTITY }}
+      PLUR1BUS_ATTEST_WIN_THUMBPRINT: ${{ vars.PLUR1BUS_ATTEST_WIN_THUMBPRINT }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 24.21.0 }
+      - name: helper toolchain
+        run: |
+          toolchain="$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml)"
+          rustup toolchain install "$toolchain" --profile minimal
+          rustup target add --toolchain "$toolchain" "$TRIPLE"
+          if [ "$RUNNER_OS" = macOS ]; then rustup target add --toolchain "$toolchain" x86_64-apple-darwin; fi
+      - name: helper musl linker
+        if: matrix.target == 'linux-x64-musl'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: build helper, sign where configured, then hash final bytes
+        run: |
+          set -euo pipefail
+          workspace="$(pwd -W 2>/dev/null || pwd)"
+          export RUSTFLAGS="--remap-path-prefix=$workspace=/source"
+          if [ "$RUNNER_OS" = macOS ]; then export RUSTFLAGS="$RUSTFLAGS -C link-arg=-Wl,-no_uuid"; fi
+          if [ "$RUNNER_OS" = Windows ]; then export RUSTFLAGS="$RUSTFLAGS -C link-arg=/Brepro"; fi
+          cargo build --locked --release -p plur1bus-attest --target "$TRIPLE"
+          mkdir -p helper
+          suffix=''; if [ "$RUNNER_OS" = Windows ]; then suffix=.exe; fi
+          if [ "$RUNNER_OS" = macOS ]; then
+            cargo build --locked --release -p plur1bus-attest --target x86_64-apple-darwin
+            lipo -create target/aarch64-apple-darwin/release/plur1bus-attest target/x86_64-apple-darwin/release/plur1bus-attest -output helper/plur1bus-attest
+            lipo -verify_arch arm64 x86_64 helper/plur1bus-attest
+          else
+            cp "target/$TRIPLE/release/plur1bus-attest$suffix" "helper/plur1bus-attest$suffix"
+          fi
+          node scripts/release/attest.mjs "helper/plur1bus-attest$suffix" helper/pins.json
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: attest-${{ matrix.target }}
+          path: helper/
+          if-no-files-found: error
+
+  build:
+    needs: [meta, attest]
     strategy:
       fail-fast: false
       matrix:
@@ -105,6 +165,12 @@ jobs:
           fi
           git config --global --add "url.${base}.insteadOf" "git@github.com:"
           git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: attest-${{ startsWith(matrix.target, 'darwin-') && 'darwin-universal' || matrix.target }}
+          path: helper
+      - name: load verified helper build constants before CLI and Core builds
+        run: node scripts/release/attest.mjs --load helper
       - run: pnpm install --frozen-lockfile
       - run: node packages/config-schema/src/gen-defaults.mjs --check && pnpm gen && pnpm build
       - name: native core payload (two independent deployments)
@@ -131,6 +197,7 @@ jobs:
           done
           cmp "target-first/$TRIPLE/release/plur1bus$suffix" "target-second/$TRIPLE/release/plur1bus$suffix"
           mkdir -p native
+          cp "helper/plur1bus-attest$suffix" "native/plur1bus-attest$suffix"
           cp "target-first/$TRIPLE/release/plur1bus$suffix" "native/plur1bus-$TARGET$suffix"
           ext=tar.gz; if [ "$RUNNER_OS" = Windows ]; then ext=zip; fi
           scripts/release/package.sh "$VERSION" "$TARGET" "native/plur1bus-$TARGET$suffix" "out/core-$VERSION-$TARGET.tar.gz" "out/plur1bus-$VERSION-$TARGET.$ext"
@@ -162,9 +229,12 @@ jobs:
         with: { pattern: 'native-darwin-*', path: native, merge-multiple: true }
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with: { pattern: 'release-darwin-*', path: payload, merge-multiple: true }
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with: { name: attest-darwin-universal, path: helper }
       - name: Universal CLI with both architecture-specific Core payloads
         run: |
           set -euo pipefail
+          cp helper/plur1bus-attest plur1bus-attest
           lipo -create native/plur1bus-darwin-arm64 native/plur1bus-darwin-x64 -output plur1bus-universal
           lipo -verify_arch arm64 x86_64 plur1bus-universal
           lipo -create native/plur1bus-darwin-arm64 native/plur1bus-darwin-x64 -output universal-repeat

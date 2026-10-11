@@ -24,6 +24,9 @@ const SwitchboardPage = lazyPage(() => import("./switchboard/page.ts").then((m) 
 const HomePage = lazyPage(() => import("./home/page.ts").then((m) => m.HomePage), "settings");
 const HelpPage = lazyPage(() => import("./help/page.ts").then((m) => m.HelpPage), "full");
 const LibraryPage = lazyPage(() => import("./library/page.ts").then((m) => m.LibraryPage), "full");
+const ExtensionsPage = lazyPage(() => import("./extensions/page.ts").then((m) => m.ExtensionsPage));
+const ApprovalsPage = lazyPage(() => import("./approvals/page.ts").then((m) => m.ApprovalsPage));
+const RecurringPage = lazyPage(() => import("./recurring/page.ts").then((m) => m.RecurringPage));
 
 /** Nav item id -> page. A page agent replaces exactly its own line (and adds its import above):
  *   import { MemoriesPage } from "./memories.ts";   ...   memories: MemoriesPage,
@@ -38,12 +41,12 @@ export const PAGES: Readonly<Record<string, PageComponent>> = {
   inbox: PlaceholderPage,
   memories: MemoriesPage,
   library: LibraryPage,
-  skills: PlaceholderPage,
-  plugins: PlaceholderPage,
+  skills: ExtensionsPage,
+  plugins: ExtensionsPage,
   models: ModelsPage,
   switchboard: SwitchboardPage,
-  recurring: PlaceholderPage,
-  approvals: PlaceholderPage,
+  recurring: RecurringPage,
+  approvals: ApprovalsPage,
   usage: BudgetPage,
   doctor: DoctorPage,
   logs: LogsPage,

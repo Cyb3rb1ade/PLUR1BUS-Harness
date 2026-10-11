@@ -36,7 +36,12 @@ the page for each id in `src/pages/registry.ts`.
 | `/home` | Home | none (accessible via wordmark logo) | all five | Links to FAQ, guides (bundled user docs), repositories, contact and donation placeholders (hidden while empty), compact version/build and core status. Clicking wordmark logo morphs back into "PLUR1BUS" and navigates to `#/home`. |
 | `/help`, `/help/<slug>` | Help | pinned | all five | Bundled user documentation from `docs/user/{de,en}` rendered safely as HTML-free Markdown; follows UI language; table of contents, local search, deep-linking per page chunk. |
 | `/library` | Library | Workspace | all five | Media library gallery over `media.output.list`, filters by kind (image/video/audio), preview via `media.output.get`, download, deletion confirmation via `media.output.delete`, caption inspect/edit via `media.caption.set`. Links to `#/media` for media search. |
-| `/projects`, `/inbox`, `/skills`, `/plugins`, `/switchboard`, `/recurring`, `/approvals` | placeholder | as in `nav.ts` | none (fixed text `page.placeholder`) | `PlaceholderPage`. `approvals` stays a placeholder (grants and approvals, D109, are not part of this change). `inbox` remains a placeholder. |
+| `/setup`, `/setup?mode=bundled` | First-run wizard | none (not in the sidebar) | per step | Eight steps (seven when bundled), progress, back/next/skip, resume after reload, licence gate for non-commercial embedding models, and voice language selection step with system language preselected. |
+| `/skills`, `/plugins` | Skills & Plugins | Workspace | all five | Single shared extensions view (`ExtensionsPage`) filterable between Skills, Plugins and Modules. List from `ext.list`, detail from `ext.show`/`ext.inspect`, enable/disable (`ext.enable`/`ext.disable`), uninstall dialog with purge/cascade options (`ext.uninstall`), restore from trash (`ext.restore`), local file upload/install (`.p1x`/tarball) with inspection before confirm (`ext.install`), and notice for plur1bus.app remote catalog. Live updates via `ext.watch` SSE. |
+| `/approvals`, `/approvals/<requestId>` | Approvals & Grants | Control | all five | Pending requests from `approval.list`/`approval.get` using D109 layout (targets and action summary displayed strictly before the unverified agent reason). Approval decision dialog via `approval.decide` (selectable grant duration capped at 90 days; OS attestation prompt note when server requires it), cancellation (`approval.cancel`), and active grants list from `grant.list` with revocation (`grant.revoke`). Role gates hide page from agent principals. |
+| `/recurring`, `/recurring/<jobId>` | Recurring Tasks | Control | all five | Scheduled background jobs from `jobs.list`, execution history from `jobs.history`, and manual trigger ("Run now") with confirmation (`jobs.run`). Creation and editing are not in the backend schema and are shown as a documented gap. |
+| `/switchboard` | Switchboard | Control | all five | Channel list and detail. |
+| `/projects`, `/inbox` | placeholder | as in `nav.ts` | none (fixed text `page.placeholder`) | `PlaceholderPage`. |
 | `/login` | Sign-in | none | form errors only | Owner token against `POST /api/v1/session`; see `ui/web-shell.md`. |
 | any other path | 404 | none | n/a | Link back to the landing route. |
 | ⌘K / Ctrl+K, `/` | Command palette | overlay | n/a | Only while signed in and on a page (not on `/login`). Groups: navigation, actions, settings, agents, chats, logs; entity groups come from a bounded, abortable fan-out (150 ms debounce, 5 per group, 1.5 s per source) and are filtered by role. The dialog is its own lazy chunk. |
@@ -86,6 +91,10 @@ the page for each id in `src/pages/registry.ts`.
 | Home | `GET /api/v1/health`, `core.status` | real / assumed | no |
 | Help | none (bundled docs chunks, no remote calls) | n/a | no |
 | Library | `media.output.list`, `media.output.get`, `media.output.delete`, `media.caption.set` | assumed | delete, caption: yes |
+| Skills & Plugins | `ext.list`, `ext.show`, `ext.inspect`, `ext.enable`, `ext.disable`, `ext.uninstall`, `ext.restore`, `ext.install` | assumed | enable, disable, uninstall, restore, install: yes |
+| Skills & Plugins | `/events`: `ext.watch` | assumed | no |
+| Approvals | `approval.list`, `approval.get`, `approval.decide`, `approval.cancel`, `grant.list`, `grant.revoke` | assumed | decide, cancel, revoke: yes |
+| Recurring Tasks | `jobs.list`, `jobs.history`, `jobs.run` | assumed | run: yes |
 
 No page sends a `caller`: a browser never asserts identity or trust (the `memory.*`, `session.*`, `models.*`, `budget.*`,
 `dreams.*`, `core.status` and `config.get` calls all omit it; see F1). Event consumers accept an SSE message either named
@@ -154,7 +163,9 @@ Two different questions decide a row:
 | **Command palette** entities | `config.get` (`agents`), `session.list`, static navigation, settings, actions and a log-search link | yes | Built as a client fan-out over those lists, capped and abortable (F14 is answered; a server endpoint stays a later option) |
 | **Settings: Providers** | `auth.credentials.list`, `auth.status`, `auth.login.start`, `auth.login.await`, `auth.login.cancel`, `auth.logout`, `secret.set` | yes | Built. Replaces unavailable provider login state. Masked secret key entry, headless SSH hint and callback paste flow. Interface wish: `auth.login.callback` RPC for manual callback URL forwarding (F33) |
 | **Switchboard** | `channel.list`, `channel.status`, `channel.get`, `channel.enable`, `channel.disable`, `channel.set`, `channel.test` | yes | Built. Channel list and detail, enable/disable toggles, field edit with secret rejection and link to secrets, test channel and test message to owner (`sendOwner: true`). When the channel host is missing, `not-registered` is rendered as "not started (host missing)" without an error state (F34) |
-| Grants and approvals (D109, PR #190) | not built | n/a | The existing `approvals` navigation entry stays a placeholder |
+| **Skills & Plugins** (`/skills`, `/plugins`) | `ext.list`, `ext.show`, `ext.inspect`, `ext.enable`, `ext.disable`, `ext.uninstall`, `ext.restore`, `ext.install`, `ext.watch` | yes | Built. Unified filterable page, details, agent-specific or global toggles, file upload installation with dry-run inspect, trash restore, plur1bus.app catalog notice |
+| **Grants and approvals** (D109, `/approvals`) | `approval.list`, `approval.get`, `approval.decide`, `approval.cancel`, `grant.list`, `grant.revoke` | yes | Built. D109 card order (targets strictly before rationale), grant duration ≤ 90 days, OS attestation helper prompt explanation, active grants list and revoke, principal role gating |
+| **Recurring Tasks** (`/recurring`) | `jobs.list`, `jobs.history`, `jobs.run` | yes | Built. Cron/interval task list, execution history, manual trigger with confirmation. Creating and editing jobs has no RPC (unavailable) |
 
 Where a page lives: `/agents`, `/agents/new`, `/agents/<id>`; `/settings/<section>` with `general`, `users`, `secrets`, `devices`, `providers`;
 `/switchboard` and `/switchboard/<id>`;
@@ -315,7 +326,10 @@ Numbers are stable; other documents refer to them.
 - **F27. State in the URL.** The router drops the query (`#/path?x` is read as `#/path`), so the chosen agent, search text, filters
   and `?focus=` are lost on reload and cannot be linked; the agent choice lives in memory only. (`?theme=` is read separately.)
 - **F28. Doctor file picker.** The text of the native file input follows the OS language, not the UI language.
-- **F29. Placeholders.** The Projects Kanban backend is available; its board UI remains follow-up. Help and Library are built, replacing placeholders. Home page is built and accessible via the wordmark morph. Six pages (Projects, Inbox, Skills, Plugins, Recurring, Approvals) remain placeholders; Switchboard is built.
+- **F29. Placeholders.** The Projects Kanban backend is available; its board UI remains follow-up. Home (accessible via the wordmark morph), Help and Library are built, replacing placeholders. Skills & Plugins (`#/skills`, `#/plugins`), Approvals (`#/approvals`), and Recurring Tasks (`#/recurring`) are now fully built surfaces. Switchboard is also built. Two pages (Projects, Inbox) remain placeholders.
+  - *Skills & Plugins*: unified `ExtensionsPage` serving both sidebar entries with filterable kinds (skills, plugins, modules), detail drawer, enable/disable per agent/global, uninstall dialog with purge/cascade, file install inspection dialog, trash restore, live SSE updates, and an explicit notice that remote catalog installation (`plur1bus.app`) is not yet available.
+  - *Approvals*: `ApprovalsPage` following the D109 card layout (exact targets, actions, and risks rendered strictly *before* unverified agent rationale), max 90-day grant duration constraint, OS attestation helper notices, active grants list from `grant.list`, grant revocation (`grant.revoke`), and agent-principal role gates.
+  - *Recurring Tasks*: `RecurringPage` displaying cron/interval jobs (`jobs.list`), execution runs (`jobs.history`), and manual execution with confirmation dialog (`jobs.run`). **Backend gap**: creating and editing recurring jobs lacks RPC definitions in `rpc.schema.json` and is presented as unavailable.
 
 ### M3 part 2
 
