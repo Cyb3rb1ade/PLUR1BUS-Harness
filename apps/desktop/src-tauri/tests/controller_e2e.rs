@@ -120,6 +120,17 @@ async fn run(engine: &str) {
     watch.abort();
     ctl.stop().await.unwrap();
     assert!(matches!(ctl.status().await, HarnessStatus::Stopped));
+    // The runtime installs by repo@digest only. Drop the harness's own registry alias tags (never the image) so
+    // the strict, non-forced image removal is not blocked by tags the runtime did not create.
+    for tag in std::env::var("PLUR1BUS_DESKTOP_E2E_EXTRA_TAGS")
+        .unwrap_or_default()
+        .split(',')
+        .filter(|t| !t.is_empty())
+    {
+        let _ = std::process::Command::new(engine)
+            .args(["rmi", tag])
+            .status();
+    }
     ctl.uninstall(
         UninstallLevel::Everything,
         Some("plur1bus-state"),

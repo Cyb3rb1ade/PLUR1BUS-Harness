@@ -35,7 +35,7 @@ async function run(runtime,dry) {
   const [digest]=stub.digests;
   const ips=Object.values(networkInterfaces()).flat().filter(v=>v&&!v.internal&&v.family==='IPv4').map(v=>v.address);
   if(!ips.length)throw new Error('Non-loopback IPv4 required for exposure check');
-  const env={PLUR1BUS_DESKTOP_E2E_ENDPOINT:endpoint,PLUR1BUS_DESKTOP_E2E_STUB_DIGEST:digest,PLUR1BUS_DESKTOP_E2E_NON_LOOPBACK:ips.join(',')};
+  const env={PLUR1BUS_DESKTOP_E2E_ENDPOINT:endpoint,PLUR1BUS_DESKTOP_E2E_STUB_DIGEST:digest,PLUR1BUS_DESKTOP_E2E_NON_LOOPBACK:ips.join(','),PLUR1BUS_DESKTOP_E2E_EXTRA_TAGS:stub.tags().join(',')};
   const upgraded=spawnSync(process.execPath,plan.upgrade,{cwd:root,stdio:'inherit',timeout:3000000,env:{...process.env,...env}});
   if(upgraded.error)throw upgraded.error;if(upgraded.status!==0)throw new Error('Upgrade acceptance failed');
   // An isolated preloaded registry proves digest retrieval without contacting a public registry.

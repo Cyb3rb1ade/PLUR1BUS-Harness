@@ -48,7 +48,7 @@ export async function manifestDigests(runtime,tags,registryImage='registry:2') {
    // registry's manifest digest for the pushed alias (e.g. a podman push that re-encoded the manifest).
    if(!repoDigests.includes(`@${digests.at(-1)}`))throw new Error(`Engine did not record ${digests.at(-1)} as a RepoDigest of ${inspected}: ${repoDigests}`);
   }
-  return {digests,cleanup};
+  return {digests,cleanup,tags:()=>aliases.filter(a=>!a.includes('@'))};
  } catch(error) {
   cleanup();throw error;
  } finally {

@@ -108,6 +108,10 @@ impl DockerRuntime {
                 String::from_utf8_lossy(&raw[..raw.len().min(600)])
             );
         }
+        // Podman refuses a non-forced delete by ID of a multi-tagged image with a 500 instead of 409.
+        if status == 500 && String::from_utf8_lossy(&raw).contains("more than one tag") {
+            return Ok(409);
+        }
         Ok(status)
     }
     async fn local_reference(&self, wanted: &str) -> Result<Option<String>, RuntimeError> {
