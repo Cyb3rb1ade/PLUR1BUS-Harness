@@ -1,0 +1,218 @@
+// Projects & Kanban board messages (de/en).
+// Area catalogue registered lazily by the projects page chunk.
+
+export const en = {
+  // Default columns from Core backend
+  "project.board.backlog": "Backlog",
+  "project.board.inProgress": "In Progress",
+  "project.board.review": "Review",
+  "project.board.done": "Done",
+
+  // Navigation & Page Headings
+  "projects.title": "Projects",
+  "projects.subtitle": "Project board",
+  "projects.unarchive": "Unarchive",
+
+  // Sidebar list
+  "projects.sidebar.title": "Projects",
+  "projects.sidebar.newProject": "New project",
+  "projects.sidebar.openCount": "{count} open",
+  "projects.sidebar.dueCount": "{count} due",
+  "projects.sidebar.empty": "No projects yet",
+  "projects.createProjectTitle": "Create project",
+  "projects.projectName": "Project name",
+
+  // Board View & Columns
+  "projects.board.empty": "No cards found",
+  "projects.board.emptyHint": "Create a card or change your filter settings.",
+  "projects.board.noSelection": "Select a project to view its board",
+  "projects.column.wipLimit": "WIP: {current}/{limit}",
+  "projects.column.wipLimitReached": "WIP limit reached ({current}/{limit})",
+  "projects.column.addCard": "Add card",
+  "projects.column.manage": "Manage columns",
+  "projects.column.newColumn": "New column",
+  "projects.column.editColumn": "Edit column",
+  "projects.column.deleteColumn": "Delete column",
+  "projects.column.moveLeft": "Move left",
+  "projects.column.moveRight": "Move right",
+  "projects.column.title": "Column title",
+  "projects.column.wipLimitField": "WIP limit (optional)",
+  "projects.column.targetColumn": "Target column for cards",
+  "projects.column.targetColumnHint": "Select where cards from this column should be moved.",
+
+  // Cards
+  "projects.card.title": "Title",
+  "projects.card.description": "Description (Markdown)",
+  "projects.card.priority": "Priority",
+  "projects.card.priorityNone": "None",
+  "projects.card.priorityLow": "Low",
+  "projects.card.priorityNormal": "Normal",
+  "projects.card.priorityHigh": "High",
+  "projects.card.priorityUrgent": "Urgent",
+  "projects.card.dueAt": "Due date",
+  "projects.card.overdue": "Overdue",
+  "projects.card.labels": "Labels",
+  "projects.card.addLabel": "Add label",
+  "projects.card.assignees": "Assignees",
+  "projects.card.assignPerson": "Assign person",
+  "projects.card.assignAgent": "Assign agent",
+  "projects.card.unassign": "Remove",
+  "projects.card.links": "Links",
+  "projects.card.linkSession": "Session",
+  "projects.card.linkJob": "Job",
+  "projects.card.linkMedia": "Media",
+  "projects.card.linkUrl": "URL",
+  "projects.card.comments": "Comments",
+  "projects.card.addComment": "Add comment",
+  "projects.card.commentPlaceholder": "Write a comment (Markdown supported)...",
+  "projects.card.activity": "Activity",
+  "projects.card.archived": "Archived",
+  "projects.card.archiveAction": "Archive card",
+  "projects.card.unarchiveAction": "Unarchive card",
+  "projects.card.create": "Create card",
+  "projects.card.close": "Close",
+  "projects.card.noDescription": "No description provided.",
+  "projects.card.deleteConfirm": "Delete card",
+
+  // Activity kinds
+  "projects.activity.created": "created the card",
+  "projects.activity.updated": "updated the card",
+  "projects.activity.moved": "moved the card",
+  "projects.activity.assigned": "assigned",
+  "projects.activity.unassigned": "unassigned",
+  "projects.activity.commented": "added a comment",
+  "projects.activity.archived": "archived the card",
+  "projects.activity.unarchived": "unarchived the card",
+
+  // Filters
+  "projects.filter.search": "Filter cards...",
+  "projects.filter.allAssignees": "All assignees",
+  "projects.filter.allLabels": "All labels",
+  "projects.filter.showArchived": "Show archived",
+  "projects.filter.clear": "Clear filters",
+
+  // Errors & Notifications
+  "projects.error.wipLimit": "WIP limit exceeded for column {column} (limit: {limit}).",
+  "projects.error.wipLimitGeneric": "WIP limit exceeded.",
+  "projects.error.rollback": "Action failed and was reverted: {message}",
+  "projects.error.permissionDenied": "You do not have permission for this action.",
+  "projects.error.agentOnlyOwn": "Agents may only move cards assigned to them.",
+  "projects.error.generic": "An error occurred.",
+
+  // Accessibility & Keyboard Announcements
+  "projects.a11y.cardMoved": "Card {card} moved to column {column}.",
+  "projects.a11y.wipError": "WIP limit exceeded for column {column}.",
+  "projects.a11y.moveLeft": "Move card left",
+  "projects.a11y.moveRight": "Move card right",
+  "projects.a11y.moveUp": "Move card up",
+  "projects.a11y.moveDown": "Move card down",
+  "projects.a11y.keyboardHint": "Use arrow keys or move buttons to reorder cards.",
+} as const;
+
+export const de: Record<keyof typeof en, string> = {
+  // Default columns from Core backend
+  "project.board.backlog": "Backlog",
+  "project.board.inProgress": "In Arbeit",
+  "project.board.review": "Review",
+  "project.board.done": "Erledigt",
+
+  // Navigation & Page Headings
+  "projects.title": "Projekte",
+  "projects.subtitle": "Projekt-Board",
+  "projects.unarchive": "Wiederherstellen",
+
+  // Sidebar list
+  "projects.sidebar.title": "Projekte",
+  "projects.sidebar.newProject": "Neues Projekt",
+  "projects.sidebar.openCount": "{count} offen",
+  "projects.sidebar.dueCount": "{count} fällig",
+  "projects.sidebar.empty": "Noch keine Projekte",
+  "projects.createProjectTitle": "Projekt anlegen",
+  "projects.projectName": "Projektname",
+
+  // Board View & Columns
+  "projects.board.empty": "Keine Karten gefunden",
+  "projects.board.emptyHint": "Erstellen Sie eine Karte oder passen Sie die Filter an.",
+  "projects.board.noSelection": "Wählen Sie ein Projekt aus, um das Board anzuzeigen",
+  "projects.column.wipLimit": "WIP: {current}/{limit}",
+  "projects.column.wipLimitReached": "WIP-Limit erreicht ({current}/{limit})",
+  "projects.column.addCard": "Karte hinzufügen",
+  "projects.column.manage": "Spalten verwalten",
+  "projects.column.newColumn": "Neue Spalte",
+  "projects.column.editColumn": "Spalte bearbeiten",
+  "projects.column.deleteColumn": "Spalte löschen",
+  "projects.column.moveLeft": "Nach links verschieben",
+  "projects.column.moveRight": "Nach rechts verschieben",
+  "projects.column.title": "Spaltentitel",
+  "projects.column.wipLimitField": "WIP-Limit (optional)",
+  "projects.column.targetColumn": "Zielspalte für Karten",
+  "projects.column.targetColumnHint": "Wählen Sie, wohin die Karten dieser Spalte verschoben werden sollen.",
+
+  // Cards
+  "projects.card.title": "Titel",
+  "projects.card.description": "Beschreibung (Markdown)",
+  "projects.card.priority": "Priorität",
+  "projects.card.priorityNone": "Keine",
+  "projects.card.priorityLow": "Niedrig",
+  "projects.card.priorityNormal": "Normal",
+  "projects.card.priorityHigh": "Hoch",
+  "projects.card.priorityUrgent": "Dringend",
+  "projects.card.dueAt": "Fälligkeitsdatum",
+  "projects.card.overdue": "Überfällig",
+  "projects.card.labels": "Labels",
+  "projects.card.addLabel": "Label hinzufügen",
+  "projects.card.assignees": "Zuständige",
+  "projects.card.assignPerson": "Person zuweisen",
+  "projects.card.assignAgent": "Agent zuweisen",
+  "projects.card.unassign": "Entfernen",
+  "projects.card.links": "Verknüpfungen",
+  "projects.card.linkSession": "Sitzung",
+  "projects.card.linkJob": "Job",
+  "projects.card.linkMedia": "Medium",
+  "projects.card.linkUrl": "URL",
+  "projects.card.comments": "Kommentare",
+  "projects.card.addComment": "Kommentar hinzufügen",
+  "projects.card.commentPlaceholder": "Kommentar verfassen (Markdown unterstützt)...",
+  "projects.card.activity": "Aktivität",
+  "projects.card.archived": "Archiviert",
+  "projects.card.archiveAction": "Karte archivieren",
+  "projects.card.unarchiveAction": "Karte wiederherstellen",
+  "projects.card.create": "Karte anlegen",
+  "projects.card.close": "Schließen",
+  "projects.card.noDescription": "Keine Beschreibung vorhanden.",
+  "projects.card.deleteConfirm": "Karte löschen",
+
+  // Activity kinds
+  "projects.activity.created": "hat die Karte erstellt",
+  "projects.activity.updated": "hat die Karte aktualisiert",
+  "projects.activity.moved": "hat die Karte verschoben",
+  "projects.activity.assigned": "hat zugewiesen",
+  "projects.activity.unassigned": "hat Zuweisung entfernt",
+  "projects.activity.commented": "hat einen Kommentar hinzugefügt",
+  "projects.activity.archived": "hat die Karte archiviert",
+  "projects.activity.unarchived": "hat die Karte wiederhergestellt",
+
+  // Filters
+  "projects.filter.search": "Karten filtern...",
+  "projects.filter.allAssignees": "Alle Zuständigen",
+  "projects.filter.allLabels": "Alle Labels",
+  "projects.filter.showArchived": "Archivierte anzeigen",
+  "projects.filter.clear": "Filter zurücksetzen",
+
+  // Errors & Notifications
+  "projects.error.wipLimit": "WIP-Limit für Spalte {column} überschritten (Limit: {limit}).",
+  "projects.error.wipLimitGeneric": "WIP-Limit überschritten.",
+  "projects.error.rollback": "Aktion fehlgeschlagen und zurückgesetzt: {message}",
+  "projects.error.permissionDenied": "Keine Berechtigung für diese Aktion.",
+  "projects.error.agentOnlyOwn": "Agenten dürfen nur eigene zugewiesene Karten verschieben.",
+  "projects.error.generic": "Ein Fehler ist aufgetreten.",
+
+  // Accessibility & Keyboard Announcements
+  "projects.a11y.cardMoved": "Karte {card} nach Spalte {column} verschoben.",
+  "projects.a11y.wipError": "WIP-Limit für Spalte {column} überschritten.",
+  "projects.a11y.moveLeft": "Karte nach links verschieben",
+  "projects.a11y.moveRight": "Karte nach rechts verschieben",
+  "projects.a11y.moveUp": "Karte nach oben verschieben",
+  "projects.a11y.moveDown": "Karte nach unten verschieben",
+  "projects.a11y.keyboardHint": "Nutzen Sie die Pfeiltasten oder Verschieben-Schaltflächen zur Kartensortierung.",
+};
