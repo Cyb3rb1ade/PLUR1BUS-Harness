@@ -8,6 +8,52 @@ pub struct DockerRuntime {
     endpoint: Endpoint,
     info: RuntimeInfo,
 }
+/// Total time `connect` may spend waiting for the engine to answer its first requests. Rootless
+/// Podman starts its API lazily through socket activation, which can take well over 2 s on a
+/// cold or slow (ARM) host.
+pub const PROBE_BUDGET: Duration = Duration::from_secs(30);
+/// Time allowed for one ping+version attempt (and the per-request client timeout while probing).
+pub const PROBE_ATTEMPT: Duration = Duration::from_secs(5);
+/// Bound for listing containers when checking published ports (slow on cold rootless Podman).
+const PORT_INVENTORY_TIMEOUT: Duration = Duration::from_secs(15);
+const PROBE_BACKOFF_START: Duration = Duration::from_millis(250);
+const PROBE_BACKOFF_MAX: Duration = Duration::from_secs(2);
+
+/// Runs `attempt` until it succeeds, fails with a non-transient error, or `budget` is spent.
+/// Only timeouts and generic failures (e.g. the socket accepting then resetting while the
+/// service starts) are retried; NotFound/NoAccess/etc. return at once. Fail-closed: when the
+/// budget runs out the result is `Timeout("probe")`.
+pub async fn probe_with_retry<T, F, Fut>(
+    budget: Duration,
+    per_attempt: Duration,
+    mut attempt: F,
+) -> Result<T, RuntimeError>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = Result<T, RuntimeError>>,
+{
+    let deadline = tokio::time::Instant::now() + budget;
+    let mut backoff = PROBE_BACKOFF_START;
+    loop {
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        if remaining.is_zero() {
+            return Err(RuntimeError::Timeout("probe"));
+        }
+        match tokio::time::timeout(per_attempt.min(remaining), attempt()).await {
+            Ok(Ok(v)) => return Ok(v),
+            Ok(Err(RuntimeError::Timeout(_) | RuntimeError::Failed(_))) => {}
+            Ok(Err(e)) => return Err(e),
+            Err(_) => {}
+        }
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        if remaining.is_zero() {
+            return Err(RuntimeError::Timeout("probe"));
+        }
+        tokio::time::sleep(backoff.min(remaining)).await;
+        backoff = (backoff * 2).min(PROBE_BACKOFF_MAX);
+    }
+}
+
 pub fn map_error(e: Error) -> RuntimeError {
     use std::error::Error as _;
     let mut source = e.source();
@@ -122,7 +168,7 @@ impl DockerRuntime {
             #[cfg(unix)]
             Endpoint::Unix(p) => Docker::connect_with_unix(
                 &p.to_string_lossy(),
-                2,
+                PROBE_ATTEMPT.as_secs(),
                 &bollard::ClientVersion {
                     major_version: 1,
                     minor_version: 41,
@@ -131,7 +177,7 @@ impl DockerRuntime {
             #[cfg(windows)]
             Endpoint::Pipe(p) => Docker::connect_with_named_pipe(
                 p,
-                2,
+                PROBE_ATTEMPT.as_secs(),
                 &bollard::ClientVersion {
                     major_version: 1,
                     minor_version: 41,
@@ -141,12 +187,11 @@ impl DockerRuntime {
             _ => return Err(RuntimeError::NotFound),
         }
         .map_err(map_error)?;
-        let version = tokio::time::timeout(Duration::from_secs(2), async {
+        let version = probe_with_retry(PROBE_BUDGET, PROBE_ATTEMPT, || async {
             client.ping().await.map_err(map_error)?;
             client.version().await.map_err(map_error)
         })
-        .await
-        .map_err(|_| RuntimeError::Timeout("probe"))??;
+        .await?;
         if version.os.as_deref() != Some("linux") {
             return Err(RuntimeError::WrongMode);
         }
@@ -661,7 +706,7 @@ impl Runtime for DockerRuntime {
         &self,
         except: &str,
     ) -> Result<std::collections::BTreeSet<u16>, RuntimeError> {
-        tokio::time::timeout(Duration::from_secs(2), async {
+        tokio::time::timeout(PORT_INVENTORY_TIMEOUT, async {
             let all = self
                 .client
                 .list_containers(Some(
@@ -988,6 +1033,51 @@ impl Runtime for DockerRuntime {
             }
             Err(e) => Err(e),
         }
+    }
+}
+
+#[cfg(test)]
+mod probe_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    #[tokio::test]
+    async fn slow_first_ping_then_ok_succeeds() {
+        let calls = AtomicUsize::new(0);
+        let r = probe_with_retry(Duration::from_secs(5), Duration::from_millis(100), || {
+            let n = calls.fetch_add(1, Ordering::SeqCst);
+            async move {
+                if n < 2 {
+                    tokio::time::sleep(Duration::from_secs(10)).await;
+                }
+                Ok::<_, RuntimeError>(n)
+            }
+        })
+        .await;
+        assert_eq!(r, Ok(2));
+    }
+    #[tokio::test]
+    async fn never_answering_engine_fails_closed_after_budget() {
+        let start = std::time::Instant::now();
+        let r: Result<(), _> = probe_with_retry(
+            Duration::from_millis(600),
+            Duration::from_millis(100),
+            || std::future::pending(),
+        )
+        .await;
+        assert_eq!(r, Err(RuntimeError::Timeout("probe")));
+        assert!(start.elapsed() < Duration::from_secs(3));
+    }
+    #[tokio::test]
+    async fn permanent_errors_are_not_retried() {
+        let calls = AtomicUsize::new(0);
+        let r: Result<(), _> =
+            probe_with_retry(Duration::from_secs(5), Duration::from_secs(1), || {
+                calls.fetch_add(1, Ordering::SeqCst);
+                async { Err(RuntimeError::NotFound) }
+            })
+            .await;
+        assert_eq!(r, Err(RuntimeError::NotFound));
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
 }
 

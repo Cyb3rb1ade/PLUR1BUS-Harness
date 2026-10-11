@@ -48,7 +48,7 @@ async fn runtime_contract() {
     r.start(&s.name).await.unwrap();
     assert!(r.state(&s.name).await.unwrap().running);
     let output = r
-        .exec(&s.name, &["true"], None, std::time::Duration::from_secs(2))
+        .exec(&s.name, &["true"], None, std::time::Duration::from_secs(30))
         .await
         .unwrap();
     assert_eq!(output.code, 7);
@@ -133,7 +133,7 @@ async fn oneshot_preserves_nonzero_exit_code_and_output() {
         vec![],
     );
     let o = r
-        .run_oneshot(&s, std::time::Duration::from_secs(2))
+        .run_oneshot(&s, std::time::Duration::from_secs(30))
         .await
         .unwrap();
     assert_eq!(o.code, 7);
