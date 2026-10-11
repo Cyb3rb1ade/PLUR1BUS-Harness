@@ -18,11 +18,12 @@ const ProvidersSection = lazySection<SectionProps>(() => import("./sections/prov
 const UsersSection = lazySection<SectionProps>(() => import("./sections/users.ts").then((m) => m.UsersSection));
 const DevicesSection = lazySection<SectionProps>(() => import("./sections/devices.ts").then((m) => m.DevicesSection));
 const VoiceSection = lazySection<SectionProps>(() => import("./sections/voice.ts").then((m) => m.VoiceSection));
+const ModulesSection = lazySection<SectionProps>(() => import("./sections/modules.ts").then((m) => m.ModulesSection));
 
 const MediaIndexPanel = lazySection<object>(() => import("../media-search/settings.ts").then((m) => m.MediaIndexPanel));
 const MediaSection = lazySection<SectionProps>(() => import("../surfaces/media.ts").then(m => m.MetadataPreference));
 
-const BODY = { media: MediaSection, config: ConfigSection, secrets: SecretsSection, providers: ProvidersSection, users: UsersSection, devices: DevicesSection, voice: VoiceSection } as const;
+const BODY = { media: MediaSection, config: ConfigSection, secrets: SecretsSection, providers: ProvidersSection, users: UsersSection, devices: DevicesSection, voice: VoiceSection, modules: ModulesSection } as const;
 
 export function SettingsPage({ sub }: PageProps): View {
   const section = sectionById(sub) ?? sectionById(DEFAULT_SECTION)!;

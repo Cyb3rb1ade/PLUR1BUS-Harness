@@ -68,6 +68,7 @@ export const en = {
   "settings.err.ints": "Enter whole numbers, one per line.",
   "settings.err.enum": "Choose one of the listed values.",
   "settings.err.readonly": "This value cannot be edited here.",
+  "settings.section.modules": "Modules & Updates",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -137,4 +138,5 @@ export const de: Record<keyof typeof en, string> = {
   "settings.err.ints": "Gib ganze Zahlen ein, eine pro Zeile.",
   "settings.err.enum": "Wähle einen der angebotenen Werte.",
   "settings.err.readonly": "Dieser Wert kann hier nicht bearbeitet werden.",
+  "settings.section.modules": "Module & Updates",
 };

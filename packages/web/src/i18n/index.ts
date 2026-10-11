@@ -38,6 +38,7 @@ import type * as users from "./users.ts";
 import type * as homeHelpLibrary from "./home-help-library.ts";
 import type * as inbox from "./inbox.ts";
 import type * as breakglass from "./breakglass.ts";
+import type * as modules from "./modules.ts";
 
 export type Area = { readonly name: string; readonly en: Readonly<Record<string, string>>; readonly de: Readonly<Record<string, string>> };
 
@@ -77,11 +78,12 @@ type LazyAreaName =
   | "recurring"
   | "homeHelpLibrary"
   | "inbox"
-  | "breakglass";
+  | "breakglass"
+  | "modules";
 
 const LAZY_ORDER: readonly string[] = [
   "surfaces", "core", "chat", "projects", "memory", "mediasearch", "models", "budget", "doctor", "palette", "shared", "setup", "agents", "settings", "users",
-  "providers", "secrets", "switchboard", "devices", "logs", "activity", "sessions", "approvals", "voice", "extensions", "recurring", "homeHelpLibrary", "inbox", "breakglass",
+  "providers", "secrets", "switchboard", "devices", "logs", "activity", "sessions", "approvals", "voice", "extensions", "recurring", "homeHelpLibrary", "inbox", "breakglass", "modules",
 ];
 
 type AreaEn =
@@ -107,7 +109,8 @@ type AreaEn =
   | typeof recurring.en
   | typeof homeHelpLibrary.en
   | typeof inbox.en
-  | typeof breakglass.en;
+  | typeof breakglass.en
+  | typeof modules.en;
 type Intersect<U> = (U extends unknown ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
 
 export type Key = keyof Intersect<AreaEn> & string;
