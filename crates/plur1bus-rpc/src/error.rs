@@ -27,6 +27,9 @@ pub enum RpcError {
     Protocol(String),
 }
 
+/// `E_AGENT_EXISTS` rejects an agent name collision; the CLI exits 1.
+/// `E_AGENT_RIGHTS` rejects rights above the creator; the CLI exits 1.
+/// `E_AGENT_SECRETS_MISSING` lists required secret names via `ids`, never values; the CLI exits 1.
 /// `E_INBOX_CURSOR` rejects a malformed or foreign `inbox.list` cursor; the CLI exits 1.
 /// `E_INVITE_INVALID` refuses `user.invite.redeem` for an unknown, expired, revoked, used or malformed link, without saying which; the CLI exits 1.
 /// `E_PROJECT_WIP_LIMIT` refuses a board mutation atomically; the CLI exits 1.
