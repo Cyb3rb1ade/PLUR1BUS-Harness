@@ -876,6 +876,14 @@ fn rolled(j: &Journal) -> Outcome {
 }
 fn decode(o: crate::runtime::ExecOutput) -> Result<Value, CtlError> {
     if o.code != 0 {
+        // Test builds only: the synthetic stubs print a reason; a release build never echoes engine output.
+        #[cfg(debug_assertions)]
+        eprintln!(
+            "exec failed (code {}): stdout={:?} stderr={:?}",
+            o.code,
+            String::from_utf8_lossy(&o.stdout[..o.stdout.len().min(600)]),
+            String::from_utf8_lossy(&o.stderr[..o.stderr.len().min(600)])
+        );
         return Err(CtlError::ExecFailed {
             code: o.code,
             error_code: None,

@@ -2,13 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { withShell } from "./browser-harness.ts";
 
-test("sample shell and dialog pass axe WCAG 2.1 AA in both themes and locales", async () => {
+test("all shell routes and dialog pass axe WCAG 2.1 AA in both themes and locales", async () => {
   await withShell(async page => {
     await page.addScriptTag({ url: "/axe.js" });
     for (const theme of ["light", "dark"]) for (const locale of ["en", "de"]) {
       await page.evaluate(({ theme, locale }) => (window as any).testShell.setPreferences({ theme, locale }), { theme, locale });
-      for (const section of ["home", "connections", "settings"]) {
-        await page.evaluate(section => (window as any).testShell.navigate(section, "general"), section);
+      for (const [section, subpage] of [["home","runtime"],["connections","runtime"],["settings","general"],["settings","runtime"],["settings","updates"],["settings","version"],["settings","advanced"],["settings","computer-access"]] as const) {
+        await page.evaluate(([section, subpage]) => (window as any).testShell.navigate(section, subpage), [section, subpage]);
         if (section === "home") {
           const colors = await page.evaluate(() => {
             const tokens = getComputedStyle(document.documentElement);
@@ -26,8 +26,9 @@ test("sample shell and dialog pass axe WCAG 2.1 AA in both themes and locales", 
         }
         await page.locator(".toast").waitFor({ state: "detached", timeout: 4000 });
         const results = await page.evaluate(async () => await (window as any).axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] } }));
-        assertAxe(results, `${section} ${theme}/${locale}`);
+        assertAxe(results, `${section}/${subpage} ${theme}/${locale}`);
       }
+      await page.evaluate(() => (window as any).testShell.navigate("settings","general"));
       await page.getByRole("button", { name: locale === "de" ? "So funktionieren Einstellungen" : "How preferences work" }).click();
       const results = await page.evaluate(async () => await (window as any).axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] } }));
       assertAxe(results, `dialog ${theme}/${locale}`);
@@ -40,7 +41,7 @@ function assertAxe(results: { violations: Array<{ id: string; nodes: unknown[] }
   assert.deepEqual(results.violations.map(v => `${v.id} (${v.nodes.length})`), [], context);
   const exceptions: Record<string, string> = {
     ".wordmark-one": "WCAG 1.4.3 logotype exception: red brand numeral, never functional text.",
-    ...(context.startsWith("home ") ? {
+    ...(context.startsWith("home/") ? {
       ".eyebrow": "Home hero only: gradient extrema and interpolation verified for tertiary ink by contrast.test.ts.",
       "h1": "Home hero only: gradient extrema and interpolation verified for ink by contrast.test.ts.",
       ".lead": "Home hero only: gradient extrema and interpolation verified for secondary ink by contrast.test.ts.",

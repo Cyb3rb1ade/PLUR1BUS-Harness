@@ -1821,3 +1821,191 @@ consent, online/offline variants, tiered uninstall, signing hooks and Store/Flat
 configuration remain open. Existing artwork/configuration are inherited from the
 base; no WP13 completion is claimed. Real Apple pkg, vendor checksums and release
 OCI tarballs remain placeholders under the handoff Scope rule.
+
+## WP14 — CI extension, Apple scaffold and advisory canary (2026-10-11)
+
+Status: IMPLEMENTED; local checks below, first new workflow runs pending owner review.
+Branch: `codex/desktop-wp14-15`.
+Base: `origin/codex/desktop-wp11-13` at `81511ef6`; #368 and #375 were OPEN
+when work began. Exactly one combined WP14/WP15 PR against main, stacked on #375.
+Implementation head: the `feat(desktop): WP14` commit immediately preceding WP15
+in this branch; report included in that commit. No CI status queried.
+
+### Done and interfaces
+
+- `container-shell.yml`: Linux x64/ARM64 × Docker rootful, Docker rootless,
+  Podman rootless. Fixture setup separated from offline/local acceptance.
+- `scripts/container-e2e.mjs`: explicit local socket, prebuilt stub images,
+  controller_e2e, upgrade_e2e, preloaded loopback `registry:2` pull-by-digest;
+  missing digest refused. Per-run synthetic namespace; registry labelled, tmpfs data (no anonymous volume);
+  registry aliases removed
+  before uninstall and on failure. No engine prune or real release image pull.
+- Stub Dockerfile copies all five workspace members; duplicate host-helper COPY
+  removed. Controller fixture is debug-only. An inherited release-only reference
+  to renamed `window` is removed from runtime_commands.rs.
+- Unsigned Tauri configuration disables updater artifacts; the separate
+  `tauri.release.conf.json` overlay alone enables signed release artifacts.
+- `apple-container.yml`: dispatch-only self-hosted macOS/ARM64/macos-26-container;
+  versioned JSON report, explicit skip reason or availability scaffold, optional.
+- Nightly actual-shell Tauri 3/CEF compile patch and twice-built Linux `.deb`
+  comparison are advisory and allowed to fail. No promotion/release gate.
+- All actions use the exact desktop.yml SHAs; contents:read, no secrets,
+  no pull_request_target. New offline policy regressions: 5 PASS (red first).
+
+### Verification and acceptance
+
+- PASS: Docker/Podman dry-run plans without runtime/network/mutation.
+- PASS: actionlint for all three workflows, allowing only the declared custom
+  Apple runner label and pre-existing desktop.yml SC2016/SC2129 diagnostics.
+- PASS: `git apply --check apps/desktop/canary/tauri3.patch`.
+- PASS: Docker 29.4.0 (OrbStack/macOS arm64), controller install/restart/stop/
+  uninstall and host non-loopback refusal; upgrade A → B → failing B′ → B,
+  same synthetic device token/installation state; local registry digest pull
+  and missing-digest refusal. No image published.
+- PASS: Apple availability scaffold locally, CLI 1.5.0. Real Apple container
+  acceptance is Not run: this scaffold needs the owner's real image/hardware gate.
+- Not run: Podman local acceptance (not installed); six Linux CI variants,
+  Tauri 3/CEF compile and Linux `.deb` repro (Linux runner needed; first runs
+  happen after push). No CI green claim.
+- PASS: debug all-targets and production release workspace Clippy with
+  `-D warnings`; placeholder-key override explicit for unsigned release check.
+  Release all-targets attempt fails in inherited debug-only fixture examples;
+  these are excluded from the production release gate, not exposed in release.
+- §8 rows 1/4/5: stub/controller boundaries only; row 2: fake/scaffold only;
+  row 13: workflows prepared, new matrix/canary execution still pending.
+- Logs: `/tmp/wp14-{policy,actionlint,container,docker-setup}.log`.
+
+### Deviations / next
+
+No new business-policy default. One combined PR and worktree supersede the old
+one-PR-per-WP wording, as explicitly requested. Initial full parallel Rust run
+hit the existing proxy p95 bound under concurrent compilation; the unchanged
+serial acceptance run passed without changing its budget. Registry setup accepts
+OCI/Docker manifest indexes as well as manifests; temporary aliases cannot block
+the controller's image uninstall. WP15 follows in its own commit.
+
+
+WP14 follow-up: the owned Podman API service uses a scratch registries.conf for
+its exact dynamically allocated loopback port; no home registry configuration
+is edited. External provided Podman endpoints need their own registry policy.
+Offline loopback-policy regression PASS. API configuration follows
+[Podman registry configuration](https://docs.podman.io/en/v6.1.3/markdown/podman.1.html)
+and [containers/image prefix rules](https://github.com/containers/image/blob/main/docs/containers-registries.conf.5.md).
+
+## WP15 — Accessibility/i18n pass, docs and final report (2026-10-11)
+
+Status: IMPLEMENTED; local automated acceptance PASS, manual/native release gates open.
+Branch: `codex/desktop-wp14-15`; base `81511ef6` / stacked on #375, PR against main.
+WP14 commits: `12457897`, `70959952`, `d5bd7dfd`; WP15 implementation/report is the next
+`feat(desktop): WP15` commit. Exactly one combined PR; no force push or CI polling.
+
+### Done and interfaces
+
+- Shared EN/DE catalogues now own crash, ticket failure and updater texts,
+  release-kind/channel labels and version interpolation. Removed obsolete
+  catalogue keys and every desktop-ui hardcoded/dead-key exception from
+  check-i18n.config.json. OS language and manual override remain tested.
+- Standalone ticket error uses the same catalogues through its protected local
+  asset route; server-rendered escaped translations exist before JavaScript.
+  System theme/locale, saved override and accessible controls tested.
+- Common dynamic modal focus trap covers crash, quit, update offer and rollback,
+  including disabled controls. Opener restoration retained. Release-note language
+  controls expose full language names and their selected state to screen readers.
+- axe WCAG 2.1 AA in EN/DE × light/dark: all shell routes, pairing, every local
+  wizard step, runtime controls, computer access, update/Store settings and offers,
+  version/recovery, approvals, crash, quit, ticket failure, upgrade outcomes and
+  rollback confirmation. Existing tests retain status/error, keyboard name/order,
+  focus visibility and composited Glow-token contrast coverage.
+- Reflow at 400/960/1440/2560 CSS px, 200% display scale and text enlargement;
+  no global contrast exception added (brand numeral remains the logotype exception).
+- docs/desktop.md now describes actual shell/runtime/storage/update/removal behavior,
+  unsigned previews, setup vs offline acceptance, unfinished installers and gates.
+  AGENTS.md changed only within its Desktop section.
+
+### Verification (local macOS arm64)
+
+| WP15 Accept | Observed result |
+| --- | --- |
+| axe-core, every implemented view, both themes/locales | PASS: UI suite, no skipped view among the implemented surfaces above; WP12/WP13 views absent in base |
+| 400/960/1440/2560 CSS px, 200% | PASS: browser layout/reflow plus new upgrade/rollback 2× scale coverage |
+| keyboard traversal | PASS: ordered names, visible focus, modal wrapping, opener restoration and preference-change tests |
+| tray strings from catalogue | PASS: native EN/DE catalogue unit tests; no hardcoded UI exception |
+| automatic OS language + manual choice | PASS: locale resolution, fixture app_info OS locale, saved choices and rollback after failed save |
+| VoiceOver (macOS) | Not run: no human listening/manual interaction session; axe and start-smoke do not prove spoken output |
+| NVDA (Windows) | Not run: no interactive Windows environment |
+| Orca (Linux) | Not run: no interactive Linux environment |
+| §8 report | Complete below; partial/out/Not run remain explicit |
+
+PASS: frozen install; Node 24.21.0/pnpm 10.28.0/Rust 1.95; `pnpm lint`
+(typecheck, hygiene, zero-exception i18n, 94 lint regressions); UI build and 82 UI
+tests (0 fail/skip); desktop fmt; debug all-targets Clippy and production release
+workspace Clippy, both `--locked -D warnings` (release placeholder guard explicitly
+allowed for unsigned verification). Desktop Rust workspace: 437 PASS, 0 FAIL,
+6 opt-in IGNORE, including translated server fallback and doctests. Tests use
+`--offline`, local fixtures and in-memory credentials; no external network in tests.
+
+PASS: Tauri debug build `--no-bundle -- --locked`; native executable stays alive
+12 seconds in a private temporary HOME/CFFIXED_USER_HOME/XDG/TMPDIR/config tree,
+MemoryStore, no runtime installation and no panic. Owned process stopped and
+scratch removed. This is a start smoke, not a physical keyboard/screen-reader pass.
+WP14 Docker e2e PASS separately. Podman, real Apple, Windows/Linux GUI, canary,
+Linux repro and signed/store acceptance Not run for the reasons above.
+Logs: `/tmp/wp15-{lint,ui,rust,fmt,clippy-debug,clippy-release-production,start-build,start-smoke}.log`.
+
+### Final §8 acceptance table — all rows
+
+Local tests here revalidate the mock/unit boundary. Earlier CI/native evidence in
+WP1–WP11 sections is historical; it was not queried/reclassified as current green.
+
+| §8 | Current result and evidence | Remaining boundary |
+| --- | --- | --- |
+| 1 Fresh Docker/rootless/Podman install | PASS mock locally on Docker: controller, exact create spec, pairing/token, loopback, upgrade; rootless/Podman CI matrix prepared | Rootless/Podman first runs; physical SPA/keychain install; real harness image |
+| 2 Fresh Apple install | PASS fake CLI/runtime tests; local 1.5.0 availability scaffold | Real signed CLI/image/hardware acceptance Not run (DR18) |
+| 3 Detection/default/no silent switch | PASS unit fixtures: runtime detection, changed_runtime_is_reported_not_switched, saved wizard runtime choice | Native multi-runtime selection not manually rechecked |
+| 4 Supervision/kill/adopt/stop | PASS Docker controller PID1 restart and uninstall; stop_uses_150_seconds | Real supervisor/core adoption/refusals are harness Task 3 |
+| 5 Upgrade/rollback/failures/corruption | PASS 20 upgrade fixture cases, interrupted checkpoints, local Docker A→B→B′→B | Genuine engine/store migration and native app replacement |
+| 5a Update dialog/policy | PASS signed-feed/policy and bilingual UI tests: Later/Skip/Hold/minFromVersion/auto-patch/no downgrade | Genuine signed installation Not run |
+| 5b Release gate | OUT of shell scope | Owner/controller release gate |
+| 6 Host CLI forwarding/target.json | PARTIAL: helper transport and target_json tests PASS | WP13 forwarder/install integration remains unfinished; Task 10 out |
+| 7 Host bridge/secret lock/capabilities | PASS mock transport/scope/lock fixtures and Computer access UI | Real harness host bridge integration Task 2 |
+| 8 Remote code/non-loopback HTTP refusal | PASS local generated TLS/origin/pairing fixtures and forms | Real M3 server integration |
+| 8a Pins/proof/CA/trust rollover | PASS local generated-certificate/CA/substitution/rollover tests | Real M3 and native proxy acceptance not re-run |
+| 9 Revoke/credential deletion | PASS revoke and injected-store lifecycle tests | Real OS keychain and physical pairing-screen transition Not run |
+| 10 SPA shell_info/origin/foreign links | PASS capability/caller/link fixtures | Five-OS native webview checks not re-run |
+| 10a Proxy/SSE/WS/403/no token/origin/overhead | PASS local proxy suite, token-on-disk check and unchanged p95 bound in serial run | Native ephemeral profile/cookie scan not re-run; documented loopback fallback retained |
+| 11 Fresh login/ticket/empty cookie store | PASS ticket/retry/cookie fixture and browser cookie-policy suites | Physical native restart/cookie scan not re-run; server ticket rules mock |
+| 12 Tamper/beta/other-channel key | PASS a_tampered_payload_is_refused, a_bad_signature_is_refused, a_key_from_another_channel_is_refused | Genuine signed beta replacement on macOS Not run |
+| 13 Five targets/image pipeline/Tauri 3 | PARTIAL: pinned workflow/policy/actionlint PASS; six container variants, Apple scaffold, advisory canary/repro prepared | New workflow execution Not run; genuine container build/sign/size Task 4 OUT |
+| 14 axe/keyboard/screen reader | PASS automated for all implemented views in both themes/locales, widths and 200%; manual reader passes explicitly Not run | VoiceOver/NVDA/Orca and missing WP12/WP13 views |
+| 15 Redaction token/ticket/cookie/fragment | PASS redact_removes_tokens_tickets_cookies_keys_and_url_fragments and diagnostics tests | Physical native clipboard/cookie manual pass not re-run |
+
+Review Focus 1–7: installation mismatch (SPA meta/TLS fixtures), runtime gone
+(detection/controller fixtures), interrupted upgrade (journal checkpoint tests),
+port taken (`port_in_use_picks_the_next_and_keeps_the_connection`), disk full
+(`snapshot_disk_full_restarts_the_old_version_unchanged`), refused keychain
+(injected store/pairing tests), second runtime (`changed_runtime_is_reported_not_switched`).
+All local fixtures PASS; no native/manual claim is substituted for them.
+
+### Scope 18–20 and handoff
+
+| Scope | Result |
+| --- | --- |
+| 18 CI | Delivered shell container e2e matrix, Apple scaffold, advisory canary/repro; real image pipeline and release promotion OUT |
+| 19 Accessibility/i18n | Automated pass across every implemented desktop view; manual reader/native gates and absent WP12/WP13 views remain open |
+| 20 Docs/report | Desktop guide, Desktop-only AGENTS section and complete §8 report delivered; ADR implementation notes belong to controller after review |
+
+Open / next (no additional policy question):
+
+- [ ] Merge/review prerequisites #368/#375; this combined PR is stacked, no merge performed.
+- [ ] WP12/WP13: base status says NOT STARTED; implement missing deep-link,
+  installer/uninstall/Store/Flatpak/offline surfaces before final product acceptance.
+- [ ] Owner runs/reviews all new Linux container variants, Apple scaffold and advisory nightly jobs.
+- [ ] Real Apple macOS 26 hardware, signed CLI/pkg/OCI checksums/image.
+- [ ] Genuine update signing keys, macOS signing/notarization and app replacement;
+  Windows/Linux signing, Store submission and credentialed acceptance.
+- [ ] Manual VoiceOver/NVDA/Orca, physical keyboard/native focus and diagnostic clipboard/cookie checks.
+- [ ] Real harness Tasks 2–4/M3 contracts, engine migrations and image pipeline.
+
+No new feature-policy default, no real keys/certificates, no root crates/packages
+or unrelated workflows changed. Main checkout untouched. Exactly one PR is opened
+for both WPs after push; CI and merge decisions remain with the controller.

@@ -1,12 +1,14 @@
 # Desktop shell
 
-The desktop shell is an optional Tauri 2.12 client. WP4 adds native-local and
-remote pairing, OS-keychain credentials, origin-bound TLS trust, and working
-Connections pages to WP3's accessible German/English shell. Open verifies and
-selects a connection; the SPA window is WP5 and is explicitly shown as unavailable. WP2's provisional Rust
-mock harness, fake executable surfaces, and Linux stub image remain available for
-later work packages. The binding work sequence is in
-[the handoff](handoff/2026-09-30-desktop-shell-codex.md).
+The desktop shell is an optional Tauri 2.12 client for a native-local, remote,
+or bundled container harness. Pairing, credentials, TLS trust, the SPA proxy,
+container control, host bridge, update policy and rollback run in Rust. The
+German/English shell follows the OS language by default; Settings → General
+lets you choose System, English or Deutsch and System, Light or Dark appearance.
+The separate Rust mock and stub image prove the provisional harness contract.
+Real harness integration, signed distribution and the unfinished WP12/WP13
+installer/deep-link surfaces remain prerequisites, tracked in the
+[status report](handoff/status/desktop-shell.md).
 
 At widths below 1024 CSS px, navigation uses a 64 px rail and a 288 px overlay.
 The wide 400 px related panel opens as a 360 px sheet, or a full-width sheet
@@ -27,7 +29,8 @@ PLAYWRIGHT_BROWSERS_PATH=/tmp/plur1bus-wp03-playwright pnpm --filter @plur1bus/d
 cd apps/desktop
 cargo fmt --all -- --check
 cargo clippy --locked --workspace --all-targets -- -D warnings
-cargo test --locked --workspace --no-fail-fast
+PLUR1BUS_DESKTOP_ALLOW_PLACEHOLDER_KEY=1 cargo clippy --locked --workspace --release -- -D warnings
+cargo test --offline --locked --workspace --no-fail-fast -- --test-threads=1
 pnpm tauri dev
 ```
 
@@ -43,8 +46,7 @@ screenshots outside the checkout.
 
 `pnpm tauri dev` builds and starts the mock at `http://127.0.0.1:18700`
 with temporary state, then stops it and removes that state when Tauri exits.
-Use the scratch-profile seam below before pairing with the mock. WP4 connects
-the native client; WP5 adds the SPA window and native `shell_info` bridge.
+Use the scratch-profile seam below before pairing with the mock. The native client connects to it; the SPA window uses the `shell_info` bridge.
 For a standalone
 server, run `cargo run --locked -p plur1bus-mock-harness -- --port 18700`
 from `apps/desktop`; bind defaults to loopback, and public binds are refused
@@ -77,15 +79,14 @@ lockfile at `apps/desktop/Cargo.lock`; the root workspace excludes `apps`.
 `pnpm tauri build --debug --no-bundle -- --locked` compiles the native shell. Online packages
 use `pnpm tauri build --bundles dmg` on macOS, `--bundles nsis` on Windows, or
 `--bundles deb,rpm,appimage` on Linux. macOS uses ad-hoc signing; packages are
-unsigned distribution previews. Updater artifacts are deferred until WP10's
-key handling exists. No release signing credentials are needed for WP1.
+unsigned distribution previews. Unsigned builds disable updater artifacts. Only an explicitly signed release
+build uses `--config src-tauri/tauri.release.conf.json` to enable them.
+CI does not use this overlay or any signing secret.
 
 ## Boundaries
 
-The bundled shell has a restrictive CSP. Its nine native commands are
-`app_info`, `settings_get`, `settings_set`, `connections_list`,
-`connections_rename`, `connections_remove`, `pair_code`, `pair_local`, and
-`open_connection`. All require the `shell` webview at the exact bundled top-level
+The bundled shell has a restrictive CSP. Its native command allow-list is in
+`apps/desktop/desktop-contract`; pairing, runtime, updates and host commands require the `shell` webview at the exact bundled top-level
 origin. The shared command table generates application ACL permissions granting
 exactly these commands to that webview, with Rust caller checks retained.
 The shell capability grants no plugin permissions. IPC preferences are closed `theme` (`system`/`light`/`dark`) and
@@ -109,7 +110,7 @@ functional text and focus indicators have separate contrast checks.
 WP4 networking and credentials run only in Rust: explicit pairing and connection
 validation use the origin-bound TLS client, with lazy OS keychain access at the
 authenticated action. The webview receives public connection metadata, never a
-device token. There is no telemetry, and the SPA/session proxy remains WP5.
+device token. There is no telemetry. The SPA/session proxy is described below.
 The window stays hidden until its page finishes loading. Stable
 integration identifiers live in `src-tauri/src/ids.rs`.
 The independent `desktop-contract` crate supplies the provisional scope,
@@ -130,7 +131,7 @@ licenses are bundled in `apps/desktop/ui/assets/fonts/`:
 
 The
 five-target `desktop` workflow builds preview packages with seven-day retention.
-Tests use scratch directories. Do not run future pairing or runtime tests against
+Tests use scratch directories. Do not run pairing or runtime tests against
 personal state; use the seams specified in the handoff.
 
 See [the status record](handoff/status/desktop-shell.md) for observed checks,
@@ -266,8 +267,7 @@ specified `~/.local/bin/plur1bus` and Windows local-app-data location also belon
 to the future app shim. No alternative native install location is invented here.
 Until installer-owned native identity metadata is specified, these paths remain
 the pre-WP13 native assumption and must be revisited before the shim ships.
-Store writes are serialized within this app process; cross-process serialization
-is deferred to the WP6 single-instance lifecycle. The existing Windows CRT shim
+Store writes are serialized within this app process; the WP6 single-instance lifecycle prevents a second app process from writing. The existing Windows CRT shim
 relocation remains a documented build-system deviation needed by Windows x64.
 
 ### SPA proxy and session (WP5)
@@ -461,9 +461,9 @@ verified installer; a feed cannot restore trust by announcing a replacement key.
 an explicit unavailable message until WP11 provides the shared snapshot,
 migration, health gate and rollback path. The automatic-patch decision function
 is tested, but native automatic execution is conservatively held back while
-there is no proven active-run signal and shared WP11 upgrade path. An attached
-installation may install an explicitly approved app update. The Version page,
-crash resume, harness rollback and deep-link actions remain WP11/WP12 work.
+there is no proven active-run signal or when its activity signal is unavailable. An attached
+installation may install an explicitly approved app update. The Version page, crash resume and harness rollback are implemented below;
+deep-link actions remain unfinished WP12 work.
 
 ## Harness upgrade and Desktop recovery (WP11)
 
@@ -524,3 +524,103 @@ scratch-socket API process. Network access is needed for image build dependencie
 the acceptance itself uses only the local engine and loopback harness. The
 workflow_dispatch `upgrade_e2e` gate runs the same test for Docker and Podman.
 WP12 deep links and WP13 packaging/installer work remain outside this PR boundary.
+
+
+## Runtime and preview installation
+
+| OS | Local container runtime | Preview app installation |
+| --- | --- | --- |
+| macOS | Existing Docker Desktop/OrbStack or Podman machine; Apple `container` requires macOS 26 and a signed CLI on supported Apple hardware | Open the ad-hoc DMG and copy PLUR1BUS to Applications. For a trusted unsigned preview use System Settings → Privacy & Security → Open Anyway. |
+| Windows | Existing Docker Desktop (Linux engine / WSL2) or Podman machine | Run the unsigned NSIS installer; Windows may require More info → Run anyway for a trusted preview. |
+| Linux | Existing Docker Engine (rootful/rootless) or rootless Podman; Secret Service for durable credentials | Install the `.deb`/`.rpm` with the OS package manager or run the AppImage. WebKitGTK 4.1 and an AppIndicator host are needed. |
+
+The shell detects existing runtimes; it never silently switches between them.
+No automatic runtime download/install is claimed: WP13 is unfinished in the
+current base. Stable/beta update channel selection exists in Settings → Updates;
+Store/MSIX and Flatpak distribution require their remaining packaging work and
+credentials. Preview packages are online builds; real offline OCI payloads,
+vendor checksums, notarization and Store acceptance are not included.
+
+## Storage and removal
+
+Paths resolve through Tauri for identifier `app.plur1bus.desktop`:
+
+| Data | macOS | Windows | Linux |
+| --- | --- | --- | --- |
+| Configuration and public connection metadata | `~/Library/Application Support/app.plur1bus.desktop/` | `%APPDATA%\app.plur1bus.desktop\` | `$XDG_CONFIG_HOME/app.plur1bus.desktop/` (default `~/.config/`) |
+| Local redacted logs/crash receipts | `~/Library/Logs/app.plur1bus.desktop/` | `%LOCALAPPDATA%\app.plur1bus.desktop\logs\` | Tauri `app_log_dir()` |
+| Shell webview data | WKWebView default | WebView2 local app data | WebKitGTK default |
+| SPA webview data | Incognito, ephemeral owned profile | Incognito, ephemeral owned profile | Incognito, ephemeral owned profile |
+| Harness data/models | Runtime-managed `plur1bus-state` / `plur1bus-models` named volumes | Same | Same |
+| Host CLI / forwarder target (planned WP13) | `~/.local/bin/plur1bus`, `~/.config/plur1bus/target.json` | `%LOCALAPPDATA%\PLUR1BUS\bin\plur1bus.exe`, `%APPDATA%\PLUR1BUS\target.json` | Same as macOS |
+
+Settings/connection files contain no device token. OS credential service is
+`app.plur1bus.desktop`, accounts `device-<connection uuid>` and
+`secret-store-<installationId>`. Secret Service absence yields a visible
+memory-only fallback. Host-bridge secrets remain locked until the app reconnects;
+disabling the bridge keeps them locked. No private signing key ships with the app.
+Bundled installation and upgrade journals live below the configuration root in
+`bundled/`; snapshots and failed-state copies are runtime volumes.
+
+Quit the app before removing its app bundle/NSIS installation/Linux package.
+App removal retains harness volumes and connection metadata; do not delete them
+when you only intend to remove the client. Removing a connection through the UI
+also removes its credential entry. The controller has tested app-only,
+app-and-images and Everything policies (Everything needs `plur1bus-state`
+confirmation); the end-user tiered uninstall wizard is unfinished WP13 work.
+Do not manually purge recovery snapshots while Recovery failed is shown.
+
+## WP14 CI and isolated acceptance
+
+`container-shell.yml` covers Linux x64/ARM64 × Docker rootful, Docker rootless
+and Podman rootless. Setup downloads/builds fixtures before tests. The acceptance
+requires a local socket and prebuilt images; Cargo runs `--offline`. A loopback
+`registry:2` proves pull-by-digest and refusal of a missing digest. Tests check
+container restart/stop/uninstall, pairing and persisted device state through
+A → B → failing B′ → rollback, plus refusal of non-loopback access.
+Use a disposable local engine, never a personal harness installation:
+
+```sh
+# Setup: build A, B and failing B′; requires build dependencies/network.
+for version in 0.1.0 0.1.1 0.1.2; do
+  failure=0
+  if [ "$version" = 0.1.2 ]; then failure=1; fi
+  docker build -f apps/desktop/stub-image/Dockerfile --build-arg STUB_VERSION="$version" --build-arg STUB_FAIL_SMOKE="$failure" -t "p1t-stub-harness:wp11-$version" apps/desktop
+done
+docker pull registry:2
+# Compile test binaries before switching to offline acceptance.
+cargo test --manifest-path apps/desktop/Cargo.toml --locked -p plur1bus-desktop --test controller_e2e --test upgrade_e2e --no-run
+PLUR1BUS_DESKTOP_E2E_RUNTIME=docker node apps/desktop/scripts/container-e2e.mjs docker
+# Plan only: no engine, build, network or mutation.
+node apps/desktop/scripts/container-e2e.mjs podman --dry-run
+```
+
+For Podman replace the setup runtime and select `PLUR1BUS_DESKTOP_E2E_RUNTIME=podman`. Its temporary API
+socket and exact-port registry policy belong to the test. An externally supplied
+Podman endpoint must already permit that loopback registry. Named synthetic evidence remains on failed
+assertions; cleanup never prunes the engine. A successful controller uninstall
+removes A, so prepare that image again before another full run.
+`apple-container.yml` is dispatch-only on an owner-managed macOS 26 runner.
+`apple-e2e.mjs` writes a versioned JSON skip/availability report; it explicitly
+reports scaffold, never real Apple acceptance. Nightly Tauri 3/CEF compile and
+two-build Linux `.deb` comparison are advisory; see [canary notes](../apps/desktop/canary/README.md).
+Action lint permits only the declared custom Apple runner label and inherited
+SC2016/SC2129 diagnostics; no new workflow diagnostics remain.
+
+## Accessibility and known limits
+
+Shell routes, pairing, every bundled-wizard step, runtime controls, update/Store
+views and offers, version/recovery, approvals, crash, quit and ticket failure
+have offline axe WCAG 2.1 AA checks in light/dark and English/German. Responsive
+checks cover 400/960/1440/2560 CSS pixels; existing scale tests prove 200% display
+reflow and text enlargement. Modal dialogs trap Tab/Shift-Tab and restore the
+opener; asynchronous status/errors use live regions. Glow-token contrast tests
+cover compositing/interpolation; the brand numeral alone has the logotype
+exception. Tray labels use the native EN/DE catalogue, tested independently.
+
+Chromium automation does not prove spoken VoiceOver/NVDA/Orca behavior, native
+five-platform focus or genuine signed updates. Those manual passes, Apple
+hardware, signing/notarization, Store credentials and real harness image/store
+migration acceptance remain open. WP12 deep links and WP13 installer/uninstall
+views do not exist in this base and therefore cannot receive an accessibility
+pass. Every §8 row is classified in the [final report](handoff/status/desktop-shell.md).

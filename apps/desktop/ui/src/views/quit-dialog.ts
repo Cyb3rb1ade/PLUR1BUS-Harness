@@ -1,4 +1,4 @@
-import { element, append, restoreFocus } from "../components/dom.ts";
+import { element, append, restoreFocus, trapDialogFocus } from "../components/dom.ts";
 import { button } from "../components/button.ts";
 import { translate } from "../i18n.ts";
 
@@ -40,5 +40,5 @@ export function openQuitDialog(offer: QuitOffer, actions: QuitActions): void {
     if (!settled) void actions.cancel().catch(() => {});
     dialog.remove(); restoreFocus(opener);
   }, {once:true});
-  document.body.append(dialog); dialog.showModal(); cancel.focus();
+  document.body.append(dialog); trapDialogFocus(dialog);dialog.showModal(); cancel.focus();
 }

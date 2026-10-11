@@ -65,7 +65,11 @@ async fn run(engine: &str) {
             .await
             .unwrap();
         if index == 1 {
-            assert!(matches!(result, Outcome::Upgraded { .. }));
+            assert!(
+                matches!(result, Outcome::Upgraded { .. }),
+                "unexpected outcome {result:?}; journal {:?}",
+                ctl.upgrade_journal()
+            );
         } else {
             assert!(matches!(
                 result,

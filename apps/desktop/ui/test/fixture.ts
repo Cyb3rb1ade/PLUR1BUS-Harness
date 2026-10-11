@@ -1,3 +1,4 @@
+import {upgradeProgress} from "../src/views/upgrade-progress.ts";
 import {updatesPage} from "../src/views/settings-updates.ts";
 import {approvalCards} from "../src/views/approvals.ts";
 import {translate} from "../src/i18n.ts";
@@ -61,6 +62,10 @@ const shell = createShell(shellRoot, transport);
 Object.assign(window, { testShell: {
   ...shell,
   rollbacks:0,
+  showProgress:(step:string,outcome:import("../src/views/upgrade-progress.ts").UpgradeOutcome|null)=>{
+    const main=document.createElement("main");main.className="content";
+    main.append(upgradeProgress(step,outcome));shellRoot.replaceChildren(main);
+  },
   showVersion:(recovery=false)=>{
     const status:import("../src/views/settings-version.ts").UpgradeStatus={appVersion:"0.1.1",installedVersion:"0.1.1",imageDigest:"sha256:synthetic",rollbackAvailable:!recovery,journal:{from:"0.1.0",to:"0.1.1",step:recovery?"recoveryFailed":"done",failedStep:null,diagnostic:recovery?"<img src=x onerror=alert(1)> synthetic redacted details":null,snapshot:{createdAt:"2026-10-10T00:00:00Z",bytes:100,fileCount:2}}};
     const renderer=versionPage({...transport,harnessUpgradeStatus:async()=>status,harnessRollback:async confirmed=>{if(!confirmed)throw new Error("confirmation");(window as any).testShell.rollbacks++;status.rollbackAvailable=false;status.journal!.step="rolledBack";status.journal!.failedStep="done";return {state:"rolledBack",from:"0.1.0",to:"0.1.1",failed_step:"done"};}},()=>shellRoot.replaceChildren(renderer()));

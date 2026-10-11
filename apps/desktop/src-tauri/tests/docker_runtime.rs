@@ -102,6 +102,26 @@ fn create_body_is_exactly_the_spec() {
     assert!(h.get("Privileged").is_none());
 }
 
+#[test]
+fn oneshot_body_sets_an_explicit_entrypoint_and_cmd_without_the_binary_name() {
+    let s = oneshot_spec(
+        &format!("sha256:{}", "a".repeat(64)),
+        ["plur1bus", "state", "snapshot", "--src", "/src"]
+            .map(String::from)
+            .to_vec(),
+        vec![],
+    );
+    let v = serde_json::to_value(create_body(&s).unwrap()).unwrap();
+    assert_eq!(
+        v["Entrypoint"],
+        serde_json::json!(["/usr/local/bin/plur1bus"])
+    );
+    assert_eq!(
+        v["Cmd"],
+        serde_json::json!(["state", "snapshot", "--src", "/src"])
+    );
+}
+
 #[tokio::test]
 async fn oneshot_preserves_nonzero_exit_code_and_output() {
     let e = engine::Engine::start("Docker", "linux").await;
@@ -182,4 +202,35 @@ async fn config_id_is_not_a_manifest_digest() {
         .image_present(&format!("sha256:{}", "a".repeat(64)))
         .await
         .unwrap());
+}
+
+#[tokio::test]
+async fn image_remove_deletes_the_resolved_references_and_tolerates_absence() {
+    let e = engine::Engine::start("Docker", "linux").await;
+    let digest = format!("sha256:{}", "a".repeat(64));
+    let r = DockerRuntime::connect(&e.endpoint).await.unwrap();
+    r.image_remove(&digest).await.unwrap();
+    e.state.lock().unwrap().manifest_digest = Some(digest.clone());
+    r.image_remove(&digest).await.unwrap();
+    let requests = e.state.lock().unwrap().requests.clone();
+    assert!(requests
+        .iter()
+        .any(|(r, _)| r.starts_with("DELETE /images/fixture.invalid/harness@sha256:")));
+}
+
+#[tokio::test]
+async fn image_remove_falls_back_to_the_resolved_id_when_digest_refs_are_unknown() {
+    let e = engine::Engine::start("Docker", "linux").await;
+    let digest = format!("sha256:{}", "a".repeat(64));
+    {
+        let mut st = e.state.lock().unwrap();
+        st.manifest_digest = Some(digest.clone());
+        st.delete_by_digest_unknown = true;
+    }
+    let r = DockerRuntime::connect(&e.endpoint).await.unwrap();
+    r.image_remove(&digest).await.unwrap();
+    let requests = e.state.lock().unwrap().requests.clone();
+    assert!(requests
+        .iter()
+        .any(|(r, _)| r.starts_with("DELETE /images/sha256:aaaa")));
 }

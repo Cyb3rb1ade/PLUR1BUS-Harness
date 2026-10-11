@@ -7,6 +7,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 pub struct State {
     pub wait_code: i64,
     pub manifest_digest: Option<String>,
+    pub delete_by_digest_unknown: bool,
     pub wait_delay_ms: u64,
     pub requests: Vec<(String, Value)>,
     pub containers: std::collections::BTreeMap<String, Value>,
@@ -206,6 +207,27 @@ fn response(
                 "\\n\"}\n"
             )),
         );
+    }
+    if path == "/images/json" {
+        let repo: Vec<String> = s
+            .manifest_digest
+            .iter()
+            .map(|d| format!("fixture.invalid/harness@{d}"))
+            .collect();
+        return (
+            200,
+            json!([{"Id":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","ParentId":"","RepoTags":[],"RepoDigests":repo,"Created":0,"Size":0,"SharedSize":0,"Labels":{},"Containers":0}]),
+        );
+    }
+    if method == "DELETE" && path.starts_with("/images/") {
+        // Podman cannot delete by repo@digest: answer like it so the by-ID fallback is exercised.
+        if s.delete_by_digest_unknown && path.contains('@') {
+            return (
+                500,
+                json!({"cause":"tag not known","message":"tag not known"}),
+            );
+        }
+        return (200, json!([{"Untagged": path}]));
     }
     if path.starts_with("/images/") && path.ends_with("/json") {
         return (

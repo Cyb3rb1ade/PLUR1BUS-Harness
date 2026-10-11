@@ -13,8 +13,9 @@ test("update settings, safe notes and dialog pass accessibility; failures keep t
   await page.getByRole("button",{name:"Update now"}).click();
   await page.getByRole("alert").getByText("Update could not be installed.").waitFor();
   assert(await page.getByRole("dialog").isVisible());
-  await page.getByRole("button",{name:"DE",exact:true}).click();
+  await page.getByRole("button",{name:"Deutsch",exact:true}).click();
   await page.getByText("Behoben",{exact:true}).waitFor();
+  assert.equal(await page.getByRole("button",{name:"Deutsch",exact:true}).getAttribute("aria-pressed"),"true");
   await page.addScriptTag({url:"/axe.js"});
   const violations=await page.evaluate(async()=>{const result=await(window as any).axe.run(document.querySelector("dialog"),{runOnly:{type:"tag",values:["wcag2a","wcag2aa","wcag21aa"]}});return result.violations.map((v:any)=>v.id);});assert.deepEqual(violations,[]);
   await page.getByRole("button",{name:"Later",exact:true}).click();await page.locator("dialog").waitFor({state:"detached"});assert.equal(await page.locator("dialog").count(),0);

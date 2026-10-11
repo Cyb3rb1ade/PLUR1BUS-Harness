@@ -1,4 +1,5 @@
 //! Explicit real-engine acceptance only. No service is installed or runtime started by this fixture.
+#![cfg(debug_assertions)]
 use plur1bus_desktop::{
     connections::Store,
     controller::{Controller, HarnessStatus, Resources, UninstallLevel},
@@ -28,7 +29,7 @@ async fn run(engine: &str) {
     }
     let ctl = Arc::new(
         Controller::new(runtime.clone(), bundle, dir.path().join("bundled"))
-            .with_test_namespace(&format!("wp08-{engine}"))
+            .with_test_namespace(&format!("wp14-{engine}-{}", uuid::Uuid::now_v7().simple()))
             .unwrap(),
     );
     let i = ctl.install(Resources::default(), |_| {}).await.unwrap();
@@ -119,6 +120,17 @@ async fn run(engine: &str) {
     watch.abort();
     ctl.stop().await.unwrap();
     assert!(matches!(ctl.status().await, HarnessStatus::Stopped));
+    // The runtime installs by repo@digest only. Drop the harness's own registry alias tags (never the image) so
+    // the strict, non-forced image removal is not blocked by tags the runtime did not create.
+    for tag in std::env::var("PLUR1BUS_DESKTOP_E2E_EXTRA_TAGS")
+        .unwrap_or_default()
+        .split(',')
+        .filter(|t| !t.is_empty())
+    {
+        let _ = std::process::Command::new(engine)
+            .args(["rmi", tag])
+            .status();
+    }
     ctl.uninstall(
         UninstallLevel::Everything,
         Some("plur1bus-state"),
@@ -139,4 +151,24 @@ async fn controller_e2e_docker_stub_install_restart_stop_uninstall() {
 #[ignore = "Owner: explicit Podman endpoint, verified stub manifest and non-loopback IPs required"]
 async fn controller_e2e_podman_stub_install_restart_stop_uninstall() {
     run("podman").await;
+}
+
+#[tokio::test]
+#[ignore = "explicit preloaded loopback registry and local Engine required"]
+async fn controller_e2e_local_registry_pull_by_digest() {
+    let endpoint =
+        Endpoint::parse(&std::env::var("PLUR1BUS_DESKTOP_E2E_ENDPOINT").unwrap()).unwrap();
+    let reference = std::env::var("PLUR1BUS_DESKTOP_E2E_REGISTRY").unwrap();
+    assert!(reference.starts_with("127.0.0.1:"));
+    let digest = std::env::var("PLUR1BUS_DESKTOP_E2E_REGISTRY_DIGEST").unwrap();
+    let runtime = DockerRuntime::connect(&endpoint).await.unwrap();
+    let pinned = format!("{reference}@{digest}");
+    assert!(
+        !runtime.image_present(&pinned).await.unwrap(),
+        "must retrieve a missing reference"
+    );
+    runtime.image_pull(&reference, &digest).await.unwrap();
+    assert!(runtime.image_present(&pinned).await.unwrap());
+    let wrong = format!("sha256:{}", "0".repeat(64));
+    assert!(runtime.image_pull(&reference, &wrong).await.is_err());
 }

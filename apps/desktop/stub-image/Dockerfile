@@ -5,7 +5,6 @@ COPY desktop-contract/ desktop-contract/
 COPY host-helper/ host-helper/
 COPY mock-harness/ mock-harness/
 COPY test-bins/ test-bins/
-COPY host-helper/ host-helper/
 COPY src-tauri/Cargo.toml src-tauri/Cargo.toml
 COPY src-tauri/build.rs src-tauri/build_keys.rs src-tauri/build_support.rs src-tauri/
 COPY src-tauri/keys/ src-tauri/keys/

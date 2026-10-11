@@ -102,12 +102,13 @@ pub fn run(kind: &str) -> ! {
                 std::path::Path::new(&args[3]),
                 std::path::Path::new(&args[5]),
             )
-            .unwrap_or_else(|_| fail("E_SNAPSHOT", "synthetic snapshot failed"))
+            .unwrap_or_else(|e| fail("E_SNAPSHOT", &format!("synthetic snapshot failed: {e}")))
         }
         Some(Command::StateVerify) => {
             fail_if("verify");
-            snapshot::verify(std::path::Path::new(&args[3]))
-                .unwrap_or_else(|_| fail("E_VERIFY", "synthetic verification failed"))
+            snapshot::verify(std::path::Path::new(&args[3])).unwrap_or_else(|e| {
+                fail("E_VERIFY", &format!("synthetic verification failed: {e}"))
+            })
         }
         Some(Command::StateRestore) => {
             fail_if("restore");
@@ -115,7 +116,7 @@ pub fn run(kind: &str) -> ! {
                 std::path::Path::new(&args[3]),
                 std::path::Path::new(&args[5]),
             )
-            .unwrap_or_else(|_| fail("E_RESTORE", "synthetic restore failed"))
+            .unwrap_or_else(|e| fail("E_RESTORE", &format!("synthetic restore failed: {e}")))
         }
         Some(Command::AdminMigrate) => {
             fail_if("migrate");

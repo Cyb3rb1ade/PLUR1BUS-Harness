@@ -1,3 +1,4 @@
-# Hosted ARM labels used by existing workflows (not all are known to actionlint 1.7.7).
+# Hosted ARM labels used by existing workflows (not all are known to actionlint 1.7.7),
+# plus macos-26-container, the custom label of the optional owner runner in apple-container.yml.
 self-hosted-runner:
-  labels: [ubuntu-24.04-arm, windows-11-arm, macos-15-intel]
+  labels: [ubuntu-24.04-arm, windows-11-arm, macos-15-intel, macos-26-container]

@@ -5,6 +5,7 @@ use serde_json::json;
 use tokio::io::AsyncWriteExt;
 pub struct DockerRuntime {
     client: Docker,
+    endpoint: Endpoint,
     info: RuntimeInfo,
 }
 pub fn map_error(e: Error) -> RuntimeError {
@@ -36,10 +37,86 @@ pub fn map_error(e: Error) -> RuntimeError {
         Error::IOError { err } if err.kind() == std::io::ErrorKind::NotFound => {
             RuntimeError::NotFound
         }
-        _ => RuntimeError::Failed("engine-api".into()),
+        other => {
+            #[cfg(debug_assertions)]
+            eprintln!("engine-api error: {other}");
+            let _ = &other;
+            RuntimeError::Failed("engine-api".into())
+        }
     }
 }
 impl DockerRuntime {
+    /// Finds the local `repo@sha256:...` reference carrying the wanted manifest digest. `inspect` cannot be used:
+    /// the engine treats a bare `sha256:` as an image ID, which is the config digest and not what bundles pin.
+    /// Lists local `repo@digest` references carrying the wanted manifest digest. The image list is read as plain JSON
+    /// instead of bollard's strict `ImageSummary`: Podman's compatibility API omits or nulls fields that type requires.
+    async fn local_references(&self, wanted: &str) -> Result<Vec<String>, RuntimeError> {
+        let body = tokio::time::timeout(
+            Duration::from_secs(30),
+            raw_get(&self.endpoint, "/images/json"),
+        )
+        .await
+        .map_err(|_| RuntimeError::Timeout("engine-api"))??;
+        Ok(repo_digests_from_list(&body)?
+            .into_iter()
+            .filter(|d| has_repo_digest(std::slice::from_ref(d), wanted) && d.contains('@'))
+            .collect())
+    }
+    /// Image IDs of list entries whose RepoDigests carry the wanted manifest digest (deduplicated).
+    async fn local_image_ids(&self, wanted: &str) -> Result<Vec<String>, RuntimeError> {
+        let body = tokio::time::timeout(
+            Duration::from_secs(30),
+            raw_get(&self.endpoint, "/images/json"),
+        )
+        .await
+        .map_err(|_| RuntimeError::Timeout("engine-api"))??;
+        let list: serde_json::Value =
+            serde_json::from_slice(&body).map_err(|_| RuntimeError::Failed("engine-api".into()))?;
+        let mut ids: Vec<String> = vec![];
+        for item in list.as_array().into_iter().flatten() {
+            let digests: Vec<String> = item
+                .get("RepoDigests")
+                .and_then(|d| d.as_array())
+                .into_iter()
+                .flatten()
+                .filter_map(|d| d.as_str().map(str::to_owned))
+                .collect();
+            if let Some(id) = item.get("Id").and_then(|i| i.as_str()) {
+                if has_repo_digest(&digests, wanted) && !ids.iter().any(|i| i == id) {
+                    ids.push(id.to_owned());
+                }
+            }
+        }
+        Ok(ids)
+    }
+    async fn delete_image(&self, name: &str) -> Result<u16, RuntimeError> {
+        let raw = tokio::time::timeout(
+            Duration::from_secs(60),
+            raw_send(
+                &self.endpoint,
+                "DELETE",
+                &format!("/images/{name}?force=0&noprune=0"),
+            ),
+        )
+        .await
+        .map_err(|_| RuntimeError::Timeout("engine-api"))??;
+        let status = http_status(&raw)?;
+        #[cfg(debug_assertions)]
+        if !matches!(status, 200..=299 | 404) {
+            eprintln!(
+                "image remove {name} -> HTTP {status}: {:?}",
+                String::from_utf8_lossy(&raw[..raw.len().min(600)])
+            );
+        }
+        // Podman refuses a non-forced delete by ID of a multi-tagged image with a 500 instead of 409.
+        if status == 500 && String::from_utf8_lossy(&raw).contains("more than one tag") {
+            return Ok(409);
+        }
+        Ok(status)
+    }
+    async fn local_reference(&self, wanted: &str) -> Result<Option<String>, RuntimeError> {
+        Ok(self.local_references(wanted).await?.into_iter().next())
+    }
     pub async fn connect(endpoint: &Endpoint) -> Result<Self, RuntimeError> {
         let mut client = match endpoint {
             #[cfg(unix)]
@@ -83,18 +160,17 @@ impl DockerRuntime {
                 min: "1.41".into(),
             });
         }
-        let engine = version
-            .platform
-            .map(|p| p.name)
-            .or_else(|| {
-                version
-                    .components
-                    .and_then(|c| c.into_iter().next().map(|v| v.name))
-            })
-            .unwrap_or_else(|| "Docker-compatible".into());
+        let engine = engine_name(
+            version.platform.map(|p| p.name),
+            version
+                .components
+                .map(|c| c.into_iter().map(|v| v.name).collect())
+                .unwrap_or_default(),
+        );
         client.set_timeout(Duration::from_secs(300));
         Ok(Self {
             client,
+            endpoint: endpoint.clone(),
             info: RuntimeInfo {
                 kind: RuntimeKind::Docker,
                 endpoint: endpoint.to_string(),
@@ -102,6 +178,136 @@ impl DockerRuntime {
                 engine,
             },
         })
+    }
+}
+/// Every `RepoDigests` entry of an `/images/json` body, tolerant of null/missing fields and extra keys.
+fn repo_digests_from_list(body: &[u8]) -> Result<Vec<String>, RuntimeError> {
+    let list: serde_json::Value =
+        serde_json::from_slice(body).map_err(|_| RuntimeError::Failed("engine-api".into()))?;
+    let items = match &list {
+        serde_json::Value::Array(items) => items.as_slice(),
+        serde_json::Value::Null => &[],
+        _ => return Err(RuntimeError::Failed("engine-api".into())),
+    };
+    Ok(items
+        .iter()
+        .filter_map(|i| i.get("RepoDigests").and_then(|d| d.as_array()))
+        .flatten()
+        .filter_map(|d| d.as_str().map(str::to_owned))
+        .collect())
+}
+/// Decodes an HTTP/1.1 response with `Connection: close`, returning the body of a 200 reply.
+fn http_body(raw: &[u8]) -> Result<Vec<u8>, RuntimeError> {
+    let bad = || RuntimeError::Failed("engine-api".into());
+    let split = raw
+        .windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .ok_or_else(bad)?;
+    let head = String::from_utf8_lossy(&raw[..split]).to_ascii_lowercase();
+    let body = &raw[split + 4..];
+    if head
+        .lines()
+        .next()
+        .and_then(|l| l.split_whitespace().nth(1))
+        != Some("200")
+    {
+        return Err(bad());
+    }
+    if !head.contains("transfer-encoding: chunked") {
+        return Ok(body.to_vec());
+    }
+    let (mut out, mut rest) = (vec![], body);
+    loop {
+        let eol = rest.windows(2).position(|w| w == b"\r\n").ok_or_else(bad)?;
+        let size = usize::from_str_radix(
+            String::from_utf8_lossy(&rest[..eol])
+                .split(';')
+                .next()
+                .unwrap_or("")
+                .trim(),
+            16,
+        )
+        .map_err(|_| bad())?;
+        rest = &rest[eol + 2..];
+        if size == 0 {
+            return Ok(out);
+        }
+        if rest.len() < size + 2 {
+            return Err(bad());
+        }
+        out.extend_from_slice(&rest[..size]);
+        rest = &rest[size + 2..];
+    }
+}
+async fn raw_get(endpoint: &Endpoint, path: &str) -> Result<Vec<u8>, RuntimeError> {
+    http_body(&raw_send(endpoint, "GET", path).await?)
+}
+/// Status code and (debug-only diagnostics aside) body of an HTTP response.
+fn http_status(raw: &[u8]) -> Result<u16, RuntimeError> {
+    String::from_utf8_lossy(&raw[..raw.len().min(64)])
+        .split_whitespace()
+        .nth(1)
+        .and_then(|c| c.parse().ok())
+        .ok_or_else(|| RuntimeError::Failed("engine-api".into()))
+}
+async fn raw_send(endpoint: &Endpoint, method: &str, path: &str) -> Result<Vec<u8>, RuntimeError> {
+    use tokio::io::AsyncReadExt;
+    let request = format!("{method} {path} HTTP/1.1\r\nHost: docker\r\nAccept: application/json\r\nConnection: close\r\n\r\n");
+    let mut raw = vec![];
+    match endpoint {
+        #[cfg(unix)]
+        Endpoint::Unix(p) => {
+            let mut s = tokio::net::UnixStream::connect(p)
+                .await
+                .map_err(|_| RuntimeError::NotFound)?;
+            s.write_all(request.as_bytes())
+                .await
+                .map_err(|_| RuntimeError::Failed("engine-api".into()))?;
+            s.take(OUTPUT_LIMIT as u64)
+                .read_to_end(&mut raw)
+                .await
+                .map_err(|_| RuntimeError::Failed("engine-api".into()))?;
+        }
+        #[cfg(windows)]
+        Endpoint::Pipe(p) => {
+            let mut s = tokio::net::windows::named_pipe::ClientOptions::new()
+                .open(p)
+                .map_err(|_| RuntimeError::NotFound)?;
+            s.write_all(request.as_bytes())
+                .await
+                .map_err(|_| RuntimeError::Failed("engine-api".into()))?;
+            s.take(OUTPUT_LIMIT as u64)
+                .read_to_end(&mut raw)
+                .await
+                .map_err(|_| RuntimeError::Failed("engine-api".into()))?;
+        }
+        #[allow(unreachable_patterns)]
+        _ => return Err(RuntimeError::NotFound),
+    }
+    Ok(raw)
+}
+/// Podman reports a host triple such as `linux/amd64/ubuntu-24.04` as its platform name and itself only as the
+/// first component ("Podman Engine"); Docker reports "Docker Engine - Community" as the platform. A component
+/// that names Podman therefore wins, otherwise the platform name, otherwise the first component.
+fn engine_name(platform: Option<String>, components: Vec<String>) -> String {
+    components
+        .iter()
+        .find(|c| c.to_ascii_lowercase().contains("podman"))
+        .cloned()
+        .or(platform)
+        .or_else(|| components.into_iter().next())
+        .unwrap_or_else(|| "Docker-compatible".into())
+}
+/// An image is present only when one of its RepoDigests carries the wanted manifest digest. The image ID
+/// (config digest) of a locally built image is deliberately not accepted. A bare `sha256:` matches any
+/// repository; a pinned `repo@sha256:` must match that exact repository, so the same content stored under
+/// another name does not count as the requested reference.
+fn has_repo_digest(repo_digests: &[String], wanted: &str) -> bool {
+    match wanted.split_once('@') {
+        Some(_) => repo_digests.iter().any(|d| d == wanted),
+        None => repo_digests
+            .iter()
+            .any(|d| d.rsplit('@').next() == Some(wanted)),
     }
 }
 fn api_parts(v: &str) -> Vec<u32> {
@@ -123,8 +329,17 @@ pub fn create_body(spec: &ContainerSpec) -> Result<ContainerCreateBody, RuntimeE
         body["ExposedPorts"] = json!({"18700/tcp":{}})
     }
     if let Some(cmd) = &spec.cmd {
-        body["Cmd"] = json!(cmd);
-        body["Entrypoint"] = json!([])
+        // The binary is the entrypoint and the rest is its Cmd. An empty `Entrypoint` is "reset" on Docker but
+        // "keep the image entrypoint" on Podman's compat API, which would run `<entrypoint> plur1bus state ...`.
+        if let Some((binary, args)) = cmd.split_first() {
+            let binary = if binary == "plur1bus" {
+                "/usr/local/bin/plur1bus"
+            } else {
+                binary
+            };
+            body["Entrypoint"] = json!([binary]);
+            body["Cmd"] = json!(args)
+        }
     }
     serde_json::from_value(body).map_err(|_| RuntimeError::Failed("container-body".into()))
 }
@@ -229,10 +444,25 @@ impl Runtime for DockerRuntime {
         self.ping().await.map_err(|_| RuntimeError::Stopped)
     }
     async fn image_present(&self, digest: &str) -> Result<bool, RuntimeError> {
+        if self.local_reference(digest).await?.is_some() {
+            return Ok(true);
+        }
+        // Engines on the containerd image store do not always list a freshly pulled `repo@digest` in the image
+        // list. The engine's own resolution of that exact pinned reference is the proof instead, and it must
+        // report the pinned manifest digest among its RepoDigests (an image ID is never enough). A bare
+        // digest is never resolved this way: it would be read as an image ID.
+        let Some((_, pinned)) = digest.split_once('@') else {
+            return Ok(false);
+        };
         match self.client.inspect_image(digest).await {
-            Ok(v) => Ok(v.repo_digests.unwrap_or_default().iter().any(|d| {
-                d.rsplit('@').next() == Some(digest.rsplit('@').next().unwrap_or(digest))
-            })),
+            Ok(v) => {
+                let found = v.repo_digests.unwrap_or_default();
+                let ok = has_repo_digest(&found, pinned);
+                if !ok {
+                    eprintln!("image-digest-mismatch: expected {digest}, engine reports id={:?} repoDigests={found:?}", v.id);
+                }
+                Ok(ok)
+            }
             Err(Error::DockerResponseServerError {
                 status_code: 404, ..
             }) => Ok(false),
@@ -474,15 +704,28 @@ impl Runtime for DockerRuntime {
         .map_err(|_| RuntimeError::Timeout("port-inventory"))?
     }
     async fn image_remove(&self, digest: &str) -> Result<(), RuntimeError> {
-        self.client
-            .remove_image(
-                digest,
-                Some(RemoveImageOptionsBuilder::default().force(false).build()),
-                None,
-            )
-            .await
-            .map(|_| ())
-            .map_err(map_error)
+        // A bare manifest digest is not an engine reference (it would be read as an image ID): remove every local
+        // `repo@digest` reference that carries it. Nothing local means there is nothing left to remove.
+        // Docker accepts `repo@digest`; Podman answers 500 "tag not known" for it. Those references were already
+        // matched by manifest digest, so fall back to deleting the matched image by its resolved ID (non-forced).
+        let mut fallback = false;
+        for reference in self.local_references(digest).await? {
+            match self.delete_image(&reference).await? {
+                200..=299 | 404 => {}
+                409 => return Err(RuntimeError::Conflict("runtime-object".into())),
+                _ => fallback = true,
+            }
+        }
+        if fallback {
+            for id in self.local_image_ids(digest).await? {
+                match self.delete_image(&id).await? {
+                    200..=299 | 404 => {}
+                    409 => return Err(RuntimeError::Conflict("runtime-object".into())),
+                    _ => return Err(RuntimeError::Failed("engine-api".into())),
+                }
+            }
+        }
+        Ok(())
     }
     async fn network_remove(&self, name: &str) -> Result<(), RuntimeError> {
         let n = self
@@ -501,6 +744,17 @@ impl Runtime for DockerRuntime {
         self.client.remove_network(name).await.map_err(map_error)
     }
     async fn create(&self, spec: &ContainerSpec) -> Result<(), RuntimeError> {
+        // Docker resolves a bare `sha256:` as an image ID, never as a manifest digest: pin the local
+        // `repo@digest` reference that carries it. Unresolved (e.g. a pull happens at create) keeps the spec as is.
+        let mut resolved;
+        let spec = match self.local_reference(&spec.image_digest).await? {
+            Some(reference) => {
+                resolved = spec.clone();
+                resolved.image_digest = reference;
+                &resolved
+            }
+            None => spec,
+        };
         self.client
             .create_container(
                 Some(
@@ -755,5 +1009,70 @@ mod stream_tests {
             bounded_json(stream, Duration::from_secs(2)).await,
             Err(RuntimeError::Failed(_))
         ));
+    }
+}
+
+#[cfg(test)]
+mod repo_digest_tests {
+    use super::has_repo_digest;
+    const D: &str = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
+    #[test]
+    fn matches_bare_and_pinned_wanted_digest() {
+        let repo = vec![format!("127.0.0.1:5000/p1t-stub@{D}")];
+        assert!(has_repo_digest(&repo, D));
+        assert!(has_repo_digest(
+            &repo,
+            &format!("127.0.0.1:5000/p1t-stub@{D}")
+        ));
+        assert!(!has_repo_digest(&repo, &format!("other.invalid/x@{D}")));
+    }
+    #[test]
+    fn podman_is_named_by_its_component_not_the_host_platform() {
+        use super::engine_name;
+        let podman = vec!["Podman Engine".to_owned(), "Conmon".to_owned()];
+        assert_eq!(
+            engine_name(Some("linux/amd64/ubuntu-24.04".into()), podman),
+            "Podman Engine"
+        );
+        let docker = vec!["Engine".to_owned(), "containerd".to_owned()];
+        assert_eq!(
+            engine_name(Some("Docker Engine - Community".into()), docker),
+            "Docker Engine - Community"
+        );
+        assert_eq!(engine_name(None, vec!["Engine".into()]), "Engine");
+        assert_eq!(engine_name(None, vec![]), "Docker-compatible");
+    }
+    #[test]
+    fn podman_shaped_image_list_is_read_tolerantly() {
+        use super::{http_body, repo_digests_from_list};
+        let json = format!(
+            r#"[{{"Id":"a","RepoDigests":null,"Created":"2026-10-11T00:00:00Z","Extra":{{}}}},
+               {{"Id":"b","RepoDigests":["r/x@{D}"],"Created":1760000000,"Names":["r/x:1"]}},
+               {{"Id":"c"}}]"#
+        );
+        assert_eq!(
+            repo_digests_from_list(json.as_bytes()).unwrap(),
+            vec![format!("r/x@{D}")]
+        );
+        assert!(repo_digests_from_list(b"null").unwrap().is_empty());
+        assert!(repo_digests_from_list(b"{}").is_err());
+        let chunked = String::from(
+            "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n3\r\n[1,\r\n2\r\n2]\r\n0\r\n\r\n",
+        );
+        assert_eq!(http_body(chunked.as_bytes()).unwrap(), b"[1,2]");
+        assert!(http_body(b"HTTP/1.1 500 x\r\n\r\n[]").is_err());
+        assert_eq!(
+            http_body(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n[]").unwrap(),
+            b"[]"
+        );
+    }
+    #[test]
+    fn locally_built_image_without_repo_digests_is_absent() {
+        assert!(!has_repo_digest(&[], D));
+    }
+    #[test]
+    fn other_digest_does_not_match() {
+        let repo = vec![format!("x@sha256:{}", "2".repeat(64))];
+        assert!(!has_repo_digest(&repo, D));
     }
 }

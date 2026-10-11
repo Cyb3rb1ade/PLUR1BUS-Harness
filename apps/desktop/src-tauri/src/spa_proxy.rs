@@ -487,7 +487,7 @@ async fn forward(
                         crate::settings::Locale::En => "en",
                         crate::settings::Locale::De => "de",
                     };
-                    include_str!("../../ui/src/views/ticket-error.html")
+                    ticket_error_html(locale)
                         .replace("data-theme=\"system\"", &format!("data-theme=\"{theme}\""))
                         .replace(
                             "data-locale=\"system\"",
@@ -502,6 +502,14 @@ async fn forward(
             "/__shell/theme.css" => (
                 "text/css; charset=utf-8",
                 std::borrow::Cow::Borrowed(include_str!("../../ui/src/theme/tokens.css")),
+            ),
+            "/__shell/catalogue.js" => (
+                "text/javascript; charset=utf-8",
+                std::borrow::Cow::Owned(format!(
+                    "export const catalogues = {{en:{},de:{}}};",
+                    include_str!("../../ui/src/i18n/en.json"),
+                    include_str!("../../ui/src/i18n/de.json")
+                )),
             ),
             "/__shell/error.js" => (
                 "text/javascript; charset=utf-8",
@@ -1257,5 +1265,53 @@ mod tests {
             .await
             .unwrap()
             .is_empty());
+    }
+}
+
+// Render translated fallback text before script execution, from the same UI catalogues.
+fn ticket_error_html(choice: &str) -> String {
+    let system = sys_locale::get_locale().unwrap_or_else(|| "en".into());
+    let locale = if choice == "system" {
+        system.as_str()
+    } else {
+        choice
+    };
+    let german = locale
+        .split(['-', '_'])
+        .next()
+        .is_some_and(|v| v.eq_ignore_ascii_case("de"));
+    let source = if german {
+        include_str!("../../ui/src/i18n/de.json")
+    } else {
+        include_str!("../../ui/src/i18n/en.json")
+    };
+    let catalogue: std::collections::BTreeMap<String, String> =
+        serde_json::from_str(source).expect("UI catalogue");
+    let mut html = include_str!("../../ui/src/views/ticket-error.html").replace(
+        "lang=\"en\"",
+        if german { "lang=\"de\"" } else { "lang=\"en\"" },
+    );
+    for key in ["title", "documentTitle", "detail", "safe", "copy", "retry"] {
+        let text = &catalogue[&format!("ticket.{key}")];
+        let escaped = text
+            .replace('&', "&amp;")
+            .replace('<', "&lt;")
+            .replace('>', "&gt;")
+            .replace('"', "&quot;");
+        html = html.replace(&format!("{{{{ticket.{key}}}}}"), &escaped);
+    }
+    html
+}
+
+#[cfg(test)]
+mod ticket_catalogue_tests {
+    #[test]
+    fn translated_fallback_is_present_without_javascript() {
+        for (locale, title) in [("en", "Sign-in failed"), ("de", "Anmeldung fehlgeschlagen")] {
+            let html = super::ticket_error_html(locale);
+            assert!(html.contains(title));
+            assert!(html.contains(&format!("lang=\"{locale}\"")));
+            assert!(!html.contains("{{ticket."));
+        }
     }
 }
