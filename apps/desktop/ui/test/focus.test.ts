@@ -47,7 +47,7 @@ test("simultaneous overlays retain unique accessible title references", async ()
 
 test("Enter on every rail route focuses its page heading", async () => {
   await withShell(async page => {
-    for (const name of ["Connections", "Settings", "Runtime", "Updates", "Version", "Advanced", "Home"]) {
+    for (const name of ["Connections", "Settings", "General", "Runtime", "Updates", "Version", "Advanced", "Home"]) {
       await page.locator(".sidebar").getByRole("button", { name, exact: true }).focus();
       await page.keyboard.press("Enter");
       assert.equal(await page.locator("h1").evaluate(node => node === document.activeElement), true, name);
@@ -71,7 +71,7 @@ test("Space activates navigation and preference controls", async () => {
   await withShell(async page => {
     await page.locator(".sidebar").getByRole("button", { name: "Settings", exact: true }).focus();
     await page.keyboard.press("Space");
-    await page.locator(".sidebar").getByRole("button", { name: "Advanced", exact: true }).focus();
+    await page.locator(".sidebar").getByRole("button", { name: "General", exact: true }).focus();
     await page.keyboard.press("Space");
     assert.equal(await page.locator("h1").evaluate(node => node === document.activeElement), true);
     await page.getByRole("button", { name: "Dark", exact: true }).focus();
