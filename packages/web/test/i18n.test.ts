@@ -12,6 +12,7 @@ import * as doctor from "../src/i18n/doctor.ts";
 import * as extensions from "../src/i18n/extensions.ts";
 import * as logs from "../src/i18n/logs.ts";
 import * as memory from "../src/i18n/memory.ts";
+import * as projects from "../src/i18n/projects.ts";
 import * as providers from "../src/i18n/providers.ts";
 import * as recurring from "../src/i18n/recurring.ts";
 import * as secrets from "../src/i18n/secrets.ts";
@@ -23,6 +24,7 @@ import * as users from "../src/i18n/users.ts";
 
 // The lazy areas register as their page chunk loads; load them here so every check below covers them too.
 registerArea("chat", chat);
+registerArea("projects", projects);
 registerArea("budget", budget);
 registerArea("doctor", doctor);
 registerArea("setup", setup);
@@ -44,7 +46,7 @@ const placeholders = (s: string): string[] => [...s.matchAll(/\{(\w+)\}/g)].map(
 
 test("i18n areas: core plus the page areas are registered", () => {
   assert.deepEqual(AREAS.map((a) => a.name), [
-    "surfaces", "core", "chat", "memory", "mediasearch", "models", "budget", "doctor", "palette",
+    "surfaces", "core", "chat", "projects", "memory", "mediasearch", "models", "budget", "doctor", "palette",
     "shared", "setup", "agents", "settings", "users", "providers", "secrets", "switchboard", "devices", "logs", "activity", "sessions", "approvals", "voice", "extensions", "recurring",
   ]);
 });

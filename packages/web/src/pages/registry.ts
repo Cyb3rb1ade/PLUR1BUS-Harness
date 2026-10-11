@@ -9,7 +9,7 @@ export type PageComponent = (props: PageProps) => View | null;
 
 // Real pages are loaded on first use (dynamic import(), one chunk each; see lazy.ts). The placeholder is tiny and static.
 const MediaPage = lazyPage(() => import("./surfaces/media.ts").then(m => m.MediaPage));
-const ProjectsPage = lazyPage(() => import("./surfaces/projects.ts").then(m => m.ProjectsPage), "settings");
+const ProjectsPage = lazyPage(() => import("./projects/page.ts").then(m => m.ProjectsPage));
 const IdentitiesPage = lazyPage(() => import("./surfaces/identities.ts").then(m => m.IdentitiesPage));
 const ChatPage = lazyPage(() => import("./chat/page.ts").then((m) => m.ChatPage));
 const MemoriesPage = lazyPage(() => import("./memory/index.ts").then((m) => m.MemoriesPage));
