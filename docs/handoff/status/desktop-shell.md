@@ -1706,15 +1706,105 @@ WP boundary / limitations:
   Docker CLI is installed; Podman is absent. No workflow changes were needed.
 - CI was not queried. No merge, rebase, amend or force-push.
 
-## WP11 — NOT STARTED (remaining work)
+## WP11 — implemented and verified at the stub boundary (2026-10-10)
 
-Status: Not run. Head: no implementation head.
-Journal, upgrade steps 1–9, gate, automatic/manual rollback, crash resume,
-diagnostic redaction and progress/Version UI remain open. `upgrade_e2e` is
-Not run because that state machine/test does not exist yet. Docker Engine
-29.4.0 is available; Podman is not installed. No runtime objects were created.
-The existing controller E2E tests also require an explicitly supplied endpoint
-and verified stub manifest, and remain gated.
+Status: implementation complete at the handoff's fake/stub boundary. Head: 42e9139fe7e7a466112ac2264d3816d9fb9eac13.
+Worktree: `/Users/cyberblade/worktrees/desktop-wp11-13`; branch `codex/desktop-wp11-13`.
+Base: `76f89c35` (`origin/codex/desktop-wp10-12`, #368); **stacked on #368**.
+The WP10 limitations above describe its own historical head; WP11 supersedes its
+bundled-update and automatic-execution blocks. WP12/WP13 are deliberately left
+for the next WP boundary, as permitted by the owner. Exactly one draft PR covers
+this completed WP11 series; the controller owns CI and merging.
+
+Implemented: private write-then-rename `bundled/upgrades.json`, all steps 1–9,
+verified cold snapshots, schema migration (patches refuse schema changes), same-port
+swap with an exact port reservation, 300-second authenticated gate, automatic and
+confirmed manual rollback, deterministic crash recovery, skipped failed versions,
+redacted diagnostics, tray/progress/outcome events and Settings → Version.
+Native status/bridge generations are suspended before mutation so a temporary
+new-image token rejection cannot delete the saved credential. A tray overlay
+keeps progress/recovery visible until the gate finishes; successful outcomes
+refresh the connection’s public image digest and resume native monitoring.
+The app handoff at config-root `upgrades.json` binds the approved version, release
+kind and exact bundle hash; the new app consumes it before creating its watcher.
+Automatic patches use the same controller and recheck quiet hours, opt-out/hold
+and a native idle signal after app replacement. Missing activity information
+blocks automatic execution. JavaScript receives no tokens, keys or installer URLs.
+
+Named acceptance (each primary scenario against Apple and Docker Runtime fakes):
+
+| Name | Verification |
+| --- | --- |
+| happy_path_runs_every_step_in_order_and_keeps_previous_and_snapshot | PASS |
+| preflight_fail_changes_nothing | PASS; last successful rollback record also survives another failed preflight |
+| new_image_never_ready | PASS; rolls back naming Migrating (startup before migration) |
+| migration_fails | PASS |
+| firstaid_fails_after_upgrade | PASS |
+| smoke_fails | PASS |
+| token_rejected_after_upgrade | PASS |
+| gate_times_out | PASS |
+| injected_failures_roll_back_and_name_the_step | PASS; create/start failures |
+| corrupted_snapshot_before_restore_is_recovery_failed_and_deletes_nothing | PASS |
+| snapshot_disk_full_restarts_the_old_version_unchanged | PASS |
+| interrupted_upgrade_resumes_at_every_step | PASS |
+| crash_at_write_ahead_boundaries_recovers_from_actual_partial_operations | PASS; restart from real partial operations |
+| crash_at_each_restore_phase_never_recopies_the_failed_state_after_replacement | PASS; all nine recovery checkpoints |
+| patch_upgrade_with_a_schema_change_is_refused | PASS |
+| manual_rollback_restores_the_snapshot_and_warns_first | PASS |
+| the_device_token_survives_an_upgrade_and_a_rollback | PASS |
+| diagnostic_is_redacted | PASS; injected registered credential in raw runtime logs |
+| journal_is_private_and_repeated_preflight_failure_keeps_the_last_backup | PASS; Unix 0600 |
+| journal_refuses_untrusted_names_and_symlinks | PASS |
+| manual_rollback_is_unavailable_when_the_snapshot_volume_is_missing | PASS |
+| late_native_ready_cannot_hide_upgrade_progress_or_recovery_failure | PASS |
+| upgrade_e2e_docker | PASS, local Docker Engine 29.4.0 via OrbStack, 4.51 s; A → B → failing B′ → B, persisted installation/device records and token valid |
+| upgrade_e2e_podman | Not run: Podman is not installed on this Mac; dispatch-only CI gate is prepared |
+
+The stub now copies actual synthetic files and checks path, byte count, mode and
+SHA-256. Its separate snapshot test restores identical bytes and rejects tampering.
+An exploratory Docker run found the missing swap-port reservation. Two subsequent
+unmodified runs passed after fixing it; the final run is the evidence above.
+Its locally built images were never published. No user runtime objects or volumes
+were modified. Only uniquely labelled synthetic test objects were created.
+
+Local verification (Node 24.21.0, pnpm 10.28.0, Rust 1.95.0): PASS frozen install,
+`pnpm lint` (including typecheck/hygiene/i18n and its 94 regression tests), UI build
+and 78 UI tests (0 fail), fmt, debug clippy --locked --workspace --all-targets -D
+warnings, Store clippy --no-default-features --features store -D warnings
+(no updater plugin), release clippy --locked --workspace -D warnings (explicit placeholder
+fixture override), and Rust workspace tests including doctests: 436 pass / 0 fail /
+5 explicitly ignored. Tauri debug build --no-bundle PASS.
+Unsigned DMG: PASS (`PLUR1BUS_0.1.0_aarch64.dmg`, 10.25 MiB; `hdiutil verify` PASS).
+Local bundler overrides signingIdentity=null and createUpdaterArtifacts=false;
+placeholder release-key override is explicit. No genuine certificate or signing
+secret was used. Isolated native smoke: app remains alive for
+12 seconds, no panic, no bundled installation; HOME/CFFIXED_USER_HOME/XDG/TMPDIR
+and app configuration all point into a canonical private temporary tree.
+Windows/Linux interactive acceptance, genuine signed app replacement, OS/store
+signing/notarisation and screen-reader acceptance: **Not run**, because those
+platform sessions, release keys and Store credentials are unavailable.
+CI was not polled; no publication, merge, rebase, amend or force-push.
+
+Deviations / contract boundaries:
+
+- Docker volumes cannot be deleted while even stopped containers reference them.
+  Once both the pre-update snapshot and failed-state copy have verified, rollback
+  removes the stopped containers, replaces the state volume and recreates the
+  old container from the journalled Installed settings. This replaces step 8's
+  literal final rename. Recovery checkpoints make the recreation idempotent;
+  both verified data copies survive a recovery failure. Corruption detected before
+  recovery causes zero container/volume deletions. RecoveryFailed disables further
+  automatic mutation and points to `docs/desktop.md`.
+- The provisional `1staid.check/1` storage detail supplies stateUsedBytes,
+  freeBytes and a conservative imageBytes budget; the native activity detail is
+  `daemon.status/1` activity.activeRuns. Absent/malformed data fails closed. Real
+  harness command/contract integration remains outside this shell-only brief
+  (D1 Task 3). Smoke/store migration/firstaid are scripted on the stub; genuine
+  memory-engine upgrade acceptance is not claimed.
+- Release clippy exposed two inherited production/debug mistakes. Approval routing
+  now asks for a native active origin without invoking a debug-only proxy accessor;
+  the debug-only forwarder parameter is marked accordingly. The inherited feed
+  helper also gained its missing declaration for the repository typecheck.
 
 ## WP12 — NOT STARTED (remaining work)
 
@@ -1722,3 +1812,12 @@ Status: Not run. Head: no implementation head.
 Scheme and `.p1x` association, pair confirmation, relative allow-list routing,
 chat/install unavailable responses, shared argv parsing and single-instance
 forwarding with all named tests remain open.
+
+## WP13 — NOT STARTED (remaining work)
+
+Status: Not run. Head: no implementation head.
+Per-OS packaging/manifests, the closed-installation wizard, runtime install/download
+consent, online/offline variants, tiered uninstall, signing hooks and Store/Flatpak
+configuration remain open. Existing artwork/configuration are inherited from the
+base; no WP13 completion is claimed. Real Apple pkg, vendor checksums and release
+OCI tarballs remain placeholders under the handoff Scope rule.

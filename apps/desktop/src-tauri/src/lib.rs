@@ -32,6 +32,7 @@ pub mod spa_proxy;
 pub mod tray;
 pub mod update_commands;
 pub mod updates;
+pub mod upgrade_commands;
 pub mod windows_spa_profile;
 pub use plur1bus_desktop_contract as contract;
 
@@ -156,6 +157,8 @@ pub fn run() {
             runtime_commands::runtime_start,
             runtime_commands::bundle_install,
             runtime_commands::harness_start,
+            upgrade_commands::harness_upgrade_status,
+            upgrade_commands::harness_rollback,
             runtime_commands::harness_stop,
             runtime_commands::harness_status,
             runtime_commands::harness_logs_tail,
@@ -196,6 +199,7 @@ pub fn run() {
             {
                 use tauri::Manager;
                 let app = webview.app_handle();
+                if let Some(window)=app.get_webview_window("shell"){update_commands::auto_watch(window);}
                 let autostart = std::env::args_os().any(|arg| arg == "--autostart");
                 if autostart && app.state::<native::NativeState>().consume_autostart() {
                     let background = app.state::<native::NativeState>().background.load(std::sync::atomic::Ordering::SeqCst);
@@ -203,7 +207,7 @@ pub fn run() {
                     if let Some(window)=app.get_webview_window("shell"){tauri::async_runtime::spawn(async move {if let Err(code)=runtime_commands::on_login(window).await{eprintln!("{code}");}});}
                 } else if !autostart {
                     if webview.window().show().is_err(){eprintln!("SHELL_WINDOW_SHOW_FAILED");}
-                    if let Some(window)=app.get_webview_window("shell"){tauri::async_runtime::spawn(async move {let _=host_commands::resume_bundled(window.app_handle()).await; if let Err(code)=runtime_commands::monitor_existing(window).await{eprintln!("{code}");}});}
+                    if let Some(window)=app.get_webview_window("shell"){tauri::async_runtime::spawn(async move {if let Err(code)=runtime_commands::monitor_existing(window).await{eprintln!("{code}");}});}
                 }
             }
         })

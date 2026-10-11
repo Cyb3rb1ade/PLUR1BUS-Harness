@@ -1,16 +1,18 @@
 use super::*;
 impl Controller {
     pub(crate) async fn acquire(&self) -> Result<String, CtlError> {
+        self.acquire_bundle(&self.bundle).await
+    }
+    pub(crate) async fn acquire_bundle(&self, bundle: &bundle::Bundle) -> Result<String, CtlError> {
         let arch = bundle::Arch::host();
-        let digest = self
-            .bundle
+        let digest = bundle
             .digest(arch)
             .map_err(|_| CtlError::Bundle)?
             .to_owned();
         if self.runtime.image_present(&digest).await? {
             return Ok(digest);
         }
-        if let Some(Some(file)) = self.bundle.tarball.get(&arch) {
+        if let Some(Some(file)) = bundle.tarball.get(&arch) {
             let path = std::path::Path::new(file);
             if path.is_absolute() || path.components().count() != 1 {
                 return Err(CtlError::Bundle);
@@ -24,7 +26,7 @@ impl Controller {
             }
         } else {
             self.runtime
-                .image_pull(&self.bundle.reference(), &digest)
+                .image_pull(&bundle.reference(), &digest)
                 .await?
         }
         Ok(digest)
