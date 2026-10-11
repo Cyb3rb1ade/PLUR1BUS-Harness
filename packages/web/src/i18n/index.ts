@@ -35,6 +35,7 @@ import type * as voice from "./voice.ts";
 import type * as switchboard from "./switchboard.ts";
 import * as shared from "./shared.ts";
 import type * as users from "./users.ts";
+import type * as homeHelpLibrary from "./home-help-library.ts";
 
 export type Area = { readonly name: string; readonly en: Readonly<Record<string, string>>; readonly de: Readonly<Record<string, string>> };
 
@@ -71,11 +72,12 @@ type LazyAreaName =
   | "sessions"
   | "voice"
   | "extensions"
-  | "recurring";
+  | "recurring"
+  | "homeHelpLibrary";
 
 const LAZY_ORDER: readonly string[] = [
   "surfaces", "core", "chat", "projects", "memory", "mediasearch", "models", "budget", "doctor", "palette", "shared", "setup", "agents", "settings", "users",
-  "providers", "secrets", "switchboard", "devices", "logs", "activity", "sessions", "approvals", "voice", "extensions", "recurring",
+  "providers", "secrets", "switchboard", "devices", "logs", "activity", "sessions", "approvals", "voice", "extensions", "recurring", "homeHelpLibrary",
 ];
 
 type AreaEn =
@@ -98,7 +100,8 @@ type AreaEn =
   | typeof sessions.en
   | typeof voice.en
   | typeof extensions.en
-  | typeof recurring.en;
+  | typeof recurring.en
+  | typeof homeHelpLibrary.en;
 type Intersect<U> = (U extends unknown ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
 
 export type Key = keyof Intersect<AreaEn> & string;

@@ -27,9 +27,9 @@ export const BOTTOM: readonly NavItem[] = [item("settings", "nav.settings", "set
 
 export const ALL_ITEMS: readonly NavItem[] = [...GROUPS.flatMap((g) => g.items), ...BOTTOM];
 
-/** Routed pages that have no sidebar entry (the first-run wizard `/setup`). The router resolves them and the registry has a page
+/** Routed pages that have no sidebar entry (the first-run wizard `/setup`, Home `/home`). The router resolves them and the registry has a page
  * for each; the sidebar and the palette's navigation group list ALL_ITEMS only. */
-export const HIDDEN_ITEMS: readonly NavItem[] = [item("setup", "nav.setup", "settings"), item("media", "nav.media", "library"), item("identities", "nav.identities", "agents")];
+export const HIDDEN_ITEMS: readonly NavItem[] = [item("home", "nav.home", "chat"), item("setup", "nav.setup", "settings"), item("media", "nav.media", "library"), item("identities", "nav.identities", "agents")];
 
 /** First screen built and the default landing route (milestones M3, direct chat, owner call O2). */
 export const LANDING = "/chat";

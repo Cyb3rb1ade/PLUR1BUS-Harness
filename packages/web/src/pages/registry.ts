@@ -21,6 +21,9 @@ const SettingsPage = lazyPage(() => import("./settings/page.ts").then((m) => m.S
 const LogsPage = lazyPage(() => import("./logs/page.ts").then((m) => m.LogsPage));
 const SetupPage = lazyPage(() => import("./setup/page.ts").then((m) => m.SetupPage));
 const SwitchboardPage = lazyPage(() => import("./switchboard/page.ts").then((m) => m.SwitchboardPage));
+const HomePage = lazyPage(() => import("./home/page.ts").then((m) => m.HomePage), "settings");
+const HelpPage = lazyPage(() => import("./help/page.ts").then((m) => m.HelpPage), "full");
+const LibraryPage = lazyPage(() => import("./library/page.ts").then((m) => m.LibraryPage), "full");
 const ExtensionsPage = lazyPage(() => import("./extensions/page.ts").then((m) => m.ExtensionsPage));
 const ApprovalsPage = lazyPage(() => import("./approvals/page.ts").then((m) => m.ApprovalsPage));
 const RecurringPage = lazyPage(() => import("./recurring/page.ts").then((m) => m.RecurringPage));
@@ -29,6 +32,7 @@ const RecurringPage = lazyPage(() => import("./recurring/page.ts").then((m) => m
  *   import { MemoriesPage } from "./memories.ts";   ...   memories: MemoriesPage,
  * Pages render inside the shell's <main> and an ErrorBoundary; they own their <h1> (use `Page` from components/page.ts). */
 export const PAGES: Readonly<Record<string, PageComponent>> = {
+  home: HomePage,
   chat: ChatPage,
   projects: ProjectsPage,
   media: MediaPage,
@@ -36,7 +40,7 @@ export const PAGES: Readonly<Record<string, PageComponent>> = {
   agents: AgentsPage,
   inbox: PlaceholderPage,
   memories: MemoriesPage,
-  library: MediaPage,
+  library: LibraryPage,
   skills: ExtensionsPage,
   plugins: ExtensionsPage,
   models: ModelsPage,
@@ -47,7 +51,7 @@ export const PAGES: Readonly<Record<string, PageComponent>> = {
   doctor: DoctorPage,
   logs: LogsPage,
   settings: SettingsPage,
-  help: PlaceholderPage,
+  help: HelpPage,
   setup: SetupPage,
 };
 
