@@ -462,3 +462,63 @@ is tested, but native automatic execution is conservatively held back while
 there is no proven active-run signal and shared WP11 upgrade path. An attached
 installation may install an explicitly approved app update. The Version page,
 crash resume, harness rollback and deep-link actions remain WP11/WP12 work.
+
+## Harness upgrade and Desktop recovery (WP11)
+
+The shell replaces the app first and records approved release metadata in the
+private configuration-root `upgrades.json`. The new app checks its exact embedded
+bundle hash and product version before continuing the bundled harness upgrade.
+The controller's separate `bundled/upgrades.json` is an atomic, 0600 write-ahead
+journal. Recovery runs before autostart/monitoring; the restart watcher and other
+container mutations cannot restart or recreate a container in the middle of it.
+
+Upgrade uses a verified image, firstaid and free-space preflight, graceful stop,
+a cold SHA-256 snapshot, same-port container swap, conditional store migration,
+and the ready/meta/device-token/firstaid/smoke health gate. Patch releases refuse
+store-schema changes. The previous container and snapshot remain after success.
+Settings → Version shows the app/harness/image and backup metadata; manual rollback
+requires confirmation that post-backup changes will be lost. Details are rendered
+as plain text and copied locally. Native progress uses the same path for automatic
+patches; missing activity data never counts as an idle harness.
+
+Before restoring, the shell verifies the pre-update snapshot, saves the failed
+state to its own verified volume, then replaces the live state volume. Engine
+volumes cannot be removed while stopped containers reference them, so the old
+container is recreated from journalled settings during restore. Every destructive
+substep is journalled and can resume without overwriting the saved failed state.
+The device token stays in the credential store and is only read for authentication.
+A rollback skips the failed product version and keeps both data copies.
+
+If the view says **Recovery failed**, retain `upgrades.json`, the pre-update volume
+and the `*-state-failed-*` volume. Do not retry installation, purge volumes, or
+change runtime/endpoint. Automatic mutations stop in this state. Copy the redacted
+step/details from Settings → Version for the controller/operator to inspect the
+saved snapshot manifest and the runtime state before selecting a recovery action.
+No diagnostic is uploaded automatically. The stopped/new container may already
+have been removed after both data copies verified; the journal records that phase.
+
+The handoff still mocks harness `state snapshot|verify|restore`, migrations,
+firstaid and smoke; real harness integration is D1 Task 3. The shell requires a
+`storage` row's detail `{stateUsedBytes, freeBytes, imageBytes}` and an
+`engine.storeSchema` detail `{current, required}` in `1staid.check/1`. `imageBytes`
+is the conservative incoming-image budget. Automatic execution additionally
+requires `daemon.status/1` to report `activity.activeRuns: 0`; unsupported activity
+reporting keeps automatic execution waiting. Quiet-hour/hold/opt-out choices are
+rechecked after app replacement.
+
+Run the explicit synthetic acceptance on an already available local engine:
+
+```sh
+PLUR1BUS_DESKTOP_E2E_RUNTIME=docker node apps/desktop/scripts/upgrade-e2e.mjs docker
+PLUR1BUS_DESKTOP_E2E_RUNTIME=podman node apps/desktop/scripts/upgrade-e2e.mjs podman
+```
+
+The script builds three local, private stub images (A, B, failing B′), uses a unique
+`p1t-` namespace, verifies the upgrade/rollback and persisted synthetic device state,
+and removes its named containers/volumes/network after success. A failed assertion
+retains synthetic runtime evidence. Podman can use a supplied local
+`PLUR1BUS_DESKTOP_E2E_ENDPOINT`; otherwise the script starts and stops its own
+scratch-socket API process. Network access is needed for image build dependencies;
+the acceptance itself uses only the local engine and loopback harness. The
+workflow_dispatch `upgrade_e2e` gate runs the same test for Docker and Podman.
+WP12 deep links and WP13 packaging/installer work remain outside this PR boundary.

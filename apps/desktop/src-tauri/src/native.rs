@@ -19,6 +19,7 @@ pub struct NativeState {
     pub diagnostics: Mutex<Option<crate::diagnostics::Diagnostics>>,
     pub quit: QuitSession,
     pub view: Mutex<TrayState>,
+    pub upgrade_overlay: Mutex<Option<crate::tray::HarnessState>>,
     pub connection: Mutex<Option<Connection>>,
     pub background: AtomicBool,
     pub autostart_handled: AtomicBool,
@@ -30,6 +31,13 @@ pub struct NativeState {
     pub header: Mutex<Option<tauri::menu::MenuItem<tauri::Wry>>>,
 }
 impl NativeState {
+    pub fn effective_harness(
+        &self,
+        incoming: crate::tray::HarnessState,
+    ) -> crate::tray::HarnessState {
+        self.upgrade_overlay.lock().unwrap().unwrap_or(incoming)
+    }
+
     pub fn tray_failed(&self) {
         self.background.store(false, Ordering::SeqCst);
     }
@@ -47,6 +55,18 @@ impl NativeState {
             }
         })
     }
+}
+/// Fence streams before an upgrade can reject the token temporarily. Credentials are untouched.
+pub(crate) fn suspend_for_upgrade(app: &tauri::AppHandle, id: uuid::Uuid) -> bool {
+    if let Some(host) = app.try_state::<crate::host_commands::HostState>() {
+        let mut row = host.bridge_connection.lock().unwrap();
+        if row.as_ref().is_some_and(|r| r.id == id) {
+            host.bridge.stop();
+            row.take();
+        }
+    }
+    app.try_state::<NativeState>()
+        .is_some_and(|s| s.cancel_connection(id))
 }
 /// Invoked inside the credential mutation owner, before removing or replacing a credential.
 pub fn retire_connection(app: &tauri::AppHandle, id: uuid::Uuid) {
@@ -425,7 +445,7 @@ async fn enqueue_update(app: &tauri::AppHandle, generation: u64, update: EventUp
             let state = handle.state::<NativeState>();
             let applied = state.events.with_current(generation, || {
                 let mut view = state.view.lock().unwrap();
-                view.harness = update.state;
+                view.harness = state.effective_harness(update.state);
                 view.secrets_locked = update.secrets_locked;
                 let value = view.clone();
                 drop(view);
@@ -822,13 +842,13 @@ pub(crate) fn publish_controller(app: &tauri::AppHandle, status: crate::controll
             return;
         }
         let mut view = state.view.lock().unwrap();
-        view.harness = match status {
+        view.harness = state.effective_harness(match status {
             crate::controller::HarnessStatus::Ready { .. } => crate::tray::HarnessState::Ready,
             crate::controller::HarnessStatus::Starting => crate::tray::HarnessState::Starting,
             crate::controller::HarnessStatus::Crashed { .. } => crate::tray::HarnessState::Crashed,
             crate::controller::HarnessStatus::NotInstalled => crate::tray::HarnessState::Unpaired,
             _ => crate::tray::HarnessState::Down,
-        };
+        });
         let value = view.clone();
         drop(view);
         update_tray(&handle, &value);

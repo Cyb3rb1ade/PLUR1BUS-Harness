@@ -4,6 +4,8 @@ import { createHash } from "node:crypto";
 import type { OutputStore } from "../../media/src/index.ts";
 import type { Attachment } from "./port.ts";
 export const TELEGRAM_PHOTO_MAX_BYTES = 10 * 1024 * 1024;
+export const TELEGRAM_VIDEO_MAX_BYTES = 50 * 1024 * 1024;
+export class VideoOutputTooLarge extends Error { constructor() { super('video exceeds Telegram limit; download it with plur1bus media output'); } }
 export interface OutputPort {
   store: Pick<OutputStore, "get" | "root">;
   authorize(outputId: string, chatId: string): Promise<boolean>;
@@ -22,16 +24,20 @@ export async function outputAttachment(
     file = manifest?.files[index];
   if (
     !file ||
-    !/^\d+\.(png|jpeg|webp)$/.test(file.path) ||
+    !/^\d+\.(png|jpeg|webp|mp4|webm|mov)$/.test(file.path) ||
     file.bytes > 50 * 1024 * 1024
   )
-    throw new Error("media output unavailable");
+    throw manifest?.kind === "video" && file && file.bytes > TELEGRAM_VIDEO_MAX_BYTES ? new VideoOutputTooLarge() : new Error("media output unavailable");
   const data = await readFile(join(port.store.root, id, file.path));
   if (
     data.length !== file.bytes ||
     createHash("sha256").update(data).digest("hex") !== file.sha256
   )
     throw new Error("media output integrity");
+  if (manifest?.kind === 'video') {
+    if (data.length > TELEGRAM_VIDEO_MAX_BYTES) throw new VideoOutputTooLarge();
+    return {kind:file.format === 'mp4' ? 'video' : 'document',data,mimeType:`video/${file.format === 'mov' ? 'quicktime' : file.format}`,filename:file.path};
+  }
   let image: Attachment = {
     kind: "photo",
     data,

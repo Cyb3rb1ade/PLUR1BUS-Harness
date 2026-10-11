@@ -109,3 +109,74 @@ fn all_update_commands_are_refused_to_spa_approvals_and_panel_callers() {
         }
     }
 }
+
+#[test]
+fn approved_bundle_hash_and_product_version_bind_the_resumed_upgrade() {
+    use plur1bus_desktop::{
+        controller::bundle::embedded,
+        updates::Kind,
+        upgrade_commands::{validate_pending, Pending},
+    };
+    let bytes = include_bytes!("../../bundle/bundle.json.tmpl");
+    let bundle = embedded();
+    let mut p = Pending {
+        pending: semver::Version::parse(&bundle.version).unwrap(),
+        automatic: false,
+        kind: Some(Kind::Patch),
+        bundle_digest: Some(format!("{:x}", Sha256::digest(bytes))),
+    };
+    assert_eq!(validate_pending(&p, bundle, bytes).unwrap(), Kind::Patch);
+    assert!(validate_pending(&p, bundle, b"changed").is_err());
+    p.pending = semver::Version::parse("9.0.0").unwrap();
+    assert!(validate_pending(&p, bundle, bytes).is_err());
+}
+#[test]
+fn wp11_commands_are_shell_only() {
+    for command in ["harness_upgrade_status", "harness_rollback"] {
+        for view in ["spa", "approvals", "panel-1"] {
+            assert!(!plur1bus_desktop::commands::allowed_command(view, command));
+        }
+    }
+}
+#[test]
+fn automatic_pending_waits_for_idle_quiet_hours_and_retains_opt_out() {
+    use plur1bus_desktop::{
+        updates::{Kind, UpdateSettings},
+        upgrade_commands::{automatic_resume_allowed, Pending},
+    };
+    let p = Pending {
+        pending: semver::Version::parse("0.1.1").unwrap(),
+        automatic: true,
+        kind: Some(Kind::Patch),
+        bundle_digest: Some("a".repeat(64)),
+    };
+    let mut s = UpdateSettings::default();
+    assert!(automatic_resume_allowed(&p, &s, 4, true));
+    assert!(!automatic_resume_allowed(&p, &s, 4, false));
+    assert!(!automatic_resume_allowed(&p, &s, 6, true));
+    s.auto_patch = false;
+    assert!(!automatic_resume_allowed(&p, &s, 4, true));
+    s.auto_patch = true;
+    s.held = true;
+    assert!(!automatic_resume_allowed(&p, &s, 4, true));
+}
+#[test]
+fn late_native_ready_cannot_hide_upgrade_progress_or_recovery_failure() {
+    use plur1bus_desktop::{native::NativeState, tray::HarnessState};
+    let state = NativeState::default();
+    *state.upgrade_overlay.lock().unwrap() = Some(HarnessState::Updating);
+    assert_eq!(
+        state.effective_harness(HarnessState::Ready),
+        HarnessState::Updating
+    );
+    *state.upgrade_overlay.lock().unwrap() = Some(HarnessState::Degraded);
+    assert_eq!(
+        state.effective_harness(HarnessState::Ready),
+        HarnessState::Degraded
+    );
+    *state.upgrade_overlay.lock().unwrap() = None;
+    assert_eq!(
+        state.effective_harness(HarnessState::Ready),
+        HarnessState::Ready
+    );
+}

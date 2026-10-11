@@ -56,7 +56,7 @@ try {
   }
   if (meta?.apiVersion !== '1.0.0' || !meta.installationId) throw new Error('mock meta did not become ready');
   const status = JSON.parse(cli(['exec', container, 'plur1bus', 'daemon', 'status', '--json']));
-  if (status.schema !== 'daemon.status/1' || status.supervisor?.process?.state !== 'stopped' || !Array.isArray(status.children) || typeof status.service?.registered !== 'boolean') throw new Error('wrong daemon status fixture');
+  if (status.schema !== 'daemon.status/1' || status.supervisor?.process?.state !== 'running' || !Array.isArray(status.children) || typeof status.service?.registered !== 'boolean') throw new Error('wrong daemon status fixture');
   const firstaid = JSON.parse(cli(['exec', container, 'plur1bus', '1staid', 'check', '--json']));
   if (firstaid.schema !== '1staid.check/1' || typeof firstaid.ok !== 'boolean' || !Array.isArray(firstaid.checks) || !firstaid.checks.every(row => typeof row.id === 'string' && typeof row.status === 'string' && typeof row.summary === 'string')) throw new Error('wrong firstaid check fixture');
   const started = Date.now();

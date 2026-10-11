@@ -3,6 +3,7 @@ import {approvalCards} from "../src/views/approvals.ts";
 import {translate} from "../src/i18n.ts";
 import {showCrashOffers} from "../src/views/crash-offer.ts";
 import { showBackgroundHint } from "../src/views/background-hint.ts";
+import {versionPage} from "../src/views/settings-version.ts";
 import { createShell } from "../src/shell.ts";
 import type { DesktopTransport, Settings } from "../src/ipc.ts";
 import { openDialog } from "../src/components/dialog.ts";
@@ -59,6 +60,13 @@ document.body.append(shellRoot);
 const shell = createShell(shellRoot, transport);
 Object.assign(window, { testShell: {
   ...shell,
+  rollbacks:0,
+  showVersion:(recovery=false)=>{
+    const status:import("../src/views/settings-version.ts").UpgradeStatus={appVersion:"0.1.1",installedVersion:"0.1.1",imageDigest:"sha256:synthetic",rollbackAvailable:!recovery,journal:{from:"0.1.0",to:"0.1.1",step:recovery?"recoveryFailed":"done",failedStep:null,diagnostic:recovery?"<img src=x onerror=alert(1)> synthetic redacted details":null,snapshot:{createdAt:"2026-10-10T00:00:00Z",bytes:100,fileCount:2}}};
+    const renderer=versionPage({...transport,harnessUpgradeStatus:async()=>status,harnessRollback:async confirmed=>{if(!confirmed)throw new Error("confirmation");(window as any).testShell.rollbacks++;status.rollbackAvailable=false;status.journal!.step="rolledBack";status.journal!.failedStep="done";return {state:"rolledBack",from:"0.1.0",to:"0.1.1",failed_step:"done"};}},()=>shellRoot.replaceChildren(renderer()));
+    shellRoot.replaceChildren(renderer());
+  },
+  showRecovery:()=>{(window as any).testShell.showVersion(true);},
   showUpdates:(store=false)=>{
     let snapshot:import("../src/models/update-model.ts").UpdateSnapshot={settings:{channel:"stable",held:false,autoPatch:true,quietHours:[3,5],checkOnStart:true},release:{version:"0.1.1",channel:"stable",kind:"patch",security:true,date:"2026-10-10",notes:{en:"<script>bad()</script>Fixed\n- [Docs](https://harness.test)",de:"Behoben"},minFromVersion:"0.1.0"},offer:{action:"show"},storeBuild:store,installAvailable:!store};
     const renderer=updatesPage({...transport,updateSettings:async request=>{if(request)snapshot={...snapshot,settings:request};return snapshot;},updateCheck:async()=>snapshot,updateInstall:async()=>{throw new Error("synthetic failure");},updateSkip:async()=>snapshot={...snapshot,offer:{action:"none"}},updateLater:async()=>snapshot={...snapshot,offer:{action:"none"}},updateStoreOpen:async()=>{}},()=>{shellRoot.replaceChildren(renderer());});
