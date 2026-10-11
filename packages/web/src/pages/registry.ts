@@ -27,6 +27,7 @@ const LibraryPage = lazyPage(() => import("./library/page.ts").then((m) => m.Lib
 const ExtensionsPage = lazyPage(() => import("./extensions/page.ts").then((m) => m.ExtensionsPage));
 const ApprovalsPage = lazyPage(() => import("./approvals/page.ts").then((m) => m.ApprovalsPage));
 const RecurringPage = lazyPage(() => import("./recurring/page.ts").then((m) => m.RecurringPage));
+const InboxPage = lazyPage(() => import("./inbox/page.ts").then((m) => m.InboxPage));
 
 /** Nav item id -> page. A page agent replaces exactly its own line (and adds its import above):
  *   import { MemoriesPage } from "./memories.ts";   ...   memories: MemoriesPage,
@@ -38,7 +39,7 @@ export const PAGES: Readonly<Record<string, PageComponent>> = {
   media: MediaPage,
   identities: IdentitiesPage,
   agents: AgentsPage,
-  inbox: PlaceholderPage,
+  inbox: InboxPage,
   memories: MemoriesPage,
   library: LibraryPage,
   skills: ExtensionsPage,
