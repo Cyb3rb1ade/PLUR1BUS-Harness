@@ -10,6 +10,18 @@ license: MIT
 contents:
   - src: bin/plur1bus
     dst: /usr/bin/plur1bus
+  - src: bin/plur1bus-attest
+    dst: /usr/bin/plur1bus-attest
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
+  - src: share/polkit-1/actions/org.plur1bus.approve.policy
+    dst: /usr/share/polkit-1/actions/org.plur1bus.approve.policy
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
   - src: licenses/LICENSE
     dst: /usr/share/licenses/plur1bus/LICENSE
   - src: runtime/core.tar.gz
