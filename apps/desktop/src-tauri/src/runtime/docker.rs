@@ -104,6 +104,14 @@ impl DockerRuntime {
         })
     }
 }
+/// An image is present only when one of its RepoDigests carries the wanted manifest digest. The image ID
+/// (config digest) of a locally built image is deliberately not accepted.
+fn has_repo_digest(repo_digests: &[String], wanted: &str) -> bool {
+    let wanted = wanted.rsplit('@').next().unwrap_or(wanted);
+    repo_digests
+        .iter()
+        .any(|d| d.rsplit('@').next() == Some(wanted))
+}
 fn api_parts(v: &str) -> Vec<u32> {
     v.split('.').map(|v| v.parse().unwrap_or(0)).collect()
 }
@@ -230,9 +238,7 @@ impl Runtime for DockerRuntime {
     }
     async fn image_present(&self, digest: &str) -> Result<bool, RuntimeError> {
         match self.client.inspect_image(digest).await {
-            Ok(v) => Ok(v.repo_digests.unwrap_or_default().iter().any(|d| {
-                d.rsplit('@').next() == Some(digest.rsplit('@').next().unwrap_or(digest))
-            })),
+            Ok(v) => Ok(has_repo_digest(&v.repo_digests.unwrap_or_default(), digest)),
             Err(Error::DockerResponseServerError {
                 status_code: 404, ..
             }) => Ok(false),
@@ -755,5 +761,26 @@ mod stream_tests {
             bounded_json(stream, Duration::from_secs(2)).await,
             Err(RuntimeError::Failed(_))
         ));
+    }
+}
+
+#[cfg(test)]
+mod repo_digest_tests {
+    use super::has_repo_digest;
+    const D: &str = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
+    #[test]
+    fn matches_bare_and_pinned_wanted_digest() {
+        let repo = vec![format!("127.0.0.1:5000/p1t-stub@{D}")];
+        assert!(has_repo_digest(&repo, D));
+        assert!(has_repo_digest(&repo, &format!("other.invalid/x@{D}")));
+    }
+    #[test]
+    fn locally_built_image_without_repo_digests_is_absent() {
+        assert!(!has_repo_digest(&[], D));
+    }
+    #[test]
+    fn other_digest_does_not_match() {
+        let repo = vec![format!("x@sha256:{}", "2".repeat(64))];
+        assert!(!has_repo_digest(&repo, D));
     }
 }

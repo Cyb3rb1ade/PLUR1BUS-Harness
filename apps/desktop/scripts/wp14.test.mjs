@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {appleReport} from './apple-e2e.mjs';
 import {containerPlan,podmanRegistryConfig} from './container-e2e.mjs';
+import {loopbackAddress,manifestDigest} from './stub-digest.mjs';
 test('container acceptance is explicit, local and uses prebuilt fixtures',()=>{
  for(const runtime of ['docker','podman']) {
   const plan=containerPlan(runtime);
@@ -40,4 +41,14 @@ test('owned Podman service trusts only the exact loopback registry port',()=>{
  assert.equal(podmanRegistryConfig('127.0.0.1:32768'),'[[registry]]\nlocation = "127.0.0.1:32768"\ninsecure = true\n');
  assert.throws(()=>podmanRegistryConfig('registry.example:5000'));
  assert.throws(()=>podmanRegistryConfig('0.0.0.0:5000'));
+});
+
+test('stub fixtures are pinned by registry manifest digest, never by image ID',()=>{
+ const digest=`sha256:${'a'.repeat(64)}`;
+ assert.equal(manifestDigest(digest),digest);
+ assert.throws(()=>manifestDigest(null),/digest missing/);
+ assert.throws(()=>manifestDigest('abc'),/digest missing/);
+ assert.equal(loopbackAddress('127.0.0.1:32768\n[::]:32768'),'127.0.0.1:32768');
+ assert.throws(()=>loopbackAddress('0.0.0.0:32768'),/loopback/);
+ for(const script of ['container-e2e','upgrade-e2e'])assert.doesNotMatch(readFileSync(new URL(`./${script}.mjs`,import.meta.url),'utf8'),/\{\{\.Id\}\}/);
 });
