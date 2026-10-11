@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, statSync, writeFileSync, rmSync } from "node:fs";
+import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { generateKeyPairSync, sign, createHash } from "node:crypto";
@@ -42,18 +44,23 @@ test("authenticated handshake throttles lastSeen writes; revoke closes all conne
   try {
     const d = f.store.recordPairing(device);
     let closed = 0;
+    let persistedBeforeClose = false;
     let challenge = f.store.challenge();
     let signature = sign(null, challenge, keys.privateKey);
     assert.throws(() => f.store.connect({ publicKey, challenge, signature: Buffer.alloc(64), close: () => {} }));
     challenge = f.store.challenge(); signature = sign(null, challenge, keys.privateKey);
     f.advance(1);
-    const disconnect = f.store.connect({ publicKey, challenge, signature, close: () => { closed++; } });
+    const disconnect = f.store.connect({ publicKey, challenge, signature, close: () => {
+      persistedBeforeClose = f.store.get(d.id).revoked && new DeviceStore(f.options).get(d.id).revoked;
+      closed++;
+    } });
     assert.equal(f.store.list()[0]!.lastSeenAt, 1000);
     f.advance(60_000);
     challenge = f.store.challenge(); signature = sign(null, challenge, keys.privateKey);
     f.store.connect({ publicKey, challenge, signature, close: () => { closed++; } });
     assert.equal(f.store.list()[0]!.lastSeenAt, 61_001);
     f.store.revoke(d.id, "alice");
+    assert.equal(persistedBeforeClose, true);
     assert.equal(closed, 2); disconnect();
     f.store.revoke(d.id, "alice"); assert.equal(closed, 2);
     const restarted = new DeviceStore(f.options);
@@ -63,6 +70,37 @@ test("authenticated handshake throttles lastSeen writes; revoke closes all conne
     assert.throws(() => restarted.recordPairing(device));
     assert.equal(f.events.filter(e => e.action === "device.revoked").length, 1);
   } finally { f.clean(); }
+});
+
+test("a post-rename durability failure closes connections and refuses further handshakes", { skip: process.platform === "win32" }, (t) => {
+  const f = fixture();
+  try {
+    const d = f.store.recordPairing(device);
+    let closed = false;
+    const challenge = f.store.challenge();
+    f.store.connect({ publicKey, challenge, signature: sign(null, challenge, keys.privateKey), close: () => { closed = true; } });
+    const pending = f.store.challenge();
+    const original = fs.fsyncSync;
+    t.mock.method(fs, "fsyncSync", (fd: number) => {
+      if (fs.fstatSync(fd).isDirectory()) throw new Error("directory sync failed");
+      original(fd);
+    });
+    syncBuiltinESMExports();
+    assert.throws(() => f.store.revoke(d.id, "alice"), { code: "storage" });
+    assert.deepEqual(f.store.get(d.id), d);
+    assert.equal(closed, true);
+    assert.equal(f.events.at(-1).action, "device.revoke.failed");
+    assert.throws(() => f.store.challenge(), { code: "storage" });
+    assert.throws(() => f.store.connect({ publicKey, challenge: pending, signature: sign(null, pending, keys.privateKey), close: () => {} }), { code: "storage" });
+    assert.throws(() => f.store.revoke(d.id, "alice"), { code: "storage" });
+    assert.throws(() => f.store.rename(d.id, "Tablet", "alice"), { code: "storage" });
+    assert.throws(() => f.store.recordPairing(device), { code: "storage" });
+    assert.equal(new DeviceStore(f.options).get(d.id).revoked, true);
+  } finally {
+    t.mock.restoreAll();
+    syncBuiltinESMExports();
+    f.clean();
+  }
 });
 
 test("rename audits, copies cannot mutate trust, malformed state fails closed", () => {
@@ -80,7 +118,22 @@ test("rename audits, copies cannot mutate trust, malformed state fails closed", 
   } finally { f.clean(); }
 });
 
-test("failed private write does not publish pairing or erase revocation", () => {
+test("store load failures refuse initialization rather than admitting handshakes", () => {
+  const f = fixture();
+  try {
+    f.store.recordPairing(device);
+    assert.throws(() => new DeviceStore({ ...f.options, securePath: () => { throw new Error("ACL refused"); } }), { code: "storage" });
+    assert.throws(() => new DeviceStore({ ...f.options, file: join(f.file, "devices.json") }), { code: "storage" });
+    for (const content of ["{", "null", '{"version":1,"devices":{}}']) {
+      writeFileSync(f.file, content);
+      assert.throws(() => new DeviceStore(f.options), { code: "storage" });
+    }
+    rmSync(f.file);
+    assert.deepEqual(new DeviceStore(f.options).list(), []);
+  } finally { f.clean(); }
+});
+
+test("failed revocation write preserves disk, memory and connections until a successful retry", () => {
   const f = fixture();
   try {
     const d = f.store.recordPairing(device);
@@ -91,11 +144,20 @@ test("failed private write does not publish pairing or erase revocation", () => 
     const challenge = s.challenge();
     s.connect({ publicKey, challenge, signature: sign(null, challenge, keys.privateKey), close: () => { closed = true; } });
     fail = true;
-    assert.throws(() => s.revoke(d.id, "alice"));
+    assert.throws(() => s.revoke(d.id, "alice"), { code: "storage" });
     assert.equal(readFileSync(f.file, "utf8"), before);
-    assert.equal(s.get(d.id).revoked, true);
+    assert.deepEqual(s.get(d.id), d);
+    assert.equal(closed, false);
+    assert.deepEqual(f.events.at(-1), { at: 1000, actor: { user: "alice", host: "device-store" }, action: "device.revoke.failed", target: d.id, detail: {} });
+    const restarted = new DeviceStore(f.options);
+    assert.deepEqual(restarted.get(d.id), d);
+    for (const store of [s, restarted]) {
+      const nonce = store.challenge();
+      store.connect({ publicKey, challenge: nonce, signature: sign(null, nonce, keys.privateKey), close: () => {} })();
+    }
+    fail = false;
+    s.revoke(d.id, "alice");
     assert.equal(closed, true);
-    fail = false; s.revoke(d.id, "alice");
     assert.equal(new DeviceStore(f.options).get(d.id).revoked, true);
   } finally { f.clean(); }
 });
