@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Dialog } from "../../components/dialog.ts";
 import { t, type Key } from "../../i18n.ts";
-import { buildSetParams, microsToInput, parseAmount, type Limit, type LimitKey } from "./model.ts";
-import type { BudgetMetric, BudgetPeriodName } from "./rpc-types.ts";
+import { buildSetParams, currentConsumption, microsToInput, parseAmount, type Limit, type LimitKey } from "./model.ts";
+import type { BudgetMetric, BudgetPeriod, BudgetPeriodName } from "./rpc-types.ts";
 import { amount, fullTitle, isForbidden, limitKey, limitTitle } from "./shared.ts";
 
 type Bounds = { soft: number | null; hard: number | null };
@@ -23,7 +23,7 @@ async function save(key: LimitKey, next: Bounds, before: Bounds | null): Promise
 
 /** Set a new limit or edit one, in two steps: the form, then a review that says what will be sent (a cleared bound is named). Nothing
  *  is sent before "Confirm and save". An existing limit with the same scope, agent, period and metric is changed, not duplicated. */
-export function LimitDialog({ limit, limits, onClose, onSaved }: { limit?: Limit; limits: readonly Limit[]; onClose: () => void; onSaved: () => void }): View {
+export function LimitDialog({ limit, limits, periods, onClose, onSaved }: { limit?: Limit; limits: readonly Limit[]; periods?: readonly BudgetPeriod[]; onClose: () => void; onSaved: () => void }): View {
   const edit = limit !== undefined;
   const [scope, setScope] = useState<"global" | "agent">(limit?.scope === "agent" ? "agent" : "global");
   const [agent, setAgent] = useState(limit?.agentId ?? "");
@@ -35,6 +35,7 @@ export function LimitDialog({ limit, limits, onClose, onSaved }: { limit?: Limit
   const [step, setStep] = useState<"form" | "review">("form");
   const [errors, setErrors] = useState<Errors>({});
   const [parsed, setParsed] = useState<Bounds>({ soft: null, hard: null });
+  const [confirmedBelow, setConfirmedBelow] = useState(false);
   const [failure, setFailure] = useState("");
   const [busy, setBusy] = useState(false);
   const first = useRef(true);
@@ -48,6 +49,9 @@ export function LimitDialog({ limit, limits, onClose, onSaved }: { limit?: Limit
   const key: LimitKey = { scope, ...(scope === "agent" ? { agentId: agent.trim() } : {}), period, metric };
   const existing = edit ? limit : limits.find((l) => limitKey(l) === limitKey(key)) ?? null;
   const before: Bounds | null = existing ? { soft: existing.soft, hard: existing.hard } : null;
+
+  const usedAmount = currentConsumption(periods ?? [], limits, key);
+  const belowUsed = usedAmount > 0 && ((parsed.hard !== null && parsed.hard < usedAmount) || (parsed.soft !== null && parsed.soft < usedAmount));
 
   const review = (): void => {
     const errs: Errors = {};
@@ -64,12 +68,13 @@ export function LimitDialog({ limit, limits, onClose, onSaved }: { limit?: Limit
     setErrors(errs);
     if (Object.keys(errs).length > 0 || s === "invalid" || hd === "invalid") return;
     setParsed({ soft: s, hard: hd });
+    setConfirmedBelow(false);
     setFailure("");
     setStep("review");
   };
 
   const confirm = async (): Promise<void> => {
-    if (busy) return;
+    if (busy || (belowUsed && !confirmedBelow)) return;
     setBusy(true); setFailure("");
     try { await save(key, parsed, before); onSaved(); } catch (e) { setFailure(isForbidden(e) ? t("budget.err.forbidden") : t("budget.err.failed")); setBusy(false); }
   };
@@ -87,8 +92,8 @@ export function LimitDialog({ limit, limits, onClose, onSaved }: { limit?: Limit
     return h(Dialog, {
       title, onClose,
       actions: [
-        h("button", { key: "b", type: "button", class: "btn", onClick: () => { setFailure(""); setStep("form"); } }, t("budget.back")),
-        h("button", { key: "c", type: "button", class: "btn btn-primary", "aria-disabled": busy, onClick: () => { void confirm(); } }, t("budget.confirm")),
+        h("button", { key: "b", type: "button", class: "btn", onClick: () => { setFailure(""); setConfirmedBelow(false); setStep("form"); } }, t("budget.back")),
+        h("button", { key: "c", type: "button", class: "btn btn-primary", disabled: (belowUsed && !confirmedBelow) || busy, "aria-disabled": (belowUsed && !confirmedBelow) || busy, onClick: () => { void confirm(); } }, t("budget.confirm")),
       ],
     },
       h("p", { class: "form-error", role: "alert" }, failure),
@@ -98,7 +103,14 @@ export function LimitDialog({ limit, limits, onClose, onSaved }: { limit?: Limit
         h("div", {}, h("dt", {}, t("budget.field.period")), h("dd", {}, t(`budget.period.${period}` as Key))),
         h("div", {}, h("dt", {}, t("budget.field.metric")), h("dd", {}, t(`budget.metric.${metric}` as Key))),
         h("div", {}, h("dt", {}, t("budget.field.soft")), h("dd", {}, shown("soft"))),
-        h("div", {}, h("dt", {}, t("budget.field.hard")), h("dd", {}, shown("hard")))));
+        h("div", {}, h("dt", {}, t("budget.field.hard")), h("dd", {}, shown("hard")))),
+      belowUsed
+        ? h("div", { class: "field", style: { marginTop: "16px" } },
+          h("p", { class: "form-error", role: "alert" }, t("budget.warn.belowUsed", { used: amount(metric, usedAmount) })),
+          h("label", { class: "a-check", style: { display: "flex", gap: "8px", alignItems: "center", marginTop: "8px" } },
+            h("input", { id: "confirm-below-used", type: "checkbox", checked: confirmedBelow, onChange: (e: Event) => { setConfirmedBelow((e.target as HTMLInputElement).checked); } }),
+            h("span", {}, t("budget.confirm.belowUsed"))))
+        : null);
   }
 
   const input = (id: string, label: string, value: string, set: (v: string) => void, err: string | undefined): View =>

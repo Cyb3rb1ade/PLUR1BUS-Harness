@@ -9,6 +9,8 @@ export type Violation = { id: string; impact: string | null; help: string; nodes
 
 /** WCAG 2.0/2.1/2.2 A and AA plus axe's best-practice rules (same rule set as a11y.test.ts). */
 export async function axeViolations(page: Page): Promise<Violation[]> {
+  await page.locator(".wordmark-morph[data-collapsed=false]").waitFor({ state: "attached" }).catch(() => {});
+  await page.waitForTimeout(250);
   await page.evaluate(await axeSource);
   return page.evaluate(async () => {
     const r = await (window as unknown as { axe: { run: (c: Document, o: object) => Promise<{ violations: Violation[] }> } }).axe.run(document, {

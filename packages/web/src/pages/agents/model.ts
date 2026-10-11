@@ -122,3 +122,18 @@ export async function deleteAgent(agentId: string, confirmName: string, exportOf
   }
 }
 
+export type AgentRight = { userId: string; right: "use" | "manage" };
+
+export async function readAgentRights(agentId: string, signal?: AbortSignal): Promise<AgentRight[]> {
+  try {
+    const res = await getApi().rpc("agent.rights.get", { agentId }, { write: false, ...(signal ? { signal } : {}) });
+    const o = typeof res === "object" && res !== null ? (res as { rights?: unknown }) : {};
+    if (Array.isArray(o.rights)) {
+      return o.rights.filter((r): r is AgentRight => typeof r === "object" && r !== null && ((r as AgentRight).right === "use" || (r as AgentRight).right === "manage"));
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+

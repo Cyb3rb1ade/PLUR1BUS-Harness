@@ -4,14 +4,14 @@ import { rpcError } from "./mock-rpc.ts";
 import type { MockHarnessServer } from "./mock-server.ts";
 
 export type Entry = { displayName: string; createdAt: string; skills: string[]; state?: string };
-export type World = { agents: Record<string, Entry>; revision: number; skills: string[]; sets: number };
+export type World = { agents: Record<string, Entry>; revision: number; skills: string[]; sets: number; rights?: Record<string, { userId: string; right: "use" | "manage" }[]> };
 
 export const world = (over: Partial<World> = {}): World => ({
   agents: {
     main: { displayName: "Main", createdAt: "2026-09-01T09:00:00.000Z", skills: ["web-search", "calendar"] },
     scribe: { displayName: "Scribe", createdAt: "2026-09-20T09:00:00.000Z", skills: [], state: "archived" },
   },
-  revision: 1, skills: ["web-search", "calendar", "notes"], sets: 0, ...over,
+  revision: 1, skills: ["web-search", "calendar", "notes"], sets: 0, rights: {}, ...over,
 });
 
 export function installAgents(server: MockHarnessServer, w: World = world()): World {
@@ -71,6 +71,10 @@ export function installAgents(server: MockHarnessServer, w: World = world()): Wo
     delete w.agents[id];
     return { agentId: id, deleted: true };
   });
+  rpc.handle("agent.rights.get", (p) => {
+    const id = (p as { agentId?: string } | undefined)?.agentId ?? "";
+    return { agentId: id, rights: w.rights?.[id] ?? [] };
+  }, { write: false });
   return w;
 }
 

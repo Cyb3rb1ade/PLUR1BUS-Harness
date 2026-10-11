@@ -118,4 +118,29 @@ describe("agents lifecycle", opts, () => {
       assert.equal(await app.page.getByText("Only owners and admins can do this.").count(), 4);
     });
   });
+
+  test("agent.rights.get is queried, and explicit manage right allows lifecycle actions for viewer", async () => {
+    await withApp({ server: { role: "viewer" } }, async (app) => {
+      installAgents(app.server, world({
+        rights: {
+          scribe: [{ userId: "viewer", right: "manage" }],
+        },
+      }));
+      await openRoute(app.page, "#/agents/scribe");
+      await app.page.getByRole("heading", { name: "Scribe", level: 2 }).waitFor();
+
+      // Rights fact displayed
+      await app.page.getByText("viewer: manage").waitFor();
+
+      // Check agent.rights.get was called
+      assert.ok(app.server.rpc.calls.some((c) => c.method === "agent.rights.get" && (c.params as any).agentId === "scribe"));
+
+      // Delete should be enabled for this archived agent because user has explicit manage right
+      const del = app.page.getByRole("button", { name: "Delete" });
+      await del.waitFor();
+      assert.equal(await del.getAttribute("aria-disabled"), null);
+      await expectAxeClean(app.page, "agent detail with explicit manage rights");
+    });
+  });
 });
+

@@ -96,3 +96,20 @@ export function buildSetParams(key: LimitKey, next: { soft: number | null; hard:
   }
   return { limit };
 }
+
+/** Computes the current consumption for a given limit key from existing limits or periods. */
+export function currentConsumption(periods: readonly BudgetPeriod[], limits: readonly Limit[], key: LimitKey): number {
+  const existing = limits.find((l) => l.scope === key.scope && (key.scope === "agent" ? l.agentId === key.agentId : true) && l.period === key.period && l.metric === key.metric);
+  if (existing && existing.used > 0) return existing.used;
+  const p = periods.find((x) => x.period === key.period);
+  if (!p) return 0;
+  if (key.scope === "global") {
+    return key.metric === "cost" ? p.total.costMicros : p.total.inputTokens + p.total.outputTokens;
+  }
+  if (key.scope === "agent" && key.agentId) {
+    const a = p.agents.find((x) => x.agentId === key.agentId);
+    if (!a) return 0;
+    return key.metric === "cost" ? a.total.costMicros : a.total.inputTokens + a.total.outputTokens;
+  }
+  return 0;
+}
