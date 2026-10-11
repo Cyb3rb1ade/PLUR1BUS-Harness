@@ -50,11 +50,10 @@ impl DockerRuntime {
             ))
             .await
             .map_err(map_error)?;
-        let digest = wanted.rsplit('@').next().unwrap_or(wanted);
         Ok(images
             .into_iter()
             .flat_map(|i| i.repo_digests)
-            .find(|d| has_repo_digest(std::slice::from_ref(d), digest) && d.contains('@')))
+            .find(|d| has_repo_digest(std::slice::from_ref(d), wanted) && d.contains('@')))
     }
     pub async fn connect(endpoint: &Endpoint) -> Result<Self, RuntimeError> {
         let mut client = match endpoint {
@@ -121,12 +120,16 @@ impl DockerRuntime {
     }
 }
 /// An image is present only when one of its RepoDigests carries the wanted manifest digest. The image ID
-/// (config digest) of a locally built image is deliberately not accepted.
+/// (config digest) of a locally built image is deliberately not accepted. A bare `sha256:` matches any
+/// repository; a pinned `repo@sha256:` must match that exact repository, so the same content stored under
+/// another name does not count as the requested reference.
 fn has_repo_digest(repo_digests: &[String], wanted: &str) -> bool {
-    let wanted = wanted.rsplit('@').next().unwrap_or(wanted);
-    repo_digests
-        .iter()
-        .any(|d| d.rsplit('@').next() == Some(wanted))
+    match wanted.split_once('@') {
+        Some(_) => repo_digests.iter().any(|d| d == wanted),
+        None => repo_digests
+            .iter()
+            .any(|d| d.rsplit('@').next() == Some(wanted)),
+    }
 }
 fn api_parts(v: &str) -> Vec<u32> {
     v.split('.').map(|v| v.parse().unwrap_or(0)).collect()
@@ -793,7 +796,11 @@ mod repo_digest_tests {
     fn matches_bare_and_pinned_wanted_digest() {
         let repo = vec![format!("127.0.0.1:5000/p1t-stub@{D}")];
         assert!(has_repo_digest(&repo, D));
-        assert!(has_repo_digest(&repo, &format!("other.invalid/x@{D}")));
+        assert!(has_repo_digest(
+            &repo,
+            &format!("127.0.0.1:5000/p1t-stub@{D}")
+        ));
+        assert!(!has_repo_digest(&repo, &format!("other.invalid/x@{D}")));
     }
     #[test]
     fn locally_built_image_without_repo_digests_is_absent() {

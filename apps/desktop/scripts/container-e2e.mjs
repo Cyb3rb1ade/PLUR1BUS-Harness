@@ -60,6 +60,7 @@ async function run(runtime,dry) {
    await delay(1000);
   }
   registryPin=`${ref}@${hash}`;
+  console.log(`[container-e2e] pull pin=${ref}@${hash}\n${runtime} image ls --digests:\n${cli(['image','ls','--digests'])}`);
   cargo('controller_e2e','controller_e2e_local_registry_pull_by_digest',{...env,PLUR1BUS_DESKTOP_E2E_REGISTRY:ref,PLUR1BUS_DESKTOP_E2E_REGISTRY_DIGEST:hash});
   cli(['image','rm',registryPin]);registryPin=null;
   cargo('controller_e2e',plan.controller,env);
