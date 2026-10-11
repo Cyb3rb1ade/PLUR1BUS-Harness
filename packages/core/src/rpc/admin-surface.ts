@@ -143,7 +143,12 @@ export function buildAdminSurface(d: AdminSurfaceDeps): Record<string, Handler> 
       if (!invite) throw new RpcError("E_NOT_FOUND", "invitation not found");
       if (invite.redeemedAt !== null) throw new RpcError("E_CONFLICT", "a redeemed invitation cannot be revoked", { reason: "redeemed" });
       audit(a, "user.invite.revoke", id);
-      d.identity.revokePairing(id, actor(a)); d.people.revoke(id);
+      if (invite.shareable) {
+        // The link is the longer-lived credential: it is revoked first, and a pairing that was already confirmed (or is gone) cannot keep it alive.
+        d.people.revoke(id);
+        try { d.identity.revokePairing(id, actor(a)); }
+        catch (e) { if (!(e instanceof IdentityError && (e.code === "conflict" || e.code === "not-found"))) throw e; }
+      } else { d.identity.revokePairing(id, actor(a)); d.people.revoke(id); }
       return { id, revoked: true };
     }),
     // Not behind `bind`: the redeemer has no principal yet. Reachable only through the core's own handshake, with no rule in RPC_RULES.

@@ -7,9 +7,13 @@ import { RpcError } from "../rpc/errors.ts";
 import { ROLES, type Role, type AgentRight, type Principal } from "../rbac/types.ts";
 import { createLimiter, type LimitSpec } from "./ratelimit.ts";
 
-/** Failed redeems per connection and over every connection together; a lock refuses valid tokens too, so it leaks nothing. */
+/**
+ * Failed redeems per connection and over every connection together; a lock refuses valid tokens too, so it leaks nothing.
+ * A token carries 256 bits, so guessing is hopeless and the limits only cap noise. The overall limit is therefore loose and its
+ * lock short: tight values would let anyone who can send failures lock every legitimate redeem out.
+ */
 const REDEEM_SOURCE_LIMIT: LimitSpec = { limit: 5, windowMs: 15 * 60_000, lockMs: 15 * 60_000 };
-const REDEEM_GLOBAL_LIMIT: LimitSpec = { limit: 20, windowMs: 15 * 60_000, lockMs: 15 * 60_000 };
+const REDEEM_GLOBAL_LIMIT: LimitSpec = { limit: 100, windowMs: 15 * 60_000, lockMs: 5 * 60_000 };
 const REDEEM_GLOBAL_KEY = "invite-redeem:global";
 
 export interface InviteRow { id: string; userId: string; role: Role; channel: string; expiresAt: number; revoked: number; createdAt: number; shareable: number; redeemedAt: number | null }

@@ -42,7 +42,7 @@ function setup(t: { after(fn: () => void): void }) {
   const call = (m: string, p: any = {}, c = ctx()) => guarded[m]!(p, c);
   const create = (extra: Record<string, unknown> = {}) => call("user.invite.create", { displayName: "Alex", role: "member", channel: "web", origin: ORIGIN, ...extra });
   t.after(() => { identity.close(); people.close(); lifecycle.close(); rmSync(root, { recursive: true, force: true }); });
-  return { root, people, call, create, raw, audit, sink, tick: (ms: number) => { now += ms; }, setAuditDown: (v: boolean) => { auditDown = v; }, now: () => now };
+  return { root, people, identity, call, create, raw, audit, sink, tick: (ms: number) => { now += ms; }, setAuditDown: (v: boolean) => { auditDown = v; }, now: () => now };
 }
 
 test("a link carries 256 bits of randomness, is built on the origin's fragment and is returned once", async t => {
@@ -131,6 +131,25 @@ test("revoked links fail, and the pairing code dies with them", async t => {
   assert.equal(((await s.call("user.invite.list")) as any).invites[0].state, "revoked");
 });
 
+test("a link can still be revoked after its pairing code was claimed and confirmed", async t => {
+  const s = setup(t);
+  const made = await s.create() as any, token = tokenOf(made.link);
+  const handle = { channel: "web", accountId: "acct", userId: "u-1" };
+  s.identity.claim({ code: made.code, identity: handle });
+  s.identity.confirm({ pairingId: made.id, approve: true }, { user: owner.userId, host: "rpc", role: "owner", kind: "person" });
+  assert.deepEqual(await s.call("user.invite.revoke", { inviteId: made.id }), { id: made.id, revoked: true });
+  await assert.rejects(s.raw["user.invite.redeem"]!({ token }, ctx()), invalid, "the link is dead");
+  assert.equal(((await s.call("user.invite.list")) as any).invites[0].state, "revoked");
+});
+
+test("a code-only invitation still refuses revoke once its pairing is confirmed", async t => {
+  const s = setup(t);
+  const made = await s.call("user.invite.create", { displayName: "Alex", role: "member", channel: "web" }) as any;
+  s.identity.claim({ code: made.code, identity: { channel: "web", accountId: "acct", userId: "u-2" } });
+  s.identity.confirm({ pairingId: made.id, approve: true }, { user: owner.userId, host: "rpc", role: "owner", kind: "person" });
+  await assert.rejects(s.call("user.invite.revoke", { inviteId: made.id }), refused("E_CONFLICT"));
+});
+
 test("a redeemed invitation cannot be revoked afterwards", async t => {
   const s = setup(t);
   const made = await s.create() as any;
@@ -171,8 +190,12 @@ test("failed redeems are rate-limited per connection, and a lock also refuses a 
 test("the global limit holds when the attacker rotates connections", async t => {
   const s = setup(t);
   const good = tokenOf(((await s.create()) as any).link);
-  for (let i = 0; i < 20; i++) await assert.rejects(s.raw["user.invite.redeem"]!({ token: "A".repeat(43) }, ctx(`rot-${i}`)), invalid);
+  for (let i = 0; i < 99; i++) await assert.rejects(s.raw["user.invite.redeem"]!({ token: "A".repeat(43) }, ctx(`rot-${i}`)), invalid);
+  assert.ok(await s.raw["user.invite.redeem"]!({ token: tokenOf(((await s.create()) as any).link) }, ctx("still-fine")), "below the limit nobody is locked out");
+  await assert.rejects(s.raw["user.invite.redeem"]!({ token: "A".repeat(43) }, ctx("rot-last")), invalid);
   await assert.rejects(s.raw["user.invite.redeem"]!({ token: good }, ctx("fresh")), refused("E_DENIED", "rate-limited"));
+  s.tick(5 * MINUTE + 1);
+  assert.ok(await s.raw["user.invite.redeem"]!({ token: good }, ctx("after-the-short-lock")), "the overall lock is short");
 });
 
 test("the limit survives a restart of the store", async t => {

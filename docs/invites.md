@@ -33,9 +33,11 @@ authenticated connection and has no RBAC rule.
   with no `reason` and the same message. The audit trail records the real cause (`user.invite.redeem.refused`).
 - **Single use.** One guarded update takes the row only if it is unredeemed, unrevoked and unexpired; of two simultaneous
   redeems exactly one wins. If the audit write fails the token is not consumed and the caller gets `E_INVITE_INVALID`.
-- **Rate limit.** Failed redeems count per connection (5) and over all connections (20) within 15 minutes; then the
-  connection, or everybody, is locked for 15 minutes and `E_DENIED reason=rate-limited` is returned, valid token or not.
-  The counters live in the database and survive a restart.
+- **Rate limit.** Failed redeems count per connection (5 within 15 minutes, then a 15-minute lock) and over all connections
+  (100 within 15 minutes, then a 5-minute lock); a locked caller gets `E_DENIED reason=rate-limited`, valid token or not.
+  A token has 256 bits, so the limits only cap noise; the overall one is loose on purpose, so it cannot be used to lock
+  legitimate redeems out. The counters live in the database and survive a restart. The per-connection key is the RPC
+  connection: behind the Harness API's proxy all browsers share one.
 - A redeemed invitation cannot be revoked afterwards (`E_CONFLICT reason=redeemed`).
 
 Redeeming returns the person; it does not open a session. Sign-in for an invited person comes with the Harness API's
