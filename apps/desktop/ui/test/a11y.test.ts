@@ -7,7 +7,7 @@ test("all shell routes and dialog pass axe WCAG 2.1 AA in both themes and locale
     await page.addScriptTag({ url: "/axe.js" });
     for (const theme of ["light", "dark"]) for (const locale of ["en", "de"]) {
       await page.evaluate(({ theme, locale }) => (window as any).testShell.setPreferences({ theme, locale }), { theme, locale });
-      for (const [section, subpage] of [["home","runtime"],["connections","runtime"],["settings","runtime"],["settings","updates"],["settings","version"],["settings","advanced"],["settings","computer-access"]] as const) {
+      for (const [section, subpage] of [["home","runtime"],["connections","runtime"],["settings","general"],["settings","runtime"],["settings","updates"],["settings","version"],["settings","advanced"],["settings","computer-access"]] as const) {
         await page.evaluate(([section, subpage]) => (window as any).testShell.navigate(section, subpage), [section, subpage]);
         if (section === "home") {
           const colors = await page.evaluate(() => {
@@ -28,7 +28,7 @@ test("all shell routes and dialog pass axe WCAG 2.1 AA in both themes and locale
         const results = await page.evaluate(async () => await (window as any).axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] } }));
         assertAxe(results, `${section}/${subpage} ${theme}/${locale}`);
       }
-      await page.evaluate(() => (window as any).testShell.navigate("settings","advanced"));
+      await page.evaluate(() => (window as any).testShell.navigate("settings","general"));
       await page.getByRole("button", { name: locale === "de" ? "So funktionieren Einstellungen" : "How preferences work" }).click();
       const results = await page.evaluate(async () => await (window as any).axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] } }));
       assertAxe(results, `dialog ${theme}/${locale}`);
@@ -71,7 +71,7 @@ test("settings read failure keeps independently loaded Windows and KDE chrome", 
 test("rapid theme and language choices serialize without losing either", async () => {
   await withShell(async page => {
     await page.getByRole("button", { name: "Settings" }).first().click();
-    await page.getByRole("button", { name: "Advanced" }).first().click();
+    await page.getByRole("button", { name: "General" }).first().click();
     await page.evaluate(() => (window as any).testShell.deferSaves());
     await page.getByRole("button", { name: "Light" }).click();
     await page.getByRole("button", { name: "Deutsch" }).click();
@@ -90,7 +90,7 @@ test("rapid theme and language choices serialize without losing either", async (
 test("a failed queued preference rolls back only that choice and reports failure", async () => {
   await withShell(async page => {
     await page.getByRole("button", { name: "Settings" }).first().click();
-    await page.getByRole("button", { name: "Advanced" }).first().click();
+    await page.getByRole("button", { name: "General" }).first().click();
     await page.evaluate(() => (window as any).testShell.deferSaves());
     await page.getByRole("button", { name: "Light" }).click();
     await page.getByRole("button", { name: "Deutsch" }).click();
@@ -107,7 +107,7 @@ test("a failed queued preference rolls back only that choice and reports failure
 test("keyboard focus survives preference changes and returns from the dialog", async () => {
   await withShell(async page => {
     await page.getByRole("button", { name: "Settings" }).first().click();
-    await page.getByRole("button", { name: "Advanced" }).first().click();
+    await page.getByRole("button", { name: "General" }).first().click();
     const light = page.getByRole("button", { name: "Light" });
     await light.click();
     assert.equal(await light.evaluate(node => document.activeElement === node), true);
@@ -122,7 +122,7 @@ test("keyboard focus survives preference changes and returns from the dialog", a
 test("failed native preference save keeps the old choice and keyboard focus", async () => {
   await withShell(async page => {
     await page.getByRole("button", { name: "Settings" }).first().click();
-    await page.getByRole("button", { name: "Advanced" }).first().click();
+    await page.getByRole("button", { name: "General" }).first().click();
     await page.evaluate(() => (window as any).testShell.failNextSave());
     await page.getByRole("button", { name: "Light" }).click();
     assert.equal(await page.getByRole("button", { name: "System" }).first().getAttribute("aria-pressed"), "true");

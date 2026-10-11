@@ -171,6 +171,11 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus channel test`↴](#plur1bus-channel-test)
 * [`plur1bus channel status`↴](#plur1bus-channel-status)
 * [`plur1bus channel link-help`↴](#plur1bus-channel-link-help)
+* [`plur1bus inbox`↴](#plur1bus-inbox)
+* [`plur1bus inbox list`↴](#plur1bus-inbox-list)
+* [`plur1bus inbox count`↴](#plur1bus-inbox-count)
+* [`plur1bus inbox read`↴](#plur1bus-inbox-read)
+* [`plur1bus inbox dismiss`↴](#plur1bus-inbox-dismiss)
 * [`plur1bus project`↴](#plur1bus-project)
 * [`plur1bus project board`↴](#plur1bus-project-board)
 * [`plur1bus project card`↴](#plur1bus-project-card)
@@ -287,6 +292,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `approval` — [experimental] Approval requests: the pending queue, approve, deny and verify the chain (D109)
 * `login` — [experimental] Provider sign-in: OAuth (ChatGPT) or an API key from stdin; `login status|list|logout`
 * `channel` — [experimental] Channels (switchboard): list, show, enable, disable, set, test, status, link-help
+* `inbox` — [experimental] Your inbox: notices, approvals and problems addressed to you
 * `project` — [experimental] Projects, members and agents (M5)
 * `trace` — [experimental] Collaboration traces
 * `media` — [experimental] Image jobs and private outputs (MG-3)
@@ -2689,6 +2695,78 @@ Examples:
 
 
 
+## `plur1bus inbox`
+
+[experimental] Your inbox: notices, approvals and problems addressed to you
+
+**Usage:** `plur1bus inbox <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List your inbox entries, newest first
+* `count` — [experimental] Count unread entries per kind
+* `read` — [experimental] Mark entries read: give ids, or --all
+* `dismiss` — [experimental] Dismiss entries (hidden, counted as read)
+
+
+
+## `plur1bus inbox list`
+
+[experimental] List your inbox entries, newest first
+
+**Usage:** `plur1bus inbox list [OPTIONS]`
+
+###### **Options:**
+
+* `--kind <KIND>` — Only these kinds (repeatable)
+
+  Possible values: `breakglass`, `approval`, `job-failed`, `update`, `media-index`, `pairing`, `channel`, `system`
+
+* `--unread` — Hide entries you already read
+* `--all` — Include dismissed entries
+* `--limit <LIMIT>`
+
+  Default value: `50`
+* `--cursor <CURSOR>` — `nextCursor` of the previous page
+
+
+
+## `plur1bus inbox count`
+
+[experimental] Count unread entries per kind
+
+**Usage:** `plur1bus inbox count`
+
+
+
+## `plur1bus inbox read`
+
+[experimental] Mark entries read: give ids, or --all
+
+**Usage:** `plur1bus inbox read [OPTIONS] [IDS]...`
+
+###### **Arguments:**
+
+* `<IDS>`
+
+###### **Options:**
+
+* `--all` — Mark every unread entry read
+
+
+
+## `plur1bus inbox dismiss`
+
+[experimental] Dismiss entries (hidden, counted as read)
+
+**Usage:** `plur1bus inbox dismiss <IDS>...`
+
+###### **Arguments:**
+
+* `<IDS>`
+
+
+
 ## `plur1bus project`
 
 [experimental] Projects, members and agents (M5)
@@ -3157,8 +3235,8 @@ Assigned project agents
 
 ###### **Subcommands:**
 
-* `generate` — [experimental] Queue an image generation
-* `edit` — [experimental] Edit a stored image
+* `generate` — [experimental] Queue an image or video generation
+* `edit` — [experimental] Edit a stored image or video
 * `jobs` — [experimental] List visible media jobs
 * `job` — [experimental] Read a media job
 * `cancel` — [experimental] Cancel a media job
@@ -3174,7 +3252,7 @@ Assigned project agents
 
 ## `plur1bus media generate`
 
-[experimental] Queue an image generation
+[experimental] Queue an image or video generation
 
 **Usage:** `plur1bus media generate [OPTIONS] <PROMPT>`
 
@@ -3184,6 +3262,17 @@ Assigned project agents
 
 ###### **Options:**
 
+* `--video`
+* `--duration <DURATION>`
+* `--resolution <RESOLUTION>`
+* `--fps <FPS>`
+* `--audio <AUDIO>`
+
+  Possible values: `true`, `false`
+
+* `--video-reference <VIDEO_REFERENCE>`
+* `--video-format <VIDEO_FORMAT>`
+* `--aspect <ASPECT>`
 * `--agent <AGENT>`
 
   Default value: `main`
@@ -3206,7 +3295,7 @@ Assigned project agents
 
 ## `plur1bus media edit`
 
-[experimental] Edit a stored image
+[experimental] Edit a stored image or video
 
 **Usage:** `plur1bus media edit [OPTIONS] <PROMPT>`
 
@@ -3216,6 +3305,17 @@ Assigned project agents
 
 ###### **Options:**
 
+* `--video`
+* `--duration <DURATION>`
+* `--resolution <RESOLUTION>`
+* `--fps <FPS>`
+* `--audio <AUDIO>`
+
+  Possible values: `true`, `false`
+
+* `--video-reference <VIDEO_REFERENCE>`
+* `--video-format <VIDEO_FORMAT>`
+* `--aspect <ASPECT>`
 * `--agent <AGENT>`
 
   Default value: `main`

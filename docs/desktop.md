@@ -3,7 +3,7 @@
 The desktop shell is an optional Tauri 2.12 client for a native-local, remote,
 or bundled container harness. Pairing, credentials, TLS trust, the SPA proxy,
 container control, host bridge, update policy and rollback run in Rust. The
-German/English shell follows the OS language by default; Settings → Advanced
+German/English shell follows the OS language by default; Settings → General
 lets you choose System, English or Deutsch and System, Light or Dark appearance.
 The separate Rust mock and stub image prove the provisional harness contract.
 Real harness integration, signed distribution and the unfinished WP12/WP13
@@ -12,8 +12,10 @@ installer/deep-link surfaces remain prerequisites, tracked in the
 
 At widths below 1024 CSS px, navigation uses a 64 px rail and a 288 px overlay.
 The wide 400 px related panel opens as a 360 px sheet, or a full-width sheet
-below 600 px. Settings uses Runtime, Updates, Version, Computer access and Advanced sections;
-Advanced contains the working appearance and language controls.
+below 600 px. Settings uses General, Runtime, Updates, Version, Advanced, and
+Computer access sections. General holds the theme and language controls
+(Appearance and Language); Advanced is currently an empty section. The stored
+`theme` and `locale` keys are unchanged.
 
 ## Development
 

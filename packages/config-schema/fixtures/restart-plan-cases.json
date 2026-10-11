@@ -4,6 +4,12 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -303,6 +309,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -359,6 +370,12 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -658,6 +675,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -727,6 +749,12 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -1026,6 +1054,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -1082,6 +1115,12 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -1383,6 +1422,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -1452,6 +1496,12 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -1751,6 +1801,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -1807,6 +1862,12 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -2110,6 +2171,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -2181,6 +2247,12 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -2484,6 +2556,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -2540,6 +2617,12 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -2839,6 +2922,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -2910,6 +2998,12 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -3213,6 +3307,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -3269,6 +3368,12 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -3572,6 +3677,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -3645,6 +3755,12 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -3944,6 +4060,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -4000,6 +4121,12 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -4303,6 +4430,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -4374,6 +4506,12 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -4673,6 +4811,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -4729,6 +4872,12 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -5028,6 +5177,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -5100,6 +5254,12 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -5404,6 +5564,11 @@
         }
       },
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -5460,6 +5625,12 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -5764,6 +5935,11 @@
         }
       },
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -5835,6 +6011,12 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -6134,6 +6316,11 @@
       },
       "modules": {},
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",
@@ -6190,6 +6377,12 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -6493,6 +6686,11 @@
         }
       },
       "media": {
+        "video": {
+          "maxBytes": 536870912,
+          "embedMetadata": false,
+          "adapters": {}
+        },
         "adapters": {
           "openai": {
             "model": "gpt-image-2.5-sunburst",

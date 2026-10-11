@@ -51,6 +51,7 @@ const owner = cells("yes", "none", "none", "none", "none"); // ADR-007 role tabl
 const ownerAdmin = cells("yes", "yes", "none", "none", "none");
 
 export const ENTRIES: readonly Entry[] = [
+  ...["inbox.read", "inbox.write"].map(action => ({ action, page: "My area, Projects" as const, verb: action === "inbox.read" ? "read" as const : "write" as const, cells: cells("yes", "yes", "yes", "yes", "yes") })),
   { action: "project.board.read", page: "My area, Projects", verb: "read" },
   ...["project.board.write", "project.board.manage", "project.board.move", "project.board.comment"].map(action => ({ action, page: "My area, Projects" as const, verb: "write" as const })),
   // F44 method admission; stored ownership is independently exercised by device-surface.test.ts.

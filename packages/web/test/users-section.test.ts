@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { browserSkip, openRoute, setup, teardown, withApp, type App } from "./harness.ts";
-import { HUMANS, nonReads, seed, type Seed } from "./users-fixtures.ts";
+import { HUMANS, nonReads, seed, writesSince, type Seed } from "./users-fixtures.ts";
 
 before(setup);
 after(teardown);
@@ -165,8 +165,8 @@ describe("users: invite dialog", opts, () => {
       const before = app.server.rpc.calls.length;
       await dlg.getByRole("button", { name: "Send invitation" }).click();
       await dlg.getByRole("status").filter({ hasText: "Inviting people is not available on this harness yet. Nothing was sent or created." }).waitFor();
-      assert.equal(app.server.rpc.calls.length, before + 1, "sent user.invite.create");
-      assert.equal(app.server.rpc.calls.at(-1)?.method, "user.invite.create");
+      // Only the writes since `before`: the shell's background reads (session.list) may land at any point.
+      assert.deepEqual(writesSince(app.server.rpc, before), ["user.invite.create"], "sent user.invite.create");
       assert.deepEqual(nonReads(app.server.rpc), ["user.invite.create"]);
     });
   });
@@ -226,8 +226,7 @@ describe("users: break-glass", opts, () => {
       const before = app.server.rpc.calls.length;
       await dlg.getByRole("button", { name: "Request access" }).click();
       await dlg.getByText("Break-glass is not available on this harness yet. Nothing was requested.").waitFor();
-      assert.equal(app.server.rpc.calls.length, before + 1, "sent breakglass.request");
-      assert.equal(app.server.rpc.calls.at(-1)?.method, "breakglass.request");
+      assert.deepEqual(writesSince(app.server.rpc, before), ["breakglass.request"], "sent breakglass.request");
       const mins = await dlg.getByLabel("Time window").locator("option").allTextContents();
       assert.deepEqual(mins, ["1 minutes", "5 minutes", "15 minutes", "30 minutes", "60 minutes"]);
     });

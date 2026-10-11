@@ -16,6 +16,7 @@ export interface MediaEmbeddingConfig {
 type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 
 export interface HarnessConfig {
+  inbox: { retention: { days: number; maxEntries: number } };
   containers?: { runtime: "auto" | "apple" | "docker"; image?: string; stateVolume: string; bindAddress: string; apiPort?: number; healthTimeoutMs: number };
   sidecars?: Record<string, { mode: "bundled" | "remote" | "off"; url?: string; caBundle?: string; fingerprint?: string; timeoutMs: number }>;
   $schema?: string;
@@ -66,6 +67,7 @@ export interface HarnessConfig {
   };
   modules: Record<string, Record<string, unknown> & { enabled: boolean }>;
   voice: VoiceConfig;
+  media?: { video?: { maxBytes?: number; embedMetadata?: boolean; adapters?: Record<string, { model: string; textToVideo?: boolean; imageToVideo?: boolean; videoToVideo?: boolean; durationSeconds?: [number,number]; resolutions?: string[]; aspects?: string[]; fps?: number[]; audio?: boolean; inputSchema?: Record<string,unknown> }> } };
 }
 
 export type VoiceFeatureMode = "on" | "deferred" | "off";

@@ -8,6 +8,7 @@ export const en = {
   "nav.group.workspace": "Workspace",
   "nav.group.build": "Build",
   "nav.group.control": "Control",
+  "nav.home": "Home",
   "nav.chat": "Chat",
   "nav.projects": "Projects",
   "nav.agents": "Agents",
@@ -78,6 +79,7 @@ export const en = {
   "nav.gallery": "Pattern gallery",
   "nav.setup": "First-run setup",
   "dialog.close": "Close",
+  "nav.inboxUnread": "{count} unread",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -88,6 +90,7 @@ export const de: Record<keyof typeof en, string> = {
   "nav.group.workspace": "Arbeitsbereich",
   "nav.group.build": "Aufbau",
   "nav.group.control": "Kontrolle",
+  "nav.home": "Startseite",
   "nav.chat": "Chat",
   "nav.projects": "Projekte",
   "nav.agents": "Agenten",
@@ -158,4 +161,5 @@ export const de: Record<keyof typeof en, string> = {
   "nav.gallery": "Mustergalerie",
   "nav.setup": "Ersteinrichtung",
   "dialog.close": "Schließen",
+  "nav.inboxUnread": "{count} ungelesen",
 };

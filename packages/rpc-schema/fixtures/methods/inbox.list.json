@@ -1,0 +1,30 @@
+{
+  "params": {
+    "kinds": [
+      "approval"
+    ],
+    "unreadOnly": true,
+    "limit": 20
+  },
+  "result": {
+    "entries": [
+      {
+        "id": "b3f1c2d4-0000-4000-8000-000000000001",
+        "kind": "approval",
+        "severity": "info",
+        "titleKey": "inbox.approval.requested",
+        "params": {
+          "agent": "main"
+        },
+        "ref": {
+          "route": "/approvals",
+          "objectId": "apr_1"
+        },
+        "createdAt": 1760000000000,
+        "readAt": null,
+        "dismissedAt": null
+      }
+    ],
+    "nextCursor": null
+  }
+}

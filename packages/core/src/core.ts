@@ -45,6 +45,8 @@ import { exportAgent } from "./agents/export.ts";
 import { agentExportSigner, exportSecretCanaries } from "./agents/signing.ts";
 import { buildAdminSurface } from "./rpc/admin-surface.ts";
 import { deliverBreakglassNotice } from "./rpc/breakglass-notices.ts";
+import { openInbox, lateInboxPort, type InboxComposition } from "./composition/inbox.ts";
+import { approvalToInbox, jobFailedToInbox, pairingToInbox, channelToInbox, breakglassToInbox, buildInboxSurface, deliverInboxChange } from "./inbox/index.ts";
 import { sessionUsage } from "./rpc/session-usage.ts";
 import { breakglassMemory } from "./rpc/breakglass-memory.ts";
 import { sessionWriteAccess } from "./rpc/session-access.ts";
@@ -126,6 +128,8 @@ const AGENT_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/; // rpc.schema.json $defs/AgentId
 const ENGINE_EVENT_NAMES: readonly string[] = (SCHEMA as any).$defs.notifications["engine.event"].properties.name.enum;
 
 export interface CoreOptions {
+  /** Inbox retention per person (defaults: 90 days, 1000 entries). */
+  inbox?: { maxAgeDays?: number; maxEntries?: number };
   home?: string; instanceId?: string; testInternals?: Record<string, unknown>; clock?: () => number; logger?: HarnessLogger;
   /** Called (after the reply is written) when a client sends `core.shutdown`, in place of calling stop() directly.
    *  bin.ts routes it through the same stop-and-exit path as SIGTERM, so the process exits after an RPC stop too. */
@@ -218,6 +222,7 @@ export function createCore(o: CoreOptions): Core {
   let discoveryWriter: ReturnType<typeof createWriter> | null = null;
   let dreams: Dreams | null = null;
   let dreamsError: string | undefined;
+  let inbox: InboxComposition | null = null; const inboxPort = lateInboxPort(() => inbox?.service ?? null);
   let adminPeople: AdminStore | null = null; let agentLifecycle: AgentLifecycle | null = null;
   let identity: IdentityService | null = null; // M3: humans, linked channel identities and pairing (`state/identity.sqlite`)
   let budget: BudgetService | null = null;
@@ -501,6 +506,7 @@ export function createCore(o: CoreOptions): Core {
         securePath: platform.securePath,
         logger,
         engineHasJob: (name) => eng.jobs.list().some((j) => j.name === name),
+        onFailed: run => jobFailedToInbox(inboxPort, run),
       });
       systemJobs.register(createModelsScanJob(discovery, discSettings));
 
@@ -523,13 +529,16 @@ export function createCore(o: CoreOptions): Core {
       identity = createIdentityService({
         dbPath: path.join(l.state, "identity.sqlite"), clock,
         audit: (e) => {
-          identityLog(e);
+          identityLog(e); pairingToInbox(inboxPort, e);
           chain.append({ at: clock(), actor: e.actor ?? { user: "core", host: "core" }, action: e.action, target: e.target, detail: e.detail });
         },
       });
 
       // D109: who a connection is, where policy lines go, and the permission stores (opened on first use, so the keychain is not touched at start).
       const people = new AdminStore({ path: path.join(l.state, "admin.sqlite"), ownerId: LOCAL_OWNER.userId }); adminPeople = people;
+      inbox = openInbox({ stateDir: l.state, clock, retention: { maxAgeDays: o.inbox?.maxAgeDays ?? config.inbox.retention.days, maxEntries: o.inbox?.maxEntries ?? config.inbox.retention.maxEntries }, admins: () => people.users().filter(u => u.role === "owner" || u.role === "admin").map(u => u.id), legacyNotices: () => people.allNotices(),
+        onPublished: kind => metrics.inboxPublished(kind), log: (m, f) => log.warn(m, f),
+        onChange: c => { void deliverInboxChange(c, { subscriptions: () => server?.subscriptions() ?? [], principalOf: async id => resolvePrincipal({ requestId: "inbox", connectionId: id, signal: shutdown.signal }, "inbox.count", {}), notify: (m, p, opts) => { if (!shutdown.signal.aborted) server?.notify(m, p, opts); } }).catch(() => { log.debug("inbox event withheld"); }); } });
       const originalResolver: PrincipalResolver = o.rbac?.resolve ?? (() => LOCAL_OWNER);
       const resolvePrincipal: PrincipalResolver = async (ctx, method, params) => { const who = await originalResolver(ctx, method, params); return who ? people.resolve(who) : who; };
       const rbacAudit = o.rbac?.audit ?? teeAuditSinks(createJsonlAuditSink(path.join(l.logs, "audit.log"), { securePath: (p) => platform.securePath(p) }), chain);
@@ -542,16 +551,16 @@ export function createCore(o: CoreOptions): Core {
       permissionNotifier = notifier;
       const board = switchboard = openChannelSwitchboard({
         layout: l, config: cs, secrets: secretStore, identity: () => identity, sessions: () => sessions, agents: registry, permissions: () => permissions,
-        clock, log: { info: (m, f) => log.info(m, f), warn: (m, f) => log.warn(m, f), error: (m, f) => log.error(m, f) },
+        clock, log: { info: (m, f) => log.info(m, f), warn: (m, f) => { channelToInbox(inboxPort, m, f); log.warn(m, f); }, error: (m, f) => log.error(m, f) },
       });
       permissions = createPermissionRuntime({
         // The switchboard sees approval requests next to the RPC notifier: a channel chat shows its own prompt.
-        dbPath: approvalsDbPath(l.home), keys: secretStoreKeySource(secretStore), clock: { now: clock }, events: { emit: (n, p) => { notifier.events.emit(n, p); board.approvalEvents.emit(n, p); } },
+        dbPath: approvalsDbPath(l.home), keys: secretStoreKeySource(secretStore), clock: { now: clock }, events: { emit: (n, p) => { notifier.events.emit(n, p); board.approvalEvents.emit(n, p); approvalToInbox(inboxPort, n, p); } },
         audit: createPolicyAudit({ sink: rbacAudit, clock: { now: clock } }), securePath: platform.securePath,
       });
       const perms = permissions;
       try { turnComposition = await openTurnComposition({ home: l.home, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
-        secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
+        inbox: inboxPort, secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
         // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or
         // grant-covered turns) and is refused with a typed error only when a call needs a person's approval.
         approver: async (ctx, params) => { const principal = await resolvePrincipal(ctx, "session.submit", params); return { person: principal && principal.kind === "person" ? principal.userId : null, surface: connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }; },
@@ -584,7 +593,7 @@ export function createCore(o: CoreOptions): Core {
       };
       const breakglass = createBreakGlass({ clock, audit: rbacAudit, requireNotification: true,
         notify: notice => {
-          people.notice(notice);
+          people.notice(notice); breakglassToInbox(inboxPort, notice);
           void deliverBreakglassNotice(notice, { subscriptions: () => server?.subscriptions() ?? [], principalOf: async id => resolvePrincipal({ requestId: "notice", connectionId: id, signal: shutdown.signal }, "breakglass.notices", {}), notify: (m,p,options) => server?.notify(m,p,options), stopped: () => shutdown.signal.aborted }).catch(() => { log.debug("break-glass live notice withheld; durable inbox retained"); });
         },
       });
@@ -640,6 +649,7 @@ export function createCore(o: CoreOptions): Core {
         }),
         ...(sessions?.methods ?? {}),
         ...(turnComposition?.surfaceMethods ?? {}),
+        ...buildInboxSurface(() => inbox?.service ?? null),
         ...buildProjectBoardSurface(() => turnComposition?.collab ?? null, event => { void deliverBoardChange(event, () => turnComposition?.collab ?? null, { subscriptions: () => server?.subscriptions() ?? [], resolve: async connectionId => resolvePrincipal({ requestId: "board-event", connectionId, signal: shutdown.signal }, "project.card.list", {}), notify: (m, p, opts) => { if (!shutdown.signal.aborted) server?.notify(m, p, opts); } }).catch(() => { log.debug("project board event withheld"); }); }),
         ...buildCollabSurface(() => turnComposition?.collab ?? null, id => registry.has(id)),
         ...buildIdentitySurface(() => identity),
@@ -736,7 +746,7 @@ export function createCore(o: CoreOptions): Core {
       await step(log, "budget close", () => { budget?.close(); budget = null; });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
       await step(log, "metrics close", async () => { await metricsHttp?.close(); }); metricsHttp = null;
-      await step(log, "admin stores close", () => { adminPeople?.close(); adminPeople = null; agentLifecycle?.close(); agentLifecycle = null; });
+      await step(log, "admin stores close", () => { inbox?.close(); inbox = null; adminPeople?.close(); adminPeople = null; agentLifecycle?.close(); agentLifecycle = null; });
       await step(log, "identity close", () => { identity?.close(); identity = null; });
       await step(log, "server close", async () => { await server?.close({ graceMs: 1000 }); }); server = null;
       await step(log, "lock release", () => { lock?.release(); }); lock = null;
@@ -816,7 +826,7 @@ export function createCore(o: CoreOptions): Core {
       // A re-embedding run in flight ends at its next batch boundary (aborted, resumable) before the engine closes under it.
       await step(logger, "re-embedding run", async () => { await reembed?.stop(Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
-      await step(logger, "admin stores close", () => { adminPeople?.close(); adminPeople = null; agentLifecycle?.close(); agentLifecycle = null; }, errors);
+      await step(logger, "admin stores close", () => { inbox?.close(); inbox = null; adminPeople?.close(); adminPeople = null; agentLifecycle?.close(); agentLifecycle = null; }, errors);
       await step(logger, "identity close", () => { identity?.close(); identity = null; }, errors);
       await step(logger, "budget close", () => { budget?.close(); budget = null; }, errors);
       await step(logger, "rpc drain", async () => {

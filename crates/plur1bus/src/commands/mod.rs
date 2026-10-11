@@ -22,6 +22,7 @@ pub mod grant;
 pub(crate) mod help_examples;
 pub mod identity;
 pub mod import;
+pub mod inbox;
 pub mod login;
 pub mod media;
 pub mod media_search;

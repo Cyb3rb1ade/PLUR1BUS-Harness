@@ -192,7 +192,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   function settingsPage(): HTMLElement {
     const container = element("div", "content settings-content");
     const header = heading(t("settings.title"), t("settings.lead"));
-    const sections: [SettingsPage, MessageKey][] = [["runtime", "nav.runtime"], ["updates", "nav.updates"], ["version", "nav.version"], ["advanced", "nav.advanced"], ["computer-access", "nav.computerAccess"]];
+    const sections: [SettingsPage, MessageKey][] = [["general", "nav.general"], ["runtime", "nav.runtime"], ["updates", "nav.updates"], ["version", "nav.version"], ["advanced", "nav.advanced"], ["computer-access", "nav.computerAccess"]];
     const openSections = button(t("nav.sections"), () => {
       const menu = element("nav", "sheet-sections");
       menu.setAttribute("aria-label", t("nav.sections"));
@@ -209,10 +209,10 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
       main.append(renderUpdates());
     } else if (route.page === "version" && transport.harnessUpgradeStatus) {
       main.append(renderVersion());
-    } else if (route.page === "advanced") {
+    } else if (route.page === "general") {
       const stack = element("div", "settings-stack");
       const intro = element("div", "settings-section-header");
-      append(intro, element("h2", undefined, t("settings.advancedTitle")), element("p", undefined, t("settings.advancedBody")));
+      append(intro, element("h2", undefined, t("settings.generalTitle")), element("p", undefined, t("settings.generalBody")));
       append(stack, intro, appearance());
       main.append(stack);
     } else {
@@ -261,7 +261,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     mark.set(sectionLabel, spoken, changingSection, route.section === "home" ? t("wordmark.subtitle") : undefined);
     lastSection = route.section;
     const app = element("div", "app-frame");
-    const sidebar = rail({ main: t("nav.main"), home: t("nav.home"), settings: t("nav.settings"), connections: t("nav.connections"), open: t("nav.open"), close: t("nav.close"), runtime: t("nav.runtime"), updates: t("nav.updates"), version: t("nav.version"), advanced: t("nav.advanced"), "computer-access": t("nav.computerAccess") }, route.section, route.page, navigate, page => navigate("settings", page));
+    const sidebar = rail({ main: t("nav.main"), home: t("nav.home"), settings: t("nav.settings"), connections: t("nav.connections"), open: t("nav.open"), close: t("nav.close"), general: t("nav.general"), runtime: t("nav.runtime"), updates: t("nav.updates"), version: t("nav.version"), advanced: t("nav.advanced"), "computer-access": t("nav.computerAccess") }, route.section, route.page, navigate, page => navigate("settings", page));
     const body = element("div", "app-body");
     const top = element("header", "app-top");
     const status = chip(connectionSummary());
