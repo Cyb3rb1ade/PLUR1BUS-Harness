@@ -222,6 +222,11 @@ Examples:
         #[command(subcommand)]
         sub: crate::commands::channel::ChannelCmd,
     },
+    /// [experimental] Your inbox: notices, approvals and problems addressed to you
+    Inbox {
+        #[command(subcommand)]
+        sub: crate::commands::inbox::InboxCmd,
+    },
     /// [experimental] Projects, members and agents (M5)
     Project {
         #[command(subcommand)]

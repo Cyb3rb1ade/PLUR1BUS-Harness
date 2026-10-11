@@ -329,3 +329,11 @@ describe("project column management remains human controlled", () => {
     assert.equal(isForbiddenMethod("project.card.get"), false);
   });
 });
+describe("the personal inbox is never an agent tool", () => {
+  it("blocks the entire inbox. prefix even on explicit inclusion", () => {
+    const methods = ["inbox.list", "inbox.count", "inbox.markRead", "inbox.dismiss"];
+    for (const method of methods) assert.equal(isForbiddenMethod(method), true);
+    const tools = buildWebMcpTools({ capabilities: caps, schema: SCHEMA, include: methods, call: fakeCall() });
+    for (const method of methods) assert.equal(byName(tools, method), undefined);
+  });
+});

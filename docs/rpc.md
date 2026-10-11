@@ -49,6 +49,7 @@ A closed enum; the core puts the code into every error response as `error.data.e
 - `E_MEDIA_DIMENSION`
 - `E_MEDIA_UNSUPPORTED_KIND`
 - `E_PROJECT_WIP_LIMIT`
+- `E_INBOX_CURSOR`
 
 ## Stability
 
@@ -9533,6 +9534,263 @@ Request an audited read-only window for another person. Affected person receives
 }
 ```
 
+### `inbox.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+List the authenticated person's own inbox entries, newest first. Dismissed entries are hidden unless includeDismissed. A cursor from a previous page that is not valid fails with E_INBOX_CURSOR.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kinds": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/InboxKind"
+      }
+    },
+    "unreadOnly": {
+      "type": "boolean"
+    },
+    "includeDismissed": {
+      "type": "boolean"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "entries",
+    "nextCursor"
+  ],
+  "properties": {
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/InboxEntry"
+      }
+    },
+    "nextCursor": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+### `inbox.count`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Unread, not dismissed inbox entries per kind (every kind is present) and the number of visible entries, for badges.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "unread",
+    "total"
+  ],
+  "properties": {
+    "unread": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "breakglass",
+        "approval",
+        "job-failed",
+        "update",
+        "media-index",
+        "pairing",
+        "channel",
+        "system"
+      ],
+      "properties": {
+        "breakglass": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "approval": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "job-failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "update": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "media-index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pairing": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "channel": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "system": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "total": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `inbox.markRead`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Mark the person's own entries read: `ids` (1-500) or `all: true`, exactly one of them. Ids of other people's entries change nothing. Returns how many entries changed.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "minProperties": 1,
+  "properties": {
+    "ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "all": {
+      "type": "boolean",
+      "const": true
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "changed"
+  ],
+  "properties": {
+    "changed": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `inbox.dismiss`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Dismiss the person's own entries (1-500 ids); they are hidden and count as read. Ids of other people's entries change nothing. Returns how many entries changed.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ids"
+  ],
+  "properties": {
+    "ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "changed"
+  ],
+  "properties": {
+    "changed": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
 ### `breakglass.notices`
 
 **Stability:** experimental · since 1.5.0
@@ -12052,6 +12310,48 @@ D109 §6: verifies the HMAC-SHA256 chain of the approval store (the `1staid chec
 
 Delivered on the same connection to clients that called `events.subscribe`.
 
+### `inbox.changed`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+The authenticated person's inbox changed; refresh with inbox.count / inbox.list. Carries no entry data. Opt-in and fail closed: withheld unless every subscriber that named it is that person.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "change",
+    "kinds"
+  ],
+  "x-server": "core",
+  "x-stability": "experimental",
+  "x-since": "1.6.0",
+  "description": "The authenticated person's inbox changed; refresh with inbox.count / inbox.list. Carries no entry data. Opt-in and fail closed: withheld unless every subscriber that named it is that person.",
+  "properties": {
+    "change": {
+      "type": "string",
+      "enum": [
+        "created",
+        "read",
+        "dismissed",
+        "settled"
+      ]
+    },
+    "kinds": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/InboxKind"
+      }
+    }
+  }
+}
+```
+
 ### `project.card.changed`
 
 **Stability:** experimental · since 1.6.0
@@ -13481,7 +13781,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "E_MEDIA_UNAVAILABLE",
     "E_MEDIA_DIMENSION",
     "E_MEDIA_UNSUPPORTED_KIND",
-    "E_PROJECT_WIP_LIMIT"
+    "E_PROJECT_WIP_LIMIT",
+    "E_INBOX_CURSOR"
   ]
 }
 ```
@@ -18635,6 +18936,116 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "usedAt": {
       "type": "string"
+    }
+  }
+}
+```
+
+### `InboxKind`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "breakglass",
+    "approval",
+    "job-failed",
+    "update",
+    "media-index",
+    "pairing",
+    "channel",
+    "system"
+  ],
+  "description": "Closed set of inbox entry kinds; also the only metric label of the inbox."
+}
+```
+
+### `InboxEntry`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "severity",
+    "titleKey",
+    "params",
+    "ref",
+    "createdAt",
+    "readAt",
+    "dismissedAt"
+  ],
+  "description": "Metadata only: the client translates `titleKey` and fills it with `params`; `ref` names the route and object to open. No secrets, no content.",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "kind": {
+      "$ref": "#/$defs/InboxKind"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "critical"
+      ]
+    },
+    "titleKey": {
+      "type": "string",
+      "pattern": "^[a-z][A-Za-z0-9._-]{0,95}$"
+    },
+    "params": {
+      "type": "object",
+      "maxProperties": 16,
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "boolean"
+        ]
+      }
+    },
+    "ref": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "route": {
+          "type": "string",
+          "pattern": "^/",
+          "maxLength": 200
+        },
+        "objectId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "createdAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "readAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "dismissedAt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
     }
   }
 }

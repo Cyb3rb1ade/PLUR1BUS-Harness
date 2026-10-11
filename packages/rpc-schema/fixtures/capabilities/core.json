@@ -504,6 +504,22 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "inbox.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "inbox.count": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "inbox.markRead": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "inbox.dismiss": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "breakglass.notices": {
       "stability": "experimental",
       "since": "1.5.0"
@@ -682,6 +698,10 @@
     }
   },
   "notifications": {
+    "inbox.changed": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "project.card.changed": {
       "stability": "experimental",
       "since": "1.6.0"
