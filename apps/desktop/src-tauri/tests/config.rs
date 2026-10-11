@@ -198,3 +198,13 @@ fn registered_handlers_match_the_application_acl_table() {
         .collect();
     assert_eq!(actual, plur1bus_desktop::commands::APP_COMMANDS);
 }
+
+#[test]
+fn updater_artifacts_are_signed_only_through_the_release_overlay() {
+    // Preview/CI bundles must not need TAURI_SIGNING_PRIVATE_KEY; the release workflow opts in with
+    // `pnpm tauri build --config src-tauri/tauri.release.conf.json` and supplies the private key.
+    assert_eq!(config()["bundle"]["createUpdaterArtifacts"], false);
+    let release: Value = serde_json::from_str(include_str!("../tauri.release.conf.json")).unwrap();
+    assert_eq!(release["bundle"]["createUpdaterArtifacts"], true);
+    assert_eq!(release.as_object().unwrap().len(), 1);
+}
