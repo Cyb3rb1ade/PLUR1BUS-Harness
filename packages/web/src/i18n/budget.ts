@@ -84,6 +84,8 @@ export const en = {
   "budget.cleared": "will be cleared",
   "budget.removeConfirm": "Remove the limit {title}?",
   "budget.removeBody": "Nothing is stopped by this limit afterwards. Usage is still counted.",
+  "budget.warn.belowUsed": "Warning: this limit is below current usage ({used}). Further calls will be stopped or warned immediately.",
+  "budget.confirm.belowUsed": "I confirm setting a limit below current consumption.",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -171,4 +173,6 @@ export const de: Record<keyof typeof en, string> = {
   "budget.cleared": "wird entfernt",
   "budget.removeConfirm": "Das Limit {title} entfernen?",
   "budget.removeBody": "Danach stoppt dieses Limit nichts mehr. Der Verbrauch wird weiter gezählt.",
+  "budget.warn.belowUsed": "Warnung: Dieses Limit liegt unter dem aktuellen Verbrauch ({used}). Weitere Aufrufe werden sofort gestoppt bzw. gewarnt.",
+  "budget.confirm.belowUsed": "Ich bestätige das Setzen eines Limits unter dem aktuellen Verbrauch.",
 };

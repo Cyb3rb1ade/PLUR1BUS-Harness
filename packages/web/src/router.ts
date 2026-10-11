@@ -21,6 +21,15 @@ function currentQuery(): URLSearchParams {
   return new URLSearchParams(i < 0 ? "" : raw.slice(i + 1));
 }
 
+/** Routes that moved: a deep link to the old path lands on its new home. `/identities` is the Identities tab of Settings > Users & roles. */
+const MOVED: Readonly<Record<string, string>> = { identities: "/settings/users?tab=identities" };
+
+/** Where `p` has moved to, or null. Any sub-path of a moved route goes to the same place. */
+export function movedTo(p: string): string | null {
+  const first = p.split("/").find((seg) => seg !== "") ?? "";
+  return Object.hasOwn(MOVED, first) ? MOVED[first]! : null;
+}
+
 export const path = signal(currentPath());
 /** Query of the current route; pages read `?focus=<key>`, `?trace=<id>` and the like from it. A new object on every route change. */
 export const query = signal(currentQuery());
@@ -42,4 +51,16 @@ export function navigate(to: string, opts: { replace?: boolean } = {}): void {
   else globalThis.location.hash = to;
 }
 
-globalThis.addEventListener?.("hashchange", () => { path.value = currentPath(); query.value = currentQuery(); });
+/** Replaces a moved deep link in the address bar before anything renders it; true when it did. */
+function redirectMoved(): boolean {
+  const to = movedTo(currentPath());
+  if (to === null || globalThis.history === undefined) return false;
+  navigate(to, { replace: true });
+  return true;
+}
+
+redirectMoved();
+globalThis.addEventListener?.("hashchange", () => {
+  if (redirectMoved()) return;
+  path.value = currentPath(); query.value = currentQuery();
+});

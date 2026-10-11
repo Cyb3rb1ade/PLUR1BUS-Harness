@@ -5,6 +5,20 @@ import { dirname } from "node:path";
 import { platformCapabilities } from "../platform.ts";
 import { RpcError } from "../rpc/errors.ts";
 import { ROLES, type Role, type AgentRight, type Principal } from "../rbac/types.ts";
+import { createLimiter, type LimitSpec } from "./ratelimit.ts";
+
+/**
+ * Failed redeems per connection and over every connection together; a lock refuses valid tokens too, so it leaks nothing.
+ * A token carries 256 bits, so guessing is hopeless and the limits only cap noise. The overall limit is therefore loose and its
+ * lock short: tight values would let anyone who can send failures lock every legitimate redeem out.
+ */
+const REDEEM_SOURCE_LIMIT: LimitSpec = { limit: 5, windowMs: 15 * 60_000, lockMs: 15 * 60_000 };
+const REDEEM_GLOBAL_LIMIT: LimitSpec = { limit: 100, windowMs: 15 * 60_000, lockMs: 5 * 60_000 };
+const REDEEM_GLOBAL_KEY = "invite-redeem:global";
+
+export interface InviteRow { id: string; userId: string; role: Role; channel: string; expiresAt: number; revoked: number; createdAt: number; shareable: number; redeemedAt: number | null }
+/** What `redeem` tells its audit hook. `reason` is for the privileged audit trail only; it never reaches the caller. */
+export type RedeemOutcome = { ok: true; invite: InviteRow } | { ok: false; reason: "unknown" | "expired" | "revoked" | "redeemed" | "malformed" | "rate-limited"; inviteId?: string };
 
 export class AdminStore {
   readonly db: DatabaseSync;
@@ -15,7 +29,9 @@ export class AdminStore {
       CREATE TABLE IF NOT EXISTS admin_roles (user_id TEXT PRIMARY KEY, role TEXT NOT NULL CHECK(role IN ('owner','admin','operator','member','viewer'))) STRICT;
       CREATE TABLE IF NOT EXISTS admin_rights (agent_id TEXT NOT NULL,user_id TEXT NOT NULL,right TEXT NOT NULL CHECK(right IN ('use','manage')),PRIMARY KEY(agent_id,user_id)) STRICT;
       CREATE TABLE IF NOT EXISTS admin_notices (id TEXT PRIMARY KEY,user_id TEXT NOT NULL,payload TEXT NOT NULL) STRICT;
-      CREATE TEMP TABLE admin_invites (id TEXT PRIMARY KEY,user_id TEXT NOT NULL,role TEXT NOT NULL,channel TEXT NOT NULL,expires_at INTEGER NOT NULL,revoked INTEGER NOT NULL DEFAULT 0) STRICT;`);
+      CREATE TABLE IF NOT EXISTS admin_invites (id TEXT PRIMARY KEY,user_id TEXT NOT NULL,role TEXT NOT NULL,channel TEXT NOT NULL,expires_at INTEGER NOT NULL,revoked INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL DEFAULT 0,created_by TEXT NOT NULL DEFAULT '',token_hash TEXT UNIQUE,redeemed_at INTEGER) STRICT;
+      CREATE TABLE IF NOT EXISTS attempts (key TEXT PRIMARY KEY,failures INTEGER NOT NULL,window_start INTEGER NOT NULL,locked_until INTEGER NOT NULL) STRICT;`);
     // Seed only an empty installation: demoting the bootstrap owner must survive a restart.
     if (Number((this.db.prepare("SELECT COUNT(*) AS n FROM admin_roles").get() as any).n) === 0)
       this.db.prepare("INSERT INTO admin_roles VALUES (?, 'owner')").run(o.ownerId);
@@ -46,10 +62,40 @@ export class AdminStore {
     const rights = this.db.prepare("SELECT agent_id,right FROM admin_rights WHERE user_id=?").all(p.userId) as { agent_id: string; right: AgentRight }[];
     return { ...p, role, agentRights: Object.fromEntries(rights.map(r => [r.agent_id, r.right])) };
   }
-  invite(i: { id: string; userId: string; role: Role; channel: string; expiresAt: number }) { this.db.prepare("INSERT INTO admin_invites(id,user_id,role,channel,expires_at) VALUES (?,?,?,?,?)").run(i.id, i.userId, i.role, i.channel, i.expiresAt); }
+  /** `tokenHash` is present for a shareable link and absent for a plain pairing-code invitation. Never the token itself. */
+  invite(i: { id: string; userId: string; role: Role; channel: string; expiresAt: number; createdAt: number; createdBy: string; tokenHash?: string }) {
+    this.db.prepare("INSERT INTO admin_invites(id,user_id,role,channel,expires_at,created_at,created_by,token_hash) VALUES (?,?,?,?,?,?,?,?)")
+      .run(i.id, i.userId, i.role, i.channel, i.expiresAt, i.createdAt, i.createdBy, i.tokenHash ?? null);
+  }
   notice(n: import("../rbac/break-glass.ts").BreakGlassNotice) { this.db.prepare("INSERT INTO admin_notices VALUES (?,?,?)").run(n.grantId, n.userId, JSON.stringify(n)); }
   notices(userId: string) { return this.db.prepare("SELECT payload FROM admin_notices WHERE user_id=? ORDER BY rowid DESC LIMIT 200").all(userId).map(r => JSON.parse(r.payload as string)); }
   allNotices(): import("../rbac/break-glass.ts").BreakGlassNotice[] { return this.db.prepare("SELECT payload FROM admin_notices ORDER BY rowid").all().map(r => JSON.parse(r.payload as string)); }
-  invites(): { id: string; userId: string; role: Role; channel: string; expiresAt: number; revoked: number }[] { return this.db.prepare("SELECT id,user_id AS userId,role,channel,expires_at AS expiresAt,revoked FROM admin_invites ORDER BY expires_at,id").all() as any[]; }
+  invites(): InviteRow[] { return this.db.prepare("SELECT id,user_id AS userId,role,channel,expires_at AS expiresAt,revoked,created_at AS createdAt,token_hash IS NOT NULL AS shareable,redeemed_at AS redeemedAt FROM admin_invites ORDER BY expires_at,id").all() as any[]; }
   revoke(id: string) { this.db.prepare("UPDATE admin_invites SET revoked=1 WHERE id=?").run(id); }
+  /**
+   * Consumes a shareable invitation's one-time token. The whole decision is one transaction: a single guarded UPDATE
+   * (unredeemed, unrevoked, unexpired) either takes the row or not, so two concurrent redeems cannot both win, and
+   * `beforeCommit` (the audit write) failing rolls the consumption back. Every refusal is the same `{ ok: false }` to the
+   * caller; the specific `reason` is for the audit trail only.
+   */
+  redeem(tokenHash: string | null, o: { now: number; source: string; beforeCommit: (invite: InviteRow) => void }): RedeemOutcome {
+    const limiter = createLimiter(this.db, () => o.now);
+    const srcKey = `invite-redeem:src:${o.source}`;
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      if (limiter.lockedFor([srcKey, REDEEM_GLOBAL_KEY]) > 0) { this.db.exec("COMMIT"); return { ok: false, reason: "rate-limited" }; }
+      const row = tokenHash === null ? undefined : this.db.prepare("SELECT id,user_id AS userId,role,channel,expires_at AS expiresAt,revoked,created_at AS createdAt,1 AS shareable,redeemed_at AS redeemedAt FROM admin_invites WHERE token_hash=?").get(tokenHash) as InviteRow | undefined;
+      const taken = row ? this.db.prepare("UPDATE admin_invites SET redeemed_at=? WHERE id=? AND redeemed_at IS NULL AND revoked=0 AND expires_at>?").run(o.now, row.id, o.now) : undefined;
+      if (row && taken && Number(taken.changes) === 1) {
+        o.beforeCommit({ ...row, redeemedAt: o.now });
+        limiter.success(srcKey);
+        this.db.exec("COMMIT");
+        return { ok: true, invite: { ...row, redeemedAt: o.now } };
+      }
+      limiter.failure(srcKey, REDEEM_SOURCE_LIMIT); limiter.failure(REDEEM_GLOBAL_KEY, REDEEM_GLOBAL_LIMIT);
+      this.db.exec("COMMIT");
+      const reason = tokenHash === null ? "malformed" : !row ? "unknown" : row.revoked ? "revoked" : row.redeemedAt !== null ? "redeemed" : "expired";
+      return { ok: false, reason, ...(row ? { inviteId: row.id } : {}) };
+    } catch (e) { this.db.exec("ROLLBACK"); throw e; }
+  }
 }

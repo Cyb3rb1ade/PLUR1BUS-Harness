@@ -241,6 +241,35 @@ describe("usage: changing limits", opts, () => {
       await app.page.getByRole("dialog").getByRole("alert").getByText("The limit could not be saved. Try again.").waitFor();
     });
   });
+  test("lowering limit below current consumption warns and requires explicit confirmation checkbox", async () => {
+    await withApp({}, async (app) => {
+      seed(app.server.rpc); await open(app);
+      const edit = app.page.getByRole("button", { name: "Edit limit: Daily cost" });
+      await edit.click();
+      const dlg = app.page.getByRole("dialog", { name: "Edit limit: Daily cost" });
+      // Current usage is $2.00. Set hard limit to $1.50 (1.5).
+      await dlg.getByLabel("Soft limit").fill("");
+      await dlg.getByLabel("Hard limit").fill("1.5");
+      await dlg.getByRole("button", { name: "Review" }).click();
+
+      const review = app.page.getByRole("dialog", { name: "Confirm limit" });
+      await review.waitFor();
+      await review.getByText(/below current usage \(\$2\.00\)/).waitFor();
+
+      const submit = review.getByRole("button", { name: "Confirm and save" });
+      assert.equal(await submit.isDisabled(), true);
+
+      const check = review.getByLabel("I confirm setting a limit below current consumption.");
+      await check.click();
+      assert.equal(await submit.isDisabled(), false);
+
+      await expectAxeClean(app.page, "limit below consumption confirmation dialog");
+
+      await submit.click();
+      await app.page.getByRole("dialog").waitFor({ state: "detached" });
+      assert.deepEqual(sets(app)[0]!.params, { limit: { scope: "global", period: "day", metric: "cost", soft: null, hard: 1_500_000 } });
+    });
+  });
 });
 
 describe("usage: layout, a11y, keyboard, language", opts, () => {

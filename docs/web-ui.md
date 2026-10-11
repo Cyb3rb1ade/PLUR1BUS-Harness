@@ -28,7 +28,7 @@ the page for each id in `src/pages/registry.ts`.
 | `/doctor` | Doctor | Control | each part separately: health, core status, agents (ok, unavailable, forbidden, error, `down` for a 503 `status: down`); whole page forbidden if health is | Re-check button, automatic refresh every 30 s (stops while the tab is hidden), provisioning check: loads a `1staid.check/1` JSON file chosen by the owner, shows it as a table, copy/download of the unchanged text. |
 | `/agents`, `/agents/new`, `/agents/<id>` | Agents | Build | all five; unknown id is not-found | List from `config.get agents`, detail, three-step create (name and id, skills, review) with a client idempotency key, pause/resume, archive/unarchive and export (bundle download) wired to `agent.*`, delete only for archived agents with export offer and typed name (F39), voice real-time profile override with reset. Only owner/admin create. |
 | `/settings`, `/settings/<section>` (`general`, `models`, `memory`, `extensions`, `network`, `voice`) | Settings | pinned | all five plus read-only | Section navigation 224 px, content up to 880 px. Fields from a static index of the config schema (F17), restart class badge, "Review changes" with a dry-run diff, save with `ifRevision`, `?focus=<key>` scrolls to and highlights a field. Voice section manages speech language, downloads, licences and real-time profile. |
-| `/settings/users` | Users & roles | pinned | all five | People list (`identity.list`), role presets with plain text, simple mode and rights matrix per agent (draft), invite dialog and break-glass dialog; role change, invitations (code shown once, copy button), use/manage rights per agent and the break-glass request are wired; the last Owner cannot be demoted and the error is explained (F40, F41). Owner/admin only. |
+| `/settings/users` | Users & roles | pinned | all five | People list (`identity.list`), role presets with plain text, simple mode and rights matrix per agent (draft), invite dialog and break-glass dialog; role change, invitations (shareable link with a chosen validity of 1 h, 24 h, 7 d, 30 d or custom, shown once with a copy button; open invitations with revoke, see [invites.md](invites.md)), use/manage rights per agent and the break-glass request are wired; the last Owner cannot be demoted and the error is explained (F40, F41). People tab: Owner/admin only. Identities tab (`?tab=identities`, the former hidden `/identities` route, whose deep links redirect here): all five roles read, a Viewer cannot write. |
 | `/settings/secrets` | Secrets | pinned | all five | Names and metadata only; create, rotate (masked input, value cleared at submit) and delete (typed name). No value is ever in the DOM, storage, URL or console (tested). |
 | `/settings/devices` | Devices & remote | pinned | all but empty | Hidden behind a note when `remote.publish` is `local` or unknown; the pairing QR (`pairing.qr`) and the device list with rename and revoke (`device.list/rename/revoke`) are wired; Owner/Admin see all devices, everyone else only their own (F44). |
 | `/settings/voice` | Voice | pinned | all five plus read-only | Speech language with fast/quality profiles, download progress, licence confirmations without active links, research-only badges; real-time switches, endpointing slider, speculative turn-start, confirmation sound, feature switches with time budgets, cost metrics and engine-fixed indicator. |
@@ -42,7 +42,7 @@ the page for each id in `src/pages/registry.ts`.
 | `/approvals`, `/approvals/<requestId>` | Approvals & Grants | Control | all five | Pending requests from `approval.list`/`approval.get` using D109 layout (targets and action summary displayed strictly before the unverified agent reason). Approval decision dialog via `approval.decide` (selectable grant duration capped at 90 days; OS attestation prompt note when server requires it), cancellation (`approval.cancel`), and active grants list from `grant.list` with revocation (`grant.revoke`). Role gates hide page from agent principals. |
 | `/recurring`, `/recurring/<jobId>` | Recurring Tasks | Control | all five | Scheduled background jobs from `jobs.list`, execution history from `jobs.history`, and manual trigger ("Run now") with confirmation (`jobs.run`). Creation and editing are not in the backend schema and are shown as a documented gap. |
 | `/switchboard` | Switchboard | Control | all five | Channel list and detail. |
-| `/inbox` | placeholder | as in `nav.ts` | none (fixed text `page.placeholder`) | `PlaceholderPage`. |
+| `/inbox` | Inbox | Workspace | all five | Own entries from `inbox.list`, filters by kind and unread, cursor paging (an expired cursor, `E_INBOX_CURSOR`, reloads the list from the top), mark read, dismiss and mark all read (`inbox.markRead`, `inbox.dismiss`). Each entry links to its target route. The sidebar badge is the unread total from `inbox.count`, refreshed on sign-in, on a reconnect of `/events` and on `inbox.changed`, which is only a hint. Lazy chunk with its own CSS. |
 | `/login` | Sign-in | none | form errors only | Owner token against `POST /api/v1/session`; see `ui/web-shell.md`. |
 | any other path | 404 | none | n/a | Link back to the landing route. |
 | ⌘K / Ctrl+K, `/` | Command palette | overlay | n/a | Only while signed in and on a page (not on `/login`). Groups: navigation, actions, settings, agents, chats, logs; entity groups come from a bounded, abortable fan-out (150 ms debounce, 5 per group, 1.5 s per source) and are filtered by role. The dialog is its own lazy chunk. |
@@ -71,12 +71,13 @@ the page for each id in `src/pages/registry.ts`.
 | Models | `models.list` (also `newOnly: true`) | assumed | no |
 | Models | `models.scan`, `models.setOverride`, `models.removeManual`, `models.acknowledge` | assumed | yes |
 | Models | `/events`: `models.changed` | assumed | no |
-| Usage | `budget.status` | assumed | no |
-| Usage | `budget.set` | assumed | yes |
+| Usage | `budget.status` (soft warning and hard stop bounds per period/agent) | assumed | no |
+| Usage | `budget.set` (setting limits; guarded by confirmation when lowering below consumption) | assumed | yes |
 | Doctor | `GET /api/v1/health`, `GET /api/v1/agents` | real | no |
 | Doctor | `core.status` | assumed | no |
 | Doctor | `1staid.check/1` document | no route; local file chosen by the owner, read in the browser, never sent | no |
 | Agents | `config.get` (`agents`), `config.set` (`agents.<id>`, `ifRevision`), `ext.list` (`kind: skill`) | assumed | set: yes |
+| Agents | `agent.rights.get` (`agentId`), `agent.export`, `agent.archive`, `agent.unarchive`, `agent.delete` | assumed | rights/export: no; lifecycle: yes |
 | Settings | `config.get` (whole configuration, then one call per key for `restartClass`), `config.set` (`dryRun: true`, then with `ifRevision`) | assumed | set: yes |
 | Users | `identity.list`, `config.get` (`agents`) | assumed | no |
 | Secrets | `secret.list`, `secret.status`, `secret.set`, `secret.delete` (`secret.get` is never called) | assumed | set, delete: yes |
@@ -116,6 +117,17 @@ calls (**angebunden**). Every page shows only what the role may read, translates
 | Operator session overview (F42) | `session.list` owner/agent filters, explicit allOwners, owner/model/tokens/cost metadata | Done: filters and owner/model/usage columns (F42); transcripts stay behind Break-Glass |
 | Devices, QR payload and remote mode (F44) | Persistent device store, `device.list/revoke/rename`, CLI, `pairing.qr` and `remote.publish` available | Done: QR, device list, rename (own device) and revoke with confirmation that open connections close (F44) |
 
+### Budgets and limits (soft warning & hard stop)
+
+- **Soft and hard bounds**: Limits configured via `budget.set` support both a soft bound (`soft`, warning state) and a hard bound (`hard`, stop state) per period and agent. Status is reported via `budget.status`.
+- **Consumption guard**: Lowering a limit below current consumption (`currentConsumption`) warns explicitly and requires user confirmation via checkbox before saving.
+
+### Agent lifecycle and rights verification
+
+- **Rights verification**: Agent lifecycle actions query `agent.rights.get` for explicit `manage` rights, enabling authorized users beyond the owner/admin role gate.
+- **Lifecycle actions**: Export bundle (`agent.export` with JSON download), archive/unarchive (`agent.archive`/`agent.unarchive`), and deletion (`agent.delete`) requiring strict name entry confirmation and offering export.
+- **Server-side creation**: No `agent.create` RPC exists in the backend schema (client-side configuration creation is currently used; issue proposal for dedicated server RPC documented).
+
 ## M3 part 2: inventory (K1)
 
 What the second web UI change builds fully and what it renders as `unavailable`, measured against `origin/main` @ `809f2d5`
@@ -148,7 +160,8 @@ Two different questions decide a row:
 | Agents: archive, unarchive, delete (archive-first, export offer, typed name), export bundle without secrets | `agent.archive`, `agent.unarchive`, `agent.delete`, `agent.export` | yes | Built (F39) |
 | **Users & roles**: list, create | `identity.list`, `identity.human.create` | yes | Built |
 | Users: pairing codes, link, unlink | `identity.pair.start`, `.claim`, `.confirm`, `identity.link`, `identity.unlink` | yes | Built |
-| Users: invite | `user.invite.create`, `.list`, `.revoke` | yes | Built; the code is shown once (F40) |
+| Users: invite | `user.invite.create`, `.list`, `.revoke` | yes | Built; the link (or, without an origin, the code) is shown once (F40, [invites.md](invites.md)) |
+| Users: identities tab | `identity.link.list`, `identity.link.request`, `.approve`, `.decline`, `.remove`, `identity.principals` | yes | Built; the former `/identities` route, now a tab of Users & roles |
 | Users: role presets, simple mode | `user.list`, `user.role.set` | yes | Built; the last Owner is protected (F40) |
 | Users: object rights per agent (use/manage) | `agent.rights.get`, `agent.rights.set` | yes | Built (F40) |
 | Users: Member sees only shared agents | `agent.list` (the server decides), `principal.role` from `whoami` | yes | Built: the UI hides what the role may not see and shows a server `E_DENIED` as forbidden |
@@ -328,7 +341,7 @@ Numbers are stable; other documents refer to them.
 - **F27. State in the URL.** The router drops the query (`#/path?x` is read as `#/path`), so the chosen agent, search text, filters
   and `?focus=` are lost on reload and cannot be linked; the agent choice lives in memory only. (`?theme=` is read separately.)
 - **F28. Doctor file picker.** The text of the native file input follows the OS language, not the UI language.
-- **F29. Projects Kanban board and placeholders.** The Projects Kanban board is built and replaces the placeholder page: full Kanban board integration with project list in the sidebar (open and overdue badges), columns with WIP limit badges and warnings, cards with title, priority, labels, assignees with agent icons, due date and link indicators. Drag & drop and accessible keyboard navigation (arrow keys with polite aria-live announcements). Card detail drawer with safe HTML-free Markdown description, comments, activity feed, assignee management and archive actions. Column management with RBAC checks. Local filters for search text, assignee, label, and archived cards. Real-time updates via `/events` SSE, optimistic updates with rollback on error, and clear `E_PROJECT_WIP_LIMIT` notices. Home (accessible via the wordmark morph), Help and Library are built, replacing placeholders. Skills & Plugins (`#/skills`, `#/plugins`), Approvals (`#/approvals`), and Recurring Tasks (`#/recurring`) are also built, as is Switchboard. The Inbox backend (`inbox.list|count|markRead|dismiss`, `inbox.changed`, [inbox.md](inbox.md)) is available; the Inbox page (`#/inbox`) remains a follow-up placeholder.
+- **F29. Projects Kanban board and placeholders.** The Projects Kanban board is built and replaces the placeholder page: full Kanban board integration with project list in the sidebar (open and overdue badges), columns with WIP limit badges and warnings, cards with title, priority, labels, assignees with agent icons, due date and link indicators. Drag & drop and accessible keyboard navigation (arrow keys with polite aria-live announcements). Card detail drawer with safe HTML-free Markdown description, comments, activity feed, assignee management and archive actions. Column management with RBAC checks. Local filters for search text, assignee, label, and archived cards. Real-time updates via `/events` SSE, optimistic updates with rollback on error, and clear `E_PROJECT_WIP_LIMIT` notices. Home (accessible via the wordmark morph), Help and Library are built, replacing placeholders. Skills & Plugins (`#/skills`, `#/plugins`), Approvals (`#/approvals`), and Recurring Tasks (`#/recurring`) are also built, as is Switchboard. The Inbox backend (`inbox.list|count|markRead|dismiss`, `inbox.changed`, [inbox.md](inbox.md)) is available, and the Inbox page (`#/inbox`) is built on it with the sidebar badge (see the route table).
   - *Skills & Plugins*: unified `ExtensionsPage` serving both sidebar entries with filterable kinds (skills, plugins, modules), detail drawer, enable/disable per agent/global, uninstall dialog with purge/cascade, file install inspection dialog, trash restore, live SSE updates, and an explicit notice that remote catalog installation (`plur1bus.app`) is not yet available.
   - *Approvals*: `ApprovalsPage` following the D109 card layout (exact targets, actions, and risks rendered strictly *before* unverified agent rationale), max 90-day grant duration constraint, OS attestation helper notices, active grants list from `grant.list`, grant revocation (`grant.revoke`), and agent-principal role gates.
   - *Recurring Tasks*: `RecurringPage` displaying cron/interval jobs (`jobs.list`), execution runs (`jobs.history`), and manual execution with confirmation dialog (`jobs.run`). **Backend gap**: creating and editing recurring jobs lacks RPC definitions in `rpc.schema.json` and is presented as unavailable.

@@ -88,6 +88,7 @@ fn method_fixture(name: &str, f: &Value) {
         "user.invite.create" => pair::<UserInviteCreateParams, UserInviteCreateResult>(name, f),
         "user.invite.list" => pair::<UserInviteListParams, UserInviteListResult>(name, f),
         "user.invite.revoke" => pair::<UserInviteRevokeParams, UserInviteRevokeResult>(name, f),
+        "user.invite.redeem" => pair::<UserInviteRedeemParams, UserInviteRedeemResult>(name, f),
         "agent.rights.get" => pair::<AgentRightsGetParams, AgentRightsGetResult>(name, f),
         "agent.rights.set" => pair::<AgentRightsSetParams, AgentRightsSetResult>(name, f),
         "breakglass.request" => pair::<BreakglassRequestParams, BreakglassRequestResult>(name, f),
@@ -346,6 +347,7 @@ fn all_error_codes() -> BTreeSet<ErrorCode> {
         ErrorCode::EStorage,
         ErrorCode::EProjectWipLimit,
         ErrorCode::EInboxCursor,
+        ErrorCode::EInviteInvalid,
         ErrorCode::EMediaCapability,
         ErrorCode::EMediaLicense,
         ErrorCode::EMediaPrivacy,
@@ -376,6 +378,7 @@ fn all_error_codes() -> BTreeSet<ErrorCode> {
             | ErrorCode::EStorage
             | ErrorCode::EProjectWipLimit
             | ErrorCode::EInboxCursor
+            | ErrorCode::EInviteInvalid
             | ErrorCode::EMediaCapability
             | ErrorCode::EMediaLicense
             | ErrorCode::EMediaPrivacy

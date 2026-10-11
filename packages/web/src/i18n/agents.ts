@@ -78,6 +78,7 @@ export const en = {
   "agents.submit.forbidden": "Your role does not allow creating agents.",
   "agents.submit.unavailable": "The configuration service is not available. Nothing was written. Try again later.",
   "agents.submit.failed": "The agent could not be created. If a retry says it exists, the first attempt went through.",
+  "agents.field.rights": "Rights",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -159,4 +160,5 @@ export const de: Record<keyof typeof en, string> = {
   "agents.submit.forbidden": "Deine Rolle erlaubt das Anlegen von Agenten nicht.",
   "agents.submit.unavailable": "Der Konfigurationsdienst ist nicht verfügbar. Es wurde nichts geschrieben. Versuche es später erneut.",
   "agents.submit.failed": "Der Agent konnte nicht angelegt werden. Meldet ein neuer Versuch, dass er existiert, ging der erste durch.",
+  "agents.field.rights": "Rechte",
 };

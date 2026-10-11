@@ -15,6 +15,7 @@ import type { SessionStore } from "../session/store.ts";
 import { mapSessionError, toWireSession } from "../session/methods.ts";
 import { parsePairingLink, qrData } from "../../../remote-access/src/pairing.ts";
 import { mapIdentityError } from "../identity/rpc.ts";
+import { hashInviteToken, INVITE_CODE_MAX_MINUTES, INVITE_TTL_DEFAULT_MINUTES, INVITE_TTL_MAX_MINUTES, inviteLink, isInviteTokenShape, mintInviteToken, parseOrigin } from "../identity/invite-token.ts";
 
 export interface AdminSurfaceDeps {
   people: AdminStore; lifecycle: AgentLifecycle; identity: IdentityService;
@@ -111,26 +112,65 @@ export function buildAdminSurface(d: AdminSurfaceDeps): Record<string, Handler> 
       const displayName = text(p, "displayName"), channel = text(p, "channel", 32), role = preset(p.role);
       // Invitations never create another Owner: ownership transfer is a separate, audited operation.
       if (role === "owner") throw new RpcError("E_DENIED", "an invitation cannot grant ownership");
-      const minutes = p.expiresInMinutes ?? 60;
-      if (!Number.isInteger(minutes) || minutes < 1 || minutes > 60) throw new RpcError("E_INVALID_PARAMS", "invite lifetime must be 1-60 minutes");
-      audit(a, "user.invite.create", "invitation", { role, channel });
+      if (p.ttlMinutes !== undefined && p.expiresInMinutes !== undefined) throw new RpcError("E_INVALID_PARAMS", "give either ttlMinutes or expiresInMinutes");
+      const minutes = p.ttlMinutes ?? p.expiresInMinutes ?? INVITE_TTL_DEFAULT_MINUTES;
+      if (p.expiresInMinutes !== undefined && (!Number.isInteger(minutes) || minutes < 1 || minutes > 60)) throw new RpcError("E_INVALID_PARAMS", "invite lifetime must be 1-60 minutes");
+      if (!Number.isInteger(minutes) || minutes < 1 || minutes > INVITE_TTL_MAX_MINUTES) throw new RpcError("E_INVALID_PARAMS", "invite validity must be 1 minute to 30 days");
+      const origin = p.origin === undefined ? undefined : parseOrigin(p.origin);
+      if (origin === null) throw new RpcError("E_INVALID_PARAMS", "origin must be scheme://host[:port]");
+      const shareable = origin !== undefined;
+      // Neither the token nor its hash ever enters the audit trail.
+      audit(a, "user.invite.create", "invitation", { role, channel, ttlMinutes: minutes, shareable });
       const h = d.identity.createHuman({ displayName }, actor(a));
-      const pair = d.identity.startPairing({ humanId: h.id, channel, ttlMs: minutes * 60_000 }, actor(a));
+      // The pairing code that rides along keeps the Identity service's own 60-minute ceiling; the link lives as long as the inviter chose.
+      const pair = d.identity.startPairing({ humanId: h.id, channel, ttlMs: Math.min(minutes, INVITE_CODE_MAX_MINUTES) * 60_000 }, actor(a));
+      const now = d.clock(), expiresAt = shareable ? now + minutes * 60_000 : pair.expiresAt;
+      const token = shareable ? mintInviteToken() : undefined;
       d.people.setRole(h.id, role, () => {});
-      d.people.invite({ id: pair.pairingId, userId: h.id, role, channel, expiresAt: pair.expiresAt });
-      return { id: pair.pairingId, userId: h.id, role, channel, expiresAt: pair.expiresAt, code: pair.code };
+      d.people.invite({ id: pair.pairingId, userId: h.id, role, channel, expiresAt, createdAt: now, createdBy: a.userId, ...(token ? { tokenHash: hashInviteToken(token) } : {}) });
+      return { id: pair.pairingId, userId: h.id, role, channel, expiresAt, code: pair.code, ...(token && origin ? { link: inviteLink(origin, token) } : {}) };
     }),
     "user.invite.list": bind("admin.users.read", () => {
       const pairs = new Map(d.identity.list({ includeResolvedPairings: true }).pairings.map(p => [p.id, p.state]));
-      return { invites: d.people.invites().map(i => ({ id: i.id, userId: i.userId, role: i.role, channel: i.channel, expiresAt: i.expiresAt, state: i.revoked ? "revoked" : pairs.get(i.id) ?? "expired" })) };
+      const now = d.clock();
+      // A shareable invitation's state comes from its own row: the pairing code behind it expires after at most an hour, the link does not.
+      const stateOf = (i: ReturnType<AdminStore["invites"]>[number]) =>
+        i.revoked ? "revoked" : i.shareable ? (i.redeemedAt !== null ? "redeemed" : i.expiresAt <= now ? "expired" : "pending") : pairs.get(i.id) ?? "expired";
+      return { invites: d.people.invites().map(i => ({ id: i.id, userId: i.userId, role: i.role, channel: i.channel, expiresAt: i.expiresAt, state: stateOf(i), shareable: i.shareable === 1, createdAt: i.createdAt })) };
     }),
     "user.invite.revoke": bind("admin.users.write", (p, a) => {
       const id = text(p, "inviteId"), invite = d.people.invites().find(i => i.id === id);
       if (!invite) throw new RpcError("E_NOT_FOUND", "invitation not found");
+      if (invite.redeemedAt !== null) throw new RpcError("E_CONFLICT", "a redeemed invitation cannot be revoked", { reason: "redeemed" });
       audit(a, "user.invite.revoke", id);
-      d.identity.revokePairing(id, actor(a)); d.people.revoke(id);
+      if (invite.shareable) {
+        // The link is the longer-lived credential: it is revoked first, and a pairing that was already confirmed (or is gone) cannot keep it alive.
+        d.people.revoke(id);
+        try { d.identity.revokePairing(id, actor(a)); }
+        catch (e) { if (!(e instanceof IdentityError && (e.code === "conflict" || e.code === "not-found"))) throw e; }
+      } else { d.identity.revokePairing(id, actor(a)); d.people.revoke(id); }
       return { id, revoked: true };
     }),
+    // Not behind `bind`: the redeemer has no principal yet. Reachable only through the core's own handshake, with no rule in RPC_RULES.
+    "user.invite.redeem": async (params, ctx) => {
+      const token = obj(params).token;
+      let outcome: ReturnType<AdminStore["redeem"]>;
+      try {
+        outcome = d.people.redeem(isInviteTokenShape(token) ? hashInviteToken(token) : null, {
+          now: d.clock(), source: ctx.connectionId,
+          // Inside the transaction: if the audit write fails the token is not consumed.
+          beforeCommit: invite => audit({ userId: invite.userId } as Principal, "user.invite.redeem", invite.id, { role: invite.role }),
+        });
+      } catch { throw new RpcError("E_INVITE_INVALID", "invitation is not valid"); } // fail closed, and no different answer for a storage fault
+      if (outcome.ok) {
+        const human = d.identity.list({}).humans.find(x => x.id === outcome.invite.userId);
+        return { userId: outcome.invite.userId, displayName: human?.displayName ?? outcome.invite.userId, role: outcome.invite.role };
+      }
+      // The refusal stands whether or not it can be audited. The reason is for the trail; the caller never sees it.
+      try { d.audit.append({ at: d.clock(), actor: { user: "anonymous", host: "rpc" }, action: "user.invite.redeem.refused", target: outcome.inviteId ?? "invitation", detail: { reason: outcome.reason } }); } catch { /* the refusal stands */ }
+      if (outcome.reason === "rate-limited") throw new RpcError("E_DENIED", "too many failed attempts; try again later", { reason: "rate-limited" });
+      throw new RpcError("E_INVITE_INVALID", "invitation is not valid");
+    },
     "agent.rights.get": bind("admin.agent.rights", p => { const { id } = agent(p); return { agentId: id, rights: d.people.rights(id) }; }),
     "agent.rights.set": bind("admin.agent.rights", (p, a) => {
       const { id } = agent(p), userId = user(text(p, "userId"));

@@ -4,6 +4,12 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -423,6 +429,12 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -855,6 +867,12 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -1274,6 +1292,12 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -1708,6 +1732,12 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -2127,6 +2157,12 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -2565,6 +2601,12 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -2988,6 +3030,12 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -3422,6 +3470,12 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -3845,6 +3899,12 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -4285,6 +4345,12 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -4704,6 +4770,12 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -5142,6 +5214,12 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -5561,6 +5639,12 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -5996,6 +6080,12 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -6420,6 +6510,12 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -6859,6 +6955,12 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },
@@ -7278,6 +7380,12 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "inbox": {
+        "retention": {
+          "days": 90,
+          "maxEntries": 1000
+        }
+      },
       "remote": {
         "publish": "tailnet"
       },

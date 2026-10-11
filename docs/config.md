@@ -18,6 +18,8 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 
 | Key | Type | Default | Restart | Description |
 |---|---|---|---|---|
+| `inbox.retention.days` | integer | `90` | core | Maximum age of an inbox entry in days. |
+| `inbox.retention.maxEntries` | integer | `1000` | core | Maximum number of inbox entries retained per person. |
 | `containers` | object |  | live | Container distribution library settings. Installer/runtime wiring is separate from the core. |
 | `sidecars` | object |  | live | Optional sidecars keyed by id. Core consumers read configuration only; runtime wiring is separate. |
 | `remote` | object | `{}` | core | Remote exposure configuration (listener integration is separate). |
