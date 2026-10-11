@@ -80,6 +80,7 @@ export const en = {
   "nav.setup": "First-run setup",
   "dialog.close": "Close",
   "nav.inboxUnread": "{count} unread",
+  "nav.breakglass": "Break-Glass",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -162,4 +163,5 @@ export const de: Record<keyof typeof en, string> = {
   "nav.setup": "Ersteinrichtung",
   "dialog.close": "Schließen",
   "nav.inboxUnread": "{count} ungelesen",
+  "nav.breakglass": "Break-Glass",
 };

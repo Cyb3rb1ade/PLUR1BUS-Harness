@@ -1,0 +1,169 @@
+/* Break-glass page styles */
+
+.bg-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  border-radius: 12px;
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-ink);
+  color: var(--ink);
+}
+
+.bg-banner-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 650;
+  font-size: 15px;
+  color: var(--warn-ink);
+}
+
+.bg-banner-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.bg-banner-info {
+  display: grid;
+  gap: 4px;
+  font-size: 13.5px;
+  color: var(--ink);
+}
+
+.bg-banner-timer {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--warn-ink);
+}
+
+.bg-banner-action {
+  flex-shrink: 0;
+}
+
+.bg-content-tabs {
+  margin-top: 16px;
+}
+
+.bg-table-container {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  margin-top: 12px;
+}
+
+.bg-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13.5px;
+}
+
+.bg-table th {
+  padding: 10px 14px;
+  font-weight: 600;
+  color: var(--ink-2);
+  border-bottom: 1px solid var(--border);
+  background: var(--hover-bg);
+  white-space: nowrap;
+}
+
+.bg-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  vertical-align: middle;
+}
+
+.bg-table tr:last-child td {
+  border-bottom: none;
+}
+
+.bg-table tr:hover td {
+  background: var(--hover-bg);
+}
+
+.bg-mono {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.bg-reason-cell {
+  max-width: 280px;
+  word-break: break-word;
+  white-space: normal;
+  color: var(--ink-2);
+}
+
+.bg-dialog-form {
+  display: grid;
+  gap: 16px;
+}
+
+.bg-checkbox-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  background: var(--hover-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.bg-checkbox-field input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--primary-bg);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.bg-checkbox-field label {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.bg-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+
+.bg-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.bg-notice-card {
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.bg-notice-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.bg-notice-reason {
+  font-size: 13.5px;
+  color: var(--ink-2);
+  margin-top: 6px;
+}

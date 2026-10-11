@@ -140,7 +140,7 @@ describe("shell", opts, () => {
       const groupItems = async (name: string): Promise<string[]> => (await nav.getByRole("list", { name }).getByRole("link").allTextContents()).map((s) => s.trim());
       assert.deepEqual(await groupItems("Workspace"), ["Chat", "Projects", "Agents", "Inbox", "Memories & Dreams"]);
       assert.deepEqual(await groupItems("Build"), ["Library", "Skills", "Plugins", "Models", "Switchboard", "Recurring Tasks"]);
-      assert.deepEqual(await groupItems("Control"), ["Approvals", "Usage & Quota", "Doctor", "Logs"]);
+      assert.deepEqual(await groupItems("Control"), ["Approvals", "Break-Glass", "Usage & Quota", "Doctor", "Logs"]);
       assert.deepEqual((await nav.locator(".nav-bottom a").allTextContents()).map((s) => s.trim()), ["Settings", "Help"]);
       assert.equal(await page.getByRole("button", { name: "Search everything" }).isDisabled(), false); // opens the command palette (test/palette-e2e.test.ts)
     });
@@ -150,10 +150,10 @@ describe("shell", opts, () => {
     await withApp({}, async ({ page }) => {
       await signIn(page);
       await page.getByRole("heading", { name: "Chat", level: 1 }).waitFor();
-      for (const name of ["Projects", "Skills", "Logs", "Settings", "Help"]) {
-        await page.getByRole("navigation").getByRole("link", { name, exact: true }).click();
+      for (const name of ["Projects", "Skills", "Break-Glass", "Logs", "Settings", "Help"]) {
+        await page.locator("#sidebar-nav").getByRole("link", { name, exact: true }).click();
         await page.getByRole("heading", { name, level: 1 }).waitFor();
-        assert.equal(await page.getByRole("navigation").locator("[aria-current=page]").innerText().then((s) => s.trim()), name);
+        assert.equal(await page.locator("#sidebar-nav").locator("[aria-current=page]").innerText().then((s) => s.trim()), name);
         assert.equal(await page.evaluate(() => document.activeElement?.tagName), "H1");
         assert.equal(await page.title(), `${name} · PLUR1BUS`);
       }
