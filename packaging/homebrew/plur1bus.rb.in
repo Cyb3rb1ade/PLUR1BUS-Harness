@@ -25,7 +25,11 @@ class Plur1bus < Formula
   end
   depends_on "node@24"
   def install
-    bin.install "bin/plur1bus"
+    bin.install "bin/plur1bus", "bin/plur1bus-attest"
+    chmod 0755, bin/"plur1bus-attest"
+    on_linux do
+      pkgshare.install "share/polkit-1"
+    end
     generate_completions_from_executable(bin/"plur1bus", "completions", shells: [:bash, :zsh, :fish, :pwsh])
     mkdir "man"
     system bin/"plur1bus", "__manpages", "man"
@@ -33,7 +37,7 @@ class Plur1bus < Formula
     pkgshare.install "runtime", "licenses", "README.txt"
   end
   def caveats
-    "Extract #{pkgshare}/runtime/core.tar.gz into #{pkgshare}/runtime/core and set PLUR1BUS_CORE_JS to its core.js."
+    "Linux: install #{pkgshare}/polkit-1/actions/org.plur1bus.approve.policy in /usr/share/polkit-1/actions as root (0644). Extract #{pkgshare}/runtime/core.tar.gz into #{pkgshare}/runtime/core and set PLUR1BUS_CORE_JS to its core.js."
   end
   test do
     assert_match "plur1bus", shell_output("#{bin}/plur1bus --help")
