@@ -49,3 +49,35 @@ test("running core: legacy break-glass notices reach the inbox once, read state 
     } finally { await client.close(); await core.stop({ budgetMs: 5000 }); }
   }
 });
+
+test("running core uses config retention and merges each test override independently", { timeout: 30000 }, async () => {
+  const { InboxStore } = await import("../../src/inbox/store.ts");
+  const DAY = 86_400_000;
+  const now = Date.now();
+  for (const [override, noticeCount, expected] of [
+    [undefined, 11, 10], [{ maxEntries: 12 }, 11, 11],
+    [undefined, 1, 1], [{ maxAgeDays: 4 }, 1, 2],
+  ] as const) {
+    const home = tempDir("p1b-inbox-retention-");
+    const cfg = defaults(); cfg.inbox.retention = { days: 1, maxEntries: 10 };
+    cfg.agents.bernd = {};
+    cfg.engine = { neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false }, merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false }, temporalContext: { enabled: false }, conversationReactivationRecall: { enabled: false }, reranker: { enabled: false } };
+    writeFileSync(layout(home).configPath, JSON.stringify(cfg));
+    mkdirSync(layout(home).state, { recursive: true });
+    const store = new InboxStore({ path: join(layout(home).state, "inbox.sqlite"), clock: () => now - 3 * DAY });
+    store.publish({ userId: LOCAL_OWNER.userId, kind: "system", severity: "info", titleKey: "inbox.test.old", dedupeKey: "old" });
+    store.close();
+    const seed = new AdminStore({ path: join(layout(home).state, "admin.sqlite"), ownerId: LOCAL_OWNER.userId });
+    // A new notice triggers retention at startup; eleven notices also exercise the entry cap.
+    for (let i = 0; i < noticeCount; i++) seed.notice({ kind: "granted", userId: LOCAL_OWNER.userId, grantId: `g-${i}`, holderUserId: "someone", reason: "test", expiresAt: now + DAY });
+    seed.close();
+    const core = createCore({ home, clock: () => now, testInternals: flatTestInternals(), ...(override ? { inbox: override } : {}) });
+    await core.start();
+    const client = await connect({ address: core.address, token: core.token });
+    try {
+      const list = await client.call<any>("inbox.list", {});
+      assert.equal(list.entries.length, expected);
+      assert.equal(list.entries.some((e: any) => e.kind === "system"), override !== undefined && "maxAgeDays" in override);
+    } finally { await client.close(); await core.stop({ budgetMs: 5000 }); }
+  }
+});

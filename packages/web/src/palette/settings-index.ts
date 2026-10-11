@@ -12,6 +12,8 @@
 export type SettingSpec = { readonly key: string; readonly type: string; readonly tier: "basic" | "advanced"; readonly help?: string };
 
 export const SETTINGS: readonly SettingSpec[] = [
+  { key: "inbox.retention.days", type: "integer", tier: "advanced", help: "Maximum age of an inbox entry in days." },
+  { key: "inbox.retention.maxEntries", type: "integer", tier: "advanced", help: "Maximum number of inbox entries retained per person." },
   { key: "containers", type: "object", tier: "advanced", help: "Container distribution library settings. Installer/runtime wiring is separate from the core." },
   { key: "containers.runtime", type: "enum", tier: "advanced", help: "Preferred runtime; auto prefers Apple container on supported Apple Silicon macOS." },
   { key: "containers.image", type: "string", tier: "advanced", help: "Harness image reference; production installations should use an immutable digest." },
