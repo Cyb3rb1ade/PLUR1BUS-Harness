@@ -4,9 +4,9 @@
   },
   "result": {
     "speechEndToFirstAudio": {
-      "medianMs": 0,
-      "p95Ms": 0,
-      "samples": 0
+      "medianMs": 120.5,
+      "p95Ms": 340.5,
+      "samples": 8
     },
     "featureCost": {},
     "windowSec": 300

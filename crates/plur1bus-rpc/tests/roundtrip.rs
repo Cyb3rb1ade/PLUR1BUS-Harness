@@ -1064,6 +1064,63 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::ProjectCardActivityListParams,
                 types::ProjectCardActivityListResult,
             >(name, fixture, &root_schema),
+            "voice.status" => check_pair::<types::VoiceStatusParams, types::VoiceStatusResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "voice.agent.override.clear" => check_pair::<
+                types::VoiceAgentOverrideClearParams,
+                types::VoiceAgentOverrideClearResult,
+            >(name, fixture, &root_schema),
+            "voice.agent.override.get" => check_pair::<
+                types::VoiceAgentOverrideGetParams,
+                types::VoiceAgentOverrideGetResult,
+            >(name, fixture, &root_schema),
+            "voice.agent.override.set" => check_pair::<
+                types::VoiceAgentOverrideSetParams,
+                types::VoiceAgentOverrideSetResult,
+            >(name, fixture, &root_schema),
+            "voice.language.get" => check_pair::<
+                types::VoiceLanguageGetParams,
+                types::VoiceLanguageGetResult,
+            >(name, fixture, &root_schema),
+            "voice.language.list" => check_pair::<
+                types::VoiceLanguageListParams,
+                types::VoiceLanguageListResult,
+            >(name, fixture, &root_schema),
+            "voice.language.set" => check_pair::<
+                types::VoiceLanguageSetParams,
+                types::VoiceLanguageSetResult,
+            >(name, fixture, &root_schema),
+            "voice.metrics.get" => check_pair::<
+                types::VoiceMetricsGetParams,
+                types::VoiceMetricsGetResult,
+            >(name, fixture, &root_schema),
+            "voice.models.install" => check_pair::<
+                types::VoiceModelsInstallParams,
+                types::VoiceModelsInstallResult,
+            >(name, fixture, &root_schema),
+            "voice.models.list" => check_pair::<
+                types::VoiceModelsListParams,
+                types::VoiceModelsListResult,
+            >(name, fixture, &root_schema),
+            "voice.realtime.profile.get" => check_pair::<
+                types::VoiceRealtimeProfileGetParams,
+                types::VoiceRealtimeProfileGetResult,
+            >(name, fixture, &root_schema),
+            "voice.realtime.profile.set" => check_pair::<
+                types::VoiceRealtimeProfileSetParams,
+                types::VoiceRealtimeProfileSetResult,
+            >(name, fixture, &root_schema),
+            "voice.realtime.start" => check_pair::<
+                types::VoiceRealtimeStartParams,
+                types::VoiceRealtimeStartResult,
+            >(name, fixture, &root_schema),
+            "voice.realtime.stop" => check_pair::<
+                types::VoiceRealtimeStopParams,
+                types::VoiceRealtimeStopResult,
+            >(name, fixture, &root_schema),
             other => panic!("method fixture {other} has no Rust type mapping"),
         }
     }
