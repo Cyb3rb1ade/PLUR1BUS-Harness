@@ -170,6 +170,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::UserInviteRevokeParams,
                 types::UserInviteRevokeResult,
             >(name, fixture, &root_schema),
+            "user.invite.redeem" => check_pair::<
+                types::UserInviteRedeemParams,
+                types::UserInviteRedeemResult,
+            >(name, fixture, &root_schema),
             "breakglass.request" => check_pair::<
                 types::BreakglassRequestParams,
                 types::BreakglassRequestResult,

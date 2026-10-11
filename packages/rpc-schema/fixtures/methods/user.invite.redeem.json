@@ -1,0 +1,10 @@
+{
+  "params": {
+    "token": "not-a-real-value"
+  },
+  "result": {
+    "userId": "person-fixture",
+    "displayName": "Alex",
+    "role": "viewer"
+  }
+}

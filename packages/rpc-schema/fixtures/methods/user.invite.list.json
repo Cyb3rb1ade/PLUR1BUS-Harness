@@ -1,6 +1,17 @@
 {
   "params": {},
   "result": {
-    "invites": []
+    "invites": [
+      {
+        "id": "invite-fixture",
+        "userId": "person-fixture",
+        "role": "viewer",
+        "channel": "test",
+        "expiresAt": 2000,
+        "state": "pending",
+        "shareable": true,
+        "createdAt": 1000
+      }
+    ]
   }
 }

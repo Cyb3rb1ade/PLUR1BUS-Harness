@@ -492,6 +492,10 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "user.invite.redeem": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "agent.rights.get": {
       "stability": "experimental",
       "since": "1.5.0"

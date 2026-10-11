@@ -31,7 +31,7 @@ export function SettingsPage({ sub }: PageProps): View {
   return h(Page, { title: t("settings.title"), width: "full" },
     h("div", { class: "settings-layout" },
       h("nav", { class: "settings-nav", "aria-label": t("settings.nav") },
-        h("a", { class: "settings-nav-link", href: "#/identities" }, t("nav.identities")),
+        h("a", { class: "settings-nav-link", href: "#/settings/users?tab=identities" }, t("nav.identities")),
         h("ul", null, SECTIONS.map((s) => h("li", { key: s.id },
           h("a", {
             href: `#/settings/${s.id}`, class: "settings-nav-link", ...(s.id === section.id ? { "aria-current": "true" } : {}),

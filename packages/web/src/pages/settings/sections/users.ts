@@ -1,16 +1,22 @@
 // Settings > Users & roles (`/settings/users`).
 // Wired to user.list, user.role.set, user.invite.*, agent.rights.* and breakglass.*.
-// Protected against demoting the last owner. Owner and Admin only; others get "forbidden".
+// Protected against demoting the last owner. People: Owner and Admin only; others get "forbidden".
+// Two tabs, `?tab=identities` selects the second: Identities (the former `/identities` route, #387) keeps its own rules, so
+// every role that could open that route can open the tab.
 import { h } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import type { View } from "../../../view.ts";
 import { BreakGlassDialog } from "../../../components/break-glass.ts";
 import { Badge, Card } from "../../../components/card.ts";
+import { ConfirmDialog } from "../../../components/confirm-dialog.ts";
 import { PageState } from "../../../components/page-state.ts";
+import { Tabs } from "../../../components/tabs.ts";
 import { formatDateTime, t, type Key } from "../../../i18n.ts";
+import { navigate, query } from "../../../router.ts";
 import { sessionState } from "../../../session.ts";
 import { currentRole, ROLE_PRESETS, roleIn, useLoad, type RolePreset } from "../../common/load.ts";
 import { FailureState } from "../../common/states.ts";
+import { IdentitiesPanel } from "../users/identities.ts";
 import { InviteDialog } from "../users/invite.ts";
 import {
   fetchUsers, listGrants, listInvites, presetName, revokeGrant, revokeInvite,
@@ -109,6 +115,7 @@ function People({
 function OpenInvites({ reloadKey }: { reloadKey: number }): View | null {
   const [invites, setInvites] = useState<UserInviteListResult["invites"]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  const [revoking, setRevoking] = useState<UserInviteListResult["invites"][number] | null>(null);
 
   const load = async (): Promise<void> => {
     try {
@@ -121,30 +128,35 @@ function OpenInvites({ reloadKey }: { reloadKey: number }): View | null {
 
   useEffect(() => { void load(); }, [reloadKey]);
 
-  const handleRevoke = async (inviteId: string): Promise<void> => {
-    try {
-      await revokeInvite(inviteId);
-      setNotice(t("users.invites.revoked"));
-      void load();
-    } catch {
-      // Ignore
-    }
-  };
-
-  const pending = invites.filter((i) => i.state === "pending");
-  if (pending.length === 0) return null;
+  const open = invites.filter((i) => i.state === "pending" || i.state === "claimed");
+  // After the last revoke the card stays until it has said so.
+  if (open.length === 0 && notice === null) return null;
 
   return h(Card, { title: t("users.invites.title"), level: 3 },
     notice ? h("p", { class: "form-notice", role: "status" }, notice) : null,
     h("ul", { class: "plain-list users-list" },
-      pending.map((inv) => h("li", { key: inv.id, class: "users-row" },
+      open.map((inv) => h("li", { key: inv.id, class: "users-row" },
         h("div", { class: "users-who" },
           h("strong", { class: "users-name" }, inv.userId || inv.id),
           h("span", { class: "users-id" }, t("users.invites.channel", { channel: inv.channel }))),
         h("div", { class: "users-meta" },
           h(Badge, { tone: "info" }, presetName(inv.role)),
           h(Badge, {}, t("users.invites.expires", { when: formatDateTime(new Date(inv.expiresAt)) }))),
-        h("button", { type: "button", class: "btn btn-quiet", onClick: () => { void handleRevoke(inv.id); } }, t("users.invites.revoke"))))));
+        h("button", { type: "button", class: "btn btn-quiet", onClick: () => { setRevoking(inv); } }, t("users.invites.revoke"))))),
+    revoking ? h(ConfirmDialog, {
+      title: t("users.invites.revokeTitle"), confirmLabel: t("users.invites.revoke"), danger: true,
+      onClose: () => { setRevoking(null); },
+      onConfirm: async () => {
+        try {
+          await revokeInvite(revoking.id);
+          setNotice(t("users.invites.revoked"));
+          void load();
+          return { ok: true as const };
+        } catch {
+          return { ok: false as const, message: t("users.invites.revokeFailed") };
+        }
+      },
+    }, h("p", null, t("users.invites.revokeBody", { name: revoking.userId || revoking.id }))) : null);
 }
 
 function ActiveGrants(): View | null {
@@ -217,34 +229,42 @@ export function UsersSection({ section }: SectionProps): View {
   const [target, setTarget] = useState<Row | null>(null);
 
   const canManage = roleIn(role, ["owner", "admin"]);
-  if (!canManage) {
-    return h("section", { "data-section": section.id, "aria-labelledby": "users-h" },
-      h("h2", { id: "users-h", class: "users-title" }, t("users.title")),
-      h(PageState, { state: "forbidden", title: t("users.forbidden.title"), detail: t("users.forbidden.detail", { role: role === undefined ? "" : presetName(role) }) }));
-  }
+  const tab = query.value.get("tab") === "identities" ? "identities" : "people";
+  const select = (id: string): void => { navigate(id === "identities" ? "/settings/users?tab=identities" : "/settings/users", { replace: true }); };
 
   const self = s.status === "authenticated" ? { id: s.user.id, role: s.user.role } : { id: "", role: role ?? "" };
 
+  const people = canManage
+    ? h("div", null,
+      h("p", { class: "users-lead" }, t("users.lead")),
+      h(People, {
+        self,
+        canManage,
+        onInvite: () => { setInviting(true); },
+        onBreakGlass: setTarget,
+      }),
+      h(OpenInvites, { reloadKey: invitesKey }),
+      h(ActiveGrants, {}),
+      h("div", { class: "users-mode" },
+        h("label", { class: "users-switch" },
+          h("input", { type: "checkbox", id: "users-simple", checked: simple, "aria-describedby": "users-simple-hint", onChange: (e: Event) => { setSimple((e.target as HTMLInputElement).checked); } }),
+          h("span", null, t("users.mode.simple"))),
+        h("p", { id: "users-simple-hint", class: "field-hint" }, t("users.mode.hint"))),
+      h(Presets, {}),
+      simple ? null : h(RightsPanel, {}))
+    : h(PageState, { state: "forbidden", title: t("users.forbidden.title"), detail: t("users.forbidden.detail", { role: role === undefined ? "" : presetName(role) }) });
+
   return h("section", { "data-section": section.id, "aria-labelledby": "users-h", class: "users" },
     h("h2", { id: "users-h", class: "users-title" }, t("users.title")),
-    h("p", { class: "users-lead" }, t("users.lead")),
-    h(People, {
-      self,
-      canManage,
-      onInvite: () => { setInviting(true); },
-      onBreakGlass: setTarget,
+    h(Tabs, {
+      label: t("users.tab.label"), selected: tab, onSelect: select,
+      tabs: [
+        { id: "people", label: t("users.tab.people"), panel: people },
+        { id: "identities", label: t("users.tab.identities"), panel: h(IdentitiesPanel, {}) },
+      ],
     }),
-    h(OpenInvites, { reloadKey: invitesKey }),
-    h(ActiveGrants, {}),
-    h("div", { class: "users-mode" },
-      h("label", { class: "users-switch" },
-        h("input", { type: "checkbox", id: "users-simple", checked: simple, "aria-describedby": "users-simple-hint", onChange: (e: Event) => { setSimple((e.target as HTMLInputElement).checked); } }),
-        h("span", null, t("users.mode.simple"))),
-      h("p", { id: "users-simple-hint", class: "field-hint" }, t("users.mode.hint"))),
-    h(Presets, {}),
-    simple ? null : h(RightsPanel, {}),
-    inviting ? h(InviteDialog, { onClose: () => { setInviting(false); }, onCreated: () => { setInvitesKey((k) => k + 1); } }) : null,
-    target ? h(BreakGlassDialog, {
+    inviting && canManage ? h(InviteDialog, { onClose: () => { setInviting(false); }, onCreated: () => { setInvitesKey((k) => k + 1); } }) : null,
+    target && canManage ? h(BreakGlassDialog, {
       targetLabel: target.name,
       targetUserId: target.id,
       onClose: () => { setTarget(null); },

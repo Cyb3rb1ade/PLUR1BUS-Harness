@@ -50,6 +50,7 @@ A closed enum; the core puts the code into every error response as `error.data.e
 - `E_MEDIA_UNSUPPORTED_KIND`
 - `E_PROJECT_WIP_LIMIT`
 - `E_INBOX_CURSOR`
+- `E_INVITE_INVALID`
 
 ## Stability
 
@@ -9080,7 +9081,7 @@ Assign a role preset; only an Owner may change ownership. Last Owner cannot be d
 
 **Served by:** core
 
-Create a human and an ephemeral one-time Identity pairing invitation with a fixed role (never Owner). Code returned here only; redeem/confirm through identity.pair.claim/confirm.
+Create a human and a one-time Identity pairing invitation with a fixed role (never Owner). The pairing code is returned here only and lives at most 60 minutes; redeem/confirm through identity.pair.claim/confirm. With params.origin a shareable link (256-bit one-time token, valid ttlMinutes up to 30 days) is returned once as well; only the token hash is stored. Redeem the link through user.invite.redeem.
 
 **params**
 
@@ -9117,6 +9118,18 @@ Create a human and an ephemeral one-time Identity pairing invitation with a fixe
       "type": "integer",
       "minimum": 1,
       "maximum": 60
+    },
+    "ttlMinutes": {
+      "description": "Validity of the shareable link in minutes (presets 1h, 24h, 7d, 30d or a custom value up to 30 days). Exclusive with expiresInMinutes; default 60.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 43200
+    },
+    "origin": {
+      "description": "Web origin (scheme://host[:port], no path) the shareable link is built on. Without it no link is created.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
     }
   }
 }
@@ -9169,6 +9182,12 @@ Create a human and an ephemeral one-time Identity pairing invitation with a fixe
       "type": "string",
       "minLength": 1,
       "maxLength": 16
+    },
+    "link": {
+      "description": "Shareable one-time link, present only when params.origin was given. Shown exactly once: only its hash is stored.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
     }
   }
 }
@@ -9180,7 +9199,7 @@ Create a human and an ephemeral one-time Identity pairing invitation with a fixe
 
 **Served by:** core
 
-Invitation metadata without codes. Pending proofs and invitation metadata expire on restart.
+Invitation metadata without codes or tokens. shareable invitations report their own state (pending, redeemed, revoked, expired) and keep it across restarts.
 
 **params**
 
@@ -9252,8 +9271,16 @@ Invitation metadata without codes. Pending proofs and invitation metadata expire
               "confirmed",
               "declined",
               "expired",
-              "revoked"
+              "revoked",
+              "redeemed"
             ]
+          },
+          "shareable": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       }
@@ -9307,6 +9334,67 @@ Revoke pending or claimed invitation proof before confirmation. A confirmed link
     },
     "revoked": {
       "type": "boolean"
+    }
+  }
+}
+```
+
+### `user.invite.redeem`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Redeems a shareable invitation link's one-time token exactly once and returns the invited person. An unknown, expired, revoked or already used token all answer the same E_INVITE_INVALID without a reason; failed attempts are rate-limited per connection and overall (E_DENIED reason=rate-limited). The token is never logged, audited or echoed.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "token"
+  ],
+  "properties": {
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "userId",
+    "displayName",
+    "role"
+  ],
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "role": {
+      "enum": [
+        "admin",
+        "operator",
+        "member",
+        "viewer"
+      ]
     }
   }
 }
@@ -13782,7 +13870,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "E_MEDIA_DIMENSION",
     "E_MEDIA_UNSUPPORTED_KIND",
     "E_PROJECT_WIP_LIMIT",
-    "E_INBOX_CURSOR"
+    "E_INBOX_CURSOR",
+    "E_INVITE_INVALID"
   ]
 }
 ```

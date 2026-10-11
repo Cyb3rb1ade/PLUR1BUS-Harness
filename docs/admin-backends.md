@@ -40,7 +40,7 @@ stored pairing proofs contain hashes, never plaintext. Redeem with `identity.pai
 `identity.pair.confirm` or `identity.link.approve`. Pending invitations and proofs are ephemeral: restart invalidates them;
 the created person and assigned role remain durable. Expired/revoked codes cannot link an identity. Successful confirmation
 is single-use; revoking an already confirmed invitation is a conflict (use identity unlink to revoke the link).
-`user.invite.list` reports `pending`, `claimed`, `confirmed`, `declined`, `revoked` or `expired`, never codes.
+`user.invite.list` reports `pending`, `claimed`, `confirmed`, `declined`, `revoked`, `expired` or, for a shareable link, `redeemed`; never codes or tokens. Links, validity and redemption: [invites.md](invites.md).
 Confirmed and declined invitations retain their state past the original deadline; only pending or unconfirmed claims expire.
 
 ## Export format
