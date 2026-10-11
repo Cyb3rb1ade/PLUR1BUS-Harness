@@ -261,8 +261,17 @@ pub fn create_body(spec: &ContainerSpec) -> Result<ContainerCreateBody, RuntimeE
         body["ExposedPorts"] = json!({"18700/tcp":{}})
     }
     if let Some(cmd) = &spec.cmd {
-        body["Cmd"] = json!(cmd);
-        body["Entrypoint"] = json!([])
+        // The binary is the entrypoint and the rest is its Cmd. An empty `Entrypoint` is "reset" on Docker but
+        // "keep the image entrypoint" on Podman's compat API, which would run `<entrypoint> plur1bus state ...`.
+        if let Some((binary, args)) = cmd.split_first() {
+            let binary = if binary == "plur1bus" {
+                "/usr/local/bin/plur1bus"
+            } else {
+                binary
+            };
+            body["Entrypoint"] = json!([binary]);
+            body["Cmd"] = json!(args)
+        }
     }
     serde_json::from_value(body).map_err(|_| RuntimeError::Failed("container-body".into()))
 }
