@@ -1,0 +1,260 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Desktop release feed (native updater compatible)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "channel",
+    "kind",
+    "security",
+    "date",
+    "notes",
+    "minFromVersion",
+    "bundle",
+    "tauri"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "channel": {
+      "enum": [
+        "dev",
+        "beta",
+        "stable"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "major",
+        "minor",
+        "patch"
+      ]
+    },
+    "security": {
+      "type": "boolean"
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "notes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "de",
+        "en"
+      ],
+      "properties": {
+        "de": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384
+        },
+        "en": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384
+        }
+      }
+    },
+    "migrationNote": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "de",
+        "en"
+      ],
+      "properties": {
+        "de": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384
+        },
+        "en": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384
+        }
+      }
+    },
+    "minFromVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "bundle": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "tauri": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "native": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binary",
+        "core",
+        "node",
+        "modules",
+        "configSchemaVersion"
+      ],
+      "properties": {
+        "binary": {
+          "$ref": "#/$defs/perTarget"
+        },
+        "core": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "contract",
+            "rpc",
+            "payload"
+          ],
+          "properties": {
+            "version": {
+              "$ref": "#/$defs/version"
+            },
+            "contract": {
+              "$ref": "#/$defs/version"
+            },
+            "rpc": {
+              "$ref": "#/$defs/version"
+            },
+            "payload": {
+              "$ref": "#/$defs/perTarget"
+            }
+          }
+        },
+        "node": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version"
+          ],
+          "properties": {
+            "version": {
+              "$ref": "#/$defs/version"
+            }
+          }
+        },
+        "modules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "version",
+              "apiVersion"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "version": {
+                "$ref": "#/$defs/version"
+              },
+              "apiVersion": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              }
+            }
+          }
+        },
+        "configSchemaVersion": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "provides": {
+          "description": "What this release offers add-ons (optional, additive): the module API majors it speaks and its add-on facing RPC version. Absent: the plan reports add-ons as `unknown` where their manifest depends on it.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "moduleApi": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              }
+            },
+            "rpc": {
+              "$ref": "#/$defs/version"
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "sha256"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size": {
+          "description": "Optional download size in bytes (the plan shows it; the download is capped regardless).",
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "perTarget": {
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "linux-x64",
+          "linux-arm64",
+          "darwin-arm64",
+          "win-x64",
+          "win-arm64"
+        ]
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/asset"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "major"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "migrationNote"
+        ]
+      }
+    }
+  ]
+}

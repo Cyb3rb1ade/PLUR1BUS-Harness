@@ -238,6 +238,17 @@ before every start and after the reply, and on a deviation answers `attestation-
 (`reason`: `helper-hash-mismatch`, `helper-signature-invalid`, ...), never a dialog. Threat model and limits: `docs/rbac.md` ("OS-backed
 attestation") and `docs/security/os-attestation-2026-10.md`.
 
+### Delivery of the helper / Auslieferung des Helpers
+
+Portable release archives include `bin/plur1bus-attest[.exe]` beside `bin/plur1bus[.exe]`; the CLI locates the
+helper beside its own real executable and supplies the SHA-256 baked at build time to the Core. Signing happens
+before hashing; optional team ID/Authenticode thumbprint pins come from repository variables. If these variables
+are absent, the build logs a warning and uses the hash plus ownership/permissions checks. The helper and its
+parent directory must be root-owned or owned by the Core's user and must not be group/world-writable (`0755`).
+Linux archives include the polkit policy; nfpm installs it, while portable/Homebrew users install it explicitly.
+A graphical session and polkit agent are still required. The separate legacy native installer/update feed is
+not covered. Build order, public variables and packaging instructions: [release.md](release.md#attestation-helper-delivery).
+
 ### 3.3 Timeouts and the absent person
 
 - A foreground call waits **10 minutes** (`DEFAULT_FOREGROUND_WAIT_MS`). Then it returns "not approved, parked" to the agent
@@ -459,9 +470,9 @@ of the audit files (`docs/audit-chain.md`), not a D109 setting.
    A per-connection address in the notify API would make it selective.
 6. **No T3 attestation** (3.2): `CoreOptions.rbac.attest` has no supplier, so T3-only requests cannot be decided; the CLI TTY
    and the desktop app are not yet attested. The residual same-user-token risk stays until the exec sandbox denies `run/` and
-   `state/` to agent processes. The OS confirmation of 3.2.1 lifts to T2 only. It is also **not yet shipped**: the release
-   archives, the installer and `update` carry `plur1bus` alone, so a released build has no `plur1bus-attest` (and no polkit
-   policy) and answers `attestation-unavailable` until they do; a source build finds the helper beside `plur1bus`. The web
+   `state/` to agent processes. The OS confirmation of 3.2.1 lifts to T2 only. The portable release archives now ship the hash-pinned helper beside
+   `plur1bus`, including a Linux polkit policy; nfpm, Homebrew and Scoop retain it. The separate legacy native
+   installer/`update` feed still needs helper integration (see [release.md](release.md#attestation-helper-delivery)). The web
    approvals page is still a placeholder, so only the CLI drives the flow; the web texts (`approvals.attest.*`, de/en) and
    `attestationText()` are ready for it. The interactive macOS and Windows dialogs are verified by hand, not in CI.
 7. **Ed25519 signatures and `1staid check approvals.integrity` are missing.** The spec has signed decisions for out-of-process
@@ -638,8 +649,9 @@ Tool-Ergebnisse nie. Abweichung: `plur1bus approval audit` und eine 400-Tage-Auf
 3. Der Tool-Registry fehlt ein Namensschutz für `grant.*` und `approval.*`.
 4. Zwei ApprovalPorts: Der Exec-Port (`tools/exec/types.ts`) verbraucht weder Freigaben noch `once`-Grants.
 5. Benachrichtigungen werden nur zugestellt, wenn alle Abonnenten berechtigte Personen sind.
-6. Keine T3-Attestation; die OS-Bestätigung hebt nur auf T2. Der Helfer `plur1bus-attest` (und die polkit-Policy) ist noch nicht in
-   Release-Archiv, Installer und `update`; ein Release-Build antwortet bis dahin `attestation-unavailable`. Die Web-Freigabeseite ist
+6. Keine T3-Attestation; die OS-Bestätigung hebt nur auf T2. Die portablen Release-Archive enthalten den
+   Hash-gepinnten Helfer `plur1bus-attest` und unter Linux die polkit-Policy. Der separate native Installer/`update`-Feed
+   braucht weiterhin die Helper-Integration. Die Web-Freigabeseite ist
    noch ein Platzhalter. Die Same-User-Token-Grenze (Kapitel 3) bleibt, bis die Sandbox `run/` und `state/` sperrt.
 7. Ed25519-Signaturen und `1staid check approvals.integrity` fehlen; D108 (Freigaben auf beiden Seiten) ist nicht gebaut.
 8. Taint hat keinen Lieferanten; Roots, Deny-List-Flag, `cwd` und Umgebungsnamen hängen an `classify()` des Tools.

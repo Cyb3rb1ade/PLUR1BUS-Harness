@@ -1,0 +1,8 @@
+/* Recurring Tasks Page Styles */
+.recurring-page { display: flex; flex-direction: column; gap: 16px; }
+.recurring-gap-notice { padding: 12px 16px; background: var(--hover-bg); border: 1px solid var(--border); border-radius: 10px; font-size: 13px; color: var(--ink-2); margin-bottom: 12px; }
+.recurring-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+.recurring-table th, .recurring-table td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+.recurring-table th { color: var(--ink-2); font-weight: 600; background: var(--hover-bg); }
+.recurring-history-list { display: grid; gap: 8px; margin-top: 8px; }
+.recurring-history-item { padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); display: flex; align-items: center; justify-content: space-between; gap: 12px; }

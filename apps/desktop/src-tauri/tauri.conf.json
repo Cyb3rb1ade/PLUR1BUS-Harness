@@ -53,5 +53,13 @@
     "externalBin": [
       "binaries/plur1bus-host"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "windows": {
+        "installMode": "passive"
+      },
+      "pubkey": "PLACEHOLDER: selected channel updater key is supplied from Rust"
+    }
   }
 }

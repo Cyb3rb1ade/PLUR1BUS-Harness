@@ -9,6 +9,6 @@
       "hash": "@SHA_win-x64@"
     }
   },
-  "bin": "bin\\plur1bus.exe",
+  "bin": ["bin\\plur1bus.exe", "bin\\plur1bus-attest.exe"],
   "notes": "Requires Node 24.21.0; see README.txt for the Core payload layout."
 }
