@@ -6,10 +6,12 @@ erklärt, wann das passiert, was eine einzelne Bestätigung bewirkt und was es b
 ist. Jeder Befehl hier existiert in diesem Build (`docs/cli.md` ist die vollständige Referenz). Die englische Fassung ist
 [../en/os-confirmation.md](../en/os-confirmation.md).
 
-**Wichtig vorab:** In den Release-Builds, wie sie heute ausgeliefert werden, ist das Hilfsprogramm für die
-Bestätigung noch nicht enthalten. Dort erscheint deshalb bei jeder Freigabe, die eine Bestätigung braucht, der Hinweis
-„nicht verfügbar". Die Dialoge von Touch ID, Windows Hello und polkit sind nur in einem Build zu sehen, der das
-Hilfsprogramm mitbringt, etwa einem Quell-Build (siehe unten).
+**Wichtig vorab:** Die portablen Release-Archive enthalten das Hilfsprogramm `plur1bus-attest` neben `plur1bus`.
+Die Harness prüft seinen Hash und die Dateirechte, bevor sie einen Dialog öffnet. Eine grafische Sitzung bleibt nötig;
+unter Linux brauchst du außerdem einen polkit-Agenten und die mitgelieferte Policy. Bei Installation über nfpm wird
+sie eingerichtet; aus einem portablen Archiv oder mit Homebrew installierst du sie als root unter
+`/usr/share/polkit-1/actions/org.plur1bus.approve.policy` (Rechte `0644`). Der separate native Installer/Update-Feed
+benötigt weiterhin die Helper-Integration. Details: [Release-Anleitung](../../release.md#attestation-helper-delivery).
 
 ## Freigaben und Risikostufen
 
@@ -76,8 +78,7 @@ Während ein Dialog offen ist, nimmt die Harness keine zweite Entscheidung zur s
 Die Meldung heißt `attestation-unavailable`. Der Befehl endet dann mit Code 2, die Anfrage bleibt offen, und andere
 Teile der Harness laufen weiter. Die Meldung kommt in diesen Fällen:
 
-- Das Hilfsprogramm `plur1bus-attest` ist nicht neben `plur1bus` installiert. Das ist bei den heutigen Release-Builds
-  der Normalfall.
+- Das Hilfsprogramm `plur1bus-attest` ist nicht neben `plur1bus` installiert. Die portablen Release-Archive bringen es mit.
 - Die Installation läuft im Container. Dort gibt es keinen Dialog, den man bedienen könnte.
 - Es gibt keine grafische Sitzung, zum Beispiel bei einer reinen SSH-Verbindung.
 - Unter Linux läuft kein polkit-Agent.
@@ -88,8 +89,8 @@ Was du dann tun kannst:
 - **Die Anfrage ablehnen** mit `plur1bus approval deny <id>`. Der Agent macht dann ohne die Aktion weiter.
 - **Warten.** Eine offene Anfrage bleibt 24 Stunden bestehen. Danach läuft sie ab, und eine abgelaufene Anfrage gilt als
   abgelehnt. Nichts wird durch Zeitablauf stillschweigend freigegeben.
-- **Einen Quell-Build nutzen.** Dort findet die Harness das Hilfsprogramm, wenn es neben `plur1bus` liegt. Du brauchst dann
-  eine grafische Sitzung und unter Linux einen polkit-Agenten.
+- **Die Installation prüfen.** Nutze CLI und Hilfsprogramm aus demselben Release-Archiv. Beide müssen im selben Ordner liegen,
+  dir oder root gehören und dürfen nicht für Gruppe oder andere schreibbar sein. Unter Linux prüfst du auch die polkit-Policy.
 
 Der Befehl `plur1bus approval approve` endet in diesem Fall mit Code 2 und dem Grund `attestation-unavailable`.
 
