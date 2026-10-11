@@ -448,7 +448,7 @@ pub async fn harness_logs_tail(
         .map_err(|e| e.code().into())
 }
 
-fn write_target(_window: &WebviewWindow, c: &Controller) -> Result<(), String> {
+fn write_target(window: &WebviewWindow, c: &Controller) -> Result<(), String> {
     let installed = c
         .installed()
         .map_err(|e| e.code())?
@@ -456,7 +456,7 @@ fn write_target(_window: &WebviewWindow, c: &Controller) -> Result<(), String> {
     #[cfg(debug_assertions)]
     if std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR").is_some() {
         return crate::install::target_json::write(
-            &commands::app_config_dir(_window.app_handle())?.join("forwarder"),
+            &commands::app_config_dir(window.app_handle())?.join("forwarder"),
             &installed,
         )
         .map_err(|e| e.code().into());
