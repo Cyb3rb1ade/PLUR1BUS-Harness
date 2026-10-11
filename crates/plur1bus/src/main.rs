@@ -91,6 +91,7 @@ fn main() {
         Cmd::Approval { sub } => commands::approval::run(&out, &layout, sub),
         Cmd::Login(args) => commands::login::run(&out, &layout, args),
         Cmd::Channel { sub } => commands::channel::run(&out, &layout, sub),
+        Cmd::Inbox { sub } => commands::inbox::run(&out, &layout, sub),
         Cmd::Project { sub } => commands::project::run(&out, &layout, sub),
         Cmd::Trace { sub } => commands::project::trace(&out, &layout, sub),
         Cmd::Media { sub } => commands::media::run(&out, &layout, sub),

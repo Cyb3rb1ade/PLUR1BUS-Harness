@@ -2,7 +2,7 @@
 // followed by a restart, and a rename that must not undo a revocation. The clock is a plain variable, no timers.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { generateKeyPairSync, sign } from "node:crypto";
@@ -60,17 +60,22 @@ test("revoking or renaming an unknown device is refused as not-found", t => {
   }
 });
 
-// Found while writing this file: revoke() publishes the revocation in memory before the durable write, and when that
-// write fails it still throws to the caller. The device is then denied only until the process restarts, and the file
-// on disk still says it is valid, so a restart re-admits a key the caller was told could not be revoked.
-test("a revoke whose durable write failed still holds after a restart", { todo: "KNOWN GAP: a failed revoke write is denied only in memory and is re-admitted after a restart" }, t => {
+test("a failed durable revoke write leaves memory and disk consistent after a restart", t => {
   const f = fixture(); t.after(f.clean);
   const d = f.store.recordPairing(device);
+  const before = readFileSync(f.file, "utf8");
   f.failure.armed = true;
   assert.throws(() => f.store.revoke(d.id, "alice"), (e: unknown) => e instanceof DeviceError && e.code === "storage");
+  assert.equal(f.store.get(d.id).revoked, false);
+  assert.deepEqual(f.store.get(d.id), d);
+  assert.equal(readFileSync(f.file, "utf8"), before);
+  assert.deepEqual(JSON.parse(readFileSync(f.file, "utf8")).devices, [d]);
   f.failure.armed = false;
   const restarted = new DeviceStore(f.options);
-  assert.equal(restarted.get(d.id).revoked, true);
-  const challenge = restarted.challenge();
-  assert.throws(() => restarted.connect(handshake(restarted, challenge)), (e: unknown) => e instanceof DeviceError && e.code === "denied");
+  assert.equal(restarted.get(d.id).revoked, false);
+  assert.deepEqual(restarted.get(d.id), f.store.get(d.id));
+  for (const store of [f.store, restarted]) {
+    const challenge = store.challenge();
+    assert.doesNotThrow(() => store.connect(handshake(store, challenge))());
+  }
 });

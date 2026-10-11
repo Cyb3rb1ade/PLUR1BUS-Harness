@@ -560,6 +560,22 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "inbox.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "inbox.count": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "inbox.markRead": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "inbox.dismiss": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "breakglass.notices": {
       "stability": "experimental",
       "since": "1.5.0"
@@ -747,6 +763,10 @@
       "since": "1.6.0"
     },
     "voice.download.progress": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "inbox.changed": {
       "stability": "experimental",
       "since": "1.6.0"
     },

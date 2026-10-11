@@ -159,10 +159,16 @@ Call the returned cleanup when the connection ends. The transport must bind the
 challenge to that connection, enforce the stored scopes and stop dispatching work
 when closed. No claimed id or fingerprint authenticates a handshake.
 
-Revocation durably marks the entry and invokes every live close callback before
-returning; one failing callback does not prevent the others. A persistence failure
-reports `E_STORAGE`, denies the key in memory and still closes its connections;
-retry revocation to persist that denial before restarting the core. Audit failure
+Revocation writes the revoked state atomically before updating memory and invoking
+every live close callback; one failing callback does not prevent the others.
+A persistence failure reports `E_STORAGE`, leaves the device's previous state and
+connections unchanged, and records `device.revoke.failed`. Retry revocation to
+make the security action effective and durable. An unreadable, malformed or unsafe
+store refuses initialization, so no device handshake can be admitted through it;
+only a missing store starts empty. If directory syncing fails after the atomic
+rename, disk durability is uncertain: the store reports `E_STORAGE`, closes all
+connections and refuses further handshakes and mutations until reloaded.
+Audit failure
 refuses mutations. Audit records `device.paired`, `device.revoked` and
 `device.renamed` record the authorized mutation intent before its state write,
 so a failed write may have an audit record without a successful mutation. No key,

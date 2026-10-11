@@ -300,6 +300,8 @@ Assigned roles and explicit agent rights are read from `state/admin.sqlite` on e
 | `breakglass.request`, `breakglass.revoke` | `admin.breakglass.write` | Owner, Admin; library also enforces request/revoke rules |
 | `breakglass.list` | `admin.breakglass.read` | Owner, Admin; holder's grants only |
 | `breakglass.notices` | `admin.notices.read` | All five; affected person's own inbox only |
+| `inbox.list`, `inbox.count` | `inbox.read` | All five, human principals only; the caller's own inbox, no parameter names another person |
+| `inbox.markRead`, `inbox.dismiss` | `inbox.write` | All five, human principals only; own entries only, foreign ids change nothing |
 | `session.list` | `admin.sessions.read` | All five; Member own only; Owner/Admin/Operator/Viewer may filter all metadata |
 | `session.get`, `session.resume`, `session.events` | `admin.sessions.transcript` | All five; own session or live audited Break-Glass grant |
 | `session.create`, `session.submit`, `session.cancel`, `session.archive` | `admin.sessions.write` | Owner, Admin, Operator, Member; own session and `agent.use` required |

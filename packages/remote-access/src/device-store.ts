@@ -1,4 +1,4 @@
-import { chmodSync, closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { createHash, createPublicKey, randomBytes, randomUUID, verify } from "node:crypto";
 import type { PairCodeStore } from "./pair-code.ts";
@@ -71,24 +71,28 @@ function validateDevice(v: unknown): v is Device {
  *  No listener, metrics, private keys or bearer credentials are created here. */
 export class DeviceStore {
   private devices: Device[] = [];
+  private storageFailed = false;
   private readonly connections = new Map<string, Set<() => void>>();
-  private readonly pendingRevocations = new Set<string>();
   private readonly challenges = new Map<string, number>();
   private readonly options: DeviceStoreOptions;
   constructor(options: DeviceStoreOptions) {
     this.options = options;
     if (!Number.isFinite(options.lastSeenIntervalMs ?? 60_000) || (options.lastSeenIntervalMs ?? 60_000) < 0) throw new DeviceError("invalid");
+    let stat;
+    try { stat = lstatSync(options.file); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+      throw new DeviceError("storage");
+    }
     try {
-      if (existsSync(options.file)) {
-        if (!lstatSync(options.file).isFile() || lstatSync(options.file).isSymbolicLink()) throw new Error();
-        options.securePath(options.file);
-        const state: unknown = JSON.parse(readFileSync(options.file, "utf8"));
-        const s = state as { version: number; devices: unknown[] };
-        if (s?.version !== 1 || Object.keys(s).some(k => k !== "version" && k !== "devices") || !Array.isArray(s.devices) || !s.devices.every(validateDevice)) throw new Error();
-        const devices = s.devices as Device[];
-        if (new Set(devices.map(d => d.id)).size !== devices.length || new Set(devices.map(d => d.fingerprint)).size !== devices.length) throw new Error();
-        this.devices = structuredClone(devices);
-      }
+      if (!stat.isFile() || stat.isSymbolicLink()) throw new Error();
+      options.securePath(options.file);
+      const state: unknown = JSON.parse(readFileSync(options.file, "utf8"));
+      const s = state as { version: number; devices: unknown[] };
+      if (s?.version !== 1 || Object.keys(s).some(k => k !== "version" && k !== "devices") || !Array.isArray(s.devices) || !s.devices.every(validateDevice)) throw new Error();
+      const devices = s.devices as Device[];
+      if (new Set(devices.map(d => d.id)).size !== devices.length || new Set(devices.map(d => d.fingerprint)).size !== devices.length) throw new Error();
+      this.devices = structuredClone(devices);
     } catch { throw new DeviceError("storage"); }
   }
   list(): Device[] { return structuredClone(this.devices); }
@@ -100,6 +104,7 @@ export class DeviceStore {
   /** Called only after a trusted pairing flow authenticated the person and bound the device key.
    *  pairedBy/scope are server-established facts; never take them from an anonymous request. */
   recordPairing(input: PairDevice): Device {
+    this.checkStorage();
     validatePair(input);
     const key = keyInfo(input.publicKey);
     const existing = this.devices.find(d => d.fingerprint === key.fingerprint);
@@ -118,6 +123,7 @@ export class DeviceStore {
   }
   /** Server-generated, one-use, 30-second challenge. A transport sends this on the connection being authenticated. */
   challenge(): Buffer {
+    this.checkStorage();
     const now = this.options.clock();
     for (const [key, expires] of this.challenges) if (expires <= now) this.challenges.delete(key);
     if (this.challenges.size >= 1024) throw new DeviceError("denied");
@@ -127,6 +133,7 @@ export class DeviceStore {
   }
   /** Proves possession before admitting a connection. No claimed device id authenticates a caller. */
   connect(input: { publicKey: string; challenge: Uint8Array; signature: Uint8Array; close: () => void }): () => void {
+    this.checkStorage();
     const challenge = Buffer.from(input.challenge).toString("hex");
     const expires = this.challenges.get(challenge);
     this.challenges.delete(challenge);
@@ -147,25 +154,24 @@ export class DeviceStore {
     return () => { live.delete(input.close); if (!live.size) this.connections.delete(d.id); };
   }
   revoke(id: string, actor: string): Device {
+    this.checkStorage();
     const d = this.get(id);
-    if (d.revoked) {
-      if (this.pendingRevocations.has(id)) { this.persist(this.devices); this.pendingRevocations.clear(); }
-      return d;
-    }
+    if (d.revoked) return d;
     const next = { ...d, revoked: true, revokedAt: this.options.clock(), revokedBy: actor };
     const devices = this.devices.map(device => device.id === id ? next : device);
-    // Audit first; after authorization/audit, a storage failure still denies this key in memory and disconnects it.
     this.audit("device.revoked", next, actor);
-    this.devices = devices;
-    this.pendingRevocations.add(id);
-    try { this.persist(devices); this.pendingRevocations.clear(); }
-    finally {
-      const live = this.connections.get(id); this.connections.delete(id);
-      for (const close of live ?? []) { try { close(); } catch { /* attempt every connection */ } }
+    try { this.persist(devices); }
+    catch (error) {
+      this.audit("device.revoke.failed", next, actor);
+      throw error;
     }
+    this.devices = devices;
+    const live = this.connections.get(id); this.connections.delete(id);
+    for (const close of live ?? []) { try { close(); } catch { /* attempt every connection */ } }
     return structuredClone(next);
   }
   rename(id: string, name: string, actor: string): Device {
+    this.checkStorage();
     if (!text(name)) throw new DeviceError("invalid");
     const d = { ...this.get(id), name };
     this.change(this.devices.map(device => device.id === id ? d : device), "device.renamed", d, actor);
@@ -178,11 +184,15 @@ export class DeviceStore {
   private change(devices: Device[], action: string, d: Device, actor: string): void {
     this.audit(action, d, actor); this.persist(devices); this.devices = devices;
   }
+  private checkStorage(): void {
+    if (this.storageFailed) throw new DeviceError("storage");
+  }
   private persist(devices: Device[]): void {
     const file = this.options.file;
     const dir = dirname(file);
     const temp = `${file}.${randomUUID()}.tmp`;
     let fd: number | undefined;
+    let renamed = false;
     try {
       mkdirSync(dir, { recursive: true, mode: 0o700 });
       fd = openSync(temp, "wx", 0o600);
@@ -191,11 +201,22 @@ export class DeviceStore {
       writeFileSync(fd, `${JSON.stringify({ version: 1, devices })}\n`); fsyncSync(fd);
       closeSync(fd); fd = undefined;
       renameSync(temp, file);
+      renamed = true;
       if (process.platform !== "win32") {
         const directory = openSync(dir, "r");
         try { fsyncSync(directory); } finally { closeSync(directory); }
       }
-    } catch { throw new DeviceError("storage"); }
+    } catch {
+      // After rename, durability is uncertain: never authenticate against the stale in-memory state.
+      if (renamed) {
+        this.storageFailed = true;
+        const live = [...this.connections.values()].flatMap(callbacks => [...callbacks]);
+        this.connections.clear();
+        this.challenges.clear();
+        for (const close of live) { try { close(); } catch { /* attempt every connection */ } }
+      }
+      throw new DeviceError("storage");
+    }
     finally {
       if (fd !== undefined) closeSync(fd);
       try { unlinkSync(temp); } catch { /* already renamed / never created */ }
