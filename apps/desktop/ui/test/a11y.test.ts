@@ -8,7 +8,7 @@ test("sample shell and dialog pass axe WCAG 2.1 AA in both themes and locales", 
     for (const theme of ["light", "dark"]) for (const locale of ["en", "de"]) {
       await page.evaluate(({ theme, locale }) => (window as any).testShell.setPreferences({ theme, locale }), { theme, locale });
       for (const section of ["home", "connections", "settings"]) {
-        await page.evaluate(section => (window as any).testShell.navigate(section, "advanced"), section);
+        await page.evaluate(section => (window as any).testShell.navigate(section, "general"), section);
         if (section === "home") {
           const colors = await page.evaluate(() => {
             const tokens = getComputedStyle(document.documentElement);
@@ -70,7 +70,7 @@ test("settings read failure keeps independently loaded Windows and KDE chrome", 
 test("rapid theme and language choices serialize without losing either", async () => {
   await withShell(async page => {
     await page.getByRole("button", { name: "Settings" }).first().click();
-    await page.getByRole("button", { name: "Advanced" }).first().click();
+    await page.getByRole("button", { name: "General" }).first().click();
     await page.evaluate(() => (window as any).testShell.deferSaves());
     await page.getByRole("button", { name: "Light" }).click();
     await page.getByRole("button", { name: "Deutsch" }).click();
@@ -89,7 +89,7 @@ test("rapid theme and language choices serialize without losing either", async (
 test("a failed queued preference rolls back only that choice and reports failure", async () => {
   await withShell(async page => {
     await page.getByRole("button", { name: "Settings" }).first().click();
-    await page.getByRole("button", { name: "Advanced" }).first().click();
+    await page.getByRole("button", { name: "General" }).first().click();
     await page.evaluate(() => (window as any).testShell.deferSaves());
     await page.getByRole("button", { name: "Light" }).click();
     await page.getByRole("button", { name: "Deutsch" }).click();
@@ -106,7 +106,7 @@ test("a failed queued preference rolls back only that choice and reports failure
 test("keyboard focus survives preference changes and returns from the dialog", async () => {
   await withShell(async page => {
     await page.getByRole("button", { name: "Settings" }).first().click();
-    await page.getByRole("button", { name: "Advanced" }).first().click();
+    await page.getByRole("button", { name: "General" }).first().click();
     const light = page.getByRole("button", { name: "Light" });
     await light.click();
     assert.equal(await light.evaluate(node => document.activeElement === node), true);
@@ -121,7 +121,7 @@ test("keyboard focus survives preference changes and returns from the dialog", a
 test("failed native preference save keeps the old choice and keyboard focus", async () => {
   await withShell(async page => {
     await page.getByRole("button", { name: "Settings" }).first().click();
-    await page.getByRole("button", { name: "Advanced" }).first().click();
+    await page.getByRole("button", { name: "General" }).first().click();
     await page.evaluate(() => (window as any).testShell.failNextSave());
     await page.getByRole("button", { name: "Light" }).click();
     assert.equal(await page.getByRole("button", { name: "System" }).first().getAttribute("aria-pressed"), "true");

@@ -17,7 +17,8 @@ export function seed(rpc: MockRpc, o: Seed = {}): void {
   rpc.handle("config.get", (p) => ({ key: (p as { key?: string }).key ?? null, tier: null, value: o.agents ?? AGENTS, restartClass: "live", restart: "live", revision: "r1" }), { write: false });
 }
 
-const READS = ["identity.list", "config.get", "user.list", "user.invite.list", "breakglass.list", "session.list"];
+// `inbox.count` is the shell's sidebar badge: a background read, like session.list.
+const READS = ["identity.list", "config.get", "user.list", "user.invite.list", "breakglass.list", "session.list", "inbox.count"];
 
 /** Methods called other than the reads: any of them would mean the page sent a mutation it must not. `session.list` is the
  *  palette's background index (a read), which the shell may send at any time. */

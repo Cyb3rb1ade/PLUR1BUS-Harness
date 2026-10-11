@@ -17,7 +17,7 @@ test("frame follows content-width boundaries without clipping text", async () =>
       assert.equal(measured.sidebar, expectedSidebar, `sidebar at ${width}`);
       assert.ok(measured.document <= measured.viewport, `horizontal overflow at ${width}: ${JSON.stringify(measured)}`);
     }
-    await page.evaluate(() => (window as any).testShell.navigate("settings", "advanced"));
+    await page.evaluate(() => (window as any).testShell.navigate("settings", "general"));
     for (const width of [400, 720, 960, 1440, 2560]) {
       await page.setViewportSize({ width, height: 900 });
       const measured = await page.evaluate(() => {
@@ -32,7 +32,7 @@ test("frame follows content-width boundaries without clipping text", async () =>
         }
         return { width: document.documentElement.scrollWidth, viewport: document.documentElement.clientWidth, smallText };
       });
-      assert.ok(measured.width <= measured.viewport, `advanced settings overflow at ${width}`);
+      assert.ok(measured.width <= measured.viewport, `general settings overflow at ${width}`);
       assert.deepEqual(measured.smallText, [], `text below 12 px at ${width}`);
     }
   });
@@ -44,9 +44,9 @@ test("capture representative responsive shell views", async context => {
   await mkdir(directory, { recursive: true });
   await withShell(async page => {
     for (const sample of [
-      { width: 400, theme: "dark", locale: "de", platform: "mac", route: "settings", page: "advanced" },
+      { width: 400, theme: "dark", locale: "de", platform: "mac", route: "settings", page: "general" },
       { width: 960, theme: "dark", locale: "en", platform: "mac", route: "home", page: "runtime" },
-      { width: 1440, theme: "light", locale: "en", platform: "gnome", route: "settings", page: "advanced" },
+      { width: 1440, theme: "light", locale: "en", platform: "gnome", route: "settings", page: "general" },
       { width: 2560, theme: "light", locale: "de", platform: "win", route: "connections", page: "runtime" },
     ]) {
       await page.setViewportSize({ width: sample.width, height: 900 });
@@ -63,7 +63,7 @@ test("capture representative responsive shell views", async context => {
     await page.evaluate(async () => {
       await (window as any).testShell.setPreferences({ theme: "dark", locale: "de" });
       (window as any).testShell.setPlatform("mac");
-      (window as any).testShell.navigate("settings", "advanced");
+      (window as any).testShell.navigate("settings", "general");
     });
     await page.getByRole("button", { name: "Bereiche" }).click();
     await page.locator(".toast").waitFor({ state: "detached", timeout: 4000 });
@@ -104,14 +104,14 @@ test("all interactive shell targets are at least 44 px and compact navigation cl
     await page.getByRole("button", { name: "Sections" }).click();
     assert.equal(await page.getByRole("dialog", { name: "Sections" }).isVisible(), true);
     assert.equal(await page.locator(".sheet").evaluate(node => node.getBoundingClientRect().width), 400);
-    await page.getByRole("button", { name: "Advanced" }).last().click();
+    await page.getByRole("button", { name: "General" }).last().click();
     assert.equal(await page.getByRole("heading", { name: "Appearance" }).count(), 1);
     assert.equal(await page.getByRole("button", { name: "Sections" }).evaluate(node => document.activeElement === node), true, await page.evaluate(() => document.activeElement?.outerHTML));
     const small = await page.locator("a,button,input,select").evaluateAll(elements => elements.filter(el => {
       const box = el.getBoundingClientRect();
       return box.width > 0 && box.height > 0 && (box.width < 44 || box.height < 44);
     }).map(el => el.textContent?.trim()));
-    assert.deepEqual(small, [], "advanced settings targets at 400");
+    assert.deepEqual(small, [], "general settings targets at 400");
     const languageRows = await page.locator('fieldset[data-preference="locale"] button').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().top));
     assert.equal(new Set(languageRows).size, 1, `language options wrapped at 400: ${languageRows}`);
   });
@@ -163,7 +163,7 @@ test("200% text-only enlargement retains the 1440 viewport without clipping", as
   await withShell(async page => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.getByRole("button", { name: "Settings" }).first().click();
-    await page.getByRole("button", { name: "Advanced" }).first().click();
+    await page.getByRole("button", { name: "General" }).first().click();
     const before = await page.getByRole("heading", { name: "Settings" }).evaluate(node => node.getBoundingClientRect().height);
     await page.evaluate(() => {
       const originalSizes = Array.from(document.querySelectorAll<HTMLElement>(".shell-mount *")).map(element => [element, parseFloat(getComputedStyle(element).fontSize)] as const);
@@ -185,7 +185,7 @@ test("Chromium 2x display scale keeps 1440 physical pixels while all shell pages
       const pixels = await page.screenshot({ scale: "device" });
       assert.deepEqual(metrics, { cssWidth: 1440 / scale, cssHeight: 900 / scale, dpr: scale });
       assert.deepEqual([pixels.readUInt32BE(16), pixels.readUInt32BE(20)], [1440, 900]);
-      for (const [section, subpage] of [["home", "runtime"], ["connections", "runtime"], ["settings", "runtime"], ["settings", "updates"], ["settings", "version"], ["settings", "advanced"]] as const) {
+      for (const [section, subpage] of [["home", "runtime"], ["connections", "runtime"], ["settings", "runtime"], ["settings", "updates"], ["settings", "version"], ["settings", "general"], ["settings", "advanced"]] as const) {
         await page.evaluate(([section, subpage]) => (window as any).testShell.navigate(section, subpage), [section, subpage]);
         const layout = await page.evaluate(() => {
           const small = Array.from(document.querySelectorAll<HTMLElement>("button,a,input,select")).filter(element => {

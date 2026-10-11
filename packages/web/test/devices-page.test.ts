@@ -49,7 +49,7 @@ describe("devices: gate", opts, () => {
       await app.page.getByText("Published as tailnet").waitFor();
       await app.page.getByRole("group", { name: "Paired devices" }).getByText("No paired devices").waitFor();
       await app.page.getByRole("group", { name: "Pair a device" }).getByRole("status").waitFor();
-      assert.deepEqual([...new Set(app.server.rpc.calls.map((c) => c.method))].filter((m) => !["config.get", "session.list", "device.list"].includes(m)), []); // the shell lists sessions itself
+      assert.deepEqual([...new Set(app.server.rpc.calls.map((c) => c.method))].filter((m) => !["config.get", "session.list", "device.list", "inbox.count"].includes(m)), []); // the shell lists sessions itself
     });
   });
   test("pairing.qr formats and renders a QR code with expiration", async () => {
