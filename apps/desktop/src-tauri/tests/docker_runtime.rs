@@ -217,3 +217,20 @@ async fn image_remove_deletes_the_resolved_references_and_tolerates_absence() {
         .iter()
         .any(|(r, _)| r.starts_with("DELETE /images/fixture.invalid/harness@sha256:")));
 }
+
+#[tokio::test]
+async fn image_remove_falls_back_to_the_resolved_id_when_digest_refs_are_unknown() {
+    let e = engine::Engine::start("Docker", "linux").await;
+    let digest = format!("sha256:{}", "a".repeat(64));
+    {
+        let mut st = e.state.lock().unwrap();
+        st.manifest_digest = Some(digest.clone());
+        st.delete_by_digest_unknown = true;
+    }
+    let r = DockerRuntime::connect(&e.endpoint).await.unwrap();
+    r.image_remove(&digest).await.unwrap();
+    let requests = e.state.lock().unwrap().requests.clone();
+    assert!(requests
+        .iter()
+        .any(|(r, _)| r.starts_with("DELETE /images/sha256:aaaa")));
+}

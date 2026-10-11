@@ -62,6 +62,54 @@ impl DockerRuntime {
             .filter(|d| has_repo_digest(std::slice::from_ref(d), wanted) && d.contains('@'))
             .collect())
     }
+    /// Image IDs of list entries whose RepoDigests carry the wanted manifest digest (deduplicated).
+    async fn local_image_ids(&self, wanted: &str) -> Result<Vec<String>, RuntimeError> {
+        let body = tokio::time::timeout(
+            Duration::from_secs(30),
+            raw_get(&self.endpoint, "/images/json"),
+        )
+        .await
+        .map_err(|_| RuntimeError::Timeout("engine-api"))??;
+        let list: serde_json::Value =
+            serde_json::from_slice(&body).map_err(|_| RuntimeError::Failed("engine-api".into()))?;
+        let mut ids: Vec<String> = vec![];
+        for item in list.as_array().into_iter().flatten() {
+            let digests: Vec<String> = item
+                .get("RepoDigests")
+                .and_then(|d| d.as_array())
+                .into_iter()
+                .flatten()
+                .filter_map(|d| d.as_str().map(str::to_owned))
+                .collect();
+            if let Some(id) = item.get("Id").and_then(|i| i.as_str()) {
+                if has_repo_digest(&digests, wanted) && !ids.iter().any(|i| i == id) {
+                    ids.push(id.to_owned());
+                }
+            }
+        }
+        Ok(ids)
+    }
+    async fn delete_image(&self, name: &str) -> Result<u16, RuntimeError> {
+        let raw = tokio::time::timeout(
+            Duration::from_secs(60),
+            raw_send(
+                &self.endpoint,
+                "DELETE",
+                &format!("/images/{name}?force=0&noprune=0"),
+            ),
+        )
+        .await
+        .map_err(|_| RuntimeError::Timeout("engine-api"))??;
+        let status = http_status(&raw)?;
+        #[cfg(debug_assertions)]
+        if !matches!(status, 200..=299 | 404) {
+            eprintln!(
+                "image remove {name} -> HTTP {status}: {:?}",
+                String::from_utf8_lossy(&raw[..raw.len().min(600)])
+            );
+        }
+        Ok(status)
+    }
     async fn local_reference(&self, wanted: &str) -> Result<Option<String>, RuntimeError> {
         Ok(self.local_references(wanted).await?.into_iter().next())
     }
@@ -654,30 +702,22 @@ impl Runtime for DockerRuntime {
     async fn image_remove(&self, digest: &str) -> Result<(), RuntimeError> {
         // A bare manifest digest is not an engine reference (it would be read as an image ID): remove every local
         // `repo@digest` reference that carries it. Nothing local means there is nothing left to remove.
+        // Docker accepts `repo@digest`; Podman answers 500 "tag not known" for it. Those references were already
+        // matched by manifest digest, so fall back to deleting the matched image by its resolved ID (non-forced).
+        let mut fallback = false;
         for reference in self.local_references(digest).await? {
-            // Plain DELETE, non-forced: the response body shape differs between engines (Podman's compat API) and
-            // carries nothing needed, so only the status decides.
-            let raw = tokio::time::timeout(
-                Duration::from_secs(60),
-                raw_send(
-                    &self.endpoint,
-                    "DELETE",
-                    &format!("/images/{reference}?force=0&noprune=0"),
-                ),
-            )
-            .await
-            .map_err(|_| RuntimeError::Timeout("engine-api"))??;
-            match http_status(&raw)? {
+            match self.delete_image(&reference).await? {
                 200..=299 | 404 => {}
                 409 => return Err(RuntimeError::Conflict("runtime-object".into())),
-                status => {
-                    #[cfg(debug_assertions)]
-                    eprintln!(
-                        "image remove {reference} -> HTTP {status}: {:?}",
-                        String::from_utf8_lossy(&raw[..raw.len().min(600)])
-                    );
-                    let _ = status;
-                    return Err(RuntimeError::Failed("engine-api".into()));
+                _ => fallback = true,
+            }
+        }
+        if fallback {
+            for id in self.local_image_ids(digest).await? {
+                match self.delete_image(&id).await? {
+                    200..=299 | 404 => {}
+                    409 => return Err(RuntimeError::Conflict("runtime-object".into())),
+                    _ => return Err(RuntimeError::Failed("engine-api".into())),
                 }
             }
         }
