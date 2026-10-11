@@ -79,6 +79,7 @@ export const en = {
   "nav.gallery": "Pattern gallery",
   "nav.setup": "First-run setup",
   "dialog.close": "Close",
+  "nav.breakglass": "Break-Glass",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -160,4 +161,5 @@ export const de: Record<keyof typeof en, string> = {
   "nav.gallery": "Mustergalerie",
   "nav.setup": "Ersteinrichtung",
   "dialog.close": "Schließen",
+  "nav.breakglass": "Break-Glass",
 };

@@ -96,6 +96,8 @@ the page for each id in `src/pages/registry.ts`.
 | Skills & Plugins | `/events`: `ext.watch` | assumed | no |
 | Approvals | `approval.list`, `approval.get`, `approval.decide`, `approval.cancel`, `grant.list`, `grant.revoke` | assumed | decide, cancel, revoke: yes |
 | Recurring Tasks | `jobs.list`, `jobs.history`, `jobs.run` | assumed | run: yes |
+| Break-Glass | `breakglass.request`, `breakglass.list`, `breakglass.revoke`, `breakglass.notices` | assumed | request, revoke: yes |
+| Break-Glass | `/events`: `breakglass.notice` | assumed | no |
 
 No page sends a `caller`: a browser never asserts identity or trust (the `memory.*`, `session.*`, `models.*`, `budget.*`,
 `dreams.*`, `core.status` and `config.get` calls all omit it; see F1). Event consumers accept an SSE message either named
@@ -168,10 +170,12 @@ Two different questions decide a row:
 | **Skills & Plugins** (`/skills`, `/plugins`) | `ext.list`, `ext.show`, `ext.inspect`, `ext.enable`, `ext.disable`, `ext.uninstall`, `ext.restore`, `ext.install`, `ext.watch` | yes | Built. Unified filterable page, details, agent-specific or global toggles, file upload installation with dry-run inspect, trash restore, plur1bus.app catalog notice |
 | **Grants and approvals** (D109, `/approvals`) | `approval.list`, `approval.get`, `approval.decide`, `approval.cancel`, `grant.list`, `grant.revoke` | yes | Built. D109 card order (targets strictly before rationale), grant duration ≤ 90 days, OS attestation helper prompt explanation, active grants list and revoke, principal role gating |
 | **Recurring Tasks** (`/recurring`) | `jobs.list`, `jobs.history`, `jobs.run` | yes | Built. Cron/interval task list, execution history, manual trigger with confirmation. Creating and editing jobs has no RPC (unavailable) |
+| **Break-Glass** (`/breakglass`) | `breakglass.request`, `breakglass.list`, `breakglass.revoke`, `breakglass.notices`, `/events` (`breakglass.notice`) | yes | Built. Dialog "Break-Glass anfordern" (mandatory reason 10-500 trimmed characters, window 1-60 min, confirmation before submit), persistent warning banner while a window is active, active and past windows list with remaining time and confirmed revocation, durable notices from breakglass.notices, Owner and Admin access only |
 
 Where a page lives: `/agents`, `/agents/new`, `/agents/<id>`; `/settings/<section>` with `general`, `users`, `secrets`, `devices`, `providers`;
 `/switchboard` and `/switchboard/<id>`;
-`/logs` with the tabs Logs (`/logs`), Activity (`/logs/activity`) and Sessions (`/logs/sessions`); `/setup` (not in the sidebar).
+`/logs` with the tabs Logs (`/logs`), Activity (`/logs/activity`) and Sessions (`/logs/sessions`); `/setup` (not in the sidebar);
+`/approvals`; `/recurring`; `/breakglass`.
 
 ## API client (`src/api/**`)
 

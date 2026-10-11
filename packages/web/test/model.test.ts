@@ -9,7 +9,7 @@ test("nav: groups Workspace, Build, Control with the canvas items; Settings and 
   assert.deepEqual(GROUPS.map((g) => g.id), ["workspace", "build", "control"]);
   assert.deepEqual(GROUPS[0]!.items.map((i) => i.id), ["chat", "projects", "agents", "inbox", "memories"]);
   assert.deepEqual(GROUPS[1]!.items.map((i) => i.id), ["library", "skills", "plugins", "models", "switchboard", "recurring"]);
-  assert.deepEqual(GROUPS[2]!.items.map((i) => i.id), ["approvals", "usage", "doctor", "logs"]);
+  assert.deepEqual(GROUPS[2]!.items.map((i) => i.id), ["approvals", "breakglass", "usage", "doctor", "logs"]);
   assert.deepEqual(BOTTOM.map((i) => i.id), ["settings", "help"]);
   assert.equal(new Set(ALL_ITEMS.map((i) => i.path)).size, ALL_ITEMS.length);
 });

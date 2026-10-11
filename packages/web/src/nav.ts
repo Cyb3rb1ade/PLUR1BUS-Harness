@@ -19,7 +19,7 @@ export const GROUPS: readonly NavGroup[] = [
     item("models", "nav.models", "models"), item("switchboard", "nav.switchboard", "switchboard"), item("recurring", "nav.recurring", "recurring"),
   ] },
   { id: "control", label: "nav.group.control", items: [
-    item("approvals", "nav.approvals", "approvals"), item("usage", "nav.usage", "usage"), item("doctor", "nav.doctor", "doctor"), item("logs", "nav.logs", "logs"),
+    item("approvals", "nav.approvals", "approvals"), item("breakglass", "nav.breakglass", "alert"), item("usage", "nav.usage", "usage"), item("doctor", "nav.doctor", "doctor"), item("logs", "nav.logs", "logs"),
   ] },
 ];
 
