@@ -19,7 +19,7 @@ test("layout: all six pages retain 12 px text and 44 px targets at every accepta
   await withShell(async page => {
     for (const width of [400, 720, 960, 1440, 2560]) {
       await page.setViewportSize({ width, height: 900 });
-      for (const [section, subpage] of [["home", "runtime"], ["connections", "runtime"], ["settings", "runtime"], ["settings", "updates"], ["settings", "version"], ["settings", "advanced"]]) {
+      for (const [section, subpage] of [["home", "runtime"], ["connections", "runtime"], ["settings", "runtime"], ["settings", "updates"], ["settings", "version"], ["settings", "general"], ["settings", "advanced"]]) {
         await page.evaluate(([section, subpage]) => (window as any).testShell.navigate(section, subpage), [section, subpage]);
         const failures = await page.evaluate(() => {
           const failures: string[] = [];
@@ -49,17 +49,17 @@ test("full keyboard traversal: ordered accessible names, wrap and visible 3:1 fo
       await page.setViewportSize({ width, height: 900 });
       await page.evaluate(theme => (window as any).testShell.setPreferences({ theme }), theme);
       await page.locator(".toast").waitFor({ state: "detached", timeout: 4000 });
-      for (const [section, subpage] of [["home", "runtime"], ["connections", "runtime"], ["settings", "runtime"], ["settings", "updates"], ["settings", "version"], ["settings", "advanced"]]) {
+      for (const [section, subpage] of [["home", "runtime"], ["connections", "runtime"], ["settings", "runtime"], ["settings", "updates"], ["settings", "version"], ["settings", "general"], ["settings", "advanced"]]) {
         await page.evaluate(([section, subpage]) => (window as any).testShell.navigate(section, subpage), [section, subpage]);
         const expected = [
           ...(width < 1024 ? ["Open navigation"] : []), "Home", "Connections", "Settings",
-          ...(section === "settings" && width >= 1024 ? ["Runtime", "Updates", "Version", "Advanced", "Computer access"] : []), "Home",
+          ...(section === "settings" && width >= 1024 ? ["General", "Runtime", "Updates", "Version", "Advanced", "Computer access"] : []), "Home",
           ...(section === "home" ? ["View connections", "Open settings"] : [
             ...(section === "settings" && width < 1024 ? ["Sections"] : []),
             ...(section === "connections" ? ["Add remote", "Attach native local", "Refresh", ...(width < 1024 ? ["Choose connection"] : [])] : []),
             ...(width <= 1600 ? [section === "settings" ? "About this page" : "Connection details"] : []),
             ...(section === "settings" && subpage === "runtime" ? ["Refresh status", "Unlock secrets with the system keyring", "Start PLUR1BUS at login"] : []),
-            ...(section === "settings" && subpage === "advanced" ? ["System", "Light", "Dark", "System", "English", "Deutsch"] : []),
+            ...(section === "settings" && subpage === "general" ? ["System", "Light", "Dark", "System", "English", "Deutsch"] : []),
           ]), "How preferences work",
         ];
         await page.evaluate(() => { document.body.tabIndex = -1; document.body.focus(); document.body.removeAttribute("tabindex"); });
