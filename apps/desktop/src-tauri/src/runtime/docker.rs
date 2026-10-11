@@ -1061,7 +1061,7 @@ mod probe_tests {
         let r: Result<(), _> = probe_with_retry(
             Duration::from_millis(600),
             Duration::from_millis(100),
-            || std::future::pending(),
+            std::future::pending,
         )
         .await;
         assert_eq!(r, Err(RuntimeError::Timeout("probe")));
