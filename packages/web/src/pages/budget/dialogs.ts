@@ -105,9 +105,9 @@ export function LimitDialog({ limit, limits, periods, onClose, onSaved }: { limi
         h("div", {}, h("dt", {}, t("budget.field.soft")), h("dd", {}, shown("soft"))),
         h("div", {}, h("dt", {}, t("budget.field.hard")), h("dd", {}, shown("hard")))),
       belowUsed
-        ? h("div", { class: "field", style: { marginTop: "16px" } },
+        ? h("div", { class: "field budget-below-used" },
           h("p", { class: "form-error", role: "alert" }, t("budget.warn.belowUsed", { used: amount(metric, usedAmount) })),
-          h("label", { class: "a-check", style: { display: "flex", gap: "8px", alignItems: "center", marginTop: "8px" } },
+          h("label", { class: "budget-below-used-check" },
             h("input", { id: "confirm-below-used", type: "checkbox", checked: confirmedBelow, onChange: (e: Event) => { setConfirmedBelow((e.target as HTMLInputElement).checked); } }),
             h("span", {}, t("budget.confirm.belowUsed"))))
         : null);
