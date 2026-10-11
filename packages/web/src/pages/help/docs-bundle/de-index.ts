@@ -13,6 +13,14 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Container"
   },
   {
+    "slug": "extensions",
+    "title": "Skills und Plugins"
+  },
+  {
+    "slug": "freigaben",
+    "title": "Freigaben und Berechtigungen"
+  },
+  {
     "slug": "lange-gespraeche",
     "title": "Lange Gespräche (Kompaktierung)"
   },
@@ -29,6 +37,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Betriebshandbuch"
   },
   {
+    "slug": "projekte",
+    "title": "Projekte & Board"
+  },
+  {
     "slug": "providers",
     "title": "Modell-Provider und Profile"
   },
@@ -39,6 +51,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
   {
     "slug": "sprachfunktionen",
     "title": "Sprachfunktionen"
+  },
+  {
+    "slug": "wiederkehrende-aufgaben",
+    "title": "Wiederkehrende Aufgaben"
   }
 ];
 
@@ -47,13 +63,17 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "bestaetigung-betriebssystem": return import("./de/bestaetigung-betriebssystem.ts").then(m => m.doc);
     case "channels": return import("./de/channels.ts").then(m => m.doc);
     case "container": return import("./de/container.ts").then(m => m.doc);
+    case "extensions": return import("./de/extensions.ts").then(m => m.doc);
+    case "freigaben": return import("./de/freigaben.ts").then(m => m.doc);
     case "lange-gespraeche": return import("./de/lange-gespraeche.ts").then(m => m.doc);
     case "media": return import("./de/media.ts").then(m => m.doc);
     case "mediensuche": return import("./de/mediensuche.ts").then(m => m.doc);
     case "operations": return import("./de/operations.ts").then(m => m.doc);
+    case "projekte": return import("./de/projekte.ts").then(m => m.doc);
     case "providers": return import("./de/providers.ts").then(m => m.doc);
     case "quickstart": return import("./de/quickstart.ts").then(m => m.doc);
     case "sprachfunktionen": return import("./de/sprachfunktionen.ts").then(m => m.doc);
+    case "wiederkehrende-aufgaben": return import("./de/wiederkehrende-aufgaben.ts").then(m => m.doc);
     default: return null;
   }
 }
