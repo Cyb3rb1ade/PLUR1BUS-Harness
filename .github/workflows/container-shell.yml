@@ -36,7 +36,16 @@ jobs:
           MODE: ${{ matrix.mode }}
         run: |
           if [[ "$MODE" == docker-rootless ]]; then
-            sudo apt-get install -y docker-ce-rootless-extras
+            # The runner ships Microsoft's moby packages, not docker-ce. Use Docker's own apt repository, trusting only
+            # the release key whose file hash and fingerprint are pinned here.
+            key=/etc/apt/keyrings/docker.asc
+            sudo install -m 0755 -d /etc/apt/keyrings
+            sudo curl --fail --silent --show-error --location --output "$key" https://download.docker.com/linux/ubuntu/gpg
+            echo "1500c1f56fa9e26b9b8f42452a553675796ade0807cdce11975eb98170b3a570  $key" | sha256sum --check --strict
+            gpg --show-keys --with-colons "$key" | awk -F: '$1=="fpr"{print $10}' | grep -qx 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=$key] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+            sudo apt-get update
+            sudo apt-get install -y docker-ce docker-ce-cli docker-ce-rootless-extras uidmap
             sudo systemctl stop docker.service docker.socket
             dockerd-rootless-setuptool.sh install
             echo "DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock" >> "$GITHUB_ENV"

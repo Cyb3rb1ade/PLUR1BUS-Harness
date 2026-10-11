@@ -33,12 +33,20 @@ export async function manifestDigests(runtime,tags,registryImage='registry:2') {
    const manifest=await fetch(`http://${address}/v2/p1t-stub-digest/manifests/i${index}`,{headers:{Accept:MANIFEST_ACCEPT}});
    if(!manifest.ok)throw new Error('Registry manifest unavailable');
    digests.push(manifestDigest(manifest.headers.get('docker-content-digest')));
+   // Podman re-encodes on push, so the registry's manifest digest differs from the one it recorded for the local
+   // image. Pulling that exact digest back makes the engine hold what the registry serves, and record it as a
+   // RepoDigest of the pinned reference (a pull by digest verifies the content, so nothing is trusted blindly).
+   let inspected=alias;
+   if(runtime==='podman'){
+    inspected=`${address}/p1t-stub-digest@${digests.at(-1)}`;
+    cli(['pull','--tls-verify=false',inspected],120000);aliases.push(inspected);
+   }
    // Diagnostics: what the engine reports for the pushed alias, to explain any later image_present failure.
-   const repoDigests=cli(['image','inspect','--format','{{json .RepoDigests}}',alias]);
-   console.log(`[digest] ${tag} -> ${alias} manifest=${digests.at(-1)} id=${cli(['image','inspect','--format','{{.Id}}',alias])} repoDigests=${repoDigests}`);
+   const repoDigests=cli(['image','inspect','--format','{{json .RepoDigests}}',inspected]);
+   console.log(`[digest] ${tag} -> ${alias} manifest=${digests.at(-1)} id=${cli(['image','inspect','--format','{{.Id}}',inspected])} repoDigests=${repoDigests}`);
    // The runtime only trusts RepoDigests: fail here, with the evidence above, if the engine did not record the
    // registry's manifest digest for the pushed alias (e.g. a podman push that re-encoded the manifest).
-   if(!repoDigests.includes(digests.at(-1)))throw new Error(`Engine did not record ${digests.at(-1)} as a RepoDigest of ${alias}: ${repoDigests}`);
+   if(!repoDigests.includes(`@${digests.at(-1)}`))throw new Error(`Engine did not record ${digests.at(-1)} as a RepoDigest of ${inspected}: ${repoDigests}`);
   }
   return {digests,cleanup};
  } catch(error) {
