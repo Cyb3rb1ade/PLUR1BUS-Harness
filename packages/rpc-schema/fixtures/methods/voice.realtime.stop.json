@@ -1,0 +1,9 @@
+{
+  "params": {
+    "sessionId": "voice-main"
+  },
+  "result": {
+    "sessionId": "voice-main",
+    "state": "stopped"
+  }
+}

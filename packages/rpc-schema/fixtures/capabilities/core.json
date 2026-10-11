@@ -1,5 +1,61 @@
 {
   "methods": {
+    "voice.status": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "voice.agent.override.get": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "voice.agent.override.set": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "voice.agent.override.clear": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "voice.realtime.start": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "voice.realtime.stop": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "voice.models.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "voice.models.install": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "voice.language.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "voice.language.get": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "voice.language.set": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "voice.realtime.profile.get": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "voice.realtime.profile.set": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "voice.metrics.get": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "project.column.list": {
       "stability": "experimental",
       "since": "1.6.0"
@@ -702,6 +758,18 @@
     }
   },
   "notifications": {
+    "voice.realtime.state": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "voice.realtime.transcript": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "voice.download.progress": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "inbox.changed": {
       "stability": "experimental",
       "since": "1.6.0"

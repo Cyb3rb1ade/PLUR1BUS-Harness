@@ -329,6 +329,18 @@ describe("project column management remains human controlled", () => {
     assert.equal(isForbiddenMethod("project.card.get"), false);
   });
 });
+
+describe('Voice V3 human-only writes', () => {
+  it('rejects every voice write even when explicitly included, without blocking the reads', () => {
+    const methods = Object.keys(caps.methods).filter(m => m.startsWith('voice.'));
+    const writes = methods.filter(m => /\.(set|clear|start|stop|install)$/.test(m));
+    assert.equal(writes.length, 7);
+    const tools = buildWebMcpTools({ capabilities: caps, schema: SCHEMA, call: fakeCall(), include: writes });
+    for (const m of writes) { assert.equal(isForbiddenMethod(m), true, m); assert.equal(byName(tools,m), undefined, m); }
+    for (const m of methods.filter(m => !writes.includes(m))) assert.equal(isForbiddenMethod(m), false, m);
+  });
+});
+
 describe("the personal inbox is never an agent tool", () => {
   it("blocks the entire inbox. prefix even on explicit inclusion", () => {
     const methods = ["inbox.list", "inbox.count", "inbox.markRead", "inbox.dismiss"];

@@ -107,6 +107,316 @@
             "type": "object",
             "additionalProperties": false,
             "properties": {
+              "voice": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "language": {
+                    "enum": [
+                      "de",
+                      "en"
+                    ],
+                    "description": "Voice V3 language.",
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  },
+                  "profile": {
+                    "enum": [
+                      "fast",
+                      "quality"
+                    ],
+                    "description": "Voice V3 profile.",
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "description": "Voice V3 enabled.",
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  },
+                  "endpointingMs": {
+                    "type": "integer",
+                    "minimum": 200,
+                    "maximum": 2000,
+                    "description": "Voice V3 endpointingMs.",
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  },
+                  "speculative": {
+                    "type": "boolean",
+                    "description": "Voice V3 speculative.",
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  },
+                  "ackSound": {
+                    "type": "boolean",
+                    "description": "Voice V3 ackSound.",
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  },
+                  "features": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "autoRecall": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "mode": {
+                            "enum": [
+                              "on",
+                              "deferred",
+                              "off",
+                              "reduced"
+                            ],
+                            "description": "Voice V3 mode.",
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          },
+                          "maxMs": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 60000,
+                            "description": "Voice V3 maxMs.",
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          }
+                        },
+                        "required": [
+                          "mode"
+                        ],
+                        "description": "Voice V3 autoRecall.",
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      },
+                      "promptEnrichment": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "mode": {
+                            "enum": [
+                              "on",
+                              "deferred",
+                              "off",
+                              "reduced"
+                            ],
+                            "description": "Voice V3 mode.",
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          },
+                          "maxMs": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 60000,
+                            "description": "Voice V3 maxMs.",
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          }
+                        },
+                        "required": [
+                          "mode"
+                        ],
+                        "description": "Voice V3 promptEnrichment.",
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      },
+                      "reranker": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "mode": {
+                            "enum": [
+                              "on",
+                              "deferred",
+                              "off",
+                              "reduced"
+                            ],
+                            "description": "Voice V3 mode.",
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          },
+                          "maxMs": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 60000,
+                            "description": "Voice V3 maxMs.",
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          }
+                        },
+                        "required": [
+                          "mode"
+                        ],
+                        "description": "Voice V3 reranker.",
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      },
+                      "decisionService": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "mode": {
+                            "enum": [
+                              "on",
+                              "deferred",
+                              "off",
+                              "reduced"
+                            ],
+                            "description": "Voice V3 mode.",
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          },
+                          "maxMs": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 60000,
+                            "description": "Voice V3 maxMs.",
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          }
+                        },
+                        "required": [
+                          "mode"
+                        ],
+                        "description": "Voice V3 decisionService.",
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      },
+                      "postTurnRefine": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "mode": {
+                            "enum": [
+                              "on",
+                              "deferred",
+                              "off",
+                              "reduced"
+                            ],
+                            "description": "Voice V3 mode.",
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          },
+                          "maxMs": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 60000,
+                            "description": "Voice V3 maxMs.",
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          }
+                        },
+                        "required": [
+                          "mode"
+                        ],
+                        "description": "Voice V3 postTurnRefine.",
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      },
+                      "memoryWrite": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "mode": {
+                            "enum": [
+                              "on",
+                              "deferred",
+                              "off",
+                              "reduced"
+                            ],
+                            "description": "Voice V3 mode.",
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          },
+                          "maxMs": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 60000,
+                            "description": "Voice V3 maxMs.",
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          }
+                        },
+                        "required": [
+                          "mode"
+                        ],
+                        "description": "Voice V3 memoryWrite.",
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      },
+                      "compaction": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "mode": {
+                            "enum": [
+                              "on",
+                              "deferred",
+                              "off",
+                              "reduced"
+                            ],
+                            "description": "Voice V3 mode.",
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          },
+                          "maxMs": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 60000,
+                            "description": "Voice V3 maxMs.",
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          }
+                        },
+                        "required": [
+                          "mode"
+                        ],
+                        "description": "Voice V3 compaction.",
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      },
+                      "toolSchemas": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "mode": {
+                            "enum": [
+                              "on",
+                              "deferred",
+                              "off",
+                              "reduced"
+                            ],
+                            "description": "Voice V3 mode.",
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          },
+                          "maxMs": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 60000,
+                            "description": "Voice V3 maxMs.",
+                            "x-restart": "live",
+                            "x-tier": "advanced"
+                          }
+                        },
+                        "required": [
+                          "mode"
+                        ],
+                        "description": "Voice V3 toolSchemas.",
+                        "x-restart": "live",
+                        "x-tier": "advanced"
+                      }
+                    },
+                    "required": [],
+                    "description": "Voice V3 features.",
+                    "x-restart": "live",
+                    "x-tier": "advanced"
+                  }
+                },
+                "required": [],
+                "description": "Sparse per-agent voice override; unset keys inherit voice.v3, like memory.embedding overrides."
+              },
               "createdAt": {
                 "description": "Timestamp when the agent was created, in date-time format.",
                 "type": "string",
@@ -2651,6 +2961,475 @@
           "additionalProperties": false,
           "default": {},
           "properties": {
+            "v3": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "language": {
+                  "enum": [
+                    "de",
+                    "en"
+                  ],
+                  "default": "de",
+                  "description": "Voice V3 language.",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "profile": {
+                  "enum": [
+                    "fast",
+                    "quality"
+                  ],
+                  "default": "fast",
+                  "description": "Voice V3 profile.",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "profiles": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "de": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "fast": {
+                          "type": "string",
+                          "enum": [
+                            "piper-de-thorsten-low",
+                            "kokoro-multi"
+                          ],
+                          "default": "piper-de-thorsten-low",
+                          "description": "Voice V3 fast.",
+                          "x-restart": "live",
+                          "x-tier": "advanced"
+                        },
+                        "quality": {
+                          "type": "string",
+                          "enum": [
+                            "piper-de-thorsten-low",
+                            "kokoro-multi"
+                          ],
+                          "default": "kokoro-multi",
+                          "description": "Voice V3 quality.",
+                          "x-restart": "live",
+                          "x-tier": "advanced"
+                        }
+                      },
+                      "default": {},
+                      "description": "Voice V3 de.",
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "en": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "fast": {
+                          "type": "string",
+                          "enum": [
+                            "piper-de-thorsten-low",
+                            "kokoro-multi"
+                          ],
+                          "default": "kokoro-multi",
+                          "description": "Voice V3 fast.",
+                          "x-restart": "live",
+                          "x-tier": "advanced"
+                        },
+                        "quality": {
+                          "type": "string",
+                          "enum": [
+                            "piper-de-thorsten-low",
+                            "kokoro-multi"
+                          ],
+                          "default": "kokoro-multi",
+                          "description": "Voice V3 quality.",
+                          "x-restart": "live",
+                          "x-tier": "advanced"
+                        }
+                      },
+                      "default": {},
+                      "description": "Voice V3 en.",
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    }
+                  },
+                  "default": {},
+                  "description": "Voice V3 profiles.",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "budgetMs": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16000,
+                  "default": 1000,
+                  "description": "Voice V3 budgetMs.",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "realtime": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean",
+                      "default": false,
+                      "description": "Voice V3 enabled.",
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "endpointingMs": {
+                      "type": "integer",
+                      "minimum": 200,
+                      "maximum": 2000,
+                      "default": 500,
+                      "description": "Voice V3 endpointingMs.",
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "speculative": {
+                      "type": "boolean",
+                      "default": false,
+                      "description": "Voice V3 speculative.",
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "ackSound": {
+                      "type": "boolean",
+                      "default": false,
+                      "description": "Voice V3 ackSound.",
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "features": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "autoRecall": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "mode": {
+                              "enum": [
+                                "on",
+                                "deferred",
+                                "off",
+                                "reduced"
+                              ],
+                              "description": "Voice V3 mode.",
+                              "x-restart": "live",
+                              "x-tier": "advanced"
+                            },
+                            "maxMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 60000,
+                              "description": "Voice V3 maxMs.",
+                              "x-restart": "live",
+                              "x-tier": "advanced"
+                            }
+                          },
+                          "required": [
+                            "mode"
+                          ],
+                          "default": {
+                            "mode": "off",
+                            "maxMs": 0
+                          },
+                          "description": "Voice V3 autoRecall.",
+                          "x-restart": "live",
+                          "x-tier": "advanced"
+                        },
+                        "promptEnrichment": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "mode": {
+                              "enum": [
+                                "on",
+                                "deferred",
+                                "off",
+                                "reduced"
+                              ],
+                              "description": "Voice V3 mode.",
+                              "x-restart": "live",
+                              "x-tier": "advanced"
+                            },
+                            "maxMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 60000,
+                              "description": "Voice V3 maxMs.",
+                              "x-restart": "live",
+                              "x-tier": "advanced"
+                            }
+                          },
+                          "required": [
+                            "mode"
+                          ],
+                          "default": {
+                            "mode": "off",
+                            "maxMs": 0
+                          },
+                          "description": "Voice V3 promptEnrichment.",
+                          "x-restart": "live",
+                          "x-tier": "advanced"
+                        },
+                        "reranker": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "mode": {
+                              "enum": [
+                                "on",
+                                "deferred",
+                                "off",
+                                "reduced"
+                              ],
+                              "description": "Voice V3 mode.",
+                              "x-restart": "live",
+                              "x-tier": "advanced"
+                            },
+                            "maxMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 60000,
+                              "description": "Voice V3 maxMs.",
+                              "x-restart": "live",
+                              "x-tier": "advanced"
+                            }
+                          },
+                          "required": [
+                            "mode"
+                          ],
+                          "default": {
+                            "mode": "off",
+                            "maxMs": 0
+                          },
+                          "description": "Voice V3 reranker.",
+                          "x-restart": "live",
+                          "x-tier": "advanced"
+                        },
+                        "decisionService": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "mode": {
+                              "enum": [
+                                "on",
+                                "deferred",
+                                "off",
+                                "reduced"
+                              ],
+                              "description": "Voice V3 mode.",
+                              "x-restart": "live",
+                              "x-tier": "advanced"
+                            },
+                            "maxMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 60000,
+                              "description": "Voice V3 maxMs.",
+                              "x-restart": "live",
+                              "x-tier": "advanced"
+                            }
+                          },
+                          "required": [
+                            "mode"
+                          ],
+                          "default": {
+                            "mode": "off",
+                            "maxMs": 0
+                          },
+                          "description": "Voice V3 decisionService.",
+                          "x-restart": "live",
+                          "x-tier": "advanced"
+                        },
+                        "postTurnRefine": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "mode": {
+                              "enum": [
+                                "on",
+                                "deferred",
+                                "off",
+                                "reduced"
+                              ],
+                              "description": "Voice V3 mode.",
+                              "x-restart": "live",
+                              "x-tier": "advanced"
+                            },
+                            "maxMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 60000,
+                              "description": "Voice V3 maxMs.",
+                              "x-restart": "live",
+                              "x-tier": "advanced"
+                            }
+                          },
+                          "required": [
+                            "mode"
+                          ],
+                          "default": {
+                            "mode": "off",
+                            "maxMs": 0
+                          },
+                          "description": "Voice V3 postTurnRefine.",
+                          "x-restart": "live",
+                          "x-tier": "advanced"
+                        },
+                        "memoryWrite": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "mode": {
+                              "enum": [
+                                "on",
+                                "deferred",
+                                "off",
+                                "reduced"
+                              ],
+                              "description": "Voice V3 mode.",
+                              "x-restart": "live",
+                              "x-tier": "advanced"
+                            },
+                            "maxMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 60000,
+                              "description": "Voice V3 maxMs.",
+                              "x-restart": "live",
+                              "x-tier": "advanced"
+                            }
+                          },
+                          "required": [
+                            "mode"
+                          ],
+                          "default": {
+                            "mode": "off",
+                            "maxMs": 0
+                          },
+                          "description": "Voice V3 memoryWrite.",
+                          "x-restart": "live",
+                          "x-tier": "advanced"
+                        },
+                        "compaction": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "mode": {
+                              "enum": [
+                                "on",
+                                "deferred",
+                                "off",
+                                "reduced"
+                              ],
+                              "description": "Voice V3 mode.",
+                              "x-restart": "live",
+                              "x-tier": "advanced"
+                            },
+                            "maxMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 60000,
+                              "description": "Voice V3 maxMs.",
+                              "x-restart": "live",
+                              "x-tier": "advanced"
+                            }
+                          },
+                          "required": [
+                            "mode"
+                          ],
+                          "default": {
+                            "mode": "off",
+                            "maxMs": 0
+                          },
+                          "description": "Voice V3 compaction.",
+                          "x-restart": "live",
+                          "x-tier": "advanced"
+                        },
+                        "toolSchemas": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "mode": {
+                              "enum": [
+                                "on",
+                                "deferred",
+                                "off",
+                                "reduced"
+                              ],
+                              "description": "Voice V3 mode.",
+                              "x-restart": "live",
+                              "x-tier": "advanced"
+                            },
+                            "maxMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 60000,
+                              "description": "Voice V3 maxMs.",
+                              "x-restart": "live",
+                              "x-tier": "advanced"
+                            }
+                          },
+                          "required": [
+                            "mode"
+                          ],
+                          "default": {
+                            "mode": "off",
+                            "maxMs": 0
+                          },
+                          "description": "Voice V3 toolSchemas.",
+                          "x-restart": "live",
+                          "x-tier": "advanced"
+                        }
+                      },
+                      "default": {},
+                      "description": "Voice V3 features.",
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    }
+                  },
+                  "default": {},
+                  "description": "Voice V3 realtime.",
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                },
+                "selectedProfiles": {
+                  "description": "Selected Voice V3 profile per language.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "properties": {
+                    "de": {
+                      "enum": [
+                        "fast",
+                        "quality"
+                      ],
+                      "default": "fast",
+                      "description": "Selected profile for de.",
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    },
+                    "en": {
+                      "enum": [
+                        "fast",
+                        "quality"
+                      ],
+                      "default": "quality",
+                      "description": "Selected profile for en.",
+                      "x-restart": "live",
+                      "x-tier": "advanced"
+                    }
+                  }
+                }
+              },
+              "default": {},
+              "description": "Voice V3 settings: canonical UI language profiles, realtime features and installation latency budget."
+            },
             "providers": {
               "description": "Cloud voice providers. API keys are secret-store references (apiKeyRef), never values; Polly uses the AWS default credential chain.",
               "type": "object",

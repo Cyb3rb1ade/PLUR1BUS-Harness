@@ -346,3 +346,17 @@ Conventions:
 3. Dynamische Eventnamen sind nicht aufgelistet: Rust `.warn(&what)` in supervisor/adopt.rs:547 und `&hung` in supervisor/child.rs:1297,1305; core.ts:283 und :410; channels-telegram `#log(level, event)`.
 4. Typisiert, aber nicht emittiert: `prompt.block-clipped` und `prompt.block-dropped` (nur Tests). Katalogeinträge ohne Emitter: `grant.expired`, `policy.denied`, `device.paired`, `config.set`, `log.payload_capture.*`.
 5. Die Events in `budget/calls.ts` (`warn`, `refuse`, `reserve`, `settle`) haben keinen punktierten Namensraum; zu entscheiden, ob sie so bleiben.
+
+### Private audiences
+
+`RpcServer.notify(method, params, { audience })` restricts delivery independently of
+subscription names. Audience entries may be `{ connectionId }` or `{ personId }`.
+Person delivery requires the server's trusted `personOfConnection` resolver;
+missing identities and resolver failures deny delivery. Legacy string entries
+match connection IDs or subscriptions explicitly filtered to that agent ID.
+An empty audience delivers nothing. A set audience never includes an unassigned
+subscription merely because it has no agent filter. Agent filters continue to
+apply to connection/person delivery. Without an audience, existing subscription
+behavior is unchanged. Disconnected connections cannot receive queued identity
+lookups. Voice transcripts and `inbox.changed` can use the same private delivery
+mechanism; clients cannot supply or extend an event's audience.

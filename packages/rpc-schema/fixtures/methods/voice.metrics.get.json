@@ -1,0 +1,14 @@
+{
+  "params": {
+    "agentId": "main"
+  },
+  "result": {
+    "speechEndToFirstAudio": {
+      "medianMs": 120.5,
+      "p95Ms": 340.5,
+      "samples": 8
+    },
+    "featureCost": {},
+    "windowSec": 300
+  }
+}

@@ -295,6 +295,34 @@ fn method_fixture(name: &str, f: &Value) {
         "approval.decide" => pair::<ApprovalDecideParams, ApprovalDecideResult>(name, f),
         "approval.cancel" => pair::<ApprovalCancelParams, ApprovalRecord>(name, f),
         "approval.verify" => pair::<ApprovalVerifyParams, ApprovalVerifyResult>(name, f),
+        "voice.status" => pair::<VoiceStatusParams, VoiceStatusResult>(name, f),
+        "voice.agent.override.clear" => {
+            pair::<VoiceAgentOverrideClearParams, VoiceAgentOverrideClearResult>(name, f)
+        }
+        "voice.agent.override.get" => {
+            pair::<VoiceAgentOverrideGetParams, VoiceAgentOverrideGetResult>(name, f)
+        }
+        "voice.agent.override.set" => {
+            pair::<VoiceAgentOverrideSetParams, VoiceAgentOverrideSetResult>(name, f)
+        }
+        "voice.language.get" => pair::<VoiceLanguageGetParams, VoiceLanguageGetResult>(name, f),
+        "voice.language.list" => pair::<VoiceLanguageListParams, VoiceLanguageListResult>(name, f),
+        "voice.language.set" => pair::<VoiceLanguageSetParams, VoiceLanguageSetResult>(name, f),
+        "voice.metrics.get" => pair::<VoiceMetricsGetParams, VoiceMetricsGetResult>(name, f),
+        "voice.models.install" => {
+            pair::<VoiceModelsInstallParams, VoiceModelsInstallResult>(name, f)
+        }
+        "voice.models.list" => pair::<VoiceModelsListParams, VoiceModelsListResult>(name, f),
+        "voice.realtime.profile.get" => {
+            pair::<VoiceRealtimeProfileGetParams, VoiceRealtimeProfileGetResult>(name, f)
+        }
+        "voice.realtime.profile.set" => {
+            pair::<VoiceRealtimeProfileSetParams, VoiceRealtimeProfileSetResult>(name, f)
+        }
+        "voice.realtime.start" => {
+            pair::<VoiceRealtimeStartParams, VoiceRealtimeStartResult>(name, f)
+        }
+        "voice.realtime.stop" => pair::<VoiceRealtimeStopParams, VoiceRealtimeStopResult>(name, f),
         other => panic!("fixtures/methods/{other}.json has no Rust type mapping in this test"),
     }
 }
@@ -326,6 +354,10 @@ fn all_error_codes() -> BTreeSet<ErrorCode> {
         ErrorCode::EMediaUnavailable,
         ErrorCode::EMediaDimension,
         ErrorCode::EMediaUnsupportedKind,
+        ErrorCode::EVoiceBudget,
+        ErrorCode::EVoiceLicense,
+        ErrorCode::EVoiceUnavailable,
+        ErrorCode::EVoiceLicence,
     ];
     for c in all {
         match c {
@@ -352,7 +384,11 @@ fn all_error_codes() -> BTreeSet<ErrorCode> {
             | ErrorCode::EMediaPrivacy
             | ErrorCode::EMediaUnavailable
             | ErrorCode::EMediaDimension
-            | ErrorCode::EMediaUnsupportedKind => {}
+            | ErrorCode::EMediaUnsupportedKind
+            | ErrorCode::EVoiceBudget
+            | ErrorCode::EVoiceLicense
+            | ErrorCode::EVoiceUnavailable
+            | ErrorCode::EVoiceLicence => {}
         }
     }
     all.into_iter().collect()
@@ -471,6 +507,13 @@ fn every_notification_fixture_round_trips() {
             "approval.requested" => round_trip::<types::ApprovalRequestedNotification>(v, name),
             "approval.resolved" => round_trip::<types::ApprovalResolvedNotification>(v, name),
             "grant.changed" => round_trip::<types::GrantChangedNotification>(v, name),
+            "voice.download.progress" => {
+                round_trip::<types::VoiceDownloadProgressNotification>(v, name)
+            }
+            "voice.realtime.state" => round_trip::<types::VoiceRealtimeStateNotification>(v, name),
+            "voice.realtime.transcript" => {
+                round_trip::<types::VoiceRealtimeTranscriptNotification>(v, name)
+            }
             other => panic!("fixtures/notifications/{other}.json has no Rust type mapping"),
         }
     }

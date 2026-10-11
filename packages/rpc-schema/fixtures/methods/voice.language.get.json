@@ -1,0 +1,9 @@
+{
+  "params": {
+    "agentId": "main"
+  },
+  "result": {
+    "language": "de",
+    "profile": "fast"
+  }
+}

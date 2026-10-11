@@ -165,6 +165,11 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: ModelCmd,
     },
+    /// [experimental] Voice: language profiles, realtime features, agent overrides and licensed models
+    Voice {
+        #[command(subcommand)]
+        sub: VoiceCmd,
+    },
     /// [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
     Budget {
         #[command(subcommand)]
@@ -2108,4 +2113,92 @@ pub enum DeviceCmd {
     Revoke { id: String },
     /// [experimental] Rename a device you own
     Rename { id: String, name: String },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum VoiceCmd {
+    /// [experimental] Read voice availability and session count
+    Status,
+    /// [experimental] Read or select a language and fast/quality profile
+    Profile {
+        #[command(subcommand)]
+        sub: VoiceProfileCmd,
+    },
+    /// [experimental] Read or set the realtime profile and its eight feature budgets
+    Features {
+        #[command(subcommand)]
+        sub: VoiceFeaturesCmd,
+    },
+    /// [experimental] Read, replace or clear a sparse per-agent voice override
+    Override {
+        #[command(subcommand)]
+        sub: VoiceOverrideCmd,
+    },
+    /// [experimental] List models or install one after licence confirmation
+    Models {
+        #[command(subcommand)]
+        sub: VoiceModelsCmd,
+    },
+}
+#[derive(Debug, Subcommand)]
+pub enum VoiceProfileCmd {
+    /// [experimental] List languages and profile models
+    List,
+    /// [experimental] Read the selected language/profile
+    Get {
+        #[arg(long)]
+        agent: Option<String>,
+    },
+    /// [experimental] Select a language/profile, installing the verified model packages
+    Set {
+        #[arg(long, value_parser = ["de", "en"])]
+        language: String,
+        #[arg(long, value_parser = ["fast", "quality"])]
+        profile: String,
+        #[arg(long)]
+        agent: Option<String>,
+        /// [experimental] Confirm exactly MODEL_ID@LICENCE_ID; repeatable
+        #[arg(long)]
+        accept_licence: Vec<String>,
+    },
+}
+#[derive(Debug, Subcommand)]
+pub enum VoiceFeaturesCmd {
+    /// [experimental] Read the effective realtime profile
+    Get {
+        #[arg(long)]
+        agent: Option<String>,
+    },
+    /// [experimental] Set the realtime profile (JSON object: enabled, endpointingMs, speculative, ackSound, features)
+    Set {
+        #[arg(long)]
+        value: String,
+        #[arg(long)]
+        agent: Option<String>,
+    },
+}
+#[derive(Debug, Subcommand)]
+pub enum VoiceOverrideCmd {
+    /// [experimental] Read the agent override and effective profile
+    Get { agent: String },
+    /// [experimental] Replace the sparse agent override with a JSON object; absent keys inherit
+    Set {
+        agent: String,
+        #[arg(long)]
+        value: String,
+    },
+    /// [experimental] Clear the agent override
+    Clear { agent: String },
+}
+#[derive(Debug, Subcommand)]
+pub enum VoiceModelsCmd {
+    /// [experimental] List model licences and installation state
+    List,
+    /// [experimental] Install a verified model package
+    Install {
+        model: String,
+        /// [experimental] Explicitly accept this model's current licence (required for research-only/unconfirmed licences)
+        #[arg(long)]
+        license_accepted: bool,
+    },
 }

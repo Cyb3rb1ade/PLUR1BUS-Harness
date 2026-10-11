@@ -1,0 +1,53 @@
+{
+  "params": {
+    "agentId": "main"
+  },
+  "result": {
+    "enabled": false,
+    "endpointingMs": 500,
+    "speculative": false,
+    "ackSound": false,
+    "features": {
+      "autoRecall": {
+        "mode": "off",
+        "maxMs": 0,
+        "effective": "applied"
+      },
+      "promptEnrichment": {
+        "mode": "off",
+        "maxMs": 0,
+        "effective": "applied"
+      },
+      "reranker": {
+        "mode": "off",
+        "maxMs": 0,
+        "effective": "engine-fixed"
+      },
+      "decisionService": {
+        "mode": "off",
+        "maxMs": 0,
+        "effective": "applied"
+      },
+      "postTurnRefine": {
+        "mode": "off",
+        "maxMs": 0,
+        "effective": "engine-fixed"
+      },
+      "memoryWrite": {
+        "mode": "off",
+        "maxMs": 0,
+        "effective": "applied"
+      },
+      "compaction": {
+        "mode": "off",
+        "maxMs": 0,
+        "effective": "applied"
+      },
+      "toolSchemas": {
+        "mode": "off",
+        "maxMs": 0,
+        "effective": "applied"
+      }
+    }
+  }
+}

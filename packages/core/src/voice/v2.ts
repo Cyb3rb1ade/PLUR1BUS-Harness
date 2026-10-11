@@ -11,10 +11,11 @@ import type { VoiceBudgetPort } from './ports.ts';
 export interface VoiceClient {
   /** Already authenticated by the trusted host adapter, never read from media frames. */
   sessionId: string; principal: string; caller: CallerIdentity; approver: TurnApprover;
+  transcript?: (text: string, final: boolean) => void;
   receive(chunk: AudioChunk): Promise<void>; event(event: TalkEvent): void; stopPlayback(): void;
 }
 export interface OpenVoice {
-  sessionId: string; privacyPin?: boolean; preferences?: VoicePreferences; sampleRate?: number;
+  sessionId: string; signal?: AbortSignal; privacyPin?: boolean; preferences?: VoicePreferences; sampleRate?: number;
 }
 export interface VoiceChannel extends TalkSession {
   readonly route: VoiceRoute;
@@ -28,7 +29,7 @@ export interface VoiceV2Deps {
   /** Core policy admission. Must be evaluated before provider I/O (including secret lookup). */
   allowed(provider: CloudProviderId, operation: VoiceOperation, client: VoiceClient, agent: string): Promise<boolean>;
   registry(config: VoiceProvidersConfig | undefined, usage: (r: UsageReport) => void): VoiceRegistry;
-  local?: (config: LocalVoiceConfig | undefined) => LocalVoice;
+  local?: (config: LocalVoiceConfig | undefined, usage: (report: UsageReport) => void) => LocalVoice;
   budget: VoiceBudgetPort;
   /** Price lookup is optional: unpriced vendor usage is not reported as a zero cost. */
   localModelAllowed?: (provider: string, model: string) => boolean;
@@ -41,7 +42,7 @@ export function createVoiceV2(d: VoiceV2Deps) {
     if (stopped || d.signal.aborted) throw new Error('voice-closed');
     const service = d.sessions(); const session = service.store.getSession(request.sessionId);
     if (client.sessionId !== request.sessionId || !session || session.owner !== client.principal || session.archivedAt !== null) throw new Error('voice-denied');
-    const config = d.config(); const lifetime = new AbortController(); const signal = AbortSignal.any([d.signal, lifetime.signal]);
+    const config = d.config(); const lifetime = new AbortController(); const signal = AbortSignal.any([d.signal, lifetime.signal, ...(request.signal ? [request.signal] : [])]);
     const reservation = randomUUID();
     if (!await d.budget.reserve({ agent: session.agentId, user: client.principal, reservation })) throw new Error('voice-budget-exceeded');
     const reports = new Set<Promise<unknown>>();
@@ -62,13 +63,13 @@ export function createVoiceV2(d: VoiceV2Deps) {
     };
     const openCascade = async (chosen: Exclude<VoiceRoute, { kind: 'realtime' }>) => {
       if (chosen.kind === 'local') {
-        local ??= d.local?.(config.local) ?? new LocalVoice({ config: config.local ?? {}, modelsDir: d.modelsDir, usage });
+        local ??= d.local?.(config.local, usage) ?? new LocalVoice({ config: config.local ?? {}, modelsDir: d.modelsDir, usage });
         const selection = local.resolveFor(session.agentId); await local.setLanguage(selection.language, { profile: selection.profile, signal });
       }
       const vad = local?.leaseVad();
       try { current = await createTalkSession({ asr: chosen.kind === 'local' ? local!.asr : registry.asr[chosen.asr]!, tts: chosen.kind === 'local' ? local!.tts : registry.tts[chosen.tts]!, agent,
         ...pin, profile: chosen.kind === 'local' ? cfgProfile : baseProfile, metrics, signal, sampleRate: request.sampleRate ?? 16000,
-        ...(local?.current()?.language ? { language: local.current()!.language } : {}), ...(vad ? { vad } : {}), receive: chunk => client.receive(chunk), stopPlayback: () => client.stopPlayback(), event: e => { if (e.type !== 'voice.closed' || !changing) client.event(e); } }); }
+        ...(local?.current()?.language ? { language: local.current()!.language } : {}), ...(vad ? { vad } : {}), ...(client.transcript ? { transcript: client.transcript } : {}), receive: chunk => client.receive(chunk), stopPlayback: () => client.stopPlayback(), event: e => { if (e.type !== 'voice.closed' || !changing) client.event(e); } }); }
       catch (e) { vad?.release(); throw e; }
     };
     // Registry construction is lazy; privacy-pinned sessions do not even construct cloud adapters.
@@ -99,7 +100,7 @@ export function createVoiceV2(d: VoiceV2Deps) {
         reader = (async () => { for await (const event of realtime!.events) {
           if (closed || signal.aborted) break;
           if (event.type === 'audio') { metrics.firstAudio(realtimeTurnId); await client.receive(event.chunk); }
-          else if (event.type === 'transcript' && event.role === 'user' && event.final) { if (!realtimeSpeechEnd) { realtimeTurnId = randomUUID(); metrics.speechEnd(realtimeTurnId); realtimeSpeechEnd = true; } }
+          else if (event.type === 'transcript' && event.role === 'user') { client.transcript?.(event.text, event.final); if (event.final) { if (!realtimeSpeechEnd) { realtimeTurnId = randomUUID(); metrics.speechEnd(realtimeTurnId); realtimeSpeechEnd = true; } } }
           else if (event.type === 'interrupted') { service.runner.cancel(session.id); client.stopPlayback(); client.event({ type: 'barge_in' }); }
           else if (event.type === 'usage') usage(event.report);
           else if (event.type === 'tool.call') {
@@ -117,7 +118,7 @@ export function createVoiceV2(d: VoiceV2Deps) {
         async setLanguage(language, profile) {
           if (closed || changing || route.kind !== 'local' || !local) throw new Error('voice-language-unavailable'); changing = true;
           try { await current!.idle(); await local.setLanguage(language, { signal, ...(profile ? { profile } : {}) }); signal.throwIfAborted(); await current!.close(); signal.throwIfAborted();
-            const vad = local.leaseVad(); try { current = await createTalkSession({ asr: local.asr, tts: local.tts, agent, ...pin, profile: cfgProfile, metrics, signal, language, sampleRate: request.sampleRate ?? 16000, vad, receive: chunk => client.receive(chunk), stopPlayback: () => client.stopPlayback(), event: e => { if (e.type !== 'voice.closed' || !changing) client.event(e); } }); } catch (e) { vad.release(); throw e; }
+            const vad = local.leaseVad(); try { current = await createTalkSession({ asr: local.asr, tts: local.tts, agent, ...pin, profile: cfgProfile, metrics, signal, language, sampleRate: request.sampleRate ?? 16000, vad, ...(client.transcript ? { transcript: client.transcript } : {}), receive: chunk => client.receive(chunk), stopPlayback: () => client.stopPlayback(), event: e => { if (e.type !== 'voice.closed' || !changing) client.event(e); } }); } catch (e) { vad.release(); throw e; }
             client.event({ type: 'voice.language_changed' });
           } finally { changing = false; }
         } };

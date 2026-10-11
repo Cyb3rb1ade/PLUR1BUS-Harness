@@ -27,7 +27,7 @@ export interface HarnessConfig {
   supervisor: { graceMs: number; healthIntervalMs: number };
   logs: { maxBytes: number; keep: number };
   metrics: { enabled: boolean; port: number };
-  agents: Record<string, { createdAt?: string; displayName?: string; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> } }>;
+  agents: Record<string, { createdAt?: string; displayName?: string; voice?: VoiceV3Override; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> } }>;
   memory: { mediaEmbedding: MediaEmbeddingConfig };
   embedding: { useClass: "general" | "research" | "commercial"; acceptedNcLicence: boolean; acceptedNcLicenceAt?: string };
   engine: Record<string, unknown> & { baseDbPathOverride?: string };
@@ -72,7 +72,23 @@ export interface HarnessConfig {
 
 export type VoiceFeatureMode = "on" | "deferred" | "off";
 export interface VoiceFeatureConfig { mode?: VoiceFeatureMode; maxMs?: number }
+export type VoiceV3FeatureName = "autoRecall" | "promptEnrichment" | "reranker" | "decisionService" | "postTurnRefine" | "memoryWrite" | "compaction" | "toolSchemas";
+export interface VoiceV3FeatureSetting { mode: "on" | "deferred" | "off" | "reduced"; maxMs?: number }
+export interface VoiceV3Realtime { enabled: boolean; endpointingMs: number; speculative: boolean; ackSound: boolean; features: Record<VoiceV3FeatureName, VoiceV3FeatureSetting> }
+export interface VoiceV3Override extends Partial<Omit<VoiceV3Realtime, "features">> { language?: "de" | "en"; profile?: "fast" | "quality"; features?: Partial<Record<VoiceV3FeatureName, VoiceV3FeatureSetting>> }
+export const VOICE_V3_FEATURES = ["autoRecall", "promptEnrichment", "reranker", "decisionService", "postTurnRefine", "memoryWrite", "compaction", "toolSchemas"] as const;
+/** Matches the V2 feature runner's 50 ms fallback. Disabled switches consume no budget. */
+export function voiceBudgetFailure(features: Record<VoiceV3FeatureName, VoiceV3FeatureSetting>, budgetMs: number): { feature: VoiceV3FeatureName; totalMs: number } | null {
+  let totalMs = 0;
+  for (const feature of VOICE_V3_FEATURES) {
+    const setting = features[feature];
+    if (setting.mode !== "off") totalMs += setting.maxMs ?? 50;
+    if (totalMs > budgetMs) return { feature, totalMs };
+  }
+  return null;
+}
 export interface VoiceConfig {
+  v3: { language: "de" | "en"; profile: "fast" | "quality"; selectedProfiles: Record<"de" | "en", "fast" | "quality">; profiles: Record<"de" | "en", Record<"fast" | "quality", string>>; budgetMs: number; realtime: VoiceV3Realtime };
   providers: {
     elevenlabs: { enabled: boolean; apiKeyRef?: string; region: "default" | "us" | "eu" | "in"; baseUrl?: string; defaultVoice?: string; defaultModel?: string; defaultSttModel?: string; zeroRetention: boolean };
     xai: { enabled: boolean; apiKeyRef?: string; baseUrl?: string; defaultVoice?: string; defaultModel?: string };
@@ -156,7 +172,15 @@ export function validate(value: unknown): { ok: true; config: HarnessConfig } | 
   if (validateFn(copy)) {
     const c = (copy as HarnessConfig).session.compaction;
     if (c.softRatio >= c.hardRatio) return { ok: false, errors: ["/session/compaction softRatio must be below hardRatio"] };
-    return { ok: true, config: copy as HarnessConfig };
+    const cfg = copy as HarnessConfig;
+    const base = cfg.voice.v3.realtime.features;
+    const layers = [["/voice/v3/realtime", base], ...Object.entries(cfg.agents).map(([id, agent]) => [`/agents/${id}/voice`, Object.fromEntries(VOICE_V3_FEATURES.map(name => [name, { ...base[name], ...agent.voice?.features?.[name] }]))])] as [string, Record<VoiceV3FeatureName, VoiceV3FeatureSetting>][];
+    for (const [path, features] of layers) {
+      const failure = voiceBudgetFailure(features, cfg.voice.v3.budgetMs);
+      if (failure) return { ok: false, errors: [`${path}/features/${failure.feature} exceeds voice.v3.budgetMs (${failure.totalMs} ms)`] };
+      for (const name of VOICE_V3_FEATURES) if (name !== "toolSchemas" && features[name].mode === "reduced") return { ok: false, errors: [`${path}/features/${name} reduced is only supported for toolSchemas`] };
+    }
+    return { ok: true, config: cfg };
   }
   return { ok: false, errors: (validateFn.errors ?? []).map((e) => `${e.instancePath || "/"} ${e.message ?? ""}${e.params && "additionalProperty" in e.params ? ` (${(e.params as any).additionalProperty})` : ""}`.trim()) };
 }
