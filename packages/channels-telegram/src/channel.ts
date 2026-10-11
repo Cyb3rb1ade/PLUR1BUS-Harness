@@ -1,4 +1,4 @@
-import { outputAttachment, type OutputPort } from "./outputs.ts";
+import { outputAttachment, VideoOutputTooLarge, type OutputPort } from "./outputs.ts";
 import type { IdentityService } from "../../core/src/identity/service.ts";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Channel, ChannelHost, OutboundMessage } from "../../core/src/channels/types.ts";
@@ -231,8 +231,13 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
   async sendOutput(chatId: string, outputId: string, index = 0): Promise<readonly string[]> {
     this.#target(chatId);
     if (!this.#o.outputs) throw new Error("media output store unavailable");
-    const attachment = await outputAttachment(this.#o.outputs, outputId, chatId, index);
-    return this.sendTurn({ chatId, text: "", attachments: [attachment] });
+    try {
+      const attachment = await outputAttachment(this.#o.outputs, outputId, chatId, index);
+      return this.sendTurn({ chatId, text: "", attachments: [attachment] });
+    } catch (error) {
+      if (error instanceof VideoOutputTooLarge) return this.sendTurn({chatId,text:`Video exceeds the Telegram size limit. Retrieve output ${outputId} with plur1bus media output.`});
+      throw error;
+    }
   }
   /** Resolves the owner's direct message chat ID. In Telegram, a DM chat ID is equal to the numeric user ID. */
   async resolveOwnerTarget(who: { userId: string; accountId?: string }): Promise<string> {

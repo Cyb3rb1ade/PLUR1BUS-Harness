@@ -153,3 +153,45 @@ never resent blindly. A 429 is safe to resend because the provider rejected the 
 - Replicate and OpenRouter defaults come from the MG-1 documentation and were not re-verified against the vendors' pages.
 - Cost: only OpenRouter reports an actual cost. A configurable per-adapter estimate is not part of this work.
 - Live behaviour of all cloud adapters, Draw Things and real Core ML generation is unverified here.
+
+## Video capabilities (v0.2)
+
+Protocols checked against primary documentation on **2026-10-10**. Model ids are
+configuration/discovery values; the table describes protocol support, with actual
+model limits declared in the video profile. No paid live test was run.
+
+| Adapter | Text to video | Image to video | Video edit/extension | Remote cancel | Submission / status / output |
+|---|---|---|---|---|---|
+| OpenRouter | yes | first-frame reference | no | local abort | POST videos; GET videos/{id}; authenticated GET videos/{id}/content |
+| Replicate | schema-dependent | schema-dependent | schema-dependent | POST predictions/{id}/cancel | model/version predictions; GET predictions/{id}; output URL |
+| fal | schema-dependent | schema-dependent | schema-dependent | PUT {owner/model}/requests/{id}/cancel | POST configured endpoint; GET owner/model/requests/{id}/status and result |
+| xAI | yes | image data URI | edits with video data URI | local abort | POST videos/generations or videos/edits; GET videos/{request_id}; video.url |
+| OpenAI | false | false | false | unavailable | Sora API retired 2026-09-24 according to current SDK; no video submission |
+| Google | yes | inline image bytes | Veo extension of eligible generated video | local abort | models/{configured}:predictLongRunning; operation name GET; generatedSamples video.uri |
+| Together / Draw Things / Core ML | false | false | false | unavailable | image implementations only |
+
+The same resilient transport handles 429/Retry-After, safe read retries and stable
+sanitized errors. Credentials are never forwarded to gateway output URLs. Google
+and OpenRouter content requires authentication and is restricted to the provider
+origin; redirects remain refused. A provider whose download requires a redirect
+cannot bypass the host's existing egress boundary. Polling checkpoints retain only
+external ID/model; signed URLs and credentials do not enter job responses.
+
+Gateway video schema has no image-model fallback. Fields such as duration,
+resolution, FPS, audio and video/image input are mapped to declared model input
+names, and declared enums/ranges are enforced before submission. fal requires an
+explicit published inputSchema, using the same schema mapping as Replicate; status
+paths use the queue owner/model root rather than a model endpoint subpath.
+Google extension eligibility remains a provider constraint. No approval gate is
+added for generation/editing of videos or photos of real people; provider refusals
+remain content_policy and are never retried through another adapter.
+
+Primary sources:
+[OpenRouter video](https://openrouter.ai/docs/guides/overview/multimodal/video-generation),
+[Replicate HTTP](https://replicate.com/docs/reference/http),
+[fal queue](https://fal.ai/docs/documentation/model-apis/inference/queue),
+[xAI video](https://docs.x.ai/developers/rest-api-reference/inference/videos),
+[Google Veo](https://ai.google.dev/gemini-api/docs/veo),
+[OpenAI SDK retirement notice](https://github.com/openai/openai-node/blob/master/src/resources/videos.ts),
+[Google prices](https://ai.google.dev/gemini-api/docs/pricing),
+[xAI prices](https://docs.x.ai/developers/pricing).

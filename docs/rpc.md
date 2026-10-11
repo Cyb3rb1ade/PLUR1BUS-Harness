@@ -1262,7 +1262,7 @@ Persistent metadata embedding preference. Call overrides agent overrides global;
 
 **Served by:** core
 
-Queue image generate after RBAC, D109 and budget admission. Returns a durable job id.
+Queue image/video generate after RBAC, D109 and budget admission. Returns a durable job id.
 
 **params**
 
@@ -1355,10 +1355,51 @@ Queue image generate after RBAC, D109 and budget admission. Returns a durable jo
         "maskId": {
           "type": "string",
           "pattern": "^[a-f0-9-]{36}$"
+        },
+        "kind": {
+          "enum": [
+            "image",
+            "video"
+          ]
+        },
+        "durationSeconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 600
+        },
+        "resolution": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "fps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 120
+        },
+        "audio": {
+          "type": "boolean"
+        },
+        "videoFormat": {
+          "enum": [
+            "mp4",
+            "webm",
+            "mov"
+          ]
+        },
+        "referenceVideoId": {
+          "type": "string",
+          "pattern": "^[a-f0-9-]{36}$"
         }
       },
       "required": [
         "prompt"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "image",
+        "video"
       ]
     }
   },
@@ -1393,7 +1434,7 @@ Queue image generate after RBAC, D109 and budget admission. Returns a durable jo
 
 **Served by:** core
 
-Queue image edit after RBAC, D109 and budget admission. Returns a durable job id.
+Queue image/video edit after RBAC, D109 and budget admission. Returns a durable job id.
 
 **params**
 
@@ -1486,10 +1527,51 @@ Queue image edit after RBAC, D109 and budget admission. Returns a durable job id
         "maskId": {
           "type": "string",
           "pattern": "^[a-f0-9-]{36}$"
+        },
+        "kind": {
+          "enum": [
+            "image",
+            "video"
+          ]
+        },
+        "durationSeconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 600
+        },
+        "resolution": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "fps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 120
+        },
+        "audio": {
+          "type": "boolean"
+        },
+        "videoFormat": {
+          "enum": [
+            "mp4",
+            "webm",
+            "mov"
+          ]
+        },
+        "referenceVideoId": {
+          "type": "string",
+          "pattern": "^[a-f0-9-]{36}$"
         }
       },
       "required": [
         "prompt"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "image",
+        "video"
       ]
     }
   },
@@ -1646,7 +1728,7 @@ List only jobs readable by this principal.
 
 **Served by:** core
 
-Get a private manifest and optionally one bounded base64 image for display or download.
+Get a private manifest and optionally a bounded base64 file or 4 MiB range; video fields include measured duration, dimensions, FPS, audio and poster.
 
 **params**
 
@@ -1662,6 +1744,15 @@ Get a private manifest and optionally one bounded base64 image for display or do
     "file": {
       "type": "integer",
       "minimum": 0
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "length": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4194304
     }
   },
   "required": [
@@ -1691,6 +1782,17 @@ Get a private manifest and optionally one bounded base64 image for display or do
     },
     "canShare": {
       "type": "boolean"
+    },
+    "nextOffset": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "totalBytes": {
+      "type": "integer",
+      "minimum": 0
     }
   },
   "required": [

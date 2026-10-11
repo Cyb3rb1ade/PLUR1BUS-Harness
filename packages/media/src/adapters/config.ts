@@ -3,7 +3,7 @@ import type { HttpAdapterConfig } from '../adapters.ts';
 import type { CoreMLConfig, ComputeUnits } from '../coreml.ts';
 import { privateHost } from '../http.ts';
 /** `media.adapters.*` as validated by config-schema. Secret *references* only; values come from `resolveSecret` (the core's secret store). */
-export interface MediaAdapterSettings { adapters?: Record<string, Record<string, unknown> | undefined> }
+export interface MediaAdapterSettings { adapters?: Record<string, Record<string, unknown> | undefined>; video?: { adapters?: Record<string, import('./video.ts').VideoProfile | undefined>; maxBytes?: number; embedMetadata?: boolean } }
 export type SkipReason = 'disabled' | 'no_key' | 'key_unresolved' | 'no_model' | 'no_binary' | 'lan_not_allowed';
 export interface Skipped { id: string; reason: SkipReason }
 /** Defaults checked against vendor documentation on 2026-10-08; the same ids are the schema defaults (a test keeps them equal). */
@@ -23,7 +23,8 @@ export async function adapterConfigsFromSettings(settings: MediaAdapterSettings 
     if (s.enabled === false) { skip(id, 'disabled'); continue; }
     const ref = str(s.apiKeyRef); if (!ref) { skip(id, 'no_key'); continue; }
     const key = (await resolveSecret(ref))?.trim(); if (!key) { skip(id, 'key_unresolved'); continue; }
-    configs.push({ id, model: str(s.model) ?? DEFAULT_MODELS[id], apiKey: key, ...common(s) } satisfies HttpAdapterConfig);
+    const video = settings?.video?.adapters?.[id];
+    configs.push({ id, model: str(s.model) ?? DEFAULT_MODELS[id], apiKey: key, ...common(s), ...(video ? {video} : {}) } satisfies HttpAdapterConfig);
   }
   const dt = all.drawthings;
   if (dt) {
@@ -51,4 +52,13 @@ export async function adapterConfigsFromSettings(settings: MediaAdapterSettings 
     }
   }
   return { configs, skipped };
+}
+
+/** Attach validated video profiles to existing host definitions without resolving or copying credentials. */
+export function applyVideoSettings<T extends AdapterConfig>(configs: readonly T[], settings: MediaAdapterSettings | undefined): T[] {
+  return configs.map(config => {
+    if (config.id === 'coreml-local' || config.id === 'draw-things' || config.id === 'together') return {...config};
+    const profile = settings?.video?.adapters?.[config.id];
+    return {...config,...(profile ? {video:profile} : {})};
+  });
 }
