@@ -37,7 +37,12 @@ pub fn map_error(e: Error) -> RuntimeError {
         Error::IOError { err } if err.kind() == std::io::ErrorKind::NotFound => {
             RuntimeError::NotFound
         }
-        _ => RuntimeError::Failed("engine-api".into()),
+        other => {
+            #[cfg(debug_assertions)]
+            eprintln!("engine-api error: {other}");
+            let _ = &other;
+            RuntimeError::Failed("engine-api".into())
+        }
     }
 }
 impl DockerRuntime {
@@ -183,8 +188,19 @@ fn http_body(raw: &[u8]) -> Result<Vec<u8>, RuntimeError> {
     }
 }
 async fn raw_get(endpoint: &Endpoint, path: &str) -> Result<Vec<u8>, RuntimeError> {
+    http_body(&raw_send(endpoint, "GET", path).await?)
+}
+/// Status code and (debug-only diagnostics aside) body of an HTTP response.
+fn http_status(raw: &[u8]) -> Result<u16, RuntimeError> {
+    String::from_utf8_lossy(&raw[..raw.len().min(64)])
+        .split_whitespace()
+        .nth(1)
+        .and_then(|c| c.parse().ok())
+        .ok_or_else(|| RuntimeError::Failed("engine-api".into()))
+}
+async fn raw_send(endpoint: &Endpoint, method: &str, path: &str) -> Result<Vec<u8>, RuntimeError> {
     use tokio::io::AsyncReadExt;
-    let request = format!("GET {path} HTTP/1.1\r\nHost: docker\r\nAccept: application/json\r\nConnection: close\r\n\r\n");
+    let request = format!("{method} {path} HTTP/1.1\r\nHost: docker\r\nAccept: application/json\r\nConnection: close\r\n\r\n");
     let mut raw = vec![];
     match endpoint {
         #[cfg(unix)]
@@ -216,7 +232,7 @@ async fn raw_get(endpoint: &Endpoint, path: &str) -> Result<Vec<u8>, RuntimeErro
         #[allow(unreachable_patterns)]
         _ => return Err(RuntimeError::NotFound),
     }
-    http_body(&raw)
+    Ok(raw)
 }
 /// Podman reports a host triple such as `linux/amd64/ubuntu-24.04` as its platform name and itself only as the
 /// first component ("Podman Engine"); Docker reports "Docker Engine - Community" as the platform. A component
@@ -639,20 +655,30 @@ impl Runtime for DockerRuntime {
         // A bare manifest digest is not an engine reference (it would be read as an image ID): remove every local
         // `repo@digest` reference that carries it. Nothing local means there is nothing left to remove.
         for reference in self.local_references(digest).await? {
-            match self
-                .client
-                .remove_image(
-                    &reference,
-                    Some(RemoveImageOptionsBuilder::default().force(false).build()),
-                    None,
-                )
-                .await
-            {
-                Ok(_)
-                | Err(Error::DockerResponseServerError {
-                    status_code: 404, ..
-                }) => {}
-                Err(e) => return Err(map_error(e)),
+            // Plain DELETE, non-forced: the response body shape differs between engines (Podman's compat API) and
+            // carries nothing needed, so only the status decides.
+            let raw = tokio::time::timeout(
+                Duration::from_secs(60),
+                raw_send(
+                    &self.endpoint,
+                    "DELETE",
+                    &format!("/images/{reference}?force=0&noprune=0"),
+                ),
+            )
+            .await
+            .map_err(|_| RuntimeError::Timeout("engine-api"))??;
+            match http_status(&raw)? {
+                200..=299 | 404 => {}
+                409 => return Err(RuntimeError::Conflict("runtime-object".into())),
+                status => {
+                    #[cfg(debug_assertions)]
+                    eprintln!(
+                        "image remove {reference} -> HTTP {status}: {:?}",
+                        String::from_utf8_lossy(&raw[..raw.len().min(600)])
+                    );
+                    let _ = status;
+                    return Err(RuntimeError::Failed("engine-api".into()));
+                }
             }
         }
         Ok(())

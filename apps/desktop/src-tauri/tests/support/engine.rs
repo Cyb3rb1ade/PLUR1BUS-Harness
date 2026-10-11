@@ -218,6 +218,9 @@ fn response(
             json!([{"Id":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","ParentId":"","RepoTags":[],"RepoDigests":repo,"Created":0,"Size":0,"SharedSize":0,"Labels":{},"Containers":0}]),
         );
     }
+    if method == "DELETE" && path.starts_with("/images/") {
+        return (200, json!([{"Untagged": path}]));
+    }
     if path.starts_with("/images/") && path.ends_with("/json") {
         return (
             200,

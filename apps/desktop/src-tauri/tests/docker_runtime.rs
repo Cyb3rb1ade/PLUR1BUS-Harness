@@ -203,3 +203,17 @@ async fn config_id_is_not_a_manifest_digest() {
         .await
         .unwrap());
 }
+
+#[tokio::test]
+async fn image_remove_deletes_the_resolved_references_and_tolerates_absence() {
+    let e = engine::Engine::start("Docker", "linux").await;
+    let digest = format!("sha256:{}", "a".repeat(64));
+    let r = DockerRuntime::connect(&e.endpoint).await.unwrap();
+    r.image_remove(&digest).await.unwrap();
+    e.state.lock().unwrap().manifest_digest = Some(digest.clone());
+    r.image_remove(&digest).await.unwrap();
+    let requests = e.state.lock().unwrap().requests.clone();
+    assert!(requests
+        .iter()
+        .any(|(r, _)| r.starts_with("DELETE /images/fixture.invalid/harness@sha256:")));
+}
