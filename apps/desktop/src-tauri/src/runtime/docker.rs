@@ -5,6 +5,7 @@ use serde_json::json;
 use tokio::io::AsyncWriteExt;
 pub struct DockerRuntime {
     client: Docker,
+    endpoint: Endpoint,
     info: RuntimeInfo,
 }
 pub fn map_error(e: Error) -> RuntimeError {
@@ -42,17 +43,17 @@ pub fn map_error(e: Error) -> RuntimeError {
 impl DockerRuntime {
     /// Finds the local `repo@sha256:...` reference carrying the wanted manifest digest. `inspect` cannot be used:
     /// the engine treats a bare `sha256:` as an image ID, which is the config digest and not what bundles pin.
+    /// Lists local `repo@digest` references carrying the wanted manifest digest. The image list is read as plain JSON
+    /// instead of bollard's strict `ImageSummary`: Podman's compatibility API omits or nulls fields that type requires.
     async fn local_references(&self, wanted: &str) -> Result<Vec<String>, RuntimeError> {
-        let images = self
-            .client
-            .list_images(Some(
-                ListImagesOptionsBuilder::default().digests(true).build(),
-            ))
-            .await
-            .map_err(map_error)?;
-        Ok(images
+        let body = tokio::time::timeout(
+            Duration::from_secs(30),
+            raw_get(&self.endpoint, "/images/json"),
+        )
+        .await
+        .map_err(|_| RuntimeError::Timeout("engine-api"))??;
+        Ok(repo_digests_from_list(&body)?
             .into_iter()
-            .flat_map(|i| i.repo_digests)
             .filter(|d| has_repo_digest(std::slice::from_ref(d), wanted) && d.contains('@'))
             .collect())
     }
@@ -112,6 +113,7 @@ impl DockerRuntime {
         client.set_timeout(Duration::from_secs(300));
         Ok(Self {
             client,
+            endpoint: endpoint.clone(),
             info: RuntimeInfo {
                 kind: RuntimeKind::Docker,
                 endpoint: endpoint.to_string(),
@@ -120,6 +122,101 @@ impl DockerRuntime {
             },
         })
     }
+}
+/// Every `RepoDigests` entry of an `/images/json` body, tolerant of null/missing fields and extra keys.
+fn repo_digests_from_list(body: &[u8]) -> Result<Vec<String>, RuntimeError> {
+    let list: serde_json::Value =
+        serde_json::from_slice(body).map_err(|_| RuntimeError::Failed("engine-api".into()))?;
+    let items = match &list {
+        serde_json::Value::Array(items) => items.as_slice(),
+        serde_json::Value::Null => &[],
+        _ => return Err(RuntimeError::Failed("engine-api".into())),
+    };
+    Ok(items
+        .iter()
+        .filter_map(|i| i.get("RepoDigests").and_then(|d| d.as_array()))
+        .flatten()
+        .filter_map(|d| d.as_str().map(str::to_owned))
+        .collect())
+}
+/// Decodes an HTTP/1.1 response with `Connection: close`, returning the body of a 200 reply.
+fn http_body(raw: &[u8]) -> Result<Vec<u8>, RuntimeError> {
+    let bad = || RuntimeError::Failed("engine-api".into());
+    let split = raw
+        .windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .ok_or_else(bad)?;
+    let head = String::from_utf8_lossy(&raw[..split]).to_ascii_lowercase();
+    let body = &raw[split + 4..];
+    if head
+        .lines()
+        .next()
+        .and_then(|l| l.split_whitespace().nth(1))
+        != Some("200")
+    {
+        return Err(bad());
+    }
+    if !head.contains("transfer-encoding: chunked") {
+        return Ok(body.to_vec());
+    }
+    let (mut out, mut rest) = (vec![], body);
+    loop {
+        let eol = rest.windows(2).position(|w| w == b"\r\n").ok_or_else(bad)?;
+        let size = usize::from_str_radix(
+            String::from_utf8_lossy(&rest[..eol])
+                .split(';')
+                .next()
+                .unwrap_or("")
+                .trim(),
+            16,
+        )
+        .map_err(|_| bad())?;
+        rest = &rest[eol + 2..];
+        if size == 0 {
+            return Ok(out);
+        }
+        if rest.len() < size + 2 {
+            return Err(bad());
+        }
+        out.extend_from_slice(&rest[..size]);
+        rest = &rest[size + 2..];
+    }
+}
+async fn raw_get(endpoint: &Endpoint, path: &str) -> Result<Vec<u8>, RuntimeError> {
+    use tokio::io::AsyncReadExt;
+    let request = format!("GET {path} HTTP/1.1\r\nHost: docker\r\nAccept: application/json\r\nConnection: close\r\n\r\n");
+    let mut raw = vec![];
+    match endpoint {
+        #[cfg(unix)]
+        Endpoint::Unix(p) => {
+            let mut s = tokio::net::UnixStream::connect(p)
+                .await
+                .map_err(|_| RuntimeError::NotFound)?;
+            s.write_all(request.as_bytes())
+                .await
+                .map_err(|_| RuntimeError::Failed("engine-api".into()))?;
+            s.take(OUTPUT_LIMIT as u64)
+                .read_to_end(&mut raw)
+                .await
+                .map_err(|_| RuntimeError::Failed("engine-api".into()))?;
+        }
+        #[cfg(windows)]
+        Endpoint::Pipe(p) => {
+            let mut s = tokio::net::windows::named_pipe::ClientOptions::new()
+                .open(p)
+                .map_err(|_| RuntimeError::NotFound)?;
+            s.write_all(request.as_bytes())
+                .await
+                .map_err(|_| RuntimeError::Failed("engine-api".into()))?;
+            s.take(OUTPUT_LIMIT as u64)
+                .read_to_end(&mut raw)
+                .await
+                .map_err(|_| RuntimeError::Failed("engine-api".into()))?;
+        }
+        #[allow(unreachable_patterns)]
+        _ => return Err(RuntimeError::NotFound),
+    }
+    http_body(&raw)
 }
 /// Podman reports a host triple such as `linux/amd64/ubuntu-24.04` as its platform name and itself only as the
 /// first component ("Podman Engine"); Docker reports "Docker Engine - Community" as the platform. A component
@@ -842,6 +939,30 @@ mod repo_digest_tests {
         );
         assert_eq!(engine_name(None, vec!["Engine".into()]), "Engine");
         assert_eq!(engine_name(None, vec![]), "Docker-compatible");
+    }
+    #[test]
+    fn podman_shaped_image_list_is_read_tolerantly() {
+        use super::{http_body, repo_digests_from_list};
+        let json = format!(
+            r#"[{{"Id":"a","RepoDigests":null,"Created":"2026-10-11T00:00:00Z","Extra":{{}}}},
+               {{"Id":"b","RepoDigests":["r/x@{D}"],"Created":1760000000,"Names":["r/x:1"]}},
+               {{"Id":"c"}}]"#
+        );
+        assert_eq!(
+            repo_digests_from_list(json.as_bytes()).unwrap(),
+            vec![format!("r/x@{D}")]
+        );
+        assert!(repo_digests_from_list(b"null").unwrap().is_empty());
+        assert!(repo_digests_from_list(b"{}").is_err());
+        let chunked = String::from(
+            "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n3\r\n[1,\r\n2\r\n2]\r\n0\r\n\r\n",
+        );
+        assert_eq!(http_body(chunked.as_bytes()).unwrap(), b"[1,2]");
+        assert!(http_body(b"HTTP/1.1 500 x\r\n\r\n[]").is_err());
+        assert_eq!(
+            http_body(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n[]").unwrap(),
+            b"[]"
+        );
     }
     #[test]
     fn locally_built_image_without_repo_digests_is_absent() {

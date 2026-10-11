@@ -46,7 +46,10 @@ jobs:
             echo "deb [arch=$(dpkg --print-architecture) signed-by=$key] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
             sudo apt-get update
             sudo apt-get install -y docker-ce docker-ce-cli docker-ce-rootless-extras uidmap
-            sudo systemctl stop docker.service docker.socket
+            # Installing docker-ce starts the rootful daemon; the rootless setup refuses to run beside it.
+            sudo systemctl disable --now docker.service docker.socket containerd.service
+            sudo rm -f /var/run/docker.sock
+            if [ -S /var/run/docker.sock ]; then echo 'rootful docker socket still present' >&2; exit 1; fi
             dockerd-rootless-setuptool.sh install
             echo "DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock" >> "$GITHUB_ENV"
             echo "PLUR1BUS_DESKTOP_E2E_ENDPOINT=unix://$XDG_RUNTIME_DIR/docker.sock" >> "$GITHUB_ENV"
