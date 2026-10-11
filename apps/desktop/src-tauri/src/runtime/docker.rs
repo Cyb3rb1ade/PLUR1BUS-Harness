@@ -40,6 +40,22 @@ pub fn map_error(e: Error) -> RuntimeError {
     }
 }
 impl DockerRuntime {
+    /// Finds the local `repo@sha256:...` reference carrying the wanted manifest digest. `inspect` cannot be used:
+    /// the engine treats a bare `sha256:` as an image ID, which is the config digest and not what bundles pin.
+    async fn local_reference(&self, wanted: &str) -> Result<Option<String>, RuntimeError> {
+        let images = self
+            .client
+            .list_images(Some(
+                ListImagesOptionsBuilder::default().digests(true).build(),
+            ))
+            .await
+            .map_err(map_error)?;
+        let digest = wanted.rsplit('@').next().unwrap_or(wanted);
+        Ok(images
+            .into_iter()
+            .flat_map(|i| i.repo_digests)
+            .find(|d| has_repo_digest(std::slice::from_ref(d), digest) && d.contains('@')))
+    }
     pub async fn connect(endpoint: &Endpoint) -> Result<Self, RuntimeError> {
         let mut client = match endpoint {
             #[cfg(unix)]
@@ -237,13 +253,7 @@ impl Runtime for DockerRuntime {
         self.ping().await.map_err(|_| RuntimeError::Stopped)
     }
     async fn image_present(&self, digest: &str) -> Result<bool, RuntimeError> {
-        match self.client.inspect_image(digest).await {
-            Ok(v) => Ok(has_repo_digest(&v.repo_digests.unwrap_or_default(), digest)),
-            Err(Error::DockerResponseServerError {
-                status_code: 404, ..
-            }) => Ok(false),
-            Err(e) => Err(map_error(e)),
-        }
+        Ok(self.local_reference(digest).await?.is_some())
     }
     async fn image_load(&self, tar: &Path) -> Result<String, RuntimeError> {
         tokio::time::timeout(Duration::from_secs(300), async {
@@ -507,6 +517,17 @@ impl Runtime for DockerRuntime {
         self.client.remove_network(name).await.map_err(map_error)
     }
     async fn create(&self, spec: &ContainerSpec) -> Result<(), RuntimeError> {
+        // Docker resolves a bare `sha256:` as an image ID, never as a manifest digest: pin the local
+        // `repo@digest` reference that carries it. Unresolved (e.g. a pull happens at create) keeps the spec as is.
+        let mut resolved;
+        let spec = match self.local_reference(&spec.image_digest).await? {
+            Some(reference) => {
+                resolved = spec.clone();
+                resolved.image_digest = reference;
+                &resolved
+            }
+            None => spec,
+        };
         self.client
             .create_container(
                 Some(

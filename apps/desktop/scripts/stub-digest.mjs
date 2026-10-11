@@ -33,6 +33,8 @@ export async function manifestDigests(runtime,tags,registryImage='registry:2') {
    const manifest=await fetch(`http://${address}/v2/p1t-stub-digest/manifests/i${index}`,{headers:{Accept:MANIFEST_ACCEPT}});
    if(!manifest.ok)throw new Error('Registry manifest unavailable');
    digests.push(manifestDigest(manifest.headers.get('docker-content-digest')));
+   // Diagnostics: what the engine reports for the pushed alias, to explain any later image_present failure.
+   console.log(`[digest] ${tag} -> ${alias} manifest=${digests.at(-1)} id=${cli(['image','inspect','--format','{{.Id}}',alias])} repoDigests=${cli(['image','inspect','--format','{{json .RepoDigests}}',alias])}`);
   }
   return {digests,cleanup};
  } catch(error) {

@@ -29,6 +29,8 @@ try{
  // The runtime resolves images by manifest digest (RepoDigest); a local build only has an image ID.
  pinned=await manifestDigests(engine,digests);
  digests.splice(0,digests.length,...pinned.digests);
+ console.log(`[upgrade-e2e] endpoint=${endpoint} digests=${digests.join(',')}`);
+ console.log(`[upgrade-e2e] ${engine} image ls --digests:\n${cli(['image','ls','--digests'])}`);
  const result=spawnSync('cargo',['test','--offline','--locked','-p','plur1bus-desktop','--test','upgrade_e2e',`upgrade_e2e_${engine}`,'--','--ignored','--exact','--nocapture'],{cwd:root,stdio:'inherit',timeout:900000,env:{...process.env,PLUR1BUS_DESKTOP_E2E_ENDPOINT:endpoint,PLUR1BUS_DESKTOP_UPGRADE_DIGESTS:digests.join(',')}});
  if(result.error)throw result.error;if(result.status!==0)throw new Error('upgrade acceptance failed; synthetic evidence is retained');
  console.log(`PASS: ${engine} A → B → failing B′ → rollback to B; device token and synthetic persisted state survive`);
