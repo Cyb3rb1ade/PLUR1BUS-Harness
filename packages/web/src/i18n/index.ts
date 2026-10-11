@@ -23,6 +23,7 @@ import * as memory from "./memory.ts";
 import * as mediasearch from "./mediasearch.ts";
 import * as models from "./models.ts";
 import * as palette from "./palette.ts";
+import type * as projects from "./projects.ts";
 import type * as providers from "./providers.ts";
 import type * as recurring from "./recurring.ts";
 import type * as secrets from "./secrets.ts";
@@ -54,6 +55,7 @@ const EAGER_AREAS = [
  *  calls `registerArea` as it loads (before it renders), which merges the texts into `en` / `de` and adds it to AREAS. Their keys
  *  are still part of `Key` through the type-only imports above. `LAZY_ORDER` is the canonical position in AREAS. */
 type LazyAreaName =
+  | "projects"
   | "providers"
   | "switchboard"
   | "approvals"
@@ -74,12 +76,13 @@ type LazyAreaName =
   | "homeHelpLibrary";
 
 const LAZY_ORDER: readonly string[] = [
-  "surfaces", "core", "chat", "memory", "mediasearch", "models", "budget", "doctor", "palette", "shared", "setup", "agents", "settings", "users",
+  "surfaces", "core", "chat", "projects", "memory", "mediasearch", "models", "budget", "doctor", "palette", "shared", "setup", "agents", "settings", "users",
   "providers", "secrets", "switchboard", "devices", "logs", "activity", "sessions", "approvals", "voice", "extensions", "recurring", "homeHelpLibrary",
 ];
 
 type AreaEn =
   | (typeof EAGER_AREAS)[number]["en"]
+  | typeof projects.en
   | typeof providers.en
   | typeof switchboard.en
   | typeof approvals.en
