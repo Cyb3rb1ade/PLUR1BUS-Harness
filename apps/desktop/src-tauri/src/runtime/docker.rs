@@ -42,7 +42,7 @@ pub fn map_error(e: Error) -> RuntimeError {
 impl DockerRuntime {
     /// Finds the local `repo@sha256:...` reference carrying the wanted manifest digest. `inspect` cannot be used:
     /// the engine treats a bare `sha256:` as an image ID, which is the config digest and not what bundles pin.
-    async fn local_reference(&self, wanted: &str) -> Result<Option<String>, RuntimeError> {
+    async fn local_references(&self, wanted: &str) -> Result<Vec<String>, RuntimeError> {
         let images = self
             .client
             .list_images(Some(
@@ -53,7 +53,11 @@ impl DockerRuntime {
         Ok(images
             .into_iter()
             .flat_map(|i| i.repo_digests)
-            .find(|d| has_repo_digest(std::slice::from_ref(d), wanted) && d.contains('@')))
+            .filter(|d| has_repo_digest(std::slice::from_ref(d), wanted) && d.contains('@'))
+            .collect())
+    }
+    async fn local_reference(&self, wanted: &str) -> Result<Option<String>, RuntimeError> {
+        Ok(self.local_references(wanted).await?.into_iter().next())
     }
     pub async fn connect(endpoint: &Endpoint) -> Result<Self, RuntimeError> {
         let mut client = match endpoint {
@@ -98,15 +102,13 @@ impl DockerRuntime {
                 min: "1.41".into(),
             });
         }
-        let engine = version
-            .platform
-            .map(|p| p.name)
-            .or_else(|| {
-                version
-                    .components
-                    .and_then(|c| c.into_iter().next().map(|v| v.name))
-            })
-            .unwrap_or_else(|| "Docker-compatible".into());
+        let engine = engine_name(
+            version.platform.map(|p| p.name),
+            version
+                .components
+                .map(|c| c.into_iter().map(|v| v.name).collect())
+                .unwrap_or_default(),
+        );
         client.set_timeout(Duration::from_secs(300));
         Ok(Self {
             client,
@@ -118,6 +120,18 @@ impl DockerRuntime {
             },
         })
     }
+}
+/// Podman reports a host triple such as `linux/amd64/ubuntu-24.04` as its platform name and itself only as the
+/// first component ("Podman Engine"); Docker reports "Docker Engine - Community" as the platform. A component
+/// that names Podman therefore wins, otherwise the platform name, otherwise the first component.
+fn engine_name(platform: Option<String>, components: Vec<String>) -> String {
+    components
+        .iter()
+        .find(|c| c.to_ascii_lowercase().contains("podman"))
+        .cloned()
+        .or(platform)
+        .or_else(|| components.into_iter().next())
+        .unwrap_or_else(|| "Docker-compatible".into())
 }
 /// An image is present only when one of its RepoDigests carries the wanted manifest digest. The image ID
 /// (config digest) of a locally built image is deliberately not accepted. A bare `sha256:` matches any
@@ -493,15 +507,26 @@ impl Runtime for DockerRuntime {
         .map_err(|_| RuntimeError::Timeout("port-inventory"))?
     }
     async fn image_remove(&self, digest: &str) -> Result<(), RuntimeError> {
-        self.client
-            .remove_image(
-                digest,
-                Some(RemoveImageOptionsBuilder::default().force(false).build()),
-                None,
-            )
-            .await
-            .map(|_| ())
-            .map_err(map_error)
+        // A bare manifest digest is not an engine reference (it would be read as an image ID): remove every local
+        // `repo@digest` reference that carries it. Nothing local means there is nothing left to remove.
+        for reference in self.local_references(digest).await? {
+            match self
+                .client
+                .remove_image(
+                    &reference,
+                    Some(RemoveImageOptionsBuilder::default().force(false).build()),
+                    None,
+                )
+                .await
+            {
+                Ok(_)
+                | Err(Error::DockerResponseServerError {
+                    status_code: 404, ..
+                }) => {}
+                Err(e) => return Err(map_error(e)),
+            }
+        }
+        Ok(())
     }
     async fn network_remove(&self, name: &str) -> Result<(), RuntimeError> {
         let n = self
@@ -801,6 +826,22 @@ mod repo_digest_tests {
             &format!("127.0.0.1:5000/p1t-stub@{D}")
         ));
         assert!(!has_repo_digest(&repo, &format!("other.invalid/x@{D}")));
+    }
+    #[test]
+    fn podman_is_named_by_its_component_not_the_host_platform() {
+        use super::engine_name;
+        let podman = vec!["Podman Engine".to_owned(), "Conmon".to_owned()];
+        assert_eq!(
+            engine_name(Some("linux/amd64/ubuntu-24.04".into()), podman),
+            "Podman Engine"
+        );
+        let docker = vec!["Engine".to_owned(), "containerd".to_owned()];
+        assert_eq!(
+            engine_name(Some("Docker Engine - Community".into()), docker),
+            "Docker Engine - Community"
+        );
+        assert_eq!(engine_name(None, vec!["Engine".into()]), "Engine");
+        assert_eq!(engine_name(None, vec![]), "Docker-compatible");
     }
     #[test]
     fn locally_built_image_without_repo_digests_is_absent() {

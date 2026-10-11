@@ -34,7 +34,11 @@ export async function manifestDigests(runtime,tags,registryImage='registry:2') {
    if(!manifest.ok)throw new Error('Registry manifest unavailable');
    digests.push(manifestDigest(manifest.headers.get('docker-content-digest')));
    // Diagnostics: what the engine reports for the pushed alias, to explain any later image_present failure.
-   console.log(`[digest] ${tag} -> ${alias} manifest=${digests.at(-1)} id=${cli(['image','inspect','--format','{{.Id}}',alias])} repoDigests=${cli(['image','inspect','--format','{{json .RepoDigests}}',alias])}`);
+   const repoDigests=cli(['image','inspect','--format','{{json .RepoDigests}}',alias]);
+   console.log(`[digest] ${tag} -> ${alias} manifest=${digests.at(-1)} id=${cli(['image','inspect','--format','{{.Id}}',alias])} repoDigests=${repoDigests}`);
+   // The runtime only trusts RepoDigests: fail here, with the evidence above, if the engine did not record the
+   // registry's manifest digest for the pushed alias (e.g. a podman push that re-encoded the manifest).
+   if(!repoDigests.includes(digests.at(-1)))throw new Error(`Engine did not record ${digests.at(-1)} as a RepoDigest of ${alias}: ${repoDigests}`);
   }
   return {digests,cleanup};
  } catch(error) {
