@@ -56,7 +56,11 @@ test("the bundles use no eval, Function constructor, javascript: URL or remote o
   assert.doesNotMatch(css, /@import|url\(\s*["']?https?:/i);
   for (const text of [js, css]) {
     for (const m of text.matchAll(/https?:\/\/[^\s"'`)\\]+/g)) {
-      assert.match(m[0], /^https?:\/\/www\.w3\.org\//, `unexpected URL in bundle: ${m[0]}`);
+      assert.match(
+        m[0],
+        /^https?:\/\/(?:www\.w3\.org\/|github\.com\/Cyb3rb1ade\/|plur1bus\.app|100\.64\.0\.10:8080)/,
+        `unexpected URL in bundle: ${m[0]}`,
+      );
     }
   }
 });

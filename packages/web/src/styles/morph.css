@@ -1,0 +1,38 @@
+.wordmark-morph {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  font-family: var(--font-mark);
+  letter-spacing: 0.06em;
+  font-size: 22px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.morph-wing {
+  display: inline-block;
+  overflow: hidden;
+  max-width: 120px;
+  opacity: 1;
+  transition: max-width 0.22s cubic-bezier(0, 0, 0.2, 1), opacity 0.22s cubic-bezier(0, 0, 0.2, 1);
+}
+
+.morph-wing.collapsed {
+  max-width: 0;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.morph-pivot {
+  color: var(--accent);
+  display: inline-block;
+  padding: 0 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .morph-wing {
+    transition: none !important;
+  }
+}

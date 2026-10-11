@@ -24,6 +24,9 @@ const sourceLabel = (s: string): string => t(s === "prompt-then-user-then-auto" 
 
 export function MediaIndexPanel(): View {
   const canManage = canManageIndex(currentRole());
+  // The message lives here, not in Panel: a save reloads the config, and the new revision remounts Panel (its key), which
+  // would drop a message kept there right after it was shown.
+  const [message, setMessage] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const { state, reload } = useLoad(async (signal) => {
     const api = getApi();
     const cfg = (await api.rpc("config.get", undefined, { write: false, signal })) as unknown;
@@ -39,12 +42,13 @@ export function MediaIndexPanel(): View {
 
   if (state.status === "loading") return h(PageLoading, { label: t("state.loading") });
   if (state.status === "fail") return h(FailureState, { failure: state.failure, unavailable: t("mediasearch.settings.unavailable"), onRetry: reload });
-  return h(Panel, { key: state.data.revision, loaded: state.data, canManage, reload });
+  return h(Panel, { key: state.data.revision, loaded: state.data, canManage, reload, message, setMessage });
 }
 
-function Panel({ loaded, canManage, reload }: { loaded: Loaded; canManage: boolean; reload: () => void }): View {
+type Message = { tone: "ok" | "err"; text: string } | null;
+
+function Panel({ loaded, canManage, reload, message, setMessage }: { loaded: Loaded; canManage: boolean; reload: () => void; message: Message; setMessage: (m: Message) => void }): View {
   const [draft, setDraft] = useState<MediaDraft>(loaded.draft);
-  const [message, setMessage] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   // The text index is not written here yet, so the caption preselection is checked against the default local provider.
   const problems = validateMedia({ textProvider: "egemma2", media: toSetup(draft), privacyPin: false, ncConfirmed: false });
