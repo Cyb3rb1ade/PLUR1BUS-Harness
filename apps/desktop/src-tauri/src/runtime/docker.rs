@@ -367,7 +367,30 @@ impl Runtime for DockerRuntime {
         self.ping().await.map_err(|_| RuntimeError::Stopped)
     }
     async fn image_present(&self, digest: &str) -> Result<bool, RuntimeError> {
-        Ok(self.local_reference(digest).await?.is_some())
+        if self.local_reference(digest).await?.is_some() {
+            return Ok(true);
+        }
+        // Engines on the containerd image store do not always list a freshly pulled `repo@digest` in the image
+        // list. The engine's own resolution of that exact pinned reference is the proof instead, and it must
+        // report the pinned manifest digest among its RepoDigests (an image ID is never enough). A bare
+        // digest is never resolved this way: it would be read as an image ID.
+        let Some((_, pinned)) = digest.split_once('@') else {
+            return Ok(false);
+        };
+        match self.client.inspect_image(digest).await {
+            Ok(v) => {
+                let found = v.repo_digests.unwrap_or_default();
+                let ok = has_repo_digest(&found, pinned);
+                if !ok {
+                    eprintln!("image-digest-mismatch: expected {digest}, engine reports id={:?} repoDigests={found:?}", v.id);
+                }
+                Ok(ok)
+            }
+            Err(Error::DockerResponseServerError {
+                status_code: 404, ..
+            }) => Ok(false),
+            Err(e) => Err(map_error(e)),
+        }
     }
     async fn image_load(&self, tar: &Path) -> Result<String, RuntimeError> {
         tokio::time::timeout(Duration::from_secs(300), async {
