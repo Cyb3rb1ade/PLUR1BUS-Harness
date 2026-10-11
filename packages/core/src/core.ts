@@ -536,7 +536,7 @@ export function createCore(o: CoreOptions): Core {
 
       // D109: who a connection is, where policy lines go, and the permission stores (opened on first use, so the keychain is not touched at start).
       const people = new AdminStore({ path: path.join(l.state, "admin.sqlite"), ownerId: LOCAL_OWNER.userId }); adminPeople = people;
-      inbox = openInbox({ stateDir: l.state, clock, ...(o.inbox ? { retention: o.inbox } : {}), admins: () => people.users().filter(u => u.role === "owner" || u.role === "admin").map(u => u.id), legacyNotices: () => people.allNotices(),
+      inbox = openInbox({ stateDir: l.state, clock, retention: { maxAgeDays: o.inbox?.maxAgeDays ?? config.inbox.retention.days, maxEntries: o.inbox?.maxEntries ?? config.inbox.retention.maxEntries }, admins: () => people.users().filter(u => u.role === "owner" || u.role === "admin").map(u => u.id), legacyNotices: () => people.allNotices(),
         onPublished: kind => metrics.inboxPublished(kind), log: (m, f) => log.warn(m, f),
         onChange: c => { void deliverInboxChange(c, { subscriptions: () => server?.subscriptions() ?? [], principalOf: async id => resolvePrincipal({ requestId: "inbox", connectionId: id, signal: shutdown.signal }, "inbox.count", {}), notify: (m, p, opts) => { if (!shutdown.signal.aborted) server?.notify(m, p, opts); } }).catch(() => { log.debug("inbox event withheld"); }); } });
       const originalResolver: PrincipalResolver = o.rbac?.resolve ?? (() => LOCAL_OWNER);

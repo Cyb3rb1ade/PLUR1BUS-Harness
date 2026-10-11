@@ -24,9 +24,10 @@ Entries are stored per person in `state/inbox.sqlite` (mode 0600). Each write is
 ## Retention
 
 Per person, the newest 1000 entries and nothing older than 90 days are kept. Both limits are applied whenever that
-person gets a new entry. They are options of the core (`CoreOptions.inbox.maxAgeDays` / `maxEntries`), not config
-keys; the defaults apply on a normal install. A dismissed entry stays in the table until it ages out, so a repeated
-event cannot bring it back.
+person gets a new entry. Configure `inbox.retention.days` (default 90, range 1–3650) and
+`inbox.retention.maxEntries` (default 1000, range 10–100000). Both are advanced settings and require a core restart.
+`CoreOptions.inbox.maxAgeDays` / `maxEntries` remain per-field overrides for tests. A dismissed entry stays in the
+table until it ages out, so a repeated event cannot bring it back.
 
 ## Who gets what
 
