@@ -37,6 +37,7 @@ import { createCollab, alsAgentScopePort, type Collab } from '../collab/index.ts
 import { composedAgentRunner } from './collaboration.ts';
 import { legacyAdapter } from './legacy.ts';
 import { composeMediaSearch, mediaSearchMethods } from './media-search.ts';
+import { mediaToInbox } from '../inbox/producers.ts';
 
 export interface CompositionOptions {
   /** Trusted in-process surfaces register here; no auth RPC is added. */
@@ -59,6 +60,8 @@ export interface CompositionDeps {
   approver?: import("../session/methods.ts").SessionMethodDeps["approver"];
   onStoredCapture?: (agentId: string) => void;
   provider?: ChatProvider; options?: CompositionOptions; prices?: PriceBook;
+  /** Inbox notices for media-index events; absent: the events only reach the log. */
+  inbox?: import('../inbox/service.ts').InboxPort;
   /** web.search over the SearXNG sidecar (`sidecars/web-search.ts`); absent, no search tool is registered. */
   webSearch?: import('../tools/web/search.ts').WebSearch;
 }
@@ -144,7 +147,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     });
     await mediaSurface.recover();
     disposers.push(() => mediaSurface.close());
-    const mediaSearch = await composeMediaSearch({ home: d.home, config: d.config, engine: d.engine, agents: d.agents, logger: d.logger, store: media?.store ?? null, budget }); disposers.push(() => mediaSearch.close());
+    const mediaSearch = await composeMediaSearch({ home: d.home, config: d.config, engine: d.engine, agents: d.agents, logger: d.logger, store: media?.store ?? null, budget, ...(d.inbox ? { emit: (name, payload) => { d.logger.info(name, payload); mediaToInbox(d.inbox!, name, payload); } } : {}) }); disposers.push(() => mediaSearch.close());
     const profiles = options.providers?.profiles ?? (d.provider ? { default: [{ provider: 'fixture', model: 'gpt-4.1', adapter: legacyAdapter(d.provider) }] } : auth?.profiles ?? {});
     const classProfiles = cfg.decision.classProfiles as Record<string, string> | undefined;
     // Reserved `providers` namespace: `providers.modelProfilePolicy.<profile>.allowCrossBilling: true` opts one profile into

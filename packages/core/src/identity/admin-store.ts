@@ -49,6 +49,7 @@ export class AdminStore {
   invite(i: { id: string; userId: string; role: Role; channel: string; expiresAt: number }) { this.db.prepare("INSERT INTO admin_invites(id,user_id,role,channel,expires_at) VALUES (?,?,?,?,?)").run(i.id, i.userId, i.role, i.channel, i.expiresAt); }
   notice(n: import("../rbac/break-glass.ts").BreakGlassNotice) { this.db.prepare("INSERT INTO admin_notices VALUES (?,?,?)").run(n.grantId, n.userId, JSON.stringify(n)); }
   notices(userId: string) { return this.db.prepare("SELECT payload FROM admin_notices WHERE user_id=? ORDER BY rowid DESC LIMIT 200").all(userId).map(r => JSON.parse(r.payload as string)); }
+  allNotices(): import("../rbac/break-glass.ts").BreakGlassNotice[] { return this.db.prepare("SELECT payload FROM admin_notices ORDER BY rowid").all().map(r => JSON.parse(r.payload as string)); }
   invites(): { id: string; userId: string; role: Role; channel: string; expiresAt: number; revoked: number }[] { return this.db.prepare("SELECT id,user_id AS userId,role,channel,expires_at AS expiresAt,revoked FROM admin_invites ORDER BY expires_at,id").all() as any[]; }
   revoke(id: string) { this.db.prepare("UPDATE admin_invites SET revoked=1 WHERE id=?").run(id); }
 }

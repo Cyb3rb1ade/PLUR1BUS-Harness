@@ -1,0 +1,16 @@
+{
+  "params": {},
+  "result": {
+    "unread": {
+      "breakglass": 0,
+      "approval": 1,
+      "job-failed": 0,
+      "update": 0,
+      "media-index": 0,
+      "pairing": 0,
+      "channel": 0,
+      "system": 0
+    },
+    "total": 1
+  }
+}

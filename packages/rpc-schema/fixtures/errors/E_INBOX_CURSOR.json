@@ -1,0 +1,12 @@
+{
+  "jsonrpc": "2.0",
+  "id": 23,
+  "error": {
+    "code": -32000,
+    "message": "cursor is not valid",
+    "data": {
+      "error": "E_INBOX_CURSOR",
+      "reason": "inbox-cursor"
+    }
+  }
+}

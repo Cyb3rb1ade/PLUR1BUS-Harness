@@ -980,6 +980,28 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::ProjectColumnDeleteParams,
                 types::ProjectColumnDeleteResult,
             >(name, fixture, &root_schema),
+            "inbox.list" => check_pair::<types::InboxListParams, types::InboxListResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "inbox.count" => check_pair::<types::InboxCountParams, types::InboxCountResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "inbox.markRead" => {
+                check_pair::<types::InboxMarkReadParams, types::InboxMarkReadResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "inbox.dismiss" => check_pair::<types::InboxDismissParams, types::InboxDismissResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "project.card.list" => check_pair::<
                 types::ProjectCardListParams,
                 types::ProjectCardListResult,
