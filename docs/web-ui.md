@@ -71,12 +71,13 @@ the page for each id in `src/pages/registry.ts`.
 | Models | `models.list` (also `newOnly: true`) | assumed | no |
 | Models | `models.scan`, `models.setOverride`, `models.removeManual`, `models.acknowledge` | assumed | yes |
 | Models | `/events`: `models.changed` | assumed | no |
-| Usage | `budget.status` | assumed | no |
-| Usage | `budget.set` | assumed | yes |
+| Usage | `budget.status` (soft warning and hard stop bounds per period/agent) | assumed | no |
+| Usage | `budget.set` (setting limits; guarded by confirmation when lowering below consumption) | assumed | yes |
 | Doctor | `GET /api/v1/health`, `GET /api/v1/agents` | real | no |
 | Doctor | `core.status` | assumed | no |
 | Doctor | `1staid.check/1` document | no route; local file chosen by the owner, read in the browser, never sent | no |
 | Agents | `config.get` (`agents`), `config.set` (`agents.<id>`, `ifRevision`), `ext.list` (`kind: skill`) | assumed | set: yes |
+| Agents | `agent.rights.get` (`agentId`), `agent.export`, `agent.archive`, `agent.unarchive`, `agent.delete` | assumed | rights/export: no; lifecycle: yes |
 | Settings | `config.get` (whole configuration, then one call per key for `restartClass`), `config.set` (`dryRun: true`, then with `ifRevision`) | assumed | set: yes |
 | Users | `identity.list`, `config.get` (`agents`) | assumed | no |
 | Secrets | `secret.list`, `secret.status`, `secret.set`, `secret.delete` (`secret.get` is never called) | assumed | set, delete: yes |
@@ -115,6 +116,17 @@ calls (**angebunden**). Every page shows only what the role may read, translates
 | Break-Glass window and affected-person notice (F41) | RPC/CLI, durable self-scoped notices, audited transcript/user-memory reads | Done: request, list with remaining time, revoke (F41); inbox backend available (`inbox.*`, docs/inbox.md), inbox page follows |
 | Operator session overview (F42) | `session.list` owner/agent filters, explicit allOwners, owner/model/tokens/cost metadata | Done: filters and owner/model/usage columns (F42); transcripts stay behind Break-Glass |
 | Devices, QR payload and remote mode (F44) | Persistent device store, `device.list/revoke/rename`, CLI, `pairing.qr` and `remote.publish` available | Done: QR, device list, rename (own device) and revoke with confirmation that open connections close (F44) |
+
+### Budgets and limits (soft warning & hard stop)
+
+- **Soft and hard bounds**: Limits configured via `budget.set` support both a soft bound (`soft`, warning state) and a hard bound (`hard`, stop state) per period and agent. Status is reported via `budget.status`.
+- **Consumption guard**: Lowering a limit below current consumption (`currentConsumption`) warns explicitly and requires user confirmation via checkbox before saving.
+
+### Agent lifecycle and rights verification
+
+- **Rights verification**: Agent lifecycle actions query `agent.rights.get` for explicit `manage` rights, enabling authorized users beyond the owner/admin role gate.
+- **Lifecycle actions**: Export bundle (`agent.export` with JSON download), archive/unarchive (`agent.archive`/`agent.unarchive`), and deletion (`agent.delete`) requiring strict name entry confirmation and offering export.
+- **Server-side creation**: No `agent.create` RPC exists in the backend schema (client-side configuration creation is currently used; issue proposal for dedicated server RPC documented).
 
 ## M3 part 2: inventory (K1)
 

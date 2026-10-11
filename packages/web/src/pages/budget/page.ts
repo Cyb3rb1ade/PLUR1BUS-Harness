@@ -123,7 +123,7 @@ export function BudgetPage({ sub }: PageProps): View {
   const actions = [h("button", { key: "refresh", type: "button", class: "btn", onClick: () => { void reload(true); } }, t("budget.refresh")), setButton("set")];
   const dialog = dlg === null ? null
     : dlg.kind === "remove" ? h(RemoveLimitDialog, { limit: dlg.limit, onClose: () => setDlg(null), onRemoved: () => { setDlg(null); void reload(true); } })
-    : h(LimitDialog, { ...(dlg.limit ? { limit: dlg.limit } : {}), limits: status.limits, onClose: () => setDlg(null), onSaved: () => { setDlg(null); void reload(true); } });
+    : h(LimitDialog, { ...(dlg.limit ? { limit: dlg.limit } : {}), limits: status.limits, periods: status.periods, onClose: () => setDlg(null), onSaved: () => { setDlg(null); void reload(true); } });
   const nothingYet = status.limits.length === 0 && status.periods.every((p) => p.total.events === 0 && p.agents.length === 0);
 
   if (nothingYet) {

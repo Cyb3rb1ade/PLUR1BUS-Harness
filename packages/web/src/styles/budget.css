@@ -9,3 +9,6 @@
 .tabpanel .card dl.facts { font-variant-numeric: tabular-nums; }
 .tabpanel .card ul.plain-list { color: var(--ink-2); font-size: 13px; }
 .tabpanel .card section h4.card-title { margin-top: 0; }
+/* Confirm step: "limit is below current usage" warning and its acknowledgement checkbox. */
+.budget-below-used { margin-top: 16px; }
+.budget-below-used-check { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
