@@ -19,7 +19,8 @@ export interface Subscription { id: string; connectionId: string; names?: string
 /** Result of waiting for selected method calls to finish. */
 export interface DrainResult { drained: boolean; pending: number }
 /** Optional notification delivery filters. */
-export interface NotifyOptions { audience?: readonly string[]; optIn?: boolean }
+export type AudienceTarget = string | { connectionId: string } | { personId: string };
+export interface NotifyOptions { audience?: readonly AudienceTarget[]; optIn?: boolean }
 /** Operations and diagnostics exposed by a running RPC server. */
 export interface RpcServer {
   /** Starts listening at the configured local endpoint. */
@@ -30,7 +31,8 @@ export interface RpcServer {
   /** Ends every socket (a queued reply is still flushed), destroys the ones still open after `graceMs` (default 1000),
    *  closes the listener and removes the POSIX socket file. Idempotent. */
   close(o?: { graceMs?: number }): Promise<void>;
-  /** Sends a notification to every subscription it matches, at most once per connection. A subscription with `names`
+  /** With an audience, sends only to matching connections/persons or legacy agent-filtered subscriptions.
+   *  Without an audience, sends a notification to every subscription it matches, at most once per connection. A subscription with `names`
    *  gets only those; `optIn` delivers only to subscriptions whose `names` include `method` (never to a no-names one).
    *  A subscription with `agentId` needs that id in `audience` when one is given, otherwise `params.agentId === agentId`. */
   notify(method: string, params: object, opts?: NotifyOptions): void;
@@ -80,6 +82,8 @@ export interface RpcServerOptions {
   methods: Record<string, Handler>; logger: HarnessLogger; authIdleMs?: number;
   /** Called once per connection after its socket has closed (an adopted lifeline, S4). */
   onConnectionClosed?: (connectionId: string) => void;
+  /** Trusted identity lookup for person audiences. Missing or failed lookup denies delivery. Never request text. */
+  personOfConnection?: (connectionId: string) => string | null | undefined | Promise<string | null | undefined>;
   /** Called once per authenticated, schema-known request after its reply (or error) was written: the method name
    *  and `"ok"` or the RPC error code. Never sees params or results (the metrics counters, D3). */
   onCall?: (method: string, result: string, ms: number) => void;
@@ -251,10 +255,30 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
     },
     notify(method, params, opts = {}) {
       const line = encodeLine({ jsonrpc: "2.0", method, params });
-      for (const c of conns.values()) for (const sub of c.subs.values()) {
-        if (opts.optIn ? !sub.names?.includes(method) : sub.names && !sub.names.includes(method)) continue;
-        if (sub.agentId && !(opts.audience ? opts.audience.includes(sub.agentId) : (params as { agentId?: unknown }).agentId === sub.agentId)) continue;
-        writeToSocket(c, line); break; // one delivery per connection
+      // Capture the audience before asynchronous identity lookup; a caller cannot widen it later.
+      const audience = opts.audience?.map(target => typeof target === "string" ? target : { ...target });
+      for (const c of conns.values()) {
+        const deliver = (personId?: string | null) => {
+          if (!c.authed || c.closing || conns.get(c.id) !== c) return;
+          for (const sub of c.subs.values()) {
+            if (opts.optIn ? !sub.names?.includes(method) : sub.names && !sub.names.includes(method)) continue;
+            if (audience !== undefined) {
+              const matches = audience.some(target => typeof target === "string"
+                ? target === c.id || (sub.agentId !== undefined && target === sub.agentId)
+                : "connectionId" in target ? target.connectionId === c.id
+                : personId !== null && personId !== undefined && target.personId === personId);
+              if (!matches) continue; // including subscriptions without an agent filter; [] delivers nothing
+              // A connection/person target cannot bypass a subscription's existing agent filter.
+              if (sub.agentId && !(audience.some(t => typeof t === "string" && t === sub.agentId)
+                || (params as { agentId?: unknown }).agentId === sub.agentId)) continue;
+            } else if (sub.agentId && (params as { agentId?: unknown }).agentId !== sub.agentId) continue;
+            writeToSocket(c, line); break; // one delivery per connection
+          }
+        };
+        if (audience?.some(t => typeof t === "object" && "personId" in t)) {
+          // Lookup failure, absent identity, and disconnect during lookup all fail closed.
+          void Promise.resolve().then(() => o.personOfConnection?.(c.id)).then(deliver).catch(() => {});
+        } else deliver();
       }
     },
     subscriptions: () => [...conns.values()].flatMap((c) => [...c.subs.values()]),
