@@ -13,6 +13,7 @@ describe("composeMediaSearch", () => {
     const ws = join(home, "ws"); mkdirSync(ws);
     mkdirSync(join(home, "media", "owners"), { recursive: true });
     writeFileSync(join(home, "media", "owners", "out1.json"), JSON.stringify({ agentId: "bernd", userId: "u", connectionId: "" }));
+    writeFileSync(join(home, "media", "owners", "out2.json"), JSON.stringify({ agentId: "bernd", userId: "u", connectionId: "" }));
     let listener: any;
     const store = { root: join(home, "media", "outputs"), addListener: (l: unknown) => { listener = l; return () => { listener = undefined; }; } };
     const port = new FakePort();
@@ -20,11 +21,14 @@ describe("composeMediaSearch", () => {
     const c = await composeMediaSearch({ home, config: () => cfg, engine: {}, agents: { workspaceOf: () => ws }, logger: { ...silentLogger, debug() {} } as any, store: store as any, budget: null, testPort: port });
     assert.equal(c.kind, "memory");
     listener.onPut({ id: "out1", prompt: "a red kite", files: [{ path: "0.png", format: "png" }] });
+    listener.onPut({ id: "out2", kind: "video", prompt: "a red kite in motion", files: [{ path: "0.mov", format: "mov" }] });
     listener.onDelete("out1");
     await c.hook.idle();
     assert.equal(port.indexed[0]!.captionSource, "prompt");
     assert.equal(port.indexed[0]!.caption, "a red kite");
     assert.equal(port.indexed[0]!.scope.agentId, "bernd");
+    assert.equal(port.indexed[1]!.kind, "video");
+    assert.equal(port.indexed[1]!.mime, "video/quicktime");
     assert.deepEqual(port.removed, ["out1"]);
     await c.close();
     assert.equal(listener, undefined);

@@ -14,6 +14,10 @@ export type Paired = { connection: Connection; tokenStore: TokenStoreKind };
 export type HelperStatus={ready:boolean;restarting:boolean;capabilities:string[];grants:string[]};
 export type BridgeSettings={enabled:boolean;memoryOnly:boolean;secretsLocked:boolean;secretsState?:"locked"|"unlocked"|"unknown"};
 export type DesktopTransport = {
+  harnessUpgradeStatus?():Promise<import("./views/settings-version.ts").UpgradeStatus>;
+  harnessRollback?(confirmed:boolean):Promise<import("./views/upgrade-progress.ts").UpgradeOutcome|null>;
+  upgradeProgress?(onStep:(step:string)=>void):Promise<()=>void>;
+  upgradeOutcome?(onOutcome:(outcome:import("./views/upgrade-progress.ts").UpgradeOutcome)=>void):Promise<()=>void>;
   updateSettings?(request?:import("./models/update-model.ts").UpdatePreferences):Promise<import("./models/update-model.ts").UpdateSnapshot>;
   updateCheck?(startup?:boolean):Promise<import("./models/update-model.ts").UpdateSnapshot>;
   updateInstall?():Promise<void>;
@@ -45,6 +49,10 @@ export type DesktopTransport = {
 };
 
 export const nativeTransport: DesktopTransport = {
+ harnessUpgradeStatus:()=>invoke("harness_upgrade_status"),
+ harnessRollback:confirmed=>invoke("harness_rollback",{confirmed}),
+ upgradeProgress:onStep=>listen<string>("desktop-upgrade-progress",event=>onStep(event.payload)),
+ upgradeOutcome:onOutcome=>listen<import("./views/upgrade-progress.ts").UpgradeOutcome>("desktop-upgrade-outcome",event=>onOutcome(event.payload)),
  updateSettings:request=>invoke("update_settings",{request:request??null}),
  updateCheck:startup=>invoke("update_check",{startup:startup??false}),
  updateInstall:()=>invoke("update_install"),

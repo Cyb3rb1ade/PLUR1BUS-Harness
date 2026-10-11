@@ -10,6 +10,7 @@ impl Controller {
         progress: impl Fn(InstallStep),
     ) -> Result<Installed, CtlError> {
         let _guard = self.mutation.lock().await;
+        self.require_settled_upgrade()?;
         res.validate()?;
         let previous = self.installed()?;
         self.runtime.ensure_started().await?;
@@ -38,10 +39,10 @@ impl Controller {
             match step {
                 InstallStep::Volumes => {
                     self.runtime
-                        .volume_ensure(&self.names.state, 64, &self.labels("state", &digest))
+                        .volume_ensure(&self.names.state, 64, &self.resource_labels("state"))
                         .await?;
                     self.runtime
-                        .volume_ensure(&self.names.models, 32, &self.labels("models", &digest))
+                        .volume_ensure(&self.names.models, 32, &self.resource_labels("models"))
                         .await?
                 }
                 InstallStep::Network => {
@@ -121,6 +122,7 @@ impl Controller {
     }
     pub(crate) async fn start_internal(&self, manual: bool) -> Result<(), CtlError> {
         let _guard = self.mutation.lock().await;
+        self.require_settled_upgrade()?;
         if manual {
             self.set_desired_running(true)?;
             self.watcher
@@ -298,10 +300,10 @@ impl Controller {
         if level == UninstallLevel::Everything {
             progress(UninstallStep::Volumes);
             self.runtime
-                .volume_remove_owned(&self.names.state, &self.labels("state", &i.image_digest))
+                .volume_remove_owned(&self.names.state, &self.resource_labels("state"))
                 .await?;
             self.runtime
-                .volume_remove_owned(&self.names.models, &self.labels("models", &i.image_digest))
+                .volume_remove_owned(&self.names.models, &self.resource_labels("models"))
                 .await?;
             progress(UninstallStep::Keychain);
             for row in rows {
@@ -319,6 +321,7 @@ impl Controller {
             return Err(CtlError::Invalid);
         }
         let _guard = self.mutation.lock().await;
+        self.require_settled_upgrade()?;
         self.set_desired_running(true)?;
         self.watcher
             .lock()

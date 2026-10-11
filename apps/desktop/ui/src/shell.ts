@@ -1,3 +1,4 @@
+import {versionPage} from "./views/settings-version.ts";
 import {updatesPage} from "./views/settings-updates.ts";
 import {computerAccess} from "./views/settings-computer-access.ts";
 import { bundledRuntime } from "./views/bundled-runtime.ts";
@@ -28,6 +29,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   root.append(mount);
   let wizardVisible = false;
   const renderUpdates = updatesPage(transport,()=>render());
+  const renderVersion = versionPage(transport,()=>render());
   const renderComputerAccess = computerAccess(transport,key=>t(key),()=>render());
   const bundled = bundledRuntime(transport, key => t(key), () => render());
   let settings: Settings = { theme: "system", locale: "system" };
@@ -205,6 +207,8 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
       main.append(renderComputerAccess());
     } else if (route.page === "updates" && transport.updateSettings) {
       main.append(renderUpdates());
+    } else if (route.page === "version" && transport.harnessUpgradeStatus) {
+      main.append(renderVersion());
     } else if (route.page === "advanced") {
       const stack = element("div", "settings-stack");
       const intro = element("div", "settings-section-header");

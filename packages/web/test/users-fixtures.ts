@@ -17,5 +17,11 @@ export function seed(rpc: MockRpc, o: Seed = {}): void {
   rpc.handle("config.get", (p) => ({ key: (p as { key?: string }).key ?? null, tier: null, value: o.agents ?? AGENTS, restartClass: "live", restart: "live", revision: "r1" }), { write: false });
 }
 
-/** Methods called other than the reads: any of them would mean the page sent a mutation it must not. */
-export const nonReads = (rpc: MockRpc): string[] => rpc.calls.map((c) => c.method).filter((m) => m !== "identity.list" && m !== "config.get" && m !== "user.list" && m !== "user.invite.list" && m !== "breakglass.list");
+const READS = ["identity.list", "config.get", "user.list", "user.invite.list", "breakglass.list", "session.list"];
+
+/** Methods called other than the reads: any of them would mean the page sent a mutation it must not. `session.list` is the
+ *  palette's background index (a read), which the shell may send at any time. */
+export const nonReads = (rpc: MockRpc): string[] => rpc.calls.map((c) => c.method).filter((m) => !READS.includes(m));
+
+/** The writes sent since call index `from` (a snapshot of `rpc.calls.length`), reads excluded. */
+export const writesSince = (rpc: MockRpc, from: number): string[] => rpc.calls.slice(from).map((c) => c.method).filter((m) => !READS.includes(m));

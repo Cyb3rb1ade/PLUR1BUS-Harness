@@ -196,9 +196,15 @@ pub fn create_argv(s: &ContainerSpec) -> Result<Vec<String>, RuntimeError> {
     if let Some(n) = &s.network {
         a.extend(["--network".into(), n.clone()])
     }
+    if let Some(cmd) = &s.cmd {
+        let first = cmd
+            .first()
+            .ok_or_else(|| RuntimeError::Failed("empty-command".into()))?;
+        a.extend(["--entrypoint".into(), first.clone()]);
+    }
     a.push(s.image_digest.clone());
     if let Some(cmd) = &s.cmd {
-        a.extend(cmd.clone())
+        a.extend(cmd.iter().skip(1).cloned());
     }
     Ok(a)
 }
@@ -463,6 +469,19 @@ impl Runtime for AppleRuntime {
         }
         args.push(name.into());
         check(self.cli.run(&args, None, Duration::from_secs(60)).await?).map(|_| ())
+    }
+    async fn volume_present(&self, name: &str, labels: &Labels) -> Result<bool, RuntimeError> {
+        let output = match self.checked(&["volume", "inspect", name]).await {
+            Ok(o) => o,
+            Err(RuntimeError::NotFoundObject(_)) => return Ok(false),
+            Err(e) => return Err(e),
+        };
+        let v: serde_json::Value = serde_json::from_slice(&output.stdout)
+            .map_err(|_| RuntimeError::Failed("apple-volume-shape".into()))?;
+        Ok(v.get(0)
+            .and_then(|v| v.pointer("/configuration/labels"))
+            .and_then(|v| serde_json::from_value::<Labels>(v.clone()).ok())
+            .is_some_and(|l| labels.iter().all(|(k, value)| l.get(k) == Some(value))))
     }
     async fn volume_remove_owned(&self, name: &str, labels: &Labels) -> Result<(), RuntimeError> {
         let output = match self.checked(&["volume", "inspect", name]).await {

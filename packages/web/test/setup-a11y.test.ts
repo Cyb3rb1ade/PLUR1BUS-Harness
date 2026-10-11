@@ -81,8 +81,12 @@ describe("setup wizard: a11y", opts, () => {
       await stepHeading(page, /Switchboard/).waitFor();
       await press(/^Skip this step$/);
       await stepHeading(page, /Memory/).waitFor();
+      // The page moves focus to the new step heading in an effect; wait for that before the radio gets focus, or it is taken away.
+      await page.waitForFunction(() => document.activeElement?.tagName === "H2" && /Memory/.test(document.activeElement?.textContent ?? ""));
       await page.getByRole("radio", { name: "Research, non-commercial" }).focus();
       await page.keyboard.press("ArrowDown");
+      // Wait for the checked state instead of reading it right after the key press (under load it can lag behind).
+      await page.waitForFunction(() => (document.getElementById("setup-use-commercial") as HTMLInputElement | null)?.checked === true);
       assert.equal(await page.getByRole("radio", { name: "Commercial", exact: true }).isChecked(), true);
       await page.getByRole("radio", { name: "Commercial", exact: true }).focus();
       await page.keyboard.press("ArrowUp");

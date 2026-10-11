@@ -110,7 +110,10 @@ export async function composeMediaSearch(d: MediaSearchDeps): Promise<MediaSearc
   if (store && kind !== 'disabled') {
     const recordOf = (m: Manifest): MediaRecord | null => {
       const file = m.files[0];
-      return file ? { mediaId: m.id, kind: 'image', mime: `image/${file.format}`, source: { path: join(store.root, m.id, file.path) }, prompt: m.prompt } : null;
+      if (!file) return null;
+      const kind = m.kind === 'video' ? 'video' : 'image';
+      const mime = kind === 'video' && file.format === 'mov' ? 'video/quicktime' : `${kind}/${file.format}`;
+      return { mediaId: m.id, kind, mime, source: { path: join(store.root, m.id, file.path) }, prompt: m.prompt };
     };
     unlisten = store.addListener({
       onPut: m => { const r = recordOf(m); if (r) hook.onStored(r); },

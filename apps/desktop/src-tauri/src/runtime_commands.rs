@@ -493,6 +493,7 @@ pub(crate) async fn on_login(window: WebviewWindow) -> Result<(), String> {
             .ok()
     })
     .await?;
+    crate::upgrade_commands::on_start(&window).await?;
     c.start().await.map_err(|e| e.code())?;
     sync_origins(window.app_handle(), c.clone()).await?;
     let mut owner = state.0.lock().await;
@@ -533,6 +534,8 @@ fn native_watch(app: &tauri::AppHandle, c: Arc<Controller>) -> tokio::task::Join
     }))
 }
 pub(crate) async fn monitor_existing(window: WebviewWindow) -> Result<(), String> {
+    crate::upgrade_commands::on_start(&window).await?;
+    let _ = crate::host_commands::resume_bundled(window.app_handle()).await;
     if !commands::app_config_dir(window.app_handle())?
         .join("bundled/installed.json")
         .exists()
