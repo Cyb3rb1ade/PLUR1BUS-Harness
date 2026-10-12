@@ -10,7 +10,7 @@ import { formatDateTime, t } from "../../i18n.ts";
 import { registerArea } from "../../i18n/index.ts";
 import * as area from "../../i18n/breakglass.ts";
 import { FailureState } from "../common/states.ts";
-import { currentRole, getApi, roleIn, useLoad } from "../common/load.ts";
+import { currentRole, getApi, useLoad } from "../common/load.ts";
 import type { PageProps } from "../registry.ts";
 import "./rpc-types.ts";
 import type {
@@ -44,7 +44,9 @@ type LoadedData = {
 
 export function BreakglassPage(_props?: PageProps): View {
   const role = currentRole();
-  const isAllowed = roleIn(role, ["owner", "admin"]) && role !== undefined;
+  // Fail closed (docs/rbac.md: Owner and Admin only, people only): a role this UI does not know, an agent included, gets no trigger,
+  // unlike roleIn(), which lets an unknown role try and the server decide.
+  const isAllowed = role === "owner" || role === "admin";
 
   if (!isAllowed) {
     return h(Page, { title: t("breakglass.title") }, h(PageState, { state: "forbidden" }));
@@ -211,7 +213,8 @@ function BreakglassContent(_props?: unknown): View {
       ? h("p", { class: "bg-empty", role: "status" }, t("breakglass.empty.past"))
       : h(
         "div",
-        { class: "bg-table-container" },
+        // The past table has no button inside; a narrow window scrolls it, so the container itself must be reachable by keyboard.
+        { class: "bg-table-container", role: "region", tabIndex: 0, "aria-label": t("breakglass.tab.past") },
         h(
           "table",
           { class: "bg-table", "aria-label": t("breakglass.tab.past") },
