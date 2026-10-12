@@ -54,6 +54,7 @@ export interface TokenServiceOptions { store: TokenStore; clock: Clock }
 export class TokenService {
   readonly #store: TokenStore; readonly #clock: Clock;
   readonly #dummy = sha256("no such token");
+  readonly #creating = new Map<string, Promise<unknown>>();
   constructor(o: TokenServiceOptions) { this.#store = o.store; this.#clock = o.clock; }
 
   /** Makes a token for `userId`. The returned `token` is the only time the full string exists. */
@@ -63,13 +64,24 @@ export class TokenService {
     const scopes = validateScopes(o.scopes);
     const ttl = o.ttlMs === undefined ? DEFAULT_TTL_MS : o.ttlMs;
     if (typeof ttl !== "number" || !Number.isInteger(ttl) || ttl < MIN_TTL_MS || ttl > MAX_TTL_MS) throw errors.badRequest("ttl", "the lifetime must be between 1 hour and 365 days");
-    const now = this.#clock.now();
-    const live = (await this.#store.listByUser(userId)).filter((t) => t.revokedAt === undefined && t.expiresAt > now).length;
-    if (live >= MAX_TOKENS_PER_USER) throw new ApiError(409, "E_CONFLICT", "too many tokens", { reason: "token-limit" });
-    const id = randomBytes(6).toString("hex"); const secret = randomBytes(32).toString("base64url");
-    const rec: TokenRecord = { id, userId, name, scopes, hash: sha256(secret).toString("hex"), createdAt: now, expiresAt: now + ttl };
-    await this.#store.put(rec);
-    return { token: `${TOKEN_PREFIX}${id}_${secret}`, record: publicView(rec) };
+    // Count and store as one step per user: creations that overlapped would all count the same live tokens and all pass the cap.
+    return this.#oneAtATime(userId, async () => {
+      const now = this.#clock.now();
+      const live = (await this.#store.listByUser(userId)).filter((t) => t.revokedAt === undefined && t.expiresAt > now).length;
+      if (live >= MAX_TOKENS_PER_USER) throw new ApiError(409, "E_CONFLICT", "too many tokens", { reason: "token-limit" });
+      const id = randomBytes(6).toString("hex"); const secret = randomBytes(32).toString("base64url");
+      const rec: TokenRecord = { id, userId, name, scopes, hash: sha256(secret).toString("hex"), createdAt: now, expiresAt: now + ttl };
+      await this.#store.put(rec);
+      return { token: `${TOKEN_PREFIX}${id}_${secret}`, record: publicView(rec) };
+    });
+  }
+
+  #oneAtATime<T>(userId: string, fn: () => Promise<T>): Promise<T> {
+    const run = (this.#creating.get(userId) ?? Promise.resolve()).then(fn);
+    const tail = run.then(() => undefined, () => undefined);
+    this.#creating.set(userId, tail);
+    void tail.then(() => { if (this.#creating.get(userId) === tail) this.#creating.delete(userId); });
+    return run;
   }
 
   /** The record behind a presented token string. A wrong secret under a real id and an id that does not exist both
