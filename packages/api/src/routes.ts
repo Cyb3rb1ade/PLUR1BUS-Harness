@@ -352,7 +352,9 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
         d.audit.emit("auth.totp.failure", user.id, `user:${user.id}`, { stage: "login", ip: i.ip });
         throw refused();
       }
-      d.challenges!.consume(b.challenge);
+      // Spent exactly once: two valid codes sent at once (both inside the window, so the replay guard passes each) would
+      // otherwise turn one challenge into two sessions. The loser gets the ordinary refusal.
+      if (!d.challenges!.consume(b.challenge)) throw refused();
       d.sessions.destroy(i.presentedSessionId);
       const principal: Principal = { kind: "user", id: user.id, role: user.role };
       const { id, session } = d.sessions.create(principal, { authVersion: user.version, stepUpAt: d.clock.now() });

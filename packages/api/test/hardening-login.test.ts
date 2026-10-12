@@ -64,6 +64,15 @@ test("over HTTP: a 1 MB password never reaches the hasher (413 or a cut connecti
   } finally { await h.close(); }
 });
 
+test("KNOWN GAP: a hash made with stronger parameters than the current ones is replaced by the weaker current ones at the next login", { todo: "KNOWN GAP: needsRehash treats any difference as stale (docs/api.md says \"other parameters\"); see SICHERHEIT in the PR" }, async () => {
+  const users = new MemoryUserDirectory(); const clock = new FakeClock();
+  const strong = { memoryKiB: 65_536, passes: 3, parallelism: 1 };
+  users.add({ id: "u-s", username: "strong", role: "member", passwordHash: await hashPassword(FIXTURE_PASSWORD, strong) });
+  const r = await new PasswordLogin({ users, clock }).check("strong", FIXTURE_PASSWORD); assert.equal(r.ok, true);
+  const after = parsePhc((await users.findByUsername("strong"))!.passwordHash)!;
+  assert.deepEqual([after.memoryKiB, after.passes], [strong.memoryKiB, strong.passes], "the stronger cost was kept");
+});
+
 // ---- lockout -------------------------------------------------------------------------------------------------------
 
 async function directory(): Promise<{ users: MemoryUserDirectory; clock: FakeClock; hash: string }> {

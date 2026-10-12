@@ -31,6 +31,8 @@ export class PasswordLogin {
   readonly #users: UserDirectory; readonly #clock: Clock; readonly #p: LockoutPolicy;
   readonly #verify: typeof verifyPassword; readonly #hash: typeof hashPassword;
   readonly #attempts = new Map<string, Attempt>();
+  /** The tail of the attempts in flight per name: see `check`. Entries leave the map when their chain is idle. */
+  readonly #inFlight = new Map<string, Promise<unknown>>();
   #dummy: Promise<string> | undefined;
   constructor(o: PasswordLoginOptions) {
     this.#users = o.users; this.#clock = o.clock; this.#p = { ...DEFAULT_LOCKOUT, ...o.policy };
@@ -48,9 +50,20 @@ export class PasswordLogin {
     return a && a.lockedUntil > now ? Math.ceil((a.lockedUntil - now) / 1000) : 0;
   }
 
-  async check(username: unknown, password: unknown): Promise<PasswordResult> {
-    if (typeof username !== "string" || typeof password !== "string" || username.length === 0 || username.length > 128) return { ok: false, locked: false };
+  /** One attempt at a time per name: the lock is read before the (slow) verification and written after it, so attempts
+   *  that overlapped would all be checked against the same, still unlocked counter and `maxFailures` could be outrun by
+   *  concurrency. Different names do not wait for each other. */
+  check(username: unknown, password: unknown): Promise<PasswordResult> {
+    if (typeof username !== "string" || typeof password !== "string" || username.length === 0 || username.length > 128) return Promise.resolve({ ok: false, locked: false });
     const key = this.#key(username);
+    const run = (this.#inFlight.get(key) ?? Promise.resolve()).then(() => this.#attempt(key, username, password));
+    const tail = run.then(() => undefined, () => undefined);
+    this.#inFlight.set(key, tail);
+    void tail.then(() => { if (this.#inFlight.get(key) === tail) this.#inFlight.delete(key); });
+    return run;
+  }
+
+  async #attempt(key: string, username: string, password: string): Promise<PasswordResult> {
     const wait = this.lockedFor(username);
     if (wait > 0) return { ok: false, locked: true, retryAfterSec: wait };
 
