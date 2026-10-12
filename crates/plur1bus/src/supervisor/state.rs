@@ -1057,4 +1057,321 @@ mod tests {
             }
         }
     }
+
+    // ---- Step 12 hardening: the backoff against an independent oracle, and every exit classified ------------------------
+
+    /// A small seeded generator for the model test; the seed is in every failure message.
+    struct Lcg(u64);
+    impl Lcg {
+        fn next(&mut self) -> u64 {
+            self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
+            let mut z = self.0;
+            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+            z ^ (z >> 31)
+        }
+        fn below(&mut self, n: u64) -> u64 {
+            self.next() % n
+        }
+    }
+
+    /// What the spec (§6.4) says, written without the implementation's fields: the delay is 1, 2, 4, 8, 16, 32, 60, 60, … seconds
+    /// (times the scale) by the number of exits since the last time the child was ready for a whole window; five counted exits
+    /// within one window give up for good; a lock-held exit is delayed but not counted; `reset()` forgets everything.
+    #[derive(Default)]
+    struct Oracle {
+        /// (time, counted) of every exit in the current streak.
+        streak: Vec<(Duration, bool)>,
+        counted: Vec<Duration>,
+        ready: Option<Duration>,
+        gave_up: bool,
+    }
+    impl Oracle {
+        fn exit(
+            &mut self,
+            t: Duration,
+            counted: bool,
+            window: Duration,
+            scale: f64,
+        ) -> RestartDecision {
+            if self.gave_up {
+                return RestartDecision::GiveUp;
+            }
+            if self.ready.is_some_and(|r| t >= r && t - r >= window) {
+                self.streak.clear();
+            }
+            self.ready = None;
+            if counted {
+                self.counted.retain(|c| t >= *c && t - *c <= window);
+                self.counted.push(t);
+                if self.counted.len() >= 5 {
+                    self.gave_up = true;
+                    return RestartDecision::GiveUp;
+                }
+            }
+            let nth = self.streak.len();
+            self.streak.push((t, counted));
+            let secs = [1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 60.0][nth.min(6)];
+            RestartDecision::After(Duration::from_secs_f64(secs * scale))
+        }
+    }
+
+    #[test]
+    fn the_backoff_agrees_with_an_independent_oracle_over_random_event_sequences() {
+        const SEED: u64 = 0x6261_636b_6f66_6601;
+        for scale in [1.0, 0.02, 0.5, 3.7, 1000.0] {
+            let window = Duration::from_secs_f64(600.0 * scale);
+            let mut rng = Lcg(SEED ^ scale.to_bits());
+            for case in 0..400 {
+                let (mut backoff, mut oracle) = (Backoff::new(scale), Oracle::default());
+                let base = Instant::now();
+                let mut now = Duration::ZERO;
+                let mut log = Vec::new();
+                for step in 0..40 {
+                    // Time moves by 0 .. 2 windows, in steps that hit the window edge exactly now and then.
+                    now += match rng.below(6) {
+                        0 => Duration::ZERO,
+                        1 => window,
+                        2 => window + Duration::from_nanos(1),
+                        3 => window.saturating_sub(Duration::from_nanos(1)),
+                        4 => Duration::from_secs_f64(rng.below(100) as f64 * scale),
+                        _ => Duration::from_secs_f64(rng.below(2000) as f64 * scale),
+                    };
+                    let at = base + now;
+                    match rng.below(10) {
+                        0 | 1 => {
+                            backoff.on_ready(at);
+                            oracle.ready = Some(now);
+                            log.push(format!("ready@{now:?}"));
+                        }
+                        2 => {
+                            backoff.reset();
+                            oracle = Oracle::default();
+                            log.push("reset".into());
+                        }
+                        3 | 4 => {
+                            let got = backoff.on_lock_held_exit(at);
+                            let want = oracle.exit(now, false, window, scale);
+                            log.push(format!("lock-held@{now:?}"));
+                            assert_eq!(got, want, "scale {scale} case {case} step {step}: {log:?}");
+                        }
+                        _ => {
+                            let got = backoff.on_exit(at);
+                            let want = oracle.exit(now, true, window, scale);
+                            log.push(format!("exit@{now:?}"));
+                            assert_eq!(got, want, "scale {scale} case {case} step {step}: {log:?}");
+                        }
+                    }
+                    assert_eq!(
+                        backoff.given_up(),
+                        oracle.gave_up,
+                        "scale {scale} case {case} step {step}: {log:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn delays_never_exceed_sixty_seconds_times_the_scale_and_give_up_is_sticky_until_reset() {
+        for scale in [0.001, 0.02, 1.0, 1000.0] {
+            let ceiling = Duration::from_secs_f64(60.0 * scale);
+            let mut b = Backoff::new(scale);
+            let base = Instant::now();
+            // Lock-held exits never give up and top out at the ceiling.
+            for i in 0..50 {
+                match b.on_lock_held_exit(base + Duration::from_secs(i)) {
+                    RestartDecision::After(d) => assert!(d <= ceiling, "{d:?} > {ceiling:?}"),
+                    RestartDecision::GiveUp => panic!("a lock-held exit gave up at {i}"),
+                }
+            }
+            // Five counted exits in a window give up; afterwards everything is GiveUp until reset.
+            let mut b = Backoff::new(scale);
+            let mut decisions = Vec::new();
+            for i in 0..5 {
+                decisions.push(b.on_exit(base + Duration::from_nanos(i)));
+            }
+            assert_eq!(decisions[4], RestartDecision::GiveUp);
+            assert!(b.given_up());
+            for later in [
+                Duration::ZERO,
+                Duration::from_secs(1),
+                Duration::from_secs(86_400 * 365),
+            ] {
+                assert_eq!(b.on_exit(base + later), RestartDecision::GiveUp);
+                assert_eq!(b.on_lock_held_exit(base + later), RestartDecision::GiveUp);
+                b.on_ready(base + later);
+                assert!(b.given_up(), "a ready child does not clear a give-up");
+            }
+            b.reset();
+            assert!(!b.given_up());
+            assert_eq!(
+                b.on_exit(base),
+                RestartDecision::After(Duration::from_secs_f64(scale))
+            );
+        }
+    }
+
+    #[test]
+    fn the_stable_window_and_the_give_up_window_are_inclusive_at_their_edge() {
+        let scale = 1.0;
+        let window = Duration::from_secs(600);
+        let base = Instant::now();
+        // Ready for exactly a window: the delay starts over. One nanosecond less: it does not.
+        let mut b = Backoff::new(scale);
+        assert_eq!(b.on_exit(base), RestartDecision::After(secs(1)));
+        assert_eq!(
+            b.on_exit(base + Duration::from_secs(1)),
+            RestartDecision::After(secs(2))
+        );
+        b.on_ready(base + Duration::from_secs(2));
+        assert_eq!(
+            b.on_exit(base + Duration::from_secs(2) + window),
+            RestartDecision::After(secs(1))
+        );
+        let mut b = Backoff::new(scale);
+        b.on_exit(base);
+        b.on_exit(base + Duration::from_secs(1));
+        b.on_ready(base + Duration::from_secs(2));
+        assert_eq!(
+            b.on_exit(base + Duration::from_secs(2) + window - Duration::from_nanos(1)),
+            RestartDecision::After(secs(4))
+        );
+        // Five exits whose first is exactly a window older than the fifth still count together.
+        let mut b = Backoff::new(scale);
+        for t in [0, 100, 200, 300] {
+            assert!(matches!(
+                b.on_exit(base + Duration::from_secs(t)),
+                RestartDecision::After(_)
+            ));
+        }
+        assert_eq!(b.on_exit(base + window), RestartDecision::GiveUp);
+        // One nanosecond later the first has aged out.
+        let mut b = Backoff::new(scale);
+        for t in [0, 100, 200, 300] {
+            b.on_exit(base + Duration::from_secs(t));
+        }
+        assert!(matches!(
+            b.on_exit(base + window + Duration::from_nanos(1)),
+            RestartDecision::After(_)
+        ));
+    }
+
+    #[test]
+    fn a_clock_that_runs_backwards_never_panics_the_backoff() {
+        let base = Instant::now() + Duration::from_secs(10_000);
+        let mut b = Backoff::new(1.0);
+        b.on_ready(base);
+        for back in [0u64, 1, 60, 600, 5_000, 9_999] {
+            let _ = b.on_exit(base - Duration::from_secs(back));
+            let _ = b.on_lock_held_exit(base - Duration::from_secs(back));
+            b.on_ready(base - Duration::from_secs(back));
+        }
+    }
+
+    /// Every exit code and signal, for the core and for a module, with every restart policy: the classification of ruling S9.
+    #[test]
+    fn every_exit_code_and_signal_is_classified_as_the_ruling_says() {
+        let signals: Vec<Option<i32>> = std::iter::once(None).chain((1..=64).map(Some)).collect();
+        let codes: Vec<Option<i32>> = std::iter::once(None).chain((-1..=300).map(Some)).collect();
+        for code in &codes {
+            for signal in &signals {
+                // Requested exits are never a crash, whatever the code or signal.
+                for kind in [RoleKind::Core, RoleKind::Module] {
+                    assert_eq!(
+                        classify_exit_for(kind, *code, *signal, true),
+                        ExitClass::Requested,
+                        "{code:?} {signal:?}"
+                    );
+                }
+                let core = classify_exit_for(RoleKind::Core, *code, *signal, false);
+                let module = classify_exit_for(RoleKind::Module, *code, *signal, false);
+                // The signal never changes the class (documented on classify_exit).
+                assert_eq!(
+                    core,
+                    classify_exit_for(RoleKind::Core, *code, None, false),
+                    "{code:?} {signal:?}"
+                );
+                assert_eq!(
+                    module,
+                    classify_exit_for(RoleKind::Module, *code, None, false),
+                    "{code:?} {signal:?}"
+                );
+                match code {
+                    Some(2) => {
+                        assert_eq!(
+                            core,
+                            ExitClass::Fatal {
+                                reason: "config-invalid".into()
+                            }
+                        );
+                        assert_eq!(
+                            module,
+                            ExitClass::Fatal {
+                                reason: "manifest-invalid".into()
+                            }
+                        );
+                    }
+                    Some(4) => {
+                        assert_eq!(
+                            core,
+                            ExitClass::Fatal {
+                                reason: "engine-contract".into()
+                            }
+                        );
+                        assert_eq!(module, ExitClass::Retryable { reason: None });
+                    }
+                    Some(3) => {
+                        let lock = ExitClass::Retryable {
+                            reason: Some("lock-held".into()),
+                        };
+                        assert_eq!((&core, &module), (&lock, &lock));
+                    }
+                    _ => assert_eq!(
+                        (&core, &module),
+                        (
+                            &ExitClass::Retryable { reason: None },
+                            &ExitClass::Retryable { reason: None }
+                        ),
+                        "{code:?} {signal:?}"
+                    ),
+                }
+            }
+        }
+        // The restart policy on top: a clean exit is `Exited` unless the policy is Always, everything else retryable is Final
+        // under Never, and requested and fatal exits never change.
+        for code in &codes {
+            let class = classify_exit_for(RoleKind::Module, *code, None, false);
+            for (policy, name) in [
+                (RestartPolicy::Always, "always"),
+                (RestartPolicy::OnFailure, "on-failure"),
+                (RestartPolicy::Never, "never"),
+            ] {
+                let got = apply_policy(class.clone(), policy, *code);
+                let want = match (&class, policy) {
+                    (ExitClass::Fatal { .. }, _) => class.clone(),
+                    (ExitClass::Retryable { .. }, RestartPolicy::Always) => class.clone(),
+                    (ExitClass::Retryable { .. }, _) if *code == Some(0) => ExitClass::Exited,
+                    (ExitClass::Retryable { reason }, RestartPolicy::Never) => ExitClass::Final {
+                        reason: reason.clone(),
+                    },
+                    (c, _) => c.clone(),
+                };
+                assert_eq!(got, want, "{code:?} under {name}");
+            }
+            assert_eq!(
+                apply_policy(ExitClass::Requested, RestartPolicy::Never, *code),
+                ExitClass::Requested
+            );
+        }
+        assert_eq!(RestartPolicy::parse("always"), RestartPolicy::Always);
+        assert_eq!(RestartPolicy::parse("never"), RestartPolicy::Never);
+        for other in ["on-failure", "", "ALWAYS", "Never", "always ", "yes"] {
+            assert_eq!(
+                RestartPolicy::parse(other),
+                RestartPolicy::OnFailure,
+                "{other:?}"
+            );
+        }
+    }
 }
