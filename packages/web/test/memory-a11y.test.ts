@@ -322,7 +322,11 @@ describe("keyboard", opts, () => {
       await app.page.keyboard.press("Home");
       await app.page.getByRole("region", { name: "Memory cards" }).getByRole("link").first().waitFor();
       assert.equal(await app.page.evaluate(() => location.hash), "#/memories");
+      // End selects the last tab, the Media tab (#/memories/media) since it was added; ArrowLeft walks back through Dreams to the list.
       await app.page.keyboard.press("End");
+      await app.page.getByRole("heading", { name: "Media index" }).waitFor();
+      assert.equal(await app.page.evaluate(() => location.hash), "#/memories/media");
+      await app.page.keyboard.press("ArrowLeft");
       await app.page.getByRole("group", { name: "Light", exact: true }).waitFor();
       await app.page.keyboard.press("ArrowLeft");
       await app.page.getByRole("region", { name: "Memory cards" }).getByRole("link").first().waitFor();
