@@ -193,7 +193,7 @@ test("a plan never carries a funnel in any argument, in any letter case, and the
     assert.deepEqual(cmds[0]!.args, ["serve", "--bg", `--https=${httpsPort ?? 443}`, `http://127.0.0.1:${port}`]);
   }
   for (const port of [0, -1, 65536, 1.5, NaN, Infinity, "7000" as never]) assert.throws(() => planServe({ cli: "tailscale", port }), /port must be/);
-  for (const hp of [80, 444, 8080, 0, "443" as never]) assert.throws(() => planServe({ cli: "tailscale", port: 7000, httpsPort: hp }), /httpsPort/);
+  for (const hp of [80, 444, 8080, 0, "443" as never]) assert.throws(() => planServe({ cli: "tailscale", port: 7000, httpsPort: hp as never }), /httpsPort/);
   let ran = 0; const exec: ExecPort = { async run() { ran++; return ok(""); } };
   for (const bad of [{ file: "tailscale", args: ["funnel", "on"] }, { file: "tailscale", args: ["serve", "--FUNNEL=on"] }, { file: "/opt/Funnel/tailscale", args: ["status"] }, { file: "tailscale", args: ["status", "x", "Funnel"] }]) {
     await assert.rejects(runServePlan(exec, [{ file: "tailscale", args: ["serve", "status"] }, bad]), /refusing a funnel command/); assert.equal(ran, 0, "nothing ran before the check passed");

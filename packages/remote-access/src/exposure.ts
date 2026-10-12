@@ -47,18 +47,22 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+/** A real configuration is three levels deep; anything past this is refused instead of walked (and cannot overflow the stack). */
+const MAX_DEPTH = 32;
+
 /** Funnel publishes to the internet; no configuration may ask for it, however it is spelled or nested. */
-function findFunnel(value: unknown, path: string, out: ConfigIssue[]): void {
+function findFunnel(value: unknown, path: string, out: ConfigIssue[], depth = 0): void {
   const fail = (p: string) => out.push({ path: p, code: "funnel-forbidden", message: "Funnel is not supported: the API is never published to the internet" });
+  if (depth > MAX_DEPTH) { if (!out.some((i) => i.message.startsWith("too deeply nested"))) out.push({ path, code: "not-an-object", message: `too deeply nested (more than ${MAX_DEPTH} levels)` }); return; }
   if (typeof value === "string") {
     if (/funnel/i.test(value)) fail(path);
   } else if (Array.isArray(value)) {
-    value.forEach((v, i) => findFunnel(v, `${path}[${i}]`, out));
+    value.forEach((v, i) => findFunnel(v, `${path}[${i}]`, out, depth + 1));
   } else if (isRecord(value)) {
     for (const [k, v] of Object.entries(value)) {
       const p = path === "" ? k : `${path}.${k}`;
       if (/funnel/i.test(k)) fail(p);
-      findFunnel(v, p, out);
+      findFunnel(v, p, out, depth + 1);
     }
   }
 }
@@ -115,6 +119,7 @@ export function parseRemoteConfig(input: unknown): ParseResult {
     subnetKey = input["allowSubnets"] !== undefined ? "allowSubnets" : input["allowCidrs"] !== undefined ? "allowCidrs" : undefined;
   }
   const allowSubnets: string[] = [];
+  const seenSubnets = new Set<string>();
   if (subnetKey !== undefined) {
     const raw = input[subnetKey];
     if (!Array.isArray(raw)) {
@@ -123,7 +128,7 @@ export function parseRemoteConfig(input: unknown): ParseResult {
       raw.forEach((entry, i) => {
         const cidr = typeof entry === "string" ? parseCidr(entry) : undefined;
         if (!cidr) issues.push({ path: `${subnetKey}[${i}]`, code: "invalid-cidr", message: "not a valid IPv4 or IPv6 CIDR" });
-        else if (!allowSubnets.includes(formatCidr(cidr))) allowSubnets.push(formatCidr(cidr));
+        else if (!seenSubnets.has(formatCidr(cidr))) { seenSubnets.add(formatCidr(cidr)); allowSubnets.push(formatCidr(cidr)); }
       });
     }
   }
