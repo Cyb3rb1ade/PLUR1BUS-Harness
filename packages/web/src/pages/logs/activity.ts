@@ -2,6 +2,7 @@
 // grouped by day, with the `audit.verify` status on top. Roles: `logs.query` and `audit.read` are Owner and Admin only
 // (docs/rbac.md), so every other role gets the forbidden state without a call. Entry mapping lives in activity/model.ts.
 import { h } from "preact";
+import { useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { PageLoading, PageState } from "../../components/page-state.ts";
 import { Badge } from "../../components/card.ts";
@@ -10,7 +11,7 @@ import { icon, type IconName } from "../../icons.ts";
 import { currentRole, roleIn } from "../common/load.ts";
 import { FailureState, Notice } from "../common/states.ts";
 import { useFeed, useVerify } from "./activity/data.ts";
-import { groupEntries, logLink, sentence, sentenceKey, type ActivityEntry, type ActivityKind, type ActivityOutcome } from "./activity/model.ts";
+import { groupEntries, logLink, rangeFrom, RANGES, sentence, sentenceKey, type ActivityEntry, type ActivityKind, type ActivityOutcome, type Range } from "./activity/model.ts";
 import { VerifyCard } from "./activity/verify-card.ts";
 import "../../styles/activity.css";
 
@@ -33,7 +34,9 @@ function Entry({ e }: { e: ActivityEntry }): View {
 export function ActivityFeed(): View {
   const now = (): number => Date.now();
   const allowed = roleIn(currentRole(), ["owner", "admin"]);
-  const feed = useFeed(allowed);
+  const [range, setRange] = useState<Range>("all");
+  const [from, setFrom] = useState<string | null>(null);
+  const feed = useFeed(allowed, from);
   const verify = useVerify(allowed, now);
   if (!allowed) return h(PageState, { state: "forbidden" });
 
@@ -60,5 +63,16 @@ export function ActivityFeed(): View {
     h("section", { "aria-labelledby": "activity-feed-title" },
       h("h2", { id: "activity-feed-title", class: "activity-title" }, t("activity.feed.title")),
       h("p", { class: "lead" }, t("activity.feed.lead")),
+      h("div", { class: "activity-range" },
+        h("label", { for: "activity-range" }, t("activity.range.label")),
+        h("select", {
+          id: "activity-range",
+          value: range,
+          onChange: (e: Event) => {
+            const r = (e.currentTarget as HTMLSelectElement).value as Range;
+            setRange(r);
+            setFrom(rangeFrom(r, now()));
+          },
+        }, RANGES.map((r) => h("option", { key: r, value: r }, t(`activity.range.${r}` as Key))))),
       body));
 }
