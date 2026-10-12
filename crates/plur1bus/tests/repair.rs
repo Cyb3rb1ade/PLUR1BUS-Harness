@@ -767,6 +767,144 @@ mod node {
             .iter()
             .any(|f| f == "runtime.node"));
     }
+
+    /// Step 11: a dry run changes nothing anywhere. One installation that needs five different repairs (a loosened `run/`, a
+    /// stale pid file, a broken config with a backup, a deleted service unit, a corrupted Node binary), and then every flavour
+    /// of dry run over it: the whole temp root (home, OS user home, fake service directory, Node mirror) is the same
+    /// byte for byte, with the same modes, afterwards. The fake service manager records every call it gets; a dry run may ask
+    /// (status) but never change (install, start, stop, uninstall).
+    #[test]
+    fn a_dry_run_of_every_planned_step_changes_nothing_anywhere() {
+        use std::os::unix::fs::PermissionsExt;
+        let e = Env::new();
+        let bytes = archive();
+        let mirror = e.root.join("mirror");
+        fs::create_dir_all(mirror.join(format!("v{NODE_VERSION}"))).unwrap();
+        fs::write(
+            mirror
+                .join(format!("v{NODE_VERSION}"))
+                .join(format!("node-v{NODE_VERSION}-{}.tar.gz", target_id())),
+            &bytes,
+        )
+        .unwrap();
+        let node_dir = e.home.join("runtime").join(format!("node-{NODE_VERSION}"));
+        let node = node_dir.join("bin").join("node");
+        fs::create_dir_all(node.parent().unwrap()).unwrap();
+        fs::write(&node, SHIM).unwrap();
+        fs::set_permissions(&node, fs::Permissions::from_mode(0o755)).unwrap();
+        let core = e.home.join("runtime").join("core");
+        fs::create_dir_all(&core).unwrap();
+        fs::write(core.join("core.js"), b"// TEST ONLY\n").unwrap();
+        fs::write(core.join("package.json"), r#"{"version":"0.0.1"}"#).unwrap();
+        let manifest = json!({
+            "schemaVersion": 1, "installedAt": 1, "updatedAt": 1, "channel": "stable", "target": target_id(),
+            "binary": { "version": "0.0.0", "sha256": null },
+            "node": { "version": NODE_VERSION, "archiveSha256": sha(&bytes), "binarySha256": sha(SHIM),
+                      "path": node.to_string_lossy() },
+            "core": { "version": "0.0.1", "contract": "1.9.0", "rpc": "1.3.0", "sha256": null, "source": "local" },
+            "modules": [], "skills": [],
+        });
+        fs::write(e.home.join("manifest.json"), manifest.to_string()).unwrap();
+        let mut corrupt = SHIM.to_vec();
+        corrupt[3] ^= 0x01;
+        fs::write(&node, &corrupt).unwrap();
+        e.install_service();
+        let (code, v) = json_of(e.cmd(&["--json", "service", "uninstall"]).output().unwrap());
+        assert_eq!(code, 0, "{v}");
+        e.break_home();
+        fs::write(
+            e.home.join("config.json.bak-1"),
+            r#"{"schemaVersion":1,"core":{"logLevel":"debug"}}"#,
+        )
+        .unwrap();
+
+        let run = |args: &[&str]| {
+            let mut all = vec!["--json", "1staid", "repair"];
+            all.extend_from_slice(args);
+            json_of(
+                e.cmd(&all)
+                    .env(
+                        "PLUR1BUS_NODE_MIRROR",
+                        format!("file://{}", mirror.display()),
+                    )
+                    .env("PLUR1BUS_TEST_NODE_SHA256", sha(&bytes))
+                    .output()
+                    .unwrap(),
+            )
+        };
+        let calls = e.fake.join("calls.jsonl");
+        let snapshot = || {
+            let mut t = tree(&e.root);
+            // The recording of the fake service manager is checked on its own below.
+            t.retain(|p, _| p != Path::new("fake/calls.jsonl"));
+            t
+        };
+        let before = snapshot();
+        let calls_before = fs::read_to_string(&calls).unwrap_or_default();
+
+        let (code, v) = run(&["--dry-run"]);
+        assert_eq!(code, 0, "{v}");
+        let planned = ids(&v);
+        for want in [
+            "run.permissions.fix",
+            "run.stale-files.remove",
+            "config.restore",
+            "service.renew",
+            "runtime.node.reinstall",
+        ] {
+            assert!(
+                planned.iter().any(|p| p == want),
+                "{want} is not planned: {planned:?}"
+            );
+        }
+        assert_eq!(
+            snapshot(),
+            before,
+            "a plain dry run changed the installation"
+        );
+
+        let (code, v) = run(&["--dry-run", "--yes"]);
+        assert_eq!(code, 0, "{v}");
+        assert_eq!(
+            snapshot(),
+            before,
+            "--dry-run --yes changed the installation"
+        );
+
+        for id in &planned {
+            let (code, v) = run(&["--dry-run", "--only", id]);
+            assert_eq!(code, 0, "{id}: {v}");
+            assert_eq!(step(&v, id)["status"], "planned", "{id}: {v}");
+            assert_eq!(
+                snapshot(),
+                before,
+                "a dry run of {id} changed the installation"
+            );
+        }
+        let calls_after = fs::read_to_string(&calls).unwrap_or_default();
+        let new_calls = calls_after
+            .strip_prefix(&calls_before)
+            .unwrap_or(&calls_after);
+        for verb in [
+            "install",
+            "uninstall",
+            "start",
+            "stop",
+            "enable",
+            "disable",
+            "bootstrap",
+            "bootout",
+            "load",
+            "unload",
+        ] {
+            assert!(
+                !new_calls.contains(&format!("\"{verb}\"")),
+                "a dry run called the service manager with {verb}: {new_calls}"
+            );
+        }
+        // And nothing was audited: no step ran.
+        assert!(e.audit_lines().is_empty(), "a dry run wrote an audit line");
+    }
 }
 
 // ---- run.permissions.fix on Windows --------------------------------------------------------------------------------
