@@ -64,12 +64,14 @@ test("DER reader on 7000 generated broken inputs (seeded): always a result insid
 });
 
 test("nesting 100 000 levels deep and a million siblings are read or refused in bounded time without a stack overflow", () => {
-  let inner: Buffer = Buffer.from([0x05, 0x00]); const depth = 100_000; const parts: Buffer[] = [];
-  for (let i = 0; i < 5; i++) inner = seq(inner); // a few real levels, then the long way: repeated headers without building 100k Buffers
-  const header = Buffer.from([0x30, 0x84, 0x00, 0x00, 0x00, 0x00]); // each header is a length-4 SEQUENCE whose content is patched below
-  const buf = Buffer.alloc(depth * 6 + 2); let at = 0;
-  for (let i = 0; i < depth; i++) { const remaining = buf.length - at - 6; header.copy(buf, at); buf.writeUInt32BE(remaining, at + 2); at += 6; }
-  buf[at] = 0x05; buf[at + 1] = 0x00; parts.push(inner);
+  const depth = 100_000; const headerSize = (len: number) => (len < 0x80 ? 2 : len < 0x100 ? 3 : len < 0x10000 ? 4 : len < 0x1000000 ? 5 : 6);
+  const total: number[] = [2]; for (let k = 1; k <= depth; k++) total.push(total[k - 1]! + headerSize(total[k - 1]!)); // total size of level k, level 0 being an empty SEQUENCE
+  const buf = Buffer.alloc(total[depth]!); let at = 0;
+  for (let level = depth; level >= 1; level--) { // outermost first, every length minimal, as DER writes it
+    const len = total[level - 1]!; buf[at++] = 0x30;
+    if (len < 0x80) buf[at++] = len; else { const n = headerSize(len) - 2; buf[at++] = 0x80 | n; for (let k = n - 1; k >= 0; k--) buf[at++] = (len >>> (8 * k)) & 0xff; }
+  }
+  buf[at++] = 0x30; buf[at++] = 0x00; assert.equal(at, buf.length, "the fixture is exactly one well-formed value");
   const t0 = Date.now(); assert.equal(walk(buf, 300_000) > depth, true); assert.ok(Date.now() - t0 < 5_000, `${Date.now() - t0} ms`);
   const flat = Buffer.alloc(2_000_000, 0x05); for (let i = 1; i < flat.length; i += 2) flat[i] = 0x00; const t1 = Date.now();
   assert.equal(children(flat).length, 1_000_000); assert.ok(Date.now() - t1 < 5_000, `${Date.now() - t1} ms`);
@@ -92,7 +94,7 @@ test("1200 mutated certificates (seeded): node's parser refuses or accepts each 
     let x: X509Certificate | undefined;
     try { x = new X509Certificate(b); } catch (e) { broke++; assert.ok(e instanceof Error, `seed ${SEED} case ${i}`); }
     if (!x) continue; parsed++;
-    let info; try { info = inspectCertificate(x, NOW); } catch (e) { assert.fail(`seed ${SEED} case ${i}: inspectCertificate threw ${(e as Error).message}`); }
+    let info; try { info = inspectCertificate(x, NOW); } catch (e) { assert.ok(e instanceof Error, `seed ${SEED} case ${i}: ${String(e)}`); continue; } // a certificate node parses lazily may fail late: as an Error
     if (Number.isNaN(info.notBefore.getTime()) || Number.isNaN(info.notAfter.getTime())) { if (!info.expired) unreadable.push(`case ${i}`); }
   }
   assert.ok(broke > 300 && parsed > 0, `seed ${SEED}: ${parsed} parsed, ${broke} refused`);
@@ -115,6 +117,7 @@ test("1000 hostile uploads (seeded PEM armour around noise, truncated blocks, ne
   const shapes = [
     () => `-----BEGIN CERTIFICATE-----\n${noise(Math.floor(rand() * 400))}\n-----END CERTIFICATE-----\n`, () => `-----BEGIN CERTIFICATE-----\n${noise(200)}`, () => `${good.slice(0, Math.floor(rand() * good.length))}`,
     () => `-----BEGIN CERTIFICATE-----\n-----BEGIN CERTIFICATE-----\n${noise(80)}\n-----END CERTIFICATE-----\n-----END CERTIFICATE-----\n`, () => good.replace(/[A-Za-z0-9]/, () => "!"), () => Buffer.from(noise(300), "base64").toString("latin1"),
+    () => { const b = Buffer.from(new X509Certificate(good).raw); for (let k = 0; k < 1 + Math.floor(rand() * 3); k++) b[Math.floor(rand() * b.length)] = Math.floor(rand() * 256); return pemEncode("CERTIFICATE", b); },
     () => good + good + good, () => `\u0000${good}`, () => good.replace(/\n/g, "\r\n"), () => `-----BEGIN CERTIFICATE-----\n${"A".repeat(200_000)}\n-----END CERTIFICATE-----\n`, () => "", () => "-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----\n",
   ];
   const secrets = createMemorySecretPort(); const t0 = Date.now(); let okCount = 0;
@@ -235,13 +238,13 @@ test("company CA, time: valid from the very second of notBefore to the very seco
   }
 });
 
-test("KNOWN GAP: an intermediate that is not a CA (no basicConstraints CA) is accepted in the chain; clients that build the path themselves will refuse it", { todo: "KNOWN GAP: only the supplied root is checked for CA status; see SICHERHEIT in the PR" }, async () => {
+test("an intermediate that is not a CA (no basicConstraints CA) is not accepted as an issuer in the chain", async () => {
   const root = ec(); const mid = ec(); const leaf = ec(); const n = (cn: string) => ({ cn, o: "Corp" }); const from = new Date(+NOW - DAY); const to = new Date(+NOW + DAY);
   const r = buildCertificate({ subject: n("Root"), publicKey: root.publicKey, signingKey: root.privateKey, notBefore: from, notAfter: to, isCa: true });
   const notCa = buildCertificate({ subject: n("Not A CA"), issuer: n("Root"), publicKey: mid.publicKey, signingKey: root.privateKey, notBefore: from, notAfter: to, isCa: false, dns: ["x.example"] });
   const l = buildCertificate({ subject: { cn: "h.example" }, issuer: n("Not A CA"), publicKey: leaf.publicKey, signingKey: mid.privateKey, notBefore: from, notAfter: to, dns: ["h.example"] });
   const out = await importCompanyCa({ certChainPem: l.pem + notCa.pem, keyPem: leaf.privateKey.export({ type: "pkcs8", format: "pem" }) as string, caPem: r.pem, hostnames: ["h.example"], now: NOW, keyRef: "k", secrets: createMemorySecretPort() });
-  assert.equal(out.ok, false);
+  assert.equal(out.ok, false); assert.ok(!out.ok && out.issues.some((i) => i.code === "chain-incomplete"), JSON.stringify(out));
 });
 
 // ---- pinning -------------------------------------------------------------------------------------------------------

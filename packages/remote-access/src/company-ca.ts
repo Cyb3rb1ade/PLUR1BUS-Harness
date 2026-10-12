@@ -52,11 +52,21 @@ export function splitPem(text: string): string[] {
   return text.match(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g) ?? [];
 }
 
-function parseCerts(text: string): { certs: X509Certificate[]; bad: number } {
+/** A real chain is a handful of certificates; a longer upload is refused instead of being parsed block by block. */
+const MAX_CHAIN = 10;
+
+function parseCerts(text: unknown): { certs: X509Certificate[]; bad: number } {
   const certs: X509Certificate[] = [];
   let bad = 0;
-  for (const block of splitPem(text)) {
-    try { certs.push(new X509Certificate(block)); } catch { bad++; }
+  if (typeof text !== "string") return { certs, bad };
+  for (const block of splitPem(text).slice(0, MAX_CHAIN + 1)) {
+    try {
+      const c = new X509Certificate(block);
+      // A validity period that cannot be read cannot be checked, so the certificate is not accepted (an Invalid Date compares false to everything).
+      // node parses lazily: touching the key here makes a certificate whose key cannot be decoded count as unparseable now, not as a throw later.
+      void c.publicKey;
+      if (Number.isNaN(Date.parse(c.validFrom)) || Number.isNaN(Date.parse(c.validTo))) bad++; else certs.push(c);
+    } catch { bad++; }
   }
   return { certs, bad };
 }
@@ -74,11 +84,14 @@ export async function importCompanyCa(req: CompanyCaRequest): Promise<ImportResu
   const add = (code: string, message: string) => issues.push({ code, message });
 
   const { certs, bad } = parseCerts(req.certChainPem);
-  if (certs.length === 0) return { ok: false, issues: [{ code: "chain-unparseable", message: "no certificate found in the uploaded chain" }] };
+  if (certs.length === 0) return { ok: false, issues: [{ code: "chain-unparseable", message: bad > 0 ? `${bad} certificate block(s) in the chain could not be parsed` : "no certificate found in the uploaded chain" }] };
+  if (certs.length > MAX_CHAIN) return { ok: false, issues: [{ code: "chain-unparseable", message: `the uploaded chain holds more than ${MAX_CHAIN} certificates` }] };
   if (bad > 0) add("chain-unparseable", `${bad} certificate block(s) in the chain could not be parsed`);
 
   let key: KeyObject | undefined;
-  if (/ENCRYPTED/.test(req.keyPem.split("\n").slice(0, 3).join("\n"))) {
+  if (typeof req.keyPem !== "string") {
+    add("key-unparseable", "the private key could not be parsed");
+  } else if (/ENCRYPTED/.test(req.keyPem.split("\n").slice(0, 3).join("\n"))) {
     add("key-encrypted", "the private key is passphrase-protected; upload an unencrypted key (it is stored in the secret store)");
   } else {
     try { key = createPrivateKey(req.keyPem); } catch { add("key-unparseable", "the private key could not be parsed"); }
@@ -92,12 +105,13 @@ export async function importCompanyCa(req: CompanyCaRequest): Promise<ImportResu
     add("key-mismatch", "the private key does not match the first certificate of the chain");
   }
 
-  const names = [...req.hostnames.map((h) => h.trim().toLowerCase()), ...(req.ips ?? [])];
-  if (names.length === 0) add("no-names", "no host name or address to check the certificate against");
-  for (const host of req.hostnames) {
+  const hostnames = Array.isArray(req.hostnames) ? req.hostnames.filter((h): h is string => typeof h === "string") : [];
+  const ips = Array.isArray(req.ips) ? req.ips.filter((a): a is string => typeof a === "string") : [];
+  if (hostnames.length + ips.length === 0) add("no-names", "no host name or address to check the certificate against");
+  for (const host of hostnames) {
     if (leaf.checkHost(host.trim().toLowerCase(), { subject: "never" }) === undefined) add("san-missing", `the certificate does not cover host name ${host}`);
   }
-  for (const ip of req.ips ?? []) {
+  for (const ip of ips) {
     if (leaf.checkIP(ip) === undefined) add("san-missing", `the certificate does not cover address ${ip}`);
   }
 

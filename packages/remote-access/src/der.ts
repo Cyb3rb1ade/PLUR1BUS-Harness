@@ -109,6 +109,8 @@ export function readTlv(buf: Uint8Array, offset: number): Tlv {
     if (offset + 2 + n > buf.length) throw new Error("der: truncated (length octets)");
     len = 0;
     for (let i = 0; i < n; i++) len = len * 256 + buf[offset + 2 + i]!;
+    // DER is canonical: the long form only for 128 and up, and without leading zero octets.
+    if (buf[offset + 2] === 0 || len < 0x80) throw new Error("der: length is not minimal");
     start = offset + 2 + n;
   }
   if (start + len > buf.length) throw new Error("der: truncated (content)");
