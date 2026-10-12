@@ -59,3 +59,15 @@ the anchor aside (keep them as evidence) and start a new chain.
   `lastSeq` from `audit.verify` somewhere the host cannot write (another machine, a ticket) to cover that.
 - A last line changed in the one-write window before the anchor moves is not caught until the next append.
 - The Rust CLI's own audit lines and the secret store's are not in the chain yet.
+
+## Testabdeckung und bekannte Lücken
+
+- **The chain** (append, `audit.verify`, rotation, torn tail, anchor) is written and tested in `packages/core` (`test/audit/`). The Rust
+  CLI never writes it and only calls `audit.verify`, so its behaviour is not tested from Rust (`crates/plur1bus/tests/audit_cli.rs` covers
+  what the CLI does on its own).
+- **The two Rust appenders** that sit next to it, `logs/audit.log` (`crates/plur1bus/src/audit.rs`) and the offline memory journal
+  (`src/journal.rs`), are tested for append-only writes (no earlier byte is rewritten), one physical line per entry whatever the content,
+  eight concurrent writers without interleaved lines, private permissions, and a last line left torn by a crash: the next entry now starts
+  a line of its own instead of being glued to the fragment.
+- **Known gaps:** the Rust CLI's own audit lines are not in the chain (see above). Neither `audit.log` nor the journal rotates, so "the
+  chain continues across a rotation" can only be tested where the chain is.
