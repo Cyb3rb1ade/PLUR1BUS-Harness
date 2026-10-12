@@ -100,7 +100,9 @@ pub fn clean_text(text: &str) -> String {
         .map(|c| if c.is_control() { ' ' } else { c })
         .collect();
     let squeezed = flat.split_whitespace().collect::<Vec<_>>().join(" ");
-    squeezed.chars().take(MAX_TEXT_CHARS).collect()
+    // A cut at the bound can land right after a blank; trim so the result is already clean (cleaning it again changes nothing).
+    let bounded: String = squeezed.chars().take(MAX_TEXT_CHARS).collect();
+    bounded.trim_end().to_string()
 }
 
 fn reason_of(outcome: &Outcome) -> &'static str {
