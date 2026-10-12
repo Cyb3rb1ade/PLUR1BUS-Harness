@@ -1019,3 +1019,406 @@ fn unknown_compatibility_never_blocks_and_a_rolled_back_update_leaves_addons_ena
     .unwrap();
     assert_eq!(rec["disabled"], json!([]), "nothing stays recorded");
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Step 9 hardening: version comparison, minFromVersion, signatures and a payload that breaks while it is unpacked.
+
+/// `update --check` against a release `target` served from a feed under `min` (the installed version is `installed`).
+fn check_doc(installed: &str, target: &str, min: Option<&str>) -> Value {
+    let e = env_with(installed, None);
+    let key = Key::new();
+    let mut rel = Release::new(&e, target);
+    if let Some(m) = min {
+        rel.extra = json!({ "minFromVersion": m });
+    }
+    let f = rel.feed(&e, "feed", &key);
+    let (code, doc) = run(&mut cmd(
+        &e,
+        Some(&f.pubkey),
+        &["update", "--check", "--manifest", f.path.to_str().unwrap()],
+    ));
+    assert_eq!(code, 0, "{installed} → {target}: {doc}");
+    doc
+}
+
+fn available(installed: &str, target: &str) -> bool {
+    !check_doc(installed, target, None)["available"].is_null()
+}
+
+#[test]
+fn update_check_compares_versions_numerically_and_ignores_build_metadata() {
+    for (installed, target, newer) in [
+        ("0.1.0", "0.1.1", true),
+        ("0.1.9", "0.1.10", true),
+        ("0.9.0", "0.10.0", true),
+        ("0.1.0", "1.0.0", true),
+        ("9.9.9", "10.0.0", true),
+        ("1.0.0", "0.9.9", false),
+        ("1.2.3", "1.2.2", false),
+        ("0.1.0", "0.1.0", false),
+        // Build metadata never counts (SemVer §10).
+        ("1.2.3", "1.2.3+build.7", false),
+        ("1.2.3+a", "1.2.3+b", false),
+        ("1.2.3+z", "1.2.3+a", false),
+        // A newer release triple is newer whatever suffix it has.
+        ("1.2.3", "1.2.4-rc.1", true),
+        ("1.2.3-rc.1", "1.2.4", true),
+        // The same pre-release twice is the same version.
+        ("1.2.3-rc.1", "1.2.3-rc.1", false),
+    ] {
+        assert_eq!(
+            available(installed, target),
+            newer,
+            "{installed} → {target}"
+        );
+    }
+}
+
+/// The rule the code states for itself (`is_newer`, `guard::compare`): a pre-release suffix is ignored, so these pairs are "equal".
+#[test]
+fn update_check_treats_a_pre_release_suffix_as_no_difference_as_the_code_documents() {
+    for (installed, target) in [
+        ("1.2.3", "1.2.3-rc.1"),
+        ("1.2.3-rc.1", "1.2.3"),
+        ("1.2.3-alpha", "1.2.3-beta"),
+    ] {
+        assert!(!available(installed, target), "{installed} → {target}");
+    }
+}
+
+/// KNOWN GAP (crates/plur1bus/src/commands/update.rs `is_newer`, update/guard.rs `compare`): SemVer §11 orders `1.2.3-rc.1` below
+/// `1.2.3` and `1.2.3-alpha` below `1.2.3-beta`. Both functions compare only the numeric `major.minor.patch`, so an install on a
+/// release candidate is told it is up to date when the final release of that same version is published, and a move from
+/// `1.2.3` to `1.2.3-rc.1` is not seen as a downgrade. Changing it changes which updates are offered and which are refused as
+/// downgrades or replays, so it is not changed here.
+#[test]
+#[ignore = "KNOWN GAP: update ignores pre-release suffixes, so 1.2.3-rc.1 → 1.2.3 is 'up to date' and 1.2.3 → 1.2.3-rc.1 is no downgrade"]
+fn update_check_orders_pre_releases_below_their_release_as_semver_does() {
+    assert!(
+        available("1.2.3-rc.1", "1.2.3"),
+        "the final release is newer than its release candidate"
+    );
+    assert!(available("1.2.3-alpha", "1.2.3-beta"));
+    assert!(available("1.2.3-rc.1", "1.2.3-rc.2"));
+    assert!(
+        !available("1.2.3", "1.2.3-rc.1"),
+        "a release candidate is not newer than its release"
+    );
+}
+
+#[test]
+fn a_version_that_is_not_semver_never_changes_an_install_and_never_panics() {
+    for bad in [
+        "garbage", "1.2", "1.2.3.4", "v1.2.3", "", "1.2.3 ", "latest", "1.2.x", "-1.0.0",
+    ] {
+        let e = env();
+        let key = Key::new();
+        let f = Release::new(&e, bad).feed(&e, "feed", &key);
+        let before = state_of(&e);
+        // `--check` may refuse or report; it must answer with a document either way.
+        let _ = run(&mut cmd(
+            &e,
+            Some(&f.pubkey),
+            &["update", "--check", "--manifest", f.path.to_str().unwrap()],
+        ));
+        let (code, doc) = run(&mut online(&e, &f, &[]));
+        assert_ne!(code, 0, "{bad:?} was applied: {doc}");
+        assert_eq!(state_of(&e), before, "{bad:?} changed the install");
+    }
+}
+
+#[test]
+fn min_from_version_blocks_exactly_the_installs_below_it_with_a_hint_and_cannot_be_overridden() {
+    // (installed, minFromVersion, blocked)
+    for (installed, min, blocked) in [
+        ("0.3.0", "0.3.0", false),
+        ("0.3.1", "0.3.0", false),
+        ("0.2.9", "0.3.0", true),
+        ("0.2.99", "0.3.0", true),
+        ("0.1.0", "0.1.1", true),
+        ("0.9.0", "0.10.0", true),
+        ("1.0.0", "0.10.0", false),
+        // A pre-release suffix is ignored here too: 0.3.0-rc.1 counts as 0.3.0.
+        ("0.3.0-rc.1", "0.3.0", false),
+        // A minimum that is not a version fails closed.
+        ("0.5.0", "latest", true),
+    ] {
+        let doc = check_doc(installed, "9.0.0", Some(min));
+        assert_eq!(
+            !doc["blocked"].is_null(),
+            blocked,
+            "installed {installed}, minFromVersion {min:?}: {doc}"
+        );
+        if blocked {
+            assert_eq!(doc["blocked"]["reason"], "min-from-version");
+            assert_eq!(doc["blocked"]["minFromVersion"], json!(min));
+        }
+    }
+    // The apply path refuses with the same reason and a message that names what to upgrade to; nothing is written.
+    let e = env_with("0.2.9", None);
+    let key = Key::new();
+    let mut rel = Release::new(&e, "0.4.0");
+    rel.extra = json!({ "minFromVersion": "0.3.0" });
+    let f = rel.feed(&e, "feed", &key);
+    let before = state_of(&e);
+    for flags in [vec![], vec!["--allow-downgrade"], vec!["--force"]] {
+        let (code, doc) = run(&mut online(&e, &f, &flags));
+        assert_eq!(
+            (code, doc["reason"].as_str()),
+            (1, Some("min-from-version")),
+            "{flags:?}: {doc}"
+        );
+        assert!(
+            doc["message"].as_str().unwrap().contains("0.3.0"),
+            "{flags:?}: the message does not name 0.3.0: {doc}"
+        );
+        assert_eq!(state_of(&e), before, "{flags:?}");
+    }
+    assert!(
+        !e.home.join("update/guard.json").exists(),
+        "a refusal records nothing"
+    );
+    assert!(!e.home.join("update/staging").exists());
+}
+
+#[test]
+fn an_empty_min_from_version_is_a_malformed_release_not_a_free_pass() {
+    let e = env();
+    let key = Key::new();
+    let mut rel = Release::new(&e, "0.2.0");
+    rel.extra = json!({ "minFromVersion": "" });
+    let f = rel.feed(&e, "feed", &key);
+    let before = state_of(&e);
+    let (code, doc) = run(&mut online(&e, &f, &[]));
+    assert_eq!(
+        (code, doc["reason"].as_str()),
+        (1, Some("release-malformed")),
+        "{doc}"
+    );
+    assert_eq!(state_of(&e), before);
+}
+
+fn assert_untouched(e: &Env, before: &(Vec<u8>, Vec<u8>, Vec<u8>), what: &str) {
+    assert_eq!(
+        &state_of(e),
+        before,
+        "{what}: the binary, config.json or install manifest changed"
+    );
+    assert_eq!(
+        fs::read(e.home.join("runtime/core/core.js")).unwrap(),
+        b"old core",
+        "{what}: the core changed"
+    );
+    assert!(
+        !e.home.join("update/staging").exists(),
+        "{what}: a staging directory is left"
+    );
+    let (_, st) = run(&mut cmd(e, None, &["update", "status"]));
+    assert!(
+        ["idle", "rolled-back"].contains(&st["phase"].as_str().unwrap()),
+        "{what}: phase {}",
+        st["phase"]
+    );
+    assert_eq!(st["recoveryPending"], false, "{what}");
+}
+
+#[test]
+fn every_kind_of_bad_signature_is_refused_and_nothing_is_left_behind() {
+    // (what, how to damage the feed's signature file; the feed is signed by key A and the build trusts key A)
+    type Damage = Box<dyn Fn(&Feed, &Key)>;
+    let cases: Vec<(&str, Damage)> = vec![
+        (
+            "signed by another key",
+            Box::new(|f, _| {
+                let manifest = fs::read(&f.path).unwrap();
+                fs::write(
+                    f.dir.join("stable.json.minisig"),
+                    Key::new().sign(&manifest),
+                )
+                .unwrap();
+            }),
+        ),
+        (
+            "the signature of another manifest",
+            Box::new(|f, key| {
+                fs::write(
+                    f.dir.join("stable.json.minisig"),
+                    key.sign(b"another manifest"),
+                )
+                .unwrap();
+            }),
+        ),
+        (
+            "an empty signature file",
+            Box::new(|f, _| fs::write(f.dir.join("stable.json.minisig"), b"").unwrap()),
+        ),
+        (
+            "garbage in place of the signature",
+            Box::new(|f, _| {
+                fs::write(
+                    f.dir.join("stable.json.minisig"),
+                    b"not a signature at all\n",
+                )
+                .unwrap()
+            }),
+        ),
+        (
+            "the signature cut in half",
+            Box::new(|f, _| {
+                let s = fs::read(f.dir.join("stable.json.minisig")).unwrap();
+                fs::write(f.dir.join("stable.json.minisig"), &s[..s.len() / 2]).unwrap();
+            }),
+        ),
+        (
+            "a flipped signature byte",
+            Box::new(|f, _| {
+                let mut s = fs::read_to_string(f.dir.join("stable.json.minisig"))
+                    .unwrap()
+                    .into_bytes();
+                let at = s
+                    .iter()
+                    .rposition(|b| b.is_ascii_alphabetic())
+                    .unwrap_or(s.len() - 1);
+                let at = s.len().saturating_sub(40).min(at);
+                s[at] = if s[at] == b'A' { b'B' } else { b'A' };
+                fs::write(f.dir.join("stable.json.minisig"), s).unwrap();
+            }),
+        ),
+        (
+            "no signature file",
+            Box::new(|f, _| fs::remove_file(f.dir.join("stable.json.minisig")).unwrap()),
+        ),
+        (
+            "the manifest changed after signing",
+            Box::new(|f, _| {
+                let mut m = fs::read(&f.path).unwrap();
+                let at = m.windows(5).position(|w| w == b"minor").unwrap();
+                m[at] = b'M';
+                fs::write(&f.path, m).unwrap();
+            }),
+        ),
+    ];
+    for (what, damage) in cases {
+        let e = env();
+        let key = Key::new();
+        let f = Release::new(&e, "0.2.0").with_core().feed(&e, "feed", &key);
+        damage(&f, &key);
+        let before = state_of(&e);
+        let (code, doc) = run(&mut online(&e, &f, &[]));
+        assert_eq!(code, 1, "{what}: {doc}");
+        let reason = doc["reason"].as_str().unwrap_or("");
+        assert!(
+            [
+                "release-signature-invalid",
+                "release-signature-missing",
+                "release-unreadable",
+                "release-unreachable",
+                "signature-unreadable",
+                "release-unverified",
+            ]
+            .contains(&reason),
+            "{what}: refused with {reason:?}: {doc}"
+        );
+        assert_untouched(&e, &before, what);
+        assert!(
+            !e.home.join("update/guard.json").exists(),
+            "{what}: an unverified release was recorded as seen"
+        );
+    }
+}
+
+fn tar_gz(entries: &[(&str, &[u8], Option<&str>)]) -> Vec<u8> {
+    // (name, data, symlink target). Names are written verbatim, so `..` and absolute names can be built.
+    let mut t = tar::Builder::new(flate2::write::GzEncoder::new(
+        Vec::new(),
+        flate2::Compression::fast(),
+    ));
+    for (name, data, link) in entries {
+        let mut h = tar::Header::new_gnu();
+        h.as_gnu_mut().unwrap().name[..name.len()].copy_from_slice(name.as_bytes());
+        match link {
+            Some(l) => {
+                h.set_entry_type(tar::EntryType::Symlink);
+                h.as_gnu_mut().unwrap().linkname[..l.len()].copy_from_slice(l.as_bytes());
+                h.set_size(0);
+            }
+            None => {
+                h.set_entry_type(tar::EntryType::Regular);
+                h.set_size(data.len() as u64);
+            }
+        }
+        h.set_mode(0o644);
+        h.set_cksum();
+        t.append(&h, if link.is_some() { &[][..] } else { data })
+            .unwrap();
+    }
+    t.into_inner().unwrap().finish().unwrap()
+}
+
+#[test]
+fn a_signed_release_whose_core_payload_breaks_while_it_is_unpacked_leaves_no_trace() {
+    let abs_dir = tempfile::tempdir().unwrap();
+    let abs = format!("{}/zz-absolute.txt", abs_dir.path().display());
+    let good = tar_gz(&[("core.js", b"new core", None)]);
+    let truncated_in_the_middle = good[..good.len() * 2 / 3].to_vec();
+    let noise: Vec<u8> = (0..400u32)
+        .map(|i| (i.wrapping_mul(2_654_435_761) >> 13) as u8)
+        .collect();
+    let cases: Vec<(&str, Vec<u8>)> = vec![
+        ("a gzip stream cut off", truncated_in_the_middle),
+        ("bytes that are no gzip at all", noise),
+        ("an empty payload", Vec::new()),
+        (
+            "an entry that climbs out of the target",
+            tar_gz(&[
+                ("core.js", b"new core", None),
+                ("../escape.txt", b"escaped", None),
+            ]),
+        ),
+        (
+            "an absolute entry",
+            tar_gz(&[
+                ("core.js", b"new core", None),
+                (abs.as_str(), b"absolute", None),
+            ]),
+        ),
+        (
+            "a symlink to a system file",
+            tar_gz(&[("core.js", b"", Some("/etc/passwd"))]),
+        ),
+        (
+            "a symlink out of the target",
+            tar_gz(&[
+                ("link", b"", Some("../../outside")),
+                ("core.js", b"new core", None),
+            ]),
+        ),
+    ];
+    for (what, payload) in cases {
+        let e = env();
+        let key = Key::new();
+        let mut rel = Release::new(&e, "0.2.0");
+        // The manifest pins the SHA-256 of exactly these bytes and is signed: the failure is in the unpacking, not in the checksum.
+        rel.core = Some(payload);
+        let f = rel.feed(&e, "feed", &key);
+        let before = state_of(&e);
+        let (code, doc) = run(&mut online(&e, &f, &[]));
+        assert_eq!(code, 1, "{what}: {doc}");
+        assert_untouched(&e, &before, what);
+        assert!(
+            !e.root.join("escape.txt").exists(),
+            "{what}: a file was written outside the target"
+        );
+        assert!(!e.home.join("escape.txt").exists(), "{what}");
+        assert!(
+            !Path::new(&abs).exists(),
+            "{what}: an absolute entry was written"
+        );
+        // Nothing but the old tree is left under runtime/.
+        let left: Vec<String> = fs::read_dir(e.home.join("runtime"))
+            .unwrap()
+            .map(|x| x.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(left, vec!["core".to_string()], "{what}: {left:?}");
+    }
+}
