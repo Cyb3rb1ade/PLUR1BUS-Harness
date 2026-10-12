@@ -2,7 +2,7 @@
 // mark all read. The data comes from inbox.list only; inbox.changed and a reconnect of /events are hints to reload the count
 // (pages/inbox/count.ts), never a source for the list.
 import { h } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Badge, type BadgeTone } from "../../components/card.ts";
 import { ConfirmDialog, type ConfirmResult } from "../../components/confirm-dialog.ts";
@@ -95,7 +95,7 @@ export function InboxPage(): View {
   itemsNow.current = items;
   // Where the focus goes once the list has changed: a control of that entry (its last one is "Dismiss"), or the heading.
   const focusAfter = useRef<{ id: string; pick: "first" | "last" } | null>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const want = focusAfter.current;
     if (want === null) return;
     focusAfter.current = null;

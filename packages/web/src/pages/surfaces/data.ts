@@ -84,7 +84,8 @@ export function isOutput(v: unknown): v is Output {
   if (!v || typeof v !== "object") return false;
   const o = v as Partial<Output> & { metadata?: unknown };
   const m = o.metadata as { adapter?: unknown } | null | undefined;
-  return typeof o.id === "string" && typeof o.agentId === "string" && typeof o.prompt === "string" && typeof o.createdAt === "number" && Array.isArray(o.files) && !!m && typeof m === "object" && typeof m.adapter === "string";
+  // Only what the list reads without a guard: the id, the agent, the prompt and the adapter.
+  return typeof o.id === "string" && typeof o.agentId === "string" && typeof o.prompt === "string" && !!m && typeof m === "object" && typeof m.adapter === "string";
 }
 export function filterOutputs<
   T extends {

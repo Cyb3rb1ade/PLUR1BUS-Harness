@@ -119,6 +119,7 @@ describe("inbox: the keyboard keeps its place", opts, () => {
       installInbox(app.server.rpc, sampleEntries()); await openInbox(app); await rows(app).first().waitFor();
       const btn = rows(app).first().getByRole("button", { name: "Mark as read" }); await btn.focus(); await app.page.keyboard.press("Enter");
       await app.page.waitForFunction(() => document.querySelector(".inbox-item")?.getAttribute("data-read") === "true");
+      await app.page.waitForFunction(() => document.activeElement?.closest(".inbox-item") !== null && document.activeElement !== document.body, undefined, { timeout: 2000 }).catch(() => {});
       const where = await app.page.evaluate(() => { const a = document.activeElement; return { tag: a?.tagName, inRow: !!a?.closest(".inbox-item"), text: a?.textContent }; });
       assert.equal(where.inRow, true, `the focus fell to <${where.tag}> when the button it was on went away`);
     });
