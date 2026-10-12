@@ -141,6 +141,16 @@ describe('KNOWN GAP: foreign termination can target the process that supervises 
   });
 });
 
+describe('KNOWN GAP: the harness\'s own credential files are not on the default deny list', () => {
+  it.todo('KNOWN GAP: a root that contains the harness home (or is the user home) lets fs.read return run/api-owner.token, run/core.token and run/supervisor.token without an approval');
+  it.fails('KNOWN GAP evidence: the three token files under run/ are readable like any other file in a root', async () => {
+    await mkdir(join(root, 'run')); for (const n of ['api-owner.token', 'core.token', 'supervisor.token']) await writeFile(join(root, 'run', n), 'redact-probe-alpha-token-file');
+    const h = make();
+    for (const n of ['api-owner.token', 'core.token', 'supervisor.token']) { const r = await call(h, 'fs.read', { path: `run/${n}` }); expect(r.ok, `${n} was read`).toBe(false); expect(r.error!.code).toBe('DENIED'); }
+    const found = await call(h, 'fs.search', { path: '.', query: 'redact-probe-alpha-token-file', mode: 'content' }); expect(found.value.matches).toEqual([]);
+  });
+});
+
 // ---- atomic writes ------------------------------------------------------------------------------------------------------
 
 describe('atomic writes keep what must stay', () => {
@@ -260,7 +270,7 @@ describe('search matches the way the documentation says, with or without ripgrep
     const gen = (n: number) => Array.from({ length: n }, () => atoms[Math.floor(rand() * atoms.length)]!).join('');
     let lines = 0;
     for (let i = 0; i < 400; i++) {
-      const text = gen(2 + Math.floor(rand() * 20)); const q = rand() < 0.5 ? text.slice(Math.floor(rand() * 3), Math.floor(rand() * text.length) + 1) : gen(1 + Math.floor(rand() * 4)); if (q === '') continue;
+      const text = gen(2 + Math.floor(rand() * 20)); const cps = Array.from(text); /* by code point: the tool surface refuses ill-formed strings before they reach the matcher */ const q = rand() < 0.5 ? cps.slice(Math.floor(rand() * 3), Math.floor(rand() * cps.length) + 1).join('') : gen(1 + Math.floor(rand() * 4)); if (q === '') continue;
       if (/[\r\n]/.test(q)) lines++;
       expect(await m.matches(text, q, sig), `seed ${SEED} case ${i} (${m.backend}): ${JSON.stringify({ text, q })}`).toBe(text.includes(q));
     }

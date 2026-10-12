@@ -4,7 +4,7 @@ import { which, createNodeHostContext } from '../../core/src/host-tools/index.ts
 export async function textMatcher() {
   const program = await which(createNodeHostContext(), 'rg');
   return { backend: program ? 'ripgrep-verified-stdin' : 'bounded-js', async matches(text: string, query: string, signal: AbortSignal): Promise<boolean> {
-    signal.throwIfAborted(); if (!program) return text.includes(query);
+    signal.throwIfAborted(); if (!program || /[\r\n]/.test(query)) return text.includes(query); // ripgrep reads line by line: a literal that spans lines can only be found here
     return new Promise((resolve, reject) => {
       const child = spawn(program, ['--quiet', '--fixed-strings', '--', query], { shell: false, stdio: ['pipe', 'ignore', 'ignore'], windowsHide: true });
       const abort = () => { child.kill(); reject(signal.reason); }; const timer = setTimeout(() => { child.kill(); resolve(text.includes(query)); }, 5000); timer.unref();
