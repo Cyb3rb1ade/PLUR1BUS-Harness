@@ -46,11 +46,31 @@ pub fn append(layout: &Layout, line: &JournalLine<'_>) -> io::Result<()> {
         use std::os::unix::fs::OpenOptionsExt;
         o.mode(0o600);
     }
+    // Readable too: a file that ends without a newline (a crash in the middle of a write) is noticed below.
+    o.read(true);
     let mut f = o.open(dir.join(format!("{}.jsonl", line.agent_id)))?;
-    let mut text = serde_json::to_string(line).unwrap();
+    let mut text = String::new();
+    if ends_in_a_torn_line(&mut f)? {
+        // The fragment stays a line of its own and this entry starts a fresh one, in the same single write.
+        text.push('\n');
+    }
+    text.push_str(&serde_json::to_string(line).unwrap());
     text.push('\n');
     f.write_all(text.as_bytes())?;
     f.flush()
+}
+
+/// Whether the file is non-empty and its last byte is not a newline.
+fn ends_in_a_torn_line(f: &mut std::fs::File) -> io::Result<bool> {
+    use std::io::{Read, Seek, SeekFrom};
+    let len = f.metadata()?.len();
+    if len == 0 {
+        return Ok(false);
+    }
+    f.seek(SeekFrom::Start(len - 1))?;
+    let mut last = [0u8; 1];
+    f.read_exact(&mut last)?;
+    Ok(last[0] != b'\n')
 }
 
 pub fn now_ms() -> u64 {

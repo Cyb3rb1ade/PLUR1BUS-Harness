@@ -65,11 +65,30 @@ pub fn append(layout: &Layout, action: &str, target: &str, detail: Value) -> io:
         "target": target,
         "detail": detail,
     });
-    let mut text = serde_json::to_string(&line).map_err(io::Error::other)?;
+    let mut f = fs::OpenOptions::new().append(true).read(true).open(&path)?;
+    // A file that ends without a newline (a crash in the middle of a line): the fragment stays a line of its own and this
+    // line starts a fresh one, in the same single write.
+    let mut text = String::new();
+    if ends_in_a_torn_line(&mut f)? {
+        text.push('\n');
+    }
+    text.push_str(&serde_json::to_string(&line).map_err(io::Error::other)?);
     text.push('\n');
-    let mut f = fs::OpenOptions::new().append(true).open(&path)?;
     f.write_all(text.as_bytes())?;
     f.sync_all()
+}
+
+/// Whether the file is non-empty and its last byte is not a newline.
+fn ends_in_a_torn_line(f: &mut fs::File) -> io::Result<bool> {
+    use std::io::{Read, Seek, SeekFrom};
+    let len = f.metadata()?.len();
+    if len == 0 {
+        return Ok(false);
+    }
+    f.seek(SeekFrom::Start(len - 1))?;
+    let mut last = [0u8; 1];
+    f.read_exact(&mut last)?;
+    Ok(last[0] != b'\n')
 }
 
 #[cfg(test)]
