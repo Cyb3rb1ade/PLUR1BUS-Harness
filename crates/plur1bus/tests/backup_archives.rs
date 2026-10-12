@@ -254,6 +254,26 @@ fn a_manifest_schema_that_is_not_exactly_version_one_is_refused() {
             vec!["unsupported-format", "manifest-invalid"],
         ),
         (
+            json!("plur1bus.backup/001"),
+            vec!["unsupported-format", "manifest-invalid"],
+        ),
+        (
+            json!("plur1bus.backup/+1"),
+            vec!["unsupported-format", "manifest-invalid"],
+        ),
+        (
+            json!("plur1bus.backup/1e0"),
+            vec!["unsupported-format", "manifest-invalid"],
+        ),
+        (
+            json!("plur1bus.backup/0x1"),
+            vec!["unsupported-format", "manifest-invalid"],
+        ),
+        (
+            json!("plur1bus.backup/١"),
+            vec!["unsupported-format", "manifest-invalid"],
+        ),
+        (
             json!("PLUR1BUS.BACKUP/1"),
             vec!["unsupported-format", "manifest-invalid"],
         ),
@@ -321,17 +341,17 @@ fn an_unknown_manifest_field_is_refused_at_every_level() {
             &["manifest-invalid"],
         );
     }
-    for (i, key) in [(0usize, "zzUnknown")] {
+    {
         let f = files();
         let mut m = manifest_for(&f);
-        m["files"][i]
+        m["files"][0]
             .as_object_mut()
             .unwrap()
-            .insert(key.into(), json!(1));
-        m["units"][i]
+            .insert("zzUnknown".into(), json!(1));
+        m["units"][0]
             .as_object_mut()
             .unwrap()
-            .insert(key.into(), json!(1));
+            .insert("zzUnknown".into(), json!(1));
         let a = archive_path(d.path());
         write_tar(&a, &standard_entries(&m, &f));
         assert_refused(

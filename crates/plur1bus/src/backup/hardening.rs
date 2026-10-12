@@ -408,9 +408,9 @@ fn found_forms(names: &[String], bytes: &[u8], marker: &str) -> Vec<&'static str
         let shifted = format!("{}{marker}", "x".repeat(pad));
         let b64 = base64(shifted.as_bytes());
         // The part of the encoding that does not depend on the bytes before the marker.
-        let core = &b64[(pad + 2) / 3 * 4..];
+        let core = &b64[pad.div_ceil(3) * 4..];
         let core = core.trim_end_matches('=');
-        if core.len() >= 8 && contains(&hay, core[..core.len().saturating_sub(2)].as_bytes()) {
+        if core.len() >= 8 && contains(&hay, &core.as_bytes()[..core.len().saturating_sub(2)]) {
             found.push("base64");
             break;
         }
