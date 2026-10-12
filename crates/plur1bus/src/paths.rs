@@ -30,7 +30,10 @@ fn is_absolute(platform: &str, s: &str) -> bool {
     }
     if platform == "windows" {
         let b = s.as_bytes();
-        b[0] == b'\\' || b[0] == b'/' || (s.len() >= 2 && b[1] == b':')
+        // A drive is an ASCII letter and a colon (Node: `1:\x` and `:\x` are relative paths).
+        b[0] == b'\\'
+            || b[0] == b'/'
+            || (s.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':')
     } else {
         s.starts_with('/')
     }
@@ -42,7 +45,36 @@ fn is_absolute(platform: &str, s: &str) -> bool {
 fn split_root(platform: &str, s: &str) -> (String, String) {
     let chars: Vec<char> = s.chars().collect();
     if platform == "windows" {
-        if chars.len() >= 2 && chars[1] == ':' {
+        // UNC and device paths (`\\server\share\…`, `\\?\C:\…`, `\\.\pipe\…`): exactly two separators, then a host, then a share.
+        // The root is `\\host\share\` (the names keep their case); with fewer parts, or with three or more separators in a row,
+        // it is not a UNC root but a root-relative path, like Node's `path.win32.resolve`.
+        if chars.len() >= 3
+            && is_sep(platform, chars[0])
+            && is_sep(platform, chars[1])
+            && !is_sep(platform, chars[2])
+        {
+            let mut i = 2;
+            let host_start = i;
+            while i < chars.len() && !is_sep(platform, chars[i]) {
+                i += 1;
+            }
+            let host: String = chars[host_start..i].iter().collect();
+            while i < chars.len() && is_sep(platform, chars[i]) {
+                i += 1;
+            }
+            let share_start = i;
+            while i < chars.len() && !is_sep(platform, chars[i]) {
+                i += 1;
+            }
+            let share: String = chars[share_start..i].iter().collect();
+            if !host.is_empty() && !share.is_empty() {
+                return (
+                    format!("\\\\{host}\\{share}\\"),
+                    chars[i..].iter().collect(),
+                );
+            }
+        }
+        if chars.len() >= 2 && chars[0].is_ascii_alphabetic() && chars[1] == ':' {
             let drive = format!("{}:", chars[0]);
             let mut i = 2;
             if i < chars.len() && is_sep(platform, chars[i]) {
@@ -87,12 +119,28 @@ fn normalize_absolute(platform: &str, root: &str, sep: char, rest: &str) -> Stri
     }
 }
 
+/// A Windows path that starts with a separator but is neither a UNC root nor a drive path (`\foo`, `/foo`, `\\\server`).
+fn is_rooted_without_drive(input: &str) -> bool {
+    let first = input.chars().next();
+    first.is_some_and(|c| is_sep("windows", c)) && split_root("windows", input).0 == "\\"
+}
+
 /// Absolutizes `input` against `cwd` (if it is not already absolute for
 /// `platform`) and normalizes it lexically — the Rust equivalent of Node's
 /// `path.resolve(input)` (POSIX or Windows variant, chosen by `platform`).
 fn resolve_and_normalize(platform: &str, cwd: &Path, input: &str) -> PathBuf {
     let sep = if platform == "windows" { '\\' } else { '/' };
-    let raw = if is_absolute(platform, input) {
+    let raw = if platform == "windows" && is_rooted_without_drive(input) {
+        // `\foo` and `/foo` name a place on the working directory's drive (or share): its root, then the rest.
+        let (root, _) = split_root(platform, &cwd.to_string_lossy());
+        let root = if root.is_empty() || root == "\\" {
+            "\\".to_string()
+        } else {
+            root
+        };
+        let (_, rest) = split_root(platform, input);
+        format!("{root}{rest}")
+    } else if is_absolute(platform, input) {
         input.to_string()
     } else {
         join_with(sep, &cwd.to_string_lossy(), &[input])
