@@ -1,0 +1,11 @@
+/* Settings > Security & Permissions (read-only rules overview). */
+.sec { display: grid; gap: var(--gap); }
+.sec-rules { margin: 0; display: grid; gap: 14px; }
+.sec-rule { display: grid; grid-template-columns: minmax(0, 14rem) minmax(0, 1fr); gap: 4px 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.sec-rule:last-child { border-bottom: 0; padding-bottom: 0; }
+.sec-rule dt { font-weight: 600; }
+.sec-rule dd { margin: 0; }
+.sec-rule .field-hint { margin: 4px 0 0; }
+.sec-key code { font-family: var(--mono, ui-monospace, monospace); overflow-wrap: anywhere; }
+.sec-links { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+@media (max-width: 640px) { .sec-rule { grid-template-columns: minmax(0, 1fr); } }
