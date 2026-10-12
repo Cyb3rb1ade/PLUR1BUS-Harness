@@ -1,0 +1,9 @@
+/* Surfaces (Media, My identities): the rules that used to be inline styles, and text that has to wrap. */
+.stored-image { max-width: 100%; height: auto; }
+.trace-child { margin-inline-start: 2rem; }
+/* A prompt or a name from the backend can be one very long word: let it wrap instead of widening the page. */
+.media-grid .btn { max-width: 100%; height: auto; min-height: var(--control-h); padding-block: 8px; border-radius: 12px; flex-wrap: wrap; text-align: start; }
+.media-grid .btn > span, .media-grid article p { min-width: 0; overflow-wrap: anywhere; }
+/* The disclosure button is a touch target like any other: at least as tall as a control. */
+.media-manifest summary { display: flex; align-items: center; min-height: var(--control-h); cursor: pointer; }
+.media-manifest pre { white-space: pre-wrap; overflow-wrap: anywhere; }

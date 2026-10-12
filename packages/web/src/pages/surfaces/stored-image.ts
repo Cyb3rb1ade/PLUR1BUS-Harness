@@ -4,13 +4,17 @@ import { t } from "../../i18n.ts";
 import { useLoad } from "../common/load.ts";
 import { FailureState } from "../common/states.ts";
 import { rpc, imageUrl } from "./data.ts";
+import "../../styles/surfaces.css";
 
 export function StoredImage({
   id,
   download = false,
+  alt,
 }: {
   id: string;
   download?: boolean;
+  /** What the picture shows. Without it the alternative text stays the job label the other pages (chat, library) show. */
+  alt?: string;
 }): View | null {
   const { state } = useLoad(
     (signal) =>
@@ -34,9 +38,9 @@ export function StoredImage({
     {},
     h("img", {
       src,
-      alt: t("media.job", { id }),
+      alt: alt ?? t("media.job", { id }),
       loading: "lazy",
-      style: "max-width:100%;height:auto",
+      class: "stored-image",
     }),
     download
       ? h(

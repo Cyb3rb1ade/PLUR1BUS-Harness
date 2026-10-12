@@ -11,6 +11,7 @@ import { useLoad, currentRole } from "../common/load.ts";
 import { FailureState } from "../common/states.ts";
 import { rpc, type Project, type Trace } from "./data.ts";
 import "../../styles/projects.css";
+import "../../styles/surfaces.css";
 
 function TraceView({ project }: { project: string }): View {
   const { state, reload } = useLoad(
@@ -49,7 +50,7 @@ function TraceView({ project }: { project: string }): View {
                   {
                     key: span.spanId,
                     "data-parent": span.parentSpanId ?? "",
-                    style: span.parentSpanId ? "margin-inline-start:2rem" : "",
+                    class: span.parentSpanId ? "trace-child" : "",
                   },
                   h("strong", {}, span.agentId, " · ", span.status),
                   h(
@@ -368,6 +369,8 @@ export function ProjectsPage({ sub }: PageProps): View {
       : h(PageState, { state: "empty", title: t("surfaces.empty") }),
     selected
       ? h(Detail, { key: selected.id, project: selected, onChange: reload })
-      : null,
+      : sub
+        ? h(PageState, { state: "empty", title: t("surfaces.empty"), detail: t("shared.notFound.detail") })
+        : null,
   );
 }
