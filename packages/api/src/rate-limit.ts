@@ -29,7 +29,8 @@ export class RateLimiter {
   constructor(clock: Clock, given: RateClasses = DEFAULT_RATE_CLASSES, maxKeys = 10_000) {
     const classes: Record<RateClass, BucketSpec> = { ...DEFAULT_RATE_CLASSES, ...given };
     for (const [name, s] of Object.entries(classes)) {
-      if (!(s.capacity >= 1) || !(s.refillPerSec > 0)) throw new Error(`rate class ${name}: capacity must be >= 1 and refillPerSec > 0`);
+      // Finite, because an infinite refill turns `0 elapsed x Infinity` into NaN tokens and the bucket then refuses for good.
+      if (!Number.isFinite(s.capacity) || !Number.isFinite(s.refillPerSec) || !(s.capacity >= 1) || !(s.refillPerSec > 0)) throw new Error(`rate class ${name}: capacity must be finite and >= 1, and refillPerSec finite and > 0`);
     }
     this.#clock = clock; this.#classes = classes; this.#maxKeys = maxKeys;
   }
