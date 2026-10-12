@@ -265,6 +265,40 @@ describe("media search: Media view", opts, () => {
     });
   });
 
+  test("captions for ranking sends fuseCaptions; an image hit has no time range and no jump, a video hit has both", async () => {
+    await withApp({}, async (app) => {
+      const f = seedMedia(app.server.rpc);
+      await open(app, "#/media");
+      await app.page.getByLabel("Also use captions for ranking").check();
+      await app.page.getByLabel("Describe what you are looking for").fill("bridge");
+      await app.page.getByRole("button", { name: "Search", exact: true }).click();
+      await app.page.locator("li.media-hit").nth(2).waitFor();
+      assert.deepEqual(f.searches[0], { text: "bridge", limit: 20, fuseCaptions: true });
+      const image = app.page.locator("li.media-hit").filter({ hasText: "a red bridge" });
+      assert.doesNotMatch(await image.innerText(), /Segment/);
+      assert.equal(await image.getByRole("button", { name: /Play from/ }).count(), 0, "an image has no jump");
+      const video = app.page.locator("li.media-hit").filter({ hasText: "a forest path at dusk" });
+      assert.match(await video.innerText(), /Segment 0:20–0:30/);
+      assert.equal(await video.getByRole("button", { name: "Play from 0:20" }).count(), 1);
+    });
+  });
+
+  test("clearing a similar search returns to the text search, and the text is sent again", async () => {
+    await withApp({}, async (app) => {
+      const f = seedMedia(app.server.rpc);
+      app.server.rpc.handle("media.output.list", () => ({ outputs: [{ id: "med-image-1", prompt: "a red bridge", agentId: "main", metadata: { adapter: "local" }, createdAt: "2026-10-10T10:00:00Z", files: 1, kind: "image", mimeType: "image/png" }] }), { write: false });
+      await open(app, "#/media");
+      await app.page.getByRole("button", { name: "Find similar" }).first().click();
+      await app.page.getByRole("status").filter({ hasText: "Similar to med-image-1" }).waitFor();
+      await app.page.getByRole("button", { name: "Clear similar search" }).click();
+      await app.page.getByRole("status").filter({ hasText: "Similar to med-image-1" }).waitFor({ state: "detached" });
+      await app.page.getByLabel("Describe what you are looking for").fill("rain");
+      await app.page.getByRole("button", { name: "Search", exact: true }).click();
+      await app.page.locator("li.media-hit").nth(2).waitFor();
+      assert.deepEqual(f.searches[0], { text: "rain", limit: 20 });
+    });
+  });
+
   test("a caption is edited and saved with media.caption.set", async () => {
     await withApp({}, async (app) => {
       const f = seedMedia(app.server.rpc);
