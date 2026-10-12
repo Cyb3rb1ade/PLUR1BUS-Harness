@@ -24,6 +24,8 @@ export function createCoreLink(home: string, o: CoreLinkOptions = {}): CoreRpc &
     pending ??= (async () => {
       const pid = readPid(home);
       const c = await doConnect({ address: coreAddress(home), token: readToken(home), endpoint: "core", connectTimeoutMs: 1000, ...(pid === undefined ? {} : { expectedServerPid: pid }) });
+      // `close()` came while this connection was being made: it must not outlive the link, nor serve the call that raced it.
+      if (closed) { await c.close().catch(() => {}); throw new Error("the core link is closed"); }
       c.onClose(() => { if (client === c) client = undefined; o.log?.info("core connection lost"); });
       client = c; o.log?.info("core connected", { instanceId: c.hello.instanceId });
       return c;

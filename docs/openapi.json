@@ -936,6 +936,26 @@
                           },
                           "activity": {
                             "$ref": "#/components/schemas/Activity"
+                          },
+                          "lifecycle": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "paused",
+                              "archived",
+                              "deleted"
+                            ],
+                            "properties": {
+                              "paused": {
+                                "type": "boolean"
+                              },
+                              "archived": {
+                                "type": "boolean"
+                              },
+                              "deleted": {
+                                "type": "boolean"
+                              }
+                            }
                           }
                         }
                       }
@@ -3042,6 +3062,9 @@
               "rem",
               "deep"
             ]
+          },
+          "job": {
+            "type": "string"
           }
         }
       },
