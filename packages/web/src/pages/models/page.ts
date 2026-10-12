@@ -11,10 +11,12 @@ import { Page } from "../../components/page.ts";
 import { PageState } from "../../components/page-state.ts";
 import { formatNumber, t, type Key } from "../../i18n.ts";
 import { navigate } from "../../router.ts";
+import { currentRole, roleIn } from "../common/load.ts";
+import { Notice } from "../common/states.ts";
 import type { PageProps } from "../registry.ts";
 import { OverrideDialog, RemoveDialog } from "./dialogs.ts";
 import {
-  filterModels, groupByProvider, modelKey, normalizeList, newKeys, parseModelRoute, routeFor, scanTotals,
+  filterModels, groupByProvider, modelKey, normalizeList, newKeys, parseModelRoute, providerNames, routeFor, scanTotals,
   type Filters, type ListData, type ModelEntry, type ScanTotals,
 } from "./model.ts";
 import { capText, failState, isAborted, isForbidden, kindText, outcomeText, warnText, when, type FailState } from "./shared.ts";
@@ -25,6 +27,8 @@ type Load = { kind: "loading" } | { kind: "ready"; data: ListData; isNew: Readon
 type Scan = { kind: "idle" } | { kind: "running" } | { kind: "done"; totals: ScanTotals } | { kind: "error"; forbidden: boolean };
 type Dlg = null | { kind: "edit"; model: ModelEntry } | { kind: "add" } | { kind: "remove"; model: ModelEntry };
 type Live = "on" | "connecting" | "off";
+/** Why the last "mark as seen" did not go through; null when there is nothing to report. */
+type AckFailure = null | "forbidden" | "failed";
 
 /** The notification arrives as an SSE event named models.changed, or as a JSON-RPC notification object in the data. */
 function isModelsChanged(e: SseEvent): boolean {
@@ -38,7 +42,7 @@ function Row({ label, children }: { label: string; children?: ComponentChildren 
   return h("div", {}, h("dt", {}, label), h("dd", {}, children));
 }
 
-function ModelDetail({ model, isNew, onEdit, onRemove }: { model: ModelEntry; isNew: boolean; onEdit: () => void; onRemove: () => void }): View {
+function ModelDetail({ model, isNew, canWrite, onEdit, onRemove }: { model: ModelEntry; isNew: boolean; canWrite: boolean; onEdit: () => void; onRemove: () => void }): View {
   const ov = model.overrides;
   const overrides: string[] = [];
   if (ov.displayName !== undefined) overrides.push(`${t("models.form.displayName")}: ${ov.displayName}`);
@@ -67,13 +71,16 @@ function ModelDetail({ model, isNew, onEdit, onRemove }: { model: ModelEntry; is
       h(Row, { label: t("models.field.lastSeen") }, when(model.lastSeen)),
       h(Row, { label: t("models.field.overrides") }, overrides.length === 0 ? t("models.none") : h("ul", { class: "plain-list" }, overrides.map((o) => h("li", { key: o }, o)))),
       extra.length > 0 ? h(Row, { label: t("models.field.extra") }, h("ul", { class: "plain-list" }, extra.map(([k, v]) => h("li", { key: k }, `${k}: ${String(v)}`)))) : null),
-    h("div", { class: "state-actions" },
+    // models.write is Owner and Admin (docs/rbac.md); a role without it gets no edit or remove button, the page says why.
+    canWrite ? h("div", { class: "state-actions" },
       h("button", { type: "button", class: "btn", onClick: onEdit }, t("models.edit")),
-      canRemove ? h("button", { type: "button", class: "btn btn-quiet", onClick: onRemove }, t("models.removeManual")) : null));
+      canRemove ? h("button", { type: "button", class: "btn btn-quiet", onClick: onRemove }, t("models.removeManual")) : null) : null);
 }
 
-function ModelList({ data, isNew, filters, setFilters, selected }: { data: ListData; isNew: ReadonlySet<string>; filters: Filters; setFilters: (f: Filters) => void; selected: { provider: string; id: string } | null }): View {
-  const providers = [...new Set([...data.providers.map((p) => p.provider), ...data.models.map((m) => m.provider)])];
+function ModelList({ data, isNew, filters: chosen, setFilters, selected }: { data: ListData; isNew: ReadonlySet<string>; filters: Filters; setFilters: (f: Filters) => void; selected: { provider: string; id: string } | null }): View {
+  const providers = providerNames(data);
+  // A provider that is no longer among the choices cannot be shown in the select, so it must not keep filtering the list either.
+  const filters = chosen.provider === "" || providers.includes(chosen.provider) ? chosen : { ...chosen, provider: "" };
   const shown = filterModels(data.models, filters, isNew);
   const groups = groupByProvider(shown);
   const select = (id: string, label: string, value: string, options: readonly (readonly [string, string])[], on: (v: string) => void): View =>
@@ -126,6 +133,7 @@ export function ModelsPage({ sub }: PageProps): View {
   const [live, setLive] = useState<Live>("connecting");
   const [filters, setFilters] = useState<Filters>({ provider: "", status: "", newOnly: false });
   const [dlg, setDlg] = useState<Dlg>(null);
+  const [ackFailure, setAckFailure] = useState<AckFailure>(null);
   const seq = useRef(0);
   const alive = useRef(true);
 
@@ -147,13 +155,26 @@ export function ModelsPage({ sub }: PageProps): View {
     }
   }).current;
 
+  // models.read is Owner, Admin, Operator and Viewer; a Member gets the forbidden state without a single request (as Sessions and Logs do).
+  // A role this UI does not know is allowed to try: the server decides (roleIn). models.write (Owner, Admin) only gates the write controls.
+  const role = currentRole();
+  const mayRead = roleIn(role, ["owner", "admin", "operator", "viewer"]);
+  const canWrite = roleIn(role, ["owner", "admin"]);
+
   useEffect(() => {
     alive.current = true;
+    if (!mayRead) return undefined;
     void reload(false);
     const stream = getApi().events({ onEvent: (e) => { if (isModelsChanged(e)) void reload(true); } });
     const stop = stream.status.subscribe((s) => { setLive(s === "open" ? "on" : s === "unavailable" || s === "closed" ? "off" : "connecting"); });
     return () => { alive.current = false; seq.current++; stop(); stream.close(); };
   }, []);
+
+  // The choice of a provider that has left the catalog (its last model was removed, say) is dropped, not kept invisible.
+  const choices = load.kind === "ready" ? providerNames(load.data) : null;
+  useEffect(() => {
+    if (choices !== null && filters.provider !== "" && !choices.includes(filters.provider)) setFilters((f) => ({ ...f, provider: "" }));
+  }, [load]);
 
   const runScan = async (): Promise<void> => {
     if (scan.kind === "running") return;
@@ -169,11 +190,13 @@ export function ModelsPage({ sub }: PageProps): View {
   };
 
   const acknowledge = async (): Promise<void> => {
-    try { await getApi().rpc("models.acknowledge", undefined); } catch { /* the list below says what is still new */ }
-    await reload(true);
+    setAckFailure(null);
+    try { await getApi().rpc("models.acknowledge", undefined); } catch (e) { if (alive.current && !isAborted(e)) setAckFailure(isForbidden(e) ? "forbidden" : "failed"); }
+    await reload(true); // after a refusal the list still names what is new
   };
 
   const title = t("nav.models");
+  if (!mayRead) return h(Page, { title }, h(PageState, { state: "forbidden" }));
   if (load.kind === "loading") return h(Page, { title }, h(PageState, { state: "loading" }));
   if (load.kind === "fail") {
     const state = load.state;
@@ -185,10 +208,10 @@ export function ModelsPage({ sub }: PageProps): View {
   const scanButton = h("button", { key: "scan", type: "button", class: "btn btn-primary", "aria-disabled": running, onClick: () => { void runScan(); } }, running ? t("models.scanning") : t("models.scan"));
   const actions = [
     h("button", { key: "refresh", type: "button", class: "btn", onClick: () => { void reload(true); } }, t("models.refresh")),
-    h("button", { key: "add", type: "button", class: "btn", onClick: () => setDlg({ kind: "add" }) }, t("models.addManual")),
+    canWrite ? h("button", { key: "add", type: "button", class: "btn", onClick: () => setDlg({ kind: "add" }) }, t("models.addManual")) : null,
     scanButton,
   ];
-  const dialog = dlg === null ? null
+  const dialog = dlg === null || !canWrite ? null
     : dlg.kind === "remove" ? h(RemoveDialog, { model: dlg.model, onClose: () => setDlg(null), onRemoved: () => { setDlg(null); navigate("/models"); void reload(true); } })
     : h(OverrideDialog, { ...(dlg.kind === "edit" ? { model: dlg.model } : {}), onClose: () => setDlg(null), onSaved: () => { setDlg(null); void reload(true); } });
   const liveText = h("p", { class: "lead" }, live === "on" ? t("models.live.on") : live === "connecting" ? t("models.live.connecting") : t("models.live.off"));
@@ -197,9 +220,12 @@ export function ModelsPage({ sub }: PageProps): View {
     : scan.kind === "done" ? h(ScanResult, { totals: scan.totals })
     : scan.kind === "error" ? h("p", { role: "alert", class: "form-error" }, scan.forbidden ? t("models.scanForbidden") : t("models.scanFailed"))
     : null;
+  const ackArea = ackFailure === null ? null : h("p", { role: "alert", class: "form-error" }, ackFailure === "forbidden" ? t("models.err.forbidden") : t("models.err.failed"));
+  const readOnly = canWrite ? null : h(Notice, {}, t("models.err.forbidden"));
 
   if (data.models.length === 0) {
     return h(Page, { title, actions },
+      readOnly,
       scanArea,
       h(PageState, { state: "empty", title: t("models.emptyTitle"), detail: t("models.emptyBody") }, scanButton),
       dialog);
@@ -209,14 +235,16 @@ export function ModelsPage({ sub }: PageProps): View {
   const selected = route === null ? null : data.models.find((m) => m.provider === route.provider && m.id === route.id) ?? null;
   const newCount = isNew.size > 0 ? isNew.size : data.newCount;
   return h(Page, { title, lead: t("models.lead"), actions, width: "full" },
+    readOnly,
     scanArea,
+    ackArea,
     newCount > 0 ? h("p", {}, h("button", { type: "button", class: "btn", onClick: () => { void acknowledge(); } }, t("models.ack", { count: newCount }))) : null,
     h(ProvidersCard, { data }),
     liveText,
     h(ListDetail, {
       selected: route !== null, listLabel: t("models.listLabel"), detailLabel: t("models.detailLabel"), onBack: () => navigate("/models"),
       list: h(ModelList, { data, isNew, filters, setFilters, selected: route }),
-      detail: selected ? h(ModelDetail, { model: selected, isNew: isNew.has(modelKey(selected)), onEdit: () => setDlg({ kind: "edit", model: selected }), onRemove: () => setDlg({ kind: "remove", model: selected }) })
+      detail: selected ? h(ModelDetail, { model: selected, isNew: isNew.has(modelKey(selected)), canWrite, onEdit: () => setDlg({ kind: "edit", model: selected }), onRemove: () => setDlg({ kind: "remove", model: selected }) })
         : h("p", { class: "ld-empty" }, t("models.notFound")),
     }),
     dialog);
