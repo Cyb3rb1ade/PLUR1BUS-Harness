@@ -5,12 +5,24 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Bestätigung per Betriebssystem"
   },
   {
+    "slug": "breakglass",
+    "title": "Break-Glass-Zugriff"
+  },
+  {
+    "slug": "budgets",
+    "title": "Nutzung und Limits"
+  },
+  {
     "slug": "channels",
     "title": "Kanäle"
   },
   {
     "slug": "container",
     "title": "Container"
+  },
+  {
+    "slug": "einladungen",
+    "title": "Personen einladen"
   },
   {
     "slug": "extensions",
@@ -37,6 +49,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Betriebshandbuch"
   },
   {
+    "slug": "posteingang",
+    "title": "Posteingang"
+  },
+  {
     "slug": "projekte",
     "title": "Projekte & Board"
   },
@@ -61,14 +77,18 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
 export async function loadDoc(slug: string): Promise<{ slug: string; title: string; content: string } | null> {
   switch (slug) {
     case "bestaetigung-betriebssystem": return import("./de/bestaetigung-betriebssystem.ts").then(m => m.doc);
+    case "breakglass": return import("./de/breakglass.ts").then(m => m.doc);
+    case "budgets": return import("./de/budgets.ts").then(m => m.doc);
     case "channels": return import("./de/channels.ts").then(m => m.doc);
     case "container": return import("./de/container.ts").then(m => m.doc);
+    case "einladungen": return import("./de/einladungen.ts").then(m => m.doc);
     case "extensions": return import("./de/extensions.ts").then(m => m.doc);
     case "freigaben": return import("./de/freigaben.ts").then(m => m.doc);
     case "lange-gespraeche": return import("./de/lange-gespraeche.ts").then(m => m.doc);
     case "media": return import("./de/media.ts").then(m => m.doc);
     case "mediensuche": return import("./de/mediensuche.ts").then(m => m.doc);
     case "operations": return import("./de/operations.ts").then(m => m.doc);
+    case "posteingang": return import("./de/posteingang.ts").then(m => m.doc);
     case "projekte": return import("./de/projekte.ts").then(m => m.doc);
     case "providers": return import("./de/providers.ts").then(m => m.doc);
     case "quickstart": return import("./de/quickstart.ts").then(m => m.doc);
