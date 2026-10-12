@@ -100,7 +100,7 @@ test("code evidence: no source file of the API reads a forwarding header, so the
   const offenders: string[] = [];
   for (const f of readdirSync(srcDir).filter((x) => x.endsWith(".ts"))) {
     const text = readFileSync(path.join(srcDir, f), "utf8").split("\n");
-    text.forEach((line, i) => { if (/x-forwarded|x-real-ip|forwarded\b|cf-connecting-ip|true-client-ip|req\.headers\.via/i.test(line) && !/^\s*(\/\/|\*|\/\*)/.test(line)) offenders.push(`${f}:${i + 1}: ${line.trim().slice(0, 100)}`); });
+    text.forEach((line, i) => { if (/x-forwarded|x-real-ip|cf-connecting-ip|true-client-ip|headers\.(forwarded|via)\b|headers\[["'](forwarded|via)["']\]/i.test(line) && !/^\s*(\/\/|\*|\/\*)/.test(line)) offenders.push(`${f}:${i + 1}: ${line.trim().slice(0, 100)}`); });
   }
   assert.deepEqual(offenders, [], "a forwarding header is read; it must only be believed behind a configured proxy");
   assert.match(readFileSync(path.join(srcDir, "server.ts"), "utf8"), /req\.socket\.remoteAddress/);

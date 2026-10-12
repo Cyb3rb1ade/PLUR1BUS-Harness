@@ -1,3 +1,4 @@
+import { ERROR_CODES } from "@plur1bus/rpc-schema";
 import type { AuditEmitter } from "./audit.ts";
 import { nameHandle } from "./audit.ts";
 import type { Clock } from "./clock.ts";
@@ -59,7 +60,7 @@ const ROLE_NAMES = ["owner", "admin", "operator", "member", "viewer"];
 export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
   Error: obj({
     schema: schemaId("error/1"),
-    error: { type: "string", description: "A member of the closed RPC `ErrorCode` enum (ADR-016 §2).", enum: ["E_UNAUTHORIZED", "E_RPC_VERSION", "E_NOT_AVAILABLE", "E_CORE_UNAVAILABLE", "E_INVALID_PARAMS", "E_AGENT_UNKNOWN", "E_CONFIG_INVALID", "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED", "E_NOT_FOUND", "E_DENIED", "E_APPROVAL_REQUIRED", "E_CONFLICT", "E_STORAGE"] },
+    error: { type: "string", description: "A member of the closed RPC `ErrorCode` enum (ADR-016 §2).", enum: [...ERROR_CODES] },
     message: { type: "string" },
     reason: { type: "string", description: "A short machine-readable cause, e.g. `no-session`, `csrf`, `rate-limited`, `locked`, `role-denied`, `body-too-large`." },
   }, ["schema", "error", "message"]),
@@ -127,6 +128,10 @@ export const ROUTES: readonly RouteSpec[] = [
     auth: "any", authz: { action: "agent.list" }, csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
     successStatus: 200,
     success: { description: "The core's `agent.list` result, with a schema id, reduced to the agents the caller holds `agent.read` on.", schema: obj({ schema: schemaId("agents.list/1"), agents: { type: "array", items: obj({ agentId: { type: "string" }, open: { type: "boolean" }, activity: ref("Activity") }) } }) },
+    extra: {
+      502: { description: "The core failed to answer (`reason`: `core-error`) or refused the API's own connection (`reason`: `core-handshake`). The core's own text is not forwarded.", schema: ref("Error") },
+      503: { description: "The core is not reachable (`reason`: `core-unreachable`).", schema: ref("Error") },
+    },
   },
   {
     id: "tokens.list", method: "GET", path: `${API_PREFIX}/tokens`, tag: "tokens", summary: "The caller's personal API tokens (never the secret, never the hash)",

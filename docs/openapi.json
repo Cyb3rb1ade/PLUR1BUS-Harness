@@ -995,6 +995,26 @@
               }
             }
           },
+          "502": {
+            "description": "The core failed to answer (`reason`: `core-error`) or refused the API's own connection (`reason`: `core-handshake`). The core's own text is not forwarded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The core is not reachable (`reason`: `core-unreachable`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "504": {
             "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
             "content": {
@@ -2813,7 +2833,20 @@
               "E_DENIED",
               "E_APPROVAL_REQUIRED",
               "E_CONFLICT",
-              "E_STORAGE"
+              "E_STORAGE",
+              "E_MEDIA_CAPABILITY",
+              "E_MEDIA_LICENSE",
+              "E_MEDIA_PRIVACY",
+              "E_MEDIA_UNAVAILABLE",
+              "E_MEDIA_DIMENSION",
+              "E_MEDIA_UNSUPPORTED_KIND",
+              "E_PROJECT_WIP_LIMIT",
+              "E_INBOX_CURSOR",
+              "E_INVITE_INVALID",
+              "E_VOICE_BUDGET",
+              "E_VOICE_LICENSE",
+              "E_VOICE_UNAVAILABLE",
+              "E_VOICE_LICENCE"
             ]
           },
           "message": {
