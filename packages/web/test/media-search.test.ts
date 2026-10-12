@@ -167,6 +167,47 @@ describe("media search: setup step", opts, () => {
       assert.deepEqual(changes.find((x) => x.key === "memory.mediaEmbedding.enabled"), { key: "memory.mediaEmbedding.enabled", value: false });
     });
   });
+
+  test("Back keeps the media answers; a reload after the step resumes with them", async () => {
+    await withApp({}, async (app) => {
+      seedSetup(app.server.rpc); await open(app, "#/setup");
+      await toSwitchboard(app); await skip(app.page);
+      await stepHeading(app.page, /Memory/).waitFor();
+      await app.page.locator("#setup-modality-audio").uncheck();
+      // Back to the Switchboard step and forward again: the unsaved answer is still on the form.
+      await app.page.getByRole("button", { name: "Back", exact: true }).click();
+      await stepHeading(app.page, /Switchboard/).waitFor();
+      await skip(app.page);
+      await stepHeading(app.page, /Memory/).waitFor();
+      assert.equal(await app.page.locator("#setup-modality-audio").isChecked(), false, "Back and forward keep the choice");
+      // Saved by Next; after a reload the wizard resumes past this step, and Back brings the saved answer back.
+      await next(app.page);
+      await skip(app.page);
+      await stepHeading(app.page, /Backups/).waitFor();
+      await app.page.reload();
+      await stepHeading(app.page, /Backups/).waitFor();
+      for (let i = 0; i < 8 && await app.page.getByRole("heading", { level: 2, name: /Memory/ }).count() === 0; i += 1) {
+        await app.page.getByRole("button", { name: "Back", exact: true }).click();
+      }
+      await stepHeading(app.page, /Memory/).waitFor();
+      assert.equal(await app.page.locator("#setup-modality-audio").isChecked(), false, "the saved modality survives the reload");
+      assert.equal(await app.page.locator("#setup-modality-image").isChecked(), true);
+    });
+  });
+
+  test("no media type left: Next is blocked with the reason and the media key is not written", async () => {
+    await withApp({}, async (app) => {
+      seedSetup(app.server.rpc); await open(app, "#/setup");
+      await toSwitchboard(app); await skip(app.page);
+      await stepHeading(app.page, /Memory/).waitFor();
+      for (const m of ["image", "video", "audio"]) await app.page.locator(`#setup-modality-${m}`).uncheck();
+      await next(app.page);
+      await app.page.getByText("Choose at least one media type, or switch media indexing off.").waitFor();
+      await stepHeading(app.page, /Memory/).waitFor();
+      const keys = app.server.rpc.calls.filter((c) => c.method === "config.set").flatMap((c) => (c.params as { changes: { key: string }[] }).changes.map((x) => x.key));
+      assert.equal(keys.some((k) => k.startsWith("memory.mediaEmbedding")), false, "nothing media is written while blocked");
+    });
+  });
 });
 
 describe("media search: Media view", opts, () => {
