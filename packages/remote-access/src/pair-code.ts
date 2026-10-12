@@ -28,8 +28,10 @@ export function formatCode(normalized: string): string {
   return `${normalized.slice(0, 4)}-${normalized.slice(4)}`;
 }
 
-/** Upper-cases and drops spaces and hyphens; undefined unless exactly 8 alphabet characters remain. */
+/** Upper-cases and drops spaces and hyphens; undefined unless exactly 8 alphabet characters remain. Whatever else a
+ *  request carries (not a string, an absurd length) is not a code and is `undefined`, never a throw. */
 export function normalizeCode(input: string): string | undefined {
+  if (typeof input !== "string" || input.length > 64) return undefined;
   const s = input.toUpperCase().replace(/[\s-]/g, "");
   return /^[A-HJ-NP-Z2-9]{8}$/.test(s) ? s : undefined;
 }

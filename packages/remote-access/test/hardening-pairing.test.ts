@@ -48,7 +48,7 @@ test("code evidence: nothing in the package takes randomness from Math.random, a
 });
 
 test("whatever a request carries as the code (not a string at all, huge, odd Unicode), redeem answers 'invalid' and never throws", () => {
-  const store = new PairCodeStore({ derive: cheapDerive }); const issued = store.issue(0);
+  const store = new PairCodeStore({ derive: cheapDerive, maxCodeFailures: 1000, sourceMaxFailures: 1000 }); const issued = store.issue(0); // generous limits: this test is about throwing, not burning
   const hostile: unknown[] = [undefined, null, 0, 123_456_78, NaN, true, {}, [], ["ABCD-EFGH"], { toString: () => issued.code }, Symbol.iterator, () => issued.code, 10n, "x".repeat(1_000_000), "\u0000".repeat(8), "\uD800ABCDEFGH", "ßßßßSSSS"];
   for (const h of hostile) {
     const r = store.redeem(h as string, 1, `src-${typeof h}-${String(h).length}`);
