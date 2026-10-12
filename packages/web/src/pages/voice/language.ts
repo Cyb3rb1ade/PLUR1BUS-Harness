@@ -50,6 +50,18 @@ export function voiceFailure(e: unknown): Failure {
   return voiceErrorOf(e) === "E_VOICE_UNAVAILABLE" ? { kind: "unavailable", message: "" } : failureOf(e);
 }
 
+/** The words for a failed voice call. The E_VOICE_* codes each have their own; anything else gets the caller's general text. The two
+ *  licence codes (E_VOICE_LICENCE, E_VOICE_LICENSE) are different codes of the core and read the same here, where a licence can be
+ *  the reason (`licence`); a save of the real-time profile has no licence to confirm. */
+export function voiceErrorText(e: unknown, general: Key, licence = false): string {
+  switch (voiceErrorOf(e)) {
+    case "E_VOICE_LICENCE": case "E_VOICE_LICENSE": return licence ? t("voice.apply.errLicence") : t(general);
+    case "E_VOICE_BUDGET": return t("voice.err.budget");
+    case "E_VOICE_UNAVAILABLE": return t("voice.apply.errUnavailable");
+    default: return t(general);
+  }
+}
+
 const languageName = (code: string): string => {
   try { return new Intl.DisplayNames([lang.value], { type: "language" }).of(code) ?? code; } catch { return code; }
 };
@@ -87,19 +99,19 @@ export function LanguagePanel({ canEdit, mode, onApplied, initial }: LanguagePan
 type Phase = { kind: "idle" } | { kind: "saving" } | { kind: "downloading"; ids: string[]; applied: Applied } | { kind: "saved"; applied: Applied } | { kind: "error"; text: string };
 
 function LanguageForm({ data, canEdit, mode, onApplied, initial, reload }: { data: Loaded; canEdit: boolean; mode: "settings" | "setup"; onApplied?: (a: Applied) => void; initial: Applied | null; reload: () => void }): View {
-  const start = useMemo((): Applied | null => {
+  // A profile is `null` when there is none the person may be given without choosing it (every one has a research-only model).
+  const start = useMemo((): { language: string; profile: VoiceProfileName | null } | null => {
     if (initial && data.languages.some((l) => l.language === initial.language)) return initial;
     if (mode === "settings" && data.current) return data.current;
     const code = systemLanguage(lang.value, data.languages);
     const found = data.languages.find((l) => l.language === code);
     const profile = preselectProfile(found);
-    return found && profile ? { language: found.language, profile } : found ? { language: found.language, profile: "fast" } : null;
+    return found ? { language: found.language, profile } : null;
   }, []);
   const [language, setLanguage] = useState(start?.language ?? "");
-  const [profile, setProfile] = useState<VoiceProfileName | "">(
-    // A profile with a research-only model is never selected for the person: only the language is.
-    start && (mode === "settings" || initial || !hasResearchModel(modelsOf(data.languages.find((l) => l.language === start.language), start.profile))) ? start.profile : "",
-  );
+  // A profile with a research-only model is never selected for the person (only the language is), unless it is what is saved or
+  // what they applied earlier in this visit.
+  const [profile, setProfile] = useState<VoiceProfileName | "">(start?.profile ?? "");
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set());
   const [downloads, setDownloads] = useState<Downloads>({});
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
@@ -160,8 +172,7 @@ function LanguageForm({ data, canEdit, mode, onApplied, initial, reload }: { dat
       setPhase((p) => (p.kind === "saving" ? { kind: "downloading", ids, applied } : p));
     } catch (e) {
       stream.current?.close(); stream.current = null;
-      const code = voiceErrorOf(e);
-      setPhase({ kind: "error", text: code === "E_VOICE_LICENCE" ? t("voice.apply.errLicence") : code === "E_VOICE_UNAVAILABLE" ? t("voice.apply.errUnavailable") : t("voice.apply.errFailed") });
+      setPhase({ kind: "error", text: voiceErrorText(e, "voice.apply.errFailed", true) });
     }
   };
 

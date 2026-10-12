@@ -96,6 +96,7 @@ export const en = {
   "voice.setup.lead": "Pick the language of speech recognition and the voice. You can skip this and do it later in Settings.",
   "voice.setup.summary": "Language {language}, profile {profile}",
   "voice.setup.de.hint": "German uses the Thorsten voice and Kroko speech recognition; Kroko is CC-BY-SA and needs your confirmation.",
+  "voice.err.budget": "The time budgets of the voice features add up to more than the limit allows. Shorten a budget or switch a feature off, then save again.",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -194,4 +195,5 @@ export const de: Record<keyof typeof en, string> = {
   "voice.setup.lead": "Wähle die Sprache für Spracherkennung und Stimme. Du kannst das überspringen und später in den Einstellungen nachholen.",
   "voice.setup.summary": "Sprache {language}, Profil {profile}",
   "voice.setup.de.hint": "Deutsch nutzt die Stimme Thorsten und die Spracherkennung Kroko; Kroko steht unter CC-BY-SA und braucht deine Bestätigung.",
+  "voice.err.budget": "Die Zeitbudgets der Sprachfunktionen ergeben zusammen mehr, als das Limit erlaubt. Kürze ein Budget oder schalte eine Funktion aus und speichere erneut.",
 };

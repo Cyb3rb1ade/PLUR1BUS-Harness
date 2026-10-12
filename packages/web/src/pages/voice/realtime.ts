@@ -15,7 +15,7 @@ import { VOICE_FEATURES } from "../../api/voice.types.ts";
 import { UnavailableError } from "../../api/errors.ts";
 import { FailureState, Notice } from "../common/states.ts";
 import { useLoad } from "../common/load.ts";
-import { voiceFailure } from "./language.ts";
+import { voiceErrorText, voiceFailure } from "./language.ts";
 import { BUDGET_MS, ENDPOINTING, clampInt, draftOf, modesOf, msText, parseBudget, setParams, type Draft, type FieldId, voiceErrorOf } from "./model.ts";
 
 registerArea("voice", voiceArea);
@@ -139,7 +139,7 @@ function RealtimeLoaded({ data, canEdit }: { data: RealtimeData; canEdit: boolea
     try {
       const next = await getApi().rpc("voice.realtime.profile.set", setParams(draft));
       setSaved(next); setDraft(draftOf(next)); setMsg({ tone: "ok", text: t("voice.rt.saved") });
-    } catch { setMsg({ tone: "err", text: t("voice.rt.saveFailed") }); }
+    } catch (e) { setMsg({ tone: "err", text: voiceErrorText(e, "voice.rt.saveFailed") }); }
     setBusy(false);
   };
   const effective: Partial<Record<VoiceFeatureName, VoiceFeatureEffective>> = {};

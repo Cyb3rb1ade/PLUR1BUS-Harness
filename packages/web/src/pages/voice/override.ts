@@ -11,7 +11,7 @@ import { getApi } from "../../api/shared.ts";
 import "../../styles/voice.css";
 import { FailureState, Notice } from "../common/states.ts";
 import { useLoad } from "../common/load.ts";
-import { voiceFailure } from "./language.ts";
+import { voiceErrorText, voiceFailure } from "./language.ts";
 import { RealtimeForm, loadRealtime, validDraft, type RealtimeData } from "./realtime.ts";
 import { draftOf, overriddenFields, sameDraft, setParams, type Draft } from "./model.ts";
 import type { VoiceFeatureEffective, VoiceFeatureName } from "../../api/voice.types.ts";
@@ -47,7 +47,7 @@ function OverrideLoaded({ agentId, canManage, pair }: { agentId: string; canMana
     try {
       const next = await getApi().rpc("voice.realtime.profile.set", setParams(d, agentId));
       setAgent({ profile: next, metrics: agent.metrics }); setDraft(draftOf(next)); setMsg({ tone: "ok", text: done });
-    } catch { setMsg({ tone: "err", text: t("voice.rt.saveFailed") }); }
+    } catch (e) { setMsg({ tone: "err", text: voiceErrorText(e, "voice.rt.saveFailed") }); }
     setBusy(false);
   };
 
