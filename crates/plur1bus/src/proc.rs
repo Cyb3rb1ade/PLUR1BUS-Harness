@@ -10,6 +10,11 @@
 pub(crate) fn pid_alive(pid: u32) -> bool {
     #[cfg(unix)]
     {
+        // 0 and anything that does not fit a `pid_t` (read back as a negative number) are no process: `kill(0, 0)` and
+        // `kill(-1, 0)` would signal the caller's process group and every process it may signal, and succeed.
+        if pid == 0 || pid > i32::MAX as u32 {
+            return false;
+        }
         // SAFETY: signal 0 only checks that the pid exists; no signal is actually delivered.
         let r = unsafe { libc::kill(pid as libc::pid_t, 0) };
         r == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
