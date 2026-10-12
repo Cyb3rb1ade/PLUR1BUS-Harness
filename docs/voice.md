@@ -126,3 +126,34 @@ takes the complete realtime profile as JSON; `override set --value` takes a spar
 JSON object. Example: `plur1bus --json voice profile set --language en --profile quality`.
 Explicit model licence confirmation uses `voice models install MODEL --license-accepted`;
 profile installation uses repeated `--accept-licence MODEL_ID@LICENCE_ID`.
+
+## Härtung und Testabdeckung
+
+The Voice pages (`packages/web/src/pages/voice`, shown in Settings > Voice, the agent detail and the setup step) are covered by
+`voice-model.test.ts`, `voice-settings.test.ts`, `voice-override.test.ts`, `setup-voice.test.ts` and, from the hardening sweep,
+`voice-hardening.test.ts`.
+
+- **Every error has its words.** `E_VOICE_LICENCE` and `E_VOICE_LICENSE` are two different codes of the core and both show the licence
+  text when a language is applied; `E_VOICE_BUDGET` says the time budgets add up to more than the limit allows and what to do;
+  `E_VOICE_UNAVAILABLE` says voice is not available on this server; anything else gets the general text of that action. A real-time or
+  per-agent save names the budget and "unavailable" errors too; a licence code there keeps the general text, since there is no licence to
+  confirm. The edits stay in the form after a failure.
+- **Research-only licences.** The licence id is read in NFKC form with typographic dashes (U+2010 to U+2015, U+2212) as `-`, so
+  `CC-BY-NC-4.0` typed with a non-breaking hyphen is still badged "Research only, no commercial use" and asks for the research-only
+  confirmation. A missing licence id does not break the page. The confirmation sends exactly `modelId@licenceId` of what was ticked, and a
+  tick does not survive a change of language or profile.
+- **Never preselected.** A profile with a research-only model is not chosen for the person: with no saved setting the language is selected
+  and the profile is left empty when every profile is research-only; English prefers the `quality` profile. What is saved, or applied earlier
+  in the setup step, is shown as it is.
+- **Download progress.** A progress event with a negative or non-finite byte count is ignored, other models' events are ignored, and a bar
+  is always 0 to 100.
+- **Budgets.** A feature budget is a whole number from 0 to 60 000 ms (the range of `voice.v3`'s `maxMs`); an empty field removes the
+  budget. `docs/web-ui.md` used to say 10 to 5000 ms and now matches the code. A draft outside the ranges is not sent.
+- **Read-only roles.** Language, profile, licence boxes and both save buttons are disabled.
+
+### Known gaps
+
+- **Reset on an agent's override** writes the global values for the agent (`voice.realtime.profile.set` with `agentId`) instead of calling
+  `voice.agent.override.clear`, so the agent stops following later changes of the global profile (`voice-hardening.test.ts`, `todo`).
+  An existing test pins the current behaviour, so it was not changed.
+- The setup step is covered by the existing tests only; the hardening tests drive Settings > Voice.
