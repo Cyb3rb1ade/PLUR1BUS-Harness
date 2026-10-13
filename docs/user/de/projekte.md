@@ -28,7 +28,7 @@ Jede Spalte bildet einen Arbeitsschritt ab und kann ein **WIP-Limit** (maximale 
 - Erreicht oder überschreitet eine Spalte ihr Limit, wechselt der WIP-Badge in einen Warnzustand.
 - Versuche, Karten in eine Spalte am Limit zu verschieben oder dort anzulegen, weist das Backend mit dem Fehler `E_PROJECT_WIP_LIMIT` ab. Die Oberfläche zeigt eine verständliche Erklärung an und führt einen sofortigen Rollback der optimistischen Kartenbewegung durch.
 
-Berechtigte Nutzer können Spalten über **Spalten verwalten** konfigurieren. Beim Löschen einer Spalte kann eine Zielspalte gewählt werden, in die vorhandene Karten übertragen werden.
+Berechtigte Nutzer können Spalten über **Spalten verwalten** konfigurieren. Eine Spalte mit Karten lässt sich erst löschen, wenn du eine Zielspalte gewählt hast; das Formular nennt die Anzahl der Karten, die umziehen. Gibt es keine andere Spalte als Ziel, bleibt der Löschen-Knopf deaktiviert. Eine WIP-Ablehnung beim Verschieben nennt die Spalte und ihr Limit.
 
 ## Karten
 
@@ -58,6 +58,7 @@ Ein Klick auf die Karte öffnet den seitlichen Detailbereich:
 - **Zuständige:** Teammitglieder und Agenten hinzufügen oder entfernen.
 - **Kommentare:** Diskussionsverlauf für Mensch und Agent. Kommentar verfassen und mit **Kommentar hinzufügen** absenden.
 - **Aktivitätsverlauf:** Chronologisches Protokoll über Erstellung, Verschiebungen, Zuweisungen und Archivierungen.
+- **Priorität:** Ändere die Priorität (Keine, Niedrig, Normal, Hoch, Dringend) mit dem Auswahlfeld **Priorität ändern** in der Fußzeile des Drawers. Nur wer Karten bearbeiten darf, sieht es.
 - **Archivieren:** Erledigte Aufgaben können archiviert werden, um das Board übersichtlich zu halten, ohne Verlaufsinformationen zu verlieren.
 
 ## Filter

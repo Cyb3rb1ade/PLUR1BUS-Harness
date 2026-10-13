@@ -107,6 +107,9 @@ export const en = {
   "projects.a11y.moveUp": "Move card up",
   "projects.a11y.moveDown": "Move card down",
   "projects.a11y.keyboardHint": "Use arrow keys or move buttons to reorder cards.",
+  "projects.column.hasCards": "This column holds {count} card(s). Choose a target column; the cards move there before the column is deleted.",
+  "projects.column.hasCardsNoTarget": "This column holds {count} card(s) and no other column exists to move them to. Create another column first.",
+  "projects.card.priorityChange": "Change priority",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -215,4 +218,7 @@ export const de: Record<keyof typeof en, string> = {
   "projects.a11y.moveUp": "Karte nach oben verschieben",
   "projects.a11y.moveDown": "Karte nach unten verschieben",
   "projects.a11y.keyboardHint": "Nutzen Sie die Pfeiltasten oder Verschieben-Schaltflächen zur Kartensortierung.",
+  "projects.column.hasCards": "Diese Spalte enthält {count} Karte(n). Wählen Sie eine Zielspalte; die Karten werden dorthin verschoben, bevor die Spalte gelöscht wird.",
+  "projects.column.hasCardsNoTarget": "Diese Spalte enthält {count} Karte(n), und es gibt keine andere Spalte, in die sie verschoben werden könnten. Legen Sie zuerst eine weitere Spalte an.",
+  "projects.card.priorityChange": "Priorität ändern",
 };

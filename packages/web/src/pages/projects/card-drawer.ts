@@ -132,6 +132,22 @@ export function CardDrawer({
     }
   };
 
+  const handlePriorityChange = async (priority: BoardCard["priority"]) => {
+    if (priority === card.priority) return;
+    try {
+      setError(null);
+      await getApi().rpc(
+        "project.card.update",
+        { projectId: card.projectId, cardId: card.id, priority },
+        { write: true },
+      );
+      onAnnounce(t("projects.activity.updated"));
+      onUpdate();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("projects.error.generic"));
+    }
+  };
+
   const handleArchiveToggle = async () => {
     try {
       setError(null);
@@ -501,6 +517,29 @@ export function CardDrawer({
           ? h(
               "footer",
               { class: "drawer-footer" },
+              h(
+                "label",
+                { class: "drawer-priority", for: `priority-${card.id}` },
+                t("projects.card.priorityChange"),
+                h(
+                  "select",
+                  {
+                    id: `priority-${card.id}`,
+                    value: card.priority,
+                    onChange: (e: Event) =>
+                      void handlePriorityChange(
+                        (e.currentTarget as HTMLSelectElement).value as BoardCard["priority"],
+                      ),
+                  },
+                  (["none", "low", "normal", "high", "urgent"] as const).map((p) =>
+                    h(
+                      "option",
+                      { key: p, value: p },
+                      t(`projects.card.priority${p.charAt(0).toUpperCase() + p.slice(1)}` as any),
+                    ),
+                  ),
+                ),
+              ),
               h(
                 "button",
                 {
