@@ -708,6 +708,7 @@ export function BoardView({
       ? h(ColumnDialog, {
           projectId: project.id,
           columns,
+          cards: localCards,
           onClose: () => setManageColumnsOpen(false),
           onUpdate: () => {
             onRefresh();

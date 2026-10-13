@@ -134,3 +134,11 @@ export function sentence(e: ActivityEntry): string {
   const p = (v: string): string => (v === "" ? t("activity.unknown") : v);
   return t(sentenceKey(e) as Key, { agent: p(e.params.agent), job: p(e.params.job), profile: p(e.params.profile), target: p(e.params.target) });
 }
+
+/** Zeitraum-Filter der Aktivität: die untere Grenze (`from`) für `logs.query`, oder `null` für „alle“. */
+export const RANGES = ["24h", "7d", "30d", "all"] as const;
+export type Range = (typeof RANGES)[number];
+const RANGE_MS: Record<Exclude<Range, "all">, number> = { "24h": 86_400_000, "7d": 7 * 86_400_000, "30d": 30 * 86_400_000 };
+export function rangeFrom(range: Range, now: number): string | null {
+  return range === "all" ? null : new Date(now - RANGE_MS[range]).toISOString();
+}
