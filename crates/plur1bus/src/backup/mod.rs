@@ -9,6 +9,9 @@ pub mod create;
 pub mod manifest;
 pub mod restore;
 
+#[cfg(test)]
+mod hardening;
+
 use std::fmt;
 
 /// A refusal or failure with a machine-readable `reason` (the `reason` field of the CLI's error document).

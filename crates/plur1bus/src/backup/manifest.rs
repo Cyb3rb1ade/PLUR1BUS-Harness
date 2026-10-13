@@ -224,6 +224,12 @@ fn valid_sha(s: &str) -> bool {
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
+/// ASCII digits only, no sign and no leading zero: the spelling a version has when this tool writes it (`u64::parse` alone
+/// also reads `01` and `+1`).
+fn is_plain_decimal(m: &str) -> bool {
+    !m.is_empty() && m.bytes().all(|b| b.is_ascii_digit()) && (m == "0" || !m.starts_with('0'))
+}
+
 impl Manifest {
     /// Structural validation; every restore and verify runs it before touching a byte of data.
     pub fn validate(&self) -> Result<(), BackupError> {
@@ -231,6 +237,7 @@ impl Manifest {
         let Some(major) = self
             .schema
             .strip_prefix("plur1bus.backup/")
+            .filter(|m| is_plain_decimal(m))
             .and_then(|m| m.parse::<u64>().ok())
         else {
             return bad(format!(
