@@ -11,6 +11,7 @@ import { PageState } from "../../components/page-state.ts";
 import { Tabs } from "../../components/tabs.ts";
 import { formatNumber, t, type Key } from "../../i18n.ts";
 import { navigate } from "../../router.ts";
+import { currentRole, roleIn } from "../common/load.ts";
 import type { PageProps } from "../registry.ts";
 import { LimitDialog, RemoveLimitDialog } from "./dialogs.ts";
 import { groupLimits, limitView, normalizeStatus, type Limit, type Status } from "./model.ts";
@@ -29,7 +30,7 @@ const editable = (l: Limit): boolean => l.scope === "global" || l.scope === "age
 
 function Row({ label, value }: { label: string; value: string }): View { return h("div", {}, h("dt", {}, label), h("dd", {}, value)); }
 
-function LimitCard({ limit, level, onEdit, onRemove }: { limit: Limit; level: 2 | 3; onEdit: () => void; onRemove: () => void }): View {
+function LimitCard({ limit, level, canChange, onEdit, onRemove }: { limit: Limit; level: 2 | 3; canChange: boolean; onEdit: () => void; onRemove: () => void }): View {
   const v = limitView(limit);
   const title = limitTitle(limit);
   const used = amount(limit.metric, limit.used);
@@ -45,13 +46,13 @@ function LimitCard({ limit, level, onEdit, onRemove }: { limit: Limit; level: 2 
       h(Row, { label: t("budget.field.used"), value: used }),
       h(Row, { label: t("budget.field.soft"), value: limit.soft === null ? t("budget.field.notSet") : amount(limit.metric, limit.soft) }),
       h(Row, { label: t("budget.field.hard"), value: limit.hard === null ? t("budget.field.notSet") : amount(limit.metric, limit.hard) })),
-    editable(limit) ? h("div", { class: "state-actions" },
+    canChange && editable(limit) ? h("div", { class: "state-actions" },
       h("button", { type: "button", class: "btn", "aria-label": t("budget.dlg.editTitle", { title: fullTitle(limit) }), onClick: onEdit }, t("budget.editLimit")),
       h("button", { type: "button", class: "btn btn-quiet", "aria-label": t("budget.dlg.removeLabel", { title: fullTitle(limit) }), onClick: onRemove }, t("budget.removeLimit"))) : null);
 }
 
-function LimitList({ limits, byAgent, onEdit, onRemove }: { limits: readonly Limit[]; byAgent: boolean; onEdit: (l: Limit) => void; onRemove: (l: Limit) => void }): View {
-  if (!byAgent) return h("div", {}, limits.map((l) => h(LimitCard, { key: limitKey(l), limit: l, level: 2, onEdit: () => onEdit(l), onRemove: () => onRemove(l) })));
+function LimitList({ limits, byAgent, canChange, onEdit, onRemove }: { limits: readonly Limit[]; byAgent: boolean; canChange: boolean; onEdit: (l: Limit) => void; onRemove: (l: Limit) => void }): View {
+  if (!byAgent) return h("div", {}, limits.map((l) => h(LimitCard, { key: limitKey(l), limit: l, level: 2, canChange, onEdit: () => onEdit(l), onRemove: () => onRemove(l) })));
   const groups = new Map<string, Limit[]>();
   for (const l of limits) {
     const name = l.scope === "agent" ? l.agentId ?? "" : `${l.scope}${l.agentId ? ` · ${l.agentId}` : ""}`;
@@ -59,7 +60,7 @@ function LimitList({ limits, byAgent, onEdit, onRemove }: { limits: readonly Lim
   }
   return h("div", {}, [...groups].map(([name, list]) => h("section", { key: name },
     h("h2", { class: "group-label" }, name),
-    list.map((l) => h(LimitCard, { key: limitKey(l), limit: l, level: 3, onEdit: () => onEdit(l), onRemove: () => onRemove(l) })))));
+    list.map((l) => h(LimitCard, { key: limitKey(l), limit: l, level: 3, canChange, onEdit: () => onEdit(l), onRemove: () => onRemove(l) })))));
 }
 
 function TotalsRows({ u }: { u: UsageTotals }): View[] {
@@ -119,9 +120,12 @@ export function BudgetPage({ sub }: PageProps): View {
 
   const { status } = load;
   const groups = groupLimits(status.limits);
-  const setButton = (key: string): View => h("button", { key, type: "button", class: "btn btn-primary", onClick: () => setDlg({ kind: "limit" }) }, t("budget.setLimit"));
+  // Changing a budget is offered to Owner and Admin like every other write surface (settings, providers, agents); the other roles read.
+  // This only decides what is shown: what is allowed is the server's decision (roleIn lets a role this UI does not know try).
+  const canChange = roleIn(currentRole(), ["owner", "admin"]);
+  const setButton = (key: string): View | null => (canChange ? h("button", { key, type: "button", class: "btn btn-primary", onClick: () => setDlg({ kind: "limit" }) }, t("budget.setLimit")) : null);
   const actions = [h("button", { key: "refresh", type: "button", class: "btn", onClick: () => { void reload(true); } }, t("budget.refresh")), setButton("set")];
-  const dialog = dlg === null ? null
+  const dialog = dlg === null || !canChange ? null
     : dlg.kind === "remove" ? h(RemoveLimitDialog, { limit: dlg.limit, onClose: () => setDlg(null), onRemoved: () => { setDlg(null); void reload(true); } })
     : h(LimitDialog, { ...(dlg.limit ? { limit: dlg.limit } : {}), limits: status.limits, periods: status.periods, onClose: () => setDlg(null), onSaved: () => { setDlg(null); void reload(true); } });
   const nothingYet = status.limits.length === 0 && status.periods.every((p) => p.total.events === 0 && p.agents.length === 0);
@@ -135,9 +139,9 @@ export function BudgetPage({ sub }: PageProps): View {
   const empty = (k: "emptyGlobal" | "emptyAgents" | "emptyUsage"): View =>
     h(PageState, { state: "empty", title: t(`budget.${k}.title` as Key), detail: t(`budget.${k}.body` as Key) }, k === "emptyUsage" ? null : setButton(`set-${k}`));
   const tabs = [
-    { id: "global", label: t("budget.tab.global"), panel: groups.global.length === 0 ? empty("emptyGlobal") : h(LimitList, { limits: groups.global, byAgent: false, onEdit, onRemove }) },
-    { id: "agents", label: t("budget.tab.agents"), panel: groups.agents.length === 0 ? empty("emptyAgents") : h(LimitList, { limits: groups.agents, byAgent: true, onEdit, onRemove }) },
-    ...(groups.other.length > 0 ? [{ id: "other", label: t("budget.tab.other"), panel: h(LimitList, { limits: groups.other, byAgent: true, onEdit, onRemove }) }] : []),
+    { id: "global", label: t("budget.tab.global"), panel: groups.global.length === 0 ? empty("emptyGlobal") : h(LimitList, { limits: groups.global, byAgent: false, canChange, onEdit, onRemove }) },
+    { id: "agents", label: t("budget.tab.agents"), panel: groups.agents.length === 0 ? empty("emptyAgents") : h(LimitList, { limits: groups.agents, byAgent: true, canChange, onEdit, onRemove }) },
+    ...(groups.other.length > 0 ? [{ id: "other", label: t("budget.tab.other"), panel: h(LimitList, { limits: groups.other, byAgent: true, canChange, onEdit, onRemove }) }] : []),
     { id: "usage", label: t("budget.tab.usage"), panel: status.periods.length === 0 ? empty("emptyUsage") : h("div", {}, status.periods.map((p) => h(PeriodCard, { key: `${p.period}${p.key}`, p }))) },
   ];
   const selected = sub ?? "global";

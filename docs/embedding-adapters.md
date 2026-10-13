@@ -180,3 +180,31 @@ Out of scope here. Concrete hook points:
 4. **Re-embedding:** `ReembedEngine.batchSize` (`port.ts`) should come from `identity().maxBatch`; a driver that embeds itself would call `embed(..., {inputType: "document"})`.
 5. **Recall:** query embedding uses `inputType: "query"`; rerank is the recall-path optional step with its 5 s budget and a fallback to unranked order on any `AdapterError`.
 6. **Secrets:** back `getSecret` with the host secret store; the config files only ever carry secret *names*.
+
+## HTTP error mapping per embedding adapter (test matrix)
+
+`packages/embedding-adapters/test/error-table.test.ts` runs the same simulated responses through all 13 adapters in `EMBEDDING_PROVIDERS`
+(`src/config.ts`). The rows are identical, because every adapter uses the shared `src/http.ts`. Cells read
+`code / retryable / documented`; `class` means the status falls under a documented class without its own row, `no` means the
+mapping is not documented and the table pins the current behaviour.
+
+| Response | Code / retryable / documented |
+|---|---|
+| 401 | `auth` / no / yes |
+| 403 | `auth` / no / yes |
+| 404 (unknown model) | `invalid_request` / no / class |
+| 408 | `timeout` / yes / no (not documented; the table pins the current behaviour) |
+| client deadline (adapter timer) | `timeout` / yes / yes |
+| 413 (input too large) | `too_large` / no / yes |
+| 429 with `Retry-After: 2` | `rate_limit` / yes / yes (waits 2000 ms through the injected sleep) |
+| 429 without `Retry-After` | `rate_limit` / yes / yes |
+| 500 | `overloaded` / yes / yes |
+| 503 | `overloaded` / yes / yes |
+| truncated JSON (HTTP 200) | `bad_response` / no / yes |
+| invalid JSON (HTTP 200) | `bad_response` / no / yes |
+| vector count short (1 vector for 2 texts) | `bad_response` / no / yes |
+| vector count long (3 vectors for 2 texts) | `bad_response` / no / yes |
+| vector dimension mismatch | `bad_response` / no / yes |
+
+The stream cut does not apply: embeddings are not streamed. A cut in the middle of the body is not simulated; the truncated-JSON cell
+is a complete HTTP response whose JSON is cut off. The API key never appears in an error message or cause.

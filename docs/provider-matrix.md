@@ -306,3 +306,28 @@ scheduler and CLI instructions are in [Operating model discovery](model-discover
 Scan failures preserve the existing `no_credential`, `renew_sign_in`, HTTP and egress
 failure reasons. Newly discovered models are available immediately and retain the optional
 `new` marker until `models.acknowledge`; model-role assignments remain explicit.
+
+## HTTP error mapping per chat adapter (test matrix)
+
+`packages/providers/test/error-table.test.ts` runs the same simulated responses through every adapter the package exports (five:
+`createChatCompletionsAdapter`, `createGeminiAdapter`, `createAnthropicAdapter`, `createResponsesAdapter`, `createLocalChatAdapter`).
+The rows are identical, because every adapter maps status codes in `src/errors.ts` and shares the transport. Cells read
+`code / retryable / documented`. `documented` is `yes` when `docs/providers.md` (Error classes) names the mapping, `class` when the
+status falls under a documented class without its own row, and `no` when the mapping exists only in code.
+
+| Response | Code / retryable / documented |
+|---|---|
+| 401 | `auth` / no / yes |
+| 403 | `auth` / no / yes |
+| 404 (unknown model) | `invalid_request` / no / class |
+| 408 | `timeout` / yes / yes (the adapters have no client-side deadline, so 408 stands in for it) |
+| 413 (too large) | `invalid_request` / no / no (only a comment in `src/errors.ts`; the docs name the class only) |
+| 429 with `Retry-After: 7` | `rate_limit` / yes / yes (`retryAfterMs` 7000) |
+| 429 without `Retry-After` | `rate_limit` / yes / yes |
+| 500 | `overloaded` / yes / yes |
+| 503 | `overloaded` / yes / class |
+| truncated JSON (HTTP 200) | `unknown` / no / class (malformed responses) |
+| invalid JSON (HTTP 200) | `unknown` / no / class (malformed responses) |
+| stream cut mid-response | `network` / yes / class (transport errors); the two deltas received before the cut are kept in `partial` |
+
+Secrets: the API key and the Authorization value never appear in an error message or in a cause in any of these cells.

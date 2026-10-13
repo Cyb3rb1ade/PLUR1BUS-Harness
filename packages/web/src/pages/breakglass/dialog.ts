@@ -1,5 +1,5 @@
 import { h } from "preact";
-import { useState } from "preact/hooks";
+import { useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Dialog } from "../../components/dialog.ts";
 import { bad, Field } from "../common/field.ts";
@@ -32,6 +32,9 @@ export function RequestBreakglassDialog({ onClose, onSuccess }: RequestBreakglas
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [serverError, setServerError] = useState("");
+  // A request is one audited grant and one notice to the person concerned. `busy` is read from the render a handler was created in, so two
+  // submits in the same task would both pass it; this ref is set synchronously.
+  const inFlight = useRef(false);
 
   const targetValid = targetUserId.trim().length > 0;
   const reasonValidation = validateReason(reason);
@@ -44,8 +47,9 @@ export function RequestBreakglassDialog({ onClose, onSuccess }: RequestBreakglas
   const handleSubmit = async (e: Event): Promise<void> => {
     e.preventDefault();
     setTouched(true);
-    if (!targetValid || reasonValidation !== "ok" || !confirmed || busy) return;
+    if (!targetValid || reasonValidation !== "ok" || !confirmed || busy || inFlight.current) return;
 
+    inFlight.current = true;
     setBusy(true);
     setServerError("");
     try {
@@ -58,6 +62,7 @@ export function RequestBreakglassDialog({ onClose, onSuccess }: RequestBreakglas
       onSuccess(res);
       onClose();
     } catch (err: unknown) {
+      inFlight.current = false;
       setBusy(false);
       const o = (typeof err === "object" && err !== null ? err : {}) as { kind?: string; errorCode?: string; message?: string; code?: number };
       if (o.kind === "forbidden" || o.errorCode === "E_DENIED") {
@@ -78,7 +83,7 @@ export function RequestBreakglassDialog({ onClose, onSuccess }: RequestBreakglas
       actions: h(
         "div",
         { class: "bg-dialog-actions" },
-        h("button", { type: "button", class: "btn btn-quiet", onClick: onClose }, t("breakglass.revoke.cancel")),
+        h("button", { type: "button", class: "btn btn-quiet", onClick: onClose }, t("shared.confirm.cancel")),
         h(
           "button",
           {

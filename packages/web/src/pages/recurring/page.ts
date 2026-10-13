@@ -1,7 +1,7 @@
 // Recurring Tasks Page: jobs.list, jobs.history, jobs.run with confirmation dialog.
 // Notes gap in docs/web-ui.md: creating/editing jobs is not supported by backend schema.
 import { h } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Badge, Card, type BadgeTone } from "../../components/card.ts";
 import { Dialog } from "../../components/dialog.ts";
@@ -41,6 +41,23 @@ function outcomeTone(outcome: string): BadgeTone {
   }
 }
 
+const OUTCOME_LABEL = {
+  completed: "recurring.status.completed",
+  skipped: "recurring.status.skipped",
+  incomplete: "recurring.status.incomplete",
+  failed: "recurring.status.failed",
+  abandoned: "recurring.status.abandoned",
+} as const satisfies Record<string, Key>;
+
+/** The outcome in the UI language; an outcome this UI does not know (the schema keeps runs open) is shown as the server sent it. */
+function outcomeLabel(outcome: string): string {
+  // An own-property check: `in` would also match inherited names such as "toString" and hand a function to t().
+  return Object.prototype.hasOwnProperty.call(OUTCOME_LABEL, outcome) ? t(OUTCOME_LABEL[outcome as keyof typeof OUTCOME_LABEL]) : outcome;
+}
+
+/** Who may start a job by hand (docs/rbac.md, `jobs.run`): Owner, Admin and Operator. Reading the list and the history is open. */
+const RUN_ROLES = ["owner", "admin", "operator"] as const;
+
 function RunConfirmDialog({
   job,
   onClose,
@@ -52,8 +69,12 @@ function RunConfirmDialog({
 }): View {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  // `busy` only reaches the button after the next render, so a second click in the same task would still see false.
+  const inFlight = useRef(false);
 
   const run = async (): Promise<void> => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setErr("");
     try {
@@ -68,6 +89,8 @@ function RunConfirmDialog({
       setBusy(false);
       const o = (typeof e === "object" && e !== null ? e : {}) as { message?: string };
       setErr(o.message || "Failed to trigger job run.");
+    } finally {
+      inFlight.current = false;
     }
   };
 
@@ -85,7 +108,8 @@ function RunConfirmDialog({
           {
             type: "button",
             class: "btn btn-primary",
-            disabled: busy,
+            // aria-disabled, not disabled: a disabled button gives up focus, which would drop out of the modal dialog.
+            "aria-disabled": String(busy),
             onClick: () => { void run(); },
           },
           t("recurring.action.run"),
@@ -107,6 +131,7 @@ function JobsListTab(): View {
     []
   );
   const [runTarget, setRunTarget] = useState<JobEntry | null>(null);
+  const canRun = roleIn(currentRole(), RUN_ROLES);
 
   if (state.status === "loading") return h(PageLoading, { label: t("state.loading") });
   if (state.status === "fail")
@@ -133,7 +158,7 @@ function JobsListTab(): View {
               h("th", null, t("recurring.col.kind")),
               h("th", null, t("recurring.col.schedule")),
               h("th", null, t("recurring.col.nextRun")),
-              h("th", null, t("recurring.col.action")),
+              canRun ? h("th", null, t("recurring.col.action")) : null,
             ),
           ),
           h(
@@ -155,19 +180,21 @@ function JobsListTab(): View {
                   null,
                   j.nextRunAt ? new Date(j.nextRunAt).toLocaleTimeString() : "—",
                 ),
-                h(
-                  "td",
-                  null,
-                  h(
-                    "button",
-                    {
-                      type: "button",
-                      class: "btn btn-quiet",
-                      onClick: () => setRunTarget(j),
-                    },
-                    t("recurring.action.run"),
-                  ),
-                ),
+                canRun
+                  ? h(
+                      "td",
+                      null,
+                      h(
+                        "button",
+                        {
+                          type: "button",
+                          class: "btn btn-quiet",
+                          onClick: () => setRunTarget(j),
+                        },
+                        t("recurring.action.run"),
+                      ),
+                    )
+                  : null,
               ),
             ),
           ),
@@ -212,7 +239,7 @@ function HistoryTab(): View {
           h(
             "div",
             { class: "chip-row" },
-            h(Badge, { tone: outcomeTone(r.outcome) }, r.outcome),
+            h(Badge, { tone: outcomeTone(r.outcome) }, outcomeLabel(r.outcome)),
             h("span", null, `${t("recurring.detail.trigger")}: ${r.trigger}`),
             h("span", null, `${t("recurring.detail.duration")}: ${r.durationMs}ms`),
           ),
