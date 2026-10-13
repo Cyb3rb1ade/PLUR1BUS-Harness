@@ -324,6 +324,18 @@
       "stability": "experimental",
       "since": "1.1.0"
     },
+    "agent.create": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "agent.validate": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "agent.import": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "agent.list": {
       "stability": "experimental",
       "since": "1.0.0"

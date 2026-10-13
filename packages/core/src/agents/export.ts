@@ -3,13 +3,14 @@ import { constants, openSync, readFileSync, closeSync, fstatSync, lstatSync, rea
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { createRedactor, isSecretKey } from "../logs/redact.ts";
+import { canonicalManifest } from "./manifest.ts";
 import { RpcError } from "../rpc/errors.ts";
 const MAX_BYTES = 2 * 1024 * 1024;
 const MAX_FILES = 256;
 const ROOT_FILES = new Set(["SOUL.md", "IDENTITY.md", "USER.md", "MEMORY.md", "persona-voice.md"]);
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 export interface ExportInput {
-  root: string; agentId: string; config: unknown; memories: unknown[]; secrets?: Iterable<string>;
+  root: string; agentId: string; config: unknown; memories: unknown[]; secrets?: Iterable<string>; rights?: Record<string, "use" | "manage">; requiredSecrets?: string[];
   signer: (hash: string) => Promise<{ publicKey: string; signature: string }>;
 }
 export async function exportAgent(i: ExportInput) {
@@ -49,7 +50,7 @@ export async function exportAgent(i: ExportInput) {
   if (lstatSync(i.root).isSymbolicLink()) throw new RpcError("E_DENIED", "agent export root cannot be a link");
   walk("", 0);
   files.sort((a, b) => a.path.localeCompare(b.path));
-  const manifest = { format: "plur1bus.agent-export/1", agentId: i.agentId, files: files.map(f => ({ path: f.path, bytes: Buffer.byteLength(f.text), sha256: sha(f.text) })) };
+  const manifest = canonicalManifest({ format: "plur1bus.agent-export/1", agentId: i.agentId, ...(i.rights ? { rights: i.rights } : {}), ...(i.requiredSecrets?.length ? { requiredSecrets: i.requiredSecrets } : {}), files: files.map(f => ({ path: f.path, bytes: Buffer.byteLength(f.text), sha256: sha(f.text) })) });
   const manifestHash = sha(JSON.stringify(manifest));
   const signed = await i.signer(manifestHash);
   return { format: "plur1bus.agent-export/1", files, manifest, manifestHash, algorithm: "Ed25519", publicKey: signed.publicKey, signature: signed.signature };

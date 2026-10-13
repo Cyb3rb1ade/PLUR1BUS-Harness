@@ -1,0 +1,45 @@
+{
+  "params": {
+    "bundle": {
+      "format": "plur1bus.agent-export/1",
+      "files": [
+        {
+          "path": "config.json",
+          "text": "{\"persona\":\"A concise assistant.\",\"model\":\"local\",\"memory\":{\"mediaEmbedding\":{\"enabled\":false}},\"channels\":[\"telegram\"]}"
+        },
+        {
+          "path": "memory/cards.json",
+          "text": "[]"
+        }
+      ],
+      "manifest": {
+        "format": "plur1bus.agent-export/1",
+        "agentId": "alpha",
+        "rights": {
+          "person-one": "use"
+        },
+        "requiredSecrets": [
+          "channels.telegram.bot"
+        ],
+        "files": [
+          {
+            "path": "config.json",
+            "bytes": 120,
+            "sha256": "e74dece286bc4f54f72185c5f10671e7e9569251853c1267fd96ea6d022e654c"
+          },
+          {
+            "path": "memory/cards.json",
+            "bytes": 2,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          }
+        ]
+      },
+      "manifestHash": "48365c935a8bea8302624706e65fad82bb8c62fe5fed61eb8db16b8c44270046"
+    },
+    "onConflict": "rename"
+  },
+  "result": {
+    "agentId": "alpha-2",
+    "discardedRights": []
+  }
+}

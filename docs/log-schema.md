@@ -33,7 +33,7 @@ One JSON object per line, UTF-8. Keys are written in this order (grep-stable); a
 
 `source` is `{ kind, id, version }`, all three required (`version` may be `null`). `source.kind`: `harness`, `extension`, `provider`, `model`, `cli`, `channel`, `host`, `desktop`, `os`.
 A source key (for `logs.levels` and filters) is `<kind>` or `<kind>:<id>`, matching `^(harness|extension|provider|model|cli|channel|host|desktop|os)(:[a-z0-9][a-z0-9._@/-]{0,127})?$`.
-`err` is `{ code, reason?, retryable?, hint? }` with `code` one of `E_AGENT_UNKNOWN`, `E_APPROVAL_REQUIRED`, `E_CONFIG_INVALID`, `E_CONFLICT`, `E_CORE_UNAVAILABLE`, `E_DENIED`, `E_INTERNAL`, `E_INVALID_PARAMS`, `E_LOCKED`, `E_MEDIA_CAPABILITY`, `E_MEDIA_DIMENSION`, `E_MEDIA_LICENSE`, `E_MEDIA_PRIVACY`, `E_MEDIA_UNAVAILABLE`, `E_MEDIA_UNSUPPORTED_KIND`, `E_PROJECT_WIP_LIMIT`, `E_INBOX_CURSOR`, `E_INVITE_INVALID`, `E_MODULE_UNKNOWN`, `E_NOT_AVAILABLE`, `E_NOT_FOUND`, `E_RPC_VERSION`, `E_STORAGE`, `E_UNAUTHORIZED`, `rate-limited`, `overloaded`, `auth`, `invalid-request`, `server`, `timeout`, `network`, `E_VOICE_BUDGET`, `E_VOICE_LICENSE`, `E_VOICE_UNAVAILABLE`, `E_VOICE_LICENCE`.
+`err` is `{ code, reason?, retryable?, hint? }` with `code` one of `E_AGENT_UNKNOWN`, `E_AGENT_EXISTS`, `E_AGENT_RIGHTS`, `E_AGENT_SECRETS_MISSING`, `E_APPROVAL_REQUIRED`, `E_CONFIG_INVALID`, `E_CONFLICT`, `E_CORE_UNAVAILABLE`, `E_DENIED`, `E_INTERNAL`, `E_INVALID_PARAMS`, `E_LOCKED`, `E_MEDIA_CAPABILITY`, `E_MEDIA_DIMENSION`, `E_MEDIA_LICENSE`, `E_MEDIA_PRIVACY`, `E_MEDIA_UNAVAILABLE`, `E_MEDIA_UNSUPPORTED_KIND`, `E_PROJECT_WIP_LIMIT`, `E_INBOX_CURSOR`, `E_INVITE_INVALID`, `E_MODULE_UNKNOWN`, `E_NOT_AVAILABLE`, `E_NOT_FOUND`, `E_RPC_VERSION`, `E_STORAGE`, `E_UNAUTHORIZED`, `rate-limited`, `overloaded`, `auth`, `invalid-request`, `server`, `timeout`, `network`, `E_VOICE_BUDGET`, `E_VOICE_LICENSE`, `E_VOICE_UNAVAILABLE`, `E_VOICE_LICENCE`.
 
 Limits: `msg` ≤ 2048 bytes, `attrs` ≤ 8192 bytes (compact JSON), a wrapped output line ≤ 4096 bytes, dedup window 60000 ms,
 child output rate 100 lines/s sustained with a burst of 500.
@@ -208,6 +208,8 @@ An audit entry's attribute group describes the line's `detail`. Groups marked *o
 
 | Action | Kinds | Level | Attrs group | Required attrs | Flags | Notes |
 |---|---|---|---|---|---|---|
+| `agent.create` | harness | — | agent_creation |  | experimental | Registration intent before settings, files and initial rights are committed; no submitted content. |
+| `agent.created` | harness | — | agent_creation |  | experimental | Successful Config Schema registration; settings and credentials never enter the audit detail. |
 | `licence.accept-nc` | harness | — | audit_licence | `useClass` |  | Records acceptance of the non-commercial licence for embedding use; pre-D111 HB12 action, unchanged. |
 | `setup.complete` | harness | — | audit_setup |  |  | Records successful completion of setup and the selected installation; pre-D111 HB12 action, unchanged. |
 | `repair.*` | harness | — | audit_repair | `status` |  | Records the outcome of an applied repair step; pre-D111 HB12 `repair.<step>` family: any name under `repair.` that satisfies the name rule. |
@@ -262,6 +264,14 @@ Every event's `attrs` are closed: the common attributes below plus the event's g
 | `untrusted` | `boolean` | true on wrapped third-party output |
 | `truncated` | `boolean` | the value was cut to its limit |
 | `bytes` | `integer` | original size in bytes when truncated |
+
+#### `agent_creation`
+
+Agent registration completed.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+
 
 #### `compaction`
 

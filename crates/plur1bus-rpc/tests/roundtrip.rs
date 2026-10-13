@@ -130,6 +130,23 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::AgentUnarchiveParams,
                 types::AgentUnarchiveResult,
             >(name, fixture, &root_schema),
+            "agent.create" => check_pair::<types::AgentCreateParams, types::AgentCreateResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "agent.validate" => {
+                check_pair::<types::AgentValidateParams, types::AgentValidateResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "agent.import" => check_pair::<types::AgentImportParams, types::AgentImportResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "agent.export" => check_pair::<types::AgentExportParams, types::AgentExportResult>(
                 name,
                 fixture,
