@@ -59,10 +59,13 @@ describe("secrets: the value never leaks", opts, () => {
           await app.page.getByRole("button", { name: "Rotate anthropic.apiKey" }).click();
           await app.page.getByRole("dialog").getByLabel("New value").fill(CANARY);
         }
-        const submitting = app.page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
-        await submitting;
+        await app.page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+        if (mode === "rotate") {
+          // The confirmation step: the value is still only in the masked, read-only input.
+          await app.page.getByRole("dialog").getByRole("button", { name: "Rotate now" }).click();
+        }
         await app.page.getByRole("dialog").waitFor({ state: "detached" });
-        await app.page.getByText(/^Saved /).waitFor();
+        await app.page.getByText(mode === "create" ? /^Saved / : /updated on /).waitFor();
         await scan(app, consoleLines, mode);
         // Reopen the dialog: nothing is prefilled.
         await app.page.getByRole("button", { name: "Rotate anthropic.apiKey" }).click();
@@ -85,8 +88,43 @@ describe("secrets: the value never leaks", opts, () => {
       const dlg = app.page.getByRole("dialog");
       await dlg.getByLabel("New value").fill(CANARY);
       await dlg.getByRole("button", { name: "Save" }).click();
+      await dlg.getByRole("button", { name: "Rotate now" }).click();
       await dlg.getByRole("alert").waitFor();
       await scan(app, consoleLines, "failed save");
+    });
+  });
+
+  test("a server error that echoes the value is not repeated in the page, and nothing lands in storage", async () => {
+    await withApp({}, async (app) => {
+      const consoleLines: string[] = [];
+      app.page.on("console", (m) => { consoleLines.push(m.text()); });
+      seedSecrets(app.server.rpc);
+      app.server.rpc.handle("secret.set", (p) => { throw rpcError("E_STORAGE", `cannot store ${(p as { value: string }).value}`); });
+      await openRoute(app.page, "#/settings/secrets");
+      await app.page.getByRole("button", { name: "Rotate anthropic.apiKey" }).click();
+      const dlg = app.page.getByRole("dialog");
+      await dlg.getByLabel("New value").fill(CANARY);
+      await dlg.getByRole("button", { name: "Save" }).click();
+      await dlg.getByRole("button", { name: "Rotate now" }).click();
+      const alert = await dlg.getByRole("alert").innerText();
+      assert.ok(!alert.includes(CANARY), "the error text repeats the value");
+      assert.ok(!(await app.page.content()).includes(CANARY));
+      assert.equal(await app.page.evaluate(() => localStorage.length + sessionStorage.length), 0);
+      assert.ok(consoleLines.every((l) => !l.includes(CANARY)));
+    });
+  });
+  test("the rotation notice shows only the update time, never the value", async () => {
+    await withApp({}, async (app) => {
+      seedSecrets(app.server.rpc); await openRoute(app.page, "#/settings/secrets");
+      await app.page.getByRole("button", { name: "Rotate anthropic.apiKey" }).click();
+      const dlg = app.page.getByRole("dialog");
+      await dlg.getByLabel("New value").fill(CANARY);
+      await dlg.getByRole("button", { name: "Save" }).click();
+      await dlg.getByRole("button", { name: "Rotate now" }).click();
+      const note = app.page.locator(".secrets-notice");
+      await app.page.getByText(/updated on /).waitFor();
+      assert.match(await note.innerText(), /^anthropic\.apiKey: updated on .+\.$/);
+      assert.equal(await app.page.evaluate(() => localStorage.length + sessionStorage.length), 0);
     });
   });
 });

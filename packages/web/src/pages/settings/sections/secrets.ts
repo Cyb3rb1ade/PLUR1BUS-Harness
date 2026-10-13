@@ -46,8 +46,14 @@ function Body({ data, reload }: { data: Data; reload: () => void }): View {
   const names = data.secrets.map((s) => s.name);
 
   const save = async (name: string, value: string): Promise<SaveResult> => {
-    try { await getApi().rpc("secret.set", { name, value }); } catch (e) { return saveFailure(e); }
-    setNotice(t("secrets.saved", { name })); reload();
+    const rotated = names.includes(name);
+    let res: unknown;
+    try { res = await getApi().rpc("secret.set", { name, value }); } catch (e) { return saveFailure(e); }
+    // Only metadata comes back. A rotation reports just the new "updated" time; a creation keeps the plain "saved".
+    const at = (res as { updatedAt?: unknown } | null)?.updatedAt;
+    const d = typeof at === "string" ? new Date(at) : null;
+    setNotice(rotated && d && !Number.isNaN(d.getTime()) ? t("secrets.updatedOn", { name, when: formatDateTime(d) }) : t("secrets.saved", { name }));
+    reload();
     return { ok: true };
   };
   const remove = (name: string) => async () => {

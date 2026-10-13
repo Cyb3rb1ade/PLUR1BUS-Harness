@@ -180,12 +180,38 @@ describe("switchboard: channel details and actions", opts, () => {
       assert.equal(testCalls.length, 1);
       assert.deepEqual(testCalls[0]!.params, { id: "discord" });
 
-      // Test message to owner
+      // Test message to owner: asks first, names the channel, and sends nothing before the confirmation
       await app.page.getByRole("button", { name: /Test message to me|Testnachricht an mich/i }).click();
+      const dialog = app.page.getByRole("dialog");
+      await dialog.getByText(/Target: your linked account on channel discord/i).waitFor();
+      assert.equal(calls(app, "channel.test").length, 1);
+      await dialog.getByRole("button", { name: /^Send test message$/ }).click();
       await app.page.getByText(/sent to/i).waitFor();
       const testCalls2 = calls(app, "channel.test");
       assert.equal(testCalls2.length, 2);
       assert.deepEqual(testCalls2[1]!.params, { id: "discord", sendOwner: true });
+    });
+  });
+
+  test("cancelling the owner test sends nothing; Escape closes the dialog and returns focus to its button", async () => {
+    await withApp({}, async (app) => {
+      seedSwitchboard(app.server.rpc);
+      await open(app);
+      await app.page.getByRole("button", { name: /Discord/i }).click();
+
+      const trigger = app.page.getByRole("button", { name: /Test message to me|Testnachricht an mich/i });
+      await trigger.click();
+      await app.page.getByRole("dialog").waitFor();
+      await app.page.getByRole("dialog").getByRole("button", { name: /^Cancel$|^Abbrechen$/ }).click();
+      await app.page.getByRole("dialog").waitFor({ state: "detached" });
+      assert.equal(calls(app, "channel.test").filter((c) => (c.params as { sendOwner?: boolean }).sendOwner).length, 0);
+
+      await trigger.click();
+      await app.page.getByRole("dialog").waitFor();
+      await app.page.keyboard.press("Escape");
+      await app.page.getByRole("dialog").waitFor({ state: "detached" });
+      assert.equal(calls(app, "channel.test").filter((c) => (c.params as { sendOwner?: boolean }).sendOwner).length, 0);
+      assert.equal(await app.page.evaluate(() => document.activeElement?.textContent?.trim() ?? ""), (await trigger.textContent())?.trim());
     });
   });
 });

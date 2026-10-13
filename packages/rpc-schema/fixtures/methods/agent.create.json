@@ -1,0 +1,21 @@
+{
+  "params": {
+    "name": "alpha",
+    "persona": "A concise assistant.",
+    "model": "local",
+    "memory": {
+      "mediaEmbedding": {
+        "enabled": false
+      }
+    },
+    "rights": {
+      "person-one": "use"
+    },
+    "channels": [
+      "telegram"
+    ]
+  },
+  "result": {
+    "agentId": "alpha"
+  }
+}

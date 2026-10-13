@@ -40,7 +40,7 @@ describe("tool naming and selection", () => {
   });
 
   it("forbidden methods are never exposed, even when included", () => {
-    const forbidden = ["core.auth", "core.shutdown", "core.adopt", "events.subscribe", "events.unsubscribe", "memory.checkpoint", "agent.open", "agent.close", "supervisor.auth", "daemon.stop", "config.set", "config.get", "module.restart", "grant.list", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.decide", "approval.cancel", "approval.verify", "grant.future.op", "approval.future.op", "user.list", "user.role.set", "user.invite.create", "breakglass.request", "breakglass.list", "device.list", "device.future.op", "agent.delete", "agent.archive", "agent.unarchive", "agent.export", "agent.rights.get", "agent.rights.set", "pairing.qr", "session.list"];
+    const forbidden = ["core.auth", "core.shutdown", "core.adopt", "events.subscribe", "events.unsubscribe", "memory.checkpoint", "agent.open", "agent.close", "supervisor.auth", "daemon.stop", "config.set", "config.get", "module.restart", "grant.list", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.decide", "approval.cancel", "approval.verify", "grant.future.op", "approval.future.op", "user.list", "user.role.set", "user.invite.create", "breakglass.request", "breakglass.list", "device.list", "device.future.op", "agent.create", "agent.import", "agent.validate", "agent.delete", "agent.archive", "agent.unarchive", "agent.export", "agent.rights.get", "agent.rights.set", "pairing.qr", "session.list"];
     const fakeCaps = { methods: { ...caps.methods } as Record<string, any> };
     const fakeSchema = structuredClone(SCHEMA) as any;
     for (const m of forbidden) {

@@ -56,6 +56,11 @@ export const en = {
   "activity.verify.last": "Last checked {time}",
   "activity.verify.again": "Verify again",
   "activity.verify.againFor": "Verify the audit trail again",
+  "activity.range.label": "Time range",
+  "activity.range.24h": "Last 24 hours",
+  "activity.range.7d": "Last 7 days",
+  "activity.range.30d": "Last 30 days",
+  "activity.range.all": "All",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -115,4 +120,9 @@ export const de: Record<keyof typeof en, string> = {
   "activity.verify.last": "Zuletzt geprüft: {time}",
   "activity.verify.again": "Erneut prüfen",
   "activity.verify.againFor": "Die Audit-Kette erneut prüfen",
+  "activity.range.label": "Zeitraum",
+  "activity.range.24h": "Letzte 24 Stunden",
+  "activity.range.7d": "Letzte 7 Tage",
+  "activity.range.30d": "Letzte 30 Tage",
+  "activity.range.all": "Alle",
 };

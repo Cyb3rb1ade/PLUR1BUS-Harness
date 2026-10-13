@@ -1,0 +1,42 @@
+// Real RPC server + real engine, flat deterministic embeddings and in-memory credential backend.
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { defaults } from "@plur1bus/config-schema";
+import { createCore } from "../../src/core.ts";
+import { layout } from "../../src/paths.ts";
+import { connect } from "../helpers/connect.ts";
+import { flatTestInternals } from "../helpers/flat-embedder.ts";
+
+test("live create → engine card export → renamed import preserves recall, rights and persisted config", async t => {
+  const old = { allow: process.env.PLUR1BUS_ALLOW_TEST_INTERNALS, keyring: process.env.PLUR1BUS_SECRETS_KEYRING };
+  process.env.PLUR1BUS_ALLOW_TEST_INTERNALS = "1"; process.env.PLUR1BUS_SECRETS_KEYRING = "memory";
+  const home = mkdtempSync(join(tmpdir(), "agent-core-")), l = layout(home), cfg = defaults();
+  cfg.engine = { neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false }, merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false }, temporalContext: { enabled: false }, conversationReactivationRecall: { enabled: false }, reranker: { enabled: false }, duplicateThreshold: 1.01, runtime: { recallTimeoutMs: 10000 } };
+  writeFileSync(l.configPath, JSON.stringify(cfg));
+  const core = createCore({ home, testInternals: flatTestInternals() }); await core.start();
+  const client = await connect({ address: core.address, token: core.token, callTimeoutMs: 30000 });
+  t.after(async () => { await client.close(); await core.stop({ budgetMs: 5000 }); rmSync(home, { recursive: true, force: true }); for (const [key, value] of [["PLUR1BUS_ALLOW_TEST_INTERNALS", old.allow], ["PLUR1BUS_SECRETS_KEYRING", old.keyring]] as const) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
+  const validation: any = await client.call("agent.validate", { model: "absent" });
+  assert.equal(validation.valid, false); assert.ok(validation.errors.some((e: any) => e.field === "name")); assert.ok(validation.errors.some((e: any) => e.field === "model"));
+  assert.deepEqual(await client.call("agent.create", { name: "alpha", persona: "A literal {{name}} persona." }), { agentId: "alpha" });
+  assert.ok((await client.call<any>("agent.list", {})).agents.some((a: any) => a.agentId === "alpha"));
+  await assert.rejects(client.call("agent.create", { name: "alpha" }), (e: any) => e.error === "E_AGENT_EXISTS");
+  const caller = { channel: "cli", accountId: "offline", userId: "local-owner" };
+  const session: any = await client.call("session.create", { agentId: "alpha", caller });
+  await client.call("memory.capture", { caller, agentId: "alpha", sessionKey: session.id, runId: "11111111-1111-4111-8111-111111111111", messages: [{ role: "user", content: "The archive cabinet is painted green." }, { role: "assistant", content: "Recorded." }], wait: true });
+  const exported: any = await client.call("agent.export", { agentId: "alpha" });
+  assert.equal(exported.bundle.algorithm, "Ed25519");
+  const exportedCards = JSON.parse(exported.bundle.files.find((f: any) => f.path === "memory/cards.json").text);
+  assert.ok(exportedCards.some((c: any) => c.text.includes("archive cabinet")), "export must contain a real engine card");
+  const imported: any = await client.call("agent.import", { bundle: exported.bundle, onConflict: "rename" });
+  assert.equal(imported.agentId, "alpha-2"); assert.deepEqual(imported.discardedRights, []);
+  const rights: any = await client.call("agent.rights.get", { agentId: "alpha-2" });
+  assert.ok(rights.rights.some((r: any) => r.userId === "local-owner" && r.right === "manage"));
+  const cards: any = await client.call("memory.list", { agentId: "alpha-2", caller, since: 0, limit: 100 });
+  assert.ok(cards.items.some((c: any) => c.text.includes("archive cabinet")), "imported cards are readable through the engine, not merely stored as JSON");
+  const config = JSON.parse(readFileSync(l.configPath, "utf8")); assert.ok(config.agents["alpha-2"]); assert.equal(config.agents["alpha-2"].rights, undefined);
+  assert.equal(readFileSync(join(l.agentDir("alpha-2"), "SOUL.md"), "utf8"), "A literal {{name}} persona.");
+});

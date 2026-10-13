@@ -33,6 +33,9 @@ the core sent. The last two are raised by the CLI itself.
 | `E_NOT_AVAILABLE` | 2 | The command or feature is not available here: a milestone stub, a container-managed install, a missing prerequisite. |
 | `E_CORE_UNAVAILABLE` | 1 | The core could not be reached (not running, not ready, socket missing). Start it with `plur1bus daemon start`. |
 | `E_INVALID_PARAMS` | 1 | The core rejected the request parameters. |
+| `E_AGENT_EXISTS` | 1 | The agent name or data directory already exists. Use import `--on-conflict rename`. |
+| `E_AGENT_RIGHTS` | 1 | Invalid recipient/right or delegation above the caller; `detail` identifies the field. |
+| `E_AGENT_SECRETS_MISSING` | 1 | Required target secrets are absent; `ids` lists names only. Provision them and retry. |
 | `E_AGENT_UNKNOWN` | 1 | The named agent is not registered. |
 | `E_CONFIG_INVALID` | 1 | A configuration value or file does not validate against the schema. |
 | `E_MODULE_UNKNOWN` | 1 | The named module does not exist. |

@@ -33,6 +33,9 @@ A closed enum; the core puts the code into every error response as `error.data.e
 - `E_CORE_UNAVAILABLE`
 - `E_INVALID_PARAMS`
 - `E_AGENT_UNKNOWN`
+- `E_AGENT_EXISTS`
+- `E_AGENT_RIGHTS`
+- `E_AGENT_SECRETS_MISSING`
 - `E_CONFIG_INVALID`
 - `E_MODULE_UNKNOWN`
 - `E_INTERNAL`
@@ -4596,6 +4599,180 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
       "const": "rejected"
     }
   }
+}
+```
+
+### `agent.create`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Create an agent using Config Schema validation; Owner/Admin people only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": {},
+    "persona": {},
+    "model": {},
+    "memory": {},
+    "rights": {},
+    "channels": {}
+  },
+  "required": [
+    "name"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  },
+  "required": [
+    "agentId"
+  ]
+}
+```
+
+### `agent.validate`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Dry-run the create payload; field errors grouped by wizard step without mutation.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": {},
+    "persona": {},
+    "model": {},
+    "memory": {},
+    "rights": {},
+    "channels": {}
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "valid": {
+      "type": "boolean"
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "step": {
+            "enum": [
+              "identity",
+              "model",
+              "rights"
+            ]
+          },
+          "field": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "code": {
+            "$ref": "#/$defs/ErrorCode"
+          }
+        },
+        "required": [
+          "step",
+          "field",
+          "message",
+          "code"
+        ]
+      }
+    }
+  },
+  "required": [
+    "valid",
+    "errors"
+  ]
+}
+```
+
+### `agent.import`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Verify and import an agent.export bundle, stripping secrets and bounding rights.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "bundle": {
+      "type": "object"
+    },
+    "onConflict": {
+      "enum": [
+        "rename",
+        "fail"
+      ]
+    }
+  },
+  "required": [
+    "bundle"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "discardedRights": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "agentId",
+    "discardedRights"
+  ]
 }
 ```
 
@@ -9571,6 +9748,25 @@ Secret-redacted UTF-8 JSON bundle with an Ed25519 signature of the SHA-256 manif
                   }
                 }
               }
+            },
+            "rights": {
+              "type": "object",
+              "additionalProperties": {
+                "enum": [
+                  "use",
+                  "manage"
+                ]
+              }
+            },
+            "requiredSecrets": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "maxItems": 128,
+              "uniqueItems": true
             }
           }
         },
@@ -15402,6 +15598,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "E_CORE_UNAVAILABLE",
     "E_INVALID_PARAMS",
     "E_AGENT_UNKNOWN",
+    "E_AGENT_EXISTS",
+    "E_AGENT_RIGHTS",
+    "E_AGENT_SECRETS_MISSING",
     "E_CONFIG_INVALID",
     "E_MODULE_UNKNOWN",
     "E_INTERNAL",

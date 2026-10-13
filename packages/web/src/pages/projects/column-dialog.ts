@@ -6,18 +6,32 @@ import { Field } from "../common/field.ts";
 import { t } from "../../i18n.ts";
 import { getApi } from "../common/load.ts";
 import { columnTitle } from "./model.ts";
-import type { BoardColumn } from "./rpc-types.ts";
+import type { BoardCard, BoardColumn } from "./rpc-types.ts";
 
 export interface ColumnDialogProps {
   projectId: string;
   columns: readonly BoardColumn[];
+  /** The board's cards, so the delete form can tell how many a column still holds. */
+  cards: readonly BoardCard[];
   onClose: () => void;
   onUpdate: () => void;
+}
+
+/** Message for a failed column call. A WIP refusal names the column it refused, as on the board. */
+function failureText(err: unknown, target?: BoardColumn): string {
+  const e = err as { errorCode?: string } | null;
+  if (e?.errorCode === "E_PROJECT_WIP_LIMIT") {
+    return target
+      ? t("projects.error.wipLimit", { column: columnTitle(target), limit: String(target.wipLimit ?? "?") })
+      : t("projects.error.wipLimitGeneric");
+  }
+  return err instanceof Error ? err.message : t("projects.error.generic");
 }
 
 export function ColumnDialog({
   projectId,
   columns,
+  cards,
   onClose,
   onUpdate,
 }: ColumnDialogProps): View {
@@ -103,8 +117,16 @@ export function ColumnDialog({
     }
   };
 
+  // The backend refuses to delete a column that still holds cards unless they can move to a target column.
+  const cardsIn = (colId: string): number => cards.filter((c) => c.columnId === colId).length;
+
   const handleDelete = async (colId: string) => {
     if (busy) return;
+    const count = cardsIn(colId);
+    if (count > 0 && (!targetColId || targetColId === colId)) {
+      setError(t("projects.column.hasCards", { count: String(count) }));
+      return;
+    }
     try {
       setBusy(true);
       setError(null);
@@ -122,7 +144,7 @@ export function ColumnDialog({
       setTargetColId("");
       onUpdate();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("projects.error.generic"));
+      setError(failureText(err, columns.find((c) => c.id === targetColId)));
     } finally {
       setBusy(false);
     }
@@ -205,6 +227,15 @@ export function ColumnDialog({
                 ? h(
                     "div",
                     { class: "column-delete-form" },
+                    cardsIn(col.id) > 0
+                      ? h(
+                          "p",
+                          { class: "field-hint", role: "status" },
+                          otherCols.length > 0
+                            ? t("projects.column.hasCards", { count: String(cardsIn(col.id)) })
+                            : t("projects.column.hasCardsNoTarget", { count: String(cardsIn(col.id)) }),
+                        )
+                      : null,
                     otherCols.length > 0
                       ? h(
                           Field,
@@ -238,7 +269,8 @@ export function ColumnDialog({
                         {
                           type: "button",
                           class: "btn btn-danger",
-                          disabled: busy,
+                          disabled:
+                            busy || (cardsIn(col.id) > 0 && (otherCols.length === 0 || !targetColId)),
                           onClick: () => handleDelete(col.id),
                         },
                         t("projects.column.deleteColumn"),

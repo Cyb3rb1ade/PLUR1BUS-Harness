@@ -167,6 +167,47 @@ describe("media search: setup step", opts, () => {
       assert.deepEqual(changes.find((x) => x.key === "memory.mediaEmbedding.enabled"), { key: "memory.mediaEmbedding.enabled", value: false });
     });
   });
+
+  test("Back keeps the media answers; a reload after the step resumes with them", async () => {
+    await withApp({}, async (app) => {
+      seedSetup(app.server.rpc); await open(app, "#/setup");
+      await toSwitchboard(app); await skip(app.page);
+      await stepHeading(app.page, /Memory/).waitFor();
+      await app.page.locator("#setup-modality-audio").uncheck();
+      // Back to the Switchboard step and forward again: the unsaved answer is still on the form.
+      await app.page.getByRole("button", { name: "Back", exact: true }).click();
+      await stepHeading(app.page, /Switchboard/).waitFor();
+      await skip(app.page);
+      await stepHeading(app.page, /Memory/).waitFor();
+      assert.equal(await app.page.locator("#setup-modality-audio").isChecked(), false, "Back and forward keep the choice");
+      // Saved by Next; after a reload the wizard resumes past this step, and Back brings the saved answer back.
+      await next(app.page);
+      await skip(app.page);
+      await stepHeading(app.page, /Backups/).waitFor();
+      await app.page.reload();
+      await stepHeading(app.page, /Backups/).waitFor();
+      for (let i = 0; i < 8 && await app.page.getByRole("heading", { level: 2, name: /Memory/ }).count() === 0; i += 1) {
+        await app.page.getByRole("button", { name: "Back", exact: true }).click();
+      }
+      await stepHeading(app.page, /Memory/).waitFor();
+      assert.equal(await app.page.locator("#setup-modality-audio").isChecked(), false, "the saved modality survives the reload");
+      assert.equal(await app.page.locator("#setup-modality-image").isChecked(), true);
+    });
+  });
+
+  test("no media type left: Next is blocked with the reason and the media key is not written", async () => {
+    await withApp({}, async (app) => {
+      seedSetup(app.server.rpc); await open(app, "#/setup");
+      await toSwitchboard(app); await skip(app.page);
+      await stepHeading(app.page, /Memory/).waitFor();
+      for (const m of ["image", "video", "audio"]) await app.page.locator(`#setup-modality-${m}`).uncheck();
+      await next(app.page);
+      await app.page.getByText("Choose at least one media type, or switch media indexing off.").waitFor();
+      await stepHeading(app.page, /Memory/).waitFor();
+      const keys = app.server.rpc.calls.filter((c) => c.method === "config.set").flatMap((c) => (c.params as { changes: { key: string }[] }).changes.map((x) => x.key));
+      assert.equal(keys.some((k) => k.startsWith("memory.mediaEmbedding")), false, "nothing media is written while blocked");
+    });
+  });
 });
 
 describe("media search: Media view", opts, () => {
@@ -221,6 +262,40 @@ describe("media search: Media view", opts, () => {
       await app.page.getByRole("button", { name: "Search", exact: true }).click();
       await app.page.getByText("2 results").waitFor();
       assert.deepEqual(f.searches[0], { likeMediaId: "med-image-1", limit: 20 });
+    });
+  });
+
+  test("captions for ranking sends fuseCaptions; an image hit has no time range and no jump, a video hit has both", async () => {
+    await withApp({}, async (app) => {
+      const f = seedMedia(app.server.rpc);
+      await open(app, "#/media");
+      await app.page.getByLabel("Also use captions for ranking").check();
+      await app.page.getByLabel("Describe what you are looking for").fill("bridge");
+      await app.page.getByRole("button", { name: "Search", exact: true }).click();
+      await app.page.locator("li.media-hit").nth(2).waitFor();
+      assert.deepEqual(f.searches[0], { text: "bridge", limit: 20, fuseCaptions: true });
+      const image = app.page.locator("li.media-hit").filter({ hasText: "a red bridge" });
+      assert.doesNotMatch(await image.innerText(), /Segment/);
+      assert.equal(await image.getByRole("button", { name: /Play from/ }).count(), 0, "an image has no jump");
+      const video = app.page.locator("li.media-hit").filter({ hasText: "a forest path at dusk" });
+      assert.match(await video.innerText(), /Segment 0:20–0:30/);
+      assert.equal(await video.getByRole("button", { name: "Play from 0:20" }).count(), 1);
+    });
+  });
+
+  test("clearing a similar search returns to the text search, and the text is sent again", async () => {
+    await withApp({}, async (app) => {
+      const f = seedMedia(app.server.rpc);
+      app.server.rpc.handle("media.output.list", () => ({ outputs: [{ id: "med-image-1", prompt: "a red bridge", agentId: "main", metadata: { adapter: "local" }, createdAt: "2026-10-10T10:00:00Z", files: 1, kind: "image", mimeType: "image/png" }] }), { write: false });
+      await open(app, "#/media");
+      await app.page.getByRole("button", { name: "Find similar" }).first().click();
+      await app.page.getByRole("status").filter({ hasText: "Similar to med-image-1" }).waitFor();
+      await app.page.getByRole("button", { name: "Clear similar search" }).click();
+      await app.page.getByRole("status").filter({ hasText: "Similar to med-image-1" }).waitFor({ state: "detached" });
+      await app.page.getByLabel("Describe what you are looking for").fill("rain");
+      await app.page.getByRole("button", { name: "Search", exact: true }).click();
+      await app.page.locator("li.media-hit").nth(2).waitFor();
+      assert.deepEqual(f.searches[0], { text: "rain", limit: 20 });
     });
   });
 
