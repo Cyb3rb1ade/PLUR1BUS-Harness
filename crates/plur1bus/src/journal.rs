@@ -49,16 +49,23 @@ pub fn append(layout: &Layout, line: &JournalLine<'_>) -> io::Result<()> {
     // Readable too: a file that ends without a newline (a crash in the middle of a write) is noticed below.
     o.read(true);
     let mut f = o.open(dir.join(format!("{}.jsonl", line.agent_id)))?;
+    let entry = serde_json::to_string(line).unwrap();
+    // The torn-line check and the write are one step: without the lock a writer checking the last byte can see another
+    // writer's half-finished line and add a '\n' of its own, which shows up as an extra, empty line.
+    let _guard = APPEND_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let mut text = String::new();
     if ends_in_a_torn_line(&mut f)? {
         // The fragment stays a line of its own and this entry starts a fresh one, in the same single write.
         text.push('\n');
     }
-    text.push_str(&serde_json::to_string(line).unwrap());
+    text.push_str(&entry);
     text.push('\n');
     f.write_all(text.as_bytes())?;
     f.flush()
 }
+
+/// Serialises the torn-line check and the append of one entry among the threads of this process.
+static APPEND_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// Whether the file is non-empty and its last byte is not a newline.
 fn ends_in_a_torn_line(f: &mut std::fs::File) -> io::Result<bool> {
