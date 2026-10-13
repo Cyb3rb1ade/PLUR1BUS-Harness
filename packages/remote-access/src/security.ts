@@ -85,7 +85,7 @@ export function confirmSecurityNotice(input: unknown): ConfirmResult {
   if (typeof input !== "object" || input === null) return { ok: false, code: "bad-record", message: "expected an object" };
   const o = input as { by?: unknown; at?: unknown; confirmed?: unknown; version?: unknown };
   if (o.confirmed !== true) return { ok: false, code: "not-confirmed", message: "the security notice must be confirmed explicitly" };
-  if (typeof o.by !== "string" || o.by.trim() === "") return { ok: false, code: "bad-record", message: "who confirmed is required" };
+  if (typeof o.by !== "string" || o.by.trim() === "" || o.by.trim().length > 128 || /[\u0000-\u001f\u007f]/.test(o.by)) return { ok: false, code: "bad-record", message: "who confirmed is required (a name of up to 128 characters, no control characters)" };
   if (typeof o.at !== "number" || !Number.isFinite(o.at)) return { ok: false, code: "bad-record", message: "when it was confirmed is required" };
   if (o.version !== undefined && o.version !== SECURITY_NOTICE_VERSION) return { ok: false, code: "bad-record", message: "this confirmation is for another version of the notice" };
   return { ok: true, ack: { by: o.by.trim(), at: o.at, version: SECURITY_NOTICE_VERSION } };
@@ -133,10 +133,12 @@ export function firstAidChecks(config: RemoteConfig, state: FirstAidState): Firs
   if (noticeNeeded(config, state.noticeAck)) {
     warn("remote.notice-unconfirmed", "The security notice for network publishing has not been confirmed (for this version of the notice).", "Review and confirm the notice in Devices & Remote.");
   }
-  if (state.tlsReady === false) {
+  // An expiry that is not a number (an unreadable certificate) is never read as "fine": the certificate counts as unusable.
+  const expiryUnreadable = state.certNotAfter !== undefined && !Number.isFinite(state.certNotAfter);
+  if (state.tlsReady === false || expiryUnreadable) {
     warn("remote.tls-not-ready", "Network publishing is on but there is no usable TLS certificate and key: the listener stays off.", "Generate the self-signed certificate or upload a company certificate.");
   }
-  if (state.certNotAfter !== undefined) {
+  if (state.certNotAfter !== undefined && !expiryUnreadable) {
     const left = state.certNotAfter - state.now;
     if (left < 0) {
       warn("remote.cert-expired", "The TLS certificate has expired: paired devices will refuse the connection.", "Stage a new certificate and switch (trust rollover).");

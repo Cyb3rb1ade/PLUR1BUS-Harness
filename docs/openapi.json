@@ -936,6 +936,26 @@
                           },
                           "activity": {
                             "$ref": "#/components/schemas/Activity"
+                          },
+                          "lifecycle": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "paused",
+                              "archived",
+                              "deleted"
+                            ],
+                            "properties": {
+                              "paused": {
+                                "type": "boolean"
+                              },
+                              "archived": {
+                                "type": "boolean"
+                              },
+                              "deleted": {
+                                "type": "boolean"
+                              }
+                            }
                           }
                         }
                       }
@@ -987,6 +1007,26 @@
           },
           "429": {
             "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The core failed to answer (`reason`: `core-error`) or refused the API's own connection (`reason`: `core-handshake`). The core's own text is not forwarded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The core is not reachable (`reason`: `core-unreachable`).",
             "content": {
               "application/json": {
                 "schema": {
@@ -2805,6 +2845,9 @@
               "E_CORE_UNAVAILABLE",
               "E_INVALID_PARAMS",
               "E_AGENT_UNKNOWN",
+              "E_AGENT_EXISTS",
+              "E_AGENT_RIGHTS",
+              "E_AGENT_SECRETS_MISSING",
               "E_CONFIG_INVALID",
               "E_MODULE_UNKNOWN",
               "E_INTERNAL",
@@ -2813,7 +2856,20 @@
               "E_DENIED",
               "E_APPROVAL_REQUIRED",
               "E_CONFLICT",
-              "E_STORAGE"
+              "E_STORAGE",
+              "E_MEDIA_CAPABILITY",
+              "E_MEDIA_LICENSE",
+              "E_MEDIA_PRIVACY",
+              "E_MEDIA_UNAVAILABLE",
+              "E_MEDIA_DIMENSION",
+              "E_MEDIA_UNSUPPORTED_KIND",
+              "E_PROJECT_WIP_LIMIT",
+              "E_INBOX_CURSOR",
+              "E_INVITE_INVALID",
+              "E_VOICE_BUDGET",
+              "E_VOICE_LICENSE",
+              "E_VOICE_UNAVAILABLE",
+              "E_VOICE_LICENCE"
             ]
           },
           "message": {
@@ -3009,6 +3065,9 @@
               "rem",
               "deep"
             ]
+          },
+          "job": {
+            "type": "string"
           }
         }
       },

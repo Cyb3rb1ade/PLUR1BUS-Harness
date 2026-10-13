@@ -37,6 +37,9 @@ export const en = {
   "inbox.mediaIndex.done": "Media indexing finished.",
   "inbox.pairing.requested": "A pairing from {channel} waits for your confirmation.",
   "inbox.channel.misconfigured": "The channel {channel} is misconfigured and cannot start.",
+  "inbox.markShown.title": "Mark the shown entries as read?",
+  "inbox.markShown.body": "{count} unread entries in this view will be marked as read. Entries of other kinds are not changed.",
+  "inbox.markShown.confirm": "Mark as read",
 };
 
 export const de: Record<keyof typeof en, string> = {
@@ -76,4 +79,7 @@ export const de: Record<keyof typeof en, string> = {
   "inbox.mediaIndex.done": "Die Medienindizierung ist abgeschlossen.",
   "inbox.pairing.requested": "Eine Kopplung von {channel} wartet auf deine Bestätigung.",
   "inbox.channel.misconfigured": "Der Kanal {channel} ist falsch konfiguriert und kann nicht starten.",
+  "inbox.markShown.title": "Die angezeigten Einträge als gelesen markieren?",
+  "inbox.markShown.body": "{count} ungelesene Einträge in dieser Ansicht werden als gelesen markiert. Einträge anderer Arten bleiben unverändert.",
+  "inbox.markShown.confirm": "Als gelesen markieren",
 };

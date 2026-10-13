@@ -185,3 +185,41 @@ TLS listener and `/api/v1/devices/*` routing remain integration work: mount the
 pairing/reconnect ports on the same core-owned store, with server-established
 ownership and scopes. The web device page binding is separate follow-up work;
 its current unavailable state is unchanged.
+
+## Härtung und Testabdeckung
+
+Tests of the hardening sweep: `packages/remote-access/test/hardening-pairing.test.ts`, `hardening-certs.test.ts`,
+`hardening-exposure.test.ts` and `secrets-never-leave.test.ts`. Time is the injected `now`; generative cases use a seeded
+PRNG whose seed is in every failure message. A test marked `KNOWN GAP` is a `todo` (see below).
+
+| Area | What is pinned |
+|---|---|
+| Codes | 8 characters from 32, exactly 40 bits; an even spread; `node:crypto` only, no `Math.random`. A code that is not a string (number, `null`, object) or longer than 64 characters is `invalid`, never a thrown error. The hour is exact on the injected clock. |
+| Rate limiting | The sliding-window limiter forgets keys once per window and holds at most 100 000. |
+| Devices | `connect` with a missing or wrongly typed challenge, signature or `close` is `denied` and spends no challenge. |
+| Certificates | A certificate whose validity dates cannot be read counts as expired (`daysLeft` -1) and a company-CA upload with such a date is refused, so `remote.cert-expiring` can no longer be silent. DER lengths must be minimal. A company-CA upload has at most 10 certificates, with type-checked fields. |
+| Pinning | A connection reported as `authorized` is trusted as the pinned CA only when node's chain ends in that CA. |
+| Trust rollover | Acknowledgements are read with `Object.hasOwn` (a device called `constructor` is not acknowledged); times must be non-negative whole milliseconds. |
+| Exposure | Zone ids need 1-64 printable characters; only `0.0.0.0` is unspecified (`0.0.0.1` is refused as public); configuration deeper than 32 levels is a finding; the security notice's `by` is at most 128 characters without control characters; an unreadable `certNotAfter` raises `remote.tls-not-ready`. |
+| Secrets | A whole pairing (code, offer, link, proof, refusals, pair, replay, connect, rename, revoke) is searched for the code, the key derived from it, the offer signing key and the device's private key over every return value, error, audit event, the code store snapshot and the device file. The code appears only in the answers that issue it. |
+
+### Known gaps
+
+- **pair-proof is an offline oracle for the code.** `POST /api/v1/devices/pair-proof` is unauthenticated and returns
+  `{salt, serverNonce, proof}` with `proof = HMAC(K, ...)` and `K = Argon2id(code, salt)`. Anyone who sees one answer can test all
+  2^40 codes offline. At about 13 ms per derivation that is roughly 450 core-years, within the one hour a code lives only with a very
+  large budget. The rate limits cap requests, not the offline work; the *Brute force* text above covers redeeming (online) only.
+  This follows the recorded owner decision and is unchanged; 10 characters (50 bits) or a heavier Argon2id would move it out of reach.
+- **A failed write on revoke leaves the device authorised** (`hardening-pairing.test.ts`): `DeviceStore.revoke` throws before it blocks
+  the key in memory and before it closes connections, so the device stays connected until a retry works. This section's
+  *Persistent devices* text says the same; `errors.md` (`device-storage`) says the opposite and should be aligned.
+- **Two store instances on one file lose updates**: each writes the whole list, so a stale instance can undo a revoke. The core uses one
+  instance; the rule "one owner per file" is documented.
+- **A retired trust anchor can be staged again** (`hardening-certs.test.ts`): after A to B, A can be staged as `next`; there is no list of
+  retired anchors.
+- **An unknown critical extension is imported** (`hardening-certs.test.ts`): RFC 5280 clients must refuse such a certificate, so the
+  import succeeds and the connection fails later.
+
+Observations: `DeviceStore.challenge()` is unauthenticated and 1024 open challenges (30 s each) lock every handshake for 30 s, so the
+transport must rate-limit it; `buildPairingOffer` accepts a signing key of any length, even empty; the per-code proof limit (60 per hour)
+can be used up from several sources, which blocks the legitimate client until the code expires.

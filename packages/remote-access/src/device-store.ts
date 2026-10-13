@@ -134,6 +134,8 @@ export class DeviceStore {
   /** Proves possession before admitting a connection. No claimed device id authenticates a caller. */
   connect(input: { publicKey: string; challenge: Uint8Array; signature: Uint8Array; close: () => void }): () => void {
     this.checkStorage();
+    // What a client echoes back is untrusted: wrong types are a refusal, not a TypeError, and spend no challenge.
+    if (!input || !(input.challenge instanceof Uint8Array) || !(input.signature instanceof Uint8Array) || typeof input.close !== "function") throw new DeviceError("denied");
     const challenge = Buffer.from(input.challenge).toString("hex");
     const expires = this.challenges.get(challenge);
     this.challenges.delete(challenge);

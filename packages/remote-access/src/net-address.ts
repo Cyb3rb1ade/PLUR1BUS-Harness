@@ -28,6 +28,8 @@ function parseV4(text: string): Uint8Array | undefined {
 
 /** The 16 raw bytes of an IPv6 text form, without any mapped-address normalisation. */
 function parseV6Raw(input: string): Uint8Array | undefined {
+  // A zone id names an interface: present, short, and free of white space and control characters (an empty or garbage one is not an address).
+  if (input.includes("%") && !/^[^\s%\u0000-\u001f\u007f]{1,64}$/.test(input.slice(input.indexOf("%") + 1))) return undefined;
   const text = input.includes("%") ? input.slice(0, input.indexOf("%")) : input;
   if (!isIPv6(text)) return undefined;
   let head = text;
@@ -65,6 +67,7 @@ function isMapped(b: Uint8Array): boolean {
 }
 
 export function parseIp(text: string): ParsedIp | undefined {
+  if (typeof text !== "string") return undefined;
   const v4 = parseV4(text);
   if (v4) return { family: 4, bytes: v4 };
   const v6 = parseV6Raw(text);
@@ -82,6 +85,7 @@ function maskBytes(bytes: Uint8Array, prefix: number): Uint8Array {
 }
 
 export function parseCidr(text: string): ParsedCidr | undefined {
+  if (typeof text !== "string") return undefined;
   const parts = text.split("/");
   if (parts.length > 2 || parts[0] === "" || text.includes("%")) return undefined;
   const ipText = parts[0]!;
@@ -152,7 +156,8 @@ export function addressScope(ip: ParsedIp): AddressScope {
   const b = ip.bytes;
   if (ip.family === 4) {
     if (b[0] === 127) return "loopback";
-    if (b[0] === 0) return "unspecified";
+    // Only 0.0.0.0 is the wildcard; the rest of 0.0.0.0/8 is "this network", not an address anything can bind (and not one to be trusted as private).
+    if (b[0] === 0) return b[1] === 0 && b[2] === 0 && b[3] === 0 ? "unspecified" : "public";
     if (b[0] === 10) return "private";
     if (b[0] === 172 && b[1]! >= 16 && b[1]! <= 31) return "private";
     if (b[0] === 192 && b[1] === 168) return "private";

@@ -79,20 +79,20 @@ export function ackTrust(s: TrustState, o: { deviceId: string; pin: Pin; now: Ep
   if (s.phase !== "staged" || !s.next) return err("not-staged", "no trust change is staged");
   if (!o.paired.includes(o.deviceId)) return err("unknown-device", "only paired devices can confirm a trust change");
   if (!pinsEqual(o.pin, s.next.pin)) return err("pin-mismatch", "the confirmed pin is not the staged one");
-  if (o.deviceId in s.acks) return { ok: true, state: s };
+  if (Object.hasOwn(s.acks, o.deviceId)) return { ok: true, state: s };
   return { ok: true, state: { ...s, acks: { ...s.acks, [o.deviceId]: o.now } } };
 }
 
 /** "4 of 6 devices": how many confirmed and who is still missing (empty unless a change is staged). */
 export function trustProgress(s: TrustState, devices: readonly TrustDevice[]): { received: number; total: number; missing: TrustDevice[] } {
   if (s.phase !== "staged") return { received: 0, total: devices.length, missing: [] };
-  const missing = devices.filter((d) => !(d.id in s.acks));
+  const missing = devices.filter((d) => !Object.hasOwn(s.acks, d.id));
   return { received: devices.length - missing.length, total: devices.length, missing };
 }
 
 export function switchTrust(s: TrustState, devices: readonly TrustDevice[], now: EpochMs): { ok: true; state: TrustState; repair: TrustDevice[] } | TrustError {
   if (s.phase !== "staged" || !s.next) return err("not-staged", "no trust change is staged");
-  const repair = devices.filter((d) => !(d.id in s.acks));
+  const repair = devices.filter((d) => !Object.hasOwn(s.acks, d.id));
   return { ok: true, state: { current: s.next, phase: "switched", acks: {}, switchedAt: now, repairIds: repair.map((d) => d.id) }, repair };
 }
 
@@ -136,7 +136,7 @@ export async function announceStaged(s: TrustState, devices: readonly TrustDevic
   const out = { delivered: [] as string[], pending: [] as string[] };
   if (!event) return out;
   for (const d of devices) {
-    if (d.id in s.acks) continue;
+    if (Object.hasOwn(s.acks, d.id)) continue;
     (await port.push(d.id, event) ? out.delivered : out.pending).push(d.id);
   }
   return out;
@@ -164,19 +164,21 @@ export function parseTrust(text: string): { ok: true; state: TrustState } | Trus
   const phase = o["phase"];
   if (phase !== "none" && phase !== "staged" && phase !== "switched") return bad("unknown phase");
   const acksRaw = o["acks"];
-  if (typeof acksRaw !== "object" || acksRaw === null || Array.isArray(acksRaw) || !Object.values(acksRaw).every((t) => typeof t === "number")) return bad("acks must map device ids to times");
+  // Times are whole, non-negative, finite milliseconds: `1e999` parses to Infinity and a negative or fractional value is not a time.
+  const isTime = (t: unknown): t is number => typeof t === "number" && Number.isSafeInteger(t) && t >= 0;
+  if (typeof acksRaw !== "object" || acksRaw === null || Array.isArray(acksRaw) || !Object.values(acksRaw).every(isTime)) return bad("acks must map device ids to times");
   const acks = { ...(acksRaw as Record<string, number>) };
 
   if (phase === "staged") {
     const next = anchor(o["next"]);
-    if (!next || typeof o["stagedAt"] !== "number") return bad("a staged change needs next and stagedAt");
+    if (!next || !isTime(o["stagedAt"])) return bad("a staged change needs next and stagedAt");
     if (o["switchedAt"] !== undefined || o["repairIds"] !== undefined) return bad("staged state carries switch data");
     return { ok: true, state: { current, phase, next, stagedAt: o["stagedAt"], acks } };
   }
   if (o["next"] !== undefined || o["stagedAt"] !== undefined) return bad("only a staged state has next/stagedAt");
   if (phase === "switched") {
     const repair = o["repairIds"];
-    if (typeof o["switchedAt"] !== "number" || !Array.isArray(repair) || !repair.every((x) => typeof x === "string")) return bad("a switched state needs switchedAt and repairIds");
+    if (!isTime(o["switchedAt"]) || !Array.isArray(repair) || !repair.every((x) => typeof x === "string")) return bad("a switched state needs switchedAt and repairIds");
     return { ok: true, state: { current, phase, acks, switchedAt: o["switchedAt"], repairIds: repair as string[] } };
   }
   if (o["switchedAt"] !== undefined || o["repairIds"] !== undefined) return bad("state none carries switch data");

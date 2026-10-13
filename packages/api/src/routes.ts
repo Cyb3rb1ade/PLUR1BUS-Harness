@@ -1,3 +1,4 @@
+import { ERROR_CODES } from "@plur1bus/rpc-schema";
 import type { AuditEmitter } from "./audit.ts";
 import { nameHandle } from "./audit.ts";
 import type { Clock } from "./clock.ts";
@@ -59,7 +60,7 @@ const ROLE_NAMES = ["owner", "admin", "operator", "member", "viewer"];
 export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
   Error: obj({
     schema: schemaId("error/1"),
-    error: { type: "string", description: "A member of the closed RPC `ErrorCode` enum (ADR-016 §2).", enum: ["E_UNAUTHORIZED", "E_RPC_VERSION", "E_NOT_AVAILABLE", "E_CORE_UNAVAILABLE", "E_INVALID_PARAMS", "E_AGENT_UNKNOWN", "E_CONFIG_INVALID", "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED", "E_NOT_FOUND", "E_DENIED", "E_APPROVAL_REQUIRED", "E_CONFLICT", "E_STORAGE"] },
+    error: { type: "string", description: "A member of the closed RPC `ErrorCode` enum (ADR-016 §2).", enum: [...ERROR_CODES] },
     message: { type: "string" },
     reason: { type: "string", description: "A short machine-readable cause, e.g. `no-session`, `csrf`, `rate-limited`, `locked`, `role-denied`, `body-too-large`." },
   }, ["schema", "error", "message"]),
@@ -68,7 +69,7 @@ export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
   BreakGlassGrant: obj({ id: { type: "string" }, targetUserId: { type: "string" }, reason: { type: "string" }, issuedAt: iso, expiresAt: iso }),
   Notice: obj({ kind: { const: "break-glass.granted" }, grantId: { type: "string" }, holderUserId: { type: "string" }, reason: { type: "string" }, at: iso, expiresAt: iso }),
   Token: obj({ id: { type: "string" }, prefix: { type: "string" }, name: { type: "string" }, scopes: { type: "array", items: { type: "string" } }, createdAt: iso, expiresAt: iso, lastUsedAt: iso, revokedAt: iso }, ["id", "prefix", "name", "scopes", "createdAt", "expiresAt"]),
-  Activity: obj({ state: { type: "string" }, since: { type: "integer" }, phase: { enum: ["light", "rem", "deep"] } }, ["state", "since"]),
+  Activity: obj({ state: { type: "string" }, since: { type: "integer" }, phase: { enum: ["light", "rem", "deep"] }, job: { type: "string" } }, ["state", "since"]),
 };
 
 const SESSION_TIMES = { createdAt: iso, expiresAt: iso, idleExpiresAt: iso };
@@ -126,7 +127,11 @@ export const ROUTES: readonly RouteSpec[] = [
     id: "agents.list", method: "GET", path: `${API_PREFIX}/agents`, tag: "agents", summary: "The agents the caller may see (core RPC `agent.list`, filtered by `agent.read`)",
     auth: "any", authz: { action: "agent.list" }, csrf: false, rate: "read", stability: "experimental", since: "1.0.0",
     successStatus: 200,
-    success: { description: "The core's `agent.list` result, with a schema id, reduced to the agents the caller holds `agent.read` on.", schema: obj({ schema: schemaId("agents.list/1"), agents: { type: "array", items: obj({ agentId: { type: "string" }, open: { type: "boolean" }, activity: ref("Activity") }) } }) },
+    success: { description: "The core's `agent.list` result, with a schema id, reduced to the agents the caller holds `agent.read` on.", schema: obj({ schema: schemaId("agents.list/1"), agents: { type: "array", items: obj({ agentId: { type: "string" }, open: { type: "boolean" }, activity: ref("Activity"), lifecycle: obj({ paused: { type: "boolean" }, archived: { type: "boolean" }, deleted: { type: "boolean" } }) }, ["agentId", "open", "activity"]) } }) },
+    extra: {
+      502: { description: "The core failed to answer (`reason`: `core-error`) or refused the API's own connection (`reason`: `core-handshake`). The core's own text is not forwarded.", schema: ref("Error") },
+      503: { description: "The core is not reachable (`reason`: `core-unreachable`).", schema: ref("Error") },
+    },
   },
   {
     id: "tokens.list", method: "GET", path: `${API_PREFIX}/tokens`, tag: "tokens", summary: "The caller's personal API tokens (never the secret, never the hash)",
@@ -250,6 +255,19 @@ export interface HandlerDeps {
 
 const iso8601 = (ms: number) => new Date(ms).toISOString();
 
+/** The fields of `core.status` the health answer repeats, checked for type and size first: what the core sends is not
+ *  forwarded as it is. `undefined` when the shape is not the documented one. */
+function coreStatus(v: unknown): { rpc: string; contract: string; uptimeMs: number; engineReady: boolean; degraded: boolean } | undefined {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
+  const s = v as { rpc?: unknown; contract?: unknown; uptimeMs?: unknown; engine?: unknown };
+  const e = s.engine as { ready?: unknown; degraded?: unknown } | null | undefined;
+  if (typeof s.rpc !== "string" || s.rpc.length < 1 || s.rpc.length > 32 || typeof s.contract !== "string" || s.contract.length < 1 || s.contract.length > 32) return undefined;
+  if (typeof s.uptimeMs !== "number" || !Number.isSafeInteger(s.uptimeMs) || s.uptimeMs < 0) return undefined;
+  if (!e || typeof e !== "object" || Array.isArray(e) || typeof e.ready !== "boolean") return undefined;
+  if (e.degraded !== null && e.degraded !== undefined && (typeof e.degraded !== "object" || Array.isArray(e.degraded))) return undefined;
+  return { rpc: s.rpc, contract: s.contract, uptimeMs: s.uptimeMs, engineReady: e.ready, degraded: e.degraded !== null && e.degraded !== undefined };
+}
+
 export function sessionCookie(tls: boolean, value: string, maxAgeSec: number): string {
   return `${tls ? COOKIE_NAME_TLS : COOKIE_NAME}=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAgeSec}${tls ? "; Secure" : ""}`;
 }
@@ -352,7 +370,9 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
         d.audit.emit("auth.totp.failure", user.id, `user:${user.id}`, { stage: "login", ip: i.ip });
         throw refused();
       }
-      d.challenges!.consume(b.challenge);
+      // Spent exactly once: two valid codes sent at once (both inside the window, so the replay guard passes each) would
+      // otherwise turn one challenge into two sessions. The loser gets the ordinary refusal.
+      if (!d.challenges!.consume(b.challenge)) throw refused();
       d.sessions.destroy(i.presentedSessionId);
       const principal: Principal = { kind: "user", id: user.id, role: user.role };
       const { id, session } = d.sessions.create(principal, { authVersion: user.version, stepUpAt: d.clock.now() });
@@ -443,9 +463,9 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
     },
     "health": async () => {
       try {
-        const s = await withDeadline(d.core.call<{ rpc: string; contract: string; uptimeMs: number; engine: { ready: boolean; degraded: unknown } }>("core.status"), d.healthTimeoutMs);
-        const degraded = s.engine.degraded !== null && s.engine.degraded !== undefined;
-        return { body: { schema: "health/1", status: !s.engine.ready || degraded ? "degraded" : "ok", api: { version: API_VERSION }, core: { reachable: true, rpc: s.rpc, contract: s.contract, uptimeMs: s.uptimeMs, engineReady: s.engine.ready, degraded } } };
+        const s = coreStatus(await withDeadline(d.core.call<unknown>("core.status"), d.healthTimeoutMs));
+        if (!s) throw new Error("core.status has an unexpected shape");
+        return { body: { schema: "health/1", status: !s.engineReady || s.degraded ? "degraded" : "ok", api: { version: API_VERSION }, core: { reachable: true, rpc: s.rpc, contract: s.contract, uptimeMs: s.uptimeMs, engineReady: s.engineReady, degraded: s.degraded } } };
       } catch {
         return { status: 503, body: { schema: "health/1", status: "down", api: { version: API_VERSION }, core: { reachable: false } } };
       }
@@ -485,15 +505,16 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
     },
     "agents.list": async (i) => {
       try {
-        const r = await d.core.call<Record<string, unknown>>("agent.list");
+        const r = await d.core.call<unknown>("agent.list");
+        if (!r || typeof r !== "object" || Array.isArray(r)) throw new ApiError(502, "E_CORE_UNAVAILABLE", "the core failed to answer", { reason: "core-error" });
+        const { schema: _own, agents: listed, ...rest } = r as Record<string, unknown>;
         // Object rights decide which agents a caller sees (acceptance 3). Elements pass through untouched or not at all
-        // (never re-serialised, ruling R13); a result that is not a list is shown to nobody.
-        const all = Array.isArray(r.agents) ? (r.agents as unknown[]) : [];
-        const agents = all.filter((a) => {
-          const agentId = a && typeof a === "object" && typeof (a as { agentId?: unknown }).agentId === "string" ? (a as { agentId: string }).agentId : "";
-          return authorize(i.rbac, "agent.read", { kind: "agent", agentId }).effect === "allow";
+        // (never re-serialised, ruling R13); an entry without an agent id is shown to nobody, and so is a result that is not a list.
+        const agents = (Array.isArray(listed) ? listed : []).filter((a) => {
+          const agentId = a && typeof a === "object" && !Array.isArray(a) ? (a as { agentId?: unknown }).agentId : undefined;
+          return typeof agentId === "string" && agentId !== "" && authorize(i.rbac, "agent.read", { kind: "agent", agentId }).effect === "allow";
         });
-        return { body: { schema: "agents.list/1", ...r, agents } };
+        return { body: { schema: "agents.list/1", ...rest, agents } };
       } catch (e) { throw fromCoreError(e); }
     },
   };

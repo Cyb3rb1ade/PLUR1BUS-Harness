@@ -78,3 +78,37 @@ HOSTCTL_TRASH_SMOKE=1 pnpm --filter @plur1bus/hostctl test
 Tests use only temporary synthetic files, fake process timers, fake native helpers and fake approvals; no network is used. Native argv contracts for macOS/Linux/Windows run on every host. Windows junction/reserved-name cases run only on Windows. The opt-in Trash smoke touches only its newly created fixture and deliberately leaves that fixture in the native Trash. Native Windows/Linux acceptance must be recorded separately from macOS results; mocked platform tests do not prove a native run.
 
 Desktop Commander is an external MCP server with its own transport and lifecycle. Hostctl is a built-in local tool family under the Harness D109 dispatcher; installing or exposing a remote MCP server is unnecessary. Follow-up packages cover screen/input control and RPC/Web views of process sessions. No screenshot, keyboard/mouse control, remote hosting or process-session RPC methods are included here.
+
+## Härtung und Testabdeckung
+
+Tests of the hardening sweep: `packages/hostctl/test/hardening-hostctl.test.ts` (vitest; `pnpm --filter @plur1bus/hostctl test`, which
+needs `pnpm build` once for `log-schema`). `it.todo` marks a `KNOWN GAP`, with an `it.fails` case beside it that shows the weakness.
+
+What is pinned:
+
+- **Standard input.** `proc.write_stdin` refuses (`TOO_LARGE`) once `writableLength` plus the new bytes would exceed `output.maxBytes`, so
+  a child that never reads cannot make the harness buffer without limit.
+- **Search.** A content query with `\r` or `\n` always uses the built-in matcher; ripgrep is line-based and would never match it, so the
+  result no longer depends on whether `rg` is installed.
+- **Files.** `fs.append` and `fs.edit` keep a UTF-8 byte order mark. A crash between the temporary file and the rename leaves the original
+  byte for byte (kill test).
+- **Configuration.** `NaN`, `Infinity` and strings where numbers belong are clamped to a default or a bound; a string where a list belongs
+  is one entry, not a list of its characters.
+
+### Known gaps
+
+- **Environment blocklist.** The text above says secret and injection names stay blocked even when added to the allowlist. The code blocks
+  names containing `secret`, `token`, `password`, `credential` or `private`, and `NODE_OPTIONS`, `LD_*`, `DYLD_*`, `PYTHONPATH`, `BASH_ENV`,
+  `ENV`, `PSModulePath`. Not blocked: `PERL5OPT`, `PERL5LIB`, `RUBYOPT`, `RUBYLIB`, `PYTHONSTARTUP`, `PYTHONHOME`, `NODE_PATH`,
+  `JAVA_TOOL_OPTIONS`, `_JAVA_OPTIONS`, `JDK_JAVA_OPTIONS`, `CLASSPATH`, `GIT_SSH_COMMAND`, `GIT_EXTERNAL_DIFF`, `LESSOPEN`, `PROMPT_COMMAND`,
+  `GCONV_PATH`. The default allowlist has none of them; the risk is an operator adding one.
+- **`proc.kill_foreign` and the supervisor.** It refuses PID 0, 1 and the harness process, but not `process.ppid` or the own process group. An
+  approval shows only a number, so a request for the supervisor's PID is easy to approve by mistake (outage, no data loss).
+- **The harness's own credential files.** The default deny list covers `.ssh`, `.aws`, `.gnupg` and browser stores, not `<home>/run/api-owner.token`,
+  `run/core.token` or `run/supervisor.token`. If the harness home lies under a configured root, `fs.read` (allowed inside roots without
+  approval) can read the owner token, which logs in as owner at `POST /api/v1/session`. The composition should add `<home>/run`, `state` and
+  `secrets` to the deny list.
+
+Observations: a crash between staging and rename can leave `.hostctl-<uuid>.tmp` (no clean-up at start); copy and new-file use `link()`, which fails
+with `IO_ERROR` on file systems without hard links and gives new files mode 0600; the 32-process and 128-record limits are per pool, not per
+session, so one session can crowd out another.

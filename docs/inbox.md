@@ -99,3 +99,26 @@ plur1bus inbox dismiss <id>...
 
 `--json` prints the RPC result with the schema ids `inbox.list/1`, `inbox.count/1`, `inbox.read/1` and
 `inbox.dismiss/1`. Reference: [cli.md](cli.md), [rpc.md](rpc.md).
+
+## Härtung und Testabdeckung
+
+The page (`packages/web/src/pages/inbox`) is covered by `inbox-page.test.ts`, `inbox-model.test.ts` and, from the hardening sweep,
+`inbox-hardening.test.ts` (real Chromium against the mock API, axe in light and dark, English and German, 360 and 1440 px).
+
+- **Who sees what is the backend's job.** The page shows every entry `inbox.list` returns and offers every action to every role; it sends
+  no role and no person and filters nothing by audience itself (tested for all five roles).
+- **Live updates.** `inbox.changed` and a reconnect only make the page ask again. A refresh asks for as many entries as are shown (50 to 200,
+  the maximum of `inbox.list`), so paging is not lost, a burst of hints leaves no entry twice, and the order is the backend's. A refresh that
+  fails keeps the list and shows "That did not work. Try again."; only a first load that fails shows the error page.
+- **Entries are checked.** An entry needs a non-empty string `id` (repeated ids: the first wins), a known `kind` and `severity`, a string
+  `titleKey`, a `params` object of strings, numbers and booleans, finite `createdAt` within the range of a date, `readAt` and `dismissedAt`
+  `null` or a time, and a `ref` of `null` or an object with optional string fields. Anything else is left out, not shown half. Titles are text,
+  an unknown title key shows the kind label, and a link is only built for a known app route.
+- **Bulk action.** Without a kind filter "Mark all as read" keeps its meaning (`{ all: true }`, immediately). Under a kind filter it asks first
+  and marks only the unread entries shown (`{ ids }`, at most 500 per call), so entries the filter hides stay unread.
+- **Keyboard.** After "Mark as read" the focus moves to the entry's "Dismiss" button (or the heading when the entry left the list); after
+  "Load more" it moves to the first new entry.
+- **Badge.** The sidebar count is the sum of `inbox.count`'s per-kind numbers, shown only when every one is a non-negative whole number.
+
+Limits: an entry of a kind this UI does not know is not shown (the kinds are a closed list in `rpc-types.ts`); "Mark all as read" without a kind
+filter also marks entries that are not loaded yet, as the label says.

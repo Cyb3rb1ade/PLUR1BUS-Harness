@@ -45,6 +45,7 @@ export function inspectCertificate(input: CertInput, now: Date): CertInfo {
   const x = toX509(input);
   const notBefore = new Date(x.validFromDate);
   const notAfter = new Date(x.validToDate);
+  const readable = Number.isFinite(notBefore.getTime()) && Number.isFinite(notAfter.getTime());
   let selfSigned = false;
   try { selfSigned = x.subject === x.issuer && x.verify(x.publicKey); } catch { selfSigned = false; }
   const { dns, ips } = parseSan(x.subjectAltName);
@@ -57,8 +58,9 @@ export function inspectCertificate(input: CertInput, now: Date): CertInfo {
     certPin: certPin(x),
     spkiPin: spkiPin(x),
     fingerprintHex: formatHex(sha256(x.raw)),
-    expired: now.getTime() > notAfter.getTime(),
-    notYetValid: now.getTime() < notBefore.getTime(),
-    daysLeft: Math.floor((notAfter.getTime() - now.getTime()) / DAY_MS),
+    // A validity period that cannot be read is never "valid": every comparison with an Invalid Date is false, which would read as fine.
+    expired: !readable || now.getTime() > notAfter.getTime(),
+    notYetValid: readable && now.getTime() < notBefore.getTime(),
+    daysLeft: readable ? Math.floor((notAfter.getTime() - now.getTime()) / DAY_MS) : -1,
   };
 }

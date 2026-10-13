@@ -64,5 +64,9 @@ Every route is **deny by default**: a route that is not \`public\` answers 401 w
 | Method | Path | Operation | Auth | Action | CSRF | Rate class | Stability · since |
 |---|---|---|---|---|---|---|---|
 ${rows.join("\n")}
+
+## Härtung und Testabdeckung
+
+Every route of this table is called by the hardening tests (\`packages/api/test/hardening-*.test.ts\`, \`secrets-never-leave.test.ts\`): anonymous, signed in, with a bearer token, with a wrong method, a foreign \`Origin\` and a query string. Each answer carries the security headers; about 200 real answers validate against [openapi.json](openapi.json); every documented status is observed at least once; and the password, owner token, TOTP secret, backup codes, login challenge, session ids and token secret appear only in the answer that issues them, never in another body or header, a log line, an audit event or a call to the core. \`components.Error.error.enum\` is derived from the core's closed \`ErrorCode\` list, so a new code needs a regenerated \`openapi.json\`. Details, limits and known gaps: [api.md](api.md#härtung-und-testabdeckung).
 `;
 }

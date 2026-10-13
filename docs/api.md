@@ -185,3 +185,55 @@ secrets live in memory and are lost at a restart.
 - **Break-glass delivery** to channels, and the memory routes that use a grant (they need a resource selector in the route table).
 - `stream` routes (SSE, WebSocket) and OIDC/WebAuthn session binding are the next users of the `stream` class and the surface map.
 - `docs/openapi.json` and `docs/api-surface.md` are regenerated with `pnpm docs:gen` whenever the route table changes.
+
+## Härtung und Testabdeckung
+
+The hardening sweep pins the behaviour below with tests: `packages/api/test/hardening-*.test.ts` and
+`secrets-never-leave.test.ts`. A test marked `KNOWN GAP` is a `todo`: it records a weakness that cannot be closed without
+changing public behaviour (a route, status code, response, cookie name, RPC, config key or error code), and it is listed under
+*Known gaps* below, not counted as a pass.
+
+| Area | Test file | What is pinned |
+|---|---|---|
+| Sessions, cookies, headers | `hardening-session.test.ts` | Every route of the table carries the security headers (anonymous, signed in, wrong method, foreign `Origin`, query string); the 64-session cap; parallel sessions; cookie clearing; truncated, repeated and odd cookie values. |
+| Password and second-step login | `hardening-login.test.ts` | The lockout counts every attempt of a parallel burst; a challenge is spent once, also under two simultaneous valid codes. |
+| Personal tokens | `hardening-tokens.test.ts` | The cap of 50 live tokens holds under parallel creation; scopes only narrow. |
+| Audit and redaction | `hardening-audit.test.ts` | Queue order, retries, the full queue, the redaction net under logs and audit (field names such as `code`, `totp`, `otp`, `otpauthUri`, `backup*`, `challenge`, `bearer`, `passphrase`; error ids such as `HPE_*` stay readable); rate limits refuse non-finite capacity or refill. |
+| OpenAPI | `hardening-openapi.test.ts` | About 200 real answers over all routes validate against `docs/openapi.json` (a small validator in `test/openapi-validate.ts`, no dependency); every documented status is observed; `components.Error.error.enum` is derived from `ERROR_CODES`; `agents.list` documents 502/503 and the optional `lifecycle` and `activity.job` fields. |
+| Static files, core link | `hardening-static.test.ts`, `hardening-core-link.test.ts` | Path handling, `health` and `agents.list` against odd core answers, `close()` during a connect. |
+| Secrets | `secrets-never-leave.test.ts` | The password, owner token, TOTP secret, backup codes, login challenge, session ids and token secret appear only in the answer that issues them (a session id only in its login's `Set-Cookie`). Every route is called anonymously, with a bearer token, with a damaged cookie and with both cookies, each time with every secret in the body, path, query, `Origin` and `Cookie`; no other body, header, log line, audit event or call to the core carries one, in six spellings. |
+
+### What the core may answer
+
+`health` accepts the fields of `core.status` only with the right type and size; anything else gives the same 503 "down"
+answer as an unreachable core. `agents.list` takes an object with an `agents` array and keeps entries with a non-empty string
+`agentId`; any other answer is a 502 with `reason: core-error`, and the core cannot override the `schema` id. The core's own text is
+never forwarded.
+
+### Behaviour worth knowing
+
+- **Audit queue.** Auth events are queued (default 2000) and written in order from the event loop; each gets a few retries.
+  When the queue is full the *new* event is dropped (the oldest stay), counted in `dropped` and logged once per burst. Events
+  still queued when the process is killed (`SIGKILL`) are lost; a sink that throws after a partial write can produce a
+  duplicate line. Break-glass does not use the queue.
+- **Rate limits per address.** The key is the socket address, which on loopback is always `127.0.0.1`: every local client
+  shares one `auth` bucket, so a local process can keep it empty and make the owner's login answer 429 until it refills.
+  The account lock is the real defence against guessing; the bucket is a cost brake.
+- **Core link.** There is no back-off: the next request simply tries again. The connect timeout is 1 s; a call (the handshake
+  included) uses the default of 30 s, so a core that accepts the socket and never answers holds the shared pending connection
+  that long; requests end earlier with 504/503. `close()` during a connect closes the late connection.
+- **Static files.** `Cache-Control: no-store` on every file (hashed assets too), no validators, `Range` ignored (the whole file
+  answers 200), `HEAD` has the headers of `GET`. A file up to 16 MiB is read into memory.
+
+### Known gaps
+
+Each is a test marked `KNOWN GAP`; none is fixed because the fix changes behaviour.
+
+- **Global session cap** (`hardening-session.test.ts`): any signed-in account can fill the 64 sessions and evict everyone else's,
+  the owner's included. A per-principal limit would fix it.
+- **Stronger password hashes are replaced** (`hardening-login.test.ts`): `needsRehash` rewrites any hash whose parameters differ
+  from the current ones, a stronger hash included.
+- **No HTTP status for six core codes** (`hardening-openapi.test.ts`): `E_PROJECT_WIP_LIMIT`, `E_INBOX_CURSOR`,
+  `E_INVITE_INVALID` and the `E_VOICE_*` codes fall back to 500. No route returns them yet.
+- **Windows device names** (`hardening-static.test.ts`): `CON`, `NUL`, `AUX`, `COM1`, `LPT1` (with or without an extension) are
+  not refused as path segments; on Windows opening one can block a thread-pool worker. Not verified on Windows.
