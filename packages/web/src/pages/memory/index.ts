@@ -1,6 +1,6 @@
-// Memories & Dreams (`#/memories`, `#/memories/<cardId>`, `#/memories/dreams`, `#/memories/dreams/<runId>`): the tab and the
-// selected card or run live in the URL. Live updates come from /events (job.run, memory.proposal) when that channel exists;
-// without it the page says so and "Refresh" does the work.
+// Memories & Dreams (`#/memories`, `#/memories/<cardId>`, `#/memories/dreams`, `#/memories/dreams/<runId>`, `#/memories/media`): the
+// tab and the selected card or run live in the URL. Live updates come from /events (job.run, memory.proposal) when that channel
+// exists; without it the page says so and "Refresh" does the work.
 import { h } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
@@ -12,21 +12,23 @@ import { navigate } from "../../router.ts";
 import type { PageProps } from "../registry.ts";
 import { getApi } from "./data.ts";
 import { DreamsTab } from "./dreams-tab.ts";
+import { MediaTab } from "./media-tab.ts";
 import { MemoriesTab } from "./memories-tab.ts";
 import "./rpc-types.ts";
 import "../../styles/memory.css";
 
-export type MemoriesRoute = { tab: "memories"; id: string | null } | { tab: "dreams"; runId: string | null };
+export type MemoriesRoute = { tab: "memories"; id: string | null } | { tab: "dreams"; runId: string | null } | { tab: "media" };
 
 function decode(s: string | undefined): string | null {
   if (s === undefined || s === "") return null;
   try { return decodeURIComponent(s); } catch { return s; }
 }
 
-/** `undefined` -> the list; `dreams[/<run>]` -> Dreams; anything else is a card id. "dreams" is reserved and never a card id. */
+/** `undefined` -> the list; `dreams[/<run>]` -> Dreams; `media` -> Media; anything else is a card id. "dreams" and "media" are reserved. */
 export function parseSub(sub: string | undefined): MemoriesRoute {
   const [first, ...rest] = (sub ?? "").split("/");
   if (first === "dreams") return { tab: "dreams", runId: decode(rest.join("/")) };
+  if (first === "media") return { tab: "media" };
   return { tab: "memories", id: decode(first) };
 }
 
@@ -67,10 +69,11 @@ export function MemoriesPage({ sub }: PageProps): View {
     h("p", { class: "m-muted m-live" }, on ? t("memory.live.on") : live === "connecting" || live === "off" ? t("memory.live.connecting") : t("memory.live.off")),
     h(Tabs, {
       label: t("memory.views"), selected: route.tab,
-      onSelect: (id) => { navigate(id === "dreams" ? "/memories/dreams" : "/memories"); },
+      onSelect: (id) => { navigate(id === "dreams" ? "/memories/dreams" : id === "media" ? "/memories/media" : "/memories"); },
       tabs: [
         { id: "memories", label: t("memory.tab.memories"), panel: h(MemoriesTab, { selectedId: route.tab === "memories" ? route.id : null, tick, proposalTick }) },
         { id: "dreams", label: t("memory.tab.dreams"), panel: h(DreamsTab, { runId: route.tab === "dreams" ? route.runId : null, tick: tick + jobTick }) },
+        { id: "media", label: t("memory.tab.media"), panel: h(MediaTab, { tick }) },
       ],
     }));
 }

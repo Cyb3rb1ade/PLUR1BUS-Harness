@@ -41,6 +41,11 @@ import { AdminStore } from "./identity/admin-store.ts";
 import { deriveUserPrincipal } from "./identity/principals.ts";
 import { AgentLifecycle } from "./agents/lifecycle.ts";
 import { activeAgents, lifecycleAdmission, lifecycleEngine } from "./agents/admission.ts";
+import { registerAgentConfig } from "./agents/config.ts";
+import { readConfigFile, writeConfigAtomic } from "./config-load.ts";
+import { agentCreation, agentReferenceErrors } from "./agents/create.ts";
+import { agentRequiredSecrets } from "./agents/secrets.ts";
+import { buildAgentCreationSurface, AGENT_CREATION_RULES } from "./rpc/agent-create-surface.ts";
 import { exportAgent } from "./agents/export.ts";
 import { agentExportSigner, exportSecretCanaries } from "./agents/signing.ts";
 import { buildAdminSurface } from "./rpc/admin-surface.ts";
@@ -598,6 +603,33 @@ export function createCore(o: CoreOptions): Core {
         },
       });
       const signer = agentExportSigner(secretStore);
+      const creation = agentCreation({ config: cfg, layout: l, clock, audit: rbacAudit,
+        people: () => [...new Set([LOCAL_OWNER.userId, ...people.users().map(u => u.id), ...identityService.list({}).humans.map(h => h.id)])],
+        setRight: (id, userId, right) => people.setRight(id, userId, right),
+        secrets: async () => (await secretStore.list({ kind: "owner", id: "core" })).map(s => s.name),
+        requiredSecrets: agent => agentRequiredSecrets(cfg(), agent),
+        pause: id => { lifecycle.set(id, { paused: true }); },
+        set: async (id, agent) => {
+          if (o.supervisorConfig !== undefined) {
+            if (cs.source !== "supervisor") throw new RpcError("E_NOT_AVAILABLE", "supervisor configuration unavailable");
+            await registerAgentConfig(l, id, agent);
+          } else {
+            const latest = readConfigFile(l.configPath);
+            if (Object.hasOwn(latest.agents, id)) throw new RpcError("E_AGENT_EXISTS", "agent already exists");
+            const errors = agentReferenceErrors(latest, agent);
+            if (errors.length) throw new RpcError("E_INVALID_PARAMS", errors[0]!.message, { detail: errors[0]!.field });
+            writeConfigAtomic(l.configPath, { ...latest, agents: { ...latest.agents, [id]: agent } });
+          }
+          await cs.resubscribe();
+        },
+        importMemory: async (id, cards, hash, who) => {
+          if (!cards.length) return;
+          const p = callerToPrincipal({ channel: "cli", accountId: "admin-import", userId: who.userId }, id, l.workspaceDir(id)).principal;
+          p.user = deriveUserPrincipal(who.userId);
+          const result = await eng.memory.import({ agentId: id, principal: p, cards: cards.map((c: any) => ({ idempotencyKey: `${hash}:${c.id}`, text: c.text, scope: c.scope, provenance: "imported", sourceRef: `agent-export:${hash}`, ...(typeof c.createdAt === "number" ? { createdAt: c.createdAt } : {}) })) }, p, { origin: "system", background: false });
+          if (result.rejected) throw new RpcError("E_STORAGE", "memory cards were rejected");
+        },
+      });
       const adminSurface = buildAdminSurface({ people, lifecycle, identity: identityService, sessions: () => sessions?.store ?? null, breakglass, ownership, clock, audit: rbacAudit, sessionUsage: ids => sessionUsage(path.join(l.state, "budget.sqlite"), ids),
         agents: () => cfg().agents,
         export: async (id, who) => {
@@ -607,7 +639,7 @@ export function createCore(o: CoreOptions): Core {
           principal.user = deriveUserPrincipal(who.userId);
           const memory = await eng.memory.list({ since: 0, limit: 100 }, principal, { origin: "user", background: false });
           if (memory.truncated) throw new RpcError("E_NOT_AVAILABLE", "engine memory listing is truncated", { reason: "memory-export-truncated" });
-          return exportAgent({ root, agentId: id, config: cfg().agents[id], memories: memory.items, signer, secrets: await exportSecretCanaries(secretStore) });
+          return exportAgent({ root, agentId: id, config: cfg().agents[id], memories: memory.items, rights: Object.fromEntries(people.rights(id).map(r => [r.userId, r.right])), requiredSecrets: agentRequiredSecrets(cfg(), cfg().agents[id]!), signer, secrets: await exportSecretCanaries(secretStore) });
         },
         // No `erase`: the pinned engine has no hard-erasure API. The handler records/refuses before any mutation.
       });
@@ -658,6 +690,7 @@ export function createCore(o: CoreOptions): Core {
         ...adminSurface,
         ...sessionTranscriptSurface({ sessions: () => sessions?.store ?? null, breakglass, ownership, personOf }),
         ...buildAuthSurface(() => turnComposition?.openai.auth ?? null),
+        ...buildAgentCreationSurface(creation),
         ...buildChannelSurface({ config: cfg, source: cs, secrets: secretStore, identity: () => identity, registry: () => switchboard?.view ?? null, audit: rbacAudit, clock }),
         // D4: logs.query / logs.tail over <home>/logs; RBAC-guarded below (RPC_RULES).
         ...createLogsMethods({ dir: l.logs, signal: shutdown.signal }),
@@ -667,7 +700,7 @@ export function createCore(o: CoreOptions): Core {
       rawMethods["agent.list"] = async (p, ctx) => { const r = await listAgents!(p,ctx) as { agents: { agentId: string }[] }; return { ...r, agents: r.agents.filter(a => !lifecycle.state(a.agentId).deleted).map(a => ({ ...a, lifecycle: lifecycle.state(a.agentId) })) }; };
       rawMethods["agent.status"] = async (p, ctx) => { if (lifecycle.state(p.agentId).deleted) throw new RpcError("E_NOT_FOUND", "agent not found"); return { ...await agentStatus!(p,ctx) as object, lifecycle: lifecycle.state(p.agentId) }; };
       Object.assign(rawMethods, breakglassMemory({ methods: rawMethods, engine: eng, identity: identityService, breakglass, workspace: id => registry.workspaceOf(id) }));
-      const methods = guardMethods(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.store.getSession(id)?.agentId), { resolve: resolvePrincipal, audit: rbacAudit, now: clock });
+      const methods = guardMethods(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.store.getSession(id)?.agentId), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: AGENT_CREATION_RULES });
       server = createRpcServer({
         address, token, personOfConnection: async connectionId => { const p = await resolvePrincipal({ requestId: "audience", connectionId, signal: shutdown.signal }, "events.subscribe", {}); return p?.kind === "person" ? p.userId : null; }, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
         onConnectionClosed: (id) => { orphans?.connectionClosed(id); void turnComposition?.voice.v3.connectionClosed(id); },

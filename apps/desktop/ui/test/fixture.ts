@@ -77,6 +77,12 @@ Object.assign(window, { testShell: {
     const renderer=updatesPage({...transport,updateSettings:async request=>{if(request)snapshot={...snapshot,settings:request};return snapshot;},updateCheck:async()=>snapshot,updateInstall:async()=>{throw new Error("synthetic failure");},updateSkip:async()=>snapshot={...snapshot,offer:{action:"none"}},updateLater:async()=>snapshot={...snapshot,offer:{action:"none"}},updateStoreOpen:async()=>{}},()=>{shellRoot.replaceChildren(renderer());});
     shellRoot.replaceChildren(renderer());
   },
+  // Update states beyond the plain offer: an intermediate version first, or a check the shell rejects with an IPC error code.
+  showUpdateStates:(over:{offer?:import("../src/models/update-model.ts").UpdateSnapshot["offer"];checkError?:string}={})=>{
+    const snapshot:import("../src/models/update-model.ts").UpdateSnapshot={settings:{channel:"stable",held:false,autoPatch:true,quietHours:[3,5],checkOnStart:true},release:{version:"0.1.1",channel:"stable",kind:"patch",security:false,date:"2026-10-10",notes:{en:"Fixed",de:"Behoben"},minFromVersion:"0.1.0"},offer:over.offer??{action:"show"},storeBuild:false,installAvailable:true};
+    const renderer=updatesPage({...transport,updateSettings:async()=>snapshot,updateCheck:async()=>{if(over.checkError!==undefined)throw over.checkError;return snapshot;},updateInstall:async()=>{throw new Error("synthetic failure");},updateSkip:async()=>snapshot,updateLater:async()=>snapshot,updateStoreOpen:async()=>{}},()=>{shellRoot.replaceChildren(renderer());});
+    shellRoot.replaceChildren(renderer());
+  },
   approvalActions:[] as string[],
   showApprovals:(cards:import("../src/views/approvals.ts").ApprovalCard[],locale:"de"|"en"="en",enabled=false)=>{shellRoot.replaceChildren(approvalCards(cards,key=>translate(locale,key),async id=>{(window as any).testShell.approvalActions.push(`open:${id}`);},enabled,async(id,decision)=>{(window as any).testShell.approvalActions.push(`${decision}:${id}`);}));},
   showBackgroundHint,

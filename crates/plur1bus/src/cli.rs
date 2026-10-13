@@ -529,7 +529,20 @@ pub enum AgentCmd {
     /// [experimental] List registered agents
     List,
     /// [experimental] Register a new agent
-    Create { id: String },
+    Create {
+        id: String,
+        /// JSON settings (persona, model, memory, rights, channels); requires the current core
+        #[arg(long)]
+        config: Option<std::path::PathBuf>,
+    },
+    /// [experimental] Dry-run a JSON create payload, reporting errors by wizard step
+    Validate { file: std::path::PathBuf },
+    /// [experimental] Import an agent export JSON file (no credentials are imported)
+    Import {
+        file: std::path::PathBuf,
+        #[arg(long, value_parser = ["rename", "fail"], default_value = "fail")]
+        on_conflict: String,
+    },
     /// [experimental] Remove an agent from the registry (data is kept)
     Remove { id: String },
     /// [experimental] Show an agent's activity and workspace

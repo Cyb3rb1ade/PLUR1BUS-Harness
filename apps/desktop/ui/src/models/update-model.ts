@@ -19,3 +19,9 @@ export function notesBlocks(notes:string):Array<{kind:"paragraph"|"list";text:st
 export type UpdatePreferences={channel:"stable"|"beta";held:boolean;autoPatch:boolean;quietHours:[number,number];checkOnStart:boolean};
 export type Release={version:string;channel:string;kind:string;security:boolean;date:string;notes:{de:string;en:string};migrationNote?:{de:string;en:string};minFromVersion:string};
 export type UpdateSnapshot={settings:UpdatePreferences;release:Release|null;offer:{action:"none"|"show"|"autoInstall"|"needsIntermediate";version?:string};storeBuild:boolean;installAvailable:boolean};
+/** The shell's IPC error codes for a release that did not pass its checks (src-tauri/src/updates.rs, `UpdateError::code`): the
+ * signature, the SHA-256 pin, and the manifest. A rejected check or install with one of them is never offered for install anyway. */
+export const VERIFY_FAILURE_CODES=["update-signature","update-digest","update-manifest"] as const;
+export function isVerifyFailure(error:unknown):boolean{return typeof error==="string"&&(VERIFY_FAILURE_CODES as readonly string[]).includes(error);}
+/** The section of docs/desktop.md that explains how updates are signed and checked. */
+export const UPDATE_VERIFY_DOCS="https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/blob/main/docs/desktop.md#signed-desktop-update-metadata-wp10";

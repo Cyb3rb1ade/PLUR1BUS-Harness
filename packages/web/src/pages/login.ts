@@ -9,7 +9,9 @@ import { sessionNotice, signIn, type LoginFailure } from "../session.ts";
 function failureText(f: LoginFailure): string {
   switch (f.kind) {
     case "invalid-token": return t("login.error.invalid");
-    case "rate-limited": return f.retryAfterSeconds === null ? t("login.error.rateUnknown") : t("login.error.rate", { seconds: f.retryAfterSeconds });
+    case "rate-limited":
+      if (f.retryAfterSeconds === null) return t("login.error.rateUnknown");
+      return f.retryAfterSeconds >= 120 ? t("login.error.rateMinutes", { minutes: Math.ceil(f.retryAfterSeconds / 60) }) : t("login.error.rate", { seconds: f.retryAfterSeconds });
     case "network": return t("login.error.network");
     case "server": return t("login.error.server", { status: f.status });
   }
@@ -37,7 +39,8 @@ export function LoginPage(): View {
     setPending(true);
     const result = await signIn(token.trim());
     setPending(false);
-    setToken(""); // the token lives in this field only until it has been sent
+    setToken(""); // the token lives in this field only until it has been sent, after a failure too
+    setReveal(false); // and the next attempt starts masked
     if (!result.ok) {
       setError({ kind: "failure", failure: result.failure });
       tokenRef.current?.focus();
@@ -61,7 +64,7 @@ export function LoginPage(): View {
           h("div", { class: "password-row" },
             h("input", {
               id: "login-token", name: "token", type: reveal ? "text" : "password", ref: tokenRef, value: token,
-              autoComplete: "off", autoCapitalize: "none", spellcheck: false, required: true, "aria-invalid": invalid, "aria-describedby": describedBy,
+              autoComplete: "current-password", autoCapitalize: "none", spellcheck: false, required: true, "aria-invalid": invalid, "aria-describedby": describedBy,
               onInput: (e: Event) => setToken((e.target as HTMLInputElement).value),
             }),
             h("button", { type: "button", class: "icon-btn", onClick: () => setReveal(!reveal) },

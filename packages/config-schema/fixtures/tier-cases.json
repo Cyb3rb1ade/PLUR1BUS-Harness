@@ -417,6 +417,34 @@
                 "required": [],
                 "description": "Sparse per-agent voice override; unset keys inherit voice.v3, like memory.embedding overrides."
               },
+              "persona": {
+                "description": "Inline persona text for a new agent (also scaffolded into SOUL.md).",
+                "type": "string",
+                "maxLength": 4000,
+                "x-restart": "live",
+                "x-tier": "basic"
+              },
+              "model": {
+                "description": "Named model profile selected for this agent.",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "x-restart": "live",
+                "x-tier": "basic"
+              },
+              "channels": {
+                "description": "Channel names selected for this agent. Does not enable installation channels.",
+                "type": "array",
+                "uniqueItems": true,
+                "maxItems": 32,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32
+                },
+                "x-restart": "live",
+                "x-tier": "basic"
+              },
               "createdAt": {
                 "description": "Timestamp when the agent was created, in date-time format.",
                 "type": "string",
