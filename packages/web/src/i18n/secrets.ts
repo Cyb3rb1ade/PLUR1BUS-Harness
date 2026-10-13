@@ -47,6 +47,10 @@ export const en = {
   "secrets.delete.confirm": "Delete secret",
   "secrets.delete.failed": "The secret could not be deleted.",
   "secrets.saved": "Saved {name}.",
+  "secrets.updatedOn": "{name}: updated on {when}.",
+  "secrets.rotate.confirm": "Rotate now",
+  "secrets.rotate.confirmText": "Replace the value of {name}? The old value stops working at once. Check the new value before you continue.",
+  "secrets.back": "Back",
   "secrets.deleted": "Deleted {name}.",
 } as const;
 
@@ -98,5 +102,9 @@ export const de: Record<keyof typeof en, string> = {
   "secrets.delete.confirm": "Geheimnis löschen",
   "secrets.delete.failed": "Das Geheimnis konnte nicht gelöscht werden.",
   "secrets.saved": "{name} gespeichert.",
+  "secrets.updatedOn": "{name}: aktualisiert am {when}.",
+  "secrets.rotate.confirm": "Jetzt rotieren",
+  "secrets.rotate.confirmText": "Den Wert von {name} ersetzen? Der alte Wert ist sofort ungültig. Prüfe den neuen Wert, bevor du fortfährst.",
+  "secrets.back": "Zurück",
   "secrets.deleted": "{name} gelöscht.",
 };

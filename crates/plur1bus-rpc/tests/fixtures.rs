@@ -209,6 +209,9 @@ fn method_fixture(name: &str, f: &Value) {
         "memory.proposals.reject" => {
             pair::<MemoryProposalsRejectParams, MemoryProposalsRejectResult>(name, f)
         }
+        "agent.create" => pair::<AgentCreateParams, AgentCreateResult>(name, f),
+        "agent.validate" => pair::<AgentValidateParams, AgentValidateResult>(name, f),
+        "agent.import" => pair::<AgentImportParams, AgentImportResult>(name, f),
         "agent.list" => pair::<AgentListParams, AgentListResult>(name, f),
         "agent.open" => pair::<AgentOpenParams, AgentOpenResult>(name, f),
         "agent.close" => pair::<AgentCloseParams, AgentCloseResult>(name, f),
@@ -336,6 +339,9 @@ fn all_error_codes() -> BTreeSet<ErrorCode> {
         ErrorCode::ECoreUnavailable,
         ErrorCode::EInvalidParams,
         ErrorCode::EAgentUnknown,
+        ErrorCode::EAgentExists,
+        ErrorCode::EAgentRights,
+        ErrorCode::EAgentSecretsMissing,
         ErrorCode::EConfigInvalid,
         ErrorCode::EModuleUnknown,
         ErrorCode::EInternal,
@@ -367,6 +373,9 @@ fn all_error_codes() -> BTreeSet<ErrorCode> {
             | ErrorCode::ECoreUnavailable
             | ErrorCode::EInvalidParams
             | ErrorCode::EAgentUnknown
+            | ErrorCode::EAgentExists
+            | ErrorCode::EAgentRights
+            | ErrorCode::EAgentSecretsMissing
             | ErrorCode::EConfigInvalid
             | ErrorCode::EModuleUnknown
             | ErrorCode::EInternal

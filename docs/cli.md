@@ -27,6 +27,8 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus agent`↴](#plur1bus-agent)
 * [`plur1bus agent list`↴](#plur1bus-agent-list)
 * [`plur1bus agent create`↴](#plur1bus-agent-create)
+* [`plur1bus agent validate`↴](#plur1bus-agent-validate)
+* [`plur1bus agent import`↴](#plur1bus-agent-import)
 * [`plur1bus agent remove`↴](#plur1bus-agent-remove)
 * [`plur1bus agent status`↴](#plur1bus-agent-status)
 * [`plur1bus agent pause`↴](#plur1bus-agent-pause)
@@ -536,6 +538,8 @@ Agents (personas): list, create, remove, status
 
 * `list` — [experimental] List registered agents
 * `create` — [experimental] Register a new agent
+* `validate` — [experimental] Dry-run a JSON create payload, reporting errors by wizard step
+* `import` — [experimental] Import an agent export JSON file (no credentials are imported)
 * `remove` — [experimental] Remove an agent from the registry (data is kept)
 * `status` — [experimental] Show an agent's activity and workspace
 * `pause` — [experimental] Pause new turns and background work while retaining state
@@ -560,11 +564,48 @@ Agents (personas): list, create, remove, status
 
 [experimental] Register a new agent
 
-**Usage:** `plur1bus agent create <ID>`
+**Usage:** `plur1bus agent create [OPTIONS] <ID>`
 
 ###### **Arguments:**
 
 * `<ID>`
+
+###### **Options:**
+
+* `--config <CONFIG>` — JSON settings (persona, model, memory, rights, channels); requires the current core
+
+
+
+## `plur1bus agent validate`
+
+[experimental] Dry-run a JSON create payload, reporting errors by wizard step
+
+**Usage:** `plur1bus agent validate <FILE>`
+
+###### **Arguments:**
+
+* `<FILE>`
+
+
+
+## `plur1bus agent import`
+
+[experimental] Import an agent export JSON file (no credentials are imported)
+
+**Usage:** `plur1bus agent import [OPTIONS] <FILE>`
+
+###### **Arguments:**
+
+* `<FILE>`
+
+###### **Options:**
+
+* `--on-conflict <ON_CONFLICT>`
+
+  Default value: `fail`
+
+  Possible values: `rename`, `fail`
+
 
 
 

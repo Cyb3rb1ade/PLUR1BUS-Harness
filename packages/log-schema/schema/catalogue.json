@@ -43,6 +43,7 @@
     }
   },
   "attrGroups": {
+    "agent_creation": {"description":"Agent registration completed.","properties":{}},
     "compaction": {
       "description": "Compaction view changes; references only, never transcript content.",
       "properties": {
@@ -1593,6 +1594,58 @@
     }
   },
   "events": [
+    {
+      "event": "agent.create",
+      "note": "Registration intent before settings, files and initial rights are committed; no submitted content.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "agent_creation",
+      "requiredAttrs": [],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "person-one",
+            "host": "rpc"
+          },
+          "action": "agent.create",
+          "target": "alpha",
+          "detail": {},
+          "v": 2
+        }
+      ]
+    },
+    {
+      "event": "agent.created",
+      "note": "Successful Config Schema registration; settings and credentials never enter the audit detail.",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "audit",
+      "attrs": "agent_creation",
+      "requiredAttrs": [],
+      "activity": false,
+      "since": "D111",
+      "stability": "experimental",
+      "examples": [
+        {
+          "at": 1790846043218,
+          "actor": {
+            "user": "person-one",
+            "host": "rpc"
+          },
+          "action": "agent.created",
+          "target": "alpha",
+          "detail": {},
+          "v": 2
+        }
+      ]
+    },
     {
       "event": "compaction.summary.created",
       "note": "Session context visibility changed; originals remain available.",
