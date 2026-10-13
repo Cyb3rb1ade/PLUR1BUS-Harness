@@ -41,6 +41,10 @@ export const en = {
   "switchboard.test.failed": "Test failed: {detail}",
   "switchboard.test.sentOwner": "Test message sent to {linkId}.",
   "switchboard.test.sendOwnerFailed": "Could not send: {detail}",
+  "switchboard.testOwner.title": "Send a test message to yourself?",
+  "switchboard.testOwner.target": "Target: your linked account on channel {channel}. Nobody else receives it.",
+  "switchboard.testOwner.hint": "The text is fixed. You cannot enter a recipient here.",
+  "switchboard.testOwner.send": "Send test message",
 };
 
 export const de: Record<keyof typeof en, string> = {
@@ -86,4 +90,8 @@ export const de: Record<keyof typeof en, string> = {
   "switchboard.test.failed": "Test fehlgeschlagen: {detail}",
   "switchboard.test.sentOwner": "Testnachricht gesendet an {linkId}.",
   "switchboard.test.sendOwnerFailed": "Konnte nicht senden: {detail}",
+  "switchboard.testOwner.title": "Testnachricht an dich selbst senden?",
+  "switchboard.testOwner.target": "Ziel: dein verknüpftes Konto auf Kanal {channel}. Niemand sonst erhält sie.",
+  "switchboard.testOwner.hint": "Der Text ist fest vorgegeben. Einen Empfänger kannst du hier nicht angeben.",
+  "switchboard.testOwner.send": "Testnachricht senden",
 };

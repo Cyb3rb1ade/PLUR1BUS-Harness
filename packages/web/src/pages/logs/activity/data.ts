@@ -8,8 +8,8 @@ export const PAGE_SIZE = 100;
 export type Stream = "audit" | "diagnostic";
 type LogPage = { records: LogRecord[]; nextCursor: string | null };
 
-export async function fetchStream(stream: Stream, cursor: string | null, signal?: AbortSignal): Promise<{ entries: ActivityEntry[]; next: string | null }> {
-  const params = { stream, order: "desc", limit: PAGE_SIZE, ...(stream === "diagnostic" ? { text: "scheduler.run." } : {}), ...(cursor ? { cursor } : {}) };
+export async function fetchStream(stream: Stream, cursor: string | null, signal?: AbortSignal, from: string | null = null): Promise<{ entries: ActivityEntry[]; next: string | null }> {
+  const params = { stream, order: "desc", limit: PAGE_SIZE, ...(stream === "diagnostic" ? { text: "scheduler.run." } : {}), ...(from ? { from } : {}), ...(cursor ? { cursor } : {}) };
   const page = (await getApi().rpc("logs.query", params, { write: false, ...(signal ? { signal } : {}) })) as unknown as LogPage;
   return { entries: toEntries(page.records), next: page.nextCursor ?? null };
 }
@@ -22,10 +22,12 @@ export type FeedState =
 const STREAMS: Stream[] = ["audit", "diagnostic"];
 const RANK: Record<Failure["kind"], number> = { forbidden: 0, unavailable: 1, "not-found": 2, error: 3 };
 
-/** Loads the first page of both streams; `more()` loads the next page of every stream that has one. */
-export function useFeed(enabled: boolean): { state: FeedState; reload: () => void; more: () => void } {
+/** Loads the first page of both streams; `more()` loads the next page of every stream that has one. `from` is the time-range floor (null = all). */
+export function useFeed(enabled: boolean, from: string | null = null): { state: FeedState; reload: () => void; more: () => void } {
   const [state, setState] = useState<FeedState>({ status: "loading" });
   const [tick, setTick] = useState(0);
+  const fromRef = useRef(from);
+  fromRef.current = from;
   const live = useRef(state);
   live.current = state;
   const ctl = useRef<AbortController | null>(null);
@@ -35,7 +37,7 @@ export function useFeed(enabled: boolean): { state: FeedState; reload: () => voi
     const c = new AbortController();
     ctl.current = c;
     setState({ status: "loading" });
-    void Promise.allSettled(STREAMS.map((s) => fetchStream(s, null, c.signal))).then((rs) => {
+    void Promise.allSettled(STREAMS.map((s) => fetchStream(s, null, c.signal, from))).then((rs) => {
       if (c.signal.aborted) return;
       const failures = rs.flatMap((r) => (r.status === "rejected" ? [failureOf(r.reason)] : []));
       if (failures.length === rs.length) { setState({ status: "fail", failure: failures.sort((a, b) => RANK[a.kind] - RANK[b.kind])[0]! }); return; }
@@ -49,7 +51,7 @@ export function useFeed(enabled: boolean): { state: FeedState; reload: () => voi
       setState({ status: "ok", entries, cursors, failed, busy: false, moreFailed: false });
     });
     return () => { c.abort(); };
-  }, [enabled, tick]);
+  }, [enabled, tick, from]);
 
   const more = useCallback(() => {
     const cur = live.current;
@@ -58,7 +60,7 @@ export function useFeed(enabled: boolean): { state: FeedState; reload: () => voi
     if (todo.length === 0) return;
     setState({ ...cur, busy: true, moreFailed: false });
     const c = ctl.current;
-    void Promise.allSettled(todo.map((s) => fetchStream(s, cur.cursors[s], c?.signal))).then((rs) => {
+    void Promise.allSettled(todo.map((s) => fetchStream(s, cur.cursors[s], c?.signal, fromRef.current))).then((rs) => {
       if (c?.signal.aborted) return;
       const now = live.current;
       if (now.status !== "ok") return;

@@ -5,6 +5,14 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Approvals and grants"
   },
   {
+    "slug": "breakglass",
+    "title": "Break-glass access"
+  },
+  {
+    "slug": "budgets",
+    "title": "Usage and limits"
+  },
+  {
     "slug": "channels",
     "title": "Channels"
   },
@@ -15,6 +23,14 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
   {
     "slug": "extensions",
     "title": "Skills and plugins"
+  },
+  {
+    "slug": "inbox",
+    "title": "Inbox"
+  },
+  {
+    "slug": "invitations",
+    "title": "Inviting people"
   },
   {
     "slug": "long-conversations",
@@ -61,9 +77,13 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
 export async function loadDoc(slug: string): Promise<{ slug: string; title: string; content: string } | null> {
   switch (slug) {
     case "approvals": return import("./en/approvals.ts").then(m => m.doc);
+    case "breakglass": return import("./en/breakglass.ts").then(m => m.doc);
+    case "budgets": return import("./en/budgets.ts").then(m => m.doc);
     case "channels": return import("./en/channels.ts").then(m => m.doc);
     case "containers": return import("./en/containers.ts").then(m => m.doc);
     case "extensions": return import("./en/extensions.ts").then(m => m.doc);
+    case "inbox": return import("./en/inbox.ts").then(m => m.doc);
+    case "invitations": return import("./en/invitations.ts").then(m => m.doc);
     case "long-conversations": return import("./en/long-conversations.ts").then(m => m.doc);
     case "media-search": return import("./en/media-search.ts").then(m => m.doc);
     case "media": return import("./en/media.ts").then(m => m.doc);

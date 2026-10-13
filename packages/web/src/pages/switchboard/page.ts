@@ -222,6 +222,8 @@ function DetailView({
   const [editTarget, setEditTarget] = useState<{ key: string; value: unknown } | null>(null);
   const [actionNotice, setActionNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  // "Test message to me" sends to the caller's own linked account, so it asks first and names the channel.
+  const [confirmOwner, setConfirmOwner] = useState(false);
 
   if (state.status === "loading") return h(PageLoading, { label: t("state.loading") });
   if (state.status === "fail")
@@ -354,7 +356,7 @@ function DetailView({
             type: "button",
             class: "btn",
             disabled: busy,
-            onClick: () => void runTest(true),
+            onClick: () => setConfirmOwner(true),
           },
           t("switchboard.action.testOwner"),
         ),
@@ -362,6 +364,35 @@ function DetailView({
     ),
     actionNotice
       ? h("p", { class: "form-notice", role: "status", "aria-live": "polite" }, actionNotice)
+      : null,
+    confirmOwner
+      ? h(
+          Dialog,
+          {
+            title: t("switchboard.testOwner.title"),
+            onClose: () => setConfirmOwner(false),
+            actions: h(
+              "div",
+              { class: "dialog-actions" },
+              h("button", { type: "button", class: "btn btn-quiet", onClick: () => setConfirmOwner(false) }, t("shared.confirm.cancel")),
+              h(
+                "button",
+                {
+                  type: "button",
+                  class: "btn btn-primary",
+                  disabled: busy,
+                  onClick: () => {
+                    setConfirmOwner(false);
+                    void runTest(true);
+                  },
+                },
+                t("switchboard.testOwner.send"),
+              ),
+            ),
+          },
+          h("p", null, t("switchboard.testOwner.target", { channel: d.id })),
+          h("p", { class: "field-hint" }, t("switchboard.testOwner.hint")),
+        )
       : null,
     !host
       ? h(
