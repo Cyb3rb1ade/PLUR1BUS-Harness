@@ -1,6 +1,7 @@
 // Shared helpers for the new import tests (new file; the existing import tests and fixtures are left alone).
 import { afterEach } from "node:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -203,4 +204,93 @@ export function mutate(text: string, rnd: () => number, kind: "json5" | "yaml"):
     case 2: return text.slice(0, i) + pick(rnd, pool) + text.slice(i + 1);
     default: return text.slice(0, i);
   }
+}
+
+/** Every entry below `dir` (sorted, relative, POSIX separators) with kind, size, mtime and the sha256 of file content or the link
+ *  text. Used to prove a directory (a "source") is byte- and timestamp-identical after an operation. Independent of the code under test. */
+export function snapshotTree(dir: string): string[] {
+  const out: string[] = [];
+  const walk = (rel: string): void => {
+    for (const name of readdirSync(path.join(dir, rel)).sort()) {
+      const r = rel ? `${rel}/${name}` : name;
+      const full = path.join(dir, r);
+      const st = lstatSync(full);
+      if (st.isSymbolicLink()) out.push(`${r}|link|${readlinkSync(full)}`);
+      else if (st.isDirectory()) { out.push(`${r}|dir|${st.mtimeMs}`); walk(r); }
+      else out.push(`${r}|file|${st.size}|${st.mtimeMs}|${createHash("sha256").update(readFileSync(full)).digest("hex")}`);
+    }
+  };
+  walk("");
+  return out;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// A hand-built import run on disk for the rollback tests, in the layout docs/import.md §5.3/§5.5 describes:
+//   <home>/imports/<runId>/{report.json, ledger.jsonl, snapshot/manifest.json, snapshot/<rel>}
+// Built without calling the importer or the snapshot code, so the tests do not rely on the code they test.
+// ---------------------------------------------------------------------------------------------------------------------
+
+export const sha256Hex = (data: string | Buffer): string => createHash("sha256").update(data).digest("hex");
+
+export interface RollbackFixtureOptions {
+  runId?: string;
+  sourceType?: "openclaw" | "hermes";
+  /** Files that existed in the harness home before the import (relative to the home): they go into the snapshot. */
+  pre?: Record<string, string>;
+  /** Pre-import files whose content the import changed (rel -> content after the import). */
+  modified?: Record<string, string>;
+  /** Pre-import files the import deleted. */
+  deleted?: string[];
+  /** Files the import created: written to disk and recorded in the ledger with their hash. */
+  created?: Record<string, string>;
+  /** Files somebody else put into the home after the import (not in the ledger). */
+  userFiles?: Record<string, string>;
+  agentsExisted?: boolean;
+}
+export interface RollbackFixture {
+  home: string; runId: string; runDir: string; reportPath: string; snapDir: string; ledgerPath: string; manifestPath: string;
+  pre: Record<string, string>; created: Record<string, string>;
+  abs(rel: string): string;
+}
+
+export function buildRollbackFixture(newDir: () => string, o: RollbackFixtureOptions = {}): RollbackFixture {
+  const home = newDir();
+  const runId = o.runId ?? "run-1";
+  const pre = o.pre ?? {}; const created = o.created ?? {};
+  const runDir = path.join(home, "imports", runId);
+  const snapDir = path.join(runDir, "snapshot");
+  const put = (file: string, content: string): void => { mkdirSync(path.dirname(file), { recursive: true }); writeFileSync(file, content); };
+  // 1. the pre-import state, and the snapshot of it
+  const files: Record<string, { sha256: string; size: number }> = {};
+  for (const [rel, content] of Object.entries(pre)) { put(path.join(home, rel), content); put(path.join(snapDir, rel), content); files[rel] = { sha256: sha256Hex(content), size: Buffer.byteLength(content) }; }
+  const manifest = {
+    schema: "import.snapshot/1", runId, createdAt: "2026-10-13T12:00:00.000Z", targetHome: home,
+    configExisted: "config.json" in pre, configSha256: "config.json" in pre ? sha256Hex(pre["config.json"]!) : null,
+    agentsExisted: o.agentsExisted ?? Object.keys(pre).some((r) => r.startsWith("agents/")), files,
+  };
+  const manifestText = JSON.stringify(manifest, null, 2) + "\n";
+  put(path.join(snapDir, "manifest.json"), manifestText);
+  // 2. the import
+  for (const [rel, content] of Object.entries(o.modified ?? {})) put(path.join(home, rel), content);
+  for (const rel of o.deleted ?? []) rmSync(path.join(home, rel));
+  for (const [rel, content] of Object.entries(created)) put(path.join(home, rel), content);
+  const ledger = Object.entries(created).map(([rel, content]) => JSON.stringify({
+    ts: "2026-10-13T12:00:01.000Z", runId, entity: "file", idempotencyKey: `file:test:${rel}:${sha256Hex(content)}`, action: "created", targetRef: rel, sha256: sha256Hex(content), reason: null,
+  }));
+  put(path.join(runDir, "ledger.jsonl"), ledger.map((l) => l + "\n").join(""));
+  put(path.join(runDir, "report.json"), JSON.stringify({ runId, mode: "apply", sourceType: o.sourceType ?? "openclaw", snapshot: { path: snapDir, manifestSha256: sha256Hex(manifestText) } }, null, 2));
+  // 3. later user activity
+  for (const [rel, content] of Object.entries(o.userFiles ?? {})) put(path.join(home, rel), content);
+  return { home, runId, runDir, reportPath: path.join(runDir, "report.json"), snapDir, ledgerPath: path.join(runDir, "ledger.jsonl"), manifestPath: path.join(snapDir, "manifest.json"), pre, created, abs: (rel) => path.join(home, rel) };
+}
+
+/** Rewrites the snapshot manifest through `mutate` and re-signs the report with the new manifest hash (a consistent, hostile manifest). */
+export function rewriteManifest(fx: RollbackFixture, mutate: (m: Record<string, unknown>) => void): void {
+  const m = JSON.parse(readFileSync(fx.manifestPath, "utf8")) as Record<string, unknown>;
+  mutate(m);
+  const text = JSON.stringify(m, null, 2) + "\n";
+  writeFileSync(fx.manifestPath, text);
+  const report = JSON.parse(readFileSync(fx.reportPath, "utf8")) as { snapshot: { manifestSha256: string } };
+  report.snapshot.manifestSha256 = sha256Hex(text);
+  writeFileSync(fx.reportPath, JSON.stringify(report, null, 2));
 }
