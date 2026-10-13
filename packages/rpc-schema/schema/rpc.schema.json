@@ -977,7 +977,11 @@
     },
     "ErrorCode": {
       "type": "string",
-      "enum": ["E_UNAUTHORIZED", "E_RPC_VERSION", "E_NOT_AVAILABLE", "E_CORE_UNAVAILABLE", "E_INVALID_PARAMS", "E_AGENT_UNKNOWN", "E_CONFIG_INVALID", "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED", "E_NOT_FOUND", "E_DENIED", "E_APPROVAL_REQUIRED", "E_CONFLICT", "E_STORAGE", "E_MEDIA_CAPABILITY", "E_MEDIA_LICENSE", "E_MEDIA_PRIVACY", "E_MEDIA_UNAVAILABLE", "E_MEDIA_DIMENSION", "E_MEDIA_UNSUPPORTED_KIND", "E_PROJECT_WIP_LIMIT", "E_INBOX_CURSOR", "E_INVITE_INVALID", "E_VOICE_BUDGET", "E_VOICE_LICENSE", "E_VOICE_UNAVAILABLE", "E_VOICE_LICENCE"]
+      "enum": ["E_UNAUTHORIZED", "E_RPC_VERSION", "E_NOT_AVAILABLE", "E_CORE_UNAVAILABLE", "E_INVALID_PARAMS", "E_AGENT_UNKNOWN",
+        "E_AGENT_EXISTS",
+        "E_AGENT_RIGHTS",
+        "E_AGENT_SECRETS_MISSING",
+ "E_CONFIG_INVALID", "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED", "E_NOT_FOUND", "E_DENIED", "E_APPROVAL_REQUIRED", "E_CONFLICT", "E_STORAGE", "E_MEDIA_CAPABILITY", "E_MEDIA_LICENSE", "E_MEDIA_PRIVACY", "E_MEDIA_UNAVAILABLE", "E_MEDIA_DIMENSION", "E_MEDIA_UNSUPPORTED_KIND", "E_PROJECT_WIP_LIMIT", "E_INBOX_CURSOR", "E_INVITE_INVALID", "E_VOICE_BUDGET", "E_VOICE_LICENSE", "E_VOICE_UNAVAILABLE", "E_VOICE_LICENCE"]
     },
     "ErrorObject": {
       "type": "object", "additionalProperties": false,
@@ -4341,6 +4345,144 @@
         "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "proposalId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "proposalId": { "$ref": "#/$defs/MemoryId" }, "note": { "type": "string", "maxLength": 500 } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["proposalId", "status"], "properties": { "proposalId": { "type": "string" }, "status": { "const": "rejected" } } }
       },
+      "agent.create": {
+        "description": "Create an agent using Config Schema validation; Owner/Admin people only.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": {},
+            "persona": {},
+            "model": {},
+            "memory": {},
+            "rights": {},
+            "channels": {}
+          },
+          "required": [
+            "name"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            }
+          },
+          "required": [
+            "agentId"
+          ]
+        }
+      },
+      "agent.validate": {
+        "description": "Dry-run the create payload; field errors grouped by wizard step without mutation.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": {},
+            "persona": {},
+            "model": {},
+            "memory": {},
+            "rights": {},
+            "channels": {}
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "valid": {
+              "type": "boolean"
+            },
+            "errors": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "step": {
+                    "enum": [
+                      "identity",
+                      "model",
+                      "rights"
+                    ]
+                  },
+                  "field": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "$ref": "#/$defs/ErrorCode"
+                  }
+                },
+                "required": [
+                  "step",
+                  "field",
+                  "message",
+                  "code"
+                ]
+              }
+            }
+          },
+          "required": [
+            "valid",
+            "errors"
+          ]
+        }
+      },
+      "agent.import": {
+        "description": "Verify and import an agent.export bundle, stripping secrets and bounding rights.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "bundle": {
+              "type": "object"
+            },
+            "onConflict": {
+              "enum": [
+                "rename",
+                "fail"
+              ]
+            }
+          },
+          "required": [
+            "bundle"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "discardedRights": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "agentId",
+            "discardedRights"
+          ]
+        }
+      },
       "agent.list": {
         "x-stability": "experimental",
         "x-since": "1.0.0",
@@ -5585,6 +5727,25 @@
                           }
                         }
                       }
+                    },
+                    "rights": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "enum": [
+                          "use",
+                          "manage"
+                        ]
+                      }
+                    },
+                    "requiredSecrets": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "maxItems": 128,
+                      "uniqueItems": true
                     }
                   }
                 },

@@ -385,3 +385,21 @@ cannot receive them through unfiltered subscriptions. A foreign voice session
 cannot be stopped, including by another Owner/Admin. The seven Voice write RPCs
 are blocked by the existing WebMCP forbidden-method list. Licence acceptance
 is an explicit request for the specific current model licence, never a default.
+
+## Agent creation, wizard validation and import
+
+`agent.create`, `agent.validate` and `agent.import` require an authenticated
+Owner/Admin person and the `settings.write` token scope. All three are blocked
+by WebMCP. Agent principals are refused before payload processing even with an
+Owner role. Config Schema settings, model-profile references and channel names
+are checked before mutation; wizard errors are grouped by identity/model/rights.
+
+Initial `rights` is a person-ID → `use`/`manage` parameter written to the existing
+AdminStore, never duplicated in Config Schema. The caller receives `manage`.
+Only existing people receive explicit grants; agent IDs are not people. Role
+and token scopes bound delegation (`agent.read` for use, `agent.manage` for
+manage). Import discards recipients absent on the target and reports them as
+`discardedRights`; scoped callers cannot carry excessive imported rights over.
+Export reads live rights from AdminStore and includes them in its signed manifest.
+Required secret names are metadata only; no secret values are imported.
+See [agents.md](agents.md) for CLI formats, compatibility and recovery behavior.
