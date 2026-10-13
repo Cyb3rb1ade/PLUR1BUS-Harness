@@ -406,6 +406,7 @@ component except one registration line per place (listed below).
 | Rules (pure: captioning preselection, validation mirror of E_MEDIA_*, config changes against the defaults, query params, time labels) | `src/pages/media-search/model.ts` | all of the below | — |
 | Setup, media part of the Memory step | `src/pages/media-search/setup.ts` | `/setup`, step Memory (the wizard model `setup/model.ts` carries the answers as `media`) | `config.set` on Next, only for values that differ from the defaults |
 | Memory settings panel (text and media index side by side, video and audio options, captioning, backfill, status card with pause, resume, re-index) | `src/pages/media-search/settings.ts` | `/settings/memory`, above the form | `config.get`, `config.set` (`ifRevision`), `media.index.status`, `media.index.pause\|resume\|reindex` |
+| Media tab of the Memories page: state, counts, backfill, pause, resume, guarded re-index | `src/pages/memory/media-tab.ts` | `/memories/media` (tab "Media"); owner and admin act, other roles only read | `media.index.status`, `media.index.pause\|resume\|reindex` (re-index sends `confirm: true` after the typed word) |
 | Per-agent override | `src/pages/media-search/override.ts` | agent detail | `config.get`, `config.set` (`agents.<id>.memory.mediaEmbedding.*`) |
 | Search in the Media view, "Find similar" button, hits with segment and jump, caption edit | `src/pages/media-search/search.ts` | Media view | `media.index.status`, `media.search`, `media.caption.set`, `media.output.get` (playback) |
 | Typed RPC methods (merged into `RpcMethods`) | `src/pages/media-search/rpc-types.ts` | — | — |
@@ -414,7 +415,7 @@ component except one registration line per place (listed below).
 Registration lines in existing files (each is one line or one import): `src/i18n/index.ts` (area), `src/pages/setup/model.ts` (the
 `media` answer, its loading, the memory validation and the change list), `src/pages/setup/page.ts` (the memory step renders the media
 part and passes the error), `src/pages/settings/page.ts` (the panel above the Memory section), `src/pages/agents/detail.ts` (the
-override), `src/pages/surfaces/media.ts` (the search and the "Find similar" button per medium).
+override), `src/pages/surfaces/media.ts` (the search and the "Find similar" button per medium), `src/pages/memory/index.ts` (the Media tab and its route).
 
 ### Rules the components rely on
 
@@ -446,6 +447,21 @@ call without `confirm: true`), `media.search` (filters by `kinds`, excludes `lik
 code), `noStatus` (the method is unknown, so the UI shows unavailable). The mock error list now carries the six `E_MEDIA_*` codes.
 Tests: `test/media-search-model.test.ts` (rules, pure) and `test/media-search.test.ts` (browser, 21 cases: settings, setup, Media view,
 override). The config mock writes into the objects it receives, so each test builds its own config (`memCfg()`).
+
+### Media plan, steps 1–4 (Memory tab, setup, search, doctor)
+
+- **Memory tab.** Done in `src/pages/memory/media-tab.ts`, reached from `src/pages/memory/index.ts`. Re-index needs the typed word
+  (`memory.media.reindexWord`) and sends `confirm: true`. The Settings card keeps its own layout and labels.
+- **Setup, media part.** The part already existed. This change adds browser tests for Back, for a reload after the step, and for the
+  rule that at least one media type is needed. Open: the setup has no privacy pin (the text step has none either), so the media
+  validation keeps it `false`, as before. A cloud captioning choice is required only when the text provider is cloud; the setup
+  offers only local text models, so that branch is covered by the model tests alone.
+- **Media search.** The find-similar button, the segment range and jump, the kind filter and the captions switch already existed.
+  This change adds browser tests for the captions switch (`fuseCaptions`), for image hits without a segment, and for clearing a
+  similar search. Open: the switch is labelled "Also use captions for ranking"; the owner's name "Captions einbeziehen" is not used,
+  because i18n keys are only appended, never renamed.
+- **Doctor.** No doctor RPC exists (`doctor.*` is not in `rpc.schema.json`). The provisioning group stays file-based (F9: the owner
+  loads a `1staid.check/1` document), unchanged.
 
 ### Follow-ups (media search)
 
