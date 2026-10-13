@@ -35,7 +35,9 @@ export function maskSecrets(v: unknown): unknown {
   return v;
 }
 
-const KNOWN = new Set(["provider", "id", "displayName", "kind", "contextWindow", "capabilities", "aliases", "status", "firstSeen", "lastSeen", "source", "overrides"]);
+// `new` is a documented field of ModelEntry (true until models.acknowledge); the page takes the "new" set from models.list { newOnly },
+// so the flag must not turn up as a "further field" of every entry.
+const KNOWN = new Set(["provider", "id", "displayName", "new", "kind", "contextWindow", "capabilities", "aliases", "status", "firstSeen", "lastSeen", "source", "overrides"]);
 
 function overrides(v: unknown): ModelOverrides {
   const o = rec(v);
@@ -120,6 +122,11 @@ export function scanTotals(raw: unknown): ScanTotals {
     else if (result !== "ok") t.failed.push({ provider, result });
   }
   return t;
+}
+
+/** The provider choices of the filter: the scan states first, then providers only known through a model. Nothing else is offered. */
+export function providerNames(data: ListData): string[] {
+  return [...new Set([...data.providers.map((p) => p.provider), ...data.models.map((m) => m.provider)])];
 }
 
 export type Filters = { provider: string; status: string; newOnly: boolean };
