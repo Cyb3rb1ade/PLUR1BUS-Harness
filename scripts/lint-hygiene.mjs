@@ -97,6 +97,9 @@ const ALLOW = new Map([
   // `plur1bus import <openclaw|hermes>` (docs/import.md): the importer's clap definitions — its help text, the source
   // enum and the documented source-root defaults — a capability the harness itself offers, not an OpenClaw idiom.
   ["crates/plur1bus/src/cli.rs", [/OpenClaw\/Hermes/, /^\s*Openclaw,$/, /\$OPENCLAW_STATE_DIR \/ \$OPENCLAW_PROFILE \/ ~\/\.openclaw/]],
+  // The CLI-surface test runs the same `import openclaw --detect` command tests/import.rs runs (the importer's source enum),
+  // so this one argv literal names the importer source, not an OpenClaw idiom.
+  ["crates/plur1bus/tests/cli_surface.rs", [/vec!\["import", "--detect", "openclaw"\]/]],
 ]);
 
 let bad = 0;
