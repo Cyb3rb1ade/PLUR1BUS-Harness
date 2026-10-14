@@ -30,7 +30,7 @@ const AGENT = { agentId: "main", open: true, activity: { state: "idle", since: 1
 // ---- an unreachable or hung core -----------------------------------------------------------------------------------
 
 test("an unreachable core is a 503 with the documented bodies, quickly, and neither the socket path nor the system error text reaches the client or the log", async () => {
-  const link = createCoreLink("/Users/redact-probe-alpha/home", { connect: async () => { throw Object.assign(new Error("connect ECONNREFUSED /Users/redact-probe-alpha/home/run/core.sock"), { code: "ECONNREFUSED" }); }, readToken: () => "t", readPid: () => undefined });
+  const link = createCoreLink("/Users/redact-probe-alpha/home", { connect: async () => { throw Object.assign(new Error("connect ECONNREFUSED /Users/redact-probe-alpha/home/run/core.sock"), { code: "ECONNREFUSED" }); }, readApiToken: () => "fixture-api-registration", readToken: () => "t", readPid: () => undefined });
   const h = await start({ rateClasses: wide, core: asCore(link) });
   try {
     const { cookie } = await login(h); const t0 = Date.now();
@@ -46,7 +46,7 @@ test("an unreachable core is a 503 with the documented bodies, quickly, and neit
 test("a core that accepts the connection and never answers ends every request in its own time (503 for health, 504 for the rest), the API keeps serving, and the link recovers when the core does", async () => {
   let release: (() => void) | undefined; let connects = 0;
   const gate = new Promise<void>((r) => { release = r; });
-  const link = createCoreLink("/h", { connect: async () => { connects++; await gate; return client(async (m) => (m === "core.status" ? STATUS : { agents: [AGENT] })); }, readToken: () => "t", readPid: () => undefined });
+  const link = createCoreLink("/h", { connect: async () => { connects++; await gate; return client(async (m) => (m === "core.status" ? STATUS : { agents: [AGENT] })); }, readApiToken: () => "fixture-api-registration", readToken: () => "t", readPid: () => undefined });
   const h = await start({ rateClasses: wide, core: asCore(link), limits: { healthTimeoutMs: 150, handlerTimeoutMs: 400 } });
   try {
     const { cookie } = await login(h); const t0 = Date.now();
@@ -62,7 +62,7 @@ test("a core that accepts the connection and never answers ends every request in
 
 test("there is no retry loop in the background: every failed call is one connection attempt, 30 concurrent calls share one, and nothing reconnects by itself", async () => {
   let attempts = 0; let open = false;
-  const link = createCoreLink("/h", { connect: async () => { attempts++; await delay(30); if (!open) throw new Error("ECONNREFUSED"); return client(async () => ({ ok: true })); }, readToken: () => "t", readPid: () => undefined });
+  const link = createCoreLink("/h", { connect: async () => { attempts++; await delay(30); if (!open) throw new Error("ECONNREFUSED"); return client(async () => ({ ok: true })); }, readApiToken: () => "fixture-api-registration", readToken: () => "t", readPid: () => undefined });
   const burst = await Promise.allSettled(Array.from({ length: 30 }, () => link.call("x")));
   assert.equal(burst.every((r) => r.status === "rejected"), true); assert.equal(attempts, 1, "one attempt for the whole burst");
   await delay(150); assert.equal(attempts, 1, "no background retry");
@@ -73,7 +73,7 @@ test("there is no retry loop in the background: every failed call is one connect
 
 test("closing the link while a connection is being made does not leave that connection open", async () => {
   let resolveConnect: ((c: CoreClient) => void) | undefined; const late = client(async () => ({}));
-  const link = createCoreLink("/h", { connect: (_o: ConnectOptions) => new Promise<CoreClient>((r) => { resolveConnect = r; }), readToken: () => "t", readPid: () => undefined });
+  const link = createCoreLink("/h", { connect: (_o: ConnectOptions) => new Promise<CoreClient>((r) => { resolveConnect = r; }), readApiToken: () => "fixture-api-registration", readToken: () => "t", readPid: () => undefined });
   const inFlight = link.call("x").catch((e) => e as Error);
   await delay(10); await link.close(); resolveConnect!(late);
   const outcome = await inFlight; assert.ok(outcome instanceof Error, "the call that raced the close fails");

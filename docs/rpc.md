@@ -3714,6 +3714,9 @@ Human-only principals; self or authenticated administrator, codes revealed only 
       "type": "string",
       "minLength": 64,
       "maxLength": 64
+    },
+    "api": {
+      "$ref": "#/$defs/ApiDelegation"
     }
   }
 }
@@ -3746,6 +3749,16 @@ Human-only principals; self or authenticated administrator, codes revealed only 
     },
     "capabilities": {
       "$ref": "#/$defs/Capabilities"
+    },
+    "apiPrincipal": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ApiPrincipal"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   }
 }
@@ -16319,6 +16332,91 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `ApiPrincipal`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "userId",
+    "kind",
+    "role"
+  ],
+  "properties": {
+    "userId": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,255}$"
+    },
+    "kind": {
+      "enum": [
+        "person",
+        "agent"
+      ]
+    },
+    "role": {
+      "enum": [
+        "owner",
+        "admin",
+        "operator",
+        "member",
+        "viewer"
+      ]
+    },
+    "agentRights": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": [
+          "use",
+          "manage"
+        ]
+      }
+    },
+    "projectRights": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": [
+          "member",
+          "lead"
+        ]
+      }
+    },
+    "tokenScopes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 256
+      }
+    }
+  }
+}
+```
+
+### `ApiDelegation`
+
+```json
+{
+  "description": "Local-only API registration credential, separate from core.token, with request principal. Never forwarded from the browser. The core remains authoritative for stored roles and rights.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "clientId",
+    "token"
+  ],
+  "properties": {
+    "clientId": {
+      "const": "harness-api"
+    },
+    "token": {
+      "type": "string"
+    },
+    "principal": {
+      "$ref": "#/$defs/ApiPrincipal"
+    }
+  }
+}
+```
+
 ### `Request`
 
 ```json
@@ -16342,6 +16440,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "params": {
       "type": "object"
+    },
+    "api": {
+      "$ref": "#/$defs/ApiDelegation"
     }
   }
 }
@@ -16392,6 +16493,46 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "params": {
       "type": "object"
+    },
+    "connectionId": {
+      "type": "string"
+    },
+    "audience": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "connectionId"
+            ],
+            "properties": {
+              "connectionId": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "personId"
+            ],
+            "properties": {
+              "personId": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      }
     }
   }
 }

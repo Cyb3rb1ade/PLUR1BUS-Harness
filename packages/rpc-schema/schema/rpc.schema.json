@@ -1176,10 +1176,19 @@
       }
     },
     "Id": { "type": ["integer", "string"] },
+    "ApiPrincipal": {
+      "type": "object", "additionalProperties": false, "required": ["userId", "kind", "role"],
+      "properties": { "userId": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,255}$" }, "kind": { "enum": ["person", "agent"] }, "role": { "enum": ["owner", "admin", "operator", "member", "viewer"] }, "agentRights": { "type": "object", "additionalProperties": { "enum": ["use", "manage"] } }, "projectRights": { "type": "object", "additionalProperties": { "enum": ["member", "lead"] } }, "tokenScopes": { "type": "array", "items": { "type": "string", "maxLength": 256 } } }
+    },
+    "ApiDelegation": {
+      "description": "Local-only API registration credential, separate from core.token, with request principal. Never forwarded from the browser. The core remains authoritative for stored roles and rights.",
+      "type": "object", "additionalProperties": false, "required": ["clientId", "token"],
+      "properties": { "clientId": { "const": "harness-api" }, "token": { "type": "string" }, "principal": { "$ref": "#/$defs/ApiPrincipal" } }
+    },
     "Request": {
       "type": "object", "additionalProperties": false,
       "required": ["jsonrpc", "id", "method"],
-      "properties": { "jsonrpc": { "const": "2.0" }, "id": { "$ref": "#/$defs/Id" }, "method": { "type": "string" }, "params": { "type": "object" } }
+      "properties": { "jsonrpc": { "const": "2.0" }, "id": { "$ref": "#/$defs/Id" }, "method": { "type": "string" }, "params": { "type": "object" }, "api": { "$ref": "#/$defs/ApiDelegation" } }
     },
     "Response": {
       "type": "object", "additionalProperties": false,
@@ -1189,7 +1198,7 @@
     "Notification": {
       "type": "object", "additionalProperties": false,
       "required": ["jsonrpc", "method", "params"],
-      "properties": { "jsonrpc": { "const": "2.0" }, "method": { "type": "string" }, "params": { "type": "object" } }
+      "properties": { "jsonrpc": { "const": "2.0" }, "method": { "type": "string" }, "params": { "type": "object" }, "connectionId": { "type": "string" }, "audience": { "type": ["array", "null"], "items": { "oneOf": [{ "type": "string" }, { "type": "object", "additionalProperties": false, "required": ["connectionId"], "properties": { "connectionId": { "type": "string" } } }, { "type": "object", "additionalProperties": false, "required": ["personId"], "properties": { "personId": { "type": "string" } } }] } } }
     },
 
     "AgentId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$" },
@@ -4471,8 +4480,8 @@
       },
       "core.auth": {
         "x-stability": "stable", "x-since": "1.0.0", "x-server": "core",
-        "params": { "type": "object", "additionalProperties": false, "required": ["token"], "properties": { "token": { "type": "string", "minLength": 64, "maxLength": 64 } } },
-        "result": { "type": "object", "additionalProperties": false, "required": ["contract", "rpc", "instanceId", "pid"], "properties": { "contract": { "type": "string" }, "rpc": { "type": "string" }, "instanceId": { "type": "string" }, "pid": { "type": "integer" }, "capabilities": { "$ref": "#/$defs/Capabilities" } } }
+        "params": { "type": "object", "additionalProperties": false, "required": ["token"], "properties": { "token": { "type": "string", "minLength": 64, "maxLength": 64 }, "api": { "$ref": "#/$defs/ApiDelegation" } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["contract", "rpc", "instanceId", "pid"], "properties": { "contract": { "type": "string" }, "rpc": { "type": "string" }, "instanceId": { "type": "string" }, "pid": { "type": "integer" }, "capabilities": { "$ref": "#/$defs/Capabilities" }, "apiPrincipal": { "oneOf": [{ "$ref": "#/$defs/ApiPrincipal" }, { "type": "null" }] } } }
       },
       "core.status": {
         "x-stability": "stable", "x-since": "1.0.0", "x-server": "core",

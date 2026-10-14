@@ -74,6 +74,8 @@ export type EventsStatus = "connecting" | "open" | "retrying" | "closed" | "unav
 export interface EventsOptions {
   /** Called for every event; an exception thrown here is swallowed so one bad handler cannot end the stream. */
   onEvent: (event: SseEvent) => void;
+  /** A stale cursor requires refreshing current state. Defaults to reloading the browser page. */
+  onRestart?: () => void;
   /** Aborting ends the stream for good (no reconnect). */
   signal?: AbortSignal;
   /** Resume point for the first connection (sent as Last-Event-ID). */
@@ -138,6 +140,10 @@ export function openEventStream(deps: EventsDeps, opts: EventsOptions): EventsHa
               if (done) break;
               for (const ev of parser.push(decoder.decode(value, { stream: true }))) {
                 lastId = parser.lastEventId;
+                if (ev.event === "restart") {
+                  lastId = undefined;
+                  try { if (opts.onRestart) opts.onRestart(); else if (typeof window !== "undefined") window.location.reload(); } catch { /* host may handle the event itself */ }
+                }
                 try { opts.onEvent(ev); } catch { /* a handler's bug must not end the stream */ }
               }
             }
