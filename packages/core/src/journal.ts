@@ -1,4 +1,4 @@
-import { appendFileSync, closeSync, existsSync, fstatSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmSync } from "node:fs";
+import { appendFileSync, closeSync, existsSync, fstatSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import type { Engine } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { validateJournalLine, type JournalLine } from "@plur1bus/rpc-schema";
@@ -6,9 +6,21 @@ import type { AgentRegistry } from "./agents.ts";
 import type { HarnessLogger } from "./logger.ts";
 import { AGENT_CONTEXT_CLI, callerToPrincipal } from "./principal.ts";
 
+const NL = 0x0a;
+const AGENT_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/; // rpc.schema.json $defs/AgentId; it becomes a file name, so it is checked here too
+
+/** One physical line per call. A file that ends without `\n` (a writer that crashed mid-line) gets one first, so this
+ *  line never glues onto the fragment and is lost with it. */
 export function appendJournalLine(dir: string, line: JournalLine): void {
+  if (typeof line.agentId !== "string" || !AGENT_ID.test(line.agentId)) throw new Error("journal: invalid agentId in journal line");
   mkdirSync(dir, { recursive: true, mode: 0o700 });
-  appendFileSync(join(dir, `${line.agentId}.jsonl`), `${JSON.stringify(line)}\n`, { mode: 0o600 });
+  const fd = openSync(join(dir, `${line.agentId}.jsonl`), "a+", 0o600);
+  try {
+    const size = fstatSync(fd).size;
+    const last = Buffer.alloc(1);
+    const gluing = size > 0 && readSync(fd, last, 0, 1, size - 1) === 1 && last[0] !== NL;
+    writeSync(fd, `${gluing ? "\n" : ""}${JSON.stringify(line)}\n`); // one write on an O_APPEND handle
+  } finally { closeSync(fd); }
 }
 
 const REPLAYING_SUFFIX = /\.jsonl\.replaying-\d+$/;
@@ -21,7 +33,6 @@ export const JOURNAL_BACKLOG_MAX_BYTES = 8 * 1024 * 1024;
 /** Both writers (the CLI's serde struct and `appendJournalLine`) emit `v`, `id`, `at` first; anything else is parsed. */
 const AT_PREFIX = /^\{"v":1,"id":"[^"\\]*","at":(\d+)[,}]/;
 const AT_PREFIX_BYTES = 128;
-const NL = 0x0a;
 
 /** `at` of one complete line (`buf[start, end)`, without its `\n`): the fixed prefix when it matches, else a parse. */
 function atOf(buf: Buffer, start: number, end: number): number | null {
@@ -122,6 +133,12 @@ export async function replayJournal(o: JournalOpts): Promise<{ replayed: number;
     if (o.signal?.aborted) { o.hooks?.cut(); break; } // not renamed: the lines stay where the CLI wrote them
     const path = join(o.dir, file);
     const replayingPath = `${path}.replaying-${process.pid}`;
+    // A leftover under this very name (an abandoned or failed file) still holds lines: renaming over it would destroy them.
+    if (existsSync(replayingPath)) {
+      o.logger.warn("journal: file skipped this start", { file, err: new Error("a replaying file of this process already exists") });
+      kept += countLinesBestEffort(o, path);
+      continue;
+    }
     try { renameSync(path, replayingPath); }
     catch (e) {
       const err = e as NodeJS.ErrnoException;
@@ -173,9 +190,23 @@ async function safeProcessReplayingFile(o: JournalOpts, replayingPath: string, a
   } finally { o.hooks?.fileDone(); }
 }
 
+/** Non-blank lines (a torn tail counts), read in chunks: the file may be larger than a string or the heap can hold. */
 function countLinesBestEffort(o: Pick<JournalOpts, "logger">, path: string): number {
-  try { return readFileSync(path, "utf8").split("\n").filter(Boolean).length; }
-  catch (e) { o.logger.warn("journal: could not count kept lines after skip", { path, err: e }); return 0; }
+  let fd: number | null = null;
+  try {
+    fd = openSync(path, "r");
+    const chunk = Buffer.allocUnsafe(64 * 1024);
+    let n = 0; let content = false;
+    for (let r = readSync(fd, chunk, 0, chunk.length, null); r > 0; r = readSync(fd, chunk, 0, chunk.length, null)) {
+      for (let i = 0; i < r; i++) {
+        const b = chunk[i]!;
+        if (b === NL) { if (content) n++; content = false; }
+        else if (b !== 0x20 && b !== 0x09 && b !== 0x0d) content = true;
+      }
+    }
+    return content ? n + 1 : n;
+  } catch (e) { o.logger.warn("journal: could not count kept lines after skip", { path, err: e }); return 0; }
+  finally { if (fd !== null) try { closeSync(fd); } catch { /* nothing to do */ } }
 }
 
 async function processReplayingFile(o: JournalOpts, replayingPath: string, agentFile: string): Promise<{ replayed: number; kept: number }> {
@@ -189,7 +220,7 @@ async function processReplayingFile(o: JournalOpts, replayingPath: string, agent
 
   for (let i = 0; i < rawLines.length; i++) {
     const text = rawLines[i]!;
-    if (!text) continue;
+    if (/^[ \t\r]*$/.test(text)) continue; // blank (a bare CR from CRLF tooling too): nothing to replay, nothing to keep
     const isPhysicalTail = i === rawLines.length - 1 && !endedWithNewline; // R20.3: a complete tail is still replayed; only unparseable/invalid stays torn
     // B2: a stop aborts between lines; this and every later line go back unchanged, without a capture call.
     if (o.signal?.aborted) { abortedAt ??= kept.length; kept.push({ text, isPhysicalTail }); continue; }
