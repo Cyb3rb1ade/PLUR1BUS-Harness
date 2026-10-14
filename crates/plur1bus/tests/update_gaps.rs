@@ -1041,6 +1041,26 @@ fn check_doc(installed: &str, target: &str, min: Option<&str>) -> Value {
     doc
 }
 
+fn check_doc_on(installed: &str, target: &str, channel: &str) -> Value {
+    let e = env_with(installed, None);
+    let key = Key::new();
+    let f = Release::new(&e, target).feed(&e, "feed", &key);
+    let (code, doc) = run(&mut cmd(
+        &e,
+        Some(&f.pubkey),
+        &[
+            "update",
+            "--check",
+            "--channel",
+            channel,
+            "--manifest",
+            f.path.to_str().unwrap(),
+        ],
+    ));
+    assert_eq!(code, 0, "{installed} → {target} on {channel}: {doc}");
+    doc
+}
+
 fn available(installed: &str, target: &str) -> bool {
     !check_doc(installed, target, None)["available"].is_null()
 }
@@ -1060,8 +1080,8 @@ fn update_check_compares_versions_numerically_and_ignores_build_metadata() {
         ("1.2.3", "1.2.3+build.7", false),
         ("1.2.3+a", "1.2.3+b", false),
         ("1.2.3+z", "1.2.3+a", false),
-        // A newer release triple is newer whatever suffix it has.
-        ("1.2.3", "1.2.4-rc.1", true),
+        // A newer release triple is newer whatever suffix it has (the stable channel does not offer the pre-release itself).
+        ("1.2.3", "1.2.4-rc.1", false),
         ("1.2.3-rc.1", "1.2.4", true),
         // The same pre-release twice is the same version.
         ("1.2.3-rc.1", "1.2.3-rc.1", false),
@@ -1086,24 +1106,91 @@ fn update_check_treats_a_pre_release_suffix_as_no_difference_as_the_code_documen
     }
 }
 
-/// KNOWN GAP (crates/plur1bus/src/commands/update.rs `is_newer`, update/guard.rs `compare`): SemVer §11 orders `1.2.3-rc.1` below
-/// `1.2.3` and `1.2.3-alpha` below `1.2.3-beta`. Both functions compare only the numeric `major.minor.patch`, so an install on a
-/// release candidate is told it is up to date when the final release of that same version is published, and a move from
-/// `1.2.3` to `1.2.3-rc.1` is not seen as a downgrade. Changing it changes which updates are offered and which are refused as
-/// downgrades or replays, so it is not changed here.
+/// SemVer §11 ordering in the update check (`commands/update.rs` `is_newer`, `update/guard.rs` `compare`), checked on the
+/// `beta` channel, where pre-releases are offered. It is the order `semver::Version` gives the desktop updater, with build
+/// metadata ignored (§10).
 #[test]
-#[ignore = "KNOWN GAP: update ignores pre-release suffixes, so 1.2.3-rc.1 → 1.2.3 is 'up to date' and 1.2.3 → 1.2.3-rc.1 is no downgrade"]
 fn update_check_orders_pre_releases_below_their_release_as_semver_does() {
-    assert!(
-        available("1.2.3-rc.1", "1.2.3"),
-        "the final release is newer than its release candidate"
-    );
-    assert!(available("1.2.3-alpha", "1.2.3-beta"));
-    assert!(available("1.2.3-rc.1", "1.2.3-rc.2"));
-    assert!(
-        !available("1.2.3", "1.2.3-rc.1"),
-        "a release candidate is not newer than its release"
-    );
+    for (installed, target, newer) in [
+        ("1.2.3-rc.1", "1.2.3", true),
+        ("1.2.3", "1.2.3-rc.1", false),
+        ("1.2.3-alpha", "1.2.3-beta", true),
+        ("1.2.3-beta", "1.2.3-alpha", false),
+        ("1.2.3-rc.1", "1.2.3-rc.2", true),
+        ("1.2.3-rc.2", "1.2.3-rc.1", false),
+        // Numeric identifiers compare numerically, not as text.
+        ("1.2.3-rc.2", "1.2.3-rc.10", true),
+        ("1.2.3-rc.10", "1.2.3-rc.2", false),
+        // A numeric identifier is lower than an alphanumeric one; a longer set is higher.
+        ("1.2.3-1", "1.2.3-alpha", true),
+        ("1.2.3-alpha", "1.2.3-alpha.1", true),
+        ("1.2.3-alpha.1", "1.2.3-alpha", false),
+        // The §11 example chain.
+        ("1.0.0-alpha.beta", "1.0.0-beta", true),
+        ("1.0.0-beta.11", "1.0.0-rc.1", true),
+        ("1.0.0-rc.1", "1.0.0", true),
+        // Build metadata never counts, with or without a pre-release.
+        ("1.2.3-rc.1+a", "1.2.3-rc.1+b", false),
+        ("1.2.3-rc.1+b", "1.2.3-rc.1+a", false),
+        ("1.2.3-rc.1+z", "1.2.3-rc.2+a", true),
+        ("1.2.3-rc.1", "1.2.3+build", true),
+        // The release triple still wins over any suffix.
+        ("1.2.3", "1.2.4-rc.1", true),
+        ("1.2.4-rc.1", "1.2.3", false),
+        ("1.2.3-rc.9", "1.2.4-alpha", true),
+    ] {
+        assert_eq!(
+            !check_doc_on(installed, target, "beta")["available"].is_null(),
+            newer,
+            "{installed} → {target}"
+        );
+    }
+}
+
+#[test]
+fn the_stable_channel_never_offers_a_pre_release_and_beta_does() {
+    for (installed, target) in [
+        ("1.2.3", "1.2.4-rc.1"),
+        ("1.2.3-rc.1", "1.2.3-rc.2"),
+        ("1.2.3", "2.0.0-alpha"),
+        ("1.2.3-rc.1", "1.2.4-rc.1+build"),
+    ] {
+        let stable = check_doc_on(installed, target, "stable");
+        assert!(
+            stable["available"].is_null(),
+            "stable offered {target} to {installed}: {stable}"
+        );
+        assert!(
+            !check_doc_on(installed, target, "beta")["available"].is_null(),
+            "beta must offer {target} to {installed}"
+        );
+    }
+    // A final release is offered to an install on a release candidate, on stable too.
+    assert!(!check_doc_on("1.2.3-rc.1", "1.2.3", "stable")["available"].is_null());
+}
+
+#[test]
+fn applying_a_pre_release_on_the_stable_channel_is_refused_and_changes_nothing() {
+    let e = env_with("1.2.3", None);
+    let key = Key::new();
+    let f = Release::new(&e, "1.2.4-rc.1").feed(&e, "feed", &key);
+    let before = state_of(&e);
+    let (code, doc) = run(&mut online(&e, &f, &[]));
+    assert_eq!(code, 1, "{doc}");
+    assert_eq!(doc["reason"], "prerelease-on-stable", "{doc}");
+    assert_eq!(state_of(&e), before);
+}
+
+#[test]
+fn moving_from_a_release_to_its_own_release_candidate_is_a_downgrade() {
+    let e = env_with("1.2.3", None);
+    let key = Key::new();
+    let f = Release::new(&e, "1.2.3-rc.1").feed(&e, "feed", &key);
+    let before = state_of(&e);
+    let (code, doc) = run(&mut online(&e, &f, &["--channel", "beta"]));
+    assert_ne!(code, 0, "{doc}");
+    assert_eq!(doc["reason"], "downgrade-refused", "{doc}");
+    assert_eq!(state_of(&e), before);
 }
 
 #[test]
