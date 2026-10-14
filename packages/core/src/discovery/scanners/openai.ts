@@ -3,7 +3,7 @@ import type { ProfileInfo } from "../ports.ts";
 // Covers OpenAI, OpenRouter, LM Studio, mlx-lm, oMLX, vLLM and generic compatible endpoints.
 import type { Capability, RawEntry } from "../types.ts";
 import { ScanError, type PinnedClient } from "../http.ts";
-import { checkId, checkPositiveInt, checkString, finalizeEntries } from "../validate.ts";
+import { checkId, present, checkPositiveInt, checkString, finalizeEntries } from "../validate.ts";
 import type { ScanOutput, Scanner } from "./index.ts";
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -17,11 +17,11 @@ export const scanOpenAi: Scanner = async (_profile: ProfileInfo, client: PinnedC
   const rawEntries: RawEntry[] = res.data.map((item: unknown) => {
     if (!isObj(item)) throw new ScanError("failed:invalid", "bad_envelope");
     const id = checkId(item.id);
-    const created = item.created !== undefined ? checkPositiveInt(item.created) * 1000 : undefined;
+    const created = present(item.created) ? checkPositiveInt(item.created) * 1000 : undefined;
 
     // OpenRouter-style extras whitelist
-    const displayName = item.name !== undefined ? checkString(item.name) : undefined;
-    const contextWindow = item.context_length !== undefined ? checkPositiveInt(item.context_length) : undefined;
+    const displayName = present(item.name) ? checkString(item.name) : undefined;
+    const contextWindow = present(item.context_length) ? checkPositiveInt(item.context_length) : undefined;
 
     const capabilities: Capability[] = [];
     if (Array.isArray(item.supported_parameters)) {
