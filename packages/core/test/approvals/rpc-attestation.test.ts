@@ -244,3 +244,13 @@ it("a trusted connection does not inherit another attempt's pending OS requireme
   assert.equal(a.calls.length, 0);
   await answer; r.service.dispose();
 });
+
+it("disabling optional OS confirmation never bypasses the existing surface rule", T, async () => {
+ const a=spy();const r=await rpcRig({deps:{attester:a,requireOsConfirmation:()=>false}});
+ try {
+  const {id}=await r.park(SHELL);
+  const result=await refused(r.call("approval.decide",{id,decision:"approve",scope:"session",attest:true}));
+  assert.equal(result.error,"E_DENIED");assert.equal(result.reason,"surface-untrusted");
+  assert.equal(a.calls.length,0);assert.equal(r.stores.grants.inspect().length,0);
+ } finally {r.service.dispose();}
+});

@@ -4778,7 +4778,7 @@ Verify and import an agent.export bundle, stripping secrets and bounding rights.
 
 ### `doctor.report`
 
-**Stability:** experimental · since 1.15.0
+**Stability:** experimental · since 1.6.0
 
 **Served by:** core
 
@@ -4890,7 +4890,7 @@ Cached authoritative 1staid report, with provisioning categories lacking checks 
 
 ### `agent.activity.list`
 
-**Stability:** experimental · since 1.15.0
+**Stability:** experimental · since 1.6.0
 
 **Served by:** core
 
@@ -10661,7 +10661,7 @@ Assign use/manage; null revokes the explicit right. Role and token scopes still 
 
 **Served by:** core
 
-Request an audited read-only window for another person. Affected person receives a durable notice; reason 10-500 trimmed characters, window 1-60 minutes.
+Request an audited read-only window for another person. Affected person receives a durable notice; reason and window bounds come from breakglass configuration (defaults 10-500 trimmed characters, 1-60 minutes).
 
 **params**
 
@@ -10681,13 +10681,13 @@ Request an audited read-only window for another person. Affected person receives
     },
     "reason": {
       "type": "string",
-      "minLength": 10,
-      "maxLength": 500
+      "minLength": 1,
+      "maxLength": 10000
     },
     "windowMinutes": {
       "type": "integer",
       "minimum": 1,
-      "maximum": 60
+      "maximum": 1440
     }
   }
 }
@@ -10726,7 +10726,7 @@ Request an audited read-only window for another person. Affected person receives
     "reason": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 500
+      "maxLength": 10000
     },
     "issuedAt": {
       "type": "integer",

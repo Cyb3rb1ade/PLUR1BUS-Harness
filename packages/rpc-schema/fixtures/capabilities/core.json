@@ -338,11 +338,11 @@
     },
     "doctor.report": {
       "stability": "experimental",
-      "since": "1.15.0"
+      "since": "1.6.0"
     },
     "agent.activity.list": {
       "stability": "experimental",
-      "since": "1.15.0"
+      "since": "1.6.0"
     },
     "agent.list": {
       "stability": "experimental",

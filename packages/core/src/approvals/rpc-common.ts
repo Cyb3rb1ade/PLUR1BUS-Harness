@@ -27,6 +27,7 @@ export interface ApprovalMethodDeps {
   clock: () => number;
   /** Issue #192: asks the OS for one confirmation that lifts a single approval of an unattested local connection (T1) to T2. Absent: nothing can be lifted. */
   attester?: Attester;
+  requireOsConfirmation?: () => boolean;
   /** `grant.changed` for grants this file creates or revokes (the service announces the ones a decision creates). */
   notify?: { grantChanged(change: "created" | "revoked", grant: GrantRecord): void; confirmationChanged?(approval: import("@plur1bus/rpc-schema").ApprovalRecord): void };
 }

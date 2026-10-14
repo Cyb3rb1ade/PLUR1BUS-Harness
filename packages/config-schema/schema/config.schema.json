@@ -7,6 +7,88 @@
   "additionalProperties": false,
   "required": ["schemaVersion"],
   "properties": {
+    "approvals": {
+      "type": "object",
+      "default": {},
+      "additionalProperties": false,
+      "properties": {
+        "maxGrantDays": {
+          "type": "integer",
+          "default": 90,
+          "x-restart": "core",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner",
+            "admin"
+          ],
+          "x-audit": true,
+          "minimum": 1,
+          "maximum": 365,
+          "description": "Always-grant idle lifetime in days. Explicit shorter expiries still apply."
+        },
+        "requireOsConfirmation": {
+          "type": "boolean",
+          "default": true,
+          "x-restart": "core",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner",
+            "admin"
+          ],
+          "x-audit": true,
+          "description": "Allow the required OS confirmation for an otherwise untrusted local decision. False disables this lift; it never bypasses surface trust."
+        }
+      }
+    },
+    "breakglass": {
+      "type": "object",
+      "default": {},
+      "additionalProperties": false,
+      "properties": {
+        "reasonMinChars": {
+          "type": "integer",
+          "default": 10,
+          "x-restart": "core",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner",
+            "admin"
+          ],
+          "x-audit": true,
+          "minimum": 1,
+          "maximum": 10000,
+          "description": "Minimum trimmed break-glass reason length."
+        },
+        "reasonMaxChars": {
+          "type": "integer",
+          "default": 500,
+          "x-restart": "core",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner",
+            "admin"
+          ],
+          "x-audit": true,
+          "minimum": 1,
+          "maximum": 10000,
+          "description": "Maximum trimmed break-glass reason length."
+        },
+        "maxWindowMinutes": {
+          "type": "integer",
+          "default": 60,
+          "x-restart": "core",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner",
+            "admin"
+          ],
+          "x-audit": true,
+          "minimum": 1,
+          "maximum": 1440,
+          "description": "Maximum break-glass window in minutes."
+        }
+      }
+    },
     "inbox": {
       "description": "Per-person inbox retention. Both limits are applied when a new entry is written.",
       "type": "object",

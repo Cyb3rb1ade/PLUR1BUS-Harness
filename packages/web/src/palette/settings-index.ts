@@ -12,6 +12,11 @@
 export type SettingSpec = { readonly key: string; readonly type: string; readonly tier: "basic" | "advanced"; readonly help?: string };
 
 export const SETTINGS: readonly SettingSpec[] = [
+  { key: "approvals.maxGrantDays", type: "integer", tier: "advanced", help: "Always-grant idle lifetime in days. Explicit shorter expiries still apply." },
+  { key: "approvals.requireOsConfirmation", type: "boolean", tier: "advanced", help: "Allow the required OS confirmation for an otherwise untrusted local decision. False disables this lift; it never bypasses surface trust." },
+  { key: "breakglass.reasonMinChars", type: "integer", tier: "advanced", help: "Minimum trimmed break-glass reason length." },
+  { key: "breakglass.reasonMaxChars", type: "integer", tier: "advanced", help: "Maximum trimmed break-glass reason length." },
+  { key: "breakglass.maxWindowMinutes", type: "integer", tier: "advanced", help: "Maximum break-glass window in minutes." },
   { key: "inbox.retention.days", type: "integer", tier: "advanced", help: "Maximum age of an inbox entry in days." },
   { key: "inbox.retention.maxEntries", type: "integer", tier: "advanced", help: "Maximum number of inbox entries retained per person." },
   { key: "containers", type: "object", tier: "advanced", help: "Container distribution library settings. Installer/runtime wiring is separate from the core." },

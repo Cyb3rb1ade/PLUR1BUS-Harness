@@ -16,6 +16,8 @@ export interface MediaEmbeddingConfig {
 type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 
 export interface HarnessConfig {
+  approvals?: { maxGrantDays: number; requireOsConfirmation: boolean };
+  breakglass?: { reasonMinChars: number; reasonMaxChars: number; maxWindowMinutes: number };
   activity?: { maxEntries: number };
   inbox: { retention: { days: number; maxEntries: number } };
   containers?: { runtime: "auto" | "apple" | "docker"; image?: string; stateVolume: string; bindAddress: string; apiPort?: number; healthTimeoutMs: number };
@@ -174,6 +176,7 @@ export function validate(value: unknown): { ok: true; config: HarnessConfig } | 
     const c = (copy as HarnessConfig).session.compaction;
     if (c.softRatio >= c.hardRatio) return { ok: false, errors: ["/session/compaction softRatio must be below hardRatio"] };
     const cfg = copy as HarnessConfig;
+    if (cfg.breakglass && cfg.breakglass.reasonMinChars > cfg.breakglass.reasonMaxChars) return { ok: false, errors: ["/breakglass reasonMinChars must not exceed reasonMaxChars"] };
     const base = cfg.voice.v3.realtime.features;
     const layers = [["/voice/v3/realtime", base], ...Object.entries(cfg.agents).map(([id, agent]) => [`/agents/${id}/voice`, Object.fromEntries(VOICE_V3_FEATURES.map(name => [name, { ...base[name], ...agent.voice?.features?.[name] }]))])] as [string, Record<VoiceV3FeatureName, VoiceV3FeatureSetting>][];
     for (const [path, features] of layers) {

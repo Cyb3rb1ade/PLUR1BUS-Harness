@@ -18,6 +18,11 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 
 | Key | Type | Default | Restart | Description |
 |---|---|---|---|---|
+| `approvals.maxGrantDays` | integer | `90` | core | Always-grant idle lifetime in days. Explicit shorter expiries still apply. |
+| `approvals.requireOsConfirmation` | boolean | `true` | core | Allow the required OS confirmation for an otherwise untrusted local decision. False disables this lift; it never bypasses surface trust. |
+| `breakglass.reasonMinChars` | integer | `10` | core | Minimum trimmed break-glass reason length. |
+| `breakglass.reasonMaxChars` | integer | `500` | core | Maximum trimmed break-glass reason length. |
+| `breakglass.maxWindowMinutes` | integer | `60` | core | Maximum break-glass window in minutes. |
 | `inbox.retention.days` | integer | `90` | core | Maximum age of an inbox entry in days. |
 | `inbox.retention.maxEntries` | integer | `1000` | core | Maximum number of inbox entries retained per person. |
 | `containers` | object |  | live | Container distribution library settings. Installer/runtime wiring is separate from the core. |

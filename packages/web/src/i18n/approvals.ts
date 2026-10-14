@@ -54,6 +54,8 @@ export const en = {
   "approvals.attest.failed": "The confirmation did not succeed. Nothing was approved.",
   "approvals.attest.unavailable": "A confirmation by the operating system is not available here. This connection can approve low-risk requests only.",
   "approvals.attest.inProgress": "Another decision for this request is waiting for its confirmation dialog.",
+  "approvals.scope.alwaysConfigured": "Standing grant (up to {days} days unused)",
+  "approvals.scope.alwaysUnknown": "Standing grant",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -111,4 +113,6 @@ export const de: Record<keyof typeof en, string> = {
   "approvals.attest.failed": "Die Bestätigung ist nicht gelungen. Nichts wurde freigegeben.",
   "approvals.attest.unavailable": "Eine Bestätigung durch das Betriebssystem ist hier nicht verfügbar. Diese Verbindung kann nur risikoarme Anfragen freigeben.",
   "approvals.attest.inProgress": "Eine andere Entscheidung für diese Anfrage wartet auf ihren Bestätigungsdialog.",
+  "approvals.scope.alwaysConfigured": "Dauerberechtigung (max. {days} Tage ungenutzt)",
+  "approvals.scope.alwaysUnknown": "Dauerberechtigung",
 };

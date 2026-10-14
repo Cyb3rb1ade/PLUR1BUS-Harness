@@ -11,6 +11,7 @@ import { t, type Key } from "../../i18n.ts";
 import { registerArea } from "../../i18n/index.ts";
 import * as area from "../../i18n/approvals.ts";
 import { FailureState } from "../common/states.ts";
+import { loadSecurityLimits } from "../settings/security/limits.ts";
 import { currentRole, getApi, roleIn, useLoad } from "../common/load.ts";
 import type { PageProps } from "../registry.ts";
 import { attestationText } from "../../attestation-text.ts";
@@ -42,10 +43,11 @@ function riskTone(risk?: ApprovalRisk): BadgeTone {
 function ApprovalCard({
   approval,
   canDecide,
-  onDecided,
+  onDecided, maxGrantDays,
 }: {
   approval: ApprovalRecord;
   canDecide: boolean;
+  maxGrantDays?: number;
   onDecided: () => void;
 }): View {
   const confirmation = approval.osConfirmation;
@@ -213,7 +215,7 @@ function ApprovalCard({
                 h(
                   "option",
                   { key: opt.scope, value: opt.scope },
-                  t(
+                  opt.scope === "always" ? (maxGrantDays !== undefined ? t("approvals.scope.alwaysConfigured", {days:maxGrantDays}) : t("approvals.scope.alwaysUnknown")) : t(
                     opt.scope === "once"
                       ? "approvals.scope.once"
                       : opt.scope === "task"
@@ -390,6 +392,7 @@ function GrantsList(): View {
 }
 
 function PendingApprovalsList(): View {
+  const limits = useLoad(loadSecurityLimits, []);
   const role = currentRole();
   const canDecide = roleIn(role, ["owner", "admin"]);
   const { state, reload } = useLoad(
@@ -417,6 +420,7 @@ function PendingApprovalsList(): View {
         key: apr.id,
         approval: apr,
         canDecide,
+        ...(limits.state.status === "ok" ? {maxGrantDays:limits.state.data.maxGrantDays} : {}),
         onDecided: reload,
       })
     ),

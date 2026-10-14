@@ -10,6 +10,7 @@ import { createApprovalService, type ApprovalEvents, type ApprovalService } from
 
 export interface PermissionRuntimeOptions {
   dbPath: string;
+  maxGrantDays?: () => number;
   keys: ChainKeySource;
   clock: Clock;
   audit: PolicyAudit;
@@ -35,7 +36,7 @@ export function createPermissionRuntime(o: PermissionRuntimeOptions): Permission
   let closed = false;
 
   async function doOpen(): Promise<OpenPermissions> {
-    const stores = await openPermissionStores({ path: o.dbPath, keys: o.keys, clock: o.clock, audit: o.audit, ...(o.securePath ? { securePath: o.securePath } : {}) });
+    const stores = await openPermissionStores({ path: o.dbPath, ...(o.maxGrantDays ? { maxGrantDays: o.maxGrantDays } : {}), keys: o.keys, clock: o.clock, audit: o.audit, ...(o.securePath ? { securePath: o.securePath } : {}) });
     if (closed) { stores.close(); throw stopping(); } // a close() during a slow open wins
     const service = createApprovalService({ stores, clock: o.clock, audit: o.audit, ...(o.events ? { events: o.events } : {}) });
     return { service, grants: stores.grants, stores };

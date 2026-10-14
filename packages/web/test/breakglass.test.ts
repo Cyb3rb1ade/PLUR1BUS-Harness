@@ -60,6 +60,7 @@ function seedBreakglass(
   grants: Grant[] = sampleGrants,
   notices: Notice[] = sampleNotices,
 ): void {
+  app.server.rpc.handle("config.get", () => ({value:{}}), {write:false});
   app.server.rpc.handle("breakglass.list", () => ({ grants }), { write: false });
   app.server.rpc.handle("breakglass.notices", () => ({ notices }), { write: false });
   app.server.rpc.handle(
@@ -281,4 +282,19 @@ describe("Break-Glass page", opts, () => {
       await expectAxeClean(app.page, "breakglass English");
     });
   });
+});
+
+test("configured emergency-access bounds replace the dialog constants", opts, async () => {
+ await withApp({},async app=>{
+  seedBreakglass(app);
+  app.server.rpc.handle("config.get",()=>({value:{breakglass:{reasonMinChars:20,reasonMaxChars:80,maxWindowMinutes:2}}}),{write:false});
+  await openRoute(app.page,"#/breakglass");
+  await app.page.getByRole("button",{name:"Request break-glass",exact:true}).click();
+  const dialog=app.page.getByRole("dialog");
+  await dialog.getByText("Reason: 20 to 80 trimmed characters.",{exact:true}).waitFor();
+  assert.equal(await dialog.locator("textarea").getAttribute("maxlength"),"130");
+  assert.equal(await dialog.getByRole("option",{name:"60 minutes",exact:true}).count(),0);
+  assert.equal(await dialog.getByRole("option",{name:"2 minutes",exact:true}).count(),1);
+  await expectAxeClean(app.page,"configured breakglass bounds");
+ });
 });

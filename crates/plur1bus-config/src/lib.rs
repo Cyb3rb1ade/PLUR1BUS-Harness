@@ -189,7 +189,7 @@ fn ajv_time(s: &str) -> bool {
 }
 
 pub fn validate(v: &Value) -> Result<(), Vec<String>> {
-    let errs: Vec<String> = validator()
+    let mut errs: Vec<String> = validator()
         .iter_errors(v)
         .map(|e| {
             let path = e.instance_path.to_string();
@@ -204,6 +204,14 @@ pub fn validate(v: &Value) -> Result<(), Vec<String>> {
             )
         })
         .collect();
+    if let (Some(min), Some(max)) = (
+        v["breakglass"]["reasonMinChars"].as_u64(),
+        v["breakglass"]["reasonMaxChars"].as_u64(),
+    ) {
+        if min > max {
+            errs.push("/breakglass reasonMinChars must not exceed reasonMaxChars".into());
+        }
+    }
     if errs.is_empty() {
         Ok(())
     } else {

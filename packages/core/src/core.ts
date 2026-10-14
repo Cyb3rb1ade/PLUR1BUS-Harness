@@ -562,6 +562,7 @@ export function createCore(o: CoreOptions): Core {
         clock, log: { info: (m, f) => log.info(m, f), warn: (m, f) => { channelToInbox(inboxPort, m, f); log.warn(m, f); }, error: (m, f) => log.error(m, f) },
       });
       permissions = createPermissionRuntime({
+        maxGrantDays: () => cfg().approvals?.maxGrantDays ?? 90,
         // The switchboard sees approval requests next to the RPC notifier: a channel chat shows its own prompt.
         dbPath: approvalsDbPath(l.home), keys: secretStoreKeySource(secretStore), clock: { now: clock }, events: { emit: (n, p) => { notifier.events.emit(n, p); board.approvalEvents.emit(n, p); approvalToInbox(inboxPort, n, p); } },
         audit: createPolicyAudit({ sink: rbacAudit, clock: { now: clock } }), securePath: platform.securePath,
@@ -600,6 +601,7 @@ export function createCore(o: CoreOptions): Core {
         return undefined;
       };
       const breakglass = createBreakGlass({ clock, audit: rbacAudit, requireNotification: true,
+        limits: () => cfg().breakglass ?? { reasonMinChars: 10, reasonMaxChars: 500, maxWindowMinutes: 60 },
         notify: notice => {
           people.notice(notice); breakglassToInbox(inboxPort, notice);
           void deliverBreakglassNotice(notice, { subscriptions: () => server?.subscriptions() ?? [], principalOf: async id => resolvePrincipal({ requestId: "notice", connectionId: id, signal: shutdown.signal }, "breakglass.notices", {}), notify: (m,p,options) => server?.notify(m,p,options), stopped: () => shutdown.signal.aborted }).catch(() => { log.debug("break-glass live notice withheld; durable inbox retained"); });
@@ -681,6 +683,7 @@ export function createCore(o: CoreOptions): Core {
         permissions: {
           permissions: () => perms.open(), principalOf: resolvePrincipal, clock,
           surfaceOf: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }),
+          requireOsConfirmation: () => cfg().approvals?.requireOsConfirmation ?? true,
           attester: o.attestation?.attester ?? createAttestationService({ helper: o.attestation?.helper !== undefined ? o.attestation.helper : helperFromEnv(process.env), audit: createPolicyAudit({ sink: rbacAudit, clock: { now: clock } }), now: clock }),
           requireAgent: (agentId) => { requireAgent(registry, agentId); }, notify: { grantChanged: notifier.grantChanged, confirmationChanged: notifier.confirmationChanged },
         },

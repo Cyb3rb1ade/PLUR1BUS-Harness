@@ -4488,7 +4488,7 @@
       },
       "doctor.report": {
   "x-stability": "experimental",
-  "x-since": "1.15.0",
+  "x-since": "1.6.0",
   "x-server": "core",
   "description": "Cached authoritative 1staid report, with provisioning categories lacking checks explicitly skipped. Human-only reads for all roles; refresh for Owner/Admin/Operator, at most once per 30 seconds (E_CONFLICT reason refresh-rate-limit). Free-form detail is never forwarded.",
   "params": {
@@ -4588,7 +4588,7 @@
 },
       "agent.activity.list": {
   "x-stability": "experimental",
-  "x-since": "1.15.0",
+  "x-since": "1.6.0",
   "x-server": "core",
   "description": "Bounded in-process agent activity transitions, newest first. Human-only. Owner/Admin see all agents; other roles need use or manage rights. Restart, retention expiry or changed visibility invalidates cursors (E_INVALID_PARAMS reason bad-cursor).",
   "params": {
@@ -6508,7 +6508,7 @@
         "x-stability": "experimental",
         "x-since": "1.5.0",
         "x-server": "core",
-        "description": "Request an audited read-only window for another person. Affected person receives a durable notice; reason 10-500 trimmed characters, window 1-60 minutes.",
+        "description": "Request an audited read-only window for another person. Affected person receives a durable notice; reason and window bounds come from breakglass configuration (defaults 10-500 trimmed characters, 1-60 minutes).",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -6524,13 +6524,13 @@
             },
             "reason": {
               "type": "string",
-              "minLength": 10,
-              "maxLength": 500
+              "minLength": 1,
+              "maxLength": 10000
             },
             "windowMinutes": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 60
+              "maximum": 1440
             }
           }
         },
@@ -6564,7 +6564,7 @@
             "reason": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 500
+              "maxLength": 10000
             },
             "issuedAt": {
               "type": "integer",

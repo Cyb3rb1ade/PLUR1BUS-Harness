@@ -69,6 +69,7 @@ export function buildApprovalMethods(d: ApprovalMethodDeps): Record<ApprovalMeth
     const scope: GrantScope = p.scope ?? "once";
     const req = { capability: view.capability, risk: view.risk as never, flags: view.flags as never };
     if (surfaceMayDecide(req, 1, scope) || !surfaceMayDecide(req, 2, scope)) return undefined; // T1 suffices, or even T2 would not (T3 needs the embedder's attestation)
+    if (d.requireOsConfirmation?.() === false) return undefined; // disable the lift; the existing surface refusal still applies
     const attester = d.attester;
     if (!attester) return undefined; // no attestation wired in at all (an embedder that never asked for it): the D109 refusal stands unchanged
     if (asking.has(p.id)) throw new RpcError("E_CONFLICT", "another decision of this request is waiting for its OS confirmation", { reason: "attestation-in-progress" });
