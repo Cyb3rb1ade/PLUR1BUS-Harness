@@ -86,6 +86,35 @@ export function stringMask(src) {
   return mask
 }
 
+const CHAR_LITERAL = /^'(?:\\(?:x[0-9a-fA-F]{2}|u\{[0-9a-fA-F_]+\}|.)|[^\\'])'/
+const RAW_OPEN = /^b?r(#*)"/
+
+/** End offset (exclusive) of the string, raw string or char literal that starts at `i`; `i` itself when none does. A
+ *  bracket inside such a literal (`')'`, `"}"`, `r#"a)"#`) must not count when matching brackets. */
+export function skipLiteral(text, i) {
+  const c = text[i]
+  if (c === '"') {
+    let j = i + 1
+    while (j < text.length && text[j] !== '"') { if (text[j] === '\\') j++; j++ }
+    return Math.min(j + 1, text.length)
+  }
+  if (c === 'r' || c === 'b') {
+    if (i > 0 && /[A-Za-z0-9_]/.test(text[i - 1])) return i
+    const raw = RAW_OPEN.exec(text.slice(i, i + 24))
+    if (raw) {
+      const end = '"' + raw[1]
+      const close = text.indexOf(end, i + raw[0].length)
+      return close < 0 ? text.length : close + end.length
+    }
+    return i
+  }
+  if (c === "'") {
+    const m = CHAR_LITERAL.exec(text.slice(i, i + 12))
+    return m ? i + m[0].length : i
+  }
+  return i
+}
+
 /** Splits the text after an opening paren into top-level arguments. Returns { args, end } or null if unbalanced. */
 export function splitArgs(text, open) {
   const args = []
@@ -94,9 +123,10 @@ export function splitArgs(text, open) {
   let i = open
   while (i < text.length) {
     const c = text[i]
-    if (c === '"') {
-      i++
-      while (i < text.length && text[i] !== '"') { if (text[i] === '\\') i++; i++ }
+    const lit = skipLiteral(text, i)
+    if (lit > i) {
+      i = lit
+      continue
     } else if (c === '(' || c === '[' || c === '{') {
       depth++
     } else if (c === ')' || c === ']' || c === '}') {
@@ -194,7 +224,9 @@ export function extract(rawSrc, file = '<memory>', knownConsts = {}) {
     let depth = 0
     let end = open
     for (; end < src.length; end++) {
-      if (src[end] === '{') depth++
+      const lit = skipLiteral(src, end)
+      if (lit > end) end = lit - 1
+      else if (src[end] === '{') depth++
       else if (src[end] === '}' && --depth === 0) break
     }
     const body = src.slice(open, end)
@@ -234,7 +266,8 @@ export function dropTestModules(src) {
     let depth = 0
     let i = m.index + m[0].length - 1
     for (; i < code.length; i++) {
-      if (code[i] === '"') { i++; while (i < code.length && code[i] !== '"') { if (code[i] === '\\') i++; i++ } }
+      const lit = skipLiteral(code, i)
+      if (lit > i) i = lit - 1
       else if (code[i] === '{') depth++
       else if (code[i] === '}' && --depth === 0) break
     }

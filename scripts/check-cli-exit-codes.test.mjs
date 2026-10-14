@@ -161,3 +161,25 @@ test("--check is red when the section is missing", () => {
   assert.equal(r.status, 1);
   assert.match(r.stderr, /no "## CLI-Exit-Codes" section/);
 });
+
+test("a char literal or raw string holding a bracket does not hide an exit site", () => {
+  // splitArgs only knew "..." strings: `')'` closed the call early and the site (with its exit code) was dropped, so an
+  // undocumented code passed the check.
+  assert.deepEqual(codes(`fn a(o: &Out) { o.fail("E_X", format!("{}", ')'), None, 77); }`), [["Out::fail", "E_X", 77]]);
+  assert.deepEqual(codes(`fn a(o: &Out) { o.fail("E_X", r#"a"b)"#, None, 78); }`), [["Out::fail", "E_X", 78]]);
+  assert.deepEqual(codes(`fn a() { std::process::exit(if c == '(' { 80 } else { 81 }); }`).map((c) => c[2]), [80, 81]);
+  assert.deepEqual(splitArgs(`f(')', 2)`, 1)?.args, ["')'", "2"]);
+});
+
+test("a char literal brace does not end an exit_code_for body or a test module early", () => {
+  const body = `fn exit_code_for(code: &str) -> i32 {
+    let _brace = '}';
+    match code {
+        "E_A" => 3,
+        _ => 1,
+    }
+}`;
+  assert.deepEqual(codes(body).map((c) => [c[1], c[2]]), [["E_A", 3], ["(any other code)", 1]]);
+  const withTests = `fn real() { std::process::exit(4); }\n#[cfg(test)]\nmod tests {\n    fn t() { let _c = '{'; std::process::exit(99); }\n}\nfn after() { std::process::exit(5); }\n`;
+  assert.deepEqual(codes(dropTestModules(withTests)).map((c) => c[2]), [4, 5]);
+});
