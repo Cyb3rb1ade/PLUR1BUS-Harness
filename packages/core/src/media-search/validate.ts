@@ -1,13 +1,14 @@
+import { privacyAcknowledgmentError, type PrivacyAcknowledgment } from "@plur1bus/config-schema";
 import { mediaError } from "./errors.ts";
 import type { MediaKind } from "./types.ts";
 
 /** The `memory.mediaEmbedding` config block (subset used for validation). */
 export interface MediaEmbeddingConfig {
-  enabled?: boolean; provider?: string; model?: string; dimensions?: number; modalities?: MediaKind[];
+  enabled?: boolean; provider?: string; privacyAck?: PrivacyAcknowledgment; model?: string; dimensions?: number; modalities?: MediaKind[];
   video?: { segmentSec?: number; maxFrames?: number; sceneDetect?: boolean };
   audio?: { segmentSec?: number; maxSeconds?: number };
   /** `model` is not a schema key; it lets the caller pass the resolved caption model for catalogue lookup. */
-  caption?: { source?: "prompt-then-user-then-auto" | "user-only" | "off"; provider?: string; model?: string; maxChars?: number; perSegment?: boolean };
+  caption?: { source?: "prompt-then-user-then-auto" | "user-only" | "off"; provider?: string; privacyAck?: PrivacyAcknowledgment; model?: string; maxChars?: number; perSegment?: boolean };
   backfill?: "auto" | "manual";
 }
 
@@ -43,6 +44,8 @@ export async function validateMediaEmbedding(cfg: MediaEmbeddingConfig, ctx: Med
   if (cfg.enabled === false || cfg.provider === undefined || cfg.provider === "off") return;
   const model = cfg.model ?? "";
   await checkModel(cfg.provider, model, ctx, (info) => {
+    const failure = privacyAcknowledgmentError({ function: "media", provider: cfg.provider!, local: info.local, ack: cfg.privacyAck });
+    if (failure) throw mediaError("E_MEDIA_PRIVACY", "Media embedding privacy acknowledgment required", { reason: failure.reason });
     for (const k of ["text", ...(cfg.modalities ?? ALL_KINDS)] as const) {
       if (!info.capabilities[k]) throw mediaError("E_MEDIA_CAPABILITY", `${cfg.provider}/${model} does not support ${k}`, { reason: k });
     }
@@ -56,5 +59,8 @@ export async function validateMediaEmbedding(cfg: MediaEmbeddingConfig, ctx: Med
 export async function validateCaptionProvider(cfg: MediaEmbeddingConfig, ctx: MediaValidationContext): Promise<void> {
   const c = cfg.caption;
   if (cfg.enabled === false || !c || c.source === "off" || c.provider === undefined || c.provider === "off") return;
-  await checkModel(c.provider, c.model ?? "", ctx);
+  await checkModel(c.provider, c.model ?? "", ctx, (info) => {
+    const failure = privacyAcknowledgmentError({ function: "caption", provider: c.provider!, local: info.local, ack: c.privacyAck });
+    if (failure) throw mediaError("E_MEDIA_PRIVACY", "Captioning privacy acknowledgment required", { reason: failure.reason });
+  });
 }

@@ -44,7 +44,13 @@
       "delegable": false,
       "decidedAt": "2026-10-06T12:01:00.000Z",
       "decidedBy": "local-owner",
-      "decisionSurface": 3
+      "decisionSurface": 3,
+      "osConfirmation": {
+        "required": true,
+        "status": "pending",
+        "platform": "touchid",
+        "updatedAt": "2026-10-14T10:00:00.000Z"
+      }
     },
     "grant": {
       "id": "grt_0123456789abcdef01234567",

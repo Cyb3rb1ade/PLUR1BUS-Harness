@@ -17,12 +17,12 @@ import "../../../styles/secrets.css";
 
 registerArea("secrets", secretsArea);
 
-type Meta = { name: string; backend: string; createdAt: string; updatedAt: string };
-type Status = { backend: string; degraded: boolean; count: number | null; activeLeases: number };
+type Meta = { name: string; backend: string; createdAt?: string; updatedAt?: string };
+type Status = { secrets?: Meta[]; backend: string; degraded: boolean; count: number | null; activeLeases: number };
 type Data = { secrets: Meta[]; status: Status | null };
 type Dlg = null | { kind: "create" } | { kind: "rotate"; name: string } | { kind: "delete"; name: string };
 
-const when = (iso: string): string => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? iso : formatDateTime(d); };
+const when = (iso: string | undefined): string => { if (!iso) return t("secrets.unknown"); const d = new Date(iso); return Number.isNaN(d.getTime()) ? iso : formatDateTime(d); };
 const backendLabel = (b: string): string => (["keyring", "file", "memory", "none"].includes(b) ? t(`secrets.backend.${b}` as Key) : b);
 
 async function load(signal: AbortSignal): Promise<Data> {
@@ -31,7 +31,7 @@ async function load(signal: AbortSignal): Promise<Data> {
     api.rpc("secret.list", {}, { write: false, signal }) as Promise<{ secrets: Meta[] }>,
     (api.rpc("secret.status", {}, { write: false, signal }) as Promise<Status>).catch(() => null),
   ]);
-  return { secrets: [...list.secrets].sort((a, b) => a.name.localeCompare(b.name)), status };
+  return { secrets: [...list.secrets].map(m => { const metadata = status?.secrets?.find(s => s.name === m.name); return { ...m, createdAt: metadata?.createdAt ?? "", updatedAt: metadata?.updatedAt ?? "" }; }).sort((a, b) => a.name.localeCompare(b.name)), status };
 }
 
 const saveFailure = (e: unknown): SaveResult => {
@@ -47,12 +47,15 @@ function Body({ data, reload }: { data: Data; reload: () => void }): View {
 
   const save = async (name: string, value: string): Promise<SaveResult> => {
     const rotated = names.includes(name);
-    let res: unknown;
-    try { res = await getApi().rpc("secret.set", { name, value }); } catch (e) { return saveFailure(e); }
-    // Only metadata comes back. A rotation reports just the new "updated" time; a creation keeps the plain "saved".
-    const at = (res as { updatedAt?: unknown } | null)?.updatedAt;
-    const d = typeof at === "string" ? new Date(at) : null;
-    setNotice(rotated && d && !Number.isNaN(d.getTime()) ? t("secrets.updatedOn", { name, when: formatDateTime(d) }) : t("secrets.saved", { name }));
+    try { await getApi().rpc("secret.set", { name, value }); } catch (e) { return saveFailure(e); }
+    let updatedAt: string | undefined;
+    if (rotated) {
+      try {
+        const status = await getApi().rpc("secret.status", {}, { write: false }) as Status;
+        updatedAt = currentRole() === "owner" ? status.secrets?.find(m => m.name === name)?.updatedAt : undefined;
+      } catch { /* a successful write remains successful when metadata is unavailable */ }
+    }
+    setNotice(rotated && updatedAt ? t("secrets.updatedOn", { name, when: when(updatedAt) }) : t("secrets.saved", { name }));
     reload();
     return { ok: true };
   };
@@ -83,7 +86,7 @@ function Body({ data, reload }: { data: Data; reload: () => void }): View {
         h("thead", {}, h("tr", {}, ["name", "backend", "created", "updated", "actions"].map((c) => h("th", { key: c, scope: "col" }, t(`secrets.col.${c}` as Key))))),
         h("tbody", {}, data.secrets.map((m) => h("tr", { key: m.name },
           h("th", { scope: "row", class: "secret-name" }, m.name),
-          h("td", { "data-label": t("secrets.col.backend") }, backendLabel(m.backend)), h("td", { "data-label": t("secrets.col.created") }, when(m.createdAt)), h("td", { "data-label": t("secrets.col.updated") }, when(m.updatedAt)),
+          h("td", { "data-label": t("secrets.col.backend") }, backendLabel(m.backend)), h("td", { "data-label": t("secrets.col.created") }, when(currentRole() === "owner" ? m.createdAt : undefined)), h("td", { "data-label": t("secrets.col.updated") }, when(currentRole() === "owner" ? m.updatedAt : undefined)),
           h("td", { class: "secret-actions" },
             h("button", { type: "button", class: "btn", "aria-label": t("secrets.rotate.label", { name: m.name }), onClick: () => { setDlg({ kind: "rotate", name: m.name }); } }, t("secrets.rotate")),
             h("button", { type: "button", class: "btn btn-quiet", "aria-label": t("secrets.delete.label", { name: m.name }), onClick: () => { setDlg({ kind: "delete", name: m.name }); } }, t("secrets.delete")))))))),

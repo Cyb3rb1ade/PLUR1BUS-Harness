@@ -38,6 +38,17 @@ impl PendingCrash {
         &self.details
     }
 }
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LastCrashReport {
+    pub at: String,
+    pub kind: String,
+    pub summary: String,
+    pub has_diagnostics: bool,
+}
+const RUN_MARKER: &str = "desktop-running.json";
+const LAST_MARKER: &str = "desktop-last-crash.json";
+
 #[derive(Clone)]
 pub struct CrashReporter {
     writer: Writer,
@@ -65,6 +76,71 @@ impl CrashReporter {
             target: target.into(),
             offers: Arc::new(Mutex::new(())),
         })
+    }
+    /// A durable marker is removed only by orderly native shutdown, never by Drop.
+    pub fn begin_session(&self) -> Result<()> {
+        let directory = self.writer.directory();
+        match directory.read(RUN_MARKER, 128) {
+            Ok(at) => {
+                let at = at.trim();
+                if chrono::DateTime::parse_from_rfc3339(at).is_err() {
+                    return Err(LogError::Invalid("session marker"));
+                }
+                if self.last_report()?.is_none() {
+                    let report = LastCrashReport {
+                        at: at.into(),
+                        kind: "unclean_exit".into(),
+                        summary: "The previous app session did not exit cleanly.".into(),
+                        has_diagnostics: true,
+                    };
+                    let text = serde_json::to_string(&report)
+                        .map_err(|_| LogError::Invalid("crash marker"))?;
+                    let mut file = directory.create(LAST_MARKER)?;
+                    logging::write_crash(&mut file, &text)?;
+                }
+                directory.remove(RUN_MARKER)?;
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e.into()),
+        }
+        let mut file = directory.create(RUN_MARKER)?;
+        logging::write_crash(&mut file, &chrono::Utc::now().to_rfc3339())?;
+        directory.sync()?;
+        Ok(())
+    }
+    pub fn end_session(&self) -> Result<()> {
+        self.remove_marker(RUN_MARKER)
+    }
+    fn remove_marker(&self, name: &str) -> Result<()> {
+        let directory = self.writer.directory();
+        match directory.remove(name) {
+            Ok(()) => {
+                directory.sync()?;
+                Ok(())
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(e.into()),
+        }
+    }
+    pub fn last_report(&self) -> Result<Option<LastCrashReport>> {
+        match self.writer.directory().read(LAST_MARKER, 1024) {
+            Ok(text) => {
+                let report: LastCrashReport =
+                    serde_json::from_str(&text).map_err(|_| LogError::Invalid("crash marker"))?;
+                if report.kind != "unclean_exit"
+                    || chrono::DateTime::parse_from_rfc3339(&report.at).is_err()
+                    || report.summary != "The previous app session did not exit cleanly."
+                {
+                    return Err(LogError::Invalid("crash marker"));
+                }
+                Ok(Some(report))
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+    pub fn dismiss_last(&self) -> Result<()> {
+        self.remove_marker(LAST_MARKER)
     }
     /// Install exactly once, explicitly during native startup. Replaces (never invokes) any previous hook.
     /// A full queue or concurrent panic returns immediately. The worker owns all filesystem and formatting work.

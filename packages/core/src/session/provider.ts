@@ -11,7 +11,11 @@ export type ChatChunk =
 
 export interface TurnApprover { person: string | null; surface: 0 | 1 | 2 | 3 }
 
+export interface RecurringOrigin { jobId: string; jobName: string; runAs: string; trigger: "recurring" }
+
 export interface ChatRequest {
+  /** Trusted internal origin, never accepted as session.submit params. */
+  recurring?: RecurringOrigin;
   turnProfile?: import("../voice/turn-profile.ts").TurnProfile;
   /** Internal background role: the same router/budget, with no tool execution. */
   role?: "summarize"; maxOutputTokens?: number;

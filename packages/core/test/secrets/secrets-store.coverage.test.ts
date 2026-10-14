@@ -135,7 +135,7 @@ describe("secret store coverage: backend selection and status", () => {
     const s = setup();
     await s.store.set(owner, "a", "1");
     const st = await s.store.status(owner);
-    assert.deepEqual(st, { backend: "keyring", degraded: false, keyring: { available: true }, file: { enabled: false, available: null }, count: 1, activeLeases: 0 });
+    assert.deepEqual(st, { backend: "keyring", degraded: false, keyring: { available: true }, file: { enabled: false, available: null }, count: 1, activeLeases: 0, secrets: [{ name: "a", backend: "keyring", createdAt: new Date(s.clock()).toISOString(), updatedAt: new Date(s.clock()).toISOString() }] });
     assert.equal(s.file.probes, 0, "the file backend is not probed while the flag is off");
   });
   it("status with the file enabled and healthy reports file.available true, file reason when present", async () => {

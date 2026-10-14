@@ -1,0 +1,70 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { initial } from "../src/pages/setup/model.ts";
+import { missingPrivacy, privacyChanges } from "../src/pages/setup/privacy.ts";
+test("cloud caption confirmation is separate, and changing provider removes previous metadata", () => {
+    const a = initial().answers;
+    a.media.caption = "openai";
+    assert.equal(missingPrivacy(a), true);
+    const ack = { provider: "openai", acknowledgedAt: "2026-10-14T10:00:00Z", by: "untrusted-browser-id" };
+    a.privacy = { media: ack };
+    assert.equal(missingPrivacy(a), true);
+    a.privacy.caption = ack;
+    assert.equal(missingPrivacy(a), false);
+    const changes = [{ key: "memory.mediaEmbedding.caption.provider", value: "openai" }];
+    const result = privacyChanges(a, changes, { model: "preserved", caption: { maxChars: 100, provider: "other", privacyAck: { ...ack, provider: "other" } } }, "alice");
+    assert.deepEqual(result, [{ key: "memory.mediaEmbedding", value: { model: "preserved", caption: { maxChars: 100, provider: "openai", privacyAck: { ...ack, by: "alice" } } } }]);
+    a.media.caption = "local";
+    a.privacy = {};
+    const local = privacyChanges(a, [{ key: "memory.mediaEmbedding.caption.provider", value: "local" }], (result[0]!.value), "alice");
+    assert.equal((local[0]!.value as any).caption.privacyAck, undefined);
+});
+import { before, after } from "node:test";
+import { browserSkip, setup, teardown, withApp, openRoute } from "./harness.ts";
+import { expectAxeClean } from "./axe.ts";
+import { seed } from "./setup-fixtures.ts";
+before(setup);
+after(teardown);
+test("cloud caption checkbox is required, names provider, and is cleared by a provider change", { skip: browserSkip }, async () => {
+    await withApp({}, async (app) => {
+        seed(app.server.rpc);
+        app.server.rpc.handle("config.get", () => ({ value: { provider: "local-transformers", caption: { maxChars: 100, provider: "local" } }, revision: "current" }), { write: false });
+        await app.page.goto(app.baseUrl);
+        await app.page.evaluate(() => localStorage.setItem("plur1bus.web.setup", JSON.stringify({ v: 1, step: "memory", status: {}, answers: { agentId: "main", displayName: "Owner", createdAt: "", chatModel: "", useClass: "general", embedding: "egemma2", rerank: "bge-m3", nc: null, ncWritten: false, backupId: "", media: { enabled: true, provider: "egemma2", modalities: ["image", "video", "audio"], caption: "openai", captionSource: "prompt-then-user-then-auto", backfill: "auto" }, voice: null } })));
+        await openRoute(app.page, "#/setup");
+        const box = app.page.getByRole("checkbox", { name: "I allow captioning content to be sent to openai." });
+        await box.waitFor();
+        await app.page.getByText("Cloud captioning can be configured, but is not yet connected to the media index. It currently uses local captioning or none.", { exact: true }).waitFor();
+        await app.page.getByRole("button", { name: "Next", exact: true }).click();
+        assert.equal(app.server.rpc.calls.filter(c => c.method === "config.set").length, 0);
+        await box.check();
+        await expectAxeClean(app.page, "setup caption acknowledgment");
+        await app.page.locator("#setup-caption-local").check();
+        await app.page.getByText("Cloud captioning can be configured, but is not yet connected to the media index. It currently uses local captioning or none.", { exact: true }).waitFor({ state: "detached" });
+        await app.page.locator("#setup-caption-openai").check();
+        assert.equal(await box.isChecked(), false);
+        await box.check();
+        await app.page.getByRole("button", { name: "Next", exact: true }).click();
+        await app.page.getByRole("heading", { name: /Language for voice features/ }).waitFor();
+        const call = app.server.rpc.calls.find(c => c.method === "config.set")!;
+        const params: any = call.params;
+        assert.equal(params.ifRevision, "current");
+        const media = params.changes.find((c: any) => c.key === "memory.mediaEmbedding").value;
+        assert.equal(media.caption.privacyAck.provider, "openai");
+        assert.equal(media.caption.privacyAck.by, "owner");
+        assert.equal(media.privacyAck, undefined);
+    });
+});
+
+
+test("German setup explains that cloud caption execution is not connected", { skip: browserSkip }, async () => {
+    await withApp({ locale: "de-DE" }, async app => {
+        seed(app.server.rpc);
+        const saved = initial(); saved.step = "memory"; saved.answers.media.caption = "openai";
+        await app.page.goto(app.baseUrl);
+        await app.page.evaluate(value => localStorage.setItem("plur1bus.web.setup", JSON.stringify(value)), saved);
+        await openRoute(app.page, "#/setup", "de");
+        await app.page.getByText("Cloud-Captioning ist konfigurierbar, aber noch nicht an den Medienindex angeschlossen. Dieser nutzt derzeit lokales Captioning oder keines.", { exact: true }).waitFor();
+        await expectAxeClean(app.page, "German cloud caption connection notice");
+    });
+});

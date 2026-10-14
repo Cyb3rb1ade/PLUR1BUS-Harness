@@ -90,6 +90,8 @@ Object.assign(window, { testShell: {
   failAutostart: () => { autostartFail = true; },
   crashHandled: [] as string[],
   crashCopied: [] as string[],
+  crashActions: [] as string[],
+  openCrashActions: () => { void showCrashOffers([{id:"owned-crash",details:"synthetic details"}], async id => { (window as any).testShell.crashHandled.push(id); }, async () => {}, {open:async()=>{(window as any).testShell.crashActions.push("open");}, restart:async()=>{(window as any).testShell.crashActions.push("restart");}}); },
   openCrash: (failCopy = false, failAck = false) => { void showCrashOffers([{id:"owned-crash",details:"<img src=x onerror=alert(1)> synthetic details"}], async id => { if(failAck)throw new Error("injected"); (window as any).testShell.crashHandled.push(id); }, async text => { if(failCopy)throw new Error("injected"); (window as any).testShell.crashCopied.push(text); }); },
   quitDecisions: [] as string[],
   setQuitFailure: (value: boolean) => { failQuit = value; },

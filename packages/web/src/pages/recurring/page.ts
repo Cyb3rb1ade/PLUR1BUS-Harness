@@ -21,6 +21,8 @@ import type {
 } from "../common/surfaces-rpc.ts";
 
 import "../../styles/recurring.css";
+import { UserJobsPanel } from "./user-jobs.ts";
+import type { UserJob } from "../../../../rpc-schema/generated/types.ts";
 
 registerArea("recurring", area);
 
@@ -137,12 +139,13 @@ function JobsListTab(): View {
   if (state.status === "fail")
     return h(FailureState, { failure: state.failure, onRetry: reload });
 
-  const jobs = state.data.jobs ?? [];
+  const allJobs = state.data.jobs ?? [];
+  const jobs = allJobs.filter(j => j.kind !== "user");
 
   return h(
     "div",
     null,
-    h("div", { class: "recurring-gap-notice", role: "note" }, t("recurring.gap.notice")),
+    h(UserJobsPanel, { jobs: allJobs.filter(j => j.kind === "user") as UserJob[], targets: state.data.manageableAgents ?? [], reload }),
     jobs.length === 0
       ? h(PageState, { state: "empty", title: t("recurring.empty.jobs") })
       : h(

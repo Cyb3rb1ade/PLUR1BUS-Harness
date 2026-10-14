@@ -1,0 +1,10 @@
+{
+  "params": {
+    "id": "user:fixture",
+    "confirm": true
+  },
+  "result": {
+    "id": "user:fixture",
+    "deleted": true
+  }
+}

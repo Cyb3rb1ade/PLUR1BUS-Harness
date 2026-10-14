@@ -577,14 +577,7 @@ pub struct CrashOffer {
 #[tauri::command]
 pub async fn crash_offers(window: WebviewWindow) -> Result<Vec<CrashOffer>, String> {
     check(&window, "crash_offers")?;
-    let reporter = window
-        .app_handle()
-        .state::<crate::native::NativeState>()
-        .diagnostics
-        .lock()
-        .unwrap()
-        .as_ref()
-        .map(|d| d.crash.clone());
+    let reporter = crash_reporter(&window).ok();
     tauri::async_runtime::spawn_blocking(move || {
         let Some(reporter) = reporter else {
             return Ok(Vec::new());
@@ -609,15 +602,7 @@ pub async fn crash_offers(window: WebviewWindow) -> Result<Vec<CrashOffer>, Stri
 #[tauri::command]
 pub async fn crash_handled(window: WebviewWindow, id: String) -> Result<(), String> {
     check(&window, "crash_handled")?;
-    let reporter = window
-        .app_handle()
-        .state::<crate::native::NativeState>()
-        .diagnostics
-        .lock()
-        .unwrap()
-        .as_ref()
-        .map(|d| d.crash.clone())
-        .ok_or_else(|| "CRASH_UNAVAILABLE".to_owned())?;
+    let reporter = crash_reporter(&window)?;
     tauri::async_runtime::spawn_blocking(move || {
         let offers = reporter
             .pending()
@@ -632,4 +617,77 @@ pub async fn crash_handled(window: WebviewWindow, id: String) -> Result<(), Stri
     })
     .await
     .map_err(|_| "CRASH_HANDLING_FAILED".to_owned())?
+}
+
+// Fixed diagnostic destination; renderer supplies neither a path nor an executable.
+fn crash_reporter(window: &WebviewWindow) -> Result<crate::crash::CrashReporter, String> {
+    let state = window
+        .app_handle()
+        .try_state::<crate::native::NativeState>()
+        .ok_or("CRASH_UNAVAILABLE")?;
+    let diagnostics = state.diagnostics.lock().map_err(|_| "CRASH_UNAVAILABLE")?;
+    diagnostics
+        .as_ref()
+        .map(|d| d.crash.clone())
+        .ok_or("CRASH_UNAVAILABLE".into())
+}
+#[tauri::command]
+pub async fn crash_last_report(
+    window: WebviewWindow,
+) -> Result<Option<crate::crash::LastCrashReport>, String> {
+    check(&window, "crash_last_report")?;
+    let reporter = crash_reporter(&window)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        reporter
+            .last_report()
+            .map_err(|_| "CRASH_READ_FAILED".into())
+    })
+    .await
+    .map_err(|_| "CRASH_READ_FAILED")?
+}
+#[tauri::command]
+pub async fn crash_dismiss(window: WebviewWindow) -> Result<(), String> {
+    check(&window, "crash_dismiss")?;
+    let reporter = crash_reporter(&window)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        reporter
+            .dismiss_last()
+            .map_err(|_| "CRASH_HANDLING_FAILED".into())
+    })
+    .await
+    .map_err(|_| "CRASH_HANDLING_FAILED")?
+}
+#[tauri::command]
+pub async fn diagnostics_open(window: WebviewWindow) -> Result<(), String> {
+    check(&window, "diagnostics_open")?;
+    let folder = crash_reporter(&window)?.folder().to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || {
+        #[cfg(target_os = "macos")]
+        let mut command = std::process::Command::new("/usr/bin/open");
+        #[cfg(target_os = "windows")]
+        let mut command = std::process::Command::new("explorer.exe");
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        let mut command = std::process::Command::new("xdg-open");
+        command
+            .arg(folder)
+            .status()
+            .map_err(|_| "DIAGNOSTICS_OPEN_FAILED".to_owned())
+            .and_then(|status| {
+                if status.success() {
+                    Ok(())
+                } else {
+                    Err("DIAGNOSTICS_OPEN_FAILED".into())
+                }
+            })
+    })
+    .await
+    .map_err(|_| "DIAGNOSTICS_OPEN_FAILED")?
+}
+#[tauri::command]
+pub fn crash_restart(window: WebviewWindow) -> Result<(), String> {
+    check(&window, "crash_restart")?;
+    crash_reporter(&window)?
+        .end_session()
+        .map_err(|_| "CRASH_HANDLING_FAILED")?;
+    window.app_handle().restart();
 }

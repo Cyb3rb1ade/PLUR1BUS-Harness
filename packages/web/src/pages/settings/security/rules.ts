@@ -1,6 +1,5 @@
 // Settings > Security & Permissions: which rules the page shows and how a raw `config.get` value is turned into words. Only keys
-// that exist in config.schema.json are listed. Everything the schema has no key for (how long an approval lives, whether the OS
-// confirmation is required, the break-glass limits) is fixed in the core and is deliberately not shown here.
+// that exist in config.schema.json are listed. Numeric security limits are projected separately in limits.ts.
 import type { Key } from "../../../i18n.ts";
 
 export type RuleKind = "bool" | "publish";
