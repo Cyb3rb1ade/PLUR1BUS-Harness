@@ -2,7 +2,7 @@
 // caption and, for video and audio, the segment with a jump into the player, and caption editing for people allowed to edit.
 // Empty states: media off, no media index on this engine (unavailable), backfill still running (not everything searchable).
 import { h } from "preact";
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { signal } from "@preact/signals";
 import type { View } from "../../view.ts";
 import { PageLoading } from "../../components/page-state.ts";
@@ -10,7 +10,7 @@ import { t, formatNumber, type Key } from "../../i18n.ts";
 import { FailureState, Notice } from "../common/states.ts";
 import { currentRole, failureOf, getApi, useLoad } from "../common/load.ts";
 import type { MediaIndexKind, MediaIndexStatus, MediaSearchHit } from "../../../../rpc-schema/generated/types.ts";
-import { MEDIA_KINDS, backfillView, canEditCaption, jumpSeconds, mediaErrorOf, problemText, searchParams, segmentLabel, type SearchForm } from "./model.ts";
+import { MEDIA_KINDS, backfillView, canEditCaption, jumpSeconds, mediaErrorOf, parseHits, playableType, problemText, searchParams, segmentLabel, type SearchForm } from "./model.ts";
 import "./rpc-types.ts";
 
 /** The medium "Find similar" points at. Set by a SimilarButton on a medium, read by the search form. */
@@ -59,25 +59,37 @@ function SearchBody({ status }: { status: MediaIndexStatus }): View {
   const [draftText, setDraftText] = useState("");
 
   const like = similarTo.value;
+  // An answer is shown only while it is the newest request: `latest` moves on with every search and play, when the "similar to"
+  // medium changes or is cleared, and when the view goes away, so a slow answer never replaces what the person has since asked for.
+  const latest = useRef(0);
+  const latestPlay = useRef(0);
+  useEffect(() => { latest.current += 1; setBusy(false); }, [like]);
+  useEffect(() => () => { latest.current += 1; latestPlay.current += 1; }, []);
   const submit = async (e: Event): Promise<void> => {
     e.preventDefault();
     const params = searchParams({ ...form, ...(like ? { likeMediaId: like } : {}) });
     if (!params) { setHits(null); setError(t("mediasearch.search.noQuery")); return; }
+    if (busy) return;
+    const mine = ++latest.current;
     setBusy(true); setError("");
     try {
-      const r = await getApi().rpc("media.search", params, { write: false });
-      setHits(r.hits);
+      const found = parseHits(await getApi().rpc("media.search", params, { write: false }));
+      if (found === null) throw new Error("no hits");
+      if (mine === latest.current) setHits(found);
     } catch (err) {
+      if (mine !== latest.current) return;
       setHits(null);
       const code = mediaErrorOf(err);
       setError(code ? problemText(code) : t("mediasearch.search.failed"));
-    } finally { setBusy(false); }
+    } finally { if (mine === latest.current) setBusy(false); }
   };
 
   const play = async (hit: MediaSearchHit): Promise<void> => {
+    const mine = ++latestPlay.current;
     try {
       const f = (await getApi().rpc("media.output.get", { id: hit.mediaId, file: 0 }, { write: false })) as { data?: string; mimeType?: string };
-      if (typeof f.data !== "string" || typeof f.mimeType !== "string") throw new Error("no media");
+      if (mine !== latestPlay.current) return;
+      if (typeof f.data !== "string" || typeof f.mimeType !== "string" || !playableType(f.mimeType, hit.kind) || !/^[A-Za-z0-9+/]*={0,2}$/.test(f.data)) throw new Error("no media");
       setPlayer({ hit, kind: hit.kind, src: `data:${f.mimeType};base64,${f.data}#t=${jumpSeconds(hit.segment?.startMs ?? 0)}` });
     } catch {
       setError(t("mediasearch.search.failed"));

@@ -29,6 +29,11 @@ function abortError(signal: AbortSignal): ProviderError {
   return new ProviderError("aborted", "call aborted by the caller", { cause: signal.reason });
 }
 
+/** Own-property lookup: a name like "constructor" or "__proto__" must not find a member of `Object.prototype`. */
+function own<T>(table: Readonly<Record<string, T>> | undefined, name: string): T | undefined {
+  return table !== undefined && Object.hasOwn(table, name) ? table[name] : undefined;
+}
+
 function throwIfAborted(signal: AbortSignal | undefined): void {
   if (signal?.aborted) throw abortError(signal);
 }
@@ -51,7 +56,7 @@ export class ProviderRouter {
 
   /** Whether a profile name is known to this router (executable or not). */
   hasProfile(profile: string): boolean {
-    return this.#cfg.profiles[profile] !== undefined;
+    return own(this.#cfg.profiles, profile) !== undefined;
   }
 
   breakerState(provider: string, model: string): BreakerState {
@@ -74,9 +79,9 @@ export class ProviderRouter {
    * caller abort at any point (before an attempt, while waiting to retry, mid-stream) is a `ProviderError` of kind `aborted`.
    */
   async *stream(profile: string, request: ChatRequest, options: CallOptions = {}): AsyncGenerator<RoutedEvent, void, void> {
-    const unsupported = this.#cfg.unsupportedProfiles?.[profile];
+    const unsupported = own(this.#cfg.unsupportedProfiles, profile);
     if (unsupported !== undefined) throw new RouterError("unsupported_strategy", `profile "${profile}" cannot be executed: ${unsupported}`);
-    const candidates = this.#cfg.profiles[profile];
+    const candidates = own(this.#cfg.profiles, profile);
     if (candidates === undefined || candidates.length === 0) throw new RouterError("unknown_profile", `no candidates for profile "${profile}"`);
     const effective = this.#withDefaults(profile, request);
     const maxAttempts = this.#cfg.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
@@ -185,7 +190,7 @@ export class ProviderRouter {
   }
 
   #withDefaults(profile: string, request: ChatRequest): ChatRequest {
-    const d = this.#cfg.profileDefaults?.[profile];
+    const d = own(this.#cfg.profileDefaults, profile);
     if (d === undefined) return request;
     const out: ChatRequest = { ...request };
     if (out.temperature === undefined && d.temperature !== undefined) out.temperature = d.temperature;

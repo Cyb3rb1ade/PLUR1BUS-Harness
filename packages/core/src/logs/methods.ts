@@ -32,7 +32,10 @@ const TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
 function bound(name: string, v: unknown): string | undefined {
   if (v === undefined) return undefined;
   if (typeof v !== "string" || !TS.test(v) || Number.isNaN(Date.parse(v))) throw new RpcError("E_INVALID_PARAMS", `${name} must be an RFC 3339 UTC timestamp`, { reason: "bad-timestamp" });
-  return new Date(v).toISOString();
+  const iso = new Date(v).toISOString();
+  // Date.parse rolls impossible dates over (02-30 becomes 03-02, 24:00 the next day): that would filter another range than asked for.
+  if (iso.slice(0, 19) !== v.slice(0, 19)) throw new RpcError("E_INVALID_PARAMS", `${name} is not a valid calendar time`, { reason: "bad-timestamp" });
+  return iso;
 }
 
 interface Params { stream?: "diagnostic" | "audit"; from?: string; to?: string; minLevel?: LogFilter["minLevel"]; component?: string; text?: string; limit?: number; cursor?: string; order?: Order; waitMs?: number }
