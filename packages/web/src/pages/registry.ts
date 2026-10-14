@@ -64,5 +64,5 @@ let galleryPage: PageComponent | undefined;
 export function pageFor(id: string): PageComponent {
   // Written inline so that the bundler folds the build-time constant and drops the gallery from the shipped bundle.
   if (typeof __GALLERY__ !== "undefined" && __GALLERY__ && id === GALLERY_ITEM.id) return (galleryPage ??= lazyPage(() => import("./gallery.ts").then((m) => m.GalleryPage)));
-  return PAGES[id] ?? PlaceholderPage;
+  return Object.hasOwn(PAGES, id) ? PAGES[id]! : PlaceholderPage;
 }

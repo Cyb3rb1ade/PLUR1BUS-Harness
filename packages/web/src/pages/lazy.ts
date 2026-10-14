@@ -53,6 +53,6 @@ export function lazyPage(load: () => Promise<PageComponent>, width: PageLayoutPr
     if (comp) return h(comp, props);
     const title = t(props.item.label);
     return h(Page, { title, width },
-      failed ? h(PageState, { state: "error", onRetry: () => { setAttempt((n) => n + 1); } }) : h(PageLoading, { label: t("state.loading") }));
+      failed ? h(PageState, { state: "error", title: t("state.loadFailed.title"), detail: t("state.loadFailed.body"), onRetry: () => { setAttempt((n) => n + 1); } }) : h(PageLoading, { label: t("state.loading") }));
   };
 }

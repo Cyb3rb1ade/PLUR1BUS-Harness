@@ -82,6 +82,8 @@ export const en = {
   "dialog.close": "Close",
   "nav.inboxUnread": "{count} unread",
   "nav.breakglass": "Break-Glass",
+  "state.loadFailed.title": "This page could not be loaded",
+  "state.loadFailed.body": "The part of the app for this page did not arrive. Check your connection and try again; after an update, reload the page to get the new version.",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -166,4 +168,6 @@ export const de: Record<keyof typeof en, string> = {
   "dialog.close": "Schließen",
   "nav.inboxUnread": "{count} ungelesen",
   "nav.breakglass": "Break-Glass",
+  "state.loadFailed.title": "Diese Seite konnte nicht geladen werden",
+  "state.loadFailed.body": "Der Teil der App für diese Seite ist nicht angekommen. Prüfe die Verbindung und versuche es erneut; nach einem Update lade die Seite neu, um die neue Version zu erhalten.",
 };

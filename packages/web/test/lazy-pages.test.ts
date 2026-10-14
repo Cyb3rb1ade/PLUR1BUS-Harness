@@ -35,6 +35,7 @@ describe("lazy pages", opts, () => {
       await page.getByRole("heading", { name: "Doctor", level: 1 }).waitFor();
       const retry = page.getByRole("button", { name: "Try again" });
       await retry.waitFor();
+      assert.ok(await page.getByText("The part of the app for this page did not arrive").isVisible(), "says that the page could not be loaded, not a generic failure");
       await page.unroute(chunk);
       await retry.click();
       await page.getByRole("button", { name: "Re-check" }).waitFor();
