@@ -60,6 +60,7 @@ export const en = {
   "session.error.expired": "Your session has expired. Sign in again.",
   "session.error.csrf": "The request was refused (security token). Reload the page and try again.",
   "session.error.rate": "Too many requests. Try again in a moment.",
+  "session.error.rateWait": "Too many requests. Try again in {seconds} s.",
   "session.error.network": "The harness cannot be reached. Check that it is running.",
   "session.error.server": "The harness answered with an error ({status}). Try again.",
   "app.moreActions": "More actions",
@@ -80,8 +81,12 @@ export const en = {
   "nav.gallery": "Pattern gallery",
   "nav.setup": "First-run setup",
   "dialog.close": "Close",
+  "nav.wordmarkHome": "PLUR1BUS Home",
+  "nav.wordmark": "PLUR1BUS - {name}",
   "nav.inboxUnread": "{count} unread",
   "nav.breakglass": "Break-Glass",
+  "state.loadFailed.title": "This page could not be loaded",
+  "state.loadFailed.body": "The part of the app for this page did not arrive. Check your connection and try again; after an update, reload the page to get the new version.",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -144,6 +149,7 @@ export const de: Record<keyof typeof en, string> = {
   "session.error.expired": "Deine Sitzung ist abgelaufen. Melde dich erneut an.",
   "session.error.csrf": "Die Anfrage wurde abgelehnt (Sicherheits-Token). Lade die Seite neu und versuche es erneut.",
   "session.error.rate": "Zu viele Anfragen. Versuche es gleich noch einmal.",
+  "session.error.rateWait": "Zu viele Anfragen. Versuche es in {seconds} s noch einmal.",
   "session.error.network": "Die Harness ist nicht erreichbar. Prüfe, ob sie läuft.",
   "session.error.server": "Die Harness meldet einen Fehler ({status}). Versuche es erneut.",
   "app.moreActions": "Weitere Aktionen",
@@ -164,6 +170,10 @@ export const de: Record<keyof typeof en, string> = {
   "nav.gallery": "Mustergalerie",
   "nav.setup": "Ersteinrichtung",
   "dialog.close": "Schließen",
+  "nav.wordmarkHome": "PLUR1BUS Startseite",
+  "nav.wordmark": "PLUR1BUS - {name}",
   "nav.inboxUnread": "{count} ungelesen",
   "nav.breakglass": "Break-Glass",
+  "state.loadFailed.title": "Diese Seite konnte nicht geladen werden",
+  "state.loadFailed.body": "Der Teil der App für diese Seite ist nicht angekommen. Prüfe die Verbindung und versuche es erneut; nach einem Update lade die Seite neu, um die neue Version zu erhalten.",
 };

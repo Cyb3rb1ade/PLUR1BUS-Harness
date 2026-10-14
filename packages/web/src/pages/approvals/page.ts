@@ -391,7 +391,7 @@ function GrantsList(): View {
           h("th", null, t("approvals.grant.scope")),
           h("th", null, t("approvals.grant.state")),
           h("th", null, t("approvals.grant.expires")),
-          h("th", null, t("approvals.grant.action")),
+          h("th", null, t("approvals.col.action")),
         ),
       ),
       h(

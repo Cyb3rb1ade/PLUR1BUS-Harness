@@ -18,6 +18,12 @@ Hash routes. The landing route is `#/chat`. A page owns its `<h1>`; the shell mo
 `PageState` kinds (`components/page-state.ts`): loading, empty, error, forbidden, unavailable. Lists of nav ids are in `src/nav.ts`,
 the page for each id in `src/pages/registry.ts`.
 
+Route names are percent-encoded segments: build them with `routePath("skills", name)` (never a template string), read `Route.sub` (kept
+encoded) with `subSegments(sub)`. `.`/`..` segments (also encoded), malformed escapes and paths over 2048 characters are not-found.
+A page with unsaved edits calls `registerDirtyGuard(isDirty, message)` (or `registerLeaveGuard`) and calls the disposer on unmount;
+`navigate`, links, the sidebar, the palette and the back button then ask first, and a refused hash change puts the address bar back
+(the history keeps one extra entry). Redirects the app makes itself pass `{ force: true }`.
+
 | Route | Page | Nav group | States | Notes |
 |---|---|---|---|---|
 | `/chat`, `/chat/new`, `/chat/<sessionId>` | Chat | Workspace | all five; a missing session (`E_NOT_FOUND`) and an archived one (`E_CONFLICT`) show as empty with their own text | History column plus conversation (`ListDetail`, the conversation replaces the list in compact). New chat: agent from `GET /api/v1/agents`, "not remembered" switch (`memoryMode: "incognito"`), first message. Transcript follows `session.event` on SSE; without `/events` it polls `session.events` every 1 s, only while a reply is running. Send, cancel, unsent text is put back on failure. |
@@ -37,7 +43,7 @@ the page for each id in `src/pages/registry.ts`.
 | `/logs`, `/logs/activity`, `/logs/sessions` | Logs (tabs Logs, Activity, Sessions) | Control | all five per tab | Log viewer: filters, cursor paging, live tail (long poll, pause with buffer), virtual list, detail with redaction marks, export. Activity: grouped, human-readable events and the `audit.verify` status. Sessions: operators see other people's sessions (filter owner/agent, columns owner, model, usage), transcripts only through an active break-glass window (F41, F42). Links `?trace=`, `?q=`, `?stream=` prefill the viewer. The time range (last 24 hours, 7 days, 30 days, all) is sent as `from` to `logs.query`. Agent state history uses `agent.activity.list` with agent ID, from/until and cursor paging. Owner/Admin see all agents; other human roles need use/manage rights. The protected audit feed remains Owner/Admin. |
 | `/projects`, `/projects/<id>` | Projects | main | all five | Projects Kanban board with project list in the sidebar (open and overdue badges), columns with WIP limits, cards with priorities, due dates, links, assignees with agent icons, drag & drop and accessible keyboard navigation (aria-live), detail drawer with safe Markdown, comments, activity, filters, and /events live sync (F29). Column delete with cards needs a target column: the form states the card count, and with no other column the button stays disabled. A WIP refusal on delete names the column. Card priority changes from the drawer footer (`project.card.update`). |
 | `/home` | Home | none (accessible via wordmark logo) | all five | Links to FAQ, guides (bundled user docs), repositories, contact and donation placeholders (hidden while empty), compact version/build and core status. Clicking wordmark logo morphs back into "PLUR1BUS" and navigates to `#/home`. The status card shows only what `/api/v1/health` and `core.status` report (no invented version), says "Status is not available for your role." instead of "Disconnected" when every source answers 403 (a Member or Viewer lacks `doctor.read`), offers Retry and never takes the links with it (`home-hardening.test.ts`). |
-| `/help`, `/help/<slug>` | Help | pinned | all five | Bundled user documentation from `docs/user/{de,en}` rendered safely as HTML-free Markdown; follows UI language; table of contents, local search, deep-linking per page chunk. |
+| `/help`, `/help/<slug>` | Help | pinned | all five | Bundled user documentation from `docs/user/{de,en}` rendered safely as HTML-free Markdown; follows UI language; table of contents, local search (titles and slugs, plain text), deep-linking per page chunk and per heading (`#/help/<slug>#<heading>`); a page the German handbook lacks opens in English; links other than http(s)/mailto, handbook pages and anchors are shown as text. |
 | `/library` | Library | Workspace | all five | Media library gallery over `media.output.list`, filters by kind (image/video/audio), preview via `media.output.get`, download, deletion confirmation via `media.output.delete`, caption inspect/edit via `media.caption.set`. Links to `#/media` for media search. |
 | `/setup`, `/setup?mode=bundled` | First-run wizard | none (not in the sidebar) | per step | Eight steps (seven when bundled), progress, back/next/skip, resume after reload, licence gate for non-commercial embedding models, and voice language selection step with system language preselected. |
 | `/skills`, `/plugins` | Skills & Plugins | Workspace | all five | Single shared extensions view (`ExtensionsPage`) filterable between Skills, Plugins and Modules. List from `ext.list`, detail from `ext.show`/`ext.inspect`, enable/disable (`ext.enable`/`ext.disable`), uninstall dialog with purge/cascade options (`ext.uninstall`), restore from trash (`ext.restore`), local file upload/install (`.p1x`/tarball) with inspection before confirm (`ext.install`), and notice for plur1bus.app remote catalog. Live updates via `ext.watch` SSE. |
@@ -247,8 +253,10 @@ Pages depend on the `Api` interface (`rpc`, `get`, `post`, `put`, `patch`, `dele
   pill; only when signed in. Index: navigation entries built from `nav.ts` (plus `/memories/dreams`), and settings from
   `settings-index.ts`, a static subset of `packages/config-schema/schema/config.schema.json` (a test fails when it drifts). Labels
   are derived from the key (`softBudgetMs` becomes "Soft budget ms"), help is the schema's English. Current values come from
-  `config.get`, best effort (any failure means no values). Keys whose name contains `key`, `token`, `secret`, `password` or
-  `credential` are never indexed with a value. A settings hit navigates to `#/settings?focus=<key>`; the router drops the query and
+  `config.get`, best effort (any failure means no values). Keys whose name contains `key`, `token`, `secret`, `passw`, `pwd`,
+  `passphrase`, `credential`, `authorization`, `bearer`, `cookie`, `private`, `signature`, `jwt` or `hmac`, or whose last segment is `auth`,
+  are never indexed with a value (the list of the Settings page). In any other value, `user:password@` of a URL and secret-named query
+  parameters are masked. A settings hit navigates to `#/settings?focus=<key>`; the router drops the query and
   the page is a placeholder (F16, F27).
 
 ## Tests and verification

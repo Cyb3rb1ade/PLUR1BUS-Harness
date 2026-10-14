@@ -27,11 +27,11 @@ export function bindApp(): () => void {
       if (s.status === "anonymous" && r.kind !== "login") {
         const p = path.value;
         returnTo = resolve(p).kind === "page" ? p : null;
-        navigate("/login", { replace: true });
+        navigate("/login", { replace: true, force: true });
       } else if (s.status === "authenticated" && r.kind === "login") {
         const to = returnTo ?? LANDING;
         returnTo = null;
-        navigate(to, { replace: true });
+        navigate(to, { replace: true, force: true });
       }
     }),
     bindPalette(),

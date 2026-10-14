@@ -3,7 +3,7 @@ import { h } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../view.ts";
 import { route, navigate } from "../router.ts";
-import { t } from "../i18n.ts";
+import { lang, t } from "../i18n.ts";
 import { LANDING } from "../nav.ts";
 import "../styles/morph.css";
 
@@ -28,6 +28,9 @@ const SECTION_NAMES_EN: Record<string, string> = {
   settings: "SETTINGS",
   help: "HELP",
   setup: "SETUP",
+  breakglass: "BREAK-GLASS",
+  media: "MEDIA",
+  identities: "IDENTITIES",
 };
 
 const SECTION_NAMES_DE: Record<string, string> = {
@@ -50,6 +53,9 @@ const SECTION_NAMES_DE: Record<string, string> = {
   settings: "EINSTELLUNGEN",
   help: "HILFE",
   setup: "EINRICHTUNG",
+  breakglass: "BREAK-GLASS",
+  media: "MEDIEN",
+  identities: "IDENTITÄTEN",
 };
 
 /** Pivot index or letter: find '1' or 'I' or middle */
@@ -80,8 +86,7 @@ export function V2LogoMorph(): View {
   const isHome = currentSection === "home";
 
   // Determine target word based on language and current section
-  const lang = document.documentElement.lang || "en";
-  const nameMap = lang.startsWith("de") ? SECTION_NAMES_DE : SECTION_NAMES_EN;
+  const nameMap = lang.value === "de" ? SECTION_NAMES_DE : SECTION_NAMES_EN;
   const targetWord = isHome ? "PLUR1BUS" : (nameMap[currentSection] || "PLUR1BUS");
 
   const [displayedWord, setDisplayedWord] = useState(targetWord);
@@ -89,7 +94,7 @@ export function V2LogoMorph(): View {
   const prevWordRef = useRef(targetWord);
 
   useEffect(() => {
-    if (prevWordRef.current === targetWord) return;
+    if (prevWordRef.current === targetWord) { setCollapsed(false); return; } // back to the word on show before the collapse finished
 
     // Check prefers-reduced-motion
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -113,6 +118,7 @@ export function V2LogoMorph(): View {
   const { before, pivot, after } = splitWord(displayedWord);
 
   const handleClick = (e: MouseEvent) => {
+    if (e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return; // open in a new tab / window: the href does it
     e.preventDefault();
     // Transform wordmark back into PLUR1BUS and navigate to Home
     setDisplayedWord("PLUR1BUS");
@@ -126,7 +132,7 @@ export function V2LogoMorph(): View {
       class: "wordmark wordmark-morph",
       href: "#/home",
       onClick: handleClick,
-      "aria-label": isHome ? "PLUR1BUS Home" : `PLUR1BUS - ${displayedWord}`,
+      "aria-label": isHome ? t("nav.wordmarkHome") : t("nav.wordmark", { name: displayedWord }),
       "data-collapsed": String(collapsed),
     },
     h("span", { class: `morph-wing wing-before ${collapsed ? "collapsed" : ""}` }, before),

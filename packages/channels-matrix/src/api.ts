@@ -64,7 +64,8 @@ export function clampRetryAfter(ms: number | undefined): number {
 export function parseMxc(uri: unknown): { server: string; mediaId: string } | undefined {
   if (typeof uri !== "string") return undefined;
   const m = /^mxc:\/\/([A-Za-z0-9.\-:[\]]{1,255})\/([A-Za-z0-9_-]{1,255})$/.exec(uri);
-  return m ? { server: m[1]!, mediaId: m[2]! } : undefined;
+  // A server made only of dots ("..") would be resolved by the URL parser and climb out of the media path.
+  return m && !/^\.+$/.test(m[1]!) ? { server: m[1]!, mediaId: m[2]! } : undefined;
 }
 
 export interface MatrixApiOptions {
@@ -85,6 +86,10 @@ export interface WhoAmI {
 }
 
 const MAX_JSON_BYTES = 4 * 1024 * 1024;
+/** Error bodies are only mined for `errcode` and `retry_after_ms`; anything longer is not read. */
+const MAX_ERROR_BODY_BYTES = 64 * 1024;
+/** Framing of a multipart/mixed media response (boundaries, JSON metadata part, headers) on top of the media itself. */
+const MULTIPART_SLACK_BYTES = 8 * 1024;
 
 export class MatrixApi {
   readonly #token: string;
@@ -234,7 +239,7 @@ export class MatrixApi {
     const contentType = res.headers.get("content-type") ?? "application/octet-stream";
     const boundary = /multipart\/mixed;.*boundary="?([^";]+)"?/i.exec(contentType)?.[1];
     if (boundary) {
-      const body = await readBounded(res, maxBytes);
+      const body = await readBounded(res, maxBytes + MULTIPART_SLACK_BYTES);
       // Part 0 is JSON metadata: a redirect (location) is refused, never followed. Part 1 is the media.
       const meta = multipartPart(body, boundary, 0);
       if (meta && meta.contentType === "application/json" && /"location"\s*:/.test(Buffer.from(meta.body).toString("utf8")))
@@ -321,7 +326,7 @@ async function failure(res: Response, label: string, token: string): Promise<Mat
   let errcode: string | undefined;
   let retryAfterMs: number | undefined;
   try {
-    const j = (await res.json()) as { errcode?: unknown; retry_after_ms?: unknown };
+    const j = JSON.parse(new TextDecoder().decode(await readBounded(res, MAX_ERROR_BODY_BYTES))) as { errcode?: unknown; retry_after_ms?: unknown };
     if (typeof j.errcode === "string" && /^M_[A-Z_]{1,40}$/.test(j.errcode)) errcode = j.errcode;
     if (typeof j.retry_after_ms === "number") retryAfterMs = j.retry_after_ms;
   } catch {

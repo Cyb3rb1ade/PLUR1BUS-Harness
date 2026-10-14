@@ -92,14 +92,19 @@ export function mentionsBot(
   const m = content["m.mentions"];
   if (isObj(m)) return Array.isArray(m.user_ids) && m.user_ids.includes(bot.userId);
   const localpart = bot.userId.slice(1).split(":")[0] ?? "";
-  const needles = [bot.userId, `@${localpart}`];
-  if (bot.displayName && bot.displayName.length >= 2) needles.push(bot.displayName);
-  return needles.some((n) => boundaryMatch(body, n));
+  const ids = [bot.userId, `@${localpart}`];
+  if (ids.some((n) => boundaryMatch(body, n, ID_TAIL))) return true;
+  return bot.displayName !== undefined && bot.displayName.length >= 2 && boundaryMatch(body, bot.displayName, WORD_TAIL);
 }
 
-function boundaryMatch(text: string, needle: string): boolean {
+const WORD_TAIL = "(?![A-Za-z0-9_])";
+/** An mxid or `@localpart` continues into a longer user id (`@bot:other.org`, `@bot:hs.test.evil.org`, `@bot:hs.test:8448`)
+ *  when followed by more id characters; punctuation such as `@bot: hi` or `@bot:hs.test.` still ends it. */
+const ID_TAIL = "(?![A-Za-z0-9_-]|\\.[A-Za-z0-9]|:[A-Za-z0-9\\[])";
+
+function boundaryMatch(text: string, needle: string, tail: string): boolean {
   const esc = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(^|[^A-Za-z0-9_])${esc}(?![A-Za-z0-9_])`, "i").test(text);
+  return new RegExp(`(^|[^A-Za-z0-9_])${esc}${tail}`, "i").test(text);
 }
 
 /** Thread-aware chat ids: `<roomId>` or `<roomId>:<threadRootEventId>`. The room id itself contains a colon. */

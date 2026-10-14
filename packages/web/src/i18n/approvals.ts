@@ -71,7 +71,7 @@ export const en = {
   "approvals.done.denied": "Denied.",
   "approvals.done.cancelled": "Request cancelled.",
   "approvals.done.revoked": "Grant revoked.",
-  "approvals.grant.action": "Action",
+  "approvals.col.action": "Action",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -146,5 +146,5 @@ export const de: Record<keyof typeof en, string> = {
   "approvals.done.denied": "Abgelehnt.",
   "approvals.done.cancelled": "Anfrage abgebrochen.",
   "approvals.done.revoked": "Grant widerrufen.",
-  "approvals.grant.action": "Aktion",
+  "approvals.col.action": "Aktion",
 };
