@@ -12,7 +12,9 @@ export function capSubagentResult(value: unknown, o: SubagentCapOptions): Capped
     if (!Number.isSafeInteger(n) || n < 0) throw new RangeError('invalid token count');
     return n;
   };
-  const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+  let text: string | undefined;
+  try { text = typeof value === 'string' ? value : JSON.stringify(value, null, 2); }
+  catch (cause) { throw new RangeError('result must be JSON serializable', { cause }); } // circular structure, BigInt, throwing toJSON
   if (text === undefined) throw new RangeError('result must be JSON serializable');
   const originalTokens = count(text);
   if (originalTokens <= limit) return { kind: 'complete', value };

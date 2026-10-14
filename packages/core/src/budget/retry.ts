@@ -31,8 +31,8 @@ export class RetryBudget {
   }
   consume(turnId: string, failureClass: RetryClass, estimatedCostMicros: number): number {
     if (!turnId || !Number.isSafeInteger(estimatedCostMicros) || estimatedCostMicros < 0) throw new RangeError('invalid retry reservation');
+    if (!Object.hasOwn(this.policy, failureClass)) throw new RangeError('unknown failure class');
     const rule = this.policy[failureClass];
-    if (!rule) throw new RangeError('unknown failure class');
     const turn = this.turns.get(turnId) ?? { total: 0, classes: {} };
     const prev = turn.classes[failureClass] ?? { attempts: 0, cost: 0 };
     if (prev.attempts >= rule.maxAttempts) throw new RetryBudgetExceededError(failureClass, 'attempts');
