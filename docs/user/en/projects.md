@@ -35,7 +35,7 @@ Columns can be added, reordered, edited, or deleted via **Manage columns** by pr
 Each card captures a work item:
 - **Title and Description:** Plain title and rich Markdown description supporting lists, code snippets, blockquotes, bold, italics, and safe URLs (HTML tags and javascript links are blocked).
 - **Priority:** None, Low, Normal, High, or Urgent.
-- **Assignees:** Human team members and AI agents. Agents are distinguished with a specialized agent robot icon. Agents may only move cards assigned to them.
+- **Assignees:** Human team members and AI agents. Agents are distinguished with a specialized agent robot icon. Agents may only move cards assigned to them. Removing a member or an agent from a project also removes them from all cards they were assigned to (recorded in the card activity).
 - **Due Date:** Due date indicators display warning icons for overdue cards.
 - **Links:** Quick references to related sessions, jobs, media assets, or external URLs.
 
