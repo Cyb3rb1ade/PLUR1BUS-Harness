@@ -35,8 +35,11 @@ export function positive(v: unknown): number { if (typeof v !== 'number' || !Num
 const wireCodes = new Set<ErrorCode>(ERROR_CODES.filter(c => c.startsWith('subscription_sharing_') || c.startsWith('chatpass_v2_')));
 export async function call(http: HttpPort, request: HttpRequest): Promise<unknown> {
   let res: HttpResponse;
-  Object.defineProperty(request, 'toJSON', { value: () => ({ method: request.method, payload: '[redacted]' }) });
-  Object.defineProperty(request, inspect.custom, { value: () => ({ method: request.method, payload: '[redacted]' }) });
+  // Redefinable and tolerant of frozen callers: a repeated or sealed request must not leak a raw TypeError.
+  try {
+    Object.defineProperty(request, 'toJSON', { value: () => ({ method: request.method, payload: '[redacted]' }), configurable: true });
+    Object.defineProperty(request, inspect.custom, { value: () => ({ method: request.method, payload: '[redacted]' }), configurable: true });
+  } catch { /* sealed request objects keep their own shape */ }
   try { res = await http.request(request); } catch { throw new OpenAIError('transport-failed'); }
   if (res.status < 200 || res.status >= 300) {
     const body = res.body && typeof res.body === 'object' ? res.body as Record<string, unknown> : {};

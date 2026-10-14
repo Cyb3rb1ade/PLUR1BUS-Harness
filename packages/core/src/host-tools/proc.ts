@@ -95,6 +95,7 @@ async function listRaw(ctx: HostContext): Promise<ProcRow[]> {
   const maxOutputBytes = Math.max(ctx.maxOutputBytes, HARD_MAX_OUTPUT_BYTES);
   if (ctx.platform === "win32") {
     const tl = await runCaptured(ctx, { program: "tasklist", args: ["/FO", "CSV", "/V"], maxOutputBytes });
+    if (tl.truncated) throw new HostFailure("too_large", "the process table exceeded the size limit");
     const rows = parseTasklist(tl.stdout);
     try {
       const w = await runCaptured(ctx, {
@@ -115,6 +116,7 @@ async function listRaw(ctx: HostContext): Promise<ProcRow[]> {
     args: ["-axo", "pid=,ppid=,user=,pcpu=,pmem=,command="],
     maxOutputBytes,
   });
+  if (ps.truncated) throw new HostFailure("too_large", "the process table exceeded the size limit");
   if (ps.exitCode !== 0 && parsePs(ps.stdout).length === 0) {
     throw new HostFailure("not_found", "process list is not available");
   }
