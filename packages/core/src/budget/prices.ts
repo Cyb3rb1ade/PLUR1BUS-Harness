@@ -39,7 +39,10 @@ export class PriceBook {
 }
 
 export function lookupPrice(table: PriceTable, model: string, provider?: string): ModelPrice | null {
-  return (provider !== undefined ? table.models[`${provider}/${model}`] : undefined) ?? table.models[model] ?? null;
+  // Own keys only: a model id such as "constructor" or "toString" must not resolve to an Object.prototype member
+  // (its rates would be undefined and the cost NaN, which no limit comparison refuses).
+  const own = (key: string): ModelPrice | undefined => (Object.hasOwn(table.models, key) ? table.models[key] : undefined);
+  return (provider !== undefined ? own(`${provider}/${model}`) : undefined) ?? own(model) ?? null;
 }
 
 /** Cost in integer micro-USD (USD per million tokens x tokens = micro-USD), or null when the call cannot be priced. */
@@ -71,7 +74,8 @@ export function mediaCostMicros(table: PriceTable, model: string, provider: stri
   for (const u of units) {
     if (!["image", "videoSecond"].includes(u.kind) || !Number.isFinite(u.quantity) || u.quantity < 0 || (u.kind === "image" && !Number.isSafeInteger(u.quantity))) throw new RangeError("invalid media units");
     if (u.quantity === 0) continue;
-    const price = lookupPrice(table, model, provider)?.media?.[u.kind]?.[u.resolution];
+    const tier = lookupPrice(table, model, provider)?.media?.[u.kind];
+    const price = tier !== undefined && Object.hasOwn(tier, u.resolution) ? tier[u.resolution] : undefined;
     if (price === undefined) { unpriced = true; continue; }
     if (!Number.isSafeInteger(price) || price < 0) throw new RangeError("invalid media price");
     total += Math.ceil(price * u.quantity);

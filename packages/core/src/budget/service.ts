@@ -83,6 +83,8 @@ export interface BudgetServiceOptions {
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:/@+=-]{0,127}$/;
 const EVENT_KEYS = new Set(["agent", "model", "provider", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens", "ts", "requestId"]);
+/** The largest instant a `Date` can hold; anything later cannot be bucketed into a period. */
+const MAX_TS = 8_640_000_000_000_000;
 const ESTIMATE_KEYS = new Set(["provider", "inputTokens", "outputTokens"]);
 
 function ident(name: string, v: unknown): string {
@@ -159,7 +161,7 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
     return { tokens: input + output, cost: costMicros(table, model, e.provider, { inputTokens: input, outputTokens: output, cacheReadTokens: 0, cacheWriteTokens: 0 }) };
   }
 
-  function check(agent: string, model: string, est: UsageEstimate, notify: boolean): CheckDecision {
+  function check(agent: string, model: string, est: UsageEstimate, out: BudgetEvent[] | null): CheckDecision {
     ident("agent", agent); ident("model", model);
     if (typeof est !== "object" || est === null) throw new BudgetInputError("estimate must be an object");
     closed("estimate", est, ESTIMATE_KEYS);
@@ -184,13 +186,21 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
       }
     }
     // A refused call never happens, so it notifies nobody; an allowed one warns once per limit and period.
-    if (breaches.length === 0 && notify) {
+    if (breaches.length === 0 && out) {
       for (const p of pending) {
         p.w.notified = firstNotice("soft", p.r, p.key, now);
-        if (p.w.notified) emit(eventFor("budget.soft", p.r, p.r.soft!, p.used, p.key));
+        if (p.w.notified) out.push(eventFor("budget.soft", p.r, p.r.soft!, p.used, p.key));
       }
     }
     return { allowed: breaches.length === 0, breaches, warnings };
+  }
+
+  /** Events leave only after the commit: a sink runs without the write lock, may call back into the service, and never announces a rolled-back notice. */
+  function checked(agent: string, model: string, estimate: UsageEstimate): CheckDecision {
+    const out: BudgetEvent[] = [];
+    const d = transaction(db, () => check(agent, model, estimate, out));
+    out.forEach(emit);
+    return d;
   }
 
   return {
@@ -205,11 +215,14 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
         cacheReadTokens: count("cacheReadTokens", e.cacheReadTokens, true), cacheWriteTokens: count("cacheWriteTokens", e.cacheWriteTokens, true),
       };
       const ts = e.ts === undefined ? o.clock.now() : count("ts", e.ts);
+      if (ts > MAX_TS) throw new BudgetInputError("ts is outside the range of dates");
       const table = o.prices.at(ts);
       const cost = table ? costMicros(table, model, provider || undefined, u) : null;
+      if (cost !== null && !Number.isSafeInteger(cost)) throw new BudgetInputError("the cost of this event exceeds the range the ledger can hold");
       const priceVersion = table?.version ?? "none";
       const tz = getTz();
-      return transaction(db, () => {
+      const out: BudgetEvent[] = [];
+      const result = transaction(db, () => {
         const res = db.prepare(
           `INSERT OR IGNORE INTO usage_event (ts, agent, provider, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_micros, price_version, request_id)
            VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
@@ -218,17 +231,22 @@ export function createBudgetService(o: BudgetServiceOptions): BudgetService {
         if (recorded) {
           for (const r of limitRows(agent)) {
             const { used, bounds } = usedFor(r, ts, tz);
-            if (r.hard !== null && used > r.hard && firstNotice("hard", r, bounds.key, ts)) emit(eventFor("budget.hard", r, r.hard, used, bounds.key));
-            else if (r.soft !== null && used > r.soft && firstNotice("soft", r, bounds.key, ts)) emit(eventFor("budget.soft", r, r.soft, used, bounds.key));
+            if (r.hard !== null && used > r.hard) {
+              // Past the hard limit the soft notice is moot: consume it silently so it is not announced late, after the hard one.
+              if (r.soft !== null) firstNotice("soft", r, bounds.key, ts);
+              if (firstNotice("hard", r, bounds.key, ts)) out.push(eventFor("budget.hard", r, r.hard, used, bounds.key));
+            } else if (r.soft !== null && used > r.soft && firstNotice("soft", r, bounds.key, ts)) out.push(eventFor("budget.soft", r, r.soft, used, bounds.key));
           }
         }
         return { recorded, costMicros: cost, priceVersion };
       });
+      out.forEach(emit);
+      return result;
     },
 
-    check: (agent, model, estimate) => transaction(db, () => check(agent, model, estimate, true)),
+    check(agent, model, estimate) { return checked(agent, model, estimate); },
     enforce(agent, model, estimate) {
-      const d = transaction(db, () => check(agent, model, estimate, true));
+      const d = checked(agent, model, estimate);
       if (!d.allowed) throw new BudgetExceededError(d, agent, model);
       return d;
     },
