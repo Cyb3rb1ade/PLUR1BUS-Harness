@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { ConfigInvalid } from "./config-load.ts";
-import { createCore } from "./core.ts";
+import type { Core } from "./core.ts";
 import { RpcError } from "./rpc/errors.ts";
 import { InMemoryProfileSource, StaticCredentialResolver } from "./discovery/testing.ts";
 import type { ProfileInfo } from "./discovery/ports.ts";
@@ -12,14 +12,54 @@ import { FakeChatProvider } from "./session/provider.ts";
 // core's own log file is the record: a lost stdio sink must never crash the core (e.g. midway through the grace-expiry stop).
 for (const stream of [process.stdout, process.stderr]) stream.on("error", () => {});
 
-const { values } = parseArgs({ options: { home: { type: "string" }, "test-internals": { type: "string" }, lifeline: { type: "string" }, instance: { type: "string" } }, strict: true });
+/** Exit with one operator-readable line and no stack: a usage error is not a crash. */
+function fail(message: string, code = 2): never { console.error(`core: ${message}`); process.exit(code); }
+const oneLine = (e: unknown): string => (e instanceof Error ? `${e.name}: ${e.message}` : String(e)).replace(/\s+/g, " ").slice(0, 500);
+
+// The core that `stop` and the fatal handlers wind down; undefined while the arguments are still being read and the modules loaded.
+let core: Core | undefined;
+let stopping = false; let fatalSeen = false;
+/** The one stop path for SIGTERM, SIGINT and a `core.shutdown` RPC: stop the core (engine, server, lock, run
+ *  files, log flush), then exit `okCode` (0; 130 for SIGINT, the CLI convention for an interrupted process), or 1 when a
+ *  stop step failed. An RPC's own budgetMs wins over config's. */
+const stop = (why: string, budgetMs?: number, okCode = 0) => {
+  if (stopping) { console.error(`core: ${why} ignored, stop already in progress`); return; } // core.stop() is idempotent, but a repeated request is still just noise here
+  stopping = true;
+  console.error(`core: ${why}, stopping`);
+  if (!core) process.exit(okCode); // nothing started yet: there is nothing to wind down
+  const c = core;
+  // `core.shutdownBudgetMs` is live: the configuration running now (none before start: stop()'s own default).
+  const budget = budgetMs ?? c.currentConfig()?.core.shutdownBudgetMs;
+  // A stop step that never settles must not leave a process that no signal can end: the stop budget plus a margin is the hard limit.
+  setTimeout(() => { console.error("core: stop did not finish in time, exiting"); process.exit(1); }, (budget ?? 30_000) + 5_000);
+  c.stop(budget !== undefined ? { budgetMs: budget } : {})
+    .then(() => process.exit(c.status().process.reason === "stop-step-failed" ? 1 : okCode))
+    .catch((err) => { console.error(`core: stop failed: ${oneLine(err)}`); process.exit(1); });
+};
+/** An error nobody handled: one line (a stack carries install paths), wind the core down if it is up, exit 1. */
+const fatal = (kind: string, err: unknown) => {
+  console.error(`core: ${kind}: ${oneLine(err)}`);
+  if (fatalSeen || !core) process.exit(1); // a second fatal while winding down, or nothing to wind down
+  fatalSeen = true; stopping = true;
+  setTimeout(() => process.exit(1), 5_000);
+  core.stop({ budgetMs: 3_000 }).then(() => process.exit(1), () => process.exit(1));
+};
+process.on("uncaughtException", (e) => fatal("uncaught exception", e));
+process.on("unhandledRejection", (e) => fatal("unhandled rejection", e));
+process.on("SIGTERM", () => stop("SIGTERM")); process.on("SIGINT", () => stop("SIGINT", undefined, 130));
+
+let values: { home?: string | undefined; "test-internals"?: string | undefined; lifeline?: string | undefined; instance?: string | undefined };
+try { ({ values } = parseArgs({ options: { home: { type: "string" }, "test-internals": { type: "string" }, lifeline: { type: "string" }, instance: { type: "string" } }, strict: true })); }
+catch (e) { fail(e instanceof Error ? (e.message.split("\n")[0] ?? "bad arguments") : "bad arguments"); }
+// `--flag=` (an empty value) is a mistake, not "use the default": `--home=` must not quietly start on the user's real home.
+for (const [flag, v] of Object.entries(values)) if (v === "") fail(`--${flag} needs a value`);
 // Supervised mode (S4): the supervisor spawns the core with `--lifeline stdin --instance <uuid>` and holds stdin's write end.
-if (values.lifeline !== undefined && values.lifeline !== "stdin") { console.error(`--lifeline accepts only stdin, got ${values.lifeline}`); process.exit(2); }
+if (values.lifeline !== undefined && values.lifeline !== "stdin") fail(`--lifeline accepts only stdin, got ${values.lifeline}`);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-if (values.instance !== undefined && !UUID.test(values.instance)) { console.error(`--instance must be a UUID, got ${values.instance}`); process.exit(2); }
+if (values.instance !== undefined && !UUID.test(values.instance)) fail(`--instance must be a UUID, got ${values.instance}`);
 let testInternals: Record<string, unknown> | undefined;
 if (values["test-internals"]) {
-  if (process.env.PLUR1BUS_ALLOW_TEST_INTERNALS !== "1") { console.error("--test-internals requires PLUR1BUS_ALLOW_TEST_INTERNALS=1"); process.exit(2); }
+  if (process.env.PLUR1BUS_ALLOW_TEST_INTERNALS !== "1") fail("--test-internals requires PLUR1BUS_ALLOW_TEST_INTERNALS=1");
   const variant = values["test-internals"];
   if (variant === "flat-embedder" || variant === "flat-embedder-cold") {
     const vector = () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0)); const one = async () => vector();
@@ -34,7 +74,13 @@ if (values["test-internals"]) {
     // R17: force the null reranker alongside the flat embedder — production config always turns the reranker
     // on (engine-config.ts), so with >= 2 memories the engine would otherwise download the ONNX model in tests.
     testInternals = { embeddings: { embed: one, embedQuery: query, embedPassage: one, embedBatch: async (t: string[]) => t.map(vector), shutdown: async () => {} }, reranker: null };
-  } else { console.error(`unknown --test-internals ${values["test-internals"]}`); process.exit(2); }
+  } else if (variant === "crash-reject" || variant === "crash-throw" || variant === "stall") {
+    // Fatal-handler and signal seams: they act before the core is created and never get past this point.
+    if (variant === "crash-reject") void Promise.reject(new Error("boom"));
+    if (variant === "crash-throw") setImmediate(() => { throw new Error("boom"); }); if (variant === "stall") console.error("core: test stall armed");
+    setInterval(() => {}, 1 << 30); await new Promise(() => {});
+  }
+  else fail(`unknown --test-internals ${values["test-internals"]}`);
 }
 
 let discoveryOptions: { profiles: InMemoryProfileSource; credentials: StaticCredentialResolver; scheduler: boolean } | undefined;
@@ -78,7 +124,9 @@ if (process.env.PLUR1BUS_TEST_CHAT_PROVIDER !== undefined) {
 }
 
 // A core.shutdown RPC takes the same stop-and-exit path as SIGTERM (I1): without it the process outlived the stop.
-const core = createCore({
+// Loaded only now: a usage error (or a fatal during startup) never pays for, nor depends on, the engine and its modules.
+const { createCore } = await import("./core.ts");
+core = createCore({
   ...(values.home ? { home: values.home } : {}), ...(testInternals ? { testInternals } : {}),
   ...(discoveryOptions ? { discovery: discoveryOptions } : {}), ...(chatProvider ? { chatProvider } : {}),
   ...(values.instance ? { instanceId: values.instance.toLowerCase() } : {}), ...(values.lifeline === "stdin" ? { lifeline: process.stdin, supervisorConfig: {} } : {}), // B7: 3 × 1 s config.watch
@@ -86,20 +134,6 @@ const core = createCore({
   onOrphanGraceExpired: () => stop("lifeline grace expired"),
 });
 
-let stopping = false;
-/** The one stop path for SIGTERM, SIGINT and a `core.shutdown` RPC: stop the core (engine, server, lock, run
- *  files, log flush), then exit 0, or 1 when a stop step failed. An RPC's own budgetMs wins over config's. */
-const stop = (why: string, budgetMs?: number) => {
-  if (stopping) { console.error(`core: ${why} ignored, stop already in progress`); return; } // core.stop() is idempotent, but a repeated request is still just noise here
-  stopping = true;
-  console.error(`core: ${why}, stopping`);
-  // `core.shutdownBudgetMs` is live: the configuration running now (none before start: stop()'s own default).
-  const budget = budgetMs ?? core.currentConfig()?.core.shutdownBudgetMs;
-  core.stop(budget !== undefined ? { budgetMs: budget } : {})
-    .then(() => process.exit(core.status().process.reason === "stop-step-failed" ? 1 : 0))
-    .catch((err) => { console.error("core: stop failed", err); process.exit(1); });
-};
-process.on("SIGTERM", () => stop("SIGTERM")); process.on("SIGINT", () => stop("SIGINT"));
 try {
   await core.start();
   console.log(JSON.stringify({ ready: true, address: core.address, pid: process.pid }));
