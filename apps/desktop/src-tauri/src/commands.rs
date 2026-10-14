@@ -577,14 +577,7 @@ pub struct CrashOffer {
 #[tauri::command]
 pub async fn crash_offers(window: WebviewWindow) -> Result<Vec<CrashOffer>, String> {
     check(&window, "crash_offers")?;
-    let reporter = window
-        .app_handle()
-        .state::<crate::native::NativeState>()
-        .diagnostics
-        .lock()
-        .unwrap()
-        .as_ref()
-        .map(|d| d.crash.clone());
+    let reporter = crash_reporter(&window).ok();
     tauri::async_runtime::spawn_blocking(move || {
         let Some(reporter) = reporter else {
             return Ok(Vec::new());
@@ -609,15 +602,7 @@ pub async fn crash_offers(window: WebviewWindow) -> Result<Vec<CrashOffer>, Stri
 #[tauri::command]
 pub async fn crash_handled(window: WebviewWindow, id: String) -> Result<(), String> {
     check(&window, "crash_handled")?;
-    let reporter = window
-        .app_handle()
-        .state::<crate::native::NativeState>()
-        .diagnostics
-        .lock()
-        .unwrap()
-        .as_ref()
-        .map(|d| d.crash.clone())
-        .ok_or_else(|| "CRASH_UNAVAILABLE".to_owned())?;
+    let reporter = crash_reporter(&window)?;
     tauri::async_runtime::spawn_blocking(move || {
         let offers = reporter
             .pending()

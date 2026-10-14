@@ -220,6 +220,7 @@ pub fn run() {
         .run(move |app, event| {
             #[cfg(windows)]
             use tauri::Manager;
+            if matches!(event, tauri::RunEvent::Exit) { diagnostics::end_session(app); }
             if native::guard_exit(app, &event) { return; }
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen { .. } = event { native::focus(app); }

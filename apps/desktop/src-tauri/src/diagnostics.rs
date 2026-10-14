@@ -145,3 +145,14 @@ pub async fn shutdown_owned(diagnostics: Diagnostics) -> std::result::Result<(),
         Err(_) => Err("DIAGNOSTIC_SHUTDOWN_TIMEOUT"),
     }
 }
+
+/// An orderly native exit (including the updater restart) is not a crash.
+pub fn end_session(app: &tauri::AppHandle) {
+    if let Some(state) = app.try_state::<crate::native::NativeState>() {
+        if let Ok(diagnostics) = state.diagnostics.try_lock() {
+            if let Some(diagnostics) = diagnostics.as_ref() {
+                let _ = diagnostics.crash.end_session();
+            }
+        }
+    }
+}
