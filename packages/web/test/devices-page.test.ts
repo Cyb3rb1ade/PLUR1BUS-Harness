@@ -70,6 +70,34 @@ describe("devices: gate", opts, () => {
       await expectAxeClean(app.page, "pairing-qr");
     });
   });
+  test("a refused pairing.qr never echoes the server text (it can quote the pairing link) and says what happened", async () => {
+    await withApp({}, async (app) => {
+      publish(app, "tailnet");
+      const link = "plur1bus://pair?origin=https%3A%2F%2Foffline.invalid&code=ZZZZ-QQQQ&exp=2000&tag=offline-fixture";
+      app.server.rpc.handle("pairing.qr", () => { throw rpcError("E_INVALID_PARAMS", `invalid pairing link ${link}`); }, { write: false });
+      await open(app);
+      const pairGroup = app.page.getByRole("group", { name: "Pair a device" });
+      await pairGroup.getByLabel("Pairing link").fill(link);
+      await pairGroup.getByRole("button", { name: "Show QR code" }).click();
+      const alert = pairGroup.getByRole("alert");
+      await alert.waitFor();
+      assert.ok(!(await alert.innerText()).includes("ZZZZ-QQQQ"), "server text in the alert");
+      assert.match(await alert.innerText(), /not a valid pairing link/);
+    });
+  });
+  test("a link too long for the QR generator shows a hint and the link instead of a broken code", async () => {
+    await withApp({}, async (app) => {
+      publish(app, "tailnet");
+      const long = `plur1bus://pair?origin=https%3A%2F%2Foffline.invalid&code=ABCD-EFGH&pad=${"x".repeat(300)}`;
+      app.server.rpc.handle("pairing.qr", (p) => ({ link: (p as any).link, qr: { text: (p as any).link, mode: "byte", errorCorrection: "M", length: 400, maxLength: 2331, fits: true }, expiresAt: Date.now() + 3600000 }), { write: false });
+      await open(app);
+      const pairGroup = app.page.getByRole("group", { name: "Pair a device" });
+      await pairGroup.getByLabel("Pairing link").fill(long);
+      await pairGroup.getByRole("button", { name: "Show QR code" }).click();
+      await pairGroup.getByText("too long for a QR code").waitFor();
+      assert.equal(await pairGroup.locator(".pairing-qr svg").count(), 0);
+    });
+  });
   test("loading, error with Try again", async () => {
     await withApp({}, async (app) => {
       publish(app, "tailnet"); app.server.rpc.setDelay("config.get", 300);
