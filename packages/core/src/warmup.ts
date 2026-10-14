@@ -67,7 +67,8 @@ export function startWarmup(o: WarmupOptions): Warmup {
       const ms = Math.round(performance.now() - t0);
       if (models === null) { o.logger.debug("models warm-up wait aborted", { ms }); return; }
       o.logger.info("models warm", { embedder: models.embedder.state, reranker: models.reranker.state, ms });
-      o.onDone(models);
+      // A failing status callback must neither skip the recall-path pass nor pass for "no result".
+      try { o.onDone(models); } catch (err) { o.logger.warn("models warm-up onDone callback failed", { err }); }
       if (o.recallPath && models.embedder.state === "ready") await warmRecallPath(o.recallPath, models.reranker.state !== "disabled", signal);
     } catch (err) {
       o.logger.debug("models warm-up ended without a result", { err, ms: Math.round(performance.now() - t0) });
