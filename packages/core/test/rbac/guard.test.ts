@@ -120,7 +120,7 @@ describe("rpc guard: decisions", () => {
     for (const role of ["operator", "member", "viewer"] as const) {
       const { guarded, ran } = wrap(asRole(role));
       for (const m of Object.keys(RPC_RULES).filter((x) => x.startsWith("admin."))) {
-        assert.deepEqual(await code(guarded, m), { error: "E_DENIED", reason: "role-denied" }, `${role} ${m}`);
+        assert.deepEqual(await code(guarded, m), { error: "E_DENIED", reason: RPC_RULES[m]?.apiServiceOnly ? "api-service-only" : "role-denied" }, `${role} ${m}`);
       }
       assert.deepEqual(ran, []);
     }
@@ -211,8 +211,11 @@ describe("rpc guard: audit and default resolver", () => {
   });
   it("the local-owner default lets every guarded method through, as before RBAC", async () => {
     const { guarded, ran } = wrap(() => LOCAL_OWNER);
-    for (const m of Object.keys(RPC_RULES)) await call(guarded, m);
-    assert.equal(ran.length, Object.keys(RPC_RULES).length);
+    for (const m of Object.keys(RPC_RULES)) {
+      if (RPC_RULES[m]?.apiServiceOnly) assert.deepEqual(await code(guarded, m), { error: "E_DENIED", reason: "api-service-only" });
+      else await call(guarded, m);
+    }
+    assert.equal(ran.length, Object.values(RPC_RULES).filter(r => !r.apiServiceOnly).length);
   });
 });
 

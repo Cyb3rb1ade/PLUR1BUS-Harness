@@ -67,18 +67,22 @@ export class PasswordLogin {
     const wait = this.lockedFor(username);
     if (wait > 0) return { ok: false, locked: true, retryAfterSec: wait };
 
-    const user = await this.#users.findByUsername(username);
-    const usable = user !== undefined && user.disabled !== true && user.passwordHash !== undefined;
+    const user = await (this.#users.credentialsByUsername?.(username) ?? this.#users.findByUsername(username));
+    const usable = user !== undefined && user.passwordHash !== undefined;
     // Always one verification, against the real hash or a dummy, so the response time does not tell the cases apart.
     const good = await this.#verify(usable ? user.passwordHash! : await this.#dummyHash(), password);
-    if (!usable || !good) { this.#fail(key); return { ok: false, locked: false }; }
+    if (!usable || !good || user.disabled === true) { this.#fail(key); return { ok: false, locked: false }; }
 
+    const status = await this.#users.findById(user.id);
+    if (!status || status.disabled) { this.#fail(key); return { ok: false, locked: false }; }
     this.#attempts.delete(key);
     let rehashed = false;
     if (needsRehash(user.passwordHash!)) {
       try { await this.#users.updatePasswordHash(user.id, await this.#hash(password)); rehashed = true; } catch { /* the login stands, the next one retries */ }
     }
-    return { ok: true, user: (await this.#users.findById(user.id)) ?? user, rehashed };
+    const current = await this.#users.findById(user.id);
+    if (!current || current.disabled) return { ok: false, locked: false };
+    return { ok: true, user: current, rehashed };
   }
 
   #fail(key: string): void {

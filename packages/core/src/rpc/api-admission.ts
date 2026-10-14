@@ -8,7 +8,7 @@ import { apiPrincipal } from "@plur1bus/module-api";
 
 export function apiAdmission(methods: Record<string, Handler>, resolve: PrincipalResolver): Record<string, Handler> {
   return Object.fromEntries(Object.entries(methods).map(([method, inner]) => [method, async (params, ctx) => {
-    if (apiPrincipal(ctx) === undefined || RPC_RULES[method] || method.startsWith("secret.")) return inner(params, ctx);
+    if (method.startsWith("admin.api.") || (method === "user.invite.redeem" && apiPrincipal(ctx) === null) || apiPrincipal(ctx) === undefined || RPC_RULES[method] || method.startsWith("secret.")) return inner(params, ctx);
     const who = await resolve(ctx, method, params);
     if (!who) throw new RpcError("E_UNAUTHORIZED", "authentication required", { reason: "no-principal" });
     if (method === "core.status") {

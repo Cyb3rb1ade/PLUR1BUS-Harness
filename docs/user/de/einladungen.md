@@ -21,3 +21,9 @@ Die Liste unter **Offene Einladungen** zeigt jede offene Einladung mit ihrem Abl
 ## Weiter
 
 - Break-Glass-Zugriff auf Daten einer Person: [breakglass.md](breakglass.md)
+
+## Web-Konto erstellen
+
+Öffne den Einladungslink (oder `#/join`) und gib Benutzername, ein Passwort mit mindestens zwölf Zeichen und die Passwortwiederholung ein. Der Link gewährt ausschließlich den Zugang der eingeladenen Person. Melde dich nach dem Erstellen des Kontos separat über **Benutzername und Passwort verwenden** an. Wenn TOTP über den vorhandenen API-Einrichtungsflow aktiviert wurde, fragt die Anmeldung nach einem TOTP- oder Backup-Code.
+
+Unter **Einstellungen → Personen & Rollen** kann der Owner Personen aktivieren und deaktivieren; Admins können das für Member und Viewer. Deaktivierte Personen tragen ein Badge. Deaktivieren beendet Web-Sitzungen und Streams und widerruft alte Tokens dauerhaft. Aktivieren erhält Rolle und Rechte, verlangt aber eine neue Anmeldung. Der letzte aktive Owner kann nicht deaktiviert werden.

@@ -6547,6 +6547,7 @@
                     "minLength": 1,
                     "maxLength": 128
                   },
+                  "disabled": { "type": "boolean" },
                   "displayName": {
                     "type": "string",
                     "minLength": 1,
@@ -6565,6 +6566,147 @@
               }
             }
           }
+        }
+      },
+      "user.disable": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Change Core person status; preserve rights, protect the last active Owner and audit.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "userId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          "required": [
+            "userId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "userId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "disabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "userId",
+            "disabled"
+          ]
+        }
+      },
+      "user.enable": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Change Core person status; preserve rights, protect the last active Owner and audit.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "userId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "userId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "userId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "disabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "userId",
+            "disabled"
+          ]
+        }
+      },
+      "admin.api.person.resolve": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "API credential only; never exposed to browsers or WebMCP.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "userId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "userId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "admin.api.invite.validate": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "API credential only; never exposed to browsers or WebMCP.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "token": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "token"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "userId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "role": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "userId",
+            "role"
+          ]
         }
       },
       "user.role.set": {
@@ -8647,6 +8789,7 @@
     },
 
     "notifications": {
+      "api.account.changed": {"x-server": "core", "x-stability": "experimental", "x-since": "1.6.0", "type": "object", "additionalProperties": false, "required": ["userId"], "properties": {"userId": {"type": "string"}}, "description": "Core person authority changed; connection-targeted to authenticated API service listeners only."},
       "voice.realtime.state": {
         "type": "object",
         "additionalProperties": false,

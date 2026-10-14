@@ -425,3 +425,8 @@ Person-bound SSE is independent of WebMCP. An event requires a matching person/c
 New human-only rules: `jobs.create` → `agent.manage` on params.agentId; `jobs.update` and `jobs.delete` → `agent.list` for the initial authenticated read, followed by handler-level `agent.manage` checks on the stored and proposed targets. These require the corresponding token scopes as well as roles/rights. `jobs.list/history` user paths resolve a person and apply `agent.list` plus visibility filtering; legacy engine/system paths retain their existing classification.
 
 The existing `agent.manage` policy grants owner/admin and member-with-manage, and excludes operator/viewer. The existing `jobs.run` rule remains owner/admin/operator; user runs additionally need use rights and execute as stored `runAs`, never the triggering caller. Existing approval roles and surface requirements remain unchanged. The new create/update/delete methods, `doctor.report` and `agent.activity.list` are explicitly excluded from WebMCP exposure.
+
+The internal `admin.api.person.resolve` and `admin.api.invite.validate` methods carry `admin.users.read` rules (Owner/Admin policy), but require the separate API service credential with **no delegated principal**. Ordinary IPC, browser persons, and agents are refused. They are absent from the Web RPC allowlist and the `admin.` WebMCP exclusion applies.
+
+| `admin.api.person.resolve` | `admin.users.read` | ✔ | ✔ | – | – | – | API service credential only; role policy does not admit ordinary clients |
+| `admin.api.invite.validate` | `admin.users.read` | ✔ | ✔ | – | – | – | API service credential only; role policy does not admit ordinary clients |

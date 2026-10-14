@@ -564,6 +564,22 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "user.disable": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "user.enable": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.person.resolve": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.invite.validate": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "user.role.set": {
       "stability": "experimental",
       "since": "1.5.0"
@@ -790,6 +806,10 @@
     }
   },
   "notifications": {
+    "api.account.changed": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "voice.realtime.state": {
       "stability": "experimental",
       "since": "1.6.0"

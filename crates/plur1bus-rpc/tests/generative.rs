@@ -2005,6 +2005,14 @@ table! {
     Result "agent.import" AgentImportResult,
     Params "user.list" UserListParams,
     Result "user.list" UserListResult,
+    Params "user.disable" UserDisableParams,
+    Result "user.disable" UserDisableResult,
+    Params "user.enable" UserEnableParams,
+    Result "user.enable" UserEnableResult,
+    Params "admin.api.person.resolve" AdminApiPersonResolveParams,
+    Result "admin.api.person.resolve" AdminApiPersonResolveResult,
+    Params "admin.api.invite.validate" AdminApiInviteValidateParams,
+    Result "admin.api.invite.validate" AdminApiInviteValidateResult,
     Params "user.role.set" UserRoleSetParams,
     Result "user.role.set" UserRoleSetResult,
     Params "user.invite.create" UserInviteCreateParams,
@@ -2145,6 +2153,7 @@ table! {
     Notification "session.event" SessionEventNotification,
     Notification "approval.requested" ApprovalRequestedNotification,
     Notification "approval.resolved" ApprovalResolvedNotification,
+    Notification "api.account.changed" ApiAccountChangedNotification,
     Notification "grant.changed" GrantChangedNotification,
 }
 

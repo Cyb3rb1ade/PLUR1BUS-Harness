@@ -10359,6 +10359,9 @@ People and role presets, Owner/Admin only.
             "minLength": 1,
             "maxLength": 128
           },
+          "disabled": {
+            "type": "boolean"
+          },
           "displayName": {
             "type": "string",
             "minLength": 1,
@@ -10377,6 +10380,195 @@ People and role presets, Owner/Admin only.
       }
     }
   }
+}
+```
+
+### `user.disable`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Change Core person status; preserve rights, protect the last active Owner and audit.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 200
+    }
+  },
+  "required": [
+    "userId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "disabled": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "userId",
+    "disabled"
+  ]
+}
+```
+
+### `user.enable`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Change Core person status; preserve rights, protect the last active Owner and audit.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "userId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "disabled": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "userId",
+    "disabled"
+  ]
+}
+```
+
+### `admin.api.person.resolve`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+API credential only; never exposed to browsers or WebMCP.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "userId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `admin.api.invite.validate`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+API credential only; never exposed to browsers or WebMCP.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "token": {
+      "type": "string",
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "token"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "role": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "userId",
+    "role"
+  ]
 }
 ```
 
@@ -13768,6 +13960,33 @@ D109 §6: verifies the HMAC-SHA256 chain of the approval store (the `1staid chec
 ## Notifications
 
 Delivered on the same connection to clients that called `events.subscribe`.
+
+### `api.account.changed`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Core person authority changed; connection-targeted to authenticated API service listeners only.
+
+```json
+{
+  "x-server": "core",
+  "x-stability": "experimental",
+  "x-since": "1.6.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "userId"
+  ],
+  "properties": {
+    "userId": {
+      "type": "string"
+    }
+  },
+  "description": "Core person authority changed; connection-targeted to authenticated API service listeners only."
+}
+```
 
 ### `voice.realtime.state`
 

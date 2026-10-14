@@ -1,6 +1,8 @@
 // users area catalogue (Settings > Users & roles): keys `users.<topic>`; en and de have the same keys and {placeholders}.
 // The preset texts restate docs/rbac.md (roles, action table) in plain language.
 export const en = {
+  "users.status.lastOwner": "The last active Owner cannot be disabled.", "users.status.failed": "Access status could not be changed. Nothing was changed.",
+  "users.status.disabled": "Disabled", "users.disable": "Disable person", "users.enable": "Enable person", "users.status.confirm": "Change access for {name}? Disabled access ends sessions and revokes tokens. Enabling requires a new login.",
   "users.title": "Users & roles",
   "users.lead": "Who can use this harness, and what each role may do.",
   "users.forbidden.title": "Only Owner and Admin manage users",
@@ -132,6 +134,8 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "users.status.lastOwner": "Der letzte aktive Owner kann nicht deaktiviert werden.", "users.status.failed": "Der Zugangsstatus konnte nicht geändert werden. Es wurde nichts geändert.",
+  "users.status.disabled": "Deaktiviert", "users.disable": "Person deaktivieren", "users.enable": "Person aktivieren", "users.status.confirm": "Zugang für {name} ändern? Deaktivieren beendet Sitzungen und widerruft Tokens. Aktivieren erfordert eine neue Anmeldung.",
   "users.title": "Nutzer & Rollen",
   "users.lead": "Wer dieses Harness nutzen darf und was jede Rolle darf.",
   "users.forbidden.title": "Nur Owner und Admin verwalten Nutzer",

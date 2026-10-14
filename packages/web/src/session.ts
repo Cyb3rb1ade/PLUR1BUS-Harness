@@ -26,11 +26,15 @@ export type WriteResult = { ok: true; status: number; body: unknown } | { ok: fa
 export type WriteMethod = "POST" | "PUT" | "PATCH" | "DELETE";
 
 /** The only session surface UI code uses; the HTTP client and any test double implement it. */
+export type AccountCredentials = { username: string; password: string } | { challenge: string; code: string };
+export type AccountLoginResult = LoginResult | { ok: false; challenge: string };
+
 export interface SessionApi {
   /** The signed-in user, or null when there is no valid session. Rejects only on a network or server failure. */
   whoami(): Promise<SessionUser | null>;
   /** Exchanges the owner token for a session cookie. The token is held in no field and sent nowhere but this body. */
   login(credentials: { token: string }): Promise<LoginResult>;
+  loginAccount?(credentials: AccountCredentials): Promise<AccountLoginResult>;
   /** A mutating request: fetches a fresh one-time CSRF token first and sends it (retrying once if it is refused). */
   write(method: WriteMethod, path: string, body?: unknown): Promise<WriteResult>;
   /** Ends the session; never rejects (the local state is cleared either way). */
@@ -90,6 +94,20 @@ export class HttpSessionApi implements SessionApi {
     try { body = await res.json(); } catch { return { ok: false, failure: { kind: "server", status: res.status } }; }
     const user = asUser(body);
     return user ? { ok: true, user } : { ok: false, failure: { kind: "server", status: res.status } };
+  }
+
+  async loginAccount(credentials: AccountCredentials): Promise<AccountLoginResult> {
+    let res: Response;
+    try { res = await this.#fetch(this.#base + ("challenge" in credentials ? "/api/v1/session/totp" : SESSION_ROUTES.session), { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(credentials) }); }
+    catch { return { ok: false, failure: { kind: "network" } }; }
+    if (res.status === 401) return { ok: false, failure: { kind: "invalid-token" } };
+    if (res.status === 429) return { ok: false, failure: { kind: "rate-limited", retryAfterSeconds: retryAfter(res) } };
+    if (!res.ok) return { ok: false, failure: { kind: "server", status: res.status } };
+    try {
+      const body = await res.json() as { mfa?: unknown; challenge?: unknown };
+      if (body.mfa === "totp" && typeof body.challenge === "string" && body.challenge.length <= 128) return { ok: false, challenge: body.challenge };
+      const user = asUser(body); return user ? { ok: true, user } : { ok: false, failure: { kind: "server", status: res.status } };
+    } catch { return { ok: false, failure: { kind: "server", status: res.status } }; }
   }
 
   /** One-time token (GET /api/v1/csrf); a failure is already a WriteFailure. */
@@ -155,6 +173,12 @@ export async function initSession(): Promise<void> {
   } catch {
     sessionState.value = { status: "anonymous" };
   }
+}
+
+export async function signInAccount(credentials: AccountCredentials): Promise<AccountLoginResult> {
+  const result = api.loginAccount ? await api.loginAccount(credentials) : { ok: false as const, failure: { kind: "server" as const, status: 503 } };
+  if (result.ok) { sessionNotice.value = null; sessionState.value = { status: "authenticated", user: result.user }; }
+  return result;
 }
 
 export async function signIn(token: string): Promise<LoginResult> {

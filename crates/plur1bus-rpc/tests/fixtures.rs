@@ -83,6 +83,14 @@ fn method_fixture(name: &str, f: &Value) {
         "agent.unarchive" => pair::<AgentUnarchiveParams, AgentUnarchiveResult>(name, f),
         "agent.export" => pair::<AgentExportParams, AgentExportResult>(name, f),
         "agent.delete" => pair::<AgentDeleteParams, AgentDeleteResult>(name, f),
+        "user.disable" => pair::<UserDisableParams, UserDisableResult>(name, f),
+        "user.enable" => pair::<UserEnableParams, UserEnableResult>(name, f),
+        "admin.api.person.resolve" => {
+            pair::<AdminApiPersonResolveParams, AdminApiPersonResolveResult>(name, f)
+        }
+        "admin.api.invite.validate" => {
+            pair::<AdminApiInviteValidateParams, AdminApiInviteValidateResult>(name, f)
+        }
         "user.list" => pair::<UserListParams, UserListResult>(name, f),
         "user.role.set" => pair::<UserRoleSetParams, UserRoleSetResult>(name, f),
         "user.invite.create" => pair::<UserInviteCreateParams, UserInviteCreateResult>(name, f),
@@ -522,6 +530,7 @@ fn every_notification_fixture_round_trips() {
             "session.event" => round_trip::<types::SessionEventNotification>(v, name),
             "approval.requested" => round_trip::<types::ApprovalRequestedNotification>(v, name),
             "approval.resolved" => round_trip::<types::ApprovalResolvedNotification>(v, name),
+            "api.account.changed" => round_trip::<types::ApiAccountChangedNotification>(v, name),
             "grant.changed" => round_trip::<types::GrantChangedNotification>(v, name),
             "voice.download.progress" => {
                 round_trip::<types::VoiceDownloadProgressNotification>(v, name)

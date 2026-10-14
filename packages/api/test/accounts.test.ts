@@ -143,11 +143,11 @@ test("logging out everywhere needs the CSRF token like any write", async () => {
 
 // ---- Q7: deny by default ----------------------------------------------------------------------------------------
 
-const SELF_SERVICE = ["csrf.issue", "session.delete", "sessions.revoke-all", "whoami"];
+const SELF_SERVICE = ["account.bootstrap", "csrf.issue", "session.delete", "sessions.revoke-all", "whoami"];
 
 test("the routes that need no role are exactly the session self-service routes, nothing else", () => {
   assert.deepEqual(ROUTES.filter((r) => r.authz === "authenticated").map((r) => r.id).sort(), SELF_SERVICE);
-  assert.deepEqual(ROUTES.filter((r) => r.authz === "public").map((r) => r.id), ["session.create", "session.totp"], "the two login steps");
+  assert.deepEqual(ROUTES.filter((r) => r.authz === "public").map((r) => r.id), ["invitation.redeem", "session.create", "session.totp"], "invitation registration and login steps");
   for (const r of ROUTES) assert.ok(r.authz !== undefined, `${r.id} declares an authorization`);
 });
 

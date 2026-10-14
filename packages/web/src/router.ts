@@ -3,6 +3,7 @@ import { ALL_ITEMS, GALLERY_ENABLED, GALLERY_ITEM, HIDDEN_ITEMS, LANDING, type N
 
 export type Route =
   | { kind: "login" }
+  | { kind: "join" }
   /** `sub` is the path after the first segment (`/memories/dreams` -> "dreams", `/chat/ses_1` -> "ses_1"), absent when empty. */
   | { kind: "page"; item: NavItem; sub?: string }
   | { kind: "not-found"; path: string };
@@ -41,6 +42,7 @@ function currentPath(): string {
   const p = raw.startsWith("#") ? raw.slice(1) : raw;
   const q = p.indexOf("?");
   const clean = trimSlashes(q < 0 ? p : p.slice(0, q));
+  if (clean === "" && new URLSearchParams(globalThis.location?.search ?? "").has("code")) return "/join";
   return clean === "" ? "/" : clean;
 }
 
@@ -76,6 +78,7 @@ function badSegment(seg: string): boolean {
  * so a page that decodes `sub` itself cannot throw on it. */
 export function resolve(p: string): Route {
   if (p.length > MAX_PATH) return { kind: "not-found", path: p.slice(0, MAX_PATH) };
+  if (p === "/join" || p.startsWith("/invite/")) return { kind: "join" };
   if (p === "/login") return { kind: "login" };
   const segs = p.split("/").filter((seg) => seg !== "");
   if (segs.some(badSegment)) return { kind: "not-found", path: p };

@@ -1,3 +1,5 @@
+import type { AccountStore, CorePerson } from "./account-store.ts";
+import { buildAccountHandlers } from "./account-routes.ts";
 import { requestCore } from "./request-core.ts";
 import { createEventsRoute } from "./events-route.ts";
 import { rpcFailure } from "./rpc-route.ts";
@@ -44,9 +46,11 @@ export interface ApiServerOptions {
   ownerToken: string;
   /** Local accounts (password login). Without it only the owner token logs in. */
   users?: UserDirectory;
-  /** Where personal API tokens live. The in-memory default forgets them at a restart; the real store is a follow-up. */
+  accounts?: AccountStore;
+  resolveBootstrap?: () => Promise<CorePerson | null>;
+  /** Where personal API tokens live. The in-memory default forgets them at a restart; the standalone entry supplies the durable adapter. */
   tokens?: TokenStore;
-  /** Where second-factor secrets live; the in-memory default forgets them at a restart (the real store is core's secret store, a follow-up). */
+  /** Where second-factor secrets live; the in-memory default forgets them at a restart (the standalone entry supplies the private durable adapter). */
   totp?: TotpStore; totpIssuer?: string;
   /** Break-glass writes its own audit here and must not act unrecorded, so this is the unbuffered, fail-closed sink
    *  (default: `audit`; with neither, there is no break-glass). */
@@ -145,7 +149,8 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   const breakGlass = createBreakGlass({ audit: o.breakGlassAudit ?? o.audit ?? noSink, clock: () => clock.now(), host: "api", notify: (n) => { notices.add(n); o.notifyBreakGlass?.(n); } });
   const events = createEventsRoute({ core: o.core, sessions, initTimeoutMs: limits.handlerTimeoutMs, now: () => clock.now() });
   const perRequest = requestCore(o.core);
-  const handlers = buildHandlers({ core: { ...perRequest.core, ...(o.core.callAs ? { callAs: o.core.callAs.bind(o.core) } : {}) }, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, breakGlass, notices, audit });
+  const handlerDeps = { core: { ...perRequest.core, ...(o.core.callAs ? { callAs: o.core.callAs.bind(o.core) } : {}) }, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, breakGlass, notices, audit, resolveBootstrap: o.resolveBootstrap };
+  const handlers = { ...buildHandlers(handlerDeps), ...buildAccountHandlers(handlerDeps, o.accounts, o.core) };
   if (o.webRoot !== undefined && !statSync(o.webRoot, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`webRoot ${JSON.stringify(o.webRoot)} is not a directory`);
   const staticFiles = o.webRoot !== undefined ? createStaticServer(o.webRoot) : undefined;
   const cookieName = tls ? COOKIE_NAME_TLS : COOKIE_NAME;
@@ -178,7 +183,10 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   async function resolve(session: Session): Promise<Resolved | undefined> { return resolveSubject(session.principal.kind, session.principal.id); }
 
   async function resolveSubject(kind: Principal["kind"] | undefined, id: string): Promise<Resolved | undefined> {
-    if (kind === "owner" || (kind === undefined && id === OWNER.id)) return { principal: OWNER, rbac: { userId: OWNER.id, role: "owner", kind: "person" }, version: 0 };
+    if (kind === "owner" || (kind === undefined && id === OWNER.id)) {
+      if (o.resolveBootstrap) { const p = await o.resolveBootstrap(); if (!p || p.disabled) return undefined; return { principal: { ...OWNER, role: p.role }, rbac: { ...p, userId: OWNER.id }, version: p.version }; }
+      return { principal: OWNER, rbac: { userId: OWNER.id, role: "owner", kind: "person" }, version: 0 };
+    }
     const u = await o.users?.findById(id);
     if (!u || u.disabled === true) return undefined;
     return {
@@ -226,6 +234,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       if (site !== undefined && site !== "same-origin" && site !== "none") throw errors.forbidden("cross-site");
       const methods = byPath.get(path); const route = methods?.get(req.method ?? "");
       const cls = route?.spec.rate ?? "read";
+      if (route?.spec.id === "invitation.redeem") { const global = limiter.take("auth", "invitation:global"); if (!global.ok) rateLimited("invitation:global", "auth", global.retryAfterSec); }
       const ipVerdict = limiter.take(cls, `ip:${ip}`);
       if (!ipVerdict.ok) rateLimited(`ip:${ip}`, cls, ipVerdict.retryAfterSec);
       if (!methods) {
@@ -275,7 +284,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
           throw errors.unauthenticated("invalid-token");
         }
         resolved = await resolveSubject(r.record.userId === OWNER.id ? "owner" : "user", r.record.userId);
-        if (!resolved) { audit.emit("auth.token.used-denied", "anonymous", `token:${r.record.id}`, { reason: "account", ip }); throw errors.unauthenticated("invalid-token"); }
+        if (!resolved) { try { await tokens.revoke(r.record.userId, r.record.id); } catch { /* invalid credentials remain refused */ } audit.emit("auth.token.used-denied", "anonymous", `token:${r.record.id}`, { reason: "account", ip }); throw errors.unauthenticated("invalid-token"); }
         resolved = { ...resolved, rbac: { ...resolved.rbac, kind: "agent", tokenScopes: r.record.scopes } };
         via = "token"; tokenInfo = { id: r.record.id, prefix: `plb_${r.record.id}`, scopes: r.record.scopes, expiresAt: r.record.expiresAt };
         principalId = resolved.principal.id; rateKey = `token:${r.record.id}`;
@@ -302,6 +311,10 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
           throw errors.forbidden("csrf", "a valid one-time CSRF token is required");
         }
         // Rights changed since the session was made (or someone asked for it): the cookie value changes, the old one dies.
+        if (o.accounts && (session.mustRotate || resolved.version !== session.authVersion)) {
+          sessions.destroy(sessionId); events.revoke(webPrincipal(resolved.rbac, session.principal.kind === "owner").userId);
+          throw errors.unauthenticated("session-changed");
+        }
         if (session.mustRotate || resolved.version !== session.authVersion) {
           const r = sessions.rotate(sessionId, resolved.version);
           if (r) {
@@ -349,6 +362,10 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
             : rej(errors.timeout()), spec.id === "web.rpc" ? o.limits?.handlerTimeoutMs ?? 300_000 : limits.handlerTimeoutMs);
         }),
       ]).finally(() => clearTimeout(timer));
+      if (o.accounts && spec.id === "web.rpc" && !out.body.error) {
+        const request = body as { method?: string; params?: { userId?: string } };
+        if (["user.disable", "user.enable", "user.role.set", "agent.rights.set"].includes(request.method ?? "") && request.params?.userId) await o.accounts.findById(request.params.userId);
+      }
       status = out.status ?? spec.successStatus;
       send(res, status, out.body, { ...(rotated ? { "Set-Cookie": rotated } : {}), ...out.headers });
     } catch (e) {
@@ -382,7 +399,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
 
   return {
     server,
-    rightsChanged: (userId) => { events.revoke(userId); if (userId === "owner") events.revoke("local-owner"); return sessions.markRotate(userId); },
+    rightsChanged: (userId) => { events.revoke(userId); if (userId === "owner") events.revoke("local-owner"); return o.accounts ? sessions.destroyAllFor(userId) + (userId === "local-owner" ? sessions.destroyAllFor("owner") : 0) : sessions.markRotate(userId); },
     listen() {
       return new Promise((resolveListen, reject) => {
         server.once("error", reject);

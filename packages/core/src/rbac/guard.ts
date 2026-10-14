@@ -1,6 +1,7 @@
 // The integration point for core RPC methods: wraps the handlers named in `RPC_RULES` with principal resolution and
 // `authorize`. Methods without a rule pass through untouched. Only a representative set is secured so far
 // (docs/rbac.md lists the rest): grant.* and approval.* (human-only), memory.forget, agent.status, jobs.run, the models.* writes and the admin.* family.
+import { apiPrincipal } from "@plur1bus/module-api";
 import { RpcError } from "../rpc/errors.ts";
 import type { CallContext, Handler } from "../rpc/server.ts";
 import type { AuditSink } from "./audit.ts";
@@ -16,6 +17,8 @@ export type PrincipalResolver = (ctx: CallContext, method: string, params: unkno
 export interface RpcRule {
   action: string;
   humanOnly?: boolean;
+  /** Only the credential-authenticated API service, without a browser/agent principal. */
+  apiServiceOnly?: boolean;
   /** Builds the resource from the params. Whatever is missing or mistyped becomes "" and `authorize` denies it. */
   resource: (params: unknown) => Resource;
 }
@@ -125,6 +128,10 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "agent.delete": rule("admin.agent.delete", agent),
   "user.list": rule("admin.users.read", system),
   "user.role.set": rule("admin.users.write", system),
+  "admin.api.person.resolve": { ...rule("admin.users.read", system), apiServiceOnly: true },
+  "admin.api.invite.validate": { ...rule("admin.users.read", system), apiServiceOnly: true },
+  "user.disable": { ...rule("admin.users.write", system), humanOnly: true },
+  "user.enable": { ...rule("admin.users.write", system), humanOnly: true },
   "user.invite.create": rule("admin.users.write", system),
   "user.invite.list": rule("admin.users.read", system),
   "user.invite.revoke": rule("admin.users.write", system),
@@ -213,9 +220,14 @@ export function guardMethods(handlers: Record<string, Handler>, o: GuardOptions)
     const inner = handlers[method];
     if (!inner) continue;
     out[method] = async (params, ctx) => {
+      if (r.apiServiceOnly) {
+        if (apiPrincipal(ctx) !== null) throw new RpcError("E_DENIED", "API service credential required", { reason: "api-service-only" });
+        return inner(params, ctx);
+      }
       let principal: Principal | null | undefined;
       try { principal = await o.resolve(ctx, method, params); }
-      catch {
+      catch (e) {
+        if (e instanceof RpcError && e.error === "E_DENIED" && e.reason === "person-disabled") throw e;
         record("rbac.unauthenticated", "anonymous", method, { action: r.action, reason: "resolver-failed" });
         throw new RpcError("E_UNAUTHORIZED", "authentication required", { reason: "resolver-failed" });
       }
