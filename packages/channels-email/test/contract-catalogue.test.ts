@@ -280,10 +280,6 @@ test("d) one fetch batch that carries the same UID twice delivers the mail once"
 
 test(
   "d) the same UID twice in one batch is delivered once even when the mail has no Message-ID",
-  {
-    todo:
-      "KNOWN GAP: channels-email EmailChannel.#sync/#handleRaw: erwartet 1 host.receive für dieselbe UID im selben Batch, tatsächlich 2 (nur Message-ID wird dedupliziert, die UID nicht; ohne Message-ID gibt es keine Unterdrückung)",
-  },
   async () => {
     const fx = await makeEmailFixture();
     const h = hostRec();
@@ -643,10 +639,6 @@ test("g) stop issued right after start() was called settles without an unhandled
 
 test(
   "g) stop issued right after start() was called leaves no IMAP socket open",
-  {
-    todo:
-      "KNOWN GAP: channels-email EmailChannel.stop/#start: erwartet alle IMAP-Sockets nach stop() geschlossen, tatsächlich 1 Socket offen und start() erfüllt (#start weist #conn nach dem close() in stop() zu, channel.ts:196-197 gegen 228-231)",
-  },
   async () => {
     const fx = await makeEmailFixture();
     const h = hostRec();
