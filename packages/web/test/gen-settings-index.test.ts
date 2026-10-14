@@ -34,3 +34,16 @@ test("settings-index generator is byte-stable and --check detects drift", () => 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("--check accepts a CRLF checkout (core.autocrlf) of an up-to-date file", () => {
+  const dir = mkdtempSync(join(tmpdir(), "settings-index-crlf-"));
+  const outFile = join(dir, "settings-index.ts");
+  try {
+    execFileSync(process.execPath, [generator, "--out", outFile]);
+    writeFileSync(outFile, readFileSync(outFile, "utf8").replace(/\n/g, "\r\n"));
+    const result = spawnSync(process.execPath, [generator, "--out", outFile, "--check"]);
+    assert.equal(result.status, 0, result.stderr.toString());
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

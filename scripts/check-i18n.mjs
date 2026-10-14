@@ -27,7 +27,7 @@ const posix = (p) => p.split(sep).join("/");
 function walk(root, dir, out = []) {
   let entries;
   try { entries = readdirSync(join(root, dir), { withFileTypes: true }); } catch { return out; }
-  for (const e of entries) {
+  for (const e of entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
     if (SKIP_DIRS.has(e.name)) continue;
     const rel = dir ? `${dir}/${e.name}` : e.name;
     if (e.isDirectory()) walk(root, rel, out);
@@ -132,13 +132,14 @@ export function checkI18n({ root, config }) {
   const allow = (config.allow ?? []).map((a) => ({ ...a, hits: 0 }));
   const surfaces = config.surfaces ?? [];
   const files = walk(root, "");
+  const fileSet = new Set(files);
   const covered = new Set(surfaces.map((s) => s.catalogueDir));
   const ignorePrefixes = config.ignore ?? [];
 
   for (const f of files) {
     if (!f.endsWith("/en.json") || ignorePrefixes.some((p) => f.startsWith(p))) continue;
     const dir = f.slice(0, -"/en.json".length);
-    if (files.includes(`${dir}/de.json`) && !covered.has(dir)) findings.push({ kind: "unregistered-catalogue", file: dir, detail: "en.json + de.json not covered by any surface in the config" });
+    if (fileSet.has(`${dir}/de.json`) && !covered.has(dir)) findings.push({ kind: "unregistered-catalogue", file: dir, detail: "en.json + de.json not covered by any surface in the config" });
   }
 
   for (const s of surfaces) {
