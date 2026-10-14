@@ -48,13 +48,16 @@ export function parseCliMd(text) {
 export function extractCommands(md) {
   const found = [];
   const lines = md.split(/\r?\n/);
-  let fenced = false;
+  let fence = null; // the opening marker of the current fenced block (CommonMark: same character, at least as long)
   lines.forEach((raw, i) => {
-    if (/^\s*```/.test(raw)) {
-      fenced = !fenced;
+    const marker = /^\s*(`{3,}|~{3,})/.exec(raw)?.[1];
+    if (fence) {
+      if (marker && marker[0] === fence[0] && marker.length >= fence.length && /^\s*[`~]+\s*$/.test(raw)) fence = null;
+    } else if (marker) {
+      fence = marker;
       return;
     }
-    if (fenced) {
+    if (fence) {
       const m = /^\s*(?:\$ )?(plur1bus(?:\s.*)?)$/.exec(raw);
       if (m) found.push({ line: i + 1, text: m[1] });
       return;
@@ -101,7 +104,7 @@ export function checkCommand(text, commands) {
 
 function mdFiles(dir) {
   const out = [];
-  for (const n of readdirSync(dir)) {
+  for (const n of readdirSync(dir).sort()) {
     const p = join(dir, n);
     if (statSync(p).isDirectory()) out.push(...mdFiles(p));
     else if (n.endsWith(".md")) out.push(p);
