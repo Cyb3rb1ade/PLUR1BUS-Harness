@@ -284,6 +284,19 @@ describe("settings config: races and leaving", opts, () => {
   });
 });
 
+describe("settings config: values the metadata does not know", opts, () => {
+  test("an enum value outside the known options is shown as it is, not as the first option", async () => {
+    await withApp({}, async (app) => {
+      seedConfig(app.server.rpc, { core: { logLevel: "trace" } });
+      await open(app, "#/settings/general");
+      await app.page.locator("#cfg-core-logLevel").waitFor();
+      assert.equal(await app.page.locator("#cfg-core-logLevel").inputValue(), "trace");
+      assert.match(await app.page.locator("#cfg-core-logLevel").evaluate((el) => (el as HTMLSelectElement).selectedOptions[0]?.textContent ?? ""), /trace/);
+      assert.match(await app.page.locator(".cfg-count").innerText(), /: 0$|No changes/i);
+    });
+  });
+});
+
 describe("settings config: a11y and layout", opts, () => {
   for (const scheme of ["light", "dark"] as const) {
     test(`axe clean in ${scheme}: form, review and states`, async () => {
