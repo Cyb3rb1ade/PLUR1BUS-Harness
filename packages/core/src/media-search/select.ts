@@ -1,5 +1,3 @@
-import { privacyAcknowledgmentError, type PrivacyChoice } from "@plur1bus/config-schema";
-import { mediaError } from "./errors.ts";
 import { DisabledMediaIndex } from "./disabled.ts";
 import { detectEngineMedia, EngineMediaIndex, type EngineMedia, type MediaHostPorts } from "./engine-adapter.ts";
 import type { MediaIndexPort } from "./types.ts";
@@ -16,25 +14,4 @@ export function selectMediaIndex(opts: { engine: unknown; config: MediaEmbedding
   // Assumption: the engine takes frames/audio/budget through an optional attachHost hook.
   void media.attachHost?.({ frames: opts.ports.frames, audio: opts.ports.audio, ...(opts.ports.budget ? { budget: opts.ports.budget } : {}) });
   return { port: new EngineMediaIndex(media), kind: "engine" };
-}
-
-/** Re-evaluate the existing runtime pin and function-specific consent immediately before port operations. */
-export function guardMediaPrivacy(port: MediaIndexPort, choice: () => PrivacyChoice): MediaIndexPort {
-  const check = (): void => {
-    const failure = privacyAcknowledgmentError(choice());
-    if (failure) throw mediaError("E_MEDIA_PRIVACY", "Media embedding privacy acknowledgment required", { reason: failure.reason });
-  };
-  return {
-    async index(req) { check(); return port.index(req); },
-    async search(req) { check(); return port.search(req); },
-    async remove(id) { check(); return port.remove(id); },
-    async setCaption(id, text, source) { check(); return port.setCaption(id, text, source); },
-    async status() { check(); return port.status(); },
-    backfill: {
-      async start(opts) { check(); return port.backfill.start(opts); },
-      async pause() { check(); return port.backfill.pause(); },
-      async resume() { check(); return port.backfill.resume(); },
-      async cancel() { check(); return port.backfill.cancel(); },
-    },
-  };
 }

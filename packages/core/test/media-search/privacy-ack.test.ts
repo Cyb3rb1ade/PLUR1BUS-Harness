@@ -26,21 +26,14 @@ test("caption runtime refuses missing and mismatched acknowledgments before prov
     assert.equal(lookups, 0);
     assert.equal(resolveCaptionProvider({ config: { provider: "cloud", privacyAck: ack } as any, pinned: false, providers }), cloud);
 });
-import { guardMediaPrivacy } from "../../src/media-search/select.ts";
-test("media runtime rechecks acknowledgment and pin for every operation", async () => {
+test("synthetic media validation rechecks its own acknowledgment and pin", async () => {
     let calls = 0;
-    let pinned = false;
-    let consent: any = ack;
-    const op = async () => { calls++; return {}; };
-    const port: any = { index: op, search: op, remove: op, setCaption: op, status: op, backfill: { start: op, pause: op, resume: op, cancel: op } };
-    const guarded = guardMediaPrivacy(port, () => ({ function: "media", provider: "cloud", local: false, pinned, ack: consent }));
-    await guarded.index({} as any);
+    const current = { ...ctx, available: () => { calls++; return true; } };
+    const cfg = { provider: "cloud", model: "test", privacyAck: ack };
+    await validateMediaEmbedding(cfg, current);
     assert.equal(calls, 1);
-    pinned = true;
-    await assert.rejects(guarded.search({} as any), privacy);
+    await assert.rejects(validateMediaEmbedding(cfg, { ...current, privacyPinned: true }), privacy);
     assert.equal(calls, 1);
-    pinned = false;
-    consent = { ...ack, provider: "other" };
-    await assert.rejects(guarded.backfill.resume(), privacy);
+    await assert.rejects(validateMediaEmbedding({ ...cfg, privacyAck: { ...ack, provider: "other" } }, current), privacy);
     assert.equal(calls, 1);
 });

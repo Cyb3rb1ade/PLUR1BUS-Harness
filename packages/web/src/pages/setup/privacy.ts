@@ -1,5 +1,5 @@
 import type { PrivacyAcknowledgment } from "../../../../config-schema/src/privacy.ts";
-import { effectiveCaption, isLocalProvider } from "../media-search/model.ts";
+import { effectiveCaption } from "../media-search/model.ts";
 import type { Answers, Change } from "./model.ts";
 export type SetupPrivacy = {
     media?: PrivacyAcknowledgment;
@@ -16,8 +16,6 @@ export function cloudFunctions(a: Answers): {
         function: "media" | "caption";
         provider: string;
     }[] = [];
-    if (!isLocalProvider(a.media.provider) && a.media.provider !== "off")
-        out.push({ function: "media", provider: a.media.provider });
     const caption = effectiveCaption(a.media, a.embedding);
     if (a.media.captionSource !== "off" && caption && caption !== "local" && caption !== "off")
         out.push({ function: "caption", provider: caption });

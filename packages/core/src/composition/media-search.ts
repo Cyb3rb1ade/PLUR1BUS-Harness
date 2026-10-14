@@ -11,7 +11,7 @@ import type { CallBudget } from '../budget/index.ts';
 import type { AgentRegistry } from '../agents.ts';
 import type { HarnessLogger } from '../logger.ts';
 import { DisabledMediaIndex } from '../media-search/disabled.ts';
-import { selectMediaIndex, guardMediaPrivacy, type MediaIndexKind } from '../media-search/select.ts';
+import { selectMediaIndex, type MediaIndexKind } from '../media-search/select.ts';
 import { createFfmpegPorts } from '../media-search/ffmpeg.ts';
 import { createBackfillJob, createBudgetCallback, type BackfillJob } from '../media-search/backfill.ts';
 import { createMediaIndexHook, type MediaIndexHook, type MediaRecord } from '../media-search/hook.ts';
@@ -75,8 +75,6 @@ export async function composeMediaSearch(d: MediaSearchDeps): Promise<MediaSearc
     port = new DisabledMediaIndex('composition failed'); kind = 'disabled';
   }
 
-  if (kind !== 'disabled') port = guardMediaPrivacy(port, () => ({ function: 'media', provider: cfg().provider, local: ['local', 'local-transformers', 'egemma2', 'off'].includes(cfg().provider), pinned: d.privacyPinned?.() ?? false, ack: cfg().privacyAck }));
-
   const maxChars = () => cfg().caption.maxChars;
   const providers: CaptionProviders = {
     local: createLocalCaptionProvider({
@@ -89,7 +87,7 @@ export async function composeMediaSearch(d: MediaSearchDeps): Promise<MediaSearc
   const captions = createCaptionService({
     config: () => cfg().caption,
     provider: () => {
-      try { return resolveCaptionProvider({ config: cfg().caption, pinned: d.privacyPinned?.() ?? false, providers, embeddingLocal: cfg().provider.startsWith('local') }); }
+      try { return resolveCaptionProvider({ config: cfg().caption, pinned: d.privacyPinned?.() ?? false, providers, embeddingLocal: cfg().provider.startsWith('local') || cfg().provider === 'egemma2' }); }
       catch (e) { d.logger.warn('caption provider refused', { err: e }); return undefined; }
     },
   });

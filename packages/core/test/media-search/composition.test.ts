@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { composeMediaSearch, mediaSearchMethods } from "../../src/composition/media-search.ts";
 import { defaults } from "@plur1bus/config-schema";
-import { FakePort, silentLogger } from "./fakes.ts";
+import { FakePort, FakeCaptionProvider, silentLogger } from "./fakes.ts";
 
 describe("composeMediaSearch", () => {
   it("store put/delete drive the hook; prompt becomes the caption", async () => {
@@ -55,4 +55,28 @@ describe("composeMediaSearch", () => {
     assert.deepEqual(Object.keys(methods).sort(), ["media.caption.set", "media.index.pause", "media.index.reindex", "media.index.resume", "media.index.status", "media.search"]);
     await c.close();
   });
+});
+
+it("cloud captioning works with local media and only its own acknowledgment; runtime pin wins", async () => {
+  const home = mkdtempSync(join(tmpdir(), "media-caption-local-"));
+  const ws = join(home, "ws"); mkdirSync(ws);
+  const cfg = defaults();
+  cfg.memory.mediaEmbedding.caption.provider = "openai";
+  cfg.memory.mediaEmbedding.caption.privacyAck = { provider: "openai", acknowledgedAt: "2026-10-14T10:00:00Z", by: "alice" };
+  let pinned = false; let lookups = 0;
+  const cloud = new FakeCaptionProvider("openai", false);
+  const port = new FakePort();
+  const c = await composeMediaSearch({ home, config: () => cfg, engine: {}, agents: { workspaceOf: () => ws }, logger: { ...silentLogger, debug() {} } as any, store: null, budget: null, testPort: port,
+    privacyPinned: () => pinned, cloudCaption: () => { lookups++; return cloud; } });
+  try {
+    const record = { mediaId: "caption-test", agentId: "bernd", kind: "image" as const, mime: "image/png", source: { bytes: new Uint8Array([1]) } };
+    c.hook.onUploaded(record); await c.hook.idle();
+    assert.equal(cfg.memory.mediaEmbedding.privacyAck, undefined);
+    assert.equal(port.indexed[0]?.caption, "auto caption");
+    assert.equal(cloud.calls.length, 1);
+    assert.equal(lookups, 1);
+    pinned = true;
+    c.hook.onUploaded({ ...record, mediaId: "pinned-test" }); await c.hook.idle();
+    assert.equal(cloud.calls.length, 1); assert.equal(lookups, 1);
+  } finally { await c.close(); }
 });
