@@ -10,7 +10,9 @@ export function apiIdentities(resolve: (p: ApiPrincipal) => Principal | null) {
     authenticated(id: string, principal: ApiPrincipal | null) { connections.set(id, principal); },
     closed(id: string) { connections.delete(id); },
     resolve(ctx: CallContext): Principal | null | undefined {
-      const p = apiPrincipal(ctx) ?? connections.get(ctx.connectionId);
+      const forwarded = apiPrincipal(ctx);
+      // Explicitly absent API identity must not fall back to a connection snapshot or the local owner.
+      const p = forwarded === undefined ? connections.get(ctx.connectionId) : forwarded;
       if (p === undefined) return undefined;
       return p === null ? null : resolve(p);
     },
