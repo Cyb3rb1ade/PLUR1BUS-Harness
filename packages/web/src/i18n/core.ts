@@ -81,6 +81,8 @@ export const en = {
   "nav.gallery": "Pattern gallery",
   "nav.setup": "First-run setup",
   "dialog.close": "Close",
+  "nav.wordmarkHome": "PLUR1BUS Home",
+  "nav.wordmark": "PLUR1BUS - {name}",
   "nav.inboxUnread": "{count} unread",
   "nav.breakglass": "Break-Glass",
 } as const;
@@ -166,6 +168,8 @@ export const de: Record<keyof typeof en, string> = {
   "nav.gallery": "Mustergalerie",
   "nav.setup": "Ersteinrichtung",
   "dialog.close": "Schließen",
+  "nav.wordmarkHome": "PLUR1BUS Startseite",
+  "nav.wordmark": "PLUR1BUS - {name}",
   "nav.inboxUnread": "{count} ungelesen",
   "nav.breakglass": "Break-Glass",
 };

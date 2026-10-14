@@ -20,6 +20,7 @@ export function Tabs({ label, tabs, selected, onSelect }: TabsProps): View {
   const current = tabs.some((x) => x.id === selected) ? selected : tabs[0]?.id;
 
   const onKeyDown = (e: KeyboardEvent): void => {
+    if (e.altKey || e.ctrlKey || e.metaKey || tabs.length === 0) return; // Alt+Left/Right is the browser's history
     const i = tabs.findIndex((x) => x.id === current);
     let next = -1;
     if (e.key === "ArrowRight") next = (i + 1) % tabs.length;
