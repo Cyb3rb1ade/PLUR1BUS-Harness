@@ -34,11 +34,13 @@ test("cloud caption checkbox is required, names provider, and is cleared by a pr
         await openRoute(app.page, "#/setup");
         const box = app.page.getByRole("checkbox", { name: "I allow captioning content to be sent to openai." });
         await box.waitFor();
+        await app.page.getByText("Cloud captioning can be configured, but is not yet connected to the media index. It currently uses local captioning or none.", { exact: true }).waitFor();
         await app.page.getByRole("button", { name: "Next", exact: true }).click();
         assert.equal(app.server.rpc.calls.filter(c => c.method === "config.set").length, 0);
         await box.check();
         await expectAxeClean(app.page, "setup caption acknowledgment");
         await app.page.locator("#setup-caption-local").check();
+        await app.page.getByText("Cloud captioning can be configured, but is not yet connected to the media index. It currently uses local captioning or none.", { exact: true }).waitFor({ state: "detached" });
         await app.page.locator("#setup-caption-openai").check();
         assert.equal(await box.isChecked(), false);
         await box.check();
@@ -51,5 +53,18 @@ test("cloud caption checkbox is required, names provider, and is cleared by a pr
         assert.equal(media.caption.privacyAck.provider, "openai");
         assert.equal(media.caption.privacyAck.by, "owner");
         assert.equal(media.privacyAck, undefined);
+    });
+});
+
+
+test("German setup explains that cloud caption execution is not connected", { skip: browserSkip }, async () => {
+    await withApp({ locale: "de-DE" }, async app => {
+        seed(app.server.rpc);
+        const saved = initial(); saved.step = "memory"; saved.answers.media.caption = "openai";
+        await app.page.goto(app.baseUrl);
+        await app.page.evaluate(value => localStorage.setItem("plur1bus.web.setup", JSON.stringify(value)), saved);
+        await openRoute(app.page, "#/setup", "de");
+        await app.page.getByText("Cloud-Captioning ist konfigurierbar, aber noch nicht an den Medienindex angeschlossen. Dieser nutzt derzeit lokales Captioning oder keines.", { exact: true }).waitFor();
+        await expectAxeClean(app.page, "German cloud caption connection notice");
     });
 });

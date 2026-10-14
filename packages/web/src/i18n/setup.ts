@@ -97,6 +97,7 @@ export const en = {
   "setup.privacy.media": "I allow media embedding content to be sent to {provider}.",
   "setup.privacy.caption": "I allow captioning content to be sent to {provider}.",
   "setup.privacy.hint": "This privacy acknowledgment applies only to this function and provider. A runtime privacy pin still blocks cloud calls.",
+  "setup.privacy.captionUnwired": "Cloud captioning can be configured, but is not yet connected to the media index. It currently uses local captioning or none.",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -197,4 +198,5 @@ export const de: Record<keyof typeof en, string> = {
   "setup.privacy.media": "Ich erlaube, Inhalte für Medien-Embedding an {provider} zu senden.",
   "setup.privacy.caption": "Ich erlaube, Inhalte für Captioning an {provider} zu senden.",
   "setup.privacy.hint": "Dieses Privacy Acknowledgment gilt nur für diese Funktion und diesen Anbieter. Ein aktiver Laufzeit-Pin sperrt Cloud-Aufrufe weiterhin.",
+  "setup.privacy.captionUnwired": "Cloud-Captioning ist konfigurierbar, aber noch nicht an den Medienindex angeschlossen. Dieser nutzt derzeit lokales Captioning oder keines.",
 };

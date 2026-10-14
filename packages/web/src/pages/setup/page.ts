@@ -139,7 +139,8 @@ export function SetupPage({ item }: PageProps): View {
           checked: a.privacy?.[c.function]?.provider === c.provider,
           onChange: (e: Event) => { const privacy = { ...a.privacy }; if ((e.target as HTMLInputElement).checked && sessionState.value.status === "authenticated") privacy[c.function] = { provider: c.provider, acknowledgedAt: new Date().toISOString(), by: sessionState.value.user.id }; else delete privacy[c.function]; patch({ privacy }); } }),
         h("label", { for: `setup-privacy-${c.function}` }, t(`setup.privacy.${c.function}` as Key, { provider: c.provider })),
-        h("p", { class: "field-hint" }, t("setup.privacy.hint"))))); break;
+        h("p", { class: "field-hint" }, t("setup.privacy.hint")),
+        h("p", { class: "field-hint", role: "note" }, t("setup.privacy.captionUnwired"))))); break;
     case "voice": body = h(VoiceStep, props); break;
     case "backup": body = h(BackupStep, props); break;
     default: body = h(ImportStep, {});
