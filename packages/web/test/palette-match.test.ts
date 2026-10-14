@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { fold, highlight, isSensitiveKey, search, type Entry } from "../src/palette/match.ts";
+import { fold, highlight, isSensitiveKey, maskUrlSecrets, search, type Entry } from "../src/palette/match.ts";
 
 const e = (id: string, o: Partial<Entry> & { label: string }): Entry => ({ id, group: "setting", labels: [o.label], key: id, to: `/settings?focus=${id}`, ...o });
 
@@ -98,3 +98,34 @@ describe("isSensitiveKey", () => {
     for (const k of ["core.logLevel", "logs.keep", "metrics.port", "egress.allowHosts"]) assert.equal(isSensitiveKey(k), false, k);
   });
 });
+
+describe("isSensitiveKey: names the first heuristic missed", () => {
+  test("authorization, cookie, passphrase, bearer, private material, signatures and auth leaves", () => {
+    for (const k of ["egress.proxy.authorization", "http.Authorisation", "web.cookie", "web.sessionCookies", "tls.passphrase", "x.passwd", "ssh.pwd", "auth.bearer", "http.bearerValue", "tls.privateKeyPem", "x.privateData", "hooks.signature", "x.jwt", "x.hmacSeed", "egress.proxy.auth", "x.auth", "x.basic-auth", "AUTH"])
+      assert.equal(isSensitiveKey(k), true, k);
+  });
+  test("the auth tuning keys and ordinary names stay visible", () => {
+    for (const k of ["auth.openai.httpTimeoutMs", "auth.openai.voiceCapacity", "core.logLevel", "authors.count", "egress.allowHosts", "metrics.port"])
+      assert.equal(isSensitiveKey(k), false, k);
+  });
+});
+
+describe("maskUrlSecrets", () => {
+  test("user:password@ in a URL and secret-named query parameters are masked", () => {
+    assert.equal(maskUrlSecrets("postgres://admin:hunter2@db.local:5432/x"), "postgres://••••@db.local:5432/x");
+    assert.equal(maskUrlSecrets("https://user@host/p"), "https://••••@host/p");
+    assert.equal(maskUrlSecrets("https://h/p?a=1&api_key=zzz&token=yyy&b=2"), "https://h/p?a=1&api_key=••••&token=••••&b=2");
+    assert.equal(maskUrlSecrets("https://h/p?access_token=zzz"), "https://h/p?access_token=••••");
+  });
+  test("plain values, URLs without credentials and email-like text are left alone", () => {
+    for (const v of ["info", "http://localhost:9464/metrics", "https://example.org/a?page=2", "ops@example.org", "debug"]) assert.equal(maskUrlSecrets(v), v);
+  });
+});
+
+describe("fold: capital sharp s", () => {
+  test("ẞ folds like ß", () => {
+    assert.equal(fold("STRAẞE").text, "strasse");
+    assert.deepEqual(search([e("a", { label: "STRAẞE" })], "strasse").map((x) => x.entry.id), ["a"]);
+  });
+});
+
