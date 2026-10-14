@@ -1,0 +1,76 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { defaults } from "@plur1bus/config-schema";
+import { connect } from "@plur1bus/module-api";
+import { createCore } from "../../core/src/core.ts";
+import { flatTestInternals } from "../../core/test/helpers/flat-embedder.ts";
+import { InboxStore } from "../../core/src/inbox/index.ts";
+import { createCoreLink } from "../src/core-link.ts";
+import { createApiServer } from "../src/server.ts";
+import { MemoryUserDirectory } from "../src/memory-stores.ts";
+import { hashPassword } from "../src/password.ts";
+import { memoryAuditSink } from "../src/rbac-bridge.ts";
+
+async function until(f: () => boolean) { const end = Date.now() + 5000; while (!f()) { if (Date.now() > end) throw new Error("event did not arrive"); await new Promise(r => setTimeout(r, 10)); } }
+
+test("real API → real Core: invited person, RBAC, CSRF, audience isolation, replay and logout", { timeout: 60000 }, async t => {
+  const home = mkdtempSync(join(tmpdir(), "p1b-web-real-"));
+  const cfg = defaults(); cfg.agents.main = {};
+  cfg.engine = { neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false }, merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false }, temporalContext: { enabled: false }, conversationReactivationRecall: { enabled: false }, reranker: { enabled: false } };
+  writeFileSync(join(home, "config.json"), JSON.stringify(cfg));
+  const core = createCore({ home, testInternals: flatTestInternals() }); await core.start();
+  const local = await connect({ address: core.address, token: core.token, expectedServerPid: process.pid });
+  const invite = await local.call<any>("user.invite.create", { displayName: "Transport Viewer", role: "viewer", channel: "web", origin: "http://127.0.0.1" });
+  const invited = await local.call<any>("user.invite.redeem", { token: invite.link.split("/").at(-1) });
+  const users = new MemoryUserDirectory(); const password = randomBytes(24).toString("base64url");
+  users.add({ id: invited.userId, username: "invited", role: "viewer", passwordHash: await hashPassword(password) });
+  const ownerToken = randomBytes(32).toString("hex"), logs: string[] = [], audit = memoryAuditSink();
+  const log = (m: string, f?: object) => logs.push(JSON.stringify({ m, f }));
+  const link = createCoreLink(home);
+  const api = createApiServer({ core: link, ownerToken, users, audit, logger: { debug: log, info: log, warn: log, error: log }, limits: { maxBodyBytes: 4096 } });
+  const { url } = await api.listen();
+  t.after(async () => { await api.close(); await link.close(); await local.close(); await core.stop({ budgetMs: 5000 }); rmSync(home, { recursive: true, force: true }); });
+  const login = async (body: object) => { const r = await fetch(url + "/api/v1/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }); assert.equal(r.status, 200); await r.text(); return r.headers.get("set-cookie")!.split(";")[0]!; };
+  const owner = await login({ token: ownerToken }), viewer = await login({ username: "invited", password });
+  const csrf = async (cookie: string) => (await (await fetch(url + "/api/v1/csrf", { headers: { cookie } })).json() as any).token as string;
+  let nextId = 0;
+  const rpc = async (cookie: string, method: string, params = {}, token = true) => {
+    const r = await fetch(url + "/rpc", { method: "POST", headers: { cookie, "content-type": "application/json", ...(token ? { "x-csrf-token": await csrf(cookie) } : {}) }, body: JSON.stringify({ jsonrpc: "2.0", id: ++nextId, method, params }) });
+    return { status: r.status, body: await r.json() as any };
+  };
+  assert.equal((await rpc(viewer, "inbox.count")).body.result.total, 0, "real humanOnly method for invited Viewer");
+  assert.equal((await rpc(owner, "inbox.markRead", { all: true })).body.result.changed, 0, "write succeeds");
+  assert.equal((await rpc(owner, "inbox.markRead", { all: true }, false)).status, 403);
+  const denied = await rpc(viewer, "approval.list"); assert.equal(denied.status, 200); assert.equal(denied.body.error.data.error, "E_DENIED");
+  assert.equal((await rpc(viewer, "secret.status")).body.error.data.error, "E_DENIED", "no owner resolver fallback");
+  assert.ok(!JSON.stringify((await rpc(viewer, "inbox.count", { principal: { userId: "local-owner", role: "owner" }, actAs: "local-owner" })).body).includes("local-owner"));
+  const oversized = await fetch(url + "/rpc", { method: "POST", headers: { cookie: owner, "content-type": "application/json", "x-csrf-token": await csrf(owner) }, body: " ".repeat(5000) }); assert.equal(oversized.status, 413); await oversized.text();
+  const seed = new InboxStore({ path: join(home, "state", "inbox.sqlite"), clock: Date.now });
+  for (const userId of ["local-owner", invited.userId]) seed.publish({ userId, kind: "system", severity: "info", titleKey: "inbox.system", dedupeKey: "transport-test" }); seed.close();
+  const open = async (cookie: string, lastId?: string) => {
+    const ctl = new AbortController(); const r = await fetch(url + "/events", { headers: { cookie, ...(lastId ? { "last-event-id": lastId } : {}) }, signal: ctl.signal }); assert.equal(r.status, 200);
+    const events: { id: string; name: string; data: string }[] = []; let ended = false;
+    const reader = r.body!.getReader(); let buf = ""; const dec = new TextDecoder();
+    const pump = (async () => { try { for (;;) { const chunk = await reader.read(); if (chunk.done) break; buf += dec.decode(chunk.value, { stream: true }); let at: number; while ((at = buf.indexOf("\n\n")) >= 0) { const block = buf.slice(0, at); buf = buf.slice(at + 2); const name = /^event: (.+)$/m.exec(block)?.[1]; if (name) events.push({ id: /^id: (.+)$/m.exec(block)?.[1] ?? "", name, data: /^data: (.+)$/m.exec(block)?.[1] ?? "" }); } } } catch { /* aborted */ } finally { ended = true; } })();
+    return { events, close: () => ctl.abort(), ended: () => ended, pump };
+  };
+  const os = await open(owner), vs = await open(viewer); t.after(() => { os.close(); vs.close(); });
+  await rpc(owner, "inbox.markRead", { all: true }); await until(() => os.events.length === 1);
+  assert.equal(vs.events.length, 0, "owner event does not reach invited Viewer");
+  await rpc(viewer, "inbox.markRead", { all: true }); await until(() => vs.events.length === 1);
+  assert.equal(os.events.length, 1, "foreign person event does not reach Owner");
+  const cursor = vs.events[0]!.id; vs.close(); await vs.pump;
+  const list = (await rpc(viewer, "inbox.list")).body.result.entries;
+  await rpc(viewer, "inbox.dismiss", { ids: list.map((e: any) => e.id) });
+  const resumed = await open(viewer, cursor); t.after(() => resumed.close()); await until(() => resumed.events.length === 1); assert.equal(JSON.parse(resumed.events[0]!.data).change, "dismissed");
+  const stale = await open(viewer, "expired-cursor"); t.after(() => stale.close()); await until(() => stale.events.length > 0); assert.equal(stale.events[0]!.name, "restart");
+  const logout = await fetch(url + "/api/v1/session", { method: "DELETE", headers: { cookie: viewer, "x-csrf-token": await csrf(viewer) } }); assert.equal(logout.status, 200); await logout.text();
+  await until(() => resumed.ended() && stale.ended());
+  const privateValues = [ownerToken, password, core.token, readFileSync(join(home, "run", "api-delegation.token"), "utf8")];
+  const observed = JSON.stringify({ logs, audit: audit.events, events: [...os.events, ...resumed.events] }) + readFileSync(join(home, "logs", "core.log"), "utf8");
+  for (const value of privateValues) assert.ok(!observed.includes(value), "credentials never reach logs, audit or events");
+});
