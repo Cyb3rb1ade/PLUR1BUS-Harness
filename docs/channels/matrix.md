@@ -130,8 +130,9 @@ not forwarded, so the code cannot leak to other members. Without a `pairing` por
 ## 10. Limits
 
 - Outbound text per event: 16000 UTF-8 bytes of Markdown source. Matrix caps an event at 65 KiB; the rest is formatting headroom.
-  Every part stays within the limit, including the closing fence line. Fences are closed and reopened across chunks (also in CRLF
-  text), and the reopened fence line stands alone. A hard split of an over-long line cuts on grapheme cluster boundaries.
+  Fences are closed and reopened across chunks.
+  Every part stays within the limit, including the closing fence line. Fences are also handled in CRLF text, and the reopened
+  fence line stands alone. A hard split of an over-long line cuts on grapheme cluster boundaries.
 - Rate limits: `429 M_LIMIT_EXCEEDED` waits `retry_after_ms` clamped to 1 s – 5 min. Sends retry with bounded backoff and jitter
   for rate limits, network errors, timeouts and 5xx; 4xx other than 429 is not retried. A 403 marks the room inactive until restart.
 - Retries reuse one transaction id, so a retried send is de-duplicated by the homeserver for this device. Beyond the server's
