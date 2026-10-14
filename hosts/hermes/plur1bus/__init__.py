@@ -48,7 +48,7 @@ from agent.memory_provider import (
 )
 
 from ._client import pmc
-from .binding import Binding, BindingInvalid, read_binding, resolve_hermes_home
+from .binding import Binding, BindingInvalid, HomeUnresolvable, read_binding, resolve_hermes_home
 from .journal import CaptureJournal, clean_code, is_journal_error
 from .mapping import (
     READ_ONLY_PROMPT_BLOCK,
@@ -172,7 +172,10 @@ class Plur1busMemoryProvider(MemoryProvider):
     # -- availability (files only, HM2-R12) --------------------------------------------------------
 
     def _probe(self) -> tuple[bool, str]:
-        home = resolve_hermes_home(self._home_hint)
+        try:
+            home = resolve_hermes_home(self._home_hint)
+        except HomeUnresolvable as e:
+            return False, str(e)
         try:
             b = read_binding(home)
         except BindingInvalid as e:
@@ -208,7 +211,11 @@ class Plur1busMemoryProvider(MemoryProvider):
         cb = kwargs.get("warning_callback")
         self._warning_callback = cb if callable(cb) else None
         self._agent_context = str(kwargs.get("agent_context") or "primary")
-        home = kwargs.get("hermes_home") or resolve_hermes_home(self._home_hint)
+        try:
+            home = kwargs.get("hermes_home") or resolve_hermes_home(self._home_hint)
+        except HomeUnresolvable as e:
+            self._warn("binding", f"plur1bus: {e}; memory is off for this session")
+            return
         self._hermes_home = str(home)
         try:
             self._binding = read_binding(self._hermes_home)
@@ -237,8 +244,17 @@ class Plur1busMemoryProvider(MemoryProvider):
             )
             return
         self._session_key = session_key_for(self._session_id, kwargs.get("gateway_session_key"))
-        self._rclient = self._factory(self._binding.home)
-        self._wclient = self._factory(self._binding.home)
+        try:
+            self._rclient = self._factory(self._binding.home)
+            self._wclient = self._factory(self._binding.home)
+        except Exception as e:  # noqa: BLE001 - e.g. a binding home that is not absolute on this platform
+            self._rclient = self._wclient = None
+            self._journal = None
+            self._warn(
+                "client",
+                f"plur1bus: the PLUR1BUS client cannot use the binding's home ({_code(e)}); memory is off for this session. {BIND_HINT}",
+            )
+            return
         try:
             self._rclient.connect(deadline_s=max(0.0, deadline - time.monotonic()))
             if self._rclient.supports("agent.open"):

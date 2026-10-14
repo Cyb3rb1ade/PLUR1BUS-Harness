@@ -186,10 +186,24 @@ class ToolArgsError(ValueError):
     pass
 
 
+_SURROGATES = re.compile("[\ud800-\udfff]")
+
+
+def _scrub(text: str) -> str:
+    """``text`` with every lone surrogate replaced by U+FFFD. A lone surrogate (a lossy decode upstream, an
+    undecodable file name) cannot be encoded as UTF-8, so it would raise out of the hashing, the size check and
+    the JSON writers below, inside Hermes' own hooks."""
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        return _SURROGATES.sub("\ufffd", text)
+    return text
+
+
 def _clean(text: object, limit: int) -> str:
     if not isinstance(text, str):
         text = "" if text is None else str(text)
-    return "".join(c for c in text if c >= " " and c != "\x7f")[:limit].strip()
+    return "".join(c for c in _scrub(text) if c >= " " and c != "\x7f")[:limit].strip()
 
 
 def fold_platform(platform: str | None) -> str:
@@ -233,7 +247,7 @@ def caller_for(platform: str | None, user_id: str | None, chat_id: str | None) -
 def session_key_for(session_id: str, gateway_session_key: str | None) -> str:
     """The gateway session key when Hermes has one, else the session id; at most 256 characters (a longer
     key keeps a stable hash suffix), never empty."""
-    key = (gateway_session_key or "").strip() or (session_id or "").strip() or "hermes"
+    key = _scrub((gateway_session_key or "").strip() or (session_id or "").strip() or "hermes")
     if len(key) <= _SESSION_KEY_MAX:
         return key
     digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
@@ -243,7 +257,7 @@ def session_key_for(session_id: str, gateway_session_key: str | None) -> str:
 def _text_of(content: object) -> str:
     """OpenAI-style content: a string, or a list of parts whose ``text`` fields are joined."""
     if isinstance(content, str):
-        return content
+        return _scrub(content)
     if isinstance(content, list):
         parts = []
         for p in content:
@@ -251,8 +265,8 @@ def _text_of(content: object) -> str:
                 parts.append(p)
             elif isinstance(p, dict) and isinstance(p.get("text"), str):
                 parts.append(p["text"])
-        return "\n".join(parts)
-    return "" if content is None else str(content)
+        return _scrub("\n".join(parts))
+    return "" if content is None else _scrub(str(content))
 
 
 def _encoded_size(messages: list[dict[str, Any]]) -> int:
@@ -348,7 +362,7 @@ def validate_entry(entry: object, agent_id: str) -> None:
     if not isinstance(user, str) or not user or len(user) > _USER_ID_MAX or _clean(user, _USER_ID_MAX + 1) != user:
         raise EntryInvalid("caller userId is malformed")
     key = entry.get("sessionKey")
-    if key is not None and (not isinstance(key, str) or not 1 <= len(key) <= _SESSION_KEY_MAX):
+    if key is not None and (not isinstance(key, str) or not 1 <= len(key) <= _SESSION_KEY_MAX or _scrub(key) != key):
         raise EntryInvalid("sessionKey is malformed")
     run_id = entry.get("runId")
     if run_id is not None and (not isinstance(run_id, str) or not _RUN_ID_RE.match(run_id)):
@@ -359,5 +373,9 @@ def validate_entry(entry: object, agent_id: str) -> None:
     for m in messages:
         if not isinstance(m, dict) or m.get("role") not in ("user", "assistant") or not isinstance(m.get("content"), str):
             raise EntryInvalid("messages hold user or assistant text only")
-    if _encoded_size(messages) > CAPTURE_REQUEST_BUDGET:
+    try:
+        too_big = _encoded_size(messages) > CAPTURE_REQUEST_BUDGET
+    except UnicodeEncodeError:  # a lone surrogate from a hand-edited journal; the core could not take it either
+        raise EntryInvalid("messages are not valid text") from None
+    if too_big:
         raise EntryInvalid("messages exceed the request budget")
