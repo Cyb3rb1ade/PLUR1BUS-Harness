@@ -1,4 +1,4 @@
-import { DEFAULT_LIMITS, DEFAULT_TIMEOUTS, chunks, FORBIDDEN_HEADERS, LOOPBACK, readText, Run } from "../client.ts";
+import { DEFAULT_LIMITS, DEFAULT_TIMEOUTS, chunks, FORBIDDEN_HEADERS, LOOPBACK, mergeDefined, readText, Run } from "../client.ts";
 import { redactAll, isRecord, protocolError, ProviderError } from "../errors.ts";
 import { SseParser } from "../sse.ts";
 import type { CallOptions, ChatResult, ChatStreamEvent, Limits, Timeouts } from "../types.ts";
@@ -44,7 +44,7 @@ export function createResponsesAdapter(config: ResponsesConfig): ResponsesAdapte
   // RULING: caller-supplied header values (account ids, api-key style headers) are secrets too; they are redacted like the credential.
   const extraSecrets = extra.map(([, v]) => v);
   const doFetch = config.fetch ?? globalThis.fetch;
-  const limits: Limits = { ...DEFAULT_LIMITS, ...config.limits };
+  const limits: Limits = mergeDefined(DEFAULT_LIMITS, config.limits);
   const insecureOk = url.protocol === "https:" || LOOPBACK.has(url.hostname) || config.allowInsecureHttp === true;
 
   async function begin(req: ResponsesRequest, opts: CallOptions | undefined, stream: boolean) {
@@ -54,7 +54,7 @@ export function createResponsesAdapter(config: ResponsesConfig): ResponsesAdapte
       reasoningEffort: o?.reasoningEffort ?? config.reasoningEffort,
       reasoningSummary: o?.reasoningSummary ?? config.reasoningSummary,
     }));
-    const merged: Timeouts = { ...DEFAULT_TIMEOUTS, ...config.timeouts, ...opts?.timeouts };
+    const merged: Timeouts = mergeDefined(DEFAULT_TIMEOUTS, config.timeouts, opts?.timeouts);
     // RULING: a non-stream call gets its headers only when generation ends, so its headers bound defaults to the total bound.
     if (!stream && opts?.timeouts?.headersMs === undefined && config.timeouts?.headersMs === undefined) merged.headersMs = merged.totalMs;
     const run = new Run(merged, opts?.signal);

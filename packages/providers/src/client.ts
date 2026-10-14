@@ -11,6 +11,23 @@ export const DEFAULT_LIMITS: Limits = { maxEventBytes: 4 * 1024 * 1024, maxToolA
 export const FORBIDDEN_HEADERS = new Set(["authorization", "proxy-authorization", "cookie", "host", "content-length", "content-type", "accept", "transfer-encoding", "connection"]);
 export const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 
+/** The longest delay a timer honours: beyond it `setTimeout` fires after 1 ms. */
+const MAX_TIMER_MS = 2 ** 31 - 1;
+
+/** `{...base, ...over}` that skips `undefined` values: an explicit `undefined` means "not set", never "zero" or "unlimited". */
+export function mergeDefined<T extends object>(base: T, ...overs: (Partial<T> | undefined)[]): T {
+  const out = { ...base };
+  for (const o of overs) for (const [k, v] of Object.entries(o ?? {})) if (v !== undefined) (out as Record<string, unknown>)[k] = v;
+  return out;
+}
+
+/** `null` and `Infinity` disable a bound, a longer-than-timer delay is clamped, and NaN, zero or a negative one is refused up front. */
+function checkedBound(name: string, v: number | null): number | null {
+  if (v === null || v === Infinity) return null;
+  if (typeof v !== "number" || Number.isNaN(v) || v <= 0) throw new ProviderError("invalid_request", `invalid timeout: ${name} must be a positive number of milliseconds, Infinity or null`);
+  return Math.min(v, MAX_TIMER_MS);
+}
+
 type Cause = { kind: "aborted"; reason: unknown } | { kind: "timeout"; phase: "headers" | "idle" | "total" };
 
 function endpoint(baseUrl: string): URL {
@@ -38,12 +55,16 @@ export class Run {
   #total: NodeJS.Timeout | undefined;
 
   constructor(timeouts: Timeouts, userSignal: AbortSignal | undefined) {
-    this.#timeouts = timeouts;
+    this.#timeouts = {
+      headersMs: checkedBound("headersMs", timeouts.headersMs),
+      idleMs: checkedBound("idleMs", timeouts.idleMs),
+      totalMs: checkedBound("totalMs", timeouts.totalMs),
+    };
     this.#userSignal = userSignal;
     this.#onUserAbort = () => this.#interrupt({ kind: "aborted", reason: userSignal?.reason });
     if (userSignal?.aborted) this.#onUserAbort();
     else userSignal?.addEventListener("abort", this.#onUserAbort, { once: true });
-    if (timeouts.totalMs !== null) this.#total = setTimeout(() => this.#interrupt({ kind: "timeout", phase: "total" }), timeouts.totalMs);
+    if (this.#timeouts.totalMs !== null) this.#total = setTimeout(() => this.#interrupt({ kind: "timeout", phase: "total" }), this.#timeouts.totalMs);
   }
 
   get signal(): AbortSignal { return this.controller.signal; }
@@ -139,14 +160,14 @@ export function createChatCompletionsAdapter(config: ChatCompletionsConfig): Cha
   // RULING: caller-supplied header values (api-key style) are secrets too; they are redacted like the credential.
   const extraSecrets = extra.map(([, v]) => v);
   const doFetch = config.fetch ?? globalThis.fetch;
-  const limits: Limits = { ...DEFAULT_LIMITS, ...config.limits };
+  const limits: Limits = mergeDefined(DEFAULT_LIMITS, config.limits);
   const maxTokensField = config.maxTokensField ?? "max_tokens";
   const includeUsage = config.includeUsage ?? true;
   const insecureOk = url.protocol === "https:" || LOOPBACK.has(url.hostname) || config.allowInsecureHttp === true;
 
   async function begin(req: ChatRequest, opts: CallOptions | undefined, stream: boolean) {
     const body = JSON.stringify(buildRequestBody(req, { stream, maxTokensField, includeUsage }));
-    const merged: Timeouts = { ...DEFAULT_TIMEOUTS, ...config.timeouts, ...opts?.timeouts };
+    const merged: Timeouts = mergeDefined(DEFAULT_TIMEOUTS, config.timeouts, opts?.timeouts);
     // RULING: a non-stream call gets its headers only when generation ends, so its headers bound defaults to the total bound.
     if (!stream && opts?.timeouts?.headersMs === undefined && config.timeouts?.headersMs === undefined) merged.headersMs = merged.totalMs;
     const run = new Run(merged, opts?.signal);
