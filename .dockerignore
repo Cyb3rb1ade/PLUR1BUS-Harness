@@ -17,6 +17,10 @@ target
 **/.netrc
 **/*.log
 .DS_Store
+.git-bundles
+**/*.tar
+**/*.tar.gz
+!crates/plur1bus/tests/fixtures/**
 .claude
 .superpowers
 docs
