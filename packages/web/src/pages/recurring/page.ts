@@ -30,6 +30,7 @@ registerArea("recurring", area);
 type JobEntry = JobsListResult["jobs"][number];
 
 /** Who may start a job by hand (docs/rbac.md, `jobs.run`): Owner, Admin and Operator. Reading the list and the history is open. */
+const HISTORY_LIMIT = 50;
 const RUN_ROLES = ["owner", "admin", "operator"] as const;
 
 function RunConfirmDialog({
@@ -45,16 +46,49 @@ function RunConfirmDialog({
   const [err, setErr] = useState("");
   // `busy` only reaches the button after the next render, so a second click in the same task would still see false.
   const inFlight = useRef(false);
+  // An agent job runs on an agent that exists: the ids come from agent.list, the person picks when there are several.
+  const needsAgent = job.kind === "agent";
+  const [agents, setAgents] = useState<string[] | null>(needsAgent ? null : []);
+  const [agentId, setAgentId] = useState("");
+  // A confirm that arrives while the agents are still loading waits for them instead of being dropped.
+  const loading = useRef<Promise<string[]> | null>(null);
+  useEffect(() => {
+    if (!needsAgent) return;
+    const ctl = new AbortController();
+    const done = listAgents(ctl.signal).then(
+      (ids) => {
+        if (!ctl.signal.aborted) {
+          setAgents(ids);
+          setAgentId(ids[0] ?? "");
+          if (ids.length === 0) setErr(t("recurring.run.noAgent"));
+        }
+        return ids;
+      },
+      (e: unknown) => {
+        if (!ctl.signal.aborted && (e as { kind?: string }).kind !== "aborted") { setAgents([]); setErr(t("recurring.run.agentsFailed")); }
+        return [] as string[];
+      },
+    );
+    loading.current = done;
+    return () => { ctl.abort(); };
+  }, [needsAgent]);
+  const ready = agents !== null && (!needsAgent || agentId !== "");
 
   const run = async (): Promise<void> => {
     if (inFlight.current) return;
+    if (!ready && agents !== null) return; // the agents are known and there is none to run on: the dialog says so
     inFlight.current = true;
     setBusy(true);
     setErr("");
     try {
+      let target = agentId;
+      if (needsAgent && agents === null) {
+        target = (await loading.current)?.[0] ?? "";
+        if (target === "") { setBusy(false); return; }
+      }
       await getApi().rpc("jobs.run", {
         job: job.name,
-        ...(job.kind === "agent" ? { agentId: "default" } : {}),
+        ...(needsAgent ? { agentId: target } : {}),
       });
       setBusy(false);
       onDone();
@@ -83,7 +117,7 @@ function RunConfirmDialog({
             type: "button",
             class: "btn btn-primary",
             // aria-disabled, not disabled: a disabled button gives up focus, which would drop out of the modal dialog.
-            "aria-disabled": String(busy),
+            "aria-disabled": String(busy || (agents !== null && !ready)),
             onClick: () => { void run(); },
           },
           t("recurring.action.run"),
@@ -94,6 +128,12 @@ function RunConfirmDialog({
       "div",
       { class: "dialog-content" },
       h("p", { class: "reading" }, t("recurring.action.confirmRun", { name: job.name })),
+      agents !== null && agents.length > 1
+        ? h("div", { class: "field" },
+            h("label", { for: "recurring-run-agent" }, t("recurring.run.agent")),
+            h("select", { id: "recurring-run-agent", value: agentId, onChange: (e: Event) => { setAgentId((e.target as HTMLSelectElement).value); } },
+              agents.map((id) => h("option", { key: id, value: id }, id))))
+        : null,
       err ? h("p", { class: "form-error", role: "alert" }, err) : null,
     ),
   );
@@ -184,11 +224,28 @@ function JobsListTab(): View {
   );
 }
 
+/** The ids of the agents that exist (agent.list). */
+async function listAgents(signal: AbortSignal): Promise<string[]> {
+  const out = (await getApi().rpc("agent.list", {}, { write: false, signal })) as { agents?: { agentId: string }[] };
+  return (out.agents ?? []).map((a) => a.agentId);
+}
+
+/** The newest `limit` runs of the system jobs and of every agent's jobs. jobs.history without agentId answers the system jobs
+ *  only (rpc.schema.json), so the agents come from agent.list and are asked one by one. */
+async function loadHistory(signal: AbortSignal): Promise<{ runs: (JobRun | SystemJobRun)[] }> {
+  const api = getApi();
+  const system = api.rpc("jobs.history", { limit: HISTORY_LIMIT }, { write: false, signal }) as Promise<{ runs?: (JobRun | SystemJobRun)[] }>;
+  const listed = listAgents(signal);
+  const [sys, agentIds] = await Promise.all([system, listed]);
+  const perAgent = await Promise.all(agentIds.map((id) =>
+    api.rpc("jobs.history", { agentId: id, limit: HISTORY_LIMIT }, { write: false, signal }) as Promise<{ runs?: (JobRun | SystemJobRun)[] }>));
+  const all = [sys, ...perAgent].flatMap((r) => r.runs ?? []);
+  all.sort((a, b) => b.finishedAt - a.finishedAt);
+  return { runs: all.slice(0, HISTORY_LIMIT) };
+}
+
 function HistoryTab(): View {
-  const { state, reload } = useLoad(
-    (signal) => getApi().rpc("jobs.history", { limit: 50 }, { write: false, signal }) as Promise<{ runs?: (JobRun | SystemJobRun)[] }>,
-    []
-  );
+  const { state, reload } = useLoad(loadHistory, []);
 
   if (state.status === "loading") return h(PageLoading, { label: t("state.loading") });
   if (state.status === "fail")
@@ -206,7 +263,7 @@ function HistoryTab(): View {
     runs.map((r) =>
       h(
         "div",
-        { key: r.runId, class: "recurring-history-item" },
+        { key: `${"agentId" in r ? r.agentId : ""}:${r.runId}`, class: "recurring-history-item" },
         h(
           "div",
           null,

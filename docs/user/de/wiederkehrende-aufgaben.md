@@ -1,6 +1,6 @@
 # Wiederkehrende Aufgaben
 
-Unter **Wiederkehrende Aufgaben** kannst du eine eigene Aufgabe anlegen, bearbeiten und nach Bestätigung löschen. Wähle einen Agenten, den du verwalten darfst, einen Prompt, einen Cron-Ausdruck mit fünf Feldern und eine IANA-Zeitzone. Der Dialog zeigt die nächsten drei Termine. System- und Engine-Jobs bleiben unveränderlich.
+Unter **Wiederkehrende Aufgaben** kannst du eine eigene Aufgabe anlegen, bearbeiten und nach Bestätigung löschen. Wähle einen Agenten, den du verwalten darfst, einen Prompt, einen Cron-Ausdruck mit fünf Feldern und eine IANA-Zeitzone. Der Dialog zeigt die nächsten drei Termine. Ein Zeitplan, der nie auslöst, etwa `0 0 30 2 *` (30. Februar), wird abgelehnt. Die Zeiten gelten in der Zeitzone der Aufgabe: Eine Uhrzeit, die am Tag der Umstellung auf Sommerzeit nicht existiert (zum Beispiel 02:30 in Berlin am letzten Sonntag im März), entfällt an diesem Tag; eine Uhrzeit, die bei der Rückstellung zweimal vorkommt, läuft einmal, beim ersten Mal. System- und Engine-Jobs bleiben unveränderlich.
 
 Die Aufgabe läuft unter der Identität ihres Erstellers. Vor jedem Lauf gelten dessen aktuelle Rolle, Agentenrechte und Budgets. Bearbeitest du die Aufgabe einer anderen Person, läuft sie künftig unter deinem Namen; vor dem Speichern erscheint ein Hinweis. Der Aufgabenverlauf zeigt den Anzeigenamen der ausführenden Person.
 

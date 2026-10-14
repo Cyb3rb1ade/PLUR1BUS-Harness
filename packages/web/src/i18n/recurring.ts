@@ -56,6 +56,9 @@ export const en = {
   "recurring.user.neverFires": "This expression never fires, for example 31 February.",
   "recurring.user.dstSkipped": "On {date} the clocks change and this time does not exist: the task is skipped that day.",
   "recurring.user.dstRepeated": "On {date} the clocks change and this time happens twice: the task runs once, at the first occurrence.",
+  "recurring.run.agent": "Run on agent",
+  "recurring.run.noAgent": "There is no agent to run this job on.",
+  "recurring.run.agentsFailed": "The agents could not be loaded, so the job cannot be started. Close the dialog and try again.",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -115,4 +118,7 @@ export const de: Record<keyof typeof en, string> = {
   "recurring.user.neverFires": "Dieser Ausdruck löst nie aus, zum Beispiel der 31. Februar.",
   "recurring.user.dstSkipped": "Am {date} wird die Uhr umgestellt, und diese Uhrzeit gibt es nicht: Die Aufgabe entfällt an diesem Tag.",
   "recurring.user.dstRepeated": "Am {date} wird die Uhr umgestellt, und diese Uhrzeit gibt es zweimal: Die Aufgabe läuft einmal, beim ersten Auftreten.",
+  "recurring.run.agent": "Auf Agent ausführen",
+  "recurring.run.noAgent": "Es gibt keinen Agenten, auf dem dieser Job laufen kann.",
+  "recurring.run.agentsFailed": "Die Agenten konnten nicht geladen werden, der Job kann nicht gestartet werden. Dialog schließen und erneut versuchen.",
 };

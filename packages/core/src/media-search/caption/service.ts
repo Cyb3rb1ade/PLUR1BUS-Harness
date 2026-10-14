@@ -23,6 +23,8 @@ export interface CaptionServiceOptions {
   config: () => CaptionConfig;
   /** The provider for auto captions; undefined when none is configured or allowed. */
   provider: () => CaptionProvider | undefined;
+  /** Runtime privacy pin, read on every call: a provider that is not local is refused while it is set, even if it was chosen earlier. */
+  pinned?: () => boolean;
 }
 
 export function createCaptionService(o: CaptionServiceOptions): CaptionService {
@@ -42,6 +44,7 @@ export function createCaptionService(o: CaptionServiceOptions): CaptionService {
       if (u || cfg.source === "user-only") return u;
       const provider = o.provider();
       if (!provider) return null;
+      if (!provider.local && o.pinned?.()) throw mediaError("E_MEDIA_PRIVACY", "privacy pin is set: cloud captioning is not allowed", { reason: "privacy-pin" });
       req.signal?.throwIfAborted();
       return pick(await provider.caption({ kind: req.kind, mime: req.mime, source: req.source, ...(req.signal ? { signal: req.signal } : {}) }), "auto");
     },

@@ -31,6 +31,7 @@ from .binding import (
     Binding,
     BindingConflict,
     BindingInvalid,
+    HomeUnresolvable,
     agent_id_for,
     check_binding,
     read_binding,
@@ -38,7 +39,7 @@ from .binding import (
     resolve_hermes_home,
     write_binding,
 )
-from .journal import CaptureJournal
+from .journal import CaptureJournal, clean_code
 from .mapping import caller_for
 
 __all__ = [
@@ -60,6 +61,8 @@ SELFTEST_QUERY = "plur1bus selftest"
 CALL_DEADLINE_S = 3.0
 BIND_TIMEOUT_S = 60.0
 INSTALLED_BY_BIND = "hermes-plur1bus-bind"
+#: What of the child's own error text reaches the bind document (it is not trusted: any length, any bytes).
+CHILD_MESSAGE_MAX = 500
 
 ClientFactory = Callable[[str], Any]
 
@@ -112,8 +115,9 @@ def status_doc(hermes_home: str, client_factory: ClientFactory | None = None) ->
     if b is None:
         core["error"] = "E_NO_BINDING"
     else:
-        client = (client_factory or _factory)(b.home)
+        client = None
         try:
+            client = (client_factory or _factory)(b.home)
             hello = client.connect(deadline_s=CALL_DEADLINE_S)
             st = client.status(deadline_s=CALL_DEADLINE_S)
             core.update(
@@ -125,7 +129,8 @@ def status_doc(hermes_home: str, client_factory: ClientFactory | None = None) ->
         except Exception as e:  # noqa: BLE001 - reported as a code
             core["error"] = _code(e)
         finally:
-            client.close(deadline_s=1.0)
+            if client is not None:
+                client.close(deadline_s=1.0)
     return {
         "schema": STATUS_SCHEMA,
         "hermesHome": hermes_home,
@@ -175,7 +180,13 @@ def selftest_doc(hermes_home: str, client_factory: ClientFactory | None = None) 
             add(check_id, False, "not run")
         return {"schema": SELFTEST_SCHEMA, "ok": False, "checks": checks}
     add("binding", True, f"agent {b.agent_id}")
-    client = (client_factory or _factory)(b.home)
+    try:
+        client = (client_factory or _factory)(b.home)
+    except Exception as e:  # noqa: BLE001 - e.g. a binding home that is not absolute on this platform
+        add("connect", False, _code(e))
+        for check_id in ("core.status", "agent.status", "memory.recall"):
+            add(check_id, False, "not run")
+        return {"schema": SELFTEST_SCHEMA, "ok": False, "checks": checks}
     try:
         try:
             hello = client.connect(deadline_s=CALL_DEADLINE_S)
@@ -275,7 +286,27 @@ def which_no_cwd(
 
 
 def _default_plur1bus_home() -> str:
-    return cast(str, pmc.default_home(os.environ, sys.platform, os.path.expanduser("~")))
+    home_dir = os.path.expanduser("~")
+    if not os.environ.get("PLUR1BUS_HOME") and not os.path.isabs(home_dir) and not (sys.platform == "win32" and os.environ.get("LOCALAPPDATA")):
+        raise HomeUnresolvable("cannot determine the PLUR1BUS home: no home directory is known; set PLUR1BUS_HOME or pass --home")
+    return cast(str, pmc.default_home(os.environ, sys.platform, home_dir))
+
+
+def _one_line(text: object, limit: int = CHILD_MESSAGE_MAX) -> str:
+    """Untrusted text as one printable line of at most ``limit`` characters."""
+    s = text if isinstance(text, str) else str(text)
+    s = "".join(c if c.isprintable() else " " for c in s.encode("utf-8", "replace").decode("utf-8"))
+    return " ".join(s.split())[:limit]
+
+
+def _last_object(stdout: object) -> dict[str, Any]:
+    """The JSON object on the last line of the child's output; ``{}`` for anything else (no output, not JSON, a
+    number, a list, nesting too deep for the parser)."""
+    try:
+        doc = json.loads((stdout or "").strip().splitlines()[-1]) if isinstance(stdout, str) else None
+    except (ValueError, IndexError, RecursionError):
+        return {}
+    return doc if isinstance(doc, dict) else {}
 
 
 def bind(
@@ -301,10 +332,20 @@ def bind(
         existing = read_binding(hermes_home)
     except BindingInvalid:
         existing = None  # rewritten below
-    home = home or (existing.home if existing else None) or _default_plur1bus_home()
-    home = os.path.abspath(home)
-    exe = bin or (existing.bin if existing else None) or which_no_cwd("plur1bus")
-    agent_id = agent_id_for(hermes_home)
+    try:
+        home = home or (existing.home if existing else None) or _default_plur1bus_home()
+        home = os.path.abspath(home)
+        agent_id = agent_id_for(hermes_home)
+    except HomeUnresolvable as e:
+        doc["error"] = {"code": "E_BINDING_WRITE", "message": str(e)}
+        return doc
+    exe = bin or (existing.bin if existing else None)
+    if exe is None:
+        exe = which_no_cwd("plur1bus")
+    elif os.path.basename(exe) == exe:
+        exe = which_no_cwd(exe)  # a bare name is looked up on PATH, never in the current directory
+    else:
+        exe = os.path.abspath(exe)
     doc.update(home=home, agentId=agent_id)
     if not exe:
         doc["error"] = {
@@ -333,16 +374,13 @@ def bind(
             timeout=BIND_TIMEOUT_S,
             stdin=subprocess.DEVNULL,
         )
-    except (OSError, subprocess.SubprocessError) as e:
+    except (OSError, subprocess.SubprocessError, ValueError) as e:  # ValueError: output that is not text
         doc["error"] = {
             "code": "E_AGENT_CREATE",
             "message": f"could not run plur1bus ({type(e).__name__})",
         }
         return doc
-    try:
-        out = json.loads((proc.stdout or "").strip().splitlines()[-1])
-    except (ValueError, IndexError):
-        out = {}
+    out = _last_object(proc.stdout)
     if proc.returncode == 0 and out.get("schema") == "agent.create/1":
         doc["created"] = True
     elif out.get("schema") == "error/1" and (out.get("reason") == "agent-exists" or "already exists" in str(out.get("message", ""))):
@@ -350,10 +388,9 @@ def bind(
         # message match is the fallback for binaries released before the reason existed.
         doc["created"] = False
     else:
-        code = out.get("error") if isinstance(out.get("error"), str) else "E_AGENT_CREATE"
         doc["error"] = {
-            "code": code,
-            "message": str(out.get("message") or f"plur1bus exited {proc.returncode}"),
+            "code": clean_code(out.get("error")) or "E_AGENT_CREATE",
+            "message": _one_line(out.get("message") or f"plur1bus exited {proc.returncode}"),
         }
         return doc
     try:
@@ -438,7 +475,11 @@ def plur1bus_command(
     runner: Callable[..., Any] | None = None,
 ) -> int:
     action = getattr(args, "plur1bus_action", None) or "status"
-    hermes_home = resolve_hermes_home(getattr(args, "plur1bus_hermes_home", None), module_file=__file__)
+    try:
+        hermes_home = resolve_hermes_home(getattr(args, "plur1bus_hermes_home", None), module_file=__file__)
+    except HomeUnresolvable as e:
+        print(f"hermes plur1bus: {e}", file=sys.stderr)
+        return 1
     as_json = bool(getattr(args, "json", False))
     if action == "status":
         doc = status_doc(hermes_home, client_factory)

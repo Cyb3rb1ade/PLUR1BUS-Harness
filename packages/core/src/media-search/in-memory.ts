@@ -32,7 +32,13 @@ function cosine(a: number[], b: number[]): number {
   for (let i = 0; i < a.length; i++) { dot += a[i]! * b[i]!; na += a[i]! * a[i]!; nb += b[i]! * b[i]!; }
   return na === 0 || nb === 0 ? 0 : dot / Math.sqrt(na * nb);
 }
-const visible = (stored: Scope, asker: Scope): boolean => stored.agentId === asker.agentId || (stored.user !== undefined && stored.user === asker.user);
+const MAX_LIMIT = 200;
+const MAX_TEXT = 4096;
+const KINDS: readonly MediaKind[] = ["image", "video", "audio"];
+const invalid = (m: string): never => { throw new RpcError("E_INVALID_PARAMS", m); };
+/** Same workspace (project) is a precondition; inside it the same agent or the same, non-empty user sees a medium. */
+const visible = (stored: Scope, asker: Scope): boolean =>
+  stored.workspace === asker.workspace && (stored.agentId === asker.agentId || (!!stored.user && stored.user === asker.user));
 
 /**
  * Brute-force reference implementation for tests (no persistence, no timers).
@@ -45,6 +51,9 @@ export class InMemoryMediaIndex implements MediaIndexPort {
   #queue: MediaIndexRequest[] = [];
   #bf: { state: BackfillState; done: number; total: number; startedAt?: string; pausedReason?: "budget" | "user" | "error" } = { state: "idle", done: 0, total: 0 };
   #loop: Promise<void> | null = null;
+  /** Bumped by every remove(); an index() that started before it must not store its result (delete during an in-flight index). */
+  readonly #removals = new Map<string, number>();
+  readonly #inflight = new Map<string, number>();
 
   constructor(opts: InMemoryMediaIndexOptions) { this.#o = opts; }
 
@@ -53,13 +62,23 @@ export class InMemoryMediaIndex implements MediaIndexPort {
   }
 
   async index(req: MediaIndexRequest): Promise<{ segments: number; state: IndexState }> {
+    this.#inflight.set(req.mediaId, (this.#inflight.get(req.mediaId) ?? 0) + 1);
+    try { return await this.#index(req); }
+    finally {
+      const n = (this.#inflight.get(req.mediaId) ?? 1) - 1;
+      if (n > 0) this.#inflight.set(req.mediaId, n); else { this.#inflight.delete(req.mediaId); this.#removals.delete(req.mediaId); } // tombstones only live while an index may still land
+    }
+  }
+  async #index(req: MediaIndexRequest): Promise<{ segments: number; state: IndexState }> {
+    const epoch = this.#removals.get(req.mediaId) ?? 0;
     const base = { kind: req.kind, scope: req.scope, vectors: [] as number[][], segments: [] as Segment[] };
     const finish = (state: IndexState, extra: Partial<Item> = {}) => { this.#items.set(req.mediaId, { ...base, state, ...extra }); return { segments: (extra.segments ?? []).length, state }; };
     if (this.#o.modalities && !this.#o.modalities.includes(req.kind)) return finish("unsupported-kind");
     let out: { vectors: number[][]; segments: Segment[] };
     try { out = await this.#o.embedMedia(req); }
-    catch (e) { return finish(isCode(e, "E_MEDIA_UNSUPPORTED_KIND") ? "unsupported-kind" : "failed"); }
+    catch (e) { if ((this.#removals.get(req.mediaId) ?? 0) !== epoch) return { segments: 0, state: "pending" }; return finish(isCode(e, "E_MEDIA_UNSUPPORTED_KIND") ? "unsupported-kind" : "failed"); }
     for (const v of out.vectors) this.#checkDim(v);
+    if ((this.#removals.get(req.mediaId) ?? 0) !== epoch) return { segments: 0, state: "pending" }; // removed while embedding: store nothing
     const r = finish("indexed", { vectors: out.vectors, segments: out.segments, ...(req.caption !== undefined ? { caption: req.caption } : {}) });
     if (req.caption !== undefined) await this.#o.captions?.set?.(req.mediaId, req.caption, req.captionSource ?? "user", req.scope);
     return r;
@@ -67,6 +86,10 @@ export class InMemoryMediaIndex implements MediaIndexPort {
 
   async search(req: MediaSearchRequest): Promise<MediaHit[]> {
     if ((req.text === undefined) === (req.likeMediaId === undefined)) throw new RpcError("E_INVALID_PARAMS", "exactly one of text or likeMediaId is required");
+    if (!Number.isInteger(req.limit) || req.limit < 1 || req.limit > MAX_LIMIT) invalid(`limit must be an integer from 1 to ${MAX_LIMIT}`);
+    if (req.text !== undefined && (typeof req.text !== "string" || req.text.trim() === "" || req.text.length > MAX_TEXT)) invalid(`text must be 1 to ${MAX_TEXT} characters`);
+    if (req.kinds !== undefined && (!Array.isArray(req.kinds) || !req.kinds.every((k) => KINDS.includes(k)))) invalid("unknown kind");
+    if (req.minScore !== undefined && !Number.isFinite(req.minScore)) invalid("minScore must be a finite number");
     let queries: number[][]; let captionText: string | undefined = req.text;
     if (req.text !== undefined) queries = [await this.#o.embedText(req.text, { queryFor: "media" })];
     else {
@@ -106,6 +129,7 @@ export class InMemoryMediaIndex implements MediaIndexPort {
   }
 
   async remove(mediaId: string): Promise<void> {
+    if (this.#inflight.has(mediaId)) this.#removals.set(mediaId, (this.#removals.get(mediaId) ?? 0) + 1);
     this.#items.delete(mediaId);
     this.#queue = this.#queue.filter((r) => r.mediaId !== mediaId);
     await this.#o.captions?.remove?.(mediaId);

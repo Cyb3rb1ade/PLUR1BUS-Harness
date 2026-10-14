@@ -1,10 +1,10 @@
 // ElevenLabs: cloud TTS (HTTP, HTTP streaming, WebSocket text-input streaming) and ASR (batch, realtime socket).
 // All endpoint shapes live in constants.ts and are flagged VERIFY there. The API key is resolved from a secret
 // reference per call and sent only in the xi-api-key header of server-side requests.
-import { ELEVENLABS } from "../constants.ts";
+import { AUDIO_LIMITS, ELEVENLABS, elevenlabsHost } from "../constants.ts";
 import { VoiceProviderError, abortedError } from "../errors.ts";
 import type { AsrEvent, AsrProvider, AsrSession, AsrStreamOptions, AudioChunk, AudioFormat, CallOptions, ModelInfo, TranscribeOptions, TranscriptResult, TtsOptions, TtsProvider, TtsResult, UsageReport, VoiceInfo, WordTiming } from "../types.ts";
-import { AsyncQueue, fromBase64, pcm16Seconds, pcm16ToWav, textChunks, toBase64 } from "../util.ts";
+import { AsyncQueue, assertSampleRate, fromBase64, pcm16Seconds, pcm16ToWav, textChunks, toBase64 } from "../util.ts";
 import { closeError, openSocket, parseJsonFrame, upstreamProtocolError, type WsLike } from "../ws.ts";
 import { KeyHolder, frameError, httpToWs, loggerOf, makeHttp, trimBase, type CloudDeps } from "./common.ts";
 
@@ -28,7 +28,7 @@ export function createElevenLabs(o: ElevenLabsOptions): ElevenLabs {
   const keys = new KeyHolder(o.getSecret, o.apiKeyRef, ID);
   const http = makeHttp(ID, o, keys);
   const log = loggerOf(o);
-  const base = trimBase(o.baseUrl ?? `https://${ELEVENLABS.hosts[o.region ?? "default"] ?? ELEVENLABS.hosts["default"]}`);
+  const base = trimBase(o.baseUrl ?? `https://${elevenlabsHost(o.region)}`);
   const wsBase = httpToWs(base);
   const query = (params: Record<string, string | undefined>, retention = true): string => {
     const p = new URLSearchParams();
@@ -150,14 +150,14 @@ export function createElevenLabs(o: ElevenLabsOptions): ElevenLabs {
     const voice = voiceOf(options);
     const url = `${wsBase}${ELEVENLABS.paths.ttsStreamInput(voice)}${query({ model_id: modelOf(options), output_format: param, language_code: options.language })}`;
     const ws = await openSocket({ provider: ID, url, headers: await authHeaders(), ...(o.wsFactory ? { factory: o.wsFactory } : {}), ...(options.signal ? { signal: options.signal } : {}), secrets: keys.secrets });
-    const q = new AsyncQueue<AudioChunk>();
+    const q = new AsyncQueue<AudioChunk>({ maxItems: AUDIO_LIMITS.maxQueuedEvents });
     let chars = 0;
     let finished = false;
     ws.addEventListener("message", (ev) => {
       try {
         const f = parseJsonFrame(ev.data, ID);
         if (f["error"] !== undefined || f["message_type"] === "error") { q.fail(frameError(ID, f, keys.secrets)); return; }
-        if (typeof f["audio"] === "string" && f["audio"] !== "") q.push({ data: fromBase64(f["audio"]), format, sampleRate: rate });
+        if (typeof f["audio"] === "string" && f["audio"] !== "" && !q.push({ data: fromBase64(f["audio"]), format, sampleRate: rate }) && q.closed) { try { ws.close(1013, "consumer too slow"); } catch { /* closed */ } return; }
         if (f["isFinal"] === true) { finished = true; q.end(); }
       } catch {
         // A frame we cannot use ends the stream with one protocol error; the socket is closed, nothing escapes.
@@ -168,6 +168,8 @@ export function createElevenLabs(o: ElevenLabsOptions): ElevenLabs {
     ws.addEventListener("close", (ev) => { if (!finished) q.fail(ev.code === 1000 || ev.code === 1005 || ev.code === 1001 ? new VoiceProviderError("network", `${ID}: socket closed before the stream finished`, { provider: ID }) : closeError(ID, ev.code)); });
     ws.addEventListener("error", () => q.fail(new VoiceProviderError("network", `${ID}: socket error`, { provider: ID })));
     const onAbort = () => { q.fail(abortedError(ID)); try { ws.close(1000, "aborted"); } catch { /* closed */ } };
+    // A signal that fired while the socket was opening never dispatches again.
+    if (options.signal?.aborted) { onAbort(); throw abortedError(ID); }
     options.signal?.addEventListener("abort", onAbort, { once: true });
     try {
       ws.send(JSON.stringify({ text: " ", ...(options.voiceSettings ? { voice_settings: options.voiceSettings } : {}), generation_config: { chunk_length_schedule: ELEVENLABS.chunkLengthSchedule } }));
@@ -196,6 +198,7 @@ export function createElevenLabs(o: ElevenLabsOptions): ElevenLabs {
 
     async transcribe(audio, options: TranscribeOptions = {}): Promise<TranscriptResult> {
       if (audio.format !== "pcm16") throw new VoiceProviderError("unsupported", `${ID}: batch transcription takes pcm16 input here`, { provider: ID });
+      assertSampleRate(audio.sampleRate, ID);
       const model = options.model ?? o.defaultSttModel ?? ELEVENLABS.defaultSttModel;
       const form = new FormData();
       form.set("model_id", model);
@@ -212,7 +215,7 @@ export function createElevenLabs(o: ElevenLabsOptions): ElevenLabs {
 
     async openStream(options: AsrStreamOptions = {}): Promise<AsrSession> {
       const model = options.model ?? ELEVENLABS.defaultRealtimeSttModel;
-      const rate = options.sampleRate ?? 16000;
+      const rate = assertSampleRate(options.sampleRate ?? 16000, ID);
       const url = `${wsBase}${ELEVENLABS.paths.sttRealtime}${query({ model_id: model, audio_format: `pcm_${rate}`, language_code: options.language, commit_strategy: "manual", include_timestamps: options.timestamps ? "true" : undefined })}`;
       const ws = await openSocket({ provider: ID, url, headers: await authHeaders(), ...(o.wsFactory ? { factory: o.wsFactory } : {}), ...(options.signal ? { signal: options.signal } : {}), secrets: keys.secrets });
       return new ElevenLabsAsrSession(ws, rate, model, keys.secrets, report, options.timestamps === true, options.signal);
@@ -241,12 +244,15 @@ function wordsOf(raw: unknown): WordTiming[] | undefined {
 
 class ElevenLabsAsrSession implements AsrSession {
   readonly events: AsyncIterable<AsrEvent>;
-  private readonly q = new AsyncQueue<AsrEvent>();
+  private readonly q = new AsyncQueue<AsrEvent>({ maxItems: AUDIO_LIMITS.maxQueuedEvents });
   private readonly ws: WsLike;
   private readonly rate: number;
   private ready = false;
   private pending: string[] = [];
+  private pendingBytes = 0;
   private bytes = 0;
+  private readonly signal: AbortSignal | undefined;
+  private readonly onAbort = (): void => { this.q.push({ type: "error", error: abortedError(ID) }); void this.close(); };
   private closed = false;
   private closing = false;
   private readonly wantTimestamps: boolean;
@@ -257,6 +263,7 @@ class ElevenLabsAsrSession implements AsrSession {
     this.rate = rate;
     this.events = this.q;
     this.wantTimestamps = wantTimestamps;
+    this.signal = signal;
     ws.addEventListener("message", (ev) => {
       if (this.failed) return;
       try { this.onFrame(parseJsonFrame(ev.data, ID), secrets); } catch {
@@ -268,6 +275,7 @@ class ElevenLabsAsrSession implements AsrSession {
       }
     });
     ws.addEventListener("close", (ev) => {
+      this.signal?.removeEventListener("abort", this.onAbort);
       if (!this.closed) { try { report({ provider: ID, operation: "asr", model, seconds: pcm16Seconds(this.bytes, this.rate) }); } catch { /* usage sink */ } }
       this.closed = true;
       if (!this.closing && !this.failed && ev.code !== 1000 && ev.code !== 1005 && ev.code !== 1001) this.q.push({ type: "error", error: closeError(ID, ev.code) });
@@ -275,12 +283,14 @@ class ElevenLabsAsrSession implements AsrSession {
       this.q.end();
     });
     ws.addEventListener("error", () => this.q.push({ type: "error", error: new VoiceProviderError("network", `${ID}: socket error`, { provider: ID }) }));
-    signal?.addEventListener("abort", () => { this.q.push({ type: "error", error: abortedError(ID) }); void this.close(); }, { once: true });
+    // A signal that fired while the socket was opening never dispatches again.
+    if (signal?.aborted) this.onAbort();
+    else signal?.addEventListener("abort", this.onAbort, { once: true });
   }
 
   private onFrame(f: Record<string, unknown>, secrets: readonly string[]): void {
     const t = f["message_type"];
-    if (t === "session_started") { this.ready = true; for (const p of this.pending) this.ws.send(p); this.pending = []; this.q.push({ type: "ready" }); }
+    if (t === "session_started") { this.ready = true; for (const p of this.pending) this.ws.send(p); this.pending = []; this.pendingBytes = 0; this.q.push({ type: "ready" }); }
     else if (t === "partial_transcript") this.q.push({ type: "partial", text: String(f["text"] ?? "") });
     else if (t === "committed_transcript" && !this.wantTimestamps) this.q.push({ type: "final", text: String(f["text"] ?? "") });
     else if (t === "committed_transcript_with_timestamps") {
@@ -293,11 +303,16 @@ class ElevenLabsAsrSession implements AsrSession {
     if (this.closed || this.closing || this.failed) throw new VoiceProviderError("closed", `${ID}: session is closed`, { provider: ID });
     const text = JSON.stringify(frame);
     if (this.ready) this.ws.send(text);
-    else this.pending.push(text);
+    else {
+      if (this.pendingBytes + text.length > AUDIO_LIMITS.maxPendingBytes) throw new VoiceProviderError("overloaded", `${ID}: too much input queued before the session was ready`, { provider: ID });
+      this.pendingBytes += text.length;
+      this.pending.push(text);
+    }
   }
   sendAudio(pcm: Uint8Array): void {
-    this.bytes += pcm.byteLength;
     this.send({ message_type: "input_audio_chunk", audio_base_64: toBase64(pcm), commit: false, sample_rate: this.rate });
+    // Counted only once the chunk was accepted, so refused audio is not billed.
+    this.bytes += pcm.byteLength;
   }
   commit(): void {
     this.send({ message_type: "input_audio_chunk", audio_base_64: "", commit: true, sample_rate: this.rate });

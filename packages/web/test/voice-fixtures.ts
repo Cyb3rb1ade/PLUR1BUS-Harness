@@ -78,6 +78,7 @@ export function installVoice(server: MockHarnessServer | { rpc: MockRpc; events?
     if (q.agentId !== undefined) w.agents[q.agentId] = next; else w.profile = next;
     return next;
   });
+  rpc.handle("voice.agent.override.clear", (p: unknown) => { const a = agentOf(p); if (a !== undefined) delete w.agents[a]; return { ok: true }; });
   if (w.metrics) rpc.handle("voice.metrics.get", () => w.metrics, { write: false });
   return w;
 }

@@ -11,6 +11,9 @@ import { RpcError } from "../src/rpc/errors.ts";
 import { createRpcServer, MAX_PENDING_BYTES, type RpcServer } from "../src/rpc/server.ts";
 import { tempDir } from "./helpers/temp-dir.ts";
 
+/** Barrier for notifications: a connection delivers in order, so once a call on it has returned, every notification the
+ *  server queued for it before that call has been delivered too (or never will be). Replaces a fixed sleep. */
+const flush = (...cs: { call: (m: string, p?: object) => Promise<unknown> }[]) => Promise.all(cs.map((c) => c.call("core.status", {})));
 const TOKEN = "c".repeat(64);
 const dir = tempDir("p1b-rpc-");
 const address = process.platform === "win32" ? `\\\\.\\pipe\\plur1bus-test-${process.pid}` : join(dir, "core.sock");
@@ -106,11 +109,11 @@ describe("rpc server", () => {
     server.notify("agent.activity", { agentId: "bernd", activity: { state: "recalling", since: 1 } });
     server.notify("agent.activity", { agentId: "other", activity: { state: "recalling", since: 1 } });
     server.notify("core.state", { process: { state: "ready" } });
-    await new Promise((r) => setTimeout(r, 30));
+    await flush(c);
     assert.deepEqual(got, [["agent.activity", { agentId: "bernd", activity: { state: "recalling", since: 1 } }]]);
     assert.deepEqual(await c.call("events.unsubscribe", { subscriptionId }), { removed: true });
     server.notify("agent.activity", { agentId: "bernd", activity: { state: "idle", since: 2 } });
-    await new Promise((r) => setTimeout(r, 30));
+    await flush(c);
     assert.equal(got.length, 1);
     await c.close();
   });
@@ -124,7 +127,7 @@ describe("rpc server", () => {
     const ev = { name: "recall.completed", agentId: "bernd", payload: { agentId: "bernd" } };
     server.notify("engine.event", ev, { optIn: true });
     server.notify("core.state", { process: { state: "ready" } });
-    await new Promise((r) => setTimeout(r, 30));
+    await flush(all, named);
     assert.deepEqual(gotAll, [["core.state", { process: { state: "ready" } }]]);
     assert.deepEqual(gotNamed, [["engine.event", ev]]);
     await all.close(); await named.close();
@@ -136,7 +139,7 @@ describe("rpc server", () => {
     clients.forEach((c, i) => c.onNotification((m) => got[i]!.push(m)));
     await Promise.all(["bernd", "anna", "ghost"].map((agentId, i) => clients[i]!.call("events.subscribe", { agentId })));
     server.notify("memory.proposal", { agentId: "bernd", proposalId: "p-1", status: "pending", sharerAgentId: "bernd", proposerAgentId: "anna", sharedId: "m-1" }, { audience: ["bernd", "anna"] });
-    await new Promise((r) => setTimeout(r, 30));
+    await flush(...clients);
     assert.deepEqual(got, [["memory.proposal"], ["memory.proposal"], []]);
     await Promise.all(clients.map((c) => c.close()));
   });

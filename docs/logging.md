@@ -60,6 +60,7 @@ The secret store is not newly wired here. Pure hexadecimal hashes remain readabl
 Path matching uses the existing reader's lexical canonicalisation; filesystem/symlink-aware D109
 canonicalisation remains a follow-up. A redactor failure drops the original and writes only
 `log.redaction.failed` and its registered attempted event. No exception text is written.
+Two limits of the free-text `key=value` rule in `logs/redact.ts` are not yet enforced (both are `KNOWN GAP` todo tests in `logger.test.ts`): a secret-keyed pair that follows a `Name:` prefix is not always redacted, and the rule is quadratic in the length of an unbroken word run (about 0.8 s at 4 KiB, 4 s at 8 KiB), so a very long unbroken line is slow to redact.
 
 Messages are bounded by the catalogue and 2 KiB. Attrs are bounded by 8 KiB and the serialized
 record by 4 KiB. Strings are cut at UTF-8 code-point boundaries with `…`; large arrays are shortened.

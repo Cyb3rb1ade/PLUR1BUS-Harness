@@ -57,7 +57,7 @@ describe("voice: agent override", opts, () => {
     });
   });
 
-  test("reset writes the inherited global profile back to the agent", async () => {
+  test("reset removes the agent's override (voice.agent.override.clear) and shows the global values", async () => {
     await withApp({}, async (app) => {
       installAgents(app.server);
       const w = installVoice(app.server);
@@ -74,12 +74,11 @@ describe("voice: agent override", opts, () => {
       await resetBtn.click();
       await page.getByText("This agent uses the global values again.").waitFor();
 
-      // Verify the RPC set call has the global endpointingMs: 700
-      const calls = voiceCalls(app.server, "voice.realtime.profile.set");
-      const last = calls.at(-1)!.params as { agentId?: string; endpointingMs?: number; speculative?: boolean };
-      assert.equal(last.agentId, "main");
-      assert.equal(last.endpointingMs, 700);
-      assert.equal(last.speculative, false);
+      const clears = voiceCalls(app.server, "voice.agent.override.clear");
+      assert.equal(clears.length, 1);
+      assert.deepEqual(clears[0]!.params, { agentId: "main" });
+      assert.equal(voiceCalls(app.server, "voice.realtime.profile.set").length, 0, "Reset must not write the global values for the agent");
+      assert.equal(await page.locator("#voice-ag-endpointing").inputValue(), "700", "the form shows the global value again");
     });
   });
 

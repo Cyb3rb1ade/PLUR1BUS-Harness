@@ -103,6 +103,8 @@ So the assistant knows who you are, link your account on the channel to your use
 
 The code is valid only briefly and works once. If you have no code left, create a new one.
 
+A channel message that arrives twice (for example after a reconnect) is answered once. Messages that contain only spaces are ignored, and if a chat sends more than 20 messages while an earlier one is still being answered, the extra ones are dropped.
+
 ## Manage channels
 
 | Command | What it does |

@@ -86,7 +86,7 @@ The store is **in-memory**: live cap per peer, stored cap, TTL on terminal tasks
 
 `tasks/pushNotificationConfig/set|get|list|delete`. Delivery is HTTP POST of the Task JSON to the configured URL, with `X-A2A-Notification-Token` when `token` is set and `Authorization: Bearer …` when `authentication.schemes` includes `bearer`.
 
-The target URL is admitted through **egress** (`egress.decide`): default deny, SSRF (no private / loopback / metadata addresses, also after redirect). Each redirect hop is re-checked. Retry with exponential backoff, abort after `pushMaxAttempts` (default 3). Each POST is abandoned after 15 s without an answer. A task holds at most 8 push configs (replacing one by `id` is always possible). Delivery failures never fail the task. `egress.request` is GET-only; the POST lives in `packages/core/src/a2a/push.ts` after `decide()`.
+The target URL is admitted through **egress** (`egress.decide`): default deny, SSRF (no private / loopback / metadata addresses, also after redirect). Each redirect hop is re-checked; a redirect to another origin is posted without the token and bearer credentials. A receiver answering 4xx (except 408 and 429) is not retried. Retry with exponential backoff, abort after `pushMaxAttempts` (default 3). Each POST is abandoned after 15 s without an answer. A task holds at most 8 push configs (replacing one by `id` is always possible). Delivery failures never fail the task. `egress.request` is GET-only; the POST lives in `packages/core/src/a2a/push.ts` after `decide()`.
 
 Without an egress policy (or a test `pushTransport`) a set is `invalid params` / `push-url-denied`. `capabilities.pushNotifications: false` makes the methods return `PushNotificationNotSupported` (-32003).
 
@@ -110,8 +110,6 @@ Body 1 MiB (enforced while streaming, 413), message text 64 KiB, file part 256 K
 
 - A turn's reply and its stream event log are held in memory without a size cap (bounded only by the 120 s reply timeout).
 - The stored-task cap refuses new work while the store is full of terminal tasks still inside their retention time; one peer can use up the slots for every peer for up to an hour (its own request rate still applies).
-- Push redirects re-check egress per hop but forward the configured token / bearer credentials to the redirect target.
-- A push receiver answering 4xx is retried like a 5xx (up to `pushMaxAttempts`).
 - An expiring paused task is only noticed on the next store access, so an open stream on it ends then, not at the exact deadline.
 
 ## Follow-ups

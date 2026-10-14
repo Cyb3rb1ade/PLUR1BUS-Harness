@@ -15,10 +15,11 @@ standard library only.
 - **Server identity (ruling S11, HM2-R7):** every connect re-reads `run/core.token` and `run/core.pid`.
   The token is sent only after the OS confirms that the server pid (`SO_PEERCRED`, `LOCAL_PEERPID` or
   `GetNamedPipeServerProcessId`) equals `run/core.pid`. On POSIX, `run/` must also be a directory
-  owned by the current user with no group or other write bit. The token never appears in errors or logs.
+  owned by the current user with no group or other write bit. A missing `run/core.pid` is a refusal on Windows
+  (`E_SERVER_IDENTITY`, reason `server-pid-unknown`), not a skipped check. The token never appears in errors or logs.
 - **Deadlines:** each call has one monotonic deadline (`deadline_s`, default `call_timeout`). It covers
   connecting, sending, receiving and at most one reconnect. Only reads (`core.status`,
-  `memory.recall`, `memory.list`, `memory.show`, `agent.*`) are re-sent after a broken connection.
+  `memory.recall`, `memory.list`, `memory.show`, `agent.open`, `agent.close`, `agent.status`, `agent.list`) are re-sent after a broken connection.
   Writes are never re-sent; the caller decides what to do with them.
 - **Versions:** the client accepts rpc major 1, minor 3 or later, and refuses anything else with
   `E_RPC_VERSION`. `_schema.py` is generated from `packages/rpc-schema/schema/rpc.schema.json`
