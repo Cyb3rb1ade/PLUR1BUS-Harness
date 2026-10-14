@@ -19,7 +19,7 @@ Selecting a task displays its execution history (`jobs.history`), including run 
 
 ## Running a task immediately
 
-You can trigger a scheduled job on demand from the web interface without waiting for its next scheduled time.
+For system and agent background jobs, you can use the existing manual trigger without waiting for the next scheduled time. The user-job panel currently offers create/edit/delete and history; its manual run RPC is separate.
 Clicking **Run now** prompts for confirmation before invoking the job execution (`jobs.run`).
 
 ## Create and edit a task
