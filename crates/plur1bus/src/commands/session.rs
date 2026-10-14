@@ -273,13 +273,27 @@ pub fn chat(out: &Out, layout: &Layout, args: ChatArgs) {
             json!({ "caller": &caller, "sessionId": &session_id, "text": text, "wait": true }),
         );
         let failed = v["state"].as_str() == Some("failed");
-        out.ok("chat.turn/1", &v, || match v["reply"].as_str() {
+        let human = || match v["reply"].as_str() {
             Some(r) => r.to_string(),
             None => format!(
                 "(turn failed: {})",
                 v["error"].as_str().unwrap_or("unknown")
             ),
-        });
+        };
+        if failed {
+            // The core's `error` string moves to `detail`; the document stays one per turn.
+            let mut failure = crate::output::Failure::new(
+                "E_INTERNAL",
+                "turn-failed",
+                "the turn failed (see detail)",
+            );
+            if let Some(why) = v["error"].as_str() {
+                failure.extra["detail"] = json!(why);
+            }
+            out.print_failed("chat.turn/1", &v, human, &failure);
+        } else {
+            out.ok("chat.turn/1", &v, human);
+        }
         failed
     };
     if let Some(m) = args.message {

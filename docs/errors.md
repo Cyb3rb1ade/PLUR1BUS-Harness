@@ -199,7 +199,8 @@ The first collection (#423) found the inconsistencies below. All of them are fix
   the table.
 - **Fixed:** `supervise` exited 3 for "already running" but 1 when the lock was held and no supervisor answered. Both
   exit 3 (under launchd the second keeps 1, see the table).
-- **Fixed:** `audit verify`, `dreams run`, `model scan`, `memory reembed` and `1staid check` called
+- **Fixed:** `audit verify`, `dreams run`, `model scan`, `memory reembed`, `1staid check`, `approval verify`,
+  `admin embedding probe`, `channel test` and `chat` called
   `std::process::exit(1)` after the normal result, with no `error/1` document. With `--json` the result document now
   carries the failure as a top-level `error` object, itself an `error/1` document, so stdout stays ONE JSON document
   and a result such as `{"schema":"audit.verify/1","ok":false,...}` keeps all its fields:
@@ -212,9 +213,13 @@ The first collection (#423) found the inconsistencies below. All of them are fix
   | `memory reembed --plan` (incompatible model) | `E_CONFLICT` | `incompatible-model` |
   | `memory reembed --run` (the migration did not finish) | `E_INTERNAL` | `reembed-failed` |
   | `1staid check` (a check failed) | `E_INTERNAL` | `checks-failed` (`ids.failed` lists the check ids) |
+  | `approval verify` (the chain is broken) | `E_STORAGE` | `approval-chain-broken` (`detail` is the core's reason, e.g. `mac-mismatch`) |
+  | `admin embedding probe` (the probe failed) | `E_INTERNAL` | the core's reason: `aborted`, `provider-failed`, `invalid-vector` or `dimension-mismatch` |
+  | `channel test` (the check failed) | `E_INTERNAL` | `channel-test-failed` (`detail` is the channel's detail) |
+  | `chat` (a turn ended `failed`) | `E_INTERNAL` | `turn-failed` (`detail` is the core's error string) |
 
+  `admin embedding probe` and `chat` already have a string `error` in their result (the core's reason); in a failed
+  document that key holds the `error/1` object instead and the string moves to `reason` (probe) or `detail` (chat).
+  `chat` prints one document per turn, so with several lines on stdin only the failed turns carry `error`.
   The exit stays 1; without `--json` nothing changes. A success is unchanged, in particular the documents the desktop
   app parses (`1staid.check/1`, `admin.smoke/1`, `daemon.status`, `state.snapshot/1`).
-
-Still open: other commands end with `exit(1)` after their result without an `error` object (`approval verify`,
-`admin embedding probe`, `channel test`, `chat`); their exit code is right, only the `--json` failure object is missing.
