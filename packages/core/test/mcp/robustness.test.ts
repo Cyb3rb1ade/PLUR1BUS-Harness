@@ -67,3 +67,10 @@ it("output schemas are isolated per tool even when a server reuses the same $id"
     return modernHandler(m);
   }, async c => { await assert.rejects(c.callTool("number", { text: "a string" }), /outputSchema/); });
 });
+it("a tool name with control or line-separator characters is refused, so aggregate names stay unambiguous", async () => {
+  for (const bad of ["a\nb", "a b", "a\u0000b", "a\u007fb"]) {
+    await withModern(m => m.method === "tools/list" ? { jsonrpc: "2.0", id: m.id, result: { resultType: "complete", ttlMs: 0, cacheScope: "private", tools: [{ ...tool, name: bad }] } } : modernHandler(m), async c => {
+      await assert.rejects(c.listTools(), /descriptor invalid/, JSON.stringify(bad));
+    });
+  }
+});
