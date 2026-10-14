@@ -137,6 +137,7 @@ struct ConnCtx {
 
 /// One connection's output side, as the handlers need it.
 struct Conn {
+    api_user: Option<String>,
     writer: SharedWriter,
     closer: Arc<dyn Fn() + Send + Sync>,
     /// Subscriptions made on this connection; removed when it ends.
@@ -211,6 +212,14 @@ fn config_unavailable(id: &Value) -> Value {
 
 fn set_error_reply(id: &Value, e: SetError) -> Value {
     match e {
+        SetError::Invalid(errors) if errors == ["config-write-role"] => error_reply(
+            id,
+            "E_DENIED",
+            "config write denied",
+            Some("config-write-role"),
+            None,
+            None,
+        ),
         SetError::Invalid(errors) => error_reply(
             id,
             "E_CONFIG_INVALID",
@@ -350,6 +359,7 @@ impl ConnCtx {
             mut drain,
         } = conn;
         let mut conn = Conn {
+            api_user: None,
             writer: Arc::new(Mutex::new(writer)),
             closer: closer.clone(),
             subscriptions: Vec::new(),
@@ -615,7 +625,7 @@ impl ConnCtx {
         }
     }
 
-    fn config_set(&self, id: &Value, params: &Value) -> Value {
+    fn config_set(&self, id: &Value, params: &Value, principal: Option<&Value>) -> Value {
         let p: ConfigSetParams = match parse(params) {
             Ok(p) => p,
             Err(d) => return invalid_params(id, d),
@@ -637,13 +647,24 @@ impl ConnCtx {
             .map(|c| (String::from(c.key), c.value))
             .collect();
         let if_revision = p.if_revision.as_deref().map(String::as_str);
-        match config::set(
-            &self.shared,
-            &self.layout,
-            changes,
-            if_revision,
-            p.dry_run.unwrap_or(false),
-        ) {
+        let applied = match principal {
+            Some(person) => config::set_as(
+                &self.shared,
+                &self.layout,
+                changes,
+                if_revision,
+                p.dry_run.unwrap_or(false),
+                person,
+            ),
+            None => config::set(
+                &self.shared,
+                &self.layout,
+                changes,
+                if_revision,
+                p.dry_run.unwrap_or(false),
+            ),
+        };
+        match applied {
             Ok(v) => result_reply(id, v),
             Err(e) => set_error_reply(id, e),
         }
@@ -728,6 +749,62 @@ impl ConnCtx {
         let method = msg["method"].as_str().unwrap_or_default();
         let params = msg.get("params").cloned().unwrap_or_else(|| json!({}));
 
+        let principal = if let Some(delegation) = msg.get("api") {
+            if authed && conn.api_user.is_none() && method != "supervisor.auth" {
+                return Some((
+                    error_reply(
+                        &id,
+                        "E_UNAUTHORIZED",
+                        "delegate at handshake",
+                        Some("api-handshake-required"),
+                        None,
+                        None,
+                    ),
+                    After::Continue,
+                    false,
+                ));
+            }
+            match super::api_transport::principal(&self.layout, delegation) {
+                Ok(p)
+                    if conn
+                        .api_user
+                        .as_deref()
+                        .is_none_or(|id| Some(id) == p["userId"].as_str()) =>
+                {
+                    Some(p)
+                }
+                _ => {
+                    return Some((
+                        error_reply(
+                            &id,
+                            "E_UNAUTHORIZED",
+                            "API delegation refused",
+                            Some("api-delegation"),
+                            None,
+                            None,
+                        ),
+                        After::Continue,
+                        false,
+                    ))
+                }
+            }
+        } else if conn.api_user.is_some() {
+            return Some((
+                error_reply(
+                    &id,
+                    "E_UNAUTHORIZED",
+                    "API principal required",
+                    Some("api-principal-required"),
+                    None,
+                    None,
+                ),
+                After::Continue,
+                false,
+            ));
+        } else {
+            None
+        };
+
         if method == "supervisor.auth" {
             let p: SupervisorAuthParams = match parse(&params) {
                 Ok(p) => p,
@@ -747,6 +824,9 @@ impl ConnCtx {
                 );
                 return Some((reply, After::Close, false));
             }
+            if let Some(p) = &principal {
+                conn.api_user = p["userId"].as_str().map(str::to_string);
+            }
             return Some((result_reply(&id, self.hello.clone()), After::Continue, true));
         }
         if !authed {
@@ -759,6 +839,27 @@ impl ConnCtx {
                 None,
             );
             return Some((reply, After::Continue, false));
+        }
+        if let Some(p) = &principal {
+            // Supervisor-only lifecycle/subscription operations never cross the browser transport.
+            if !matches!(
+                method,
+                "config.get" | "config.set" | "module.list" | "module.graph"
+            ) || !matches!(p["role"].as_str(), Some("owner" | "admin"))
+            {
+                return Some((
+                    error_reply(
+                        &id,
+                        "E_DENIED",
+                        "web operation denied",
+                        Some("role-denied"),
+                        None,
+                        None,
+                    ),
+                    After::Continue,
+                    true,
+                ));
+            }
         }
         let reply = match method {
             "daemon.status" => match parse::<DaemonStatusParams>(&params) {
@@ -775,7 +876,10 @@ impl ConnCtx {
                 Err(d) => (invalid_params(&id, d), After::Continue),
                 Ok(p) => (self.config_get(&id, p), After::Continue),
             },
-            "config.set" => (self.config_set(&id, &params), After::Continue),
+            "config.set" => (
+                self.config_set(&id, &params, principal.as_ref()),
+                After::Continue,
+            ),
             "config.watch" => match parse::<ConfigWatchParams>(&params) {
                 Err(d) => (invalid_params(&id, d), After::Continue),
                 Ok(_) => self.config_watch(&id, conn),
