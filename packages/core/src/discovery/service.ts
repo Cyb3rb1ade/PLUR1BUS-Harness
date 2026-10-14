@@ -471,16 +471,21 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
         };
       }
 
-      deps.events.scanFailed({
-        provider,
-        result: scanResult,
-        ...(httpStatus !== undefined ? { httpStatus } : {}),
-        ...(retryAfterMs !== undefined ? { retryAfterS: Math.round(retryAfterMs / 1000) } : {}),
-        nextScanAt: nextScanAtIso,
-        consecutiveFailures: newFailures,
-        err: scanErrorInfo,
-        traceId,
-      });
+      try {
+        deps.events.scanFailed({
+          provider,
+          result: scanResult,
+          ...(httpStatus !== undefined ? { httpStatus } : {}),
+          ...(retryAfterMs !== undefined ? { retryAfterS: Math.round(retryAfterMs / 1000) } : {}),
+          nextScanAt: nextScanAtIso,
+          consecutiveFailures: newFailures,
+          err: scanErrorInfo,
+          traceId,
+        });
+      } catch (evtErr) {
+        // The failure is already recorded; a broken event sink must not turn it into a rejected scan.
+        deps.logger.warn("error emitting scan failure event", { error: String(evtErr) });
+      }
 
       return {
         provider,
@@ -511,8 +516,14 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
     const workers = Array.from({ length: Math.min(limit, targets.length) }, async () => {
       while (idx < targets.length) {
         const p = targets[idx++]!;
-        const res = await scanProvider(p, r);
-        results.push(res);
+        try {
+          results.push(await scanProvider(p, r));
+        } catch (err) {
+          // A provider removed from the configuration after the target list was taken is skipped; one bad
+          // target must not discard the other results or stop this worker.
+          if (err instanceof CatalogError && err.code === "not-found") continue;
+          throw err;
+        }
       }
     });
     await Promise.all(workers);
