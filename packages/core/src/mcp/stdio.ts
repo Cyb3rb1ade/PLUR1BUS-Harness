@@ -18,7 +18,9 @@ export class BoundedStdioTransport {
   readonly stderr = new PassThrough();
   private child: ChildProcessWithoutNullStreams | null = null;
   private pipes: Pipes | null = null;
-  private buffer = Buffer.alloc(0);
+  // Parts of the current line; joined once per frame so many tiny reads cost linear, not quadratic, copying.
+  private parts: Buffer[] = [];
+  private size = 0;
   private closing: Promise<void> | null = null;
   private closed = false;
   private started = false;
@@ -58,7 +60,7 @@ export class BoundedStdioTransport {
     this.pipes.input.on("error", () => this.fail("MCP stdin failed"));
     this.pipes.output.on("error", () => this.fail("MCP stdout failed"));
     this.pipes.output.on("end", () => {
-      if (this.buffer.length) this.fail("MCP incomplete frame at EOF");
+      if (this.size) this.fail("MCP incomplete frame at EOF");
       else if (!this.closing) void this.close();
     });
     this.pipes.output.on("data", (chunk: Buffer | string) => this.read(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
@@ -71,12 +73,13 @@ export class BoundedStdioTransport {
       const newline = chunk.indexOf(10, offset);
       const end = newline < 0 ? chunk.length : newline;
       const part = chunk.subarray(offset, end);
-      if (this.buffer.length + part.length > this.limit) { this.fail("MCP frame exceeds byte limit"); return; }
-      this.buffer = Buffer.concat([this.buffer, part]);
+      if (this.size + part.length > this.limit) { this.fail("MCP frame exceeds byte limit"); return; }
+      if (part.length) { this.parts.push(part); this.size += part.length; }
       if (newline < 0) return;
       try {
-        const message = JSONRPCMessageSchema.parse(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(this.buffer)));
-        this.buffer = Buffer.alloc(0); this.onmessage?.(message);
+        const line = this.parts.length === 1 ? this.parts[0]! : Buffer.concat(this.parts);
+        const message = JSONRPCMessageSchema.parse(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(line)));
+        this.parts = []; this.size = 0; this.onmessage?.(message);
       } catch { this.fail("MCP malformed JSON-RPC frame"); return; }
       offset = newline + 1;
     }
@@ -103,7 +106,7 @@ export class BoundedStdioTransport {
       await this.killTree("SIGKILL");
       child.stdout.destroy(); child.stderr.destroy(); child.stdin.destroy();
     }
-    this.buffer = Buffer.alloc(0); this.finish();
+    this.parts = []; this.size = 0; this.finish();
   }
   private async killTree(signal: NodeJS.Signals): Promise<void> {
     const pid = this.pidValue;

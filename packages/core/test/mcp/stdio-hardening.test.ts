@@ -68,3 +68,25 @@ it("stdio rejects invalid UTF-8 instead of changing protocol bytes", async () =>
   output.write(Buffer.concat([Buffer.from('{"jsonrpc":"2.0","method":"notice","params":{"text":"'), Buffer.from([0xff]), Buffer.from('"}}\n')]));
   await t.close(); assert.equal(messages, 0); assert.equal(errors, 1);
 });
+
+it("stdio assembles a frame delivered in many tiny chunks without quadratic copying", async () => {
+  const { PassThrough } = await import("node:stream");
+  const { mock } = await import("node:test");
+  const { BoundedStdioTransport } = await import("../../src/mcp/stdio.ts");
+  const a = new PassThrough(); const b = new PassThrough();
+  const t = new BoundedStdioTransport({ input: a, output: b });
+  const got: unknown[] = [];
+  t.onmessage = (m) => got.push(m);
+  await t.start();
+  const spy = mock.method(Buffer, "concat");
+  try {
+    const text = "x".repeat(200_000);
+    const wire = Buffer.from(`{"jsonrpc":"2.0","method":"n","params":{"t":"${text}"}}\n`);
+    for (let i = 0; i < wire.length; i += 16) { b.write(wire.subarray(i, i + 16)); await new Promise((r) => setImmediate(r)); }
+    for (let i = 0; i < 100 && got.length === 0; i++) await new Promise((r) => setTimeout(r, 10));
+    assert.equal(got.length, 1);
+    let copied = 0;
+    for (const call of spy.mock.calls) for (const part of call.arguments[0] as Buffer[]) copied += part.length;
+    assert.ok(copied < wire.length * 4, `copied ${copied} bytes to assemble ${wire.length}`);
+  } finally { spy.mock.restore(); await t.close(); }
+});
