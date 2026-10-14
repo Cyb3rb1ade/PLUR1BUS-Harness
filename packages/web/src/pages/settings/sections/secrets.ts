@@ -52,7 +52,7 @@ function Body({ data, reload }: { data: Data; reload: () => void }): View {
     if (rotated) {
       try {
         const status = await getApi().rpc("secret.status", {}, { write: false }) as Status;
-        updatedAt = status.secrets?.find(m => m.name === name)?.updatedAt;
+        updatedAt = currentRole() === "owner" ? status.secrets?.find(m => m.name === name)?.updatedAt : undefined;
       } catch { /* a successful write remains successful when metadata is unavailable */ }
     }
     setNotice(rotated && updatedAt ? t("secrets.updatedOn", { name, when: when(updatedAt) }) : t("secrets.saved", { name }));
@@ -86,7 +86,7 @@ function Body({ data, reload }: { data: Data; reload: () => void }): View {
         h("thead", {}, h("tr", {}, ["name", "backend", "created", "updated", "actions"].map((c) => h("th", { key: c, scope: "col" }, t(`secrets.col.${c}` as Key))))),
         h("tbody", {}, data.secrets.map((m) => h("tr", { key: m.name },
           h("th", { scope: "row", class: "secret-name" }, m.name),
-          h("td", { "data-label": t("secrets.col.backend") }, backendLabel(m.backend)), h("td", { "data-label": t("secrets.col.created") }, when(m.createdAt)), h("td", { "data-label": t("secrets.col.updated") }, when(m.updatedAt)),
+          h("td", { "data-label": t("secrets.col.backend") }, backendLabel(m.backend)), h("td", { "data-label": t("secrets.col.created") }, when(currentRole() === "owner" ? m.createdAt : undefined)), h("td", { "data-label": t("secrets.col.updated") }, when(currentRole() === "owner" ? m.updatedAt : undefined)),
           h("td", { class: "secret-actions" },
             h("button", { type: "button", class: "btn", "aria-label": t("secrets.rotate.label", { name: m.name }), onClick: () => { setDlg({ kind: "rotate", name: m.name }); } }, t("secrets.rotate")),
             h("button", { type: "button", class: "btn btn-quiet", "aria-label": t("secrets.delete.label", { name: m.name }), onClick: () => { setDlg({ kind: "delete", name: m.name }); } }, t("secrets.delete")))))))),
