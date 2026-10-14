@@ -16,10 +16,12 @@ export function files(dir, prefix = '') {
     return [{ path, name }];
   });
 }
+/** The names a SHA256SUMS entry may carry; `parseSums` and the writer in checksums.mjs must agree on it. */
+export const SUMS_NAME = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
 export function parseSums(text) {
   const result = new Map();
   for (const line of text.trim().split('\n')) {
-    const m = /^([a-f0-9]{64})  ([A-Za-z0-9][A-Za-z0-9._/-]*)$/.exec(line);
+    const m = new RegExp(`^([a-f0-9]{64})  (${SUMS_NAME.source.slice(1, -1)})$`).exec(line);
     if (!m || m[2].split('/').includes('..') || result.has(m[2])) throw new Error('invalid or duplicate checksum entry');
     result.set(m[2], m[1]);
   }
