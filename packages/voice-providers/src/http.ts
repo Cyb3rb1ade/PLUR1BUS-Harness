@@ -69,8 +69,9 @@ export class HttpClient {
       }
       this.logger?.debug("voice http", { provider: this.provider, host: new URL(url).host, path: new URL(url).pathname, status: res.status, attempt });
       if (res.ok) return res;
-      const text = await safeText(res);
-      const err = errorFromStatus(res.status, this.provider, vendorDetail(text), res.headers.get("retry-after"), this.secrets, this.now);
+      // The body is never read into the error: vendor text stays out of messages (docs/errors.md).
+      await res.body?.cancel().catch(() => {});
+      const err = errorFromStatus(res.status, this.provider, "", res.headers.get("retry-after"), this.secrets, this.now);
       if (err.retryable && attempt < this.retries) {
         attempt++;
         await this.wait(Math.min(err.retryAfterMs ?? 250 * 2 ** attempt, this.maxWait), signal);
@@ -96,26 +97,4 @@ export class HttpClient {
       throw abortedError(this.provider);
     }
   }
-}
-
-async function safeText(res: Response): Promise<string> {
-  try {
-    return (await res.text()).slice(0, 300);
-  } catch {
-    return "";
-  }
-}
-
-/** Pull a short human reason out of a vendor error body without echoing arbitrary content. */
-function vendorDetail(body: string): string {
-  try {
-    const j = JSON.parse(body) as Record<string, unknown>;
-    const d = j["detail"] ?? j["error"] ?? j["message"];
-    if (typeof d === "string") return d.slice(0, 120);
-    if (d && typeof d === "object") {
-      const m = (d as Record<string, unknown>)["message"] ?? (d as Record<string, unknown>)["status"];
-      if (typeof m === "string") return m.slice(0, 120);
-    }
-  } catch { /* not JSON */ }
-  return "";
 }

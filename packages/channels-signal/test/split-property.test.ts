@@ -422,15 +422,10 @@ test("property 3a: no cut falls between the two halves of a surrogate pair", () 
   });
 });
 
-// KNOWN GAP (product deviation): the splitter only protects surrogate pairs. A forced cut at `max` (no paragraph break,
-// newline or space in the second half of the window) can fall inside a ZWJ sequence, a flag, a keycap, a combining
-// sequence or between CR and LF. docs/channels/signal.md promises only "UTF-16 code units, preferring paragraph breaks".
+// The splitter keeps extended grapheme clusters (ZWJ sequences, flags, keycaps, combining sequences, CRLF) whole whenever
+// a cluster fits into the limit; a longer cluster cannot be kept whole and is not counted.
 test(
   "property 3b: no extended grapheme cluster is split (Intl.Segmenter on the original)",
-  {
-    todo:
-      "KNOWN GAP: channels-signal splitMessage: erwartet Schnitte nur an Graphem-Grenzen, tatsächlich Schnitt mitten in ZWJ-Sequenz, Flagge, Keycap, Kombinationszeichen oder CRLF (erster Fehlschlag seed=20261012 index=edge:10:11:mixed, erster generierter Fehlschlag index=3)",
-  },
   () => {
     let first = "";
     let bad = 0;

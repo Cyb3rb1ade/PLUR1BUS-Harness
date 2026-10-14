@@ -252,17 +252,10 @@ const DOC: Record<SimId, Cell> = {
 const OVERRIDES: Record<string, Override> = {};
 // Polly goes through mapAwsError, which reads the SDK error's name and `$metadata.httpStatusCode`.
 for (const fn of ["synthesize", "synthesizeStream", "listVoices"]) {
-  for (const status of ["404", "413"]) {
-    OVERRIDES[`polly/tts/${fn}|${status}`] = { gap: `KNOWN GAP: channels-voice-providers Polly ${fn}: erwartet invalid_request, nicht wiederholbar (docs/errors.md: "A 4xx the caller caused"), tatsächlich network, wiederholbar, bei HTTP ${status}; mapAwsError (providers/polly.ts:129) kennt nur 400, alles andere fällt auf :131` };
-  }
   // Not in the docs: the SDK reports a bare 408 with no timeout name, the service's Retry-After never reaches the package.
   OVERRIDES[`polly/tts/${fn}|408`] = { code: "network", retryable: true, documented: false };
   OVERRIDES[`polly/tts/${fn}|429+RA`] = { retryAfterMs: undefined, documented: false };
 }
-for (const fn of ["synthesize", "synthesizeStream[http]"]) {
-  OVERRIDES[`elevenlabs/tts/${fn}|abort`] = { gap: `KNOWN GAP: channels-voice-providers ElevenLabs ${fn}: erwartet VoiceProviderError network, wiederholbar (docs/errors.md: "All providers throw VoiceProviderError", network = "a socket that ended without a protocol reason"), tatsächlich roher TypeError "terminated" (providers/elevenlabs.ts: reader.read() Z. 129 und rethrow Z. 135, bei synthesize res.arrayBuffer())` };
-}
-
 function applicable(p: Probe, s: Sim): boolean {
   if (s.id === "truncated-json" || s.id === "invalid-json") return p.body !== "opaque";
   if (s.id === "abort") return p.streams;
@@ -323,10 +316,7 @@ for (const p of probes) {
 // ---- messages carry no vendor text (docs/errors.md: "messages carry no key and no vendor text") ----
 
 for (const p of probes) {
-  const known = p.transport === "http"
-    ? `KNOWN GAP: channels-voice-providers ${p.label}: erwartet keinen Vendor-Text in der Fehlermeldung (docs/errors.md Z. 115: "messages carry no key and no vendor text"), tatsächlich enthält die Meldung den Vendor-Detail bei 404, 413 und 429 (errors.ts:83 und :86, Detail aus http.ts vendorDetail)`
-    : undefined;
-  test(`error-table / ${p.label} / no vendor text in any status error message`, { timeout: 60_000, ...(known !== undefined ? { todo: known } : {}) }, async () => {
+  test(`error-table / ${p.label} / no vendor text in any status error message`, { timeout: 60_000 }, async () => {
     const leaks: string[] = [];
     for (const s of STATUS_SIMS) {
       setScenario(p, s);

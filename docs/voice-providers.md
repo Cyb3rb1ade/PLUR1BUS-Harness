@@ -62,8 +62,8 @@ No vendor endpoint was exercised against the live service. Everything below live
 `packages/voice-providers/test/error-table.test.ts` runs the same simulated responses through every voice function the cloud registry
 exposes: ElevenLabs (`synthesize`, `synthesizeStream` over HTTP and WebSocket, `listVoices`, `transcribe`, `openStream`), xAI (`connect`,
 `listModels`), Gemini (`connect`, `listModels`) and Polly (`synthesize`, `synthesizeStream`, `listVoices`). Cells read
-`code / retryable / documented`. `[KNOWN GAP]` marks a cell that differs from the documented mapping in `docs/errors.md` (Voice provider
-error codes) or in this file.
+`code / retryable / documented`. `[KNOWN GAP]` would mark a cell that differs from the documented mapping in `docs/errors.md` (Voice provider
+error codes) or in this file; there are none at present. Every status message carries the provider name and the status only: never vendor text, never a key.
 
 Shared status rows (ElevenLabs HTTP and WebSocket, xAI and Gemini `connect`, the JSON listing calls):
 
@@ -83,7 +83,7 @@ Body and abort rows:
 
 | Function | Truncated JSON | Invalid JSON | Abort mid-response |
 |---|---|---|---|
-| ElevenLabs `synthesize`, `synthesizeStream` (HTTP) | n/a | n/a | raw `TypeError: terminated`, not a `VoiceProviderError` [KNOWN GAP] |
+| ElevenLabs `synthesize`, `synthesizeStream` (HTTP) | n/a | n/a | `network` / yes / yes (a body cut off mid-stream; an aborted signal gives `aborted`) |
 | ElevenLabs `synthesizeStream` (WebSocket), `openStream`; xAI and Gemini `connect` | `upstream_protocol` / no / yes | `upstream_protocol` / no / yes | `network` / yes / yes |
 | ElevenLabs `listVoices`, `transcribe`; xAI and Gemini `listModels` | `bad_response` / no / yes | `bad_response` / no / yes | n/a |
 | Polly `synthesize`, `synthesizeStream` | n/a | n/a | `network` / yes / yes |
@@ -94,16 +94,16 @@ Polly's status rows differ from the shared ones:
 | Response | Polly |
 |---|---|
 | 401, 403 | `auth` / no / yes |
-| 404 | `network` / yes / yes [KNOWN GAP: expected `invalid_request`, not retryable] |
+| 404 | `invalid_request` / no / yes |
 | 408 | `network` / yes / no |
-| 413 | `network` / yes / yes [KNOWN GAP: expected `invalid_request`, not retryable] |
+| 413 | `invalid_request` / no / yes |
 | 429 (with or without `Retry-After`, since the simulated client sends no headers) | `rate_limited` / yes / no for the Retry-After row (no `retryAfterMs`), yes / yes otherwise |
 | 500, 503 | `overloaded` / yes / yes |
 
-Known gaps in this matrix, each with a todo case in the test file:
-- ElevenLabs HTTP abort: a raw `TypeError` escapes instead of a `VoiceProviderError` (`src/providers/elevenlabs.ts:129`, `:135`).
-- Polly 404 and 413: mapped to retryable `network`. `src/providers/polly.ts:129` maps only 400, and every other status falls through to `:131`.
-- Vendor text: `docs/errors.md:115` says messages carry no vendor text, but the 404, 413 and 429 messages include the vendor's `detail` (`src/errors.ts:83`, `:86`, via `src/http.ts:110`). The secret itself is scrubbed in every cell.
+Error messages (all HTTP and handshake statuses): `<provider>: <fixed text> (<status>)`, built in `src/errors.ts` (`errorFromStatus`). The vendor's response body is
+not read into the error and there is no separate debug field. 429 and 5xx are `retryable`; the HTTP client retries them and waits `Retry-After` (seconds or
+HTTP date, capped at one hour, and at `maxRetryWaitMs` for the wait itself) before falling back to exponential backoff. Polly exposes no response headers, so
+it never has `retryAfterMs`. The secret is scrubbed in every cell.
 
 Observations outside the table: `errorFromStatus` maps 504 to `timeout` (`src/errors.ts:84`), while the docs describe 5xx as `overloaded`. Not covered by
 the matrix. The cloud registry names the xAI adapter `xai` (its file is `grok.ts`); `src/local/providers.ts` is outside the registry by design.

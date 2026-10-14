@@ -86,7 +86,7 @@ describe("composition/inbox openInbox", () => {
   });
 
   const migrationGap = gap("openInbox", "gueltige Altmeldungen hinter einer ungueltigen werden trotzdem kopiert (docs/inbox.md: notices that are not in the inbox yet are copied over)", "die Migration bricht an der ersten ungueltigen Meldung ab und jede spaetere Meldung bleibt bei jedem Start unkopiert");
-  it(migrationGap, { todo: migrationGap }, () => {
+  it(migrationGap, () => {
     const dir = tmp.make();
     const legacy = [notice(1), notice(2, { grantId: "" }), notice(3)];
     const { inbox } = open(dir, { legacyNotices: () => legacy });

@@ -135,7 +135,7 @@ input[aria-invalid="true"] { border-color: var(--err-ink); }
   .menu-btn { display: inline-grid; }
   .sidebar { padding: 10px; align-items: stretch; }
   .sidebar-head { padding: 0; }
-  .sidebar:not([data-open="true"]) :is(.wordmark, .group-label, .label) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .sidebar:not([data-open="true"]) :is(.wordmark, .group-label, .label) { position: absolute; width: 1px; height: 1px; min-block-size: 0; min-inline-size: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .sidebar:not([data-open="true"]) .nav-link, .sidebar:not([data-open="true"]) .search-pill { justify-content: center; padding: 0; min-width: 44px; }
   .sidebar:not([data-open="true"]) .nav-group + .nav-group, .sidebar:not([data-open="true"]) .nav-bottom { border-top: 1px solid var(--line); padding-top: 8px; }
   .sidebar[data-open="true"] { position: fixed; left: 0; top: 0; bottom: 0; width: 288px; z-index: 30; padding: 22px 14px 16px; box-shadow: var(--shadow); background: var(--surface); }
