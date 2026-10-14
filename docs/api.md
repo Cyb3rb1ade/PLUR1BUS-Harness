@@ -115,7 +115,8 @@ in whole seconds, `reason: rate-limited`.
 | `totp` | 5 | 1 per 60 s | second step, confirm, disable (also per user on the second step) |
 | `read` | 120 | 20 per s | reads, static files |
 | `write` | 30 | 5 per s | writes |
-| `stream` | 6 | 1 per 5 s | reserved for SSE/WebSocket connections (no such route yet) |
+| `stream` | 6 | 1 per 5 s | opening `/events` |
+| `rpc` | 60 | 10 per s | `/rpc` |
 
 Forwarding headers (`X-Forwarded-For` and the like) are not trusted; the address is the socket's.
 
@@ -237,3 +238,21 @@ Each is a test marked `KNOWN GAP`; none is fixed because the fix changes behavio
   `E_INVITE_INVALID` and the voice codes (`E_VOICE_BUDGET`, `E_VOICE_LICENSE`, `E_VOICE_LICENCE`, `E_VOICE_UNAVAILABLE`) fall back to 500. No route returns them yet.
 - **Windows device names** (`hardening-static.test.ts`): `CON`, `NUL`, `AUX`, `COM1`, `LPT1` (with or without an extension) are
   not refused as path segments; on Windows opening one can block a thread-pool worker. Not verified on Windows.
+
+## Browser RPC and events
+
+The browser uses `POST /rpc` (one JSON-RPC 2.0 request, no batches) and `GET /events` (SSE), exclusively through the existing session cookie. Both retain the shared Host/Origin/Referer/Sec-Fetch-Site checks. `/rpc` requires a fresh one-time CSRF token for **every** POST because the RPC schema has no read/write annotation; the typed client retries a read once with CSRF. The RPC body default is 1 MiB, overridden by `ApiServerOptions.limits.maxBodyBytes`; REST retains its 64 KiB default. The independent `rpc` token bucket is 60 requests with 10 tokens/second, per IP and person.
+
+The API discards browser `principal`/`actAs` claims. A separate `harness-api` delegation credential (`run/api-delegation.token`, private to the installation OS user, rotated with the core) accompanies every delegated local request. Connections are bound to an authenticated session and person; connection-only events cannot cross cookie sessions. The core resolves current stored roles/agent rights, and ordinary clients with only `core.token` cannot delegate. Bootstrap cookie identity `owner` maps explicitly to core identity `local-owner`; a directory account named `owner` does not receive that mapping. REST core calls also carry their initiating principal; personal-token calls retain `kind: agent` and their scopes. No browser receives either local RPC credential.
+
+`packages/api/src/rpc-route.ts` contains the explicit method exposure lists. Internal auth/adoption/shutdown, direct subscriptions, backup/import and secret reveal are excluded; supervisor exposure is limited to config get/set and module list/graph. The existing core Guard and RPC_RULES are unchanged. Legacy methods without a guard are conservatively restricted to the actual stored Owner on API connections, with agent listing filtered through the existing authorization function and core status subject to doctor.read. Raw caller-based memory methods remain excluded pending trusted engine-caller binding.
+
+RPC application failures use HTTP 200 and retain `error.data.error`; their messages are fixed, and free error text, stacks, details and ids are omitted. Transport rejection uses 401/403, oversized bodies 413, rate limits 429. Malformed JSON produces a JSON-RPC parse error. A malformed request does not echo its arbitrary `id`. The long RPC response budget defaults to five minutes, so a user-job/approval response can finish after browser disconnection; an explicit handler budget can shorten it.
+
+SSE subscriptions preserve audience metadata on the API-only local wire. Only the authenticated person or the same delegated connection receives a targeted event. Unaddressed events are dropped except `core.state` (process state only). Unknown event names are dropped. The API buffers already filtered events separately per person and authenticated session: 256 entries and 1 MiB per authenticated session, at most 64 feeds, with a two-minute reconnect window. `Last-Event-ID` replays only that person's retained events; an unknown/evicted cursor emits `restart`, which causes the typed client to reload current state. Epochs change when a feed or core connection is lost. Query parameters are refused.
+
+There are at most eight simultaneous streams per person. Heartbeats are comment lines every 25 seconds. Each connection has a 1 MiB queued-output cap; oversized individual events close the feed. Logout, revocation, eviction, rotation and expiry close affected streams; streams do not renew idle expiry. `rightsChanged` closes the person's streams and invalidates replay. A directory change also ends a stream at its next heartbeat. Local delegated RPC peers are bounded at 128 and idle peers are retired after five minutes.
+
+Config calls go to the real supervisor. It asks the core for the authenticated person's current role on each call, and config writes check all changed `x-write-roles` nodes, including descendants of parent replacements. Changed `x-audit` nodes produce durable `audit.config.set` records with personId and old/new values; inherited `x-sensitive` values and credential-named fields are redacted. Audit failure refuses the write. Records are written before the config rename and carry `phase: prepare` plus the intended targetRevision; a later I/O failure can leave an intent record without that revision becoming live. Dry runs create no audit records. Changes to providers/endpoints remove old privacy acknowledgments; new acknowledgments use the actual writer id. Changing provider definitions conservatively invalidates old acknowledgments for all functions. The concrete config annotations from merged PR #426 are enforced and covered by five-role schema tests and the real supervisor acceptance test.
+
+Local trust still ends at the OS-user boundary: another process with the same user's file access can read the API credential, and possession of a cookie cannot prove a physical human initiated an action. Delegation does not raise surface trust or attest the browser. Account-password persistence and the invitation-to-account provisioning adapter are existing host responsibilities; the standalone API remains Owner-token-only unless a UserDirectory is supplied. See the [transport handoff](handoff/2026-10-14-web-transport.md) for validation and Owner questions.

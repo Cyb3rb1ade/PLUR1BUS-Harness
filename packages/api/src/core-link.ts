@@ -1,9 +1,11 @@
+import { delegatedLink } from "./delegated-link.ts";
 import { connect, coreAddress, corePidPath, coreTokenPath, readRecordedPid, readRunToken, type ConnectOptions, type CoreClient } from "@plur1bus/module-api";
 import type { CoreRpc } from "./core-rpc.ts";
 
 export interface CoreLinkOptions {
   /** Test seam; default module-api's `connect`. */
   connect?: (o: ConnectOptions) => Promise<CoreClient>;
+  readApiToken?: (home: string) => string;
   readToken?: (home: string) => string; readPid?: (home: string) => number | undefined;
   log?: { debug(msg: string, f?: Record<string, unknown>): void; info(msg: string, f?: Record<string, unknown>): void };
 }
@@ -13,6 +15,7 @@ export interface CoreLinkOptions {
  *  token is read afresh for every connection). A failed connect is the caller's error; there is no retry loop here,
  *  the next request simply tries again. */
 export function createCoreLink(home: string, o: CoreLinkOptions = {}): CoreRpc & { close(): Promise<void> } {
+  const delegated = delegatedLink(home, o);
   const doConnect = o.connect ?? connect;
   const readToken = o.readToken ?? ((h: string) => readRunToken(h, coreTokenPath(h)));
   const readPid = o.readPid ?? ((h: string) => readRecordedPid(corePidPath(h)));
@@ -34,7 +37,8 @@ export function createCoreLink(home: string, o: CoreLinkOptions = {}): CoreRpc &
   }
 
   return {
+    callAs: delegated.callAs, subscribeAs: delegated.subscribeAs,
     async call<T = unknown>(method: string, params?: object): Promise<T> { return (await get()).call<T>(method, params); },
-    async close() { closed = true; const c = client; client = undefined; await c?.close(); },
+    async close() { closed = true; const c = client; client = undefined; await c?.close(); await delegated.close(); },
   };
 }

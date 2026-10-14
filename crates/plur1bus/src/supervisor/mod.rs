@@ -9,8 +9,10 @@
 //! SIGTERM/SIGINT (the modules in reverse start order, then the core, inside one budget).
 #![allow(dead_code)]
 pub mod adopt;
+pub mod api_transport;
 pub mod child;
 pub mod config;
+pub mod config_policy;
 pub mod ext;
 pub mod logfile;
 pub mod modules;
