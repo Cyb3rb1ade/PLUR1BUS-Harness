@@ -126,7 +126,7 @@ export function mapAwsError(e: unknown, signal?: AbortSignal): VoiceProviderErro
   if (/CredentialsProviderError|ExpiredToken|UnrecognizedClient|InvalidSignature|AccessDenied|SignatureDoesNotMatch|UnauthorizedException|NotAuthorized/.test(name) || status === 401 || status === 403) return new VoiceProviderError("auth", `${ID}: AWS credentials missing, expired or not allowed (${name || status})`, init);
   if (/Throttl|TooManyRequests|LimitExceeded/.test(name) || status === 429) return new VoiceProviderError("rate_limited", `${ID}: throttled by AWS`, init);
   if (/ServiceFailure|ServiceUnavailable|InternalFailure/.test(name) || (status !== undefined && status >= 500)) return new VoiceProviderError("overloaded", `${ID}: AWS service error`, init);
-  if (/Validation|InvalidSsml|InvalidSampleRate|TextLengthExceeded|VoiceNotFound|LanguageNotSupported|EngineNotSupported|SsmlMarksNotSupported|InvalidParameter/.test(name) || status === 400) return new VoiceProviderError("invalid_request", `${ID}: request refused (${name || status})`, init);
+  if (/Validation|InvalidSsml|InvalidSampleRate|TextLengthExceeded|VoiceNotFound|LanguageNotSupported|EngineNotSupported|SsmlMarksNotSupported|InvalidParameter/.test(name) || status === 400 || status === 404 || status === 413 || status === 422) return new VoiceProviderError("invalid_request", `${ID}: request refused (${name || status})`, init);
   if (/Timeout/.test(name)) return new VoiceProviderError("timeout", `${ID}: AWS request timed out`, init);
   return new VoiceProviderError("network", `${ID}: AWS request failed (${name || "error"})`, init);
 }
