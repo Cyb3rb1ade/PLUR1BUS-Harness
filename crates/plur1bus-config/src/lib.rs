@@ -212,6 +212,36 @@ pub fn validate(v: &Value) -> Result<(), Vec<String>> {
             errs.push("/breakglass reasonMinChars must not exceed reasonMaxChars".into());
         }
     }
+    // Provider-bound acknowledgments are separate for the media index and captioning.
+    // There is deliberately no global privacy-pin setting here.
+    let base = &v["memory"]["mediaEmbedding"];
+    check_media_privacy(base, "/memory/mediaEmbedding", &mut errs);
+    if let Some(agents) = v["agents"].as_object() {
+        for (id, agent) in agents {
+            if let Some(over) = agent["memory"].get("mediaEmbedding") {
+                let mut merged = base.clone();
+                if let (Some(dst), Some(src)) = (merged.as_object_mut(), over.as_object()) {
+                    for (key, value) in src {
+                        if key == "caption" {
+                            if let (Some(caption), Some(patch)) = (
+                                dst.get_mut(key).and_then(Value::as_object_mut),
+                                value.as_object(),
+                            ) {
+                                caption.extend(patch.clone());
+                            }
+                        } else {
+                            dst.insert(key.clone(), value.clone());
+                        }
+                    }
+                }
+                check_media_privacy(
+                    &merged,
+                    &format!("/agents/{id}/memory/mediaEmbedding"),
+                    &mut errs,
+                );
+            }
+        }
+    }
     if errs.is_empty() {
         Ok(())
     } else {
@@ -811,4 +841,32 @@ pub fn set_many(config: &Config, changes: &[(String, Value)]) -> Result<Plan, Co
         changed: plan.changed,
         restart: plan.restart,
     })
+}
+
+fn check_media_privacy(media: &Value, path: &str, errs: &mut Vec<String>) {
+    if media["enabled"].as_bool() == Some(false) {
+        return;
+    }
+    for (choice, suffix, local) in [
+        (
+            media,
+            "",
+            &["local", "local-transformers", "egemma2", "off"][..],
+        ),
+        (&media["caption"], "/caption", &["local", "off"][..]),
+    ] {
+        if suffix == "/caption" && choice["source"].as_str() == Some("off") {
+            continue;
+        }
+        let Some(provider) = choice["provider"].as_str() else {
+            continue;
+        };
+        if local.contains(&provider) {
+            continue;
+        }
+        let ack = &choice["privacyAck"];
+        if ack["provider"].as_str() != Some(provider) || ack.get("endpoint").is_some() {
+            errs.push(format!("{path}{suffix}/privacyAck E_MEDIA_PRIVACY: matching privacy acknowledgment required"));
+        }
+    }
 }

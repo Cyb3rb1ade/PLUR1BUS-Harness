@@ -1,3 +1,4 @@
+import { missingPrivacy, type SetupPrivacy } from "./privacy.ts";
 // Wizard state, step list, validation and request parameters (pure; no DOM). The saved state holds non-secret answers only:
 // the owner token is never put in it (steps.ts keeps the token in a local field until it has been sent).
 import { getPref, setPref } from "../../prefs.ts";
@@ -40,6 +41,8 @@ export type Answers = {
   media: MediaSetup;
   /** The voice language the person downloaded in the Voice step; null = not done (the step is then skipped). */
   voice: VoiceChoice | null;
+  /** Ephemeral function-specific confirmations; never restored from browser storage. */
+  privacy?: SetupPrivacy;
 };
 export type Saved = { v: 1; step: StepId | "summary"; status: Partial<Record<StepId, Status>>; answers: Answers };
 
@@ -77,7 +80,7 @@ export function load(): Saved {
     return { v: 1, step, status, answers };
   } catch { return base; }
 }
-export function save(s: Saved): void { try { setPref(KEY, JSON.stringify(s)); } catch { /* the wizard works without storage */ } }
+export function save(s: Saved): void { try { const { privacy: _privacy, ...answers } = s.answers; setPref(KEY, JSON.stringify({ ...s, answers })); } catch { /* the wizard works without storage */ } }
 
 export const AGENT_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 export type Errors = Partial<Record<"agentId" | "displayName" | "chatModel" | "backup" | "account", "required" | "format" | "tooLong" | "signin">> & { media?: string };
@@ -96,6 +99,7 @@ export function validate(step: StepId, a: Answers, signedIn: boolean): Errors {
   if (step === "memory") {
     const first = validateMedia({ textProvider: a.embedding, media: a.media, privacyPin: false, ncConfirmed: a.nc !== null })[0];
     if (first) e.media = first.code;
+    else if (missingPrivacy(a)) e.media = "E_MEDIA_PRIVACY";
   }
   return e;
 }

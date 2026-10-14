@@ -1,3 +1,4 @@
+import type { PrivacyAcknowledgment } from "@plur1bus/config-schema";
 import type { MediaKind, MediaSource } from "../types.ts";
 
 export type CaptionOrder = "prompt-then-user-then-auto" | "user-only" | "off";
@@ -8,6 +9,7 @@ export interface CaptionConfig {
   source: CaptionOrder;
   /** "local", "off", or the id of a configured cloud provider; unset until setup asks (cloud embedding). */
   provider?: string;
+  privacyAck?: PrivacyAcknowledgment;
   maxChars: number;
   perSegment?: boolean;
 }

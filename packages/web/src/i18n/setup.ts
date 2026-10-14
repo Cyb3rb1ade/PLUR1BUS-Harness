@@ -94,6 +94,9 @@ export const en = {
   "setup.summary.voice": "Voice language {language}, profile {profile}",
   "setup.summary.nothing": "Nothing was changed.",
   "setup.summary.chat": "Go to the chat",
+  "setup.privacy.media": "I allow media embedding content to be sent to {provider}.",
+  "setup.privacy.caption": "I allow captioning content to be sent to {provider}.",
+  "setup.privacy.hint": "This privacy acknowledgment applies only to this function and provider. A runtime privacy pin still blocks cloud calls.",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -191,4 +194,7 @@ export const de: Record<keyof typeof en, string> = {
   "setup.summary.voice": "Sprache für Sprachfunktionen {language}, Profil {profile}",
   "setup.summary.nothing": "Es wurde nichts geändert.",
   "setup.summary.chat": "Zum Chat",
+  "setup.privacy.media": "Ich erlaube, Inhalte für Medien-Embedding an {provider} zu senden.",
+  "setup.privacy.caption": "Ich erlaube, Inhalte für Captioning an {provider} zu senden.",
+  "setup.privacy.hint": "Dieses Privacy Acknowledgment gilt nur für diese Funktion und diesen Anbieter. Ein aktiver Laufzeit-Pin sperrt Cloud-Aufrufe weiterhin.",
 };
