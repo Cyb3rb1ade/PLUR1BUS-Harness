@@ -24,6 +24,8 @@ import type {
   ExtTrustTier,
 } from "../common/surfaces-rpc.ts";
 
+import { RightsList } from "./rights.ts";
+
 import "../../styles/extensions.css";
 
 registerArea("extensions", area);
@@ -259,7 +261,10 @@ function InstallDialog({
             { class: "inspection-disclosure" },
             h("p", { class: "reading" }, t("extensions.install.ready", { id: inspection.inspectionId, version: inspection.sha256.slice(0, 8) })),
             h("h3", null, t("extensions.install.capabilities")),
-            h("pre", { class: "summary-box" }, JSON.stringify(inspection.capabilities, null, 2)),
+            h(RightsList, { caps: inspection.capabilities }),
+            inspection.replaces && inspection.replaces.capabilityDiff.changed.length > 0
+              ? h("p", { class: "form-notice", role: "status" }, t("extensions.install.widens", { list: inspection.replaces.capabilityDiff.changed.join(", ") }))
+              : null,
             h(
               "div",
               { class: "field" },
@@ -281,6 +286,52 @@ function InstallDialog({
   );
 }
 
+function EnableDialog({
+  name,
+  caps,
+  onClose,
+  onConfirm,
+  busy,
+}: {
+  name: string;
+  caps: unknown;
+  onClose: () => void;
+  onConfirm: () => void;
+  busy: boolean;
+}): View {
+  const [ack, setAck] = useState(false);
+  return h(
+    Dialog,
+    {
+      title: t("extensions.enable.title"),
+      onClose,
+      actions: h(
+        "div",
+        { class: "dialog-actions" },
+        h("button", { type: "button", class: "btn btn-quiet", onClick: onClose }, t("shared.confirm.cancel")),
+        h("button", { type: "button", class: "btn btn-primary", disabled: busy || !ack, onClick: onConfirm }, t("extensions.enable.submit")),
+      ),
+    },
+    h(
+      "div",
+      { class: "dialog-content" },
+      h("p", { class: "reading" }, t("extensions.enable.intro", { name })),
+      h(RightsList, { caps }),
+      h(
+        "div",
+        { class: "field" },
+        h(
+          "label",
+          { class: "checkbox-label" },
+          h("input", { type: "checkbox", checked: ack, onChange: (e: Event) => setAck((e.target as HTMLInputElement).checked) }),
+          " ",
+          t("extensions.enable.acknowledge"),
+        ),
+      ),
+    ),
+  );
+}
+
 function ExtensionDetailView({
   name,
   onRefresh,
@@ -296,6 +347,7 @@ function ExtensionDetailView({
   const [busy, setBusy] = useState(false);
   const [actionNotice, setActionNotice] = useState("");
   const [uninstalling, setUninstalling] = useState(false);
+  const [enabling, setEnabling] = useState(false);
 
   if (state.status === "loading") return h(PageLoading, { label: t("state.loading") });
   if (state.status === "fail")
@@ -397,7 +449,7 @@ function ExtensionDetailView({
                 type: "button",
                 class: "btn btn-primary",
                 disabled: busy,
-                onClick: () => { void toggle(true); },
+                onClick: () => setEnabling(true),
               },
               t("extensions.action.enable"),
             ),
@@ -450,7 +502,7 @@ function ExtensionDetailView({
     h(
       Card,
       { title: t("extensions.detail.permissions") },
-      h("pre", { class: "summary-box" }, JSON.stringify(detail.capabilities, null, 2)),
+      h(RightsList, { caps: detail.capabilities }),
     ),
     detail.dependents.length > 0
       ? h(
@@ -485,6 +537,18 @@ function ExtensionDetailView({
             ),
           ),
         )
+      : null,
+    enabling
+      ? h(EnableDialog, {
+          name: item.name,
+          caps: detail.capabilities,
+          busy,
+          onClose: () => setEnabling(false),
+          onConfirm: () => {
+            setEnabling(false);
+            void toggle(true);
+          },
+        })
       : null,
     uninstalling
       ? h(UninstallDialog, {

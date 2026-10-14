@@ -311,6 +311,8 @@ export class DreamScheduler {
   async runPhase(agentId: string, phase: Phase, o: { trigger: Trigger; scheduledFor?: number | null; signal?: AbortSignal }): Promise<DreamRun> {
     // The agent id becomes a path segment of the run log; the registry's ids already match, this keeps the invariant local.
     if (!AGENT_ID.test(agentId)) throw new Error(`invalid agent id: ${agentId}`);
+    // An agent that left the registry never dreams, whatever the trigger (manual calls from callers other than dreams.* included).
+    if (!this.#o.agents().includes(agentId)) throw new Error(`unknown agent: ${agentId}`);
     const store = this.#o.store;
     this.syncAgents();
     const sched = store.getSchedule(agentId, phase);

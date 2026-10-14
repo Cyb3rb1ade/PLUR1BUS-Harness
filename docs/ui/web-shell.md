@@ -28,7 +28,9 @@ provisional session routes, on `127.0.0.1` with an ephemeral port. No test reach
 
 Sidebar groups as in `src/nav.ts`, which the canvas follows since 2026-10-11 (desktop spec §13.9): **Workspace** (Chat,
 Projects, Agents, Inbox, Memories & Dreams), **Build** (Library, Skills, Plugins, Models, Switchboard, Recurring Tasks),
-**Control** (Approvals, Usage & Quota, Doctor, Logs); **Settings** and **Help** are pinned at the bottom. Routes are hash
+**Control** (Approvals, Break-Glass, Usage & Quota, Doctor, Logs); **Settings** and **Help** are pinned at the bottom.
+The Settings page's section nav starts with a *My identities* link (`nav.identities`, `#/settings/users?tab=identities`;
+canvas `V2People`, desktop spec §13.10). Routes are hash
 routes (`#/chat`, …, `#/login`) so a static host needs no history fallback. The landing route is Chat (owner call O2).
 A signed-out visit goes to `#/login` and returns to the requested page after sign-in; a signed-in visit to `#/login` goes
 to Chat. Navigation moves focus to the page heading.

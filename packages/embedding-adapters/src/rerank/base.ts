@@ -18,6 +18,7 @@ export function makeRerankAdapter(settings: RerankSettings, deps: ResolvedDeps):
   async function run(query: string, docs: readonly string[], opts: RerankOptions): Promise<RerankResult[]> {
     if (typeof query !== "string" || query === "") throw new AdapterError("invalid_request", "query must be a non-empty string", { provider });
     if (!Array.isArray(docs) || docs.some((d) => typeof d !== "string")) throw new AdapterError("invalid_request", "docs must be an array of strings", { provider });
+    if (opts === null || typeof opts !== "object") throw new AdapterError("invalid_request", "options must be an object", { provider });
     const topN = opts.topN;
     if (topN !== undefined && (!Number.isInteger(topN) || topN < 1)) throw new AdapterError("invalid_request", "topN must be a positive integer", { provider });
     if (opts.signal?.aborted) throw new AdapterError("aborted", "aborted before the request was sent", { provider });

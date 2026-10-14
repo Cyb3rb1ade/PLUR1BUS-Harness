@@ -75,15 +75,18 @@ export function isVoiceProviderError(e: unknown): e is VoiceProviderError {
   return e instanceof VoiceProviderError;
 }
 
-/** Map an HTTP status (and optional Retry-After header value) to the unified error. */
-export function errorFromStatus(status: number, provider: string, detail: string, retryAfter: string | null | undefined, secrets: readonly string[] = [], now: () => number = Date.now): VoiceProviderError {
+/**
+ * Map an HTTP status (and optional Retry-After header value) to the unified error. Messages carry the provider and the status only:
+ * `_detail` (the vendor's own text) is accepted for call-site compatibility and deliberately never used (docs/errors.md).
+ */
+export function errorFromStatus(status: number, provider: string, _detail: string, retryAfter: string | null | undefined, secrets: readonly string[] = [], now: () => number = Date.now): VoiceProviderError {
   const init: VoiceErrorInit = { provider, status, secrets };
   const retryAfterMs = parseRetryAfter(retryAfter, now);
   if (status === 401 || status === 403) return new VoiceProviderError("auth", `${provider}: authentication failed (${status})`, init);
-  if (status === 429) return new VoiceProviderError("rate_limited", `${provider}: rate limited${detail ? `: ${detail}` : ""}`, retryAfterMs === undefined ? init : { ...init, retryAfterMs });
+  if (status === 429) return new VoiceProviderError("rate_limited", `${provider}: rate limited (429)`, retryAfterMs === undefined ? init : { ...init, retryAfterMs });
   if (status === 408 || status === 504) return new VoiceProviderError("timeout", `${provider}: upstream timeout (${status})`, init);
   if (status >= 500) return new VoiceProviderError("overloaded", `${provider}: upstream error (${status})`, retryAfterMs === undefined ? init : { ...init, retryAfterMs });
-  if (status === 404 || status === 400 || status === 422 || status === 413) return new VoiceProviderError("invalid_request", `${provider}: request refused (${status})${detail ? `: ${detail}` : ""}`, init);
+  if (status === 404 || status === 400 || status === 422 || status === 413) return new VoiceProviderError("invalid_request", `${provider}: request refused (${status})`, init);
   return new VoiceProviderError("bad_response", `${provider}: unexpected status ${status}`, init);
 }
 

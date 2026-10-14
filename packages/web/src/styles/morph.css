@@ -1,6 +1,8 @@
 .wordmark-morph {
   display: inline-flex;
   align-items: center;
+  min-block-size: 24px;
+  min-inline-size: 24px;
   text-decoration: none;
   cursor: pointer;
   user-select: none;
