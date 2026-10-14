@@ -3,12 +3,15 @@
 const PREFIX = "plur1bus.web.";
 const memory = new Map<string, string>();
 
+/** The value set in this page wins (it is the newest, even when the storage refused it); otherwise the stored one. */
 export function getPref(key: string): string | null {
+  const own = memory.get(key);
+  if (own !== undefined) return own;
   try {
-    const v = globalThis.localStorage?.getItem(PREFIX + key);
-    if (v !== null && v !== undefined) return v;
-  } catch { /* storage unavailable: fall through to memory */ }
-  return memory.get(key) ?? null;
+    const v: unknown = globalThis.localStorage?.getItem(PREFIX + key);
+    if (typeof v === "string") return v;
+  } catch { /* storage unavailable */ }
+  return null;
 }
 
 export function setPref(key: string, value: string): void {

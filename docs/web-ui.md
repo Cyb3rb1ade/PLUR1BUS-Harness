@@ -18,6 +18,12 @@ Hash routes. The landing route is `#/chat`. A page owns its `<h1>`; the shell mo
 `PageState` kinds (`components/page-state.ts`): loading, empty, error, forbidden, unavailable. Lists of nav ids are in `src/nav.ts`,
 the page for each id in `src/pages/registry.ts`.
 
+Route names are percent-encoded segments: build them with `routePath("skills", name)` (never a template string), read `Route.sub` (kept
+encoded) with `subSegments(sub)`. `.`/`..` segments (also encoded), malformed escapes and paths over 2048 characters are not-found.
+A page with unsaved edits calls `registerDirtyGuard(isDirty, message)` (or `registerLeaveGuard`) and calls the disposer on unmount;
+`navigate`, links, the sidebar, the palette and the back button then ask first, and a refused hash change puts the address bar back
+(the history keeps one extra entry). Redirects the app makes itself pass `{ force: true }`.
+
 | Route | Page | Nav group | States | Notes |
 |---|---|---|---|---|
 | `/chat`, `/chat/new`, `/chat/<sessionId>` | Chat | Workspace | all five; a missing session (`E_NOT_FOUND`) and an archived one (`E_CONFLICT`) show as empty with their own text | History column plus conversation (`ListDetail`, the conversation replaces the list in compact). New chat: agent from `GET /api/v1/agents`, "not remembered" switch (`memoryMode: "incognito"`), first message. Transcript follows `session.event` on SSE; without `/events` it polls `session.events` every 1 s, only while a reply is running. Send, cancel, unsent text is put back on failure. |
@@ -247,8 +253,10 @@ Pages depend on the `Api` interface (`rpc`, `get`, `post`, `put`, `patch`, `dele
   pill; only when signed in. Index: navigation entries built from `nav.ts` (plus `/memories/dreams`), and settings from
   `settings-index.ts`, a static subset of `packages/config-schema/schema/config.schema.json` (a test fails when it drifts). Labels
   are derived from the key (`softBudgetMs` becomes "Soft budget ms"), help is the schema's English. Current values come from
-  `config.get`, best effort (any failure means no values). Keys whose name contains `key`, `token`, `secret`, `password` or
-  `credential` are never indexed with a value. A settings hit navigates to `#/settings?focus=<key>`; the router drops the query and
+  `config.get`, best effort (any failure means no values). Keys whose name contains `key`, `token`, `secret`, `passw`, `pwd`,
+  `passphrase`, `credential`, `authorization`, `bearer`, `cookie`, `private`, `signature`, `jwt` or `hmac`, or whose last segment is `auth`,
+  are never indexed with a value (the list of the Settings page). In any other value, `user:password@` of a URL and secret-named query
+  parameters are masked. A settings hit navigates to `#/settings?focus=<key>`; the router drops the query and
   the page is a placeholder (F16, F27).
 
 ## Tests and verification
