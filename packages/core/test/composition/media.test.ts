@@ -107,15 +107,22 @@ describe("composition/media composeMedia", () => {
     assert.deepEqual(egress.asked, []);
   });
 
-  // characterization: Ist-Verhalten, nicht spezifiziert. The abort signal is checked before egress and again after the
-  // secret lookup, not between them: a cancel that lands while egress decides still leases (and revokes) the secret once.
-  it("characterization: a signal aborted while egress decides still leases the secret once, then throws the abort reason", async () => {
+  // The abort signal is checked after every egress decision, before the secret is leased: a late cancel leases nothing.
+  it("a signal aborted while egress decides leases no secret and throws the abort reason", async () => {
     const ac = new AbortController(); const reason = new Error("late cancel"); const secrets = fakeSecretService({ "media.key": "redact-probe-alpha" });
     const egress = { async decide() { ac.abort(reason); return { allowed: true, host: "h", port: 443, address: "192.0.2.1", family: 4 }; } } as never;
     const media = await composeMedia(tmp.make(), [openai({ secretRef: "media.key" })], secrets.service, egress);
     await assert.rejects(() => media!.adapter.generate(badRequest, { signal: ac.signal }), (e) => e === reason);
-    assert.equal(secrets.leases.length, 1);
-    assert.deepEqual(secrets.revoked, ["lease-1"], "the lease taken for the cancelled operation is revoked again");
+    assert.deepEqual(secrets.leases, []);
+    assert.deepEqual(secrets.revoked, []);
+  });
+
+  it("a cancel during the base-URL decision stops before the download hosts are asked", async () => {
+    const ac = new AbortController(); const reason = new Error("late cancel"); const asked: string[] = [];
+    const egress = { async decide(url: string) { asked.push(url); ac.abort(reason); return { allowed: true, host: "h", port: 443, address: "192.0.2.1", family: 4 }; } } as never;
+    const media = await composeMedia(tmp.make(), [openai({ downloadHosts: ["cdn.example.invalid"] })], fakeSecretService().service, egress);
+    await assert.rejects(() => media!.adapter.generate(badRequest, { signal: ac.signal }), (e) => e === reason);
+    assert.equal(asked.length, 1);
   });
 
   it("invalid adapter configuration fails at composition, not at first use", async () => {
