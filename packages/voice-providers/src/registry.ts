@@ -7,6 +7,7 @@ import { createGeminiLive } from "./providers/gemini.ts";
 import { createGrokVoice } from "./providers/grok.ts";
 import { createPolly, type PollyClientLike } from "./providers/polly.ts";
 import type { CloudDeps } from "./providers/common.ts";
+import { ownValue } from "./util.ts";
 import type { AsrProvider, ModelInfo, RealtimeProvider, TtsProvider, VoiceInfo } from "./types.ts";
 
 export const CLOUD_PROVIDER_IDS = ["elevenlabs", "xai", "gemini", "polly"] as const;
@@ -97,4 +98,9 @@ export async function discover(reg: VoiceRegistry, signal?: AbortSignal): Promis
   for (const [id, p] of Object.entries(reg.asr) as Array<[string, AsrProvider]>) await run(id, "asr", async () => { for (const m of await p.listModels(opt)) out.models.push({ ...m, provider: id, kind: "asr" }); });
   for (const [id, p] of Object.entries(reg.realtime) as Array<[string, RealtimeProvider]>) await run(id, "realtime", async () => { for (const m of await p.listModels(opt)) out.models.push({ ...m, provider: id, kind: "realtime" }); });
   return out;
+}
+
+/** A provider by kind and id. Only own entries count: "constructor", "__proto__" and the like are not providers. */
+export function lookupProvider(reg: VoiceRegistry, kind: "asr" | "tts" | "realtime", id: string): AsrProvider | TtsProvider | RealtimeProvider | undefined {
+  return ownValue(reg[kind] as Record<string, AsrProvider | TtsProvider | RealtimeProvider>, id);
 }

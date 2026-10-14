@@ -31,7 +31,9 @@ export type UsageSink = (report: UsageReport) => void;
 
 /** Map a provider report onto core's VoiceUsage so a caller can pass it to VoiceBudgetPort.record unchanged. */
 export function toVoiceUsage(report: UsageReport, costMicros = 0): VoiceUsage {
-  return { seconds: report.seconds ?? 0, costMicros, inputTokens: report.inputTokens ?? 0, outputTokens: report.outputTokens ?? 0 };
+  // A budget must never be credited by a negative number or poisoned by NaN/Infinity.
+  const n = (v: number | undefined): number => (v !== undefined && Number.isFinite(v) && v > 0 ? v : 0);
+  return { seconds: n(report.seconds), costMicros: n(costMicros), inputTokens: n(report.inputTokens), outputTokens: n(report.outputTokens) };
 }
 
 export interface ModelInfo {

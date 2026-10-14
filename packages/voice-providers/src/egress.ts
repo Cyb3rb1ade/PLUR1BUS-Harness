@@ -2,7 +2,7 @@
 // egress policy (that is core's job, packages/core/src/egress); it states which hosts a voice configuration will talk
 // to, so the integration can feed them into the allowlist. The shapes are restated structurally so the package does not
 // depend on core or on embedding-adapters.
-import { ELEVENLABS, GEMINI, XAI } from "./constants.ts";
+import { GEMINI, XAI, elevenlabsHost } from "./constants.ts";
 import type { Catalog } from "./local/catalog.ts";
 import type { VoiceProvidersConfig } from "./registry.ts";
 
@@ -38,8 +38,10 @@ function isLoopback(host: string): boolean {
   return h === "localhost" || h === "::1" || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h);
 }
 
-function hostOf(url: string): EgressHost {
+function hostOf(url: string, what = "URL"): EgressHost {
   const u = new URL(url);
+  if (!["https:", "http:", "wss:", "ws:"].includes(u.protocol)) throw new TypeError(`${what}: unsupported scheme ${u.protocol}`);
+  if (u.username !== "" || u.password !== "") throw new TypeError(`${what}: must not carry credentials`);
   const tls = u.protocol === "https:" || u.protocol === "wss:";
   const defaultPort = tls ? 443 : 80;
   return { host: u.hostname.toLowerCase().replace(/\.$/, ""), port: u.port !== "" ? Number(u.port) : defaultPort, tls, loopback: isLoopback(u.hostname) };
@@ -63,9 +65,9 @@ export function voiceEgressHosts(input: VoiceEgressInput): EgressDeclaration {
   const list: EgressHost[] = [];
   const unresolved: string[] = [];
   const p = input.providers ?? {};
-  if (p.elevenlabs?.enabled) list.push(hostOf(p.elevenlabs.baseUrl ?? `https://${ELEVENLABS.hosts[p.elevenlabs.region ?? "default"] ?? ELEVENLABS.hosts["default"]}`));
-  if (p.xai?.enabled) list.push(hostOf(p.xai.baseUrl ?? XAI.baseUrl));
-  if (p.gemini?.enabled) list.push(hostOf(p.gemini.baseUrl ?? GEMINI.baseUrl));
+  if (p.elevenlabs?.enabled) list.push(hostOf(p.elevenlabs.baseUrl ?? `https://${elevenlabsHost(p.elevenlabs.region)}`, "voice.providers.elevenlabs.baseUrl"));
+  if (p.xai?.enabled) list.push(hostOf(p.xai.baseUrl ?? XAI.baseUrl, "voice.providers.xai.baseUrl"));
+  if (p.gemini?.enabled) list.push(hostOf(p.gemini.baseUrl ?? GEMINI.baseUrl, "voice.providers.gemini.baseUrl"));
   if (p.polly?.enabled) {
     if (p.polly.region) list.push({ host: `polly.${p.polly.region.toLowerCase()}.amazonaws.com`, port: 443, tls: true, loopback: false });
     else unresolved.push("polly");

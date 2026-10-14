@@ -1,5 +1,6 @@
 // Shared session shell for the duplex realtime providers. A codec turns vendor frames into the unified events and the
 // unified calls into vendor frames; this class owns queueing, readiness, abort, usage reporting and close.
+import { AUDIO_LIMITS } from "../constants.ts";
 import { VoiceProviderError, abortedError } from "../errors.ts";
 import type { RealtimeEvent, RealtimeSession, UsageReport } from "../types.ts";
 import { AsyncQueue } from "../util.ts";
@@ -26,7 +27,7 @@ export interface SessionInit {
 }
 
 export function startRealtimeSession(i: SessionInit): RealtimeSession {
-  const q = new AsyncQueue<RealtimeEvent>();
+  const q = new AsyncQueue<RealtimeEvent>({ maxItems: AUDIO_LIMITS.maxQueuedEvents });
   let ready = false;
   let closed = false;
   // True once the session itself ended the socket (caller close, abort, protocol failure): the close event that follows
@@ -34,12 +35,26 @@ export function startRealtimeSession(i: SessionInit): RealtimeSession {
   let closing = false;
   let failed = false;
   let pending: string[] = [];
+  let pendingBytes = 0;
   const send = (frames: string[]) => {
     if (closed || failed) throw new VoiceProviderError("closed", `${i.provider}: session is closed`, { provider: i.provider });
     for (const f of frames) {
       if (ready) i.ws.send(f);
-      else pending.push(f);
+      else {
+        // Before the service says it is ready nothing is on the wire; a service that never answers must not make us
+        // collect audio forever.
+        if (pendingBytes + f.length > AUDIO_LIMITS.maxPendingBytes) throw new VoiceProviderError("overloaded", `${i.provider}: too much input queued before the session was ready`, { provider: i.provider });
+        pendingBytes += f.length;
+        pending.push(f);
+      }
     }
+  };
+  // The consumer does not read fast enough: the queue has failed with `overloaded`, so end the socket too.
+  const push = (e: RealtimeEvent): void => {
+    if (q.push(e) || !q.closed || failed || closed) return;
+    failed = true;
+    closing = true;
+    try { i.ws.close(1013, "consumer too slow"); } catch { /* closed */ }
   };
   // Anything a frame makes us throw (a codec on an unexpected shape, a send on a socket that is shutting down) ends the
   // session with one error event instead of escaping into the socket's data handler and the process.
@@ -58,11 +73,13 @@ export function startRealtimeSession(i: SessionInit): RealtimeSession {
         ready = true;
         for (const f of pending) i.ws.send(f);
         pending = [];
-        q.push({ type: "ready" });
+        pendingBytes = 0;
+        push({ type: "ready" });
       }
       for (const e of i.codec.decode(frame)) {
         if (e.type === "usage") { try { i.report(e.report); } catch { /* a throwing usage sink must not end the session */ } }
-        q.push(e);
+        push(e);
+        if (failed) return;
       }
     } catch {
       protocolFailure();
@@ -71,12 +88,16 @@ export function startRealtimeSession(i: SessionInit): RealtimeSession {
   i.ws.addEventListener("close", (ev) => {
     if (closed) return;
     closed = true;
+    i.signal?.removeEventListener("abort", onAbort);
     if (!closing && !failed && ev.code !== 1000 && ev.code !== 1005 && ev.code !== 1001) q.push({ type: "error", error: closeError(i.provider, ev.code) });
     q.push({ type: "closed", reason: ev.code === 1000 ? "normal" : String(ev.code) });
     q.end();
   });
   i.ws.addEventListener("error", () => { if (!failed) q.push({ type: "error", error: new VoiceProviderError("network", `${i.provider}: socket error`, { provider: i.provider }) }); });
-  i.signal?.addEventListener("abort", () => { closing = true; q.push({ type: "error", error: abortedError(i.provider) }); try { i.ws.close(1000, "aborted"); } catch { /* closed */ } }, { once: true });
+  const onAbort = (): void => { closing = true; q.push({ type: "error", error: abortedError(i.provider) }); try { i.ws.close(1000, "aborted"); } catch { /* closed */ } };
+  // A signal that fired while the socket was still being opened never dispatches again: handle it now.
+  if (i.signal?.aborted) onAbort();
+  else i.signal?.addEventListener("abort", onAbort, { once: true });
   // A peer that closes immediately is reported by the close handler (events replay to late listeners).
   try { for (const f of i.codec.init()) i.ws.send(f); } catch { /* socket already closed */ }
   return {
