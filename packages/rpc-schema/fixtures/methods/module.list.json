@@ -16,9 +16,7 @@
         "errors": [
           "/priority 1000 is greater than the maximum of 999"
         ],
-        "child": null,
-        "availableVersion": "1.1.0",
-        "feedCheckedAt": "2026-10-14T10:00:00Z"
+        "child": null
       },
       {
         "name": "fixture",
@@ -54,7 +52,9 @@
         },
         "detail": {
           "greeting": "hi"
-        }
+        },
+        "availableVersion": "1.1.0",
+        "feedCheckedAt": "2026-10-14T10:00:00Z"
       }
     ]
   }
