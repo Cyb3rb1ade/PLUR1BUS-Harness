@@ -98,3 +98,7 @@ export async function discover(reg: VoiceRegistry, signal?: AbortSignal): Promis
   for (const [id, p] of Object.entries(reg.realtime) as Array<[string, RealtimeProvider]>) await run(id, "realtime", async () => { for (const m of await p.listModels(opt)) out.models.push({ ...m, provider: id, kind: "realtime" }); });
   return out;
 }
+
+export function lookupProvider(reg: VoiceRegistry, kind: "asr" | "tts" | "realtime", id: string): AsrProvider | TtsProvider | RealtimeProvider | undefined {
+  return (reg[kind] as Record<string, AsrProvider | TtsProvider | RealtimeProvider | undefined>)[id];
+}
