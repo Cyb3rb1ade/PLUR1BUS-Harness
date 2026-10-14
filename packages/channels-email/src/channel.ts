@@ -194,6 +194,10 @@ export class EmailChannel implements Channel {
       this.#secretValues = [...new Set([password, smtpPassword])];
       this.#host = host;
       const conn = await this.#open();
+      if (ac.signal.aborted) {
+        conn.close(); // stop() ran while the connection was being opened and could not see it yet
+        throw new Error("email start aborted");
+      }
       this.#conn = conn;
       this.#healthy = true;
       await this.#sync(conn, ac.signal);
@@ -453,6 +457,11 @@ export class EmailChannel implements Channel {
     }
     for (const uid of await conn.uidsAbove(st.lastUid)) {
       if (signal.aborted) return;
+      if (uid <= st.lastUid) {
+        // the same UID listed twice in one batch (or out of order) is handled once
+        this.#log("debug", "channel.email.duplicate", {});
+        continue;
+      }
       const size = await conn.fetchSize(uid);
       if (size > this.#maxMessage) {
         this.#log("warn", "channel.email.oversized-skipped", { bytes: size });
@@ -701,21 +710,23 @@ export class EmailChannel implements Channel {
   }
 
   async #deliver(raw: Buffer, to: string): Promise<void> {
+    const signal = this.#ac!.signal;
     for (let attempt = 1; ; attempt++) {
+      if (signal.aborted) throw new Error("email channel is stopped");
       try {
         await sendMail({ ...this.#smtpOptions(), from: this.#cfg.address, to, data: raw });
         this.#smtpOk = true;
         return;
       } catch (e) {
         const retry = e instanceof EmailError && (e.kind === "temporary" || e.kind === "network");
-        if (!retry || attempt >= SEND_ATTEMPTS || this.#ac?.signal.aborted) {
+        if (!retry || attempt >= SEND_ATTEMPTS || signal.aborted) {
           this.#smtpOk = false;
           this.#log("warn", "channel.email.send-failed", { kind: e instanceof EmailError ? e.kind : "unknown" });
           throw new Error(e instanceof EmailError ? e.message : "email send failed");
         }
         const wait = Math.round(Math.min(60_000, 2000 * 2 ** (attempt - 1)) * (0.75 + this.#random() * 0.5));
         this.#log("warn", "channel.email.send-retry", { attempt, waitMs: wait });
-        await this.#sleep(wait, this.#ac!.signal);
+        await this.#sleep(wait, signal);
       }
     }
   }
