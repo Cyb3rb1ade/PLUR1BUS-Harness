@@ -23,7 +23,6 @@ const KEY_RE = new RegExp(rule("key").pattern, rule("key").flags ?? "");
 const KEY_CAMEL_RE = new RegExp(rule("key").camelPattern);
 const PATTERNS: Compiled[] = (rule("pattern").patterns as PatternDef[]).map(compile);
 const PII: Compiled[] = (rule("pii").patterns as PatternDef[]).map(compile);
-const URL_FIND = new RegExp(rule("url").find, "g");
 const URL_STEPS: Compiled[] = (rule("url").steps as PatternDef[]).map(compile);
 const DENY: DenyClass[] = rule("path").classes;
 const escapePattern = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -90,6 +89,71 @@ function redactSpacedPath(text: string, p: { re: RegExp; cls: string }): string 
 }
 const PATH_TOKEN = /(?:[A-Za-z]:)?(?:[\\/][^\s"'<>|:;,()[\]{}]+)+|~[\\/][^\s"'<>|:;,()[\]{}]+|\.env(?:\.[A-Za-z0-9_-]+)?\b/g;
 
+const NAME_CHAR = /[A-Za-z0-9_.-]/;
+const isNameChar = (c: string | undefined): boolean => c !== undefined && NAME_CHAR.test(c);
+const isSpace = (c: string | undefined): boolean => c !== undefined && /\s/.test(c);
+const VALUE_STOP = /[\s,;&"']/;
+/** End of a bare value starting at `i` (exclusive), `i` itself when it is empty. */
+function bareEnd(s: string, i: number): number { let e = i; while (e < s.length && !VALUE_STOP.test(s[e]!)) e++; return e; }
+/**
+ * `key=value` / `"key": "value"` inside free text, in one linear pass (a regex with a greedy name and a leading
+ * optional quote retried every start of a long word run, which is quadratic). Only a secret-looking name consumes its
+ * value; for any other name scanning resumes at the value, so `Error: token=x` and `{"msg":"password=x"}` are seen.
+ */
+function redactPairs(s: string): string {
+  let out = ""; let last = 0; let i = 0;
+  const n = s.length;
+  while (i < n) {
+    if (!isNameChar(s[i])) { i++; continue; }
+    const start = i;
+    while (i < n && isNameChar(s[i])) i++;
+    const name = s.slice(start, i);
+    // optional matching quote around the name (only if not already consumed by an earlier replacement)
+    let q = ""; let j = i;
+    const open = start > last ? s[start - 1] : undefined;
+    if ((open === '"' || open === "'") && s[i] === open) { q = open; j = i + 1; }
+    for (;;) {
+      let k = j; while (isSpace(s[k])) k++;
+      if (s[k] !== ":" && s[k] !== "=") { if (q) { q = ""; j = i; continue; } break; }
+      const sepEnd = k + 1; let v = sepEnd; while (isSpace(s[v])) v++;
+      if (v >= n) break;
+      if (!isSecretKey(name)) { i = v; break; } // not a credential name: look inside its value (and never scan it twice)
+      let end = -1; let quote = "";
+      const c = s[v]!;
+      if (c === '"' || c === "'") {
+        const close = s.indexOf(c, v + 1);
+        if (close >= 0) { end = close + 1; quote = c; }
+      } else {
+        const m = /^(?:Bearer|Basic)\s+/i.exec(s.slice(v, v + 12));
+        if (m) { const e = bareEnd(s, v + m[0].length); if (e > v + m[0].length) end = e; }
+        if (end < 0) { const e = bareEnd(s, v); if (e > v) end = e; }
+      }
+      if (end < 0) break;
+      out += s.slice(last, v) + quote + tag("key") + quote; last = end; i = end;
+      break;
+    }
+  }
+  return out + s.slice(last);
+}
+
+/**
+ * Rule `url` `find` (`scheme://` and the characters up to whitespace, a quote or an angle bracket), found by walking
+ * out from each `://` instead of a regex that retries every start of a long scheme-like run (quadratic).
+ */
+function mapUrls(s: string, fn: (url: string) => string): string {
+  const scheme = /[A-Za-z0-9+.-]/; const stop = /[\s"'<>]/;
+  let out = ""; let last = 0;
+  for (let at = s.indexOf("://"); at >= 0; at = s.indexOf("://", at + 3)) {
+    let b = at; while (b > last && scheme.test(s[b - 1]!)) b--;
+    while (b < at && !/[A-Za-z]/.test(s[b]!)) b++;
+    if (b === at) continue; // no scheme
+    let e = at + 3; while (e < s.length && !stop.test(s[e]!)) e++;
+    if (e === at + 3) continue; // nothing after `://`
+    out += s.slice(last, b) + fn(s.slice(b, e)); last = e; at = e - 3;
+  }
+  return out + s.slice(last);
+}
+
 export interface RedactOptions {
   /** Rule `pii` (`logs.redactPii`); default false. */
   pii?: boolean;
@@ -118,14 +182,9 @@ export function createRedactor(o: RedactOptions = {}): Redactor {
       (_m, name: string, sep: string) => `${name}${sep}${tag("key")}`);
     // Header values can contain spaces and semicolon-separated cookies: redact the whole line.
     s = s.replace(/^([A-Za-z0-9_-]+)([ \t]*:[ \t]*)([^\r\n]+)/gm, (m, name: string, sep: string) => isSecretKey(name) ? `${name}${sep}${tag("key")}` : m);
-    // `key=value` / `"key": "value"` inside free text
-    s = s.replace(/(["']?)([A-Za-z0-9_.-]+)\1(\s*[:=]\s*)("[^"]*"|'[^']*'|(?:Bearer|Basic)\s+[^\s,;&"']+|[^\s,;&"']+)/gi, (m, q: string, name: string, sep: string, val: string) => {
-      if (!isSecretKey(name)) return m;
-      const quote = val.startsWith('"') ? '"' : val.startsWith("'") ? "'" : "";
-      return `${q}${name}${q}${sep}${quote}${tag("key")}${quote}`;
-    });
+    s = redactPairs(s);
     for (const p of PATTERNS) s = applyPattern(s, p, "pattern");
-    s = s.replace(URL_FIND, (u) => { let r = u; for (const st of URL_STEPS) r = applyPattern(r, st, "url"); return r; });
+    s = mapUrls(s, (u) => { let r = u; for (const st of URL_STEPS) r = applyPattern(r, st, "url"); return r; });
     for (const p of SPACE_PATHS) s = redactSpacedPath(s, p);
     s = s.replace(PATH_TOKEN, (tok) => {
       const segs = canonical(tok.startsWith("~") ? tok.slice(1) : tok);

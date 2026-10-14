@@ -68,4 +68,24 @@ it("a generated path flood cannot stall redaction", async () => {
     child.on("error", err => { clearTimeout(timer); reject(err); });
     child.on("close", code => { clearTimeout(timer); if (code === 0) resolve(); else reject(new Error(`fixture exited ${code}`)); });
   });
+
+  it("finds a secret-keyed pair behind a `Name:` prefix, a cause chain or a quoted message", () => {
+    const pw = ["hunter", "two", "pass"].join("");
+    for (const text of [`Error: token=${pw} x`, `TypeError: password=${pw}`, `cause: password=${pw}, retrying`, `Name: key=1 api_key=${pw}`,
+      `{"msg":"connect failed password=${pw}"}`, `a: b: c: secret=${pw}`]) {
+      assert.ok(!r.text(text).includes(pw), r.text(text));
+    }
+    assert.equal(r.text("Error: token=abc while connecting"), "Error: token=[REDACTED:key] while connecting");
+    assert.equal(r.text("sent x-api-key: abc123 now"), "sent x-api-key: [REDACTED:key] now");
+    assert.equal(r.text("x-api-key: abc123"), "x-api-key: [REDACTED:key]");
+    assert.equal(r.text("sent x-api-key=abc123"), "sent x-api-key=[REDACTED:key]");
+    assert.equal(r.text("retry: attempt=2 ok"), "retry: attempt=2 ok");
+  });
+  it("is linear on long runs without a separator (64 KiB under a generous bound)", () => {
+    for (const run of ["m".repeat(65536), "a.b-".repeat(16384), "key ".repeat(16384), "\"a".repeat(32768), "k:".repeat(32768), "= ".repeat(32768), "a".repeat(32768) + "://", "ab+".repeat(21845)]) {
+      const t = Date.now();
+      r.text(run);
+      assert.ok(Date.now() - t < 500, `took ${Date.now() - t} ms`);
+    }
+  });
 });
