@@ -9,16 +9,14 @@ import { openQuitDialog, type QuitOffer } from "./views/quit-dialog.ts";
 const shellRoot = document.createElement("div");
 document.body.append(shellRoot);
 if(window.location.hash==="#/approvals") {
-  void import("./views/approvals.ts").then(async({approvalCards})=>{
-    const {resolveLocale,translate}=await import("./i18n.ts");
-    const [settings,info]=await Promise.all([nativeTransport.settingsGet(),nativeTransport.appInfo()]);
-    document.documentElement.lang=resolveLocale(settings.locale,info.locale);
-    document.documentElement.dataset.platform=info.platform;
-    document.documentElement.dataset.theme=settings.theme==="system"?(window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"):settings.theme;
-    const t=(key:import("./i18n.ts").MessageKey)=>translate(resolveLocale(settings.locale,info.locale),key);
-    const render=async()=>{const data=await invoke<{cards:import("./views/approvals.ts").ApprovalCard[];decideEnabled:boolean}>("approvals_list");shellRoot.replaceChildren(approvalCards(data.cards,t,id=>invoke("approval_open",{request:{id}}),data.decideEnabled,(id,decision)=>invoke("approval_decide",{request:{id,decision}})));};
-    await listen("desktop-approvals-changed",()=>{void render();});await render();
-  });
+  void import("./approvals-window.ts").then(({mountApprovals})=>mountApprovals(shellRoot,{
+    settings:()=>nativeTransport.settingsGet(),
+    appInfo:()=>nativeTransport.appInfo(),
+    list:()=>invoke<{cards:import("./views/approvals.ts").ApprovalCard[];decideEnabled:boolean}>("approvals_list"),
+    open:id=>invoke("approval_open",{request:{id}}),
+    decide:(id,decision)=>invoke("approval_decide",{request:{id,decision}}),
+    onChanged:listener=>listen("desktop-approvals-changed",listener),
+  }));
 } else {
   createShell(shellRoot, nativeTransport);
   void nativeTransport.updateCheck?.(true).catch(()=>{});

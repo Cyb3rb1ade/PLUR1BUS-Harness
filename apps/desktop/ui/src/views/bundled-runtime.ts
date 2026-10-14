@@ -4,12 +4,14 @@ import { button } from "../components/button.ts";
 import { initialWizard, advanceWizard, agreeWizard, foundRuntimes, completeWizard, failWizard, retryWizard, wizardError, errors, type Wizard } from "../models/wizard-model.ts";
 import type { DesktopTransport } from "../ipc.ts";
 import type { MessageKey } from "../i18n.ts";
+import { redactedTail } from "../models/redact.ts";
+const knownStates = new Set(["not-installed","ready","stopped","starting","runtime-down","crashed","error"]);
 export function bundledRuntime(transport:DesktopTransport,t:(key:MessageKey,values?:Record<string,string>)=>string,refresh:()=>void) {
  let state:Wizard=initialWizard(), busy=false, status="", log="", memory=3, phase="image";
  void transport.harnessStatus?.().then(value=>{status=value.state;if(value.resources)memory=value.resources.memoryMiB/1024;refresh();}).catch(()=>{});
  void transport.harnessStatusEvents?.(value=>{status=value.state;refresh();}).catch(()=>{});
  async function detect() {if(!transport.runtimeDetect||busy)return;busy=true;refresh();try{const rows=await transport.runtimeDetect();state=foundRuntimes(state,rows,rows.find(r=>r.state==="ready")?.id??rows[0]?.id??null);}catch{state=failWizard(state,"runtime");}finally{busy=false;refresh();}}
- async function install() {if(!transport.bundleInstall||!state.selected||busy)return;const operation=state.operation;busy=true;phase="image";refresh();const unlisten=await transport.bundleProgress?.(step=>{if(state.step==="installing"&&state.operation===operation){phase=step;refresh();}});try{const result=await transport.bundleInstall(state.selected,state.agreed);state=completeWizard(state,result.connectionId,operation);}catch(error){if(state.operation===operation)state=failWizard(state,wizardError(error));}finally{unlisten?.();busy=false;refresh();}}
+ async function install() {if(!transport.bundleInstall||!state.selected||busy)return;const operation=state.operation;busy=true;phase="image";refresh();let unlisten:(()=>void)|undefined;try{try{unlisten=await transport.bundleProgress?.(step=>{if(state.step==="installing"&&state.operation===operation){phase=step;refresh();}});}catch{/* Progress is cosmetic: a listener that cannot register must not strand the install. */}const result=await transport.bundleInstall(state.selected,state.agreed);state=completeWizard(state,result.connectionId,operation);}catch(error){if(state.operation===operation)state=failWizard(state,wizardError(error));}finally{unlisten?.();busy=false;refresh();}}
  function primary() {if(busy)return;state=advanceWizard(state);refresh();if(state.step==="runtime")void detect();if(state.step==="installing")void install();if(state.step==="opened"&&state.connectionId)void transport.openConnection(state.connectionId).catch(()=>{state=failWizard(state,"pairing");refresh();});}
  function wizard():HTMLElement {
   const body=element("section","content bundled-wizard");const h=element("h1",undefined,t(`wizard.${state.step}` as MessageKey));h.tabIndex=-1;append(body,h);
@@ -25,13 +27,13 @@ export function bundledRuntime(transport:DesktopTransport,t:(key:MessageKey,valu
  async function action(fn:()=>Promise<unknown>){if(busy)return;busy=true;refresh();try{await fn();status=(await transport.harnessStatus?.())?.state??"";}catch{status="error";}finally{busy=false;refresh();}}
  function settings():HTMLElement {
   const body=element("section","settings-card runtime-settings");append(body,element("h2",undefined,t("nav.runtime")),element("p",undefined,t("runtime.nativeOnly")));
-  const stateText=element("p",undefined,status?t((`runtime.status.${status}`) as MessageKey):t("runtime.status.unknown"));stateText.setAttribute("role","status");body.append(stateText);
+  const stateText=element("p",undefined,knownStates.has(status)?t((`runtime.status.${status}`) as MessageKey):t("runtime.status.unknown"));stateText.setAttribute("role","status");body.append(stateText);
   const recheck=button(t("runtime.recheck"),()=>{void detect();void transport.harnessStatus?.().then(value=>{status=value.state;refresh();});});recheck.disabled=busy;body.append(recheck);
   for(const row of state.runtimes)body.append(element("p","runtime-endpoint",`${row.engine} ${row.version} — ${row.endpoint}`));
   const label=element("label","memory-control"),input=document.createElement("input");input.type="range";input.min="2";input.max="16";input.step="1";input.value=String(memory);input.setAttribute("aria-label",t("runtime.memory"));const output=element("output",undefined,t("runtime.memoryValue",{gib:String(memory)}));input.addEventListener("input",()=>{memory=Number(input.value);output.textContent=t("runtime.memoryValue",{gib:String(memory)});});append(label,element("span",undefined,t("runtime.memory")),input,output);body.append(label);
   const apply=button(t("runtime.applyMemory"),()=>void action(()=>transport.harnessStart?.(memory)??Promise.reject()));apply.disabled=busy;body.append(apply);
   for(const [key,fn] of [["runtime.start",()=>transport.harnessStart?.()],["runtime.stop",()=>transport.harnessStop?.()]] as const){const control=button(t(key),()=>void action(()=>fn()??Promise.reject()));control.disabled=busy;body.append(control);}
-  const logs=button(t("runtime.logs"),()=>void action(async()=>{log=await transport.harnessLogsTail?.()??"";}));body.append(logs);if(log)body.append(element("pre","runtime-log",log));
+  const logs=button(t("runtime.logs"),()=>void action(async()=>{log=await transport.harnessLogsTail?.()??"";}));body.append(logs);if(log)body.append(element("pre","runtime-log",redactedTail(log)));
   return body;
  }
  return {wizard,settings,reset:()=>{state=initialWizard();refresh();},detect};

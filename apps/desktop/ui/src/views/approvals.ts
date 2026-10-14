@@ -15,9 +15,13 @@ export function approvalCards(cards:ApprovalCard[],t:(key:MessageKey)=>string,op
    append(fields,label,element("dd",undefined,value));
   }
   item.append(fields);
-  const act=(action:()=>Promise<void>,control:HTMLButtonElement)=>{control.disabled=true;void action().catch(()=>{const error=element("p",undefined,t("host.failed"));error.setAttribute("role","alert");item.append(error);}).finally(()=>{control.disabled=false;});};
-  const openButton=button(t("approvals.open"),()=>act(()=>open(card.id),openButton),"primary");item.append(openButton);
-  for(const decision of ["approve","deny"] as const){const control=button(t(`approvals.${decision}`),()=>{if(decideEnabled&&decide)act(()=>decide(card.id,decision),control);});control.disabled=!decideEnabled||!decide;item.append(control);}
+  // One action in flight per card: approve and deny must never race each other, and a decided card stays closed
+  // until the native side's change event replaces the list.
+  const controls:HTMLButtonElement[]=[];let pending=false;let decided=false;
+  const settle=()=>{pending=false;for(const control of controls)control.disabled=control.dataset.decision!==undefined&&(decided||!decideEnabled||!decide);};
+  const act=(action:()=>Promise<void>,isDecision:boolean)=>{if(pending||decided)return;pending=true;for(const control of controls)control.disabled=true;void action().then(()=>{if(isDecision)decided=true;},()=>{const error=element("p",undefined,t("host.failed"));error.setAttribute("role","alert");item.append(error);}).finally(settle);};
+  const openButton=button(t("approvals.open"),()=>act(()=>open(card.id),false),"primary");controls.push(openButton);item.append(openButton);
+  for(const decision of ["approve","deny"] as const){const control=button(t(`approvals.${decision}`),()=>{if(decideEnabled&&decide)act(()=>decide(card.id,decision),true);});control.dataset.decision=decision;control.disabled=!decideEnabled||!decide;controls.push(control);item.append(control);}
   list.append(item);
  }
  return list;

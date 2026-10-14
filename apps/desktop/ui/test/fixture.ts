@@ -8,6 +8,7 @@ import {versionPage} from "../src/views/settings-version.ts";
 import { createShell } from "../src/shell.ts";
 import type { DesktopTransport, Settings } from "../src/ipc.ts";
 import { openDialog } from "../src/components/dialog.ts";
+import { mountApprovals } from "../src/approvals-window.ts";
 import { openQuitDialog } from "../src/views/quit-dialog.ts";
 import { openSheet } from "../src/components/sheet.ts";
 
@@ -19,7 +20,7 @@ let autostartFail = false;
 const autostartCalls: boolean[] = [];
 let deferredSaves = false;
 const pendingSaves: Array<{ value: Settings; resolve: (value: Settings) => void; reject: (error: Error) => void }> = [];
-const boot = (window as any).__fixtureBoot as { bundled?: boolean; platform?: "mac" | "win" | "gnome" | "kde"; autostartUnknown?: boolean; failGet?: boolean; deferLoad?: boolean; locale?: string; rows?: import("../src/ipc.ts").Connection[]; deferConnections?: boolean; failConnections?: boolean } | undefined;
+const boot = (window as any).__fixtureBoot as { bundled?: boolean; platform?: "mac" | "win" | "gnome" | "kde"; autostartUnknown?: boolean; failGet?: boolean; deferLoad?: boolean; locale?: string; rows?: import("../src/ipc.ts").Connection[]; deferConnections?: boolean; failConnections?: boolean; failProgress?: boolean; harnessState?: string; runtimeLog?: string } | undefined;
 autostart = boot?.autostartUnknown ? null : false;
 let rows: import("../src/ipc.ts").Connection[]=boot?.rows??[];
 let active:string|null=null;
@@ -27,6 +28,10 @@ let pairingError:string|null=null;
 let failConnections=boot?.failConnections??false;
 let releaseConnections: (()=>void)|undefined;
 const connectionGate = boot?.deferConnections ? new Promise<void>(resolve=>{releaseConnections=resolve;}) : Promise.resolve();
+const calls = { pair: 0, remove: 0, open: 0, decide: 0 };
+const gates: Record<string, Promise<void> | undefined> = {};
+const releases: Record<string, () => void> = {};
+const hold = (name: string) => { gates[name] = new Promise<void>(resolve => { releases[name] = () => { gates[name] = undefined; resolve(); }; }); };
 let completeLoads: () => void = () => {};
 const loaded = boot?.deferLoad ? new Promise<void>(resolve => { completeLoads = resolve; }) : Promise.resolve();
 const transport: DesktopTransport = {
@@ -36,10 +41,10 @@ const transport: DesktopTransport = {
  async autostartSet(value){autostartCalls.push(value);if(autostartFail)throw new Error("injected autostart error");autostart=value;return autostart;},
  async connectionsList(){await connectionGate;if(failConnections)throw "storage";return {connections:rows,active,tokenStore:"memory-only"};},
  async connectionsRename(id,name){rows=rows.map(row=>row.id===id?{...row,name}:row);},
- async connectionsRemove(id){rows=rows.filter(row=>row.id!==id);},
- async pairCode(request){if(pairingError)throw pairingError;const connection={id:request.repairId??"fixture-row",name:request.name,origin:request.origin,kind:"remote" as const,installationId:"fixture-installation",deviceId:"fixture-device",tokenHint:"hint",certPin:null,caPin:null,nextCertPin:null,nextCaPin:null,observedCertPin:null,pairingNeeded:false};rows=[connection];return {connection,tokenStore:"memory-only"};},
+ async connectionsRemove(id){calls.remove++;await gates.remove;rows=rows.filter(row=>row.id!==id);},
+ async pairCode(request){calls.pair++;await gates.pair;if(pairingError)throw pairingError;const connection={id:request.repairId??"fixture-row",name:request.name,origin:request.origin,kind:"remote" as const,installationId:"fixture-installation",deviceId:"fixture-device",tokenHint:"hint",certPin:null,caPin:null,nextCertPin:null,nextCaPin:null,observedCertPin:null,pairingNeeded:false};rows=[connection];return {connection,tokenStore:"memory-only"};},
  async pairLocal(){if(pairingError)throw pairingError;throw "denied";},
- async openConnection(id){if(pairingError)throw pairingError;active=id;return {selected:true,spa_available:false};},
+ async openConnection(id){calls.open++;await gates.open;if(pairingError)throw pairingError;active=id;return {selected:true,spa_available:false};},
   async appInfo() { await loaded; return { platform: boot?.platform ?? "mac", locale: boot?.locale ?? "en-US" }; },
   async settingsGet() { await loaded; if (boot?.failGet) throw new Error("fixture settings read failure"); return settings; },
   async settingsSet(value) {
@@ -52,9 +57,10 @@ if(boot?.bundled){
  transport.runtimeDetect=async()=>[{id:"p1t-runtime",kind:"docker",endpoint:"unix:///p1t/engine.sock",source:"podman",engine:"Podman",version:"5.0",state:"ready"}];
  transport.bundleInstall=async()=>({connectionId:"p1t-bundled"});
  transport.bundleCancel=async()=>{};
- transport.harnessStatus=async()=>({state:"ready"});
+ transport.harnessStatus=async()=>({state:boot?.harnessState??"ready"});
+ if(boot?.failProgress)transport.bundleProgress=async()=>{throw "listen-failed";};
  transport.harnessStart=async()=>{};transport.harnessStop=async()=>{};
- transport.harnessLogsTail=async()=>"synthetic redacted log";
+ transport.harnessLogsTail=async()=>boot?.runtimeLog??"synthetic redacted log";
 }
 const shellRoot = document.createElement("div");
 document.body.append(shellRoot);
@@ -83,6 +89,21 @@ Object.assign(window, { testShell: {
     const renderer=updatesPage({...transport,updateSettings:async()=>snapshot,updateCheck:async()=>{if(over.checkError!==undefined)throw over.checkError;return snapshot;},updateInstall:async()=>{throw new Error("synthetic failure");},updateSkip:async()=>snapshot,updateLater:async()=>snapshot,updateStoreOpen:async()=>{}},()=>{shellRoot.replaceChildren(renderer());});
     shellRoot.replaceChildren(renderer());
   },
+  calls,
+  hold,
+  release:(name:string)=>releases[name]?.(),
+  showPendingApprovals:(cards:import("../src/views/approvals.ts").ApprovalCard[])=>{shellRoot.replaceChildren(approvalCards(cards,key=>translate("en",key),async()=>{},true,async()=>{calls.decide++;await gates.decide;}));},
+  approvalsList: [] as Array<{ resolve: (value: { cards: import("../src/views/approvals.ts").ApprovalCard[]; decideEnabled: boolean }) => void; reject: (reason: unknown) => void }>,
+  approvalsChanged: () => {},
+  mountApprovalsWindow: () => {
+    const self = (window as any).testShell;
+    void mountApprovals(shellRoot, {
+      settings: () => transport.settingsGet(), appInfo: () => transport.appInfo(),
+      list: () => new Promise((resolve, reject) => { self.approvalsList.push({ resolve, reject }); }),
+      open: async () => {}, decide: async () => {},
+      onChanged: async listener => { self.approvalsChanged = listener; },
+    });
+  },
   approvalActions:[] as string[],
   showApprovals:(cards:import("../src/views/approvals.ts").ApprovalCard[],locale:"de"|"en"="en",enabled=false)=>{shellRoot.replaceChildren(approvalCards(cards,key=>translate(locale,key),async id=>{(window as any).testShell.approvalActions.push(`open:${id}`);},enabled,async(id,decision)=>{(window as any).testShell.approvalActions.push(`${decision}:${id}`);}));},
   showBackgroundHint,
@@ -92,6 +113,7 @@ Object.assign(window, { testShell: {
   crashCopied: [] as string[],
   crashActions: [] as string[],
   openCrashActions: () => { void showCrashOffers([{id:"owned-crash",details:"synthetic details"}], async id => { (window as any).testShell.crashHandled.push(id); }, async () => {}, {open:async()=>{(window as any).testShell.crashActions.push("open");}, restart:async()=>{(window as any).testShell.crashActions.push("restart");}}); },
+  openCrashText: (text: string) => { void showCrashOffers([{id:"text-crash",details:text}], async () => {}, async copied => { (window as any).testShell.crashCopied.push(copied); }); },
   openCrash: (failCopy = false, failAck = false) => { void showCrashOffers([{id:"owned-crash",details:"<img src=x onerror=alert(1)> synthetic details"}], async id => { if(failAck)throw new Error("injected"); (window as any).testShell.crashHandled.push(id); }, async text => { if(failCopy)throw new Error("injected"); (window as any).testShell.crashCopied.push(text); }); },
   quitDecisions: [] as string[],
   setQuitFailure: (value: boolean) => { failQuit = value; },
