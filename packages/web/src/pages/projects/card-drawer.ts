@@ -1,5 +1,5 @@
 import { h, type ComponentChildren } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Badge } from "../../components/card.ts";
 import { icon } from "../../icons.ts";
@@ -90,6 +90,14 @@ export function CardDrawer({
     void loadComments();
     void loadActivity();
   }, [card.id]);
+
+  // A modal drawer takes the focus when it opens and gives it back to the card that opened it.
+  const drawerEl = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    drawerEl.current?.focus();
+    return () => { if (opener?.isConnected) opener.focus(); };
+  }, []);
 
   // Handle ESC key to close drawer
   useEffect(() => {
@@ -225,6 +233,8 @@ export function CardDrawer({
       "aside",
       {
         class: "card-drawer",
+        ref: drawerEl,
+        tabIndex: -1,
         role: "dialog",
         "aria-modal": "true",
         "aria-label": card.title,

@@ -26,8 +26,11 @@ const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is
 const MASK = "••••";
 /** A field name that ends in key, token, secret or credential(s) (case and separators ignored) holds a secret. */
 export function isSecretKey(name: string): boolean {
-  return /(key|token|secret|credentials?)$/.test(name.toLowerCase().replace(/[^a-z0-9]/g, ""));
+  return /(key|token|secret|credentials?|passwords?|passwd|passphrase|authorization|auth|bearer)$/.test(name.toLowerCase().replace(/[^a-z0-9]/g, ""));
 }
+/** A scalar the page shows: a URL with `user:password@` in it loses that part. */
+const maskScalar = (v: string | number | boolean): string | number | boolean =>
+  typeof v === "string" ? v.replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/?#\s@]*@/i, `$1${MASK}@`) : v;
 /** Deep copy with every secret-named value replaced; used for anything shown that the page does not know by name. */
 export function maskSecrets(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(maskSecrets);
@@ -57,7 +60,7 @@ export function normalizeModel(raw: unknown): ModelEntry | null {
   const extra: ModelEntry["extra"] = {};
   for (const [k, v] of Object.entries(o)) {
     if (KNOWN.has(k) || (typeof v !== "string" && typeof v !== "number" && typeof v !== "boolean")) continue;
-    extra[k] = isSecretKey(k) ? MASK : v;
+    extra[k] = isSecretKey(k) ? MASK : maskScalar(v);
   }
   const cw = o.contextWindow;
   return {

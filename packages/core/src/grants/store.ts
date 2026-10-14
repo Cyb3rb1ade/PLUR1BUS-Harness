@@ -11,7 +11,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { ApprovalChain, ApprovalChainError, type ChainEntry } from "../approvals/chain.ts";
 import { transaction } from "../approvals/db.ts";
 import { CAPABILITIES, DEFAULTS, GRANT_SCOPES, scopeRank, type GrantScope, type SurfaceTrust } from "../policy/capabilities.ts";
-import type { Clock, Grant, GrantMatch, GrantSource } from "../policy/decide.ts";
+import { grantExpiry, type Clock, type Grant, type GrantMatch, type GrantSource } from "../policy/decide.ts";
 import type { PolicyAudit, PolicyAuditAction } from "../policy/audit.ts";
 import { checkSyntax, isPathRefusal } from "../policy/paths-index.ts";
 
@@ -59,6 +59,9 @@ export interface CreateGrantInput {
   /** `attested:<method>`: set only by an approval an OS confirmation lifted to T2, so `surface` is at least 2. */
   attestedVia?: string;
 }
+
+/** Upper bound for every identifier-like field: they are stored, chained and audited, so an absurd value must not get in. */
+const MAX_FIELD_CHARS = 256;
 
 const ATTESTED_VIA = /^attested:[a-z0-9][a-z0-9-]{0,31}$/;
 
@@ -216,7 +219,12 @@ export class GrantStore implements GrantSource {
     if (![1, 2, 3].includes(i.surface)) bad("surface-too-low", "a grant needs a decision from a T1..T3 surface");
     if (def!.minSurface !== null && i.surface < def!.minSurface) bad("surface-too-low", `${def!.id} needs a decision from T${def!.minSurface} or above`);
     if (i.attestedVia !== undefined && (!ATTESTED_VIA.test(i.attestedVia) || i.surface < 2)) bad("invalid-grant", "attestedVia must be attested:<method> and needs a T2 or higher surface");
+    for (const [name, v] of Object.entries({
+      id: i.id, person: i.person, agent: i.agent, createdBy: i.createdBy, taskId: i.taskId, sessionId: i.sessionId, projectId: i.projectId,
+      jobId: i.jobId, effect: i.effect, actionHash: i.actionHash,
+    })) if (typeof v === "string" && v.length > MAX_FIELD_CHARS) bad("invalid-grant", `${name} is longer than ${MAX_FIELD_CHARS} characters`);
     if (i.expiresAt !== undefined && !Number.isFinite(i.expiresAt)) bad("invalid-grant", "expiresAt must be a finite number");
+    if (i.expiresAt !== undefined && i.expiresAt <= this.#clock.now()) bad("invalid-grant", "expiresAt must lie in the future");
     if (i.scope === "once") {
       if (!str(i.actionHash) || i.match.kind !== "action") bad("invalid-grant", "a once grant is bound to an action hash (match.kind = action)");
     } else if (i.match.kind === "action") bad("invalid-grant", "only a once grant can match an action hash");
@@ -229,6 +237,10 @@ export class GrantStore implements GrantSource {
       const syn = checkSyntax(m.path, { platform: process.platform });
       if (isPathRefusal(syn)) bad("invalid-grant", `grant path refused: ${syn.reason}`);
       else if (!syn.absolute) bad("invalid-grant", "grant path must be absolute and canonical");
+      // Canonical means what `pathCovered` reads: no empty or "." segment after the root and at least one segment. Anything else would
+      // be stored as a grant that silently never matches (or, for "/", looks like a grant over everything).
+      const rest = m.path.split(/[\\/]/).slice(1);
+      if (rest.length === 0 || rest.some((seg) => seg === "" || seg === ".")) bad("invalid-grant", "grant path must be canonical (no root-only path, trailing or doubled separator, or '.' segment)");
     }
     const now = this.#clock.now();
     const id = i.id ?? `grt_${createHash("sha256").update(`${now}:${Math.random()}:${process.pid}`).digest("hex").slice(0, 24)}`;
@@ -304,6 +316,8 @@ export class GrantStore implements GrantSource {
       const v = this.#viewOf(id);
       if (!v || v.state !== "active" || v.grant.scope === "once") return;
       const now = this.#clock.now();
+      // A use can only keep a live grant alive: recording one on a grant whose lifetime already lapsed would restart the clock and revive it.
+      if (v.grant.createdAt > now || now >= grantExpiry(v.grant)) return;
       if (v.grant.lastUsedAt !== undefined && now - v.grant.lastUsedAt < USE_RECORD_GRANULARITY_MS) return;
       this.#chain.append("grant.used", id, {});
       this.#db.prepare("UPDATE grants SET last_used_at = ? WHERE id = ?").run(now, id);

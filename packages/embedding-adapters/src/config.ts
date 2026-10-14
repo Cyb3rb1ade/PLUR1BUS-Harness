@@ -218,6 +218,18 @@ function readInt(rec: Rec, key: string, c: Collector, min: number, max: number, 
   return v;
 }
 
+function isLoopbackHost(hostname: string): boolean {
+  const h = (hostname.startsWith("[") ? hostname.slice(1, -1) : hostname).replace(/\.$/, "");
+  return h === "localhost" || h === "::1" || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h);
+}
+
+/** A credential must never be configured for a cleartext hop beyond this machine. */
+function checkSecretTransport(baseURL: string | undefined, secretName: string | undefined, c: Collector): void {
+  if (baseURL === undefined || secretName === undefined) return;
+  const u = new URL(baseURL);
+  if (u.protocol === "http:" && !isLoopbackHost(u.hostname)) c.add("secretName", "would be sent in clear text: use an https baseURL or a loopback address, or drop the secret");
+}
+
 function readBaseURL(rec: Rec, c: Collector): string | undefined {
   const v = rec["baseURL"];
   if (v === undefined) return undefined;
@@ -305,6 +317,7 @@ export function resolveEmbeddingSettings(raw: unknown, path = "embedding"): Embe
   const baseURL = configuredBase ?? spec.baseURL;
   if (rec["baseURL"] === undefined && baseURL === undefined && SELF_HOSTED_BASE.has(provider)) c.add("baseURL", `required for provider "${provider}"`);
   if (spec.secret === "required" && rec["secretName"] === undefined) c.add("secretName", `required for provider "${provider}"`);
+  checkSecretTransport(baseURL, secretName, c);
   if (spec.needsUpstream && rec["pinnedUpstream"] === undefined) c.add("pinnedUpstream", `required for provider "${provider}" (the vector space is defined by the upstream model)`);
   if (pinnedUpstream !== undefined && !spec.needsUpstream) c.add("pinnedUpstream", `only applies to provider "openrouter"`);
   c.done();
@@ -357,6 +370,7 @@ export function resolveRerankSettings(raw: unknown, path = "rerank"): RerankSett
   if (rec["baseURL"] === undefined && baseURL === undefined) c.add("baseURL", `required for provider "${provider}"`);
   if (spec.modelRequired && rec["model"] === undefined) c.add("model", `required for provider "${provider}"`);
   if (spec.secret === "required" && rec["secretName"] === undefined) c.add("secretName", `required for provider "${provider}"`);
+  checkSecretTransport(baseURL, secretName, c);
   let resolvedPath = spec.path;
   if (configuredPath !== undefined) {
     if (!spec.paths) c.add("path", `not configurable for provider "${provider}"`);

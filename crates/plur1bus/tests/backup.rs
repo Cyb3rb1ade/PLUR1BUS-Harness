@@ -311,7 +311,7 @@ fn a_corrupt_archive_is_refused_by_verify_and_by_restore_and_nothing_changes() {
             .arg(&a)
             .assert()
             .failure()
-            .code(1)
+            .code(2)
             .get_output()
             .clone();
         let e = doc(&v);
@@ -327,7 +327,7 @@ fn a_corrupt_archive_is_refused_by_verify_and_by_restore_and_nothing_changes() {
             .arg(&a)
             .assert()
             .failure()
-            .code(1)
+            .code(2)
             .get_output()
             .clone();
         assert_eq!(doc(&r)["reason"], e["reason"], "{what}");

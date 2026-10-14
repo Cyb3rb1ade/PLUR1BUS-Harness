@@ -35,6 +35,8 @@ export interface BoardViewProps {
   columns: BoardColumn[];
   cards: BoardCard[];
   globalRole: string | null;
+  /** The signed-in human's id: names their project membership (an agent is matched by `agentId`). */
+  userId?: string | null;
   agentId: string | null;
   isAgent: boolean;
   onRefresh: () => void;
@@ -47,6 +49,7 @@ export function BoardView({
   columns,
   cards,
   globalRole,
+  userId = null,
   agentId,
   isAgent,
   onRefresh,
@@ -103,7 +106,7 @@ export function BoardView({
     };
   }, [project.id]);
 
-  const projectMember = project.members.find((m) => m.userId === (agentId ?? ""));
+  const projectMember = project.members.find((m) => m.userId === (isAgent ? (agentId ?? "") : (userId ?? "")));
   const projectRole = projectMember?.role ?? null;
   const canManage = canManageColumns(globalRole, projectRole, isAgent);
   const canWrite = canWriteCards(globalRole, projectRole, isAgent);

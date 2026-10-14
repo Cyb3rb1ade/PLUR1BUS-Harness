@@ -7,6 +7,9 @@ export const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,255}$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const bad = (): never => { throw new ScanError("failed:invalid", "invalid_entry"); };
 
+/** An optional field counts as absent when it is missing or null (providers send null for what they do not know). */
+export const present = (v: unknown): boolean => v !== undefined && v !== null;
+
 export function checkId(v: unknown): string {
   return typeof v === "string" && ID_RE.test(v) ? v : bad();
 }

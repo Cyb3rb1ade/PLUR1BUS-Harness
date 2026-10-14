@@ -85,6 +85,17 @@ export class ProjectBoardStore {
     target.forEach((x, i) => { x.position = i; });
     if (old !== columnId) d.cards.filter(x => x.columnId === old).sort((a, b) => a.position - b.position).forEach((x, i) => { x.position = i; });
   }
+  /** Runs inside the caller's transaction (member or agent removal): an assignment must not outlive the membership it required. */
+  releaseAssignee(projectId: string, assignee: BoardActor): void {
+    const d = this.#read(projectId), owner = this.project(projectId)!.owner;
+    let changed = false;
+    for (const c of d.cards) {
+      if (!c.assignees.some(a => same(a, assignee))) continue;
+      c.assignees = c.assignees.filter(a => !same(a, assignee)); changed = true;
+      this.#history(d, c, "unassigned", { kind: "person", id: owner }, JSON.stringify({ ...assignee, reason: "membership-removed" }));
+    }
+    if (changed) this.db.prepare("UPDATE project_boards SET data = ? WHERE project_id = ?").run(JSON.stringify(d), projectId);
+  }
   columns(projectId: string): BoardColumn[] { return this.#read(projectId).columns.sort((a, b) => a.position - b.position); }
   createColumn(projectId: string, input: { title?: string; titleKey?: string; wipLimit?: number | null; position?: number }): BoardColumn {
     return this.#write(projectId, d => {

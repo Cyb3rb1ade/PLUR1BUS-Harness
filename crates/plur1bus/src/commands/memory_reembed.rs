@@ -215,9 +215,7 @@ fn follow(out: &Out, layout: &Layout, want_switch: bool) -> Value {
                     out.fail(
                         "E_CORE_UNAVAILABLE",
                         "the core did not come back; the migration state is kept (plur1bus memory reembed --status)",
-                        json!({ "degraded": { "reason": "core-unavailable", "capability": "admin", "detail": e.to_string() } }),
-                        1,
-                    );
+                        json!({ "degraded": { "reason": "core-unavailable", "capability": "admin", "detail": e.to_string() } }));
                 }
             }
             Err(e) => out.from_rpc_error(&e),
@@ -241,11 +239,20 @@ pub fn run(out: &Out, layout: &Layout, a: ReembedArgs) {
             params["throttleMs"] = json!(t);
         }
         let v = call(out, layout, "admin.reembed.plan", params);
-        out.ok("memory.reembed.plan/1", &v, || describe_plan(&v));
         // A model the store cannot move to is a refusal, with its reasons printed above.
         if v["probe"]["verdict"] == "incompatible" {
-            std::process::exit(1);
+            out.ok_but_failed(
+                "memory.reembed.plan/1",
+                &v,
+                || describe_plan(&v),
+                crate::output::Failure::new(
+                    "E_CONFLICT",
+                    "incompatible-model",
+                    "the store cannot move to this embedding model (see the probe)",
+                ),
+            );
         }
+        out.ok("memory.reembed.plan/1", &v, || describe_plan(&v));
     } else if a.status {
         let v = call(out, layout, "admin.reembed.status", json!({}));
         out.ok("memory.reembed.status/1", &v, || describe_status(&v));
@@ -283,7 +290,6 @@ fn run_migration(out: &Out, layout: &Layout, a: &ReembedArgs) {
             "E_NOT_FOUND",
             "no re-embedding migration is planned (plur1bus memory reembed --plan --model <id>)",
             json!({ "reason": "no-migration" }),
-            1,
         );
     }
     let question = if cp["phase"] == "ready-to-switch" {
@@ -324,10 +330,22 @@ fn run_migration(out: &Out, layout: &Layout, a: &ReembedArgs) {
     } else {
         follow(out, layout, want_switch)
     };
-    out.ok("memory.reembed.run/1", &done, || describe_status(&done));
     if !succeeded(&done, want_switch) {
-        std::process::exit(1);
+        out.ok_but_failed(
+            "memory.reembed.run/1",
+            &done,
+            || describe_status(&done),
+            crate::output::Failure::new(
+                "E_INTERNAL",
+                "reembed-failed",
+                format!(
+                    "the migration did not finish (phase {})",
+                    done["checkpoint"]["phase"].as_str().unwrap_or("?")
+                ),
+            ),
+        );
     }
+    out.ok("memory.reembed.run/1", &done, || describe_status(&done));
 }
 
 #[cfg(test)]

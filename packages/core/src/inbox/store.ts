@@ -110,6 +110,8 @@ export class InboxStore {
   publish(d: InboxDraft): { id: string; created: boolean } {
     validate(d);
     return this.#tx(() => {
+      // Retention first: an entry past its age must not hide a repeat event behind its dedupe key (docs/inbox.md).
+      this.#prune(d.userId);
       const known = this.db.prepare("SELECT id FROM inbox_entries WHERE user_id=? AND dedupe_key=?").get(d.userId, d.dedupeKey) as { id: string } | undefined;
       if (known) return { id: known.id, created: false };
       const id = this.#id();
@@ -145,6 +147,14 @@ export class InboxStore {
     for (const r of this.db.prepare("SELECT kind, COUNT(*) AS n FROM inbox_entries WHERE user_id=? AND dismissed_at IS NULL AND read_at IS NULL GROUP BY kind").all(userId) as { kind: InboxKind; n: number }[]) unread[r.kind] = Number(r.n);
     const total = Number((this.db.prepare("SELECT COUNT(*) AS n FROM inbox_entries WHERE user_id=? AND dismissed_at IS NULL").get(userId) as { n: number }).n);
     return { unread, total };
+  }
+
+  /** The kinds a `markRead` (`unread`) or `dismiss` (`open`) of these ids would touch, for the person's own entries only. No page limit. */
+  kindsOf(userId: string, ids: readonly string[] | "all", what: "unread" | "open"): InboxKind[] {
+    const state = what === "unread" ? "read_at IS NULL AND dismissed_at IS NULL" : "dismissed_at IS NULL";
+    if (ids === "all") return (this.db.prepare(`SELECT DISTINCT kind FROM inbox_entries WHERE user_id=? AND ${state}`).all(userId) as { kind: InboxKind }[]).map(r => r.kind);
+    const list = idList(ids);
+    return (this.db.prepare(`SELECT DISTINCT kind FROM inbox_entries WHERE user_id=? AND ${state} AND id IN (${list.map(() => "?").join(",")})`).all(userId, ...list) as { kind: InboxKind }[]).map(r => r.kind);
   }
 
   /** Marks the person's own entries read (the first read time is kept); returns how many changed. */

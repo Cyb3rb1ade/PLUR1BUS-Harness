@@ -2,6 +2,7 @@
 // Generates SVG paths for Byte mode QR codes up to Version 10 with Error Correction Level M. Zero external dependencies.
 import { h } from "preact";
 import type { View } from "../../../../view.ts";
+import { t } from "../../../../i18n.ts";
 
 // GF(256) arithmetic with primitive polynomial 0x11D (285)
 const EXP = new Uint8Array(512);
@@ -47,24 +48,44 @@ function genPoly(deg: number): Uint8Array {
   return p;
 }
 
-function rsEncode(data: Uint8Array, ecLen: number): Uint8Array {
+/** `gen` is stored lowest degree first, the long division below walks the divisor from its highest degree down, hence the reversed index. */
+export function rsEncode(data: Uint8Array, ecLen: number): Uint8Array {
   const gen = genPoly(ecLen);
   const res = new Uint8Array(ecLen);
   for (const b of data) {
     const factor = b ^ (res[0] ?? 0);
     res.copyWithin(0, 1);
     res[ecLen - 1] = 0;
-    for (let i = 0; i < ecLen; i++) res[i] = (res[i] ?? 0) ^ gfMul(gen[i]!, factor);
+    for (let i = 0; i < ecLen; i++) res[i] = (res[i] ?? 0) ^ gfMul(gen[ecLen - 1 - i]!, factor);
   }
   return res;
 }
+
+/** Lengths of the data blocks of one version: the shorter blocks come first (group 1), the longer ones last (group 2). */
+export function blockLengths(totalData: number, numBlocks: number): number[] {
+  const short = Math.floor(totalData / numBlocks);
+  const longer = totalData % numBlocks;
+  return Array.from({ length: numBlocks }, (_, b) => (b < numBlocks - longer ? short : short + 1));
+}
+
+/** The 18 version information bits of versions 7 and up: 6 version bits plus a BCH(18,6) remainder. */
+export function versionInfo(version: number): number {
+  let rem = version;
+  for (let i = 0; i < 12; i++) rem = (rem << 1) ^ ((rem >> 11) * 0x1f25);
+  return (version << 12) | rem;
+}
+
+/** The longest text (bytes) the generator can encode: version 10, level M. */
+export const QR_MAX_BYTES = 213;
 
 export function generateQrMatrix(text: string): { size: number; path: string } {
   const utf8 = new TextEncoder().encode(text);
   const vInfo = V_TABLE.find(([v, dataCap]) => {
     const headerBits = 4 + (v < 10 ? 8 : 16);
     return utf8.length <= dataCap - Math.ceil(headerBits / 8);
-  }) ?? V_TABLE[V_TABLE.length - 1]!;
+  });
+  // Beyond version 10 the data used to be cut off silently and the code was unreadable: refuse instead.
+  if (!vInfo) throw new RangeError("QR text too long");
 
   const [version, totalData, ecPerBlock, numBlocks] = vInfo;
   const size = 17 + 4 * version;
@@ -89,12 +110,10 @@ export function generateQrMatrix(text: string): { size: number; path: string } {
   let padIdx = 0;
   while (dataBytes.length < totalData) dataBytes.push(pad[padIdx++ % 2]!);
 
-  const blockSize = Math.floor(totalData / numBlocks);
   const blocks: Uint8Array[] = [];
   const ecBlocks: Uint8Array[] = [];
   let offset = 0;
-  for (let b = 0; b < numBlocks; b++) {
-    const len = b < totalData % numBlocks ? blockSize + 1 : blockSize;
+  for (const len of blockLengths(totalData, numBlocks)) {
     const block = new Uint8Array(dataBytes.slice(offset, offset + len));
     blocks.push(block);
     ecBlocks.push(rsEncode(block, ecPerBlock));
@@ -136,7 +155,8 @@ export function generateQrMatrix(text: string): { size: number; path: string } {
   const coords = ALIGN_COORDS[version] ?? [];
   for (const r of coords) {
     for (const c of coords) {
-      if (matrix[r]![c] !== null) continue;
+      // Skip the places next to a finder pattern; the ones on the timing lines (6,22 and 22,6 from version 7 on) are real.
+      if ((r <= 8 && c <= 8) || (r <= 8 && c >= size - 9) || (r >= size - 9 && c <= 8)) continue;
       for (let y = -2; y <= 2; y++) {
         for (let x = -2; x <= 2; x++) {
           matrix[r + y]![c + x] = Math.max(Math.abs(y), Math.abs(x)) !== 1 ? 1 : 0;
@@ -154,6 +174,15 @@ export function generateQrMatrix(text: string): { size: number; path: string } {
   for (let i = 0; i < 8; i++) {
     if (matrix[8]![size - 1 - i] === null) matrix[8]![size - 1 - i] = 0;
     if (matrix[size - 1 - i]![8] === null) matrix[size - 1 - i]![8] = 0;
+  }
+
+  if (version >= 7) {
+    const info = versionInfo(version);
+    for (let i = 0; i < 18; i++) {
+      const bit = (info >> i) & 1;
+      matrix[size - 11 + (i % 3)]![Math.floor(i / 3)] = bit;
+      matrix[Math.floor(i / 3)]![size - 11 + (i % 3)] = bit;
+    }
   }
 
   const allBits: number[] = [];
@@ -199,7 +228,9 @@ export function generateQrMatrix(text: string): { size: number; path: string } {
 }
 
 export function QrCodeView({ text, label }: { text: string; label?: string }): View {
-  const { size, path } = generateQrMatrix(text);
+  let code: { size: number; path: string };
+  try { code = generateQrMatrix(text); } catch { return h("p", { class: "field-hint", role: "note" }, t("devices.pair.tooLong")); }
+  const { size, path } = code;
   return h("div", { class: "pairing-qr" },
     h("svg", {
       viewBox: `0 0 ${size} ${size}`,

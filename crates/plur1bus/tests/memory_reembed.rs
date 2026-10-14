@@ -629,3 +629,74 @@ fn flags_are_exclusive_and_scoped() {
         assert_eq!(code, 2, "{args:?}");
     }
 }
+
+/// With `--json` a refusal or a halted run is still ONE document: the result with the `error/1` document of the
+/// failure as its top-level `error`, and exit 1 (unchanged).
+#[test]
+fn a_failed_json_run_or_plan_is_one_document_with_an_error_object() {
+    let d = tempfile::tempdir().unwrap();
+    spawn(
+        d.path(),
+        vec![(
+            "admin.reembed.plan",
+            vec![
+                json!({"probe":{"verdict":"incompatible","reasons":["target-model-unpinned"],"changed":[],"storedId":null,"targetId":null,
+        "message":"not pinned"},"plan":null}),
+            ],
+        )],
+    );
+    let (stdout, _e, code) = out_of(
+        cli(d.path())
+            .args([
+                "--json",
+                "memory",
+                "reembed",
+                "--plan",
+                "--model",
+                "x/unpinned",
+            ])
+            .assert(),
+    );
+    assert_eq!(code, 1);
+    let v: Value = serde_json::from_str(&stdout).expect("stdout is exactly one JSON document");
+    assert_eq!(v["schema"], "memory.reembed.plan/1");
+    assert_eq!(v["probe"]["verdict"], "incompatible", "the result is kept");
+    assert_eq!(v["error"]["schema"], "error/1");
+    assert_eq!(v["error"]["error"], "E_CONFLICT");
+    assert_eq!(v["error"]["reason"], "incompatible-model");
+
+    let d = tempfile::tempdir().unwrap();
+    spawn(
+        d.path(),
+        vec![
+            (
+                "admin.reembed.status",
+                vec![
+                    status("planned", 0, false, Value::Null),
+                    status(
+                        "aborted",
+                        6,
+                        false,
+                        json!({"code":"engine-error","message":"provider exploded"}),
+                    ),
+                ],
+            ),
+            (
+                "admin.reembed.run",
+                vec![json!({"checkpoint":cp("running",0,Value::Null)})],
+            ),
+        ],
+    );
+    let (stdout, _e, code) = out_of(
+        cli(d.path())
+            .args(["--json", "memory", "reembed", "--run", "--yes"])
+            .assert(),
+    );
+    assert_eq!(code, 1);
+    let v: Value = serde_json::from_str(&stdout).expect("stdout is exactly one JSON document");
+    assert_eq!(v["schema"], "memory.reembed.run/1");
+    assert_eq!(v["checkpoint"]["phase"], "aborted", "the result is kept");
+    assert_eq!(v["error"]["schema"], "error/1");
+    assert_eq!(v["error"]["error"], "E_INTERNAL");
+    assert_eq!(v["error"]["reason"], "reembed-failed");
+}

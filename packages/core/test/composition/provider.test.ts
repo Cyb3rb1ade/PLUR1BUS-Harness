@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { TurnToolError, createTurnProvider } from "../../src/composition/provider.ts";
+import { TurnToolError, createTurnProvider, toolErrorDetail } from "../../src/composition/provider.ts";
 import { collect, readTool, scriptedAdapter, turnFixture, turnRequest, useTempDirs, type ScriptedRound } from "./helpers.ts";
 import type { ChatChunk } from "../../src/session/provider.ts";
 
@@ -258,16 +258,31 @@ describe("composition/provider createTurnProvider: tool calls", () => {
     } finally { close(); }
   });
 
-  // characterization: Ist-Verhalten, nicht spezifiziert. Two calls of one response with the same id are both executed and
-  // both results are sent back under that one id; a provider that requires unique ids would reject the next request.
-  it("characterization: duplicate tool-call ids in one response are not rejected", async () => {
+  // Duplicate ids in one response are made unique deterministically (never merged): the first keeps its id, each later
+  // duplicate gets `<id>_<n>` with the smallest n >= 2 not used by any call of the response. Provider id grammars
+  // (Anthropic: [a-zA-Z0-9_-]) accept the suffix, and the web chat, which keys tool cards by id, renders every call.
+  it("duplicate tool-call ids in one response are made unique deterministically; both run, nothing is merged", async () => {
     const seen: unknown[] = [];
     const { provider, registry, requests, close } = await setup([{ calls: [call("dup", "file.read", { path: "a" }), call("dup", "file.read", { path: "b" })] }, { text: "done" }]);
     registry.register(readTool("file.read", async (a) => { seen.push(a); return "ok"; }));
     try {
-      await collect(provider);
+      const chunks = await collect(provider);
       assert.deepEqual(seen, [{ path: "a" }, { path: "b" }]);
-      assert.deepEqual(requests[1]!.messages.filter((m) => m.role === "tool").map((m) => "toolCallId" in m ? m.toolCallId : undefined), ["dup", "dup"]);
+      assert.deepEqual(types(chunks).filter((t) => t.startsWith("tool.")), ["tool.call:dup", "tool.result:dup", "tool.call:dup_2", "tool.result:dup_2"]);
+      const assistant = requests[1]!.messages.find((m) => toolCallsOf(m).length > 0)!;
+      assert.deepEqual(toolCallsOf(assistant).map((c) => c.id), ["dup", "dup_2"]);
+      assert.deepEqual(requests[1]!.messages.filter((m) => m.role === "tool").map((m) => "toolCallId" in m ? m.toolCallId : undefined), ["dup", "dup_2"]);
+    } finally { close(); }
+  });
+
+  it("a renamed duplicate never takes an id another call of the same response already uses", async () => {
+    const { provider, registry, requests, close } = await setup([{ calls: [call("a", "file.read"), call("a", "file.read"), call("a_2", "file.read"), call("a", "file.read")] }, { text: "done" }]);
+    registry.register(readTool("file.read", async () => "ok"));
+    try {
+      await collect(provider);
+      const assistant = requests[1]!.messages.find((m) => toolCallsOf(m).length > 0)!;
+      assert.deepEqual(toolCallsOf(assistant).map((c) => c.id), ["a", "a_3", "a_2", "a_4"]);
+      assert.deepEqual(requests[1]!.messages.filter((m) => m.role === "tool").map((m) => "toolCallId" in m ? m.toolCallId : undefined), ["a", "a_3", "a_2", "a_4"]);
     } finally { close(); }
   });
 
@@ -289,21 +304,37 @@ describe("composition/provider createTurnProvider: tool calls", () => {
     } finally { close(); }
   });
 
-  // characterization: Ist-Verhalten, nicht spezifiziert. The error text a tool threw ends up in TurnToolError.detail. The turn
-  // loop records only the error code, but any other consumer of `detail` receives text a tool (or its library) chose.
-  it("characterization: a tool's thrown message is kept in TurnToolError.detail and never reaches the model or the stream", async () => {
-    const { provider, registry, requests, close } = await setup([{ calls: [call("c1", "file.read")] }, { text: "never" }]);
-    registry.register(readTool("file.read", async () => { throw new Error("upstream said redact-probe-alpha"); }));
+  // TurnToolError.detail is a copy of the error envelope whose text is redacted against the registered secrets (and the
+  // log redaction rules) and bounded, before any consumer stores or sends it. The text never reaches the model or the stream.
+  it("a tool's thrown message is redacted against registered secrets and bounded in TurnToolError.detail", async () => {
+    const { provider, registry, requests, close } = await setup([{ calls: [call("c1", "file.read")] }, { text: "never" }], { secrets: () => ["redact-probe-alpha"] });
+    registry.register(readTool("file.read", async () => { throw Object.assign(new Error(`upstream said redact-probe-alpha ${"x".repeat(5000)}`), { code: "disk_gone" }); }));
     const chunks: ChatChunk[] = [];
     try {
       await assert.rejects(async () => { for await (const c of provider.stream(turnRequest())) chunks.push(c); }, (e) => {
         assert.ok(e instanceof TurnToolError);
-        assert.match(JSON.stringify(e.detail), /redact-probe-alpha/);
+        assert.equal(e.code, "disk_gone");
+        const text = JSON.stringify(e.detail);
+        assert.equal(text.includes("redact-probe-alpha"), false, "the registered secret is gone");
+        assert.match(text, /\[REDACTED:secret\]/);
+        assert.ok(text.length <= 4096, `detail is bounded (${text.length})`);
+        assert.equal((e.detail as { isError: boolean }).isError, true);
         return true;
       });
       assert.equal(JSON.stringify(chunks).includes("redact-probe-alpha"), false);
       assert.equal(requests.length, 1, "no second model call carries the text");
     } finally { close(); }
+  });
+
+  it("toolErrorDetail reduces a bulky envelope (long hint, many issues) to its identity, code and a bounded message", () => {
+    const envelope = { callId: "c1", tool: "file.read", isError: true, error: { code: "tool-call-invalid", message: `m redact-probe-alpha ${"y".repeat(900)}`, hint: "h".repeat(20000), issues: Array.from({ length: 500 }, (_, i) => ({ path: `/p${i}`, message: "bad redact-probe-alpha" })) }, provenance: { origin: { system: "tool:file.read", agent: "a1", principal: "p", trust: "builtin" }, hops: 0, transformedBy: [] }, meta: { decision: "none", durationMs: 1, bytes: 0 } };
+    const detail = toolErrorDetail(envelope as never, ["redact-probe-alpha"]);
+    const text = JSON.stringify(detail);
+    assert.ok(text.length <= 4096, `bounded (${text.length})`);
+    assert.equal(text.includes("redact-probe-alpha"), false);
+    assert.deepEqual([detail.callId, detail.tool, detail.isError, detail.error.code], ["c1", "file.read", true, "tool-call-invalid"]);
+    assert.ok(detail.error.message.length <= 500);
+    assert.equal(envelope.error.hint.length, 20000, "the original envelope is not modified");
   });
 
   it("invalid arguments are repaired at most once; a second invalid answer ends the turn with tool-call-invalid", async () => {

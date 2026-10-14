@@ -42,7 +42,9 @@ export async function runTail(o: TailOptions): Promise<void> {
       const kind = o.classify(e);
       if (kind === "abort") return;
       if (kind === "forbidden" || kind === "unavailable") { o.onState(kind); return; }
-      if (kind === "reanchor") { cursor = null; anchor = true; continue; }
+      // A refused cursor is re-anchored at once. When the anchor call itself (no cursor) is refused there is nothing to re-anchor:
+      // that is an ordinary failure and backs off, instead of repeating the same call without a pause.
+      if (kind === "reanchor" && cursor !== null) { cursor = null; anchor = true; continue; }
       o.onState("retrying");
       await o.sleep(backoffMs(attempt++), o.signal);
     }

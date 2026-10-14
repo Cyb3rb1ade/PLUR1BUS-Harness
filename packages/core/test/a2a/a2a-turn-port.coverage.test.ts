@@ -44,12 +44,12 @@ describe("createProviderTurnPort", () => {
     p = new FakeChatProvider();
     assert.equal(port.available(), true);
   });
-  it("ensureSession: contextId is the session id, stable per peer/agent/context", () => {
+  it("ensureSession: the session id is namespaced by peer and agent, stable per peer/agent/context", () => {
     const port = createProviderTurnPort(() => null);
-    assert.deepEqual(port.ensureSession({ peerId: "a", agentId: "x", contextId: "c" }), { sessionId: "c" });
-    assert.deepEqual(port.ensureSession({ peerId: "a", agentId: "x", contextId: "c" }), { sessionId: "c" });
-    assert.deepEqual(port.ensureSession({ peerId: "b", agentId: "x", contextId: "c" }), { sessionId: "c" });
-    assert.deepEqual(port.ensureSession({ peerId: "a", agentId: "y", contextId: "d" }), { sessionId: "d" });
+    assert.deepEqual(port.ensureSession({ peerId: "a", agentId: "x", contextId: "c" }), { sessionId: "a2a:a:x:c" });
+    assert.deepEqual(port.ensureSession({ peerId: "a", agentId: "x", contextId: "c" }), { sessionId: "a2a:a:x:c" });
+    assert.deepEqual(port.ensureSession({ peerId: "b", agentId: "x", contextId: "c" }), { sessionId: "a2a:b:x:c" });
+    assert.deepEqual(port.ensureSession({ peerId: "a", agentId: "y", contextId: "d" }), { sessionId: "a2a:a:y:d" });
   });
   it("cancel() always reports no running turn", () => {
     assert.equal(createProviderTurnPort(() => null).cancel("anything"), false);

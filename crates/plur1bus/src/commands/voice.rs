@@ -75,7 +75,7 @@ pub fn request(cmd: VoiceCmd) -> Result<(&'static str, Value), String> {
 pub fn run(out: &Out, layout: &Layout, cmd: VoiceCmd) {
     let (method, params) = match request(cmd) {
         Ok(v) => v,
-        Err(detail) => out.fail("E_INVALID_PARAMS", &detail, json!({}), 2),
+        Err(detail) => out.fail("E_INVALID_PARAMS", &detail, json!({})),
     };
     let mut client = connect_core(out, layout, "voice", Duration::from_secs(600));
     require_supports(out, &client, method);

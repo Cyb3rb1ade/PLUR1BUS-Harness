@@ -589,13 +589,24 @@ fn the_exit_codes_in_the_table_are_the_ones_the_page_lists() {
         );
     }
     assert_eq!(exits["E_LOCKED"], 3);
-    assert_eq!(exits["E_NOT_AVAILABLE"], 2);
-    assert_eq!(exits["E_APPROVAL_REQUIRED"], 2);
+    for refused in [
+        "E_INVALID_PARAMS",
+        "E_NOT_AVAILABLE",
+        "E_APPROVAL_REQUIRED",
+        "E_CANCELLED",
+    ] {
+        assert_eq!(exits[refused], 2, "{refused} is refused before any work");
+    }
     assert!(exits
         .iter()
-        .filter(
-            |(c, _)| !["E_LOCKED", "E_NOT_AVAILABLE", "E_APPROVAL_REQUIRED"].contains(&c.as_str())
-        )
+        .filter(|(c, _)| ![
+            "E_LOCKED",
+            "E_INVALID_PARAMS",
+            "E_NOT_AVAILABLE",
+            "E_APPROVAL_REQUIRED",
+            "E_CANCELLED"
+        ]
+        .contains(&c.as_str()))
         .all(|(_, e)| *e == 1));
 }
 
@@ -669,8 +680,17 @@ fn colour_follows_color_and_no_color_for_the_error_line() {
 // the exit code each call site passes, against the table
 // ---------------------------------------------------------------------------------------------------------------------
 
-/// Every `.fail("E_CODE", message, extra, N)` in `crates/plur1bus/src`: (file relative to src, code, exit, count).
-fn explicit_exit_call_sites() -> BTreeMap<(String, String, i32), usize> {
+/// One `.fail(..)` or `.fail_exit(..)` call in `crates/plur1bus/src`: the argument list split at its top-level commas.
+struct FailCall {
+    /// `commands/login.rs`, relative to `src`.
+    file: String,
+    /// `fail` or `fail_exit`.
+    method: String,
+    args: Vec<String>,
+}
+
+/// Every `.fail(` / `.fail_exit(` call in `crates/plur1bus/src` (the definitions have no leading dot).
+fn fail_calls() -> Vec<FailCall> {
     fn rs_files(dir: &Path, out: &mut Vec<PathBuf>) {
         for e in std::fs::read_dir(dir).unwrap() {
             let p = e.unwrap().path();
@@ -684,170 +704,155 @@ fn explicit_exit_call_sites() -> BTreeMap<(String, String, i32), usize> {
     let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
     let mut files = Vec::new();
     rs_files(&src, &mut files);
-    let mut sites = BTreeMap::new();
+    let mut calls = Vec::new();
     for f in files {
         let text = std::fs::read_to_string(&f).unwrap();
-        let mut from = 0;
-        while let Some(at) = text[from..].find(".fail(") {
-            let start = from + at + ".fail(".len();
-            from = start;
-            // Split the argument list at its top-level commas (strings and brackets respected).
-            let (mut depth, mut in_str, mut esc) = (1, false, false);
-            let (mut args, mut cur) = (Vec::<String>::new(), String::new());
-            for c in text[start..].chars() {
-                if in_str {
-                    cur.push(c);
-                    if esc {
-                        esc = false;
-                    } else if c == '\\' {
-                        esc = true;
-                    } else if c == '"' {
-                        in_str = false;
-                    }
-                    continue;
-                }
-                match c {
-                    '"' => {
-                        in_str = true;
+        let rel = f
+            .strip_prefix(&src)
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/");
+        for method in ["fail_exit", "fail"] {
+            let needle = format!(".{method}(");
+            let mut from = 0;
+            while let Some(at) = text[from..].find(&needle) {
+                let start = from + at + needle.len();
+                from = start;
+                // Split the argument list at its top-level commas (strings and brackets respected).
+                let (mut depth, mut in_str, mut esc) = (1, false, false);
+                let (mut args, mut cur) = (Vec::<String>::new(), String::new());
+                for c in text[start..].chars() {
+                    if in_str {
                         cur.push(c);
-                    }
-                    '(' | '[' | '{' => {
-                        depth += 1;
-                        cur.push(c);
-                    }
-                    ')' | ']' | '}' => {
-                        depth -= 1;
-                        if depth == 0 {
-                            break;
+                        if esc {
+                            esc = false;
+                        } else if c == '\\' {
+                            esc = true;
+                        } else if c == '"' {
+                            in_str = false;
                         }
-                        cur.push(c);
+                        continue;
                     }
-                    ',' if depth == 1 => args.push(std::mem::take(&mut cur)),
-                    _ => cur.push(c),
+                    match c {
+                        '"' => {
+                            in_str = true;
+                            cur.push(c);
+                        }
+                        '(' | '[' | '{' => {
+                            depth += 1;
+                            cur.push(c);
+                        }
+                        ')' | ']' | '}' => {
+                            depth -= 1;
+                            if depth == 0 {
+                                break;
+                            }
+                            cur.push(c);
+                        }
+                        ',' if depth == 1 => args.push(std::mem::take(&mut cur)),
+                        _ => cur.push(c),
+                    }
                 }
-            }
-            if !cur.trim().is_empty() {
-                args.push(cur);
-            }
-            if args.len() < 4 {
-                continue;
-            }
-            let code = args[0].trim().trim_matches('"').to_string();
-            let Ok(exit) = args[args.len() - 1].trim().parse::<i32>() else {
-                continue;
-            };
-            if code.starts_with("E_") {
-                let rel = f
-                    .strip_prefix(&src)
-                    .unwrap()
-                    .to_string_lossy()
-                    .replace('\\', "/");
-                *sites.entry((rel, code, exit)).or_insert(0) += 1;
+                if !cur.trim().is_empty() {
+                    args.push(cur);
+                }
+                // `.fail(` is also a prefix of nothing else here, but a foreign `.fail(x)` with another arity is not ours.
+                let arity = if method == "fail" { 3 } else { 4 };
+                if args.len() == arity || (method == "fail" && args.len() == 4) {
+                    calls.push(FailCall {
+                        file: rel.clone(),
+                        method: method.to_string(),
+                        args: args.iter().map(|a| a.trim().to_string()).collect(),
+                    });
+                }
             }
         }
     }
-    sites
+    calls
 }
 
-/// Call sites whose literal exit differs from the docs/errors.md table. Recorded on 2026-10-12 so that a NEW deviation fails and
-/// the known ones are listed by `every_explicit_exit_code_is_the_one_the_table_documents`. (file, code, exit, count)
-const KNOWN_EXIT_DEVIATIONS: &[(&str, &str, i32, usize)] = &[
-    ("commands/acp.rs", "E_NOT_AVAILABLE", 1, 2),
-    ("commands/approval.rs", "E_INVALID_PARAMS", 2, 4),
-    ("commands/budget.rs", "E_INVALID_PARAMS", 2, 1),
-    ("commands/channel.rs", "E_INVALID_PARAMS", 2, 2),
-    ("commands/config.rs", "E_INVALID_PARAMS", 2, 2),
-    ("commands/container.rs", "E_NOT_AVAILABLE", 1, 1),
-    ("commands/dreams.rs", "E_INVALID_PARAMS", 2, 2),
-    ("commands/ext/ext_verbs.rs", "E_INVALID_PARAMS", 2, 1),
-    ("commands/grant.rs", "E_INVALID_PARAMS", 2, 2),
-    ("commands/login.rs", "E_INVALID_PARAMS", 2, 3),
-    ("commands/media.rs", "E_INVALID_PARAMS", 2, 3),
-    ("commands/media.rs", "E_NOT_AVAILABLE", 1, 2),
-    ("commands/media_search.rs", "E_INVALID_PARAMS", 2, 2),
-    ("commands/memory_ops.rs", "E_INVALID_PARAMS", 2, 2),
-    ("commands/mod.rs", "E_NOT_AVAILABLE", 1, 1),
-    ("commands/module.rs", "E_NOT_AVAILABLE", 1, 2),
-    ("commands/module.rs", "E_INVALID_PARAMS", 2, 2),
-    ("commands/repair.rs", "E_INVALID_PARAMS", 2, 2),
-    ("commands/secret.rs", "E_INVALID_PARAMS", 2, 6),
-    ("commands/service.rs", "E_INVALID_PARAMS", 2, 2),
-    ("commands/session.rs", "E_INVALID_PARAMS", 2, 1),
-    ("commands/update.rs", "E_NOT_AVAILABLE", 1, 5),
-    ("commands/update.rs", "E_INVALID_PARAMS", 2, 1),
-    ("commands/update_apply.rs", "E_NOT_AVAILABLE", 1, 3),
-    ("commands/update_apply.rs", "E_INVALID_PARAMS", 2, 1),
-    ("commands/voice.rs", "E_INVALID_PARAMS", 2, 1),
-];
-
-fn deviations() -> BTreeMap<(String, String, i32), usize> {
-    let table = documented_exits();
-    explicit_exit_call_sites()
-        .into_iter()
-        // `plur1bus login` interrupted with Ctrl-C exits 130: its own row in the exit table, not a deviation.
-        .filter(|((file, code, exit), _)| {
-            !(file == "commands/login.rs" && code == "E_CANCELLED" && *exit == 130)
-        })
-        .filter(|((_, code, exit), _)| table.get(code).is_some_and(|t| *t as i32 != *exit))
-        .collect()
-}
-
+/// The code → exit mapping is written once (`output::exit_code_for`): `Out::fail` takes no exit code, so no call can pass a
+/// literal one for a code in the table. The only calls that name an exit are `Out::fail_exit`, and each of them is listed here
+/// with the reason: `login` (Ctrl-C, 130) and `import` (the importer's own exit code). Anything else fails this test.
 #[test]
-fn no_new_call_site_passes_an_exit_code_that_the_table_does_not_document() {
-    let sites = explicit_exit_call_sites();
+fn every_fail_call_takes_its_exit_code_from_the_table() {
+    let calls = fail_calls();
     assert!(
-        sites.values().sum::<usize>() > 100,
-        "{} call sites found",
-        sites.values().sum::<usize>()
+        calls.iter().filter(|c| c.method == "fail").count() > 100,
+        "{} Out::fail calls found",
+        calls.len()
     );
-    let known: BTreeMap<(String, String, i32), usize> = KNOWN_EXIT_DEVIATIONS
-        .iter()
-        .map(|(f, c, e, n)| ((f.to_string(), c.to_string(), *e), *n))
-        .collect();
-    let mut new = Vec::new();
-    for (key, count) in deviations() {
-        let allowed = known.get(&key).copied().unwrap_or(0);
-        if count > allowed {
-            new.push(format!(
-                "{} passes {} with exit {} {} time(s); {} known",
-                key.0, key.1, key.2, count, allowed
+    let documented = documented_exits();
+    let mut bad = Vec::new();
+    for c in &calls {
+        let code = c.args[0].trim_matches('"').to_string();
+        let literal_code = c.args[0].starts_with('"');
+        if c.method == "fail" {
+            if c.args.len() == 4 {
+                bad.push(format!(
+                    "{}: .fail({}, .., {}) passes an exit code; use .fail(code, message, extra)",
+                    c.file, c.args[0], c.args[3]
+                ));
+            }
+            continue;
+        }
+        // fail_exit
+        let exit = &c.args[3];
+        let allowed = (c.file == "commands/login.rs"
+            && code == "E_CANCELLED"
+            && exit == "crate::output::EXIT_INTERRUPTED")
+            || (c.file == "commands/import.rs" && !literal_code && exit == "exit")
+            || c.file == "output.rs"; // the forwarding inside `Out::fail` itself
+        if !allowed {
+            let in_table = literal_code && documented.contains_key(&code);
+            bad.push(format!(
+                "{}: .fail_exit({}, .., {exit}) is not one of the two allowed exits (login Ctrl-C, import){}",
+                c.file,
+                c.args[0],
+                if in_table {
+                    format!("; {code} is in the table, use .fail")
+                } else {
+                    String::new()
+                }
+            ));
+        }
+        if literal_code && exit.parse::<i32>().is_ok() && documented.contains_key(&code) {
+            bad.push(format!(
+                "{}: .fail_exit({code}, .., {exit}) hard-codes an exit for a code of the table",
+                c.file
             ));
         }
     }
-    assert!(
-        new.is_empty(),
-        "new deviation(s) from the exit-code table in docs/errors.md:\n{}",
-        new.join("\n")
-    );
-    // The baseline has no stale entry either: when one is fixed, remove it.
-    let now = deviations();
-    for (key, n) in &known {
-        assert!(
-            now.get(key).copied().unwrap_or(0) >= *n,
-            "{key:?} is fixed: remove it from KNOWN_EXIT_DEVIATIONS"
-        );
+    assert!(bad.is_empty(), "{}", bad.join("\n"));
+}
+
+/// A prompt answered no is `E_CANCELLED` (exit 2) in every command, never `E_INVALID_PARAMS`; a damaged `media save` output
+/// is `E_STORAGE` (exit 1), never `E_INVALID_PARAMS`.
+#[test]
+fn a_declined_prompt_is_e_cancelled_and_a_damaged_output_is_e_storage() {
+    let calls = fail_calls();
+    let mut seen = 0;
+    for c in calls.iter().filter(|c| c.method == "fail") {
+        let message = c.args[1].trim_matches('"');
+        if ["not applied", "not reindexed"].contains(&message) {
+            seen += 1;
+            assert_eq!(c.args[0], "\"E_CANCELLED\"", "{}: {message}", c.file);
+        }
+        if ["invalid output range", "incomplete output"].contains(&message) {
+            seen += 1;
+            assert_eq!(c.args[0], "\"E_STORAGE\"", "{}: {message}", c.file);
+        }
     }
-}
-
-/// KNOWN GAP (docs/errors.md vs crates/plur1bus/src/commands): the table gives `E_NOT_AVAILABLE` exit 2 and `E_INVALID_PARAMS` exit 1,
-/// but many call sites of `Out::fail` pass the exit themselves. 16 of them print `E_NOT_AVAILABLE` and exit 1 (`module start|stop|restart`
-/// without a supervisor, `update --rollback` with nothing to roll back, `acp`, `container`, `media`), and 40 print `E_INVALID_PARAMS`
-/// and exit 2 as a usage error would (`login` without or with an unknown provider, `config` argument checks, `secret`, `service`, …). A
-/// script that branches on the exit code gets another answer than the page promises. Exit codes are not changed here.
-#[test]
-#[ignore = "KNOWN GAP: 56 call sites pass an exit code that docs/errors.md does not document for their code (E_NOT_AVAILABLE 1 instead of 2, E_INVALID_PARAMS 2 instead of 1)"]
-fn every_explicit_exit_code_is_the_one_the_table_documents() {
-    let d = deviations();
     assert!(
-        d.is_empty(),
-        "{} (file, code, exit) combinations differ from the table:\n{d:#?}",
-        d.len()
+        seen >= 8,
+        "only {seen} of the prompts and output checks were found"
     );
 }
 
-/// The same gap seen from the outside: three commands, run offline, whose `--json` error and exit code disagree with the table.
+/// The same rule seen from the outside: commands, run offline, whose `--json` error and exit code have to agree with the
+/// table. Before the consistency wave `login` (E_INVALID_PARAMS → 2 but documented 1), `module start` and `update --rollback`
+/// (E_NOT_AVAILABLE → 1 but documented 2) disagreed.
 #[test]
-#[ignore = "KNOWN GAP: login (E_INVALID_PARAMS → 2), module start (E_NOT_AVAILABLE → 1) and update --rollback (E_NOT_AVAILABLE → 1) disagree with docs/errors.md"]
 fn login_module_start_and_update_rollback_exit_as_the_table_says() {
     let ws = workspace();
     let exits = documented_exits();
@@ -857,6 +862,9 @@ fn login_module_start_and_update_rollback_exit_as_the_table_says() {
         vec!["login", "nonesuch"],
         vec!["module", "start", "nosuch"],
         vec!["update", "--rollback"],
+        vec!["agent", "create", "Not A Valid Id"],
+        vec!["config", "get", "no.such.key"],
+        vec!["service", "install", "--env", "no-equals-sign"],
     ] {
         let mut full = vec!["--json"];
         full.extend(args.iter().copied());

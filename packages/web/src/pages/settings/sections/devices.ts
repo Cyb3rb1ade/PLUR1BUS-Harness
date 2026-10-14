@@ -14,7 +14,7 @@ import { registerArea } from "../../../i18n/index.ts";
 import * as devicesArea from "../../../i18n/devices.ts";
 import "../../../styles/devices.css";
 import { QrCodeView } from "./devices/qr.ts";
-import { DeviceList } from "./devices/list.ts";
+import { DeviceList, deviceErrorKey } from "./devices/list.ts";
 import "../../common/admin-rpc.ts";
 import type { PairingQrResult } from "../../common/admin-rpc.ts";
 
@@ -49,11 +49,12 @@ function PairCard(): View {
       const res = await getApi().rpc("pairing.qr", { link: targetLink }, { write: false });
       setQr(res);
     } catch (e: unknown) {
-      const err = e as { kind?: string; errorCode?: string; message?: string };
+      // Never the server's text: a refusal can quote the pairing link, and the link carries the pairing code.
+      const err = e as { kind?: string; errorCode?: string };
       if (err.kind === "unavailable" || err.errorCode === "E_NOT_AVAILABLE") {
         setError(t("devices.pair.unavailable"));
       } else {
-        setError(t("devices.pair.failed", { detail: err.message ?? err.errorCode ?? String(e) }));
+        setError(t("devices.pair.failed", { detail: err.errorCode === "E_INVALID_PARAMS" ? t("devices.pair.invalidLink") : t(deviceErrorKey(e)) }));
       }
     } finally {
       setLoading(false);

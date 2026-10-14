@@ -39,7 +39,10 @@ tools, `toolChoice`, `parallelToolCalls`, `maxTokens`, `temperature`, `topP`, `s
   `retryable` is a hint for the retry budget. A failed stream carries what had arrived in `partial`. No credential
   reaches a message, the `cause` chain or a field (`test/secrets.test.ts`). Table: `docs/providers.md`.
 - **Abort and timeouts everywhere**: one `AbortSignal` (caller) plus three bounds; every exit path (done, error,
-  abort, the consumer leaving the loop early) cancels the request and clears the timers.
+  abort, the consumer leaving the loop early) cancels the request and clears the timers. A bound is a positive number
+  of ms, `null` or `Infinity` (off); NaN, zero and negative values are an `invalid_request` before any I/O, and an
+  explicit `undefined` in `timeouts` or `limits` means "not set" (the default stays). `limits.maxBodyBytes` also caps
+  everything one streamed response may send.
 - **Fail closed**: invalid requests are refused before any I/O; a malformed chunk, a missing `[DONE]`, a tool call
   that changes its id, an oversized event — all `protocol` errors, never a half-understood turn. Redirects are not
   followed; the Authorization value is never sent over plain `http:` to a non-loopback host (unless

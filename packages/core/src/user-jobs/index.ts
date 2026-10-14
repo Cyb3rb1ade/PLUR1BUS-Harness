@@ -143,14 +143,17 @@ export class UserJobs {
     return p.role === "owner" || p.role === "admin" || p.userId === j.runAs || (Object.hasOwn(p.agentRights ?? {}, j.agentId) && ["use", "manage"].includes(p.agentRights![j.agentId]!));
   }
   #validate(i: UserJobInput) {
-    if (typeof i.name !== "string" || !i.name.trim() || i.name.length > 128 || typeof i.prompt !== "string" || !i.prompt.trim() || i.prompt.length > 4000 || i.prompt.includes("\0") || typeof i.enabled !== "boolean" || typeof i.agentId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(i.agentId) || !this.#o.agentExists(i.agentId)) {
+    if (typeof i.name !== "string" || !i.name.trim() || i.name.length > 128 || /[\u0000-\u001f\u007f]/.test(i.name) || typeof i.prompt !== "string" || !i.prompt.trim() || i.prompt.length > 4000 || i.prompt.includes("\0") || typeof i.enabled !== "boolean" || typeof i.agentId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(i.agentId) || !this.#o.agentExists(i.agentId)) {
       throw invalid();
     }
-    if (!i.schedule || typeof i.schedule.cron !== "string" || typeof i.schedule.timezone !== "string" || i.schedule.cron.length > 128 || i.schedule.timezone.length > 128 || !isValidTimezone(i.schedule.timezone)) {
+    if (!i.schedule || typeof i.schedule.cron !== "string" || typeof i.schedule.timezone !== "string" || Object.keys(i.schedule).some(k => k !== "cron" && k !== "timezone") || i.schedule.cron.length > 128 || i.schedule.timezone.length > 128 || !isValidTimezone(i.schedule.timezone)) {
       throw invalid();
     }
     try {
-      parseCron(i.schedule.cron);
+      // An expression that parses but never matches a real date (30 February) would leave an enabled job that never runs.
+      if (nextAfter(parseCron(i.schedule.cron), i.schedule.timezone, this.#o.clock()) === null) {
+        throw invalid();
+      }
     }
     catch {
       throw invalid();
@@ -174,9 +177,14 @@ export class UserJobs {
     if (Object.keys(input).some(k => !["name", "agentId", "prompt", "schedule", "enabled"].includes(k))) {
       throw invalid();
     }
-    this.#validate(input);
+    // Authorize before looking at the agent, so a caller without rights cannot probe which agents exist.
+    this.#person(p);
+    if (typeof input.agentId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(input.agentId)) {
+      throw invalid();
+    }
     this.#manage(p, input.agentId);
     this.#use(p, input.agentId);
+    this.#validate(input);
     const now = this.#o.clock();
     const job: UserJob = { ...structuredClone(input), name: input.name.trim(), id: `user:${randomUUID()}`, kind: "user", needsLlm: true, singleton: true, runAs: p.userId, createdBy: p.userId, createdAt: now, updatedAt: now, nextRunAt: this.#next(input, now) };
     this.#audit(p, "jobs.created", job.id, { agentId: job.agentId, runAs: job.runAs });
@@ -193,6 +201,7 @@ export class UserJobs {
     this.#manage(p, old.agentId);
     const next: UserJob = { ...old, ...structuredClone(patch), runAs: p.userId, updatedAt: this.#o.clock() };
     this.#validate(next);
+    next.name = next.name.trim();
     this.#manage(p, next.agentId);
     const live = this.#o.resolve(p.userId);
     if (next.enabled) {
@@ -201,7 +210,9 @@ export class UserJobs {
       }
       this.#use(live, next.agentId);
     }
-    delete next.disabledReason;
+    if (next.enabled) {
+      delete next.disabledReason;
+    }
     next.nextRunAt = this.#next(next, this.#o.clock());
     this.#audit(p, old.runAs === p.userId ? "jobs.updated" : "jobs.runAs.changed", old.id, { agentId: next.agentId, oldRunAs: old.runAs, runAs: p.userId });
     this.#save(next);
@@ -273,20 +284,37 @@ export class UserJobs {
       throw new RpcError("E_CONFLICT", "user job already running");
     }
     this.#running.add(j.id);
-    const startedAt = this.#o.clock();
-    const record: UserJobRun = { runId: randomUUID(), jobId: j.id, agentId: j.agentId, job: j.name, kind: "user", runAs: j.runAs, runAsDisplayName: this.#o.displayName?.(j.runAs) ?? j.runAs, trigger: "recurring", ...(requestedBy ? { requestedBy } : {}), startedAt, finishedAt: startedAt, durationMs: 0, outcome: "abandoned" };
-    // The claim and future slot advance are one SQLite transaction, before any turn can start.
-    this.#db.exec("BEGIN IMMEDIATE");
+    let startedAt: number;
+    let record: UserJobRun;
+    let inTransaction = false;
     try {
+      startedAt = this.#o.clock();
+      let runAsDisplayName = j.runAs;
+      try {
+        runAsDisplayName = this.#o.displayName?.(j.runAs) ?? j.runAs;
+      }
+      catch {
+      }
+      record = { runId: randomUUID(), jobId: j.id, agentId: j.agentId, job: j.name, kind: "user", runAs: j.runAs, runAsDisplayName, trigger: "recurring", ...(requestedBy ? { requestedBy } : {}), startedAt, finishedAt: startedAt, durationMs: 0, outcome: "abandoned" };
+      // The claim and future slot advance are one SQLite transaction, before any turn can start.
+      this.#db.exec("BEGIN IMMEDIATE");
+      inTransaction = true;
       const latest = this.get(j.id);
       latest.nextRunAt = this.#next(latest, startedAt);
       this.#save(latest);
       this.#db.prepare("INSERT INTO user_job_runs VALUES (?,?,?)").run(record.runId, j.id, JSON.stringify({ ...record, outcome: "running" }));
       this.#db.exec("COMMIT");
+      inTransaction = false;
     }
     catch (e) {
-      this.#db.exec("ROLLBACK");
-      this.#running.delete(j.id);
+      try {
+        if (inTransaction) {
+          this.#db.exec("ROLLBACK");
+        }
+      }
+      finally {
+        this.#running.delete(j.id);
+      }
       throw e;
     }
     try {
@@ -317,22 +345,26 @@ export class UserJobs {
       record.outcome = "failed";
     }
     finally {
-      record.finishedAt = this.#o.clock();
-      record.durationMs = Math.max(0, record.finishedAt - startedAt);
-      this.#db.prepare("UPDATE user_job_runs SET record=? WHERE id=?").run(JSON.stringify(record), record.runId);
-      if (["skipped_owner_inactive", "skipped_no_rights", "skipped_agent_missing"].includes(record.outcome)) {
-        const latest = this.get(j.id);
-        latest.enabled = false;
-        latest.nextRunAt = null;
-        latest.disabledReason = record.outcome;
-        this.#save(latest);
-        try {
-          this.#o.notify(record);
-        }
-        catch {
+      try {
+        record.finishedAt = this.#o.clock();
+        record.durationMs = Math.max(0, record.finishedAt - startedAt);
+        this.#db.prepare("UPDATE user_job_runs SET record=? WHERE id=?").run(JSON.stringify(record), record.runId);
+        if (["skipped_owner_inactive", "skipped_no_rights", "skipped_agent_missing"].includes(record.outcome)) {
+          const latest = this.get(j.id);
+          latest.enabled = false;
+          latest.nextRunAt = null;
+          latest.disabledReason = record.outcome;
+          this.#save(latest);
+          try {
+            this.#o.notify(record);
+          }
+          catch {
+          }
         }
       }
-      this.#running.delete(j.id);
+      finally {
+        this.#running.delete(j.id);
+      }
       try {
         this.#o.onRecorded?.(record);
       }

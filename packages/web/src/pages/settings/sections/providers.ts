@@ -14,6 +14,7 @@ import * as area from "../../../i18n/providers.ts";
 import { FailureState } from "../../common/states.ts";
 import { currentRole, failureOf, getApi, roleIn, useLoad } from "../../common/load.ts";
 import type { SectionProps } from "../page.ts";
+import { SECRET_NAME } from "../secrets/dialogs.ts";
 
 import "../../../styles/providers.css";
 
@@ -84,14 +85,19 @@ function LoginDialog({
   const [err, setErr] = useState("");
   const [awaiting, setAwaiting] = useState(false);
   const cancelledRef = useRef(false);
+  // The attempt lives on the server until it is awaited or cancelled: whoever leaves the dialog without doing either cancels it.
+  const attemptRef = useRef<string | null>(null);
+  const settledRef = useRef(false);
+  const cancelAttempt = (id: string): void => { void getApi().rpc("auth.login.cancel", { attemptId: id }).catch(() => undefined); };
 
   useEffect(() => {
     let active = true;
     getApi()
       .rpc("auth.login.start", { provider: "openai" })
       .then((res) => {
-        if (!active) return;
         const r = res as { attemptId: string; authorizeUrl: string; callbackPort: number };
+        if (!active) { cancelAttempt(r.attemptId); return; } // nobody knew this id yet, so nobody cancelled it
+        attemptRef.current = r.attemptId;
         setAttemptId(r.attemptId);
         setAuthorizeUrl(r.authorizeUrl);
         setCallbackPort(r.callbackPort);
@@ -103,11 +109,12 @@ function LoginDialog({
         }
       })
       .catch((e) => {
-        if (active) setErr(String((e as { message?: string }).message ?? e));
+        if (active) setErr(t("providers.login.err.generic", { reason: (e as { errorCode?: string | null }).errorCode ?? "unknown" }));
       });
 
     return () => {
       active = false;
+      if (attemptRef.current !== null && !settledRef.current) { settledRef.current = true; cancelAttempt(attemptRef.current); }
     };
   }, []);
 
@@ -116,6 +123,7 @@ function LoginDialog({
     setErr("");
     try {
       await getApi().rpc("auth.login.await", { attemptId: attId });
+      settledRef.current = true;
       if (!cancelledRef.current) {
         onSuccess("OpenAI");
         onClose();
@@ -134,7 +142,7 @@ function LoginDialog({
       else if (reason === "port-in-use") setErr(t("providers.login.err.port"));
       else if (reason === "login-cancelled") {
         /* silent */
-      } else setErr(o.message ? o.message : t("providers.login.err.generic", { reason: reason || "unknown" }));
+      } else setErr(t("providers.login.err.generic", { reason: reason || "unknown" })); // never the server text: it can quote the callback URL
     } finally {
       setAwaiting(false);
     }
@@ -142,7 +150,9 @@ function LoginDialog({
 
   const cancel = async (): Promise<void> => {
     cancelledRef.current = true;
-    if (attemptId) {
+    const alreadySettled = settledRef.current;
+    settledRef.current = true;
+    if (attemptId && !alreadySettled) {
       try {
         await getApi().rpc("auth.login.cancel", { attemptId });
       } catch {
@@ -266,17 +276,16 @@ function KeyDialog({
   };
 
   const submit = async (): Promise<void> => {
-    if (!val.trim()) {
-      setErr("Enter a value.");
-      return;
-    }
+    if (busy) return;
+    const secretVal = val.trim();
+    if (!secretVal) { setErr(t("providers.key.err.value")); return; }
+    if (!SECRET_NAME.test(name.trim())) { setErr(t("providers.key.err.name")); return; }
     setBusy(true);
     setErr("");
-    const secretVal = val;
     setVal(""); // Clear value immediately
     const ok = await onSave(name.trim(), secretVal);
     setBusy(false);
-    if (!ok) setErr("Failed to save secret.");
+    if (!ok) setErr(t("providers.key.err.save"));
   };
 
   return h(

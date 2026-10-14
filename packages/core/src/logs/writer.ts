@@ -120,7 +120,9 @@ export function createWriter(o: WriterOptions) {
       if (!levelAtLeast(level, policy.resolve(o.source))) return;
       try {
         const safe = redactor.value(Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, serializeError(value)])));
-        const record = { at: new Date(now()).toISOString(), level, role: o.role, ...safe, msg: cap(redactor.text(msg), LIMITS.msgBytes) };
+        // The envelope wins over caller fields of the same name: `at` orders the line, `level` and `role` classify it.
+        const { at: _at, level: _level, role: _role, msg: _msg, ...extra } = safe as Record<string, unknown>;
+        const record = { at: new Date(now()).toISOString(), level, role: o.role, ...extra, msg: cap(redactor.text(msg), LIMITS.msgBytes) };
         let line = JSON.stringify(record);
         if (Buffer.byteLength(line) > LIMITS.lineBytes) line = JSON.stringify({ at: record.at, level, role: o.role, msg: record.msg, truncated: true, bytes: Buffer.byteLength(line) });
         // Preserve synchronous diagnostic visibility without blocking every capture/

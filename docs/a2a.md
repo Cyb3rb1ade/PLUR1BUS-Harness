@@ -72,21 +72,21 @@ Rights are explicit: `grants: { <agentId>: [<action>…] }` with `card.read`, `t
 
 `submitted → working → input-required | auth-required → completed | failed | canceled | rejected`.
 
-`message/send` always returns a `Task` (not a bare `Message`). `contextId` maps onto one harness session per peer+agent. Repeating the same `messageId` is idempotent. A follow-up `message.taskId` is accepted only while the task is `input-required` or `auth-required`.
+`message/send` always returns a `Task` (not a bare `Message`). `contextId` maps onto one harness session per peer+agent (the ChatProvider port namespaces the session id with peer and agent, so equal `contextId` values of different peers never meet). Repeating the same `messageId` is idempotent. A follow-up `message.taskId` is accepted only while the task is `input-required` or `auth-required`.
 
-Cancel aborts the turn's `AbortSignal` (and `TurnRunner.cancel` when a session port is wired). Artifacts are the turn's text reply as `parts` (`kind: "text"`). Incoming parts: `text`, `file` (`bytes`/`data` or `uri` — a `uri` is stored, never fetched), `data`. Unknown kinds are `ContentTypeNotSupported` (-32005).
+Cancel aborts the turn's `AbortSignal` (and `TurnRunner.cancel` when a session port is wired). Artifacts are the turn's text reply as `parts` (`kind: "text"`). Incoming parts: `text`, `file` (`bytes`/`data` or `uri` — a `uri` is stored, never fetched; `bytes` must be canonical base64; control characters in `name`, `mimeType` and `uri` are replaced by spaces), `data`. Unknown kinds are `ContentTypeNotSupported` (-32005).
 
-The store is **in-memory**: live cap per peer, stored cap, TTL on terminal tasks. A persistent store is a follow-up.
+The store is **in-memory**: live cap per peer, stored cap, TTL on terminal tasks. A persistent store is a follow-up. A task left in `input-required` or `auth-required` for the terminal-task retention time (1 h) is canceled, so an unanswered pause cannot hold a live slot forever.
 
 ## Streaming
 
-`message/stream` and `tasks/resubscribe` use SSE. Each `data:` field is a JSON-RPC 2.0 response whose `result` is a `Task`, `TaskStatusUpdateEvent` (`kind: "status-update"`, `final: true` on the last event) or `TaskArtifactUpdateEvent` (`kind: "artifact-update"`, `append` / `lastChunk`). The HTTP adapter writes chunked `text/event-stream` and does not set `Content-Length`. Closing the stream does not cancel the task; `tasks/resubscribe` continues from the current status.
+`message/stream` and `tasks/resubscribe` use SSE. Each `data:` field is a JSON-RPC 2.0 response whose `result` is a `Task`, `TaskStatusUpdateEvent` (`kind: "status-update"`, `final: true` on the last event) or `TaskArtifactUpdateEvent` (`kind: "artifact-update"`, `append` / `lastChunk`). The HTTP adapter writes chunked `text/event-stream` and does not set `Content-Length`. Closing the stream does not cancel the task, but a dropped client connection ends the stream and frees the peer's stream slot; `tasks/resubscribe` continues from the current status.
 
 ## Push notifications
 
 `tasks/pushNotificationConfig/set|get|list|delete`. Delivery is HTTP POST of the Task JSON to the configured URL, with `X-A2A-Notification-Token` when `token` is set and `Authorization: Bearer …` when `authentication.schemes` includes `bearer`.
 
-The target URL is admitted through **egress** (`egress.decide`): default deny, SSRF (no private / loopback / metadata addresses, also after redirect). Each redirect hop is re-checked. Retry with exponential backoff, abort after `pushMaxAttempts` (default 3). Delivery failures never fail the task. `egress.request` is GET-only; the POST lives in `packages/core/src/a2a/push.ts` after `decide()`.
+The target URL is admitted through **egress** (`egress.decide`): default deny, SSRF (no private / loopback / metadata addresses, also after redirect). Each redirect hop is re-checked. Retry with exponential backoff, abort after `pushMaxAttempts` (default 3). Each POST is abandoned after 15 s without an answer. A task holds at most 8 push configs (replacing one by `id` is always possible). Delivery failures never fail the task. `egress.request` is GET-only; the POST lives in `packages/core/src/a2a/push.ts` after `decide()`.
 
 Without an egress policy (or a test `pushTransport`) a set is `invalid params` / `push-url-denied`. `capabilities.pushNotifications: false` makes the methods return `PushNotificationNotSupported` (-32003).
 
@@ -105,6 +105,14 @@ Body 1 MiB (enforced while streaming, 413), message text 64 KiB, file part 256 K
 ## Audit
 
 `a2a.unauthenticated`, `a2a.denied`, `a2a.rate-limited`, `a2a.too-large`, `a2a.task.created|finished|canceled`, with actor `{ user: "a2a-peer:<id>" | "anonymous", host: "a2a" }`; never keys or message text.
+
+## Known limits (Bekannte Grenzen)
+
+- A turn's reply and its stream event log are held in memory without a size cap (bounded only by the 120 s reply timeout).
+- The stored-task cap refuses new work while the store is full of terminal tasks still inside their retention time; one peer can use up the slots for every peer for up to an hour (its own request rate still applies).
+- Push redirects re-check egress per hop but forward the configured token / bearer credentials to the redirect target.
+- A push receiver answering 4xx is retried like a 5xx (up to `pushMaxAttempts`).
+- An expiring paused task is only noticed on the next store access, so an open stream on it ends then, not at the exact deadline.
 
 ## Follow-ups
 

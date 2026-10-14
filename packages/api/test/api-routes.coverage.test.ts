@@ -65,7 +65,7 @@ describe("routes: constants and table", () => {
   it("every route has a unique id and a unique method+path under the API prefix", () => {
     assert.equal(new Set(ROUTES.map((r) => r.id)).size, ROUTES.length);
     assert.equal(new Set(ROUTES.map((r) => `${r.method} ${r.path}`)).size, ROUTES.length);
-    for (const r of ROUTES) assert.ok(r.path.startsWith(`${API_PREFIX}/`), r.id);
+    for (const r of ROUTES) assert.ok(r.path.startsWith(`${API_PREFIX}/`) || (r.id === "web.rpc" && r.path === "/rpc") || (r.id === "web.events" && r.path === "/events"), r.id);
   });
 
   it("every route has a handler and every handler a route", () => {

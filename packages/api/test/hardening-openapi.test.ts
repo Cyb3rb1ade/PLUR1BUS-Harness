@@ -44,9 +44,9 @@ test("per operation: method, path, id, tag, security, CSRF parameter, stability 
     if (JSON.stringify(op.tags) !== JSON.stringify([r.tag])) problems.push(`${at}: tags`);
     if (op["x-rate-class"] !== r.rate || op["x-csrf"] !== r.csrf || op["x-stability"] !== r.stability || op["x-since"] !== r.since) problems.push(`${at}: x- annotations`);
     const declared = Object.keys(op.responses).sort();
-    const expected = [String(r.successStatus), ...Object.keys(r.extra ?? {}), "401", "403", "413", "421", "429", "504", ...(r.requestBody ? ["400", "415"] : [])].filter((s, i, a) => a.indexOf(s) === i).sort();
+    const expected = [String(r.successStatus), ...Object.keys(r.extra ?? {}), "401", "403", "413", "421", "429", ...(r.id === "web.rpc" ? [] : ["504"]), ...(r.requestBody ? ["400", "415"] : [])].filter((s, i, a) => a.indexOf(s) === i).sort();
     if (JSON.stringify(declared) !== JSON.stringify(expected)) problems.push(`${at}: statuses ${declared} != table ${expected}`);
-    if (!/^\/api\/v1\//.test(r.path)) problems.push(`${at}: outside /api/v1`);
+    if (!/^\/api\/v1\//.test(r.path) && !["/rpc", "/events"].includes(r.path)) problems.push(`${at}: outside /api/v1`);
     const pathParams = [...r.path.matchAll(/\{(\w+)\}/g)].map((m) => m[1]); const docParams = ((op.parameters ?? []) as any[]).filter((p) => p.in === "path").map((p) => p.name);
     if (JSON.stringify(pathParams) !== JSON.stringify(docParams)) problems.push(`${at}: path parameters ${pathParams} != documented ${docParams}`);
     if (r.method === "GET" && op.requestBody) problems.push(`${at}: a GET with a request body`);
@@ -80,6 +80,11 @@ function rec(id: string, label: string, r: Res): Res {
   seen.push({ route: id, label, status: r.status });
   const where = `${id} / ${label} → ${r.status}`; const resp = opOf(spec).responses[String(r.status)];
   if (!resp) { problems.push(`${where}: this status is not in the operation's responses (${Object.keys(opOf(spec).responses).join(", ")})`); return r; }
+  if (r.status === 200 && id === "web.events") {
+    if (!/^text\/event-stream/.test(String(r.headers["content-type"]))) problems.push(`${where}: wrong stream content type`);
+    for (const e of validate(resp.content["text/event-stream"].schema, r.text, doc)) problems.push(`${where}: ${e}`);
+    return r;
+  }
   if (!/^application\/json/.test(String(r.headers["content-type"]))) problems.push(`${where}: content-type ${r.headers["content-type"]}`);
   if (r.json === undefined) { problems.push(`${where}: the body is not JSON: ${r.text.slice(0, 80)}`); return r; }
   for (const e of validate(resp.content["application/json"].schema, r.json, doc)) problems.push(`${where}: ${e}`);
@@ -186,6 +191,12 @@ test("every route, driven through its success and failure paths on the real serv
     await rt(h, owner, "breakglass.revoke", "own grant", { body: { grantId: g.json.grant.id } });
     await rt(h, alice, "notices.list", "member"); await rt(h, vera, "notices.list", "viewer"); await anon(h, "notices.list");
 
+    await anon(h, "web.rpc"); await noCsrf(h, owner, "web.rpc");
+    await rt(h, owner, "web.rpc", "RPC envelope", { body: { jsonrpc: "2.0", id: 1, method: "core.status" } });
+    rec("web.rpc", "malformed Content-Length", await raw(h, { method: "POST", path: "/rpc", headers: { "content-length": "invalid" } }));
+    await anon(h, "web.events"); await rt(h, owner, "web.events", "SSE headers and connected comment");
+    await rt(h, owner, "web.events", "query refused", { path: "/events?credential=forbidden" });
+
     // the shared failures, on every route: a foreign Host (421), a foreign Origin (403), and for routes with a body a wrong
     // content type (415), broken JSON (400) and an oversized body (413), each after authentication and the CSRF check
     for (const spec of ROUTES) {
@@ -193,7 +204,7 @@ test("every route, driven through its success and failure paths on the real serv
       rec(spec.id, "foreign Origin", await raw(h, { method: spec.method, path: spec.path, headers: { origin: "https://evil.example" } }));
       if (!spec.requestBody || spec.auth === "none") continue;
       const attempt = async (label: string, headers: Record<string, string>, body: string) => rec(spec.id, label, await raw(h, { method: spec.method, path: spec.path, headers: { cookie: owner, "x-csrf-token": await csrfToken(h, owner), ...headers }, body }));
-      await attempt("wrong content type", { "content-type": "text/plain" }, "x"); await attempt("broken JSON", jsonHeaders(), "{"); await attempt("body too large", jsonHeaders(), JSON.stringify({ code: "x".repeat(70_000) }));
+      await attempt("wrong content type", { "content-type": "text/plain" }, "x"); await attempt("broken JSON", jsonHeaders(), "{"); await attempt("body too large", jsonHeaders(), JSON.stringify({ code: "x".repeat(spec.id === "web.rpc" ? 1_100_000 : 70_000) }));
     }
     await rt(h, dana, "totp.disable", "bad body", { body: { nope: 1 } });
 
@@ -218,6 +229,12 @@ test("the same, for the paths that need another server: audit down, a hung core,
     rec("agents.list", "core never answers", await raw(hung, { path: "/api/v1/agents", headers: { cookie: owner } }));
     rec("health", "core never answers", await raw(hung, { path: "/api/v1/health", headers: { cookie: owner } }));
   } finally { await hung.close(); }
+  const noFeed = await start({ rateClasses: wide });
+  try {
+    const owner = (await login(noFeed)).cookie;
+    noFeed.core.subscribeAs = async () => { throw new Error("event backend failed"); };
+    await rt(noFeed, owner, "web.events", "feed unavailable");
+  } finally { await noFeed.close(); }
   const tight = await start({ rateClasses: { ...wide, auth: { capacity: 1, refillPerSec: 0.0001 }, read: { capacity: 3, refillPerSec: 0.0001 }, write: { capacity: 2, refillPerSec: 0.0001 } } });
   try {
     const first = await login(tight); rec("session.create", "first within the bucket", first.res);

@@ -548,19 +548,18 @@ fn oauth(out: &Out, layout: &Layout, provider: String, args: &LoginArgs) {
             });
         }
         Err(FlowError::Rpc(e)) => out.from_rpc_error(&e),
-        Err(FlowError::Cancelled) => out.fail(
+        Err(FlowError::Cancelled) => out.fail_exit(
             "E_CANCELLED",
             "sign-in cancelled; nothing was saved",
             json!({ "reason": "login-cancelled" }),
-            130,
+            crate::output::EXIT_INTERRUPTED,
         ),
         Err(FlowError::TimedOut) => out.fail(
             "E_CONFLICT",
             "the sign-in did not finish in time; nothing was saved",
             json!({ "reason": "login-timeout" }),
-            1,
         ),
-        Err(FlowError::Local(m)) => out.fail("E_INTERNAL", &m, json!({}), 1),
+        Err(FlowError::Local(m)) => out.fail("E_INTERNAL", &m, json!({})),
     }
 }
 
@@ -573,9 +572,7 @@ fn read_key(out: &Out, input: &mut impl Read, is_terminal: bool) -> String {
         out.fail(
             "E_INVALID_PARAMS",
             "the key is read from stdin and never from an argument: pipe it, e.g. `printf %s \"$KEY\" | plur1bus login anthropic --api-key`",
-            json!({ "reason": "value-from-stdin" }),
-            2,
-        );
+            json!({ "reason": "value-from-stdin" }));
     }
     let mut buf = Vec::new();
     if input.take(MAX_KEY_BYTES + 1).read_to_end(&mut buf).is_err() {
@@ -583,11 +580,10 @@ fn read_key(out: &Out, input: &mut impl Read, is_terminal: bool) -> String {
             "E_INVALID_PARAMS",
             "cannot read the key from stdin",
             json!({ "reason": "stdin-unreadable" }),
-            2,
         );
     }
     crate::commands::secret::parse_value(buf)
-        .unwrap_or_else(|why| out.fail("E_INVALID_PARAMS", why, json!({ "detail": "key" }), 2))
+        .unwrap_or_else(|why| out.fail("E_INVALID_PARAMS", why, json!({ "detail": "key" })))
 }
 
 fn store_key(out: &Out, layout: &Layout, provider: &str, secret: &str, key: String) {
@@ -598,7 +594,6 @@ fn store_key(out: &Out, layout: &Layout, provider: &str, secret: &str, key: Stri
             &format!("core unavailable: {e}"),
             json!({ "degraded": { "reason": "core-unavailable", "capability": "secrets",
                 "detail": crate::commands::memory::unavailable_detail(layout, &e) } }),
-            1,
         ),
         Err(e) => out.from_rpc_error(&e),
     };
@@ -695,7 +690,6 @@ fn rpc(out: &Out, layout: &Layout, method: &str, params: Value) -> Value {
             &format!("core unavailable: {e}"),
             json!({ "degraded": { "reason": "core-unavailable", "capability": "login",
                 "detail": crate::commands::memory::unavailable_detail(layout, &e) } }),
-            1,
         ),
         Err(e) => out.from_rpc_error(&e),
     }
@@ -731,7 +725,6 @@ pub fn run(out: &Out, layout: &Layout, args: LoginArgs) {
                         "E_NOT_FOUND",
                         why,
                         json!({ "reason": "credential-unknown" }),
-                        1,
                     )
                 })
             };
@@ -741,7 +734,7 @@ pub fn run(out: &Out, layout: &Layout, args: LoginArgs) {
             });
         }
         None => match plan(&args) {
-            Err(r) => out.fail(r.code, &r.message, json!({ "reason": r.reason }), 2),
+            Err(r) => out.fail(r.code, &r.message, json!({ "reason": r.reason })),
             Ok(Route::Oauth { provider }) => oauth(out, layout, provider, &args),
             Ok(Route::ApiKey { provider, secret }) => {
                 let key = read_key(out, &mut std::io::stdin(), std::io::stdin().is_terminal());

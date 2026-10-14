@@ -80,6 +80,9 @@ export function InboxPage(): View {
   const [cursor, setCursor] = useState<string | null>(null);
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   const [busy, setBusy] = useState(false);
+  // A write in flight. The ref stops a second click that lands before the page has re-rendered; the state disables the buttons.
+  const [writing, setWriting] = useState(false);
+  const writeNow = useRef(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmShown, setConfirmShown] = useState(false);
   // Every reload and filter change starts a new generation; an answer from an older one is dropped.
@@ -168,12 +171,18 @@ export function InboxPage(): View {
 
   // One write, then the local list follows it (no reload of the paged list), then the badge count is asked again.
   const write = (call: () => Promise<unknown>, after: () => void): void => {
+    if (writeNow.current) return;
+    writeNow.current = true;
+    setWriting(true);
     setNotice(null);
     call().then(() => {
       if (!alive.current) return;
       after();
       void refreshInboxCount();
-    }, () => { if (alive.current) setNotice(t("inbox.notice.failed")); });
+    }, () => { if (alive.current) setNotice(t("inbox.notice.failed")); }).finally(() => {
+      writeNow.current = false;
+      if (alive.current) setWriting(false);
+    });
   };
 
   const markOne = (e: InboxEntry): void => {
@@ -207,16 +216,23 @@ export function InboxPage(): View {
 
   const markShown = async (): Promise<ConfirmResult> => {
     const ids = unreadShown;
+    let done = 0;
+    let failed = false;
     try {
-      for (let i = 0; i < ids.length; i += MAX_IDS) await getApi().rpc("inbox.markRead", { ids: ids.slice(i, i + MAX_IDS) });
+      for (let i = 0; i < ids.length; i += MAX_IDS) {
+        await getApi().rpc("inbox.markRead", { ids: ids.slice(i, i + MAX_IDS) });
+        done = Math.min(ids.length, i + MAX_IDS);
+      }
     } catch {
-      return { ok: false, message: t("inbox.notice.failed") };
+      failed = true;
     }
-    if (alive.current) {
-      setItems((cur) => markReadLocal(cur, ids, Date.now()).filter((x) => matches(x, filter)));
+    // The chunks that went through are read on the server: the list and the badge follow them even when a later chunk failed.
+    if (alive.current && done > 0) {
+      const marked = ids.slice(0, done);
+      setItems((cur) => markReadLocal(cur, marked, Date.now()).filter((x) => matches(x, filter)));
       void refreshInboxCount();
     }
-    return { ok: true };
+    return failed ? { ok: false, message: t("inbox.notice.failed") } : { ok: true };
   };
 
   const toggleKind = (k: InboxKind): void => {
@@ -258,11 +274,11 @@ export function InboxPage(): View {
       h("div", { class: "inbox-actions" },
         link ? h("a", { class: "btn", href: link.href, "aria-describedby": titleId }, t("inbox.open")) : null,
         read ? null : h("button", {
-          type: "button", class: "btn", disabled: busy, "aria-describedby": titleId,
+          type: "button", class: "btn", disabled: busy || writing, "aria-describedby": titleId,
           onClick: () => { markOne(e); },
         }, t("inbox.markRead")),
         h("button", {
-          type: "button", class: "btn", disabled: busy, "aria-describedby": titleId,
+          type: "button", class: "btn", disabled: busy || writing, "aria-describedby": titleId,
           onClick: () => { dismiss(e); },
         }, t("inbox.dismiss"))));
   };
@@ -284,7 +300,7 @@ export function InboxPage(): View {
   return h(Page, {
     title: t("nav.inbox"),
     lead: t("inbox.lead"),
-    actions: h("button", { type: "button", class: "btn", disabled: busy || load.kind !== "ready" || (filtered && unreadShown.length === 0), onClick: markAll }, t("inbox.markAllRead")),
+    actions: h("button", { type: "button", class: "btn", disabled: busy || writing || load.kind !== "ready" || (filtered && unreadShown.length === 0), onClick: markAll }, t("inbox.markAllRead")),
   },
   filterBar,
   notice ? h("div", { class: "form-notice", role: "status", "aria-live": "polite" }, notice) : null,

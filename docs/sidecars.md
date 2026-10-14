@@ -71,7 +71,7 @@ running harness container.
 
 The client for this traffic is separate from the open-web `web.fetch` client and narrower: only the configured origin,
 only private, tailnet (including `.ts.net` names that resolve there) or loopback addresses, never link-local or cloud
-metadata addresses, no redirects, JSON answers only, 1 MiB at most, 10 s per search. Queries go to the configured SearXNG
+metadata addresses (including AWS's `fd00:ec2::254`), no redirects, JSON answers only, 1 MiB at most, 10 s per search. Queries go to the configured SearXNG
 and nowhere else. Logs and `core.status` carry lengths, counts, durations and failure codes, never query or result text.
 `sidecars.searxng.fingerprint` protects the health probe only; `web.search` refuses to run with it set (use `caBundle`
 in a native install; a container install uses the system trust store). `core.status.webSearch` shows `mode`, `state`

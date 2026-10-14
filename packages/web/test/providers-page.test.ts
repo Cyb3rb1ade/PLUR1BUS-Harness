@@ -203,6 +203,89 @@ describe("providers: API key and logout", opts, () => {
     });
   });
 
+  test("closing the sign-in dialog before auth.login.start answered still cancels that attempt", async () => {
+    await withApp({}, async (app) => {
+      const state = seedProviders(app.server.rpc, []);
+      app.server.rpc.setDelay("auth.login.start", 500);
+      await open(app);
+      await app.page.getByRole("button", { name: /Sign in/i }).first().click();
+      const dlg = app.page.getByRole("dialog");
+      await dlg.waitFor();
+      await dlg.getByRole("button", { name: /Cancel/i }).click();
+      await dlg.waitFor({ state: "detached" });
+      for (let i = 0; i < 40 && calls(app, "auth.login.cancel").length === 0; i++) await new Promise((r) => setTimeout(r, 100));
+      assert.ok(state.lastAttemptId, "the start call went through");
+      assert.deepEqual(calls(app, "auth.login.cancel").map((c) => c.params), [{ attemptId: state.lastAttemptId }]);
+    });
+  });
+
+  test("leaving the page while the sign-in dialog is open cancels the pending attempt", async () => {
+    await withApp({}, async (app) => {
+      const state = seedProviders(app.server.rpc, []);
+      await open(app);
+      await app.page.getByRole("button", { name: /Sign in/i }).first().click();
+      await app.page.getByRole("dialog").getByText(/ssh -L/i).waitFor();
+      await app.page.evaluate(() => { location.hash = "#/settings/secrets"; });
+      await app.page.locator("#secrets-h").waitFor();
+      for (let i = 0; i < 30 && calls(app, "auth.login.cancel").length === 0; i++) await new Promise((r) => setTimeout(r, 100));
+      assert.deepEqual(calls(app, "auth.login.cancel").map((c) => c.params), [{ attemptId: state.lastAttemptId }]);
+    });
+  });
+
+  test("a failed sign-in never prints the server text (it can quote the callback URL with its code)", async () => {
+    await withApp({}, async (app) => {
+      seedProviders(app.server.rpc, []);
+      app.server.rpc.handle("auth.login.await", () => { throw rpcError("E_INTERNAL", "exchange failed for /auth/callback?code=CALLBACK-CODE-1&state=s"); });
+      await open(app);
+      await app.page.getByRole("button", { name: /Sign in/i }).first().click();
+      const dlg = app.page.getByRole("dialog");
+      await dlg.getByText(/ssh -L/i).waitFor();
+      await dlg.getByRole("button", { name: /Refresh|Check/i }).click();
+      await dlg.getByRole("alert").waitFor();
+      assert.ok(!(await app.page.content()).includes("CALLBACK-CODE-1"));
+    });
+  });
+
+  test("Store API key checks the secret name, trims the value and speaks German", async () => {
+    await withApp({ locale: "de-DE" }, async (app) => {
+      seedProviders(app.server.rpc);
+      await open(app, "de");
+      await app.page.getByRole("button", { name: /API-Key hinterlegen/i }).click();
+      const dlg = app.page.getByRole("dialog");
+      await dlg.waitFor();
+      const name = dlg.getByLabel(/Secret-Name/i);
+      const key = dlg.getByLabel("API-Key", { exact: true });
+      // empty value
+      await dlg.getByRole("button", { name: "Speichern" }).click();
+      await dlg.getByRole("alert").getByText("Gib einen Wert ein.").waitFor();
+      // names the secret store would refuse never leave the browser
+      for (const bad of ["", "   ", "has space", "../x", "-lead"]) {
+        await name.fill(bad); await key.fill("sk-x");
+        await dlg.getByRole("button", { name: "Speichern" }).click();
+        await dlg.getByRole("alert").getByText(/Name/).waitFor();
+      }
+      assert.equal(calls(app, "secret.set").length, 0);
+      await name.fill("openai/api-key"); await key.fill("  sk-padded  ");
+      await dlg.getByRole("button", { name: "Speichern" }).click();
+      await app.page.getByRole("status").waitFor();
+      assert.deepEqual(calls(app, "secret.set").map((c) => c.params), [{ name: "openai/api-key", value: "sk-padded" }]);
+    });
+  });
+
+  test("a failed Store API key save is explained in German", async () => {
+    await withApp({ locale: "de-DE" }, async (app) => {
+      seedProviders(app.server.rpc);
+      app.server.rpc.handle("secret.set", () => { throw rpcError("E_STORAGE", "keyring locked"); });
+      await open(app, "de");
+      await app.page.getByRole("button", { name: /API-Key hinterlegen/i }).click();
+      const dlg = app.page.getByRole("dialog");
+      await dlg.getByLabel("API-Key", { exact: true }).fill("sk-x");
+      await dlg.getByRole("button", { name: "Speichern" }).click();
+      await dlg.getByRole("alert").getByText("Der API-Key konnte nicht gespeichert werden.").waitFor();
+      assert.ok(!(await dlg.innerText()).includes("keyring locked"));
+    });
+  });
+
   test("logout removes credential after confirmation", async () => {
     await withApp({}, async (app) => {
       seedProviders(app.server.rpc);

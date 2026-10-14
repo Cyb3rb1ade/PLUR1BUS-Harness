@@ -228,3 +228,18 @@ describe("web.search over SearXNG: status", () => {
     assert.equal(mk({ searxng: { mode: "bundled" } }, { [BUNDLED_SEARXNG_ENV]: "http://192.168.64.5:8080" }).status().state, "unknown");
   });
 });
+
+describe("web.search over SearXNG: egress (b14 audit)", () => {
+  it("refuses the AWS IPv6 metadata address inside the unique-local range, as a literal and behind a name", async () => {
+    for (const url of ["http://[fd00:ec2::254]/", "http://[fd00:ec2:0:0:0:0:0:254]:8080/", "http://[::ffff:100.100.100.200]/"]) {
+      await fails(mk({ searxng: { mode: "remote", url } }).search.search({ query: "q" }), "private-address", /metadata/);
+    }
+    const resolver = stubResolver({ "meta.tailnet.ts.net": ["fd00:ec2::254"] });
+    await fails(mk({ searxng: { mode: "remote", url: "http://meta.tailnet.ts.net:8080" } }, {}, { resolver }).search.search({ query: "q" }), "private-address", /metadata/);
+  });
+  it("other unique-local addresses stay reachable", async () => {
+    const f = await fakeSearxng((_req, res) => json(res, { results: [] }));
+    const s = mk({ searxng: { mode: "remote", url: `http://[fd00:ec2::255]:${f.port}` } }, {}, { resolver: stubResolver({}) });
+    await assert.rejects(s.search.search({ query: "q" }), (e: unknown) => e instanceof WebFailure && e.code !== "private-address");
+  });
+});

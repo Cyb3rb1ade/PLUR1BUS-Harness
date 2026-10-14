@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { HarnessConfig } from "@plur1bus/config-schema";
+import { CONFIG_SCHEMA, type HarnessConfig } from "@plur1bus/config-schema";
+import { RpcError } from "./rpc/errors.ts";
 import type { Layout } from "./paths.ts";
 import { loadConfig, type ConfigInvalid } from "./config-load.ts";
 import type { HarnessLogger } from "./logger.ts";
@@ -10,10 +11,14 @@ const TEMPLATES = ["SOUL.md", "USER.md", "persona-voice.md"] as const;
 
 /** The agent's workspace directory and its template files (never overwriting one that exists). */
 export function scaffoldFiles(l: Layout, id: string): void {
+  // The id becomes a directory name: only the Config Schema's agent-name rule may reach the file system.
+  if (typeof id !== "string" || !new RegExp(CONFIG_SCHEMA.properties.agents.propertyNames.pattern).test(id)) throw new RpcError("E_INVALID_PARAMS", "invalid agent name");
   mkdirSync(l.workspaceDir(id), { recursive: true, mode: 0o700 });
   for (const t of TEMPLATES) {
     const target = join(l.agentDir(id), t);
-    if (!existsSync(target)) writeFileSync(target, readFileSync(new URL(t, TEMPLATE_DIR), "utf8").replaceAll("{{agentId}}", id), { mode: 0o600 });
+    // "wx" is create-exclusive and never follows a link planted at the target (a dangling symlink also counts as existing).
+    try { writeFileSync(target, readFileSync(new URL(t, TEMPLATE_DIR), "utf8").replaceAll("{{agentId}}", () => id), { mode: 0o600, flag: "wx" }); }
+    catch (e) { if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e; }
   }
 }
 
@@ -50,11 +55,13 @@ export function createAgentRegistry(configOrPath: AgentRegistryInput, l: Layout,
     let lastWarnMtime = -1;
     let lastMissingWarnMtime = -1;
 
-    const scaffoldAgent = (id: string) => {
+    const scaffoldAgent = (id: string): boolean => {
       try {
         scaffoldFiles(l, id);
+        return true;
       } catch (e) {
         logger?.warn("scaffold failed, will retry later", { agentId: id, err: e });
+        return false;
       }
     };
 
@@ -107,8 +114,8 @@ export function createAgentRegistry(configOrPath: AgentRegistryInput, l: Layout,
       if (cached.config) {
         for (const id of Object.keys(cached.config.agents)) {
           if (!seenAgents.has(id)) {
-            scaffoldAgent(id);
-            seenAgents.add(id);
+            // Only a successful scaffold counts as done; a failed one is retried on the next call.
+            if (scaffoldAgent(id)) seenAgents.add(id);
           }
         }
       }

@@ -16,8 +16,14 @@ export interface FsLimits {
   maxWriteBytes: number;
   /** Most entries `file.list` returns. Default 1000. */
   maxListEntries: number;
+  /**
+   * Largest JSON-encoded `file.read` result. Default 1 MiB, the result cap the composition gives the file tools: JSON
+   * escaping (newlines, quotes) and base64 make a result bigger than the bytes read, and a result over the cap would
+   * reach the model as an opaque dispatcher error instead of a hint to read a smaller range.
+   */
+  maxResultBytes: number;
 }
-export const DEFAULT_LIMITS: Readonly<FsLimits> = Object.freeze({ maxReadBytes: 1 << 20, maxWriteBytes: 4 << 20, maxListEntries: 1000 });
+export const DEFAULT_LIMITS: Readonly<FsLimits> = Object.freeze({ maxReadBytes: 1 << 20, maxWriteBytes: 4 << 20, maxListEntries: 1000, maxResultBytes: 1 << 20 });
 // RULING: a directory with more entries than this is refused rather than listed partially (a partial sorted list would
 // depend on readdir order).
 const LIST_SCAN_CAP = 10_000;
@@ -207,11 +213,16 @@ export function createFsOps(cfg: FsConfig): FsOps {
       const after = await fh.stat({ bigint: true });
       if (after.dev !== st.dev || after.ino !== st.ino) throw new FsFailure("changed", "the file was replaced while reading");
       const rp = await rel(c);
-      if (encoding === "base64") return { ...rp, encoding: "base64" as const, content: data.toString("base64"), size, offset, bytesRead: got, truncated };
+      const fits = <R extends ReadResult>(r: R): R => {
+        const encoded = Buffer.byteLength(JSON.stringify(r));
+        if (encoded > limits.maxResultBytes) throw new FsFailure("too-large", `the ${r.encoding} result would be ${encoded} bytes; the limit is ${limits.maxResultBytes} (pass a smaller length)`);
+        return r;
+      };
+      if (encoding === "base64") return fits({ ...rp, encoding: "base64" as const, content: data.toString("base64"), size, offset, bytesRead: got, truncated });
       // RULING: a ranged read that starts mid-codepoint is binary; binary is never returned as text.
       const text = decodeText(data, truncated);
       if (text === null) throw new FsFailure("binary-content", "content is not valid UTF-8 text");
-      return { ...rp, encoding: "utf8" as const, content: text, size, offset, bytesRead: Buffer.byteLength(text, "utf8"), truncated };
+      return fits({ ...rp, encoding: "utf8" as const, content: text, size, offset, bytesRead: Buffer.byteLength(text, "utf8"), truncated });
     } finally { await fh.close().catch(() => {}); }
   });
 

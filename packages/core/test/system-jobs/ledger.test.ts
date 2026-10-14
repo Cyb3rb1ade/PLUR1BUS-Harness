@@ -159,13 +159,12 @@ describe("system-jobs ledger: reading", () => {
     assert.equal(({} as Record<string, unknown>).polluted, undefined);
   });
 
-  it("characterization: Ist-Verhalten, nicht spezifiziert: a finished row that is valid JSON with version and run id but lacks its other fields becomes a record with undefined fields", () => {
-    const { ledger, file } = make();
+  it("a finished row that is valid JSON with version and run id but lacks its other fields is skipped with a warning, not turned into a record with undefined fields (c05)", () => {
+    const { ledger, file, warnings } = make();
     mkdirSync(path.dirname(file), { recursive: true });
     writeFileSync(file, JSON.stringify({ v: 1, phase: "finished", runId: "thin" }) + "\n");
-    const [r] = ledger.readAll(NONE);
-    assert.equal(r!.runId, "thin"); assert.equal(r!.kind, "system"); assert.equal(r!.attempt, 1);
-    assert.equal(r!.job, undefined); assert.equal(r!.outcome, undefined);
+    assert.deepEqual(ledger.readAll(NONE), []);
+    assert.ok(warnings.some((w) => w.m === "invalid finished entry in system jobs ledger"));
   });
 });
 

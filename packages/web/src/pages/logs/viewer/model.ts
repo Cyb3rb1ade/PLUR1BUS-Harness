@@ -67,6 +67,30 @@ export const liveEligible = (f: Filters): boolean => f.order === "desc" && !(f.r
 
 export const isDefaultFilters = (f: Filters): boolean => (Object.keys(DEFAULT_FILTERS) as (keyof Filters)[]).every((k) => f[k] === DEFAULT_FILTERS[k]);
 
+// ---- display text ---------------------------------------------------------------------------------------------------------
+// Log text is attacker-influenced (a failed login name, a request path). Preact escapes markup; what it does not stop is text that
+// lies to the eye: bidi overrides that reorder the rest of the row, zero-width characters, line separators, ESC and NUL. Those are
+// shown as visible pictures (C0 controls as Unicode control pictures, the rest as U+FFFD). The copy buttons and the export keep
+// the original text.
+const HIDDEN = /[\u0080-\u009F\u00AD\u061C\u180E\u200B-\u200F\u2028-\u202E\u2060-\u206F\uFEFF\uFFF9-\uFFFB]/g;
+const CONTROL = /[\u0000-\u001F\u007F]/g;
+
+export function safeText(text: string, opts: { multiline?: boolean } = {}): string {
+  return text.replace(HIDDEN, "\uFFFD").replace(CONTROL, (c) => {
+    if (opts.multiline && (c === "\n" || c === "\t")) return c;
+    return String.fromCharCode(c === "\u007F" ? 0x2421 : 0x2400 + c.charCodeAt(0));
+  });
+}
+
+/** At most `max` UTF-16 units (never ending inside a surrogate pair), with an ellipsis when something was cut. */
+export function clipLine(text: string, max: number): string {
+  if (text.length <= max) return text;
+  let end = max;
+  const last = text.charCodeAt(end - 1);
+  if (last >= 0xd800 && last <= 0xdbff) end -= 1;
+  return `${text.slice(0, end)}\u2026`;
+}
+
 // ---- rows -----------------------------------------------------------------------------------------------------------------
 
 export const str = (v: unknown): string => (typeof v === "string" ? v : "");
@@ -95,7 +119,13 @@ export function splitRedacted(text: string): Piece[] {
   return out;
 }
 
-export function hasRedaction(r: LogRecord): boolean { return JSON.stringify(r.record).includes("[REDACTED:"); }
+const redactionSeen = new WeakMap<LogRecord, boolean>();
+/** Whether the record carries a redaction marker. Cached per record: a row asks on every draw and a record can be large. */
+export function hasRedaction(r: LogRecord): boolean {
+  let v = redactionSeen.get(r);
+  if (v === undefined) { v = JSON.stringify(r.record).includes("[REDACTED:"); redactionSeen.set(r, v); }
+  return v;
+}
 
 /** Distinct redaction rules named in a record. */
 export function redactionRules(r: LogRecord): string[] {

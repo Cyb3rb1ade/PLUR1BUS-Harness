@@ -49,7 +49,7 @@ fn now_ms() -> u64 {
 
 fn parse_time_or_fail(out: &Out, flag: &str, s: &str) -> u64 {
     parse_time_arg(s, now_ms())
-        .unwrap_or_else(|e| out.fail("E_INVALID_PARAMS", &format!("--{flag}: {e}"), json!({}), 1))
+        .unwrap_or_else(|e| out.fail("E_INVALID_PARAMS", &format!("--{flag}: {e}"), json!({})))
 }
 
 /// Connects with the 30 s call timeout the memory-ops surface uses; a core that cannot be
@@ -81,7 +81,6 @@ pub(crate) fn connect_core(
                         "detail": detail
                     }
                 }),
-                1,
             )
         }
         Err(e) => out.from_rpc_error(&e),
@@ -97,7 +96,6 @@ pub(crate) fn require_supports(out: &Out, c: &Client, method: &str) {
             "E_NOT_AVAILABLE",
             &format!("core does not support {method} yet"),
             json!({ "reason": "core-lacks-method", "method": method }),
-            2,
         );
     }
 }
@@ -167,7 +165,7 @@ fn proposal_status_str(s: &ProposalStatus) -> &'static str {
 pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
     // Read without creating config.json: only the supervisor (or a config-writing command) writes it (M4).
     let config = cfg::read_for_lookup(&layout.config_path(), &[])
-        .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1));
+        .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({})));
     let caller = identity::caller();
 
     match cmd {
@@ -246,19 +244,13 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                     let mut line = String::new();
                     std::io::stdin().read_line(&mut line).ok();
                     if !line.trim().eq_ignore_ascii_case("y") {
-                        out.fail(
-                            "E_INVALID_PARAMS",
-                            "not applied",
-                            json!({ "applied": false }),
-                            2,
-                        );
+                        out.fail("E_CANCELLED", "not applied", json!({ "applied": false }));
                     }
                 } else {
                     out.fail(
                         "E_INVALID_PARAMS",
                         &format!("re-run with --yes to forget {id}"),
                         json!({ "applied": false }),
-                        2,
                     );
                 }
             }
@@ -285,7 +277,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
             require_agent(out, &config, &agent);
             let content = text.join(" ");
             if content.trim().is_empty() {
-                out.fail("E_INVALID_PARAMS", "text is empty", json!({}), 1);
+                out.fail("E_INVALID_PARAMS", "text is empty", json!({}));
             }
             let params =
                 json!({ "caller": &caller, "agentId": &agent, "id": &id, "text": content });
@@ -374,7 +366,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
             require_agent(out, &config, &agent);
             let content = text.join(" ");
             if content.trim().is_empty() {
-                out.fail("E_INVALID_PARAMS", "text is empty", json!({}), 1);
+                out.fail("E_INVALID_PARAMS", "text is empty", json!({}));
             }
             let mut params = json!({
                 "caller": &caller,

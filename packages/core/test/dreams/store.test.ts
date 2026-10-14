@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { existsSync, statSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { RpcError } from "../../src/rpc/errors.ts";
 import { DreamStore, SCHEMA_VERSION } from "../../src/dreams/store.ts";
 import type { CandidateRow, Phase } from "../../src/dreams/types.ts";
 import { DAY, HOUR, T0, useTempDirs } from "./helpers.ts";
@@ -168,12 +169,38 @@ describe("dreams/store: runs and the idempotency key", () => {
     });
   }
 
-  it("characterization: Ist-Verhalten, nicht spezifiziert: closing an unclaimed run as completed while another completed run holds the same key throws (the scheduler always claims first)", () => {
+  it("closing an unclaimed run as completed while another completed run holds the same key is a defined E_CONFLICT, not a raw SQLite error", () => {
     const { store } = open();
     store.insertRun(run("r1")); store.claimKey("r1", "key-1"); store.finishRun("r1", fin("completed"));
     store.insertRun(run("r2"));
-    assert.throws(() => store.finishRun("r2", fin("completed")), /UNIQUE/);
+    assert.throws(() => store.finishRun("r2", fin("completed")), (e: unknown) => {
+      assert.ok(e instanceof RpcError, "an RpcError");
+      assert.equal(e.error, "E_CONFLICT");
+      assert.equal(e.reason, "idempotent");
+      assert.match(e.message, /dream run r2/); assert.match(e.message, /r1/);
+      assert.doesNotMatch(e.message, /UNIQUE|constraint|sqlite/i, "no raw SQLite text");
+      return true;
+    });
     assert.equal(store.getRun("r2")!.outcome, null, "the failed close leaves the run open");
+    store.close();
+  });
+
+  it("deleteSchedules removes the three schedule rows of one agent and nothing else", () => {
+    const { store } = open();
+    for (const a of ["alpha", "beta"]) for (const p of ["light", "rem", "deep"] as const) store.insertScheduleIfAbsent(sched(a, p));
+    store.insertRun(run("r1", { agentId: "beta" }));
+    assert.equal(store.deleteSchedules("beta"), 3);
+    assert.equal(store.listSchedules("beta").length, 0); assert.equal(store.listSchedules("alpha").length, 3);
+    assert.ok(store.getRun("r1"), "the ledger keeps its history");
+    assert.equal(store.deleteSchedules("beta"), 0);
+    store.close();
+  });
+
+  it("windowRuns lists the runs of one agent, phase and scheduled instant (the retry cap counts them)", () => {
+    const { store } = open();
+    store.insertRun(run("r1", { idempotencyKey: "a", scheduledFor: T0 })); store.insertRun(run("r2", { idempotencyKey: "b", scheduledFor: T0, trigger: "catchup" }));
+    store.insertRun(run("r3", { idempotencyKey: "c", scheduledFor: T0 + 1 })); store.insertRun(run("r4", { idempotencyKey: "d", scheduledFor: T0, phase: "rem" }));
+    assert.deepEqual(store.windowRuns("alpha", "deep", T0).map((r) => r.runId).sort(), ["r1", "r2"]);
     store.close();
   });
 

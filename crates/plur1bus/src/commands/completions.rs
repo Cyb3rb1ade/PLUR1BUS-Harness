@@ -49,7 +49,6 @@ pub fn manpages(out: &Out, dir: &Path) {
             "E_INTERNAL",
             &format!("cannot write manpages to {}: {e}", dir.display()),
             json!({ "reason": "io" }),
-            1,
         ),
     }
 }

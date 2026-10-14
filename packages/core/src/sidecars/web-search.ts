@@ -71,6 +71,10 @@ export function resolveSearxngTarget(sidecars: SidecarsConfig | undefined, env: 
 const SIDECAR_RANGES = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "127.0.0.0/8", "fc00::/7", "::1/128"];
 // Inside 100.64/10, but a cloud metadata address.
 const METADATA_HOSTS = new Set(["100.100.100.200"]);
+// Inside fc00::/7: the AWS IPv6 instance metadata endpoint, fd00:ec2::254.
+const METADATA_V6 = Uint8Array.from([0xfd, 0x00, 0x0e, 0xc2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x02, 0x54]);
+const isMetadata = (c: { family: 4 | 6; bytes: Uint8Array }): boolean =>
+  c.family === 4 ? METADATA_HOSTS.has(Array.from(c.bytes).join(".")) : c.bytes.length === 16 && c.bytes.every((b, i) => b === METADATA_V6[i]);
 const sidecarPolicy: AddressPolicy = makeAddressPolicy(SIDECAR_RANGES);
 
 function hostOf(url: URL): string {
@@ -85,7 +89,7 @@ function sidecarGate(endpoint: URL) {
     beforeResolve(url: URL): void {
       if (url.origin !== endpoint.origin) throw new WebFailure("egress-denied", "the sidecar client only talks to the configured SearXNG origin");
       const literal = parseAddress(hostOf(url));
-      if (literal && METADATA_HOSTS.has(hostOf(url))) deny("cloud metadata addresses are never a sidecar");
+      if (literal && isMetadata(canonical(literal))) deny("cloud metadata addresses are never a sidecar");
     },
     afterResolve(url: URL, pin: { address: string }): void {
       const a = parseAddress(pin.address);
@@ -93,7 +97,7 @@ function sidecarGate(endpoint: URL) {
       const c = canonical(a);
       // `resolveGuarded` has already refused anything non-public outside `sidecarPolicy`; what remains here is the
       // reverse rule (a sidecar is never on a public address) and the metadata address inside the tailnet range.
-      if (c.family === 4 && METADATA_HOSTS.has(Array.from(c.bytes).join("."))) deny("cloud metadata addresses are never a sidecar");
+      if (isMetadata(c)) deny("cloud metadata addresses are never a sidecar");
       if (!sidecarPolicy.allow.some((r) => r.family === c.family && inCidrBytes(c.bytes, r.bytes, r.prefix))) deny(`${hostOf(url)} is not on a private or tailnet address`);
     },
   };

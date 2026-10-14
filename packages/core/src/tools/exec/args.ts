@@ -13,8 +13,11 @@ const SHELLS = new Set(["sh", "bash", "zsh", "dash", "ash", "ksh", "csh", "tcsh"
 const PRIVILEGED = new Set(["sudo", "doas", "pkexec", "su", "runas", "gsudo"]);
 const WIN_SCRIPT = /\.(bat|cmd)$/i;
 
+/** Windows drops trailing dots and spaces from a file name, so `bash.exe.` starts bash.exe and `x.bat.` is x.bat. */
+const trimWinTail = (s: string): string => s.replace(/[. ]+$/, "");
+
 export function programKey(program: string): string {
-  return basename(program.replaceAll("\\", "/")).toLowerCase().replace(/\.(exe|com)$/, "");
+  return trimWinTail(basename(trimWinTail(program.replaceAll("\\", "/")))).toLowerCase().replace(/\.(exe|com)$/, "");
 }
 
 export function validateProgram(program: unknown): string {
@@ -22,7 +25,7 @@ export function validateProgram(program: unknown): string {
   if (/[\0\r\n]/.test(program)) throw new ExecFailure("invalid-input", "program contains a control character");
   if (program !== program.trim()) throw new ExecFailure("invalid-input", "program has surrounding whitespace");
   if (program.startsWith("-")) throw new ExecFailure("program-refused", "program may not start with '-'");
-  if (WIN_SCRIPT.test(program)) throw new ExecFailure("program-refused", "batch scripts are not started (they re-parse arguments as a command line)");
+  if (WIN_SCRIPT.test(trimWinTail(program))) throw new ExecFailure("program-refused", "batch scripts are not started (they re-parse arguments as a command line)");
   const key = programKey(program);
   if (SHELLS.has(key)) throw new ExecFailure("program-refused", `${key} is a shell interpreter; pass the program and its arguments directly`);
   if (PRIVILEGED.has(key)) throw new ExecFailure("program-refused", `${key} escalates privileges; not available through exec.run`);

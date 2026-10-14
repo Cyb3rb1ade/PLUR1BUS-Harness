@@ -55,7 +55,7 @@ export function createKeyringBackend(o: { service: string; load?: KeyringLoader 
     if (raw === null) return { schema: INDEX_SCHEMA, entries: {} };
     let d: Partial<Index> | null;
     try { d = JSON.parse(raw) as Partial<Index>; } catch { throw new SecretError("corrupt", "keyring index is corrupt (unreadable-index); refusing to continue"); }
-    if (!d || d.schema !== INDEX_SCHEMA || !d.entries || typeof d.entries !== "object") throw new SecretError("corrupt", "keyring index is corrupt (bad-schema); refusing to continue");
+    if (!d || d.schema !== INDEX_SCHEMA || !d.entries || typeof d.entries !== "object" || Array.isArray(d.entries)) throw new SecretError("corrupt", "keyring index is corrupt (bad-schema); refusing to continue");
     for (const [n, m] of Object.entries(d.entries)) if (!isSecretName(n) || typeof m?.createdAt !== "string" || typeof m.updatedAt !== "string") throw new SecretError("corrupt", "keyring index is corrupt (bad-entry); refusing to continue");
     return d as Index;
   }
@@ -73,7 +73,7 @@ export function createKeyringBackend(o: { service: string; load?: KeyringLoader 
       const idx = await readIndex();
       await guarded("writing to the keyring", async () => (await entry(name)).setPassword(value));
       const at = now.toISOString();
-      const createdAt = idx.entries[name]?.createdAt ?? at;
+      const createdAt = (Object.hasOwn(idx.entries, name) ? idx.entries[name]?.createdAt : undefined) ?? at;
       idx.entries[name] = { createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}) };
       await writeIndex(idx);
       return { name, backend: "keyring" as const, createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}) };
@@ -82,7 +82,7 @@ export function createKeyringBackend(o: { service: string; load?: KeyringLoader 
       const idx = await readIndex();
       const e = await entry(name);
       const removed = await guarded("deleting from the keyring", () => (typeof e.deletePassword === "function" ? e.deletePassword() : e.deleteCredential?.() ?? false));
-      const indexed = name in idx.entries;
+      const indexed = Object.hasOwn(idx.entries, name);
       if (indexed) { delete idx.entries[name]; await writeIndex(idx); }
       return removed || indexed;
     }),

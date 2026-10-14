@@ -12,6 +12,10 @@ export const EXEC_MAX_TIMEOUT_MS = 600_000;
 export const EXEC_MAX_OUTPUT_BYTES = 64 * 1024;
 export const EXEC_MAX_MAX_OUTPUT_BYTES = 4 * 1024 * 1024;
 
+// RULING: these decide which executable a bare name or a script resolves to. An allowlist entry names a program, not a
+// search path, so in the unattended `allowlist` tier a request may not set them (`env: { PATH }` would swap `git`).
+const LOOKUP_VARS: ReadonlySet<string> = new Set(["PATH", "PATHEXT", "COMSPEC", "SYSTEMROOT"]);
+
 function clampInt(v: unknown, def: number, max: number, what: string): number {
   if (v === undefined) return def;
   if (typeof v !== "number" || !Number.isInteger(v) || v < 1) throw new ExecFailure("invalid-input", `${what} must be a positive integer`);
@@ -84,6 +88,11 @@ export async function execRun(req: ExecRequest, deps: ExecDeps, signal?: AbortSi
     return refuse("env-refused", e instanceof Error ? e.message : "environment refused");
   }
 
+  if (config.mode === "allowlist") {
+    const steering = Object.keys(req.env ?? {}).find((n) => LOOKUP_VARS.has(n.toUpperCase()));
+    if (steering !== undefined) return refuse("env-refused", `environment variable ${steering} decides which program runs and cannot be requested for an allowlisted program`);
+  }
+
   const entry = findAllowed(config.allowlist, program, windows);
   if (config.mode === "allowlist" && (!entry || !argsMatchPattern(entry, args))) {
     return refuse("not-allowlisted", entry ? "an argument does not match the program's allowlist pattern" : "program is not on the allowlist");
@@ -92,7 +101,10 @@ export async function execRun(req: ExecRequest, deps: ExecDeps, signal?: AbortSi
   const allowlisted = config.mode === "allowlist" && entry !== undefined && argsMatchPattern(entry, args);
 
   const envNames = Object.keys(env).sort();
-  const actionHash = createHash("sha256").update(JSON.stringify({ c: "shell.exec", t: "exec.run", program, args, cwd: cwd.canonical, env: envNames })).digest("hex");
+  // The hash is what an approval or a once-grant is bound to, so it covers the values (PATH=/usr/bin is another action than
+  // PATH=/tmp/x); the audit still records names only.
+  const envPairs = envNames.map((n) => [n, env[n]]);
+  const actionHash = createHash("sha256").update(JSON.stringify({ c: "shell.exec", t: "exec.run", program, args, cwd: cwd.canonical, env: envPairs })).digest("hex");
   const call: Call = {
     capability: "shell.exec", tool: "exec.run", effect: "local-write", targets: [cwd.canonical], access: "write", actionHash,
     flags: { outsideRoots: false, denyListHit: false, shellAllowlisted: allowlisted, sandboxed: false },
@@ -100,18 +112,25 @@ export async function execRun(req: ExecRequest, deps: ExecDeps, signal?: AbortSi
   const decision = decide(call, deps.policyContext, deps.policy);
   const base = { argc: args.length, argsSha256: createHash("sha256").update(JSON.stringify(args)).digest("hex"), cwd: cwd.canonical, envNames, mode: config.mode, actionHash };
 
+  const notStarted = (): ExecResult => {
+    audit("exec.result", program, { actionHash, outcome: "aborted", started: false });
+    return { exitCode: null, signal: null, stdout: "", stderr: "", stdoutTruncated: false, stderrTruncated: false, timedOut: false, aborted: true, durationMs: 0 };
+  };
+
   let via: string;
   if (decision.kind === "deny") {
     return refuse("policy-denied", `policy refused: ${decision.rule}`, { ...base, rule: decision.rule });
   } else if (decision.kind === "ask") {
     // RULING: a parked (headless) or unanswerable request is a refusal, never a wait.
-    const answer = decision.park || !deps.approvals ? { approved: false } : await deps.approvals.request(decision.request).catch(() => ({ approved: false }));
+    const answer = decision.park || !deps.approvals ? { approved: false } : await raceAbort(deps.approvals.request(decision.request).catch(() => ({ approved: false })), signal);
+    if (answer === "aborted") return notStarted();
     if (answer.approved !== true) return refuse("approval-denied", "approval was not given", { ...base, why: decision.why });
     via = "approval";
   } else {
     via = decision.via;
   }
 
+  if (signal?.aborted) return notStarted(); // nothing is started for a call that was cancelled while it waited
   audit("exec.run", program, { ...base, decision: "allow", via });
 
   const started = deps.timers.now();
@@ -150,4 +169,15 @@ export async function execRun(req: ExecRequest, deps: ExecDeps, signal?: AbortSi
     deps.timers.clearTimeout(timer);
     signal?.removeEventListener("abort", onAbort);
   }
+}
+
+/** Settles with `"aborted"` as soon as the signal fires; the pending promise is left to settle on its own. */
+function raceAbort<T>(p: Promise<T>, signal: AbortSignal | undefined): Promise<T | "aborted"> {
+  if (!signal) return p;
+  if (signal.aborted) return Promise.resolve("aborted");
+  return new Promise((resolve) => {
+    const on = (): void => resolve("aborted");
+    signal.addEventListener("abort", on, { once: true });
+    void p.then((v) => { signal.removeEventListener("abort", on); resolve(v); });
+  });
 }
