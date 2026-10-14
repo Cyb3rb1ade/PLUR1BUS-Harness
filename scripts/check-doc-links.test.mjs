@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,5 +43,30 @@ test("reports missing relative targets and heading anchors", () => {
     const result = spawnSync(process.execPath, [script, "--root", root], { encoding: "utf8" });
     assert.equal(result.status, 1);
     assert.match(result.stderr, /README\.md:1 → broken link/);
+  });
+});
+
+test("footnote definitions are not link reference definitions", () => {
+  tree({
+    "README.md": "# Readme\n\nA claim[^1] and another[^note].\n\n[^1]: See the appendix for details.\n[^note]: Also docs/missing.md is only prose here.\n",
+  }, (root) => assert.deepEqual(checkDocLinks(root), []));
+});
+
+test("a dangling symlink among the docs is reported, not thrown; a missing docs directory is fine", () => {
+  tree({ "README.md": "# Readme\n[ok](#readme)\n", "docs/page.md": "# Page\n" }, (root) => {
+    symlinkSync("/nonexistent-target", join(root, "docs", "gone.md"));
+    const problems = checkDocLinks(root);
+    assert.equal(problems.length, 1);
+    assert.match(problems[0], /^docs\/gone\.md: dangling symlink$/);
+  });
+  tree({ "README.md": "# Readme\n[ok](#readme)\n" }, (root) => assert.deepEqual(checkDocLinks(root), []));
+});
+
+test("problems come out in path order whatever the directory order is", () => {
+  const files = {};
+  for (const name of ["z", "m", "a", "q"]) files[`docs/${name}.md`] = `[x](missing-${name}.md)\n`;
+  tree(files, (root) => {
+    const problems = checkDocLinks(root);
+    assert.deepEqual(problems.map((p) => p.split(":")[0]), ["docs/a.md", "docs/m.md", "docs/q.md", "docs/z.md"]);
   });
 });
