@@ -60,6 +60,10 @@ export const en = {
   "modules.live.changed": "A module changed state, so the list may be out of date.",
   "modules.live.reload": "Reload",
   "modules.readonly": "Read-only for your role. Owner and Admin can start, stop and restart modules.",
+  "modules.update.available": "Update available: {version}",
+  "modules.update.signature": "Update blocked: the feed signature could not be verified.",
+  "modules.update.minimum": "Update blocked: update the harness to the required minimum version first.",
+  "modules.update.checked": "Feed checked: {at}",
 };
 
 export const de: Record<keyof typeof en, string> = {
@@ -122,4 +126,8 @@ export const de: Record<keyof typeof en, string> = {
   "modules.live.changed": "Ein Modul hat seinen Zustand geändert, die Liste ist deshalb eventuell veraltet.",
   "modules.live.reload": "Neu laden",
   "modules.readonly": "Schreibgeschützt für deine Rolle. Owner und Admin können Module starten, stoppen und neu starten.",
+  "modules.update.available": "Update verfügbar: {version}",
+  "modules.update.signature": "Update gesperrt: Die Feed-Signatur konnte nicht geprüft werden.",
+  "modules.update.minimum": "Update gesperrt: Aktualisiere zuerst den Harness auf die erforderliche Mindestversion.",
+  "modules.update.checked": "Feed geprüft: {at}",
 };

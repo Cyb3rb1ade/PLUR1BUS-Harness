@@ -1,3 +1,4 @@
+import { translate } from "./i18n.ts";
 import { showBackgroundHint } from "./views/background-hint.ts";
 import { createShell } from "./shell.ts";
 import { nativeTransport } from "./ipc.ts";
@@ -41,7 +42,12 @@ void listen("desktop-background-hint", () => { void pullBackgroundHint(); })
 
 void import("./views/crash-offer.ts").then(async ({showCrashOffers}) => {
   const offers = await invoke<import("./views/crash-offer.ts").CrashOffer[]>("crash_offers");
-  await showCrashOffers(offers, id => invoke("crash_handled", {id}));
+  const last = await invoke<{at:string;kind:string;summary:string;hasDiagnostics:boolean}|null>("crash_last_report").catch(() => null);
+  if (last && offers.length === 0) offers.push({id:"last-session-marker", details:`${translate(document.documentElement.lang.startsWith("de")?"de":"en", "crash.unclean")} ${last.at}`});
+  await showCrashOffers(offers, async id => {
+    if (id !== "last-session-marker") await invoke("crash_handled", {id});
+    if (last) await invoke("crash_dismiss");
+  }, undefined, {open:()=>invoke("diagnostics_open"), restart:()=>invoke("crash_restart")});
 }).catch(() => { /* Failed reads never consume local crash evidence. */ });
 
 }

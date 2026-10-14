@@ -111,3 +111,15 @@ Today only stable methods and the memory reads are tools by default, so the expe
 | Sensitive config enters audit or old cloud consent survives a switch | Schema sensitivity inherited; credential keys redacted; old ack invalidation; authenticated writer; durable audit intent | Config-policy/audit tests |
 
 The API credential narrows ordinary local-client capabilities, but cannot isolate hostile processes of the same OS user. A cookie authenticates an account; it is not proof of physical human intent. Browser delegation preserves current surface trust and never performs automatic OS confirmation. Stronger broker/OS separation, account provisioning and active-person callbacks remain Owner decisions; details in the [transport handoff](handoff/2026-10-14-web-transport.md).
+
+## Secret status metadata
+
+`secret.status` optionally includes `secrets`, a names-only metadata snapshot from the available backends. Creation and rotation persist timestamps with the existing metadata index; `updatedBy` identifies the authenticated person when known. Status never reads or decrypts values. Older entries without writer metadata remain readable. Settings displays timestamps from this snapshot and “Unknown” when metadata is unavailable. Owner-only access remains the existing ADR-005 rule.
+
+### Configurable approval and emergency-access limits
+
+`approvals.maxGrantDays` controls an always-grant's unused lifetime (default 90, 1–365 days); an explicit shorter expiry still wins. `approvals.requireOsConfirmation` defaults to true, preserving the conditional T1 → T2 OS-confirmation flow. False disables that lift and leaves the existing surface refusal in place. It never permits an otherwise untrusted decision.
+
+`breakglass.reasonMinChars` / `reasonMaxChars` default to 10 / 500 trimmed characters; both are 1–10000 and minimum must not exceed maximum. `breakglass.maxWindowMinutes` defaults to 60, accepts 1–1440, and also caps the default 15-minute window. Trigger roles remain unchanged.
+
+All five keys declare `x-write-roles: [owner, admin]` and `x-audit: true`. These annotations are the transport contract, **not enforcement**: the authenticated transport must supply a trusted person principal on the supervisor's `server.rs` / `config.rs` write path, enforce roles and write `audit.config.set` with old/new values. This package leaves those files unchanged and exposes the values read only in Settings.

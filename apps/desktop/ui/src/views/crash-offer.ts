@@ -2,7 +2,7 @@ import {element, append, restoreFocus,trapDialogFocus} from "../components/dom.t
 import {button} from "../components/button.ts";
 import {translate,type MessageKey} from "../i18n.ts";
 export type CrashOffer = {id:string; details:string};
-export async function showCrashOffers(offers:CrashOffer[], handled:(id:string)=>Promise<void>, copy:(text:string)=>Promise<void> = text => navigator.clipboard.writeText(text)):Promise<void> {
+export async function showCrashOffers(offers:CrashOffer[], handled:(id:string)=>Promise<void>, copy:(text:string)=>Promise<void> = text => navigator.clipboard.writeText(text), actions?: {open:()=>Promise<void>; restart:()=>Promise<void>}):Promise<void> {
   const t=(key:MessageKey)=>translate(document.documentElement.lang.startsWith("de")?"de":"en",key);
   for (const offer of offers) {
     await new Promise<void>(resolve => {
@@ -16,6 +16,12 @@ export async function showCrashOffers(offers:CrashOffer[], handled:(id:string)=>
         try { await copy(offer.details); error.textContent = t("crash.copied"); }
         catch { error.textContent = t("crash.copyFailed"); }
       }, "secondary");
+      const open = actions ? button(t("crash.open"), async () => {
+        try { await actions.open(); } catch { error.textContent = t("crash.openFailed"); }
+      }, "secondary") : null;
+      const restart = actions ? button(t("crash.restart"), async () => {
+        try { await actions.restart(); } catch { error.textContent = t("crash.restartFailed"); }
+      }, "secondary") : null;
       const dismiss = button(t("crash.dismiss"), async () => {
         dismiss.disabled = true;
         try { await handled(offer.id); dialog.close(); }
@@ -23,7 +29,7 @@ export async function showCrashOffers(offers:CrashOffer[], handled:(id:string)=>
       }, "primary");
       dialog.addEventListener("cancel", event => event.preventDefault());
       dialog.addEventListener("close", () => {dialog.remove(); restoreFocus(opener); resolve();}, {once:true});
-      const footer = element("div", "dialog-footer"); append(footer, copyButton, dismiss);
+      const footer = element("div", "dialog-footer"); append(footer, copyButton); if (open) append(footer, open); if (restart) append(footer, restart); append(footer, dismiss);
       append(dialog, title, element("p", undefined, t("crash.local")), details, error, footer);
       document.body.append(dialog); trapDialogFocus(dialog);dialog.showModal(); dismiss.focus();
     });

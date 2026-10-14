@@ -22,6 +22,7 @@ const TODO_MISSING_DESCRIPTIONS = [
 const TODO_MISSING_FIXTURES: string[] = [];
 const FIXTURE_METHOD_ALIASES: Record<string, string> = {
   "jobs.run.system": "jobs.run",
+  "jobs.run.user": "jobs.run",
 };
 
 describe("rpc-schema method descriptions and fixtures", () => {

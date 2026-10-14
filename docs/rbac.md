@@ -411,3 +411,17 @@ The session-only `/rpc` gateway uses an explicit exposure list in `packages/api/
 Config get/set and module list/graph use the supervisor, which obtains current identity from the core; config writes are Owner/Admin and additionally obey every affected x-write-roles annotation, including parent replacements. Annotations and sensitivity are checked at the mutation boundary. Internal lifecycle/auth/subscription RPCs, admin backup/import, secret reveal and raw caller-based memory calls remain excluded. For legacy methods without a guard, API admission is conservative: actual Owner only, except authorized diagnostics and filtered agent listing. This is narrower than the previous local-token compatibility path. Remaining exposed methods keep their existing Core policy and humanOnly requirements.
 
 Person-bound SSE is independent of WebMCP. An event requires a matching person/connection audience; only process-only core.state is globally forwarded. Replay retains already filtered events per person and session. A delegated connection has no automatic step-up/OS attestation. See [api.md](api.md#browser-rpc-and-events) for limits and local trust boundaries.
+
+### Agent activity history
+
+`agent.activity.list` is human-only, uses the `agent.list` admission gate and filters every returned transition against current agent rights. Owner and Admin see all agents. Operator, Member and Viewer need `use` or `manage` for each agent. Cursor validity includes the visible roster, so a rights change requires a fresh query.
+
+### Doctor snapshots
+
+`doctor.report` is human-only. Its admission gate permits all five human roles to read the cached report. The all-human read admission uses `agent.list`; the handler additionally authorizes `doctor.run` (including token scopes) and requires Owner, Admin or Operator for `refresh: true`; it rate-limits a fresh check to once per 30 seconds. Agents cannot request or read this report.
+
+### User recurring task methods
+
+New human-only rules: `jobs.create` → `agent.manage` on params.agentId; `jobs.update` and `jobs.delete` → `agent.list` for the initial authenticated read, followed by handler-level `agent.manage` checks on the stored and proposed targets. These require the corresponding token scopes as well as roles/rights. `jobs.list/history` user paths resolve a person and apply `agent.list` plus visibility filtering; legacy engine/system paths retain their existing classification.
+
+The existing `agent.manage` policy grants owner/admin and member-with-manage, and excludes operator/viewer. The existing `jobs.run` rule remains owner/admin/operator; user runs additionally need use rights and execute as stored `runAs`, never the triggering caller. Existing approval roles and surface requirements remain unchanged. The new create/update/delete methods, `doctor.report` and `agent.activity.list` are explicitly excluded from WebMCP exposure.

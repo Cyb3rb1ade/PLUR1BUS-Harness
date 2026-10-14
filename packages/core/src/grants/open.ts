@@ -21,6 +21,7 @@ export interface OpenPermissionStoresOptions extends OpenApprovalsDbOptions {
   keys: ChainKeySource;
   clock: Clock;
   requestTtlMs?: number;
+  maxGrantDays?: () => number;
   /** Every grant change is written here inside its transaction (D109 §9). */
   audit?: PolicyAudit;
 }
@@ -30,7 +31,7 @@ export async function openPermissionStores(o: OpenPermissionStoresOptions): Prom
   try {
     const approvals = await createApprovalStore({ db, keys: o.keys, clock: o.clock, ...(o.requestTtlMs !== undefined ? { requestTtlMs: o.requestTtlMs } : {}) });
     const chain = approvals.chain;
-    return { db, chain, approvals, grants: new GrantStore({ db, chain, clock: o.clock, ...(o.audit ? { audit: o.audit } : {}) }), close: () => db.close() };
+    return { db, chain, approvals, grants: new GrantStore({ db, chain, clock: o.clock, ...(o.maxGrantDays ? { maxGrantDays: o.maxGrantDays } : {}), ...(o.audit ? { audit: o.audit } : {}) }), close: () => db.close() };
   } catch (e) {
     db.close();
     throw e;

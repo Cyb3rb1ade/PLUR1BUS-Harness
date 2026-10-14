@@ -205,6 +205,11 @@
   "wizard.error.pull-failed": "Das gebündelte Image konnte nicht geprüft oder installiert werden.",
   "wizard.error.start-timeout": "Der Harness wurde nicht bereit.",
   "wizard.error.pair-failed": "Die lokale Kopplung muss erneut versucht werden.",
+  "wizard.error.port-in-use": "Für den Harness ist kein freier lokaler Port verfügbar.",
+  "wizard.error.runtime-changed": "Der Harness wurde mit einer anderen Runtime installiert.",
+  "wizard.error.invalid-resources": "Die Ressourceneinstellungen für den Harness sind ungültig.",
+  "wizard.error.not-installed": "Die Harness-Installation wurde nicht gefunden.",
+  "wizard.error.exec-failed": "Ein Einrichtungsbefehl im Harness ist fehlgeschlagen.",
   "wizard.cancel": "Abbrechen",
   "wizard.licenceNotices": "PLUR1BUS Desktop und Harness: MIT-Lizenz. Container-Runtime: Herstellerlizenz. Modellweitergabe: Lizenz des gewählten Modells.",
   "wizard.progress.copy": "Image kopieren oder herunterladen",
@@ -336,5 +341,10 @@
   "ticket.retry": "Erneut versuchen",
   "ticket.copied": "Log kopiert.",
   "ticket.documentTitle": "PLUR1BUS — Anmeldung fehlgeschlagen",
-  "update.kind.other": "Update"
+  "update.kind.other": "Update",
+  "crash.open": "Diagnose öffnen",
+  "crash.restart": "Neu starten",
+  "crash.openFailed": "Der Diagnoseordner konnte nicht geöffnet werden.",
+  "crash.restartFailed": "Die App konnte nicht neu gestartet werden.",
+  "crash.unclean": "Die vorherige App-Sitzung wurde nicht sauber beendet."
 }

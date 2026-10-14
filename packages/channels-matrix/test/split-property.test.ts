@@ -591,7 +591,6 @@ test("corpus: >= 500 generated inputs, reproducible from (seed, index), well-for
 // 1 + the opening marker, see the pinned test below. The reproducers are the hand cases "fence opener fills the part".
 test(
   "property 1: every part is at most `max` UTF-8 bytes (the real limit is the documented 16000)",
-  { todo: "KNOWN GAP: channels-matrix splitMessage: erwartet jeden Teil höchstens max Bytes (beim echten Limit 16000), tatsächlich überschreitet ein Teil max um den Schlusszaun, wenn die öffnende Zaunzeile den Teil bis an die Grenze füllt, weil put() in src/split.ts für den noch nicht gesetzten Zaun keinen Platz für das angehängte \"\\n```\" reserviert (erstes Beispiel: seed=20261012 index=239, max=600, Teil 0 hat 604 Bytes; Handfall \"fence opener fills the part\" mit max 600: 604 Bytes, mit 16000: 16004 Bytes)" },
   () => {
     for (const c of corpus) {
       for (const [k, part] of run(c).parts.entries()) {
@@ -601,18 +600,13 @@ test(
   },
 );
 
-test("property 1 (pinned): a part is over `max` only by the closer the splitter appended, and never otherwise", () => {
-  let over = 0;
-  for (const c of corpus) {
-    for (const [k, part] of run(c).parts.entries()) {
-      if (bytes(part) <= c.max) continue;
-      over++;
-      const closer = /\n(`{3,}|~{3,})$/.exec(part);
-      if (!closer) fail(c, `part ${k} is ${bytes(part)} bytes, over ${c.max}, and does not end with a closer`);
-      if (bytes(part) - bytes(closer[0]) > c.max) fail(c, `part ${k} is over ${c.max} even without its closer (${bytes(part)} bytes)`);
-    }
+test("property 1 (regression): the fence opener that fills a part leaves room for its closer", () => {
+  for (const name of ["fence opener fills the part", "fence opener fills the part (real limit)"]) {
+    const c = corpus.find((x) => x.index === `hand:${name}`)!;
+    const { parts } = run(c);
+    assert.ok(parts.length > 1, name);
+    for (const part of parts) assert.ok(bytes(part) <= c.max, `${name}: ${bytes(part)} > ${c.max}`);
   }
-  assert.ok(over >= 1, "the corpus reaches the overshoot (the hand cases \"fence opener fills the part\")");
 });
 
 test("property 1: the default limit is MATRIX_MAX_BODY_BYTES", () => {
@@ -701,7 +695,6 @@ test("property 3a: no surrogate pair is split (every part is well-formed UTF-16,
 // the torn cluster. A CR directly before the removed LF is not counted (see the header).
 test(
   "property 3b: every part boundary falls on a grapheme boundary of the original (Intl.Segmenter)",
-  { todo: "KNOWN GAP: channels-matrix splitMessage: erwartet Schnitte nur an Graphem-Grenzen (ZWJ-Sequenzen, Flaggen, Hautton und kombinierende Zeichen bleiben ganz), tatsächlich schneidet der harte Schnitt hardSplit() in src/split.ts auf Codepoint-Grenzen mitten durch solche Cluster; nur Surrogatpaare sind geschützt (erstes Beispiel: seed=20261012 index=2, Flagge England U+1F3F4 + Tag-Zeichen zwischen Teil 11 und 12; Handfall \"ZWJ family straddling the flush boundary\" trennt die Familie hinter dem zweiten Emoji)" },
   () => {
     for (const c of corpus) {
       const r = run(c);
@@ -755,7 +748,6 @@ test("property 4a: fenced blocks are closed and reopened across parts and every 
 // KNOWN GAP (i): put(piece, newline = false) appends a hard-split continuation straight onto the reopened fence line.
 test(
   "property 4b: the reopened fence line is a line of its own, also when a hard-split code line continues across the boundary",
-  { todo: "KNOWN GAP: channels-matrix splitMessage: erwartet, dass die wieder geöffnete Zaunzeile (\"```ts\") allein in ihrer Zeile steht, tatsächlich klebt put() in src/split.ts bei einer überlangen Codezeile die Fortsetzung direkt an die Zaunzeile (\"```tsaaaa…\"), der Code landet im Info-String (erstes Beispiel: seed=20261012 index=2, Teil 4 beginnt mit \"   ```md1️⃣1️⃣…\"; Handfall \"fence: hard-split code line\")" },
   () => {
     for (const c of corpus) {
       const glued = run(c).analysis.issues.find((i) => i.kind === "glued-reopen");
@@ -767,7 +759,6 @@ test(
 // KNOWN GAP (ii): FENCE_OPEN is /^ {0,3}(`{3,}|~{3,})(.*)$/ and `.` does not match "\r", so "```ts\r" is not an opening line.
 test(
   "property 4c: fences in CRLF text are closed and reopened like fences in LF text",
-  { todo: "KNOWN GAP: channels-matrix splitMessage: erwartet, dass ein Zaun in CRLF-Text über Teile hinweg geschlossen und wieder geöffnet wird, tatsächlich erkennt FENCE_OPEN in src/split.ts \"```ts\\r\" nicht (`.` trifft kein \"\\r\"), es wird nichts geschlossen und nichts wieder geöffnet (erstes Beispiel: seed=20261012 index=1, max=512, Teil 1 endet im Zaun \" ~~~~sh -e\\r\" ohne Schlusszaun; Handfall \"crlf fence across parts\")" },
   () => {
     for (const c of corpus) {
       const crlf = run(c).analysis.issues.find((i) => i.kind === "crlf-fence-ignored");
@@ -780,7 +771,6 @@ test(
 // reopens nothing; with a closing line longer than "\n" + marker it can be the line that does not fit.
 test(
   "property 4d: a closing fence line that does not fit does not leave the left part unclosed",
-  { todo: "KNOWN GAP: channels-matrix splitMessage: erwartet, dass der Teil vor einer zu langen Schlusszeile geschlossen wird, tatsächlich leert split.ts `fence` vor dem Platzieren der Schlusszeile; läuft sie über (Leerzeichen hinter dem Zaun, längerer Marker), bleibt der linke Teil offen und der rechte beginnt mit der Schlusszeile, die dort einen neuen Zaun öffnet (erstes Beispiel: seed=20261012 index=259, max=513, Teil 9 endet im Zaun \"````ts\" ohne Schlusszaun, die nächste Zeile ist vier Backticks plus 35 Leerzeichen; Handfall \"fence: closing line longer than the closer\")" },
   () => {
     for (const c of corpus) {
       const overflow = run(c).analysis.issues.find((i) => i.kind === "closing-line-overflow");

@@ -1,5 +1,5 @@
 // Recurring Tasks (#/recurring): the job list (jobs.list), the run history (jobs.history) and "Run now" (jobs.run) behind a
-// confirmation dialog. Creating and editing jobs has no RPC; that stays a documented gap and is only checked to be absent.
+// confirmation dialog. User-job management is covered separately; missing manageable targets keep write controls absent.
 //
 // What the contract offers, and what these tests therefore cover:
 //  - jobs.list items carry name, kind, schedule and nextRunAt, no outcome. The list shows no result column, so the different
@@ -196,15 +196,15 @@ describe("Recurring Tasks: job list", opts, () => {
     });
   });
 
-  test("an empty list shows the empty state; the gap note stays and nothing offers to create or edit a job", async () => {
+  test("an empty legacy list shows the empty state; without manageable targets no write controls appear", async () => {
     await withApp({}, async (app) => {
       seed(app, { jobs: [] });
       await openRoute(app.page, "#/recurring");
       const empty = app.page.locator(".page-state[data-state=empty]");
       await empty.getByRole("heading", { name: "No scheduled jobs configured." }).waitFor();
       assert.equal(await app.page.locator(".recurring-table").count(), 0);
-      const note = app.page.getByRole("note");
-      assert.match((await note.textContent()) ?? "", /docs\/web-ui\.md/);
+      assert.equal(await app.page.locator(".recurring-gap-notice").count(), 0);
+      await app.page.getByText("No personal recurring tasks.", { exact: true }).waitFor();
       assert.equal(await app.page.getByRole("main").getByRole("button", { name: /create|new|add|edit|schedule|anlegen|neu|bearbeiten/i }).count(), 0);
       assert.equal(await triggers(app.page).count(), 0);
       assert.deepEqual(app.problems, []);
@@ -275,8 +275,8 @@ describe("Recurring Tasks: run history", opts, () => {
       assert.equal(history.length, 1);
       assert.deepEqual(history[0]!.params, { limit: 50 });
       assertParamsFit("jobs.history", history[0]!.params);
-      // jobs.history takes agentId, job, since and limit. If a cursor or offset appears, this test is the reminder to add paging.
-      assert.deepEqual(Object.keys(METHODS["jobs.history"]!.params.properties ?? {}).sort(), ["agentId", "job", "limit", "since"]);
+      // User jobs add an explicit kind filter. Cursor/offset still require a deliberate paging design.
+      assert.deepEqual(Object.keys(METHODS["jobs.history"]!.params.properties ?? {}).sort(), ["agentId", "job", "kind", "limit", "since"]);
       assert.equal(await app.page.getByRole("button", { name: /more|older|next|page|weitere|ältere|nächste|seite/i }).count(), 0);
     });
   });

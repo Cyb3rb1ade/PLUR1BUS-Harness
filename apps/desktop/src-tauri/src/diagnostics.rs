@@ -66,7 +66,8 @@ impl Diagnostics {
         if let Some(ticker) = self.ticker.take() {
             ticker.abort();
         }
-        self.writer.tick()
+        self.writer.tick()?;
+        self.crash.end_session()
     }
 }
 pub fn start(app: &tauri::AppHandle) -> Result<(), &'static str> {
@@ -91,6 +92,10 @@ pub fn start(app: &tauri::AppHandle) -> Result<(), &'static str> {
     let target = format!("{}-{}", std::env::consts::ARCH, std::env::consts::OS);
     let mut diagnostics =
         Diagnostics::open(&directory, &home, &target).map_err(|_| "DIAGNOSTIC_START_FAILED")?;
+    diagnostics
+        .crash
+        .begin_session()
+        .map_err(|_| "CRASH_MARKER_FAILED")?;
     #[cfg(debug_assertions)]
     let install_hook = std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR").is_none();
     #[cfg(not(debug_assertions))]
@@ -138,5 +143,16 @@ pub async fn shutdown_owned(diagnostics: Diagnostics) -> std::result::Result<(),
         Ok(Ok(Ok(()))) => Ok(()),
         Ok(_) => Err("DIAGNOSTIC_SHUTDOWN_FAILED"),
         Err(_) => Err("DIAGNOSTIC_SHUTDOWN_TIMEOUT"),
+    }
+}
+
+/// An orderly native exit (including the updater restart) is not a crash.
+pub fn end_session(app: &tauri::AppHandle) {
+    if let Some(state) = app.try_state::<crate::native::NativeState>() {
+        if let Ok(diagnostics) = state.diagnostics.try_lock() {
+            if let Some(diagnostics) = diagnostics.as_ref() {
+                let _ = diagnostics.crash.end_session();
+            }
+        }
     }
 }

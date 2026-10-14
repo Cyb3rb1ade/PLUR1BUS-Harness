@@ -1,5 +1,13 @@
 // doctor area catalogue (see ./index.ts): the Doctor / status page.
 export const en = {
+  "doctor.report.title": "Live provisioning report",
+  "doctor.report.unavailable": "The live provisioning report is unavailable.",
+  "doctor.report.refresh": "Refresh provisioning",
+  "doctor.report.refreshFailed": "Refresh failed or was requested within 30 seconds.",
+  "doctor.report.status.ok": "OK",
+  "doctor.report.status.warn": "Warning",
+  "doctor.report.status.fail": "Failed",
+  "doctor.report.status.skipped": "Skipped",
   "doctor.lead": "Health of the API and the core, and the result of the first-aid check.",
   "doctor.recheck": "Re-check",
   "doctor.checking": "Checking…",
@@ -107,6 +115,14 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "doctor.report.title": "Aktueller Provisioning-Bericht",
+  "doctor.report.unavailable": "Der aktuelle Provisioning-Bericht ist nicht verfügbar.",
+  "doctor.report.refresh": "Provisioning erneut prüfen",
+  "doctor.report.refreshFailed": "Prüfung fehlgeschlagen oder innerhalb von 30 Sekunden erneut angefordert.",
+  "doctor.report.status.ok": "OK",
+  "doctor.report.status.warn": "Warnung",
+  "doctor.report.status.fail": "Fehlgeschlagen",
+  "doctor.report.status.skipped": "Übersprungen",
   "doctor.lead": "Zustand von API und Core sowie das Ergebnis der Erste-Hilfe-Prüfung.",
   "doctor.recheck": "Erneut prüfen",
   "doctor.checking": "Prüfe …",

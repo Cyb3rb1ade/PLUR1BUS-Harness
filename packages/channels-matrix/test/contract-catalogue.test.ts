@@ -201,10 +201,6 @@ test("e) transient 503 and 429 on /sync do not call host.fail; the loop backs of
 // This expectation mirrors the Telegram catalogue's gap. The sync loop never clears #healthy for a transport failure.
 test(
   "f) health is not ok after the connection is lost",
-  {
-    todo:
-      "KNOWN GAP: channels-matrix MatrixChannel.health: erwartet ok=false nach Verbindungsverlust, tatsächlich ok=true (#healthy wird im Sync-Loop nur bei 401 zurückgesetzt, channel.ts:470)",
-  },
   async () => {
     await withHarness({}, async (h) => {
       h.setHoldSleeps(true);

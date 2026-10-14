@@ -1,3 +1,4 @@
+import { privacyAcknowledgmentError, type PrivacyAcknowledgment } from "@plur1bus/config-schema";
 import type { CallBudget } from "../../budget/index.ts";
 import type { ChatRequest as WireRequest, Usage } from "../../../../providers/src/index.ts";
 import { mediaError } from "../errors.ts";
@@ -21,6 +22,8 @@ export interface CloudCaptionOptions {
   budget: CallBudget | null;
   /** D109 policy: resolves when the capability is allowed, throws otherwise. Runs before budget and request. */
   decide: () => Promise<void>;
+  /** Current function-specific acknowledgment and existing runtime pin; absent means no consent. */
+  privacy?: () => { ack?: PrivacyAcknowledgment; pinned?: boolean; endpoint?: string };
   /** Budget identity of the caller (system job for backfill, the user for uploads). */
   principal: string;
   agent: string;
@@ -36,8 +39,15 @@ const b64 = (bytes: Uint8Array) => Buffer.from(bytes.buffer, bytes.byteOffset, b
 
 export function createCloudCaptionProvider(o: CloudCaptionOptions): CaptionProvider {
   const maxOut = o.maxOutputTokens ?? 120;
+  const checkPrivacy = (): void => {
+    const current = o.privacy?.();
+    const failure = privacyAcknowledgmentError({ function: "caption", provider: o.id, local: false, ack: current?.ack, ...(current?.pinned !== undefined ? { pinned: current.pinned } : {}), ...(current?.endpoint !== undefined ? { endpoint: current.endpoint } : {}) });
+    if (failure) throw mediaError("E_MEDIA_PRIVACY", "Captioning privacy acknowledgment required", { reason: failure.reason });
+  };
   const captionImage = async (image: Uint8Array, mime: string, signal?: AbortSignal): Promise<string> => {
+    checkPrivacy();
     await o.decide();
+    checkPrivacy();
     if (!o.budget) throw mediaError("E_MEDIA_UNAVAILABLE", "budget unavailable for cloud captions", { reason: "budget" });
     const admitted = o.budget.checkBeforeCall({ principal: o.principal, agent: o.agent, project: "media-caption", model: o.model, provider: o.id, estimatedInputTokens: o.estimatedImageTokens ?? 1500, maxOutputTokens: maxOut });
     if (admitted.kind === "refuse") throw mediaError("E_MEDIA_UNAVAILABLE", "caption budget exceeded", { reason: "budget" });
