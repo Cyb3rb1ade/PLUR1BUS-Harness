@@ -674,8 +674,8 @@ export function createCore(o: CoreOptions): Core {
         // Every connection that passed `core.auth` holds `run/core.token`, which only this OS user can read: it is the
         // owner. There is no weaker caller on this socket today; per-connection principals arrive with M3's users and
         // D109's surface trust, and this is the one place they plug in. The store refuses anything but `owner`.
-        secrets: { store: secretStore, principalOf: async ctx => {
-          const p = await resolvePrincipal(ctx, "secret.status", {});
+        secrets: { store: secretStore, principalOf: async (ctx, method, params) => {
+          const p = await resolvePrincipal(ctx, method, params);
           return p?.kind === "person" && p.role === "owner" ? { kind: "owner", id: p.userId } : { kind: "agent" };
         } },
         permissions: {
@@ -706,7 +706,8 @@ export function createCore(o: CoreOptions): Core {
       rawMethods["agent.list"] = async (p, ctx) => { const r = await listAgents!(p,ctx) as { agents: { agentId: string }[] }; return { ...r, agents: r.agents.filter(a => !lifecycle.state(a.agentId).deleted).map(a => ({ ...a, lifecycle: lifecycle.state(a.agentId) })) }; };
       rawMethods["agent.status"] = async (p, ctx) => { if (lifecycle.state(p.agentId).deleted) throw new RpcError("E_NOT_FOUND", "agent not found"); return { ...await agentStatus!(p,ctx) as object, lifecycle: lifecycle.state(p.agentId) }; };
       Object.assign(rawMethods, breakglassMemory({ methods: rawMethods, engine: eng, identity: identityService, breakglass, workspace: id => registry.workspaceOf(id) }));
-      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock }));
+      let initialDoctorCheck: (() => Promise<unknown>) | undefined;
+      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, scheduleInitial: start => { initialDoctorCheck = start; } }));
       const methods = guardMethods(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.store.getSession(id)?.agentId), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: AGENT_CREATION_RULES });
       server = createRpcServer({
         address, token, personOfConnection: async connectionId => { const p = await resolvePrincipal({ requestId: "audience", connectionId, signal: shutdown.signal }, "events.subscribe", {}); return p?.kind === "person" ? p.userId : null; }, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
@@ -743,6 +744,7 @@ export function createCore(o: CoreOptions): Core {
         if (o.dreams?.scheduler ?? o.testInternals === undefined) void dreams.start().catch((err) => logger?.error("dreaming scheduler failed to start", { err }));
       } catch (err) { dreams = null; dreamsError = String((err as Error)?.message ?? err).slice(0, 300); logger.error("dreaming scheduler unavailable", { err }); }
       logger.info("core ready", { instanceId, address, supervised: o.lifeline !== undefined });
+      void initialDoctorCheck?.().catch(() => {});
       // Spec §6.3: the models load in the background, after `ready` (B8 measures the socket, not the models).
       recallWarmPending = true;
       warmup = startWarmup({

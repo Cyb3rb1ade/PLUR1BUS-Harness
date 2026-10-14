@@ -86,11 +86,12 @@ export function createSecretStore(o: SecretStoreOptions) {
       let secrets: SecretMeta[] | undefined;
       if (s.backend) {
         try {
-          const names = new Map<string, SecretMeta>();
-          for (const b of [s.backend, s.other]) if (b) for (const meta of await b.list()) if (!names.has(meta.name)) names.set(meta.name, meta);
+          const primary = await s.backend.list();
+          count = primary.length;
+          const names = new Map(primary.map(meta => [meta.name, meta]));
+          if (s.other) for (const meta of await s.other.list()) if (!names.has(meta.name)) names.set(meta.name, meta);
           secrets = [...names.values()].sort((a, b) => a.name.localeCompare(b.name));
-          count = secrets.length;
-        } catch { count = null; }
+        } catch { secrets = undefined; }
       }
       return {
         backend: s.kind, degraded: s.kind !== "keyring",

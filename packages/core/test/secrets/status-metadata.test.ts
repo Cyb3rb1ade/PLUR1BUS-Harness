@@ -51,3 +51,22 @@ it("status projects only known metadata fields from a backend", async () => {
   const store = createSecretStore({ keyring: backend, file: createMemoryBackend({ available: false }), fileFallback: () => false, audit: { record() {} } });
   assert.deepEqual((await store.status({ kind: "owner" })).secrets, [{ name: "example", backend: "memory", updatedBy: "person-alice" }]);
 });
+
+it("metadata covers fallback entries without changing the selected-backend count contract", async () => {
+  const keyring = createMemoryBackend(), file = createMemoryBackend();
+  await keyring.put("primary", "fixture", new Date(1000));
+  await file.put("fallback", "fixture", new Date(1000));
+  const store = createSecretStore({ keyring, file, fileFallback: () => true, audit: { record() {} } });
+  const status = await store.status({ kind: "owner" });
+  assert.equal(status.count, 1);
+  assert.deepEqual(status.secrets?.map(m => m.name), ["fallback", "primary"]);
+});
+
+it("RPC resolves the writer using the actual secret method", async () => {
+  const { buildSecretMethods } = await import("../../src/secrets/rpc.ts");
+  const backend = createMemoryBackend();
+  const store = createSecretStore({ keyring: backend, file: createMemoryBackend({ available: false }), fileFallback: () => false, audit: { record() {} } });
+  const methods = buildSecretMethods({ store, principalOf: (_ctx, method) => ({ kind: "owner", id: method === "secret.set" ? "person-writer" : "person-reader" }) });
+  const result = await methods["secret.set"]({ name: "example", value: "fixture" }, { requestId: "request", connectionId: "connection", signal: new AbortController().signal }) as { updatedBy?: string };
+  assert.equal(result.updatedBy, "person-writer");
+});
