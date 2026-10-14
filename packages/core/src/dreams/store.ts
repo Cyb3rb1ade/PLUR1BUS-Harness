@@ -2,6 +2,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
+import { RpcError } from "../rpc/errors.ts";
 import type { BreakerState, CandidateRow, CandidateState, DreamRun, Outcome, Phase, RunCounts, ScheduleRow, Trigger } from "./types.ts";
 
 /** Forward-only. Step N takes the database from user_version N-1 to N; a store from a newer build is refused. */
@@ -150,6 +151,9 @@ export class DreamStore {
     this.#run(`UPDATE dream_schedule SET ${keys.map((k) => `${k} = ?`).join(", ")} WHERE agent_id = ? AND phase = ?`, ...keys.map((k) => cols[k]!), agentId, phase);
   }
 
+  /** Deletes the schedule rows of an agent (the ledger and candidates keep their history). Returns how many rows went. */
+  deleteSchedules(agentId: string): number { return this.#run("DELETE FROM dream_schedule WHERE agent_id = ?", agentId); }
+
   /** One capture seen for the agent: advances the digest sequence and both accumulators on all three phase rows. */
   recordCapture(agentId: string, importance: number, now: number): void {
     this.#run(
@@ -200,10 +204,17 @@ export class DreamStore {
       const hash = key.indexOf("#");
       const base = hash < 0 ? key : key.slice(0, hash);
       const stored = f.outcome === "completed" ? base : `${base}#${f.outcome}:${runId}`;
-      this.#run(
-        "UPDATE dream_run SET outcome = ?, reason = ?, finished_at = ?, counts_json = ?, tokens_in = ?, tokens_out = ?, cost_micros = ?, error_json = ?, idempotency_key = ? WHERE run_id = ?",
-        f.outcome, f.reason, f.finishedAt, JSON.stringify(f.counts), f.tokensIn ?? null, f.tokensOut ?? null, f.costMicros ?? null, f.error ? JSON.stringify(f.error) : null, stored, runId,
-      );
+      try {
+        this.#run(
+          "UPDATE dream_run SET outcome = ?, reason = ?, finished_at = ?, counts_json = ?, tokens_in = ?, tokens_out = ?, cost_micros = ?, error_json = ?, idempotency_key = ? WHERE run_id = ?",
+          f.outcome, f.reason, f.finishedAt, JSON.stringify(f.counts), f.tokensIn ?? null, f.tokensOut ?? null, f.costMicros ?? null, f.error ? JSON.stringify(f.error) : null, stored, runId,
+        );
+      } catch (e) {
+        // A completed close that never claimed its key, while another completed run holds it: the defined conflict, not SQLite's text.
+        if (!/UNIQUE/i.test(String((e as Error).message))) throw e;
+        const holder = this.keyHolder(stored);
+        throw new RpcError("E_CONFLICT", `dream run ${runId} cannot be closed as completed: its idempotency key is already held by ${holder !== null ? `run ${holder}` : "another completed run"}`, { reason: "idempotent" });
+      }
     });
   }
 
@@ -216,6 +227,11 @@ export class DreamStore {
     if (q.since !== undefined) { where.push("started_at >= ?"); params.push(q.since); }
     params.push(q.limit ?? 50);
     return this.#all(`SELECT * FROM dream_run ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY started_at DESC, rowid DESC LIMIT ?`, ...params).map(DreamStore.#toRun);
+  }
+
+  /** Every run (any outcome) of one agent and phase that was scheduled for the instant `scheduledFor`: the retry cap counts them. */
+  windowRuns(agentId: string, phase: Phase, scheduledFor: number): DreamRun[] {
+    return this.#all("SELECT * FROM dream_run WHERE agent_id = ? AND phase = ? AND scheduled_for = ? ORDER BY started_at, rowid", agentId, phase, scheduledFor).map(DreamStore.#toRun);
   }
 
   lastRun(agentId: string, phase: Phase): DreamRun | undefined {

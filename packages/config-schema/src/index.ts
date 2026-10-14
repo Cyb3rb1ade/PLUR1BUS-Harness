@@ -204,8 +204,13 @@ export function validate(value: unknown): { ok: true; config: HarnessConfig } | 
     }
     return { ok: true, config: cfg };
   }
-  return { ok: false, errors: (validateFn.errors ?? []).map((e) => `${e.instancePath || "/"} ${e.message ?? ""}${e.params && "additionalProperty" in e.params ? ` (${(e.params as any).additionalProperty})` : ""}`.trim()) };
+  // allErrors collects every violation: bound the list so a hostile or broken file cannot produce a megabyte message.
+  const all = (validateFn.errors ?? []).map((e) => `${e.instancePath || "/"} ${e.message ?? ""}${e.params && "additionalProperty" in e.params ? ` (${(e.params as any).additionalProperty})` : ""}`.trim());
+  const errors = all.slice(0, MAX_ERRORS);
+  if (all.length > MAX_ERRORS) errors.push(`... and ${all.length - MAX_ERRORS} more`);
+  return { ok: false, errors };
 }
+const MAX_ERRORS = 50;
 
 /** Nearest ancestor declaring `x-restart` wins; `$key` in it is the key segment that matched that
  * node (`modules.fixture.greeting` → `module:fixture`, B13). */

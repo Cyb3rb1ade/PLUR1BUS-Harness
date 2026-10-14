@@ -103,7 +103,7 @@ A second run finds nothing to remove, prints `nothing to remove` and exits 0 (al
   binary lies inside the home and you `--purge`, the whole home is removed by that script. Paths with spaces are quoted
   and `%` is escaped. Task Scheduler cannot stop the core gracefully, so the daemon is stopped through the supervisor
   first, then the task is removed.
-- **Container mode** (`PLUR1BUS_CONTAINER=1`): refused with `E_NOT_AVAILABLE reason=container-managed`, exit 1. The
+- **Container mode** (`PLUR1BUS_CONTAINER=1`): refused with `E_NOT_AVAILABLE reason=container-managed`, exit 2. The
   image, not the CLI, owns the installation.
 
 ## Exit codes

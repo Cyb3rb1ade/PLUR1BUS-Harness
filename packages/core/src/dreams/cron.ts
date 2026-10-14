@@ -12,7 +12,8 @@ const RANGES: [string, number, number][] = [["minute", 0, 59], ["hour", 0, 23], 
 
 function parseField(src: string, name: string, lo: number, hi: number): { values: number[]; restricted: boolean } {
   const out = new Set<number>();
-  let restricted = true;
+  // Vixie: a field whose first character is `*` is unrestricted for the day rule, whatever follows (`*/2` included).
+  const restricted = !src.startsWith("*");
   for (const part of src.split(",")) {
     const [rangeSrc, stepSrc, extra] = part.split("/");
     if (rangeSrc === undefined || rangeSrc === "" || extra !== undefined) throw new Error(`invalid cron ${name} field: ${src}`);
@@ -24,7 +25,6 @@ function parseField(src: string, name: string, lo: number, hi: number): { values
     let from: number; let to: number;
     if (rangeSrc === "*") {
       from = lo; to = hi;
-      if (stepSrc === undefined && src === "*") restricted = false;
     } else {
       const m = /^(\d+)(?:-(\d+))?$/.exec(rangeSrc);
       if (!m) throw new Error(`invalid cron ${name} field: ${src}`);
@@ -84,6 +84,9 @@ function wallToUtc(w: Wall, tz: string): number | null {
   return best;
 }
 
+/** Vixie's day rule: OR when both day fields are restricted (do not start with `*`), AND otherwise. */
+const dayMatches = (c: ParsedCron, domOk: boolean, dowOk: boolean): boolean => (c.domRestricted && c.dowRestricted ? domOk || dowOk : domOk && dowOk);
+
 /** The first firing strictly after `fromMs`, or null when the expression can never fire (e.g. 31 February). */
 export function nextAfter(c: ParsedCron, tz: string, fromMs: number): number | null {
   const start = wallOf(fromMs, tz);
@@ -92,8 +95,7 @@ export function nextAfter(c: ParsedCron, tz: string, fromMs: number): number | n
     const y = cursor.getUTCFullYear(), mo = cursor.getUTCMonth() + 1, d = cursor.getUTCDate(), dow = cursor.getUTCDay();
     if (!c.months.includes(mo)) continue;
     const domOk = c.doms.includes(d), dowOk = c.dows.includes(dow);
-    const dayOk = c.domRestricted && c.dowRestricted ? domOk || dowOk : c.domRestricted ? domOk : c.dowRestricted ? dowOk : true;
-    if (!dayOk) continue;
+    if (!dayMatches(c, domOk, dowOk)) continue;
     for (const h of c.hours) for (const mi of c.minutes) {
       const t = wallToUtc({ y, mo, d, h, mi }, tz);
       if (t !== null && t > fromMs) return t;

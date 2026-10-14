@@ -1,6 +1,6 @@
-import { restartPlan, validate, type HarnessConfig } from "@plur1bus/config-schema";
+import { restartPlan, type HarnessConfig } from "@plur1bus/config-schema";
 import { watchSupervisorConfig, type ConfigWatch } from "@plur1bus/module-api";
-import { loadConfig, readConfigFile } from "./config-load.ts";
+import { loadConfig, readConfigFile, validateConfig } from "./config-load.ts";
 import type { HarnessLogger } from "./logger.ts";
 import type { Layout } from "./paths.ts";
 
@@ -41,11 +41,17 @@ export interface ConfigSourceOptions {
 /** The leaves of `patch` as `config.set` changes under `prefix`; arrays and non-objects are leaves. */
 export function flattenPatch(prefix: string, patch: Record<string, unknown>): { key: string; value: unknown }[] {
   const out: { key: string; value: unknown }[] = [];
-  const walk = (path: string, v: unknown) => {
-    if (v !== null && typeof v === "object" && !Array.isArray(v)) { for (const [k, x] of Object.entries(v)) walk(`${path}.${k}`, x); return; }
+  const walk = (path: string, v: unknown, depth: number) => {
+    if (depth > 32) throw new Error(`configuration patch under ${prefix} is nested too deeply (or cyclic)`);
+    if (v !== null && typeof v === "object" && !Array.isArray(v)) { for (const [k, x] of Object.entries(v)) walk(`${path}.${segment(k)}`, x, depth + 1); return; }
     out.push({ key: path, value: v });
   };
-  for (const [k, v] of Object.entries(patch)) walk(`${prefix}.${k}`, v);
+  // A key with a dot would address a different path than the one written; `__proto__` is never a configuration key.
+  const segment = (k: string): string => {
+    if (k === "" || k.includes(".") || k === "__proto__") throw new Error(`configuration patch key ${JSON.stringify(k.slice(0, 40))} is not a valid key`);
+    return k;
+  };
+  for (const [k, v] of Object.entries(patch)) walk(`${prefix}.${segment(k)}`, v, 0);
   return out;
 }
 
@@ -61,7 +67,7 @@ export async function openConfigSource(o: ConfigSourceOptions): Promise<ConfigSo
 
   /** A supervisor snapshot or push, or null (logged) when it fails the schema. */
   const accept = (config: Record<string, unknown>, rev: string, what: string): HarnessConfig | null => {
-    const r = validate(config);
+    const r = validateConfig(config);
     if (r.ok) return r.config;
     log?.warn(`${what} is invalid; ignored`, { revision: rev, errors: r.errors });
     return null;

@@ -3,10 +3,11 @@
 // "CLI-Exit-Codes" section of docs/errors.md. Pure text analysis, no Rust toolchain needed.
 //
 // Sources recognised (see crates/plur1bus/src/output.rs):
-//   <x>.fail(code, message, extra, EXIT)   Out::fail, the exit code is the last argument
+//   <x>.fail(code, message, extra)         Out::fail, the exit code comes from the code (output::exit_code_for)
+//   <x>.fail_exit(code, message, extra, EXIT)   Out::fail_exit, the exit code is the last argument
 //   std::process::exit(N) / output::exit(N) / exit(N)
 //   fail(layout, N, msg)                    supervisor::fail (only in supervisor/)
-//   exit_code_for(..) match arms            RPC error code -> exit code
+//   exit_code_for(..) match arms            error code -> exit code, the one table (crates/plur1bus/src/output.rs)
 //   const EXIT_*: i32 = N                   named exit constants
 //
 // Usage: node scripts/check-cli-exit-codes.mjs [--check] [--list] [--json]
@@ -123,7 +124,7 @@ const intOf = (s) => (/^-?\d+$/.test(s) ? Number(s) : null)
  * Entry: { file, line, kind, context, code (number|null), key, expr }.
  * `code === null` means the exit value is not a literal (see `expr`).
  */
-export function extract(rawSrc, file = '<memory>', knownConsts = {}) {
+export function extract(rawSrc, file = '<memory>', knownConsts = {}, table = {}) {
   const src = stripComments(rawSrc)
   const inString = stringMask(src)
   const found = []
@@ -140,7 +141,7 @@ export function extract(rawSrc, file = '<memory>', knownConsts = {}) {
     return lits.length >= 2 ? [...new Set(lits)] : null
   }
   const resolveExit = (expr) => {
-    const bare = expr.replace(/^(?:super::|crate::supervisor::)+/, '')
+    const bare = expr.replace(/^(?:\w+::)+/, '')
     return intOf(expr) ?? consts[bare] ?? null
   }
   // fn context: nearest preceding `fn name`
@@ -151,14 +152,22 @@ export function extract(rawSrc, file = '<memory>', knownConsts = {}) {
     return name
   }
 
-  // Out::fail: `.fail(code, message, extra, exit)`; the definition `fn fail(&self, ..)` has no leading dot.
-  for (const m of src.matchAll(/\.fail\s*\(/g)) {
+  // Out::fail: `.fail(code, message, extra)`; the exit code is derived from the code by output::exit_code_for.
+  // The definition `fn fail(&self, ..)` has no leading dot. The 4-argument form is Out::fail_exit.
+  for (const m of src.matchAll(/\.fail(_exit)?\s*\(/g)) {
     if (inString[m.index]) continue
     const r = splitArgs(src, m.index + m[0].length - 1)
-    if (!r || r.args.length !== 4) continue
+    if (!r) continue
+    const explicit = Boolean(m[1])
+    if (r.args.length !== (explicit ? 4 : 3)) continue
     const [errCode, , , exit] = r.args
     const key = /^"([^"]*)"$/.exec(errCode)?.[1] ?? `<${errCode.replace(/\s+/g, ' ').slice(0, 40)}>`
-    found.push({ file, line: lineOf(src, m.index), kind: 'Out::fail', context: fnAt(m.index), code: resolveExit(exit), key, expr: exit })
+    const literal = /^"([^"]*)"$/.test(errCode)
+    const derived = literal ? (table[key] ?? table['(any other code)'] ?? null) : null
+    found.push({
+      file, line: lineOf(src, m.index), kind: explicit ? 'Out::fail_exit' : 'Out::fail', context: fnAt(m.index),
+      code: explicit ? resolveExit(exit) : derived, key, expr: explicit ? exit : `exit_code_for(${key})`,
+    })
   }
 
   // process::exit(N) / output::exit(N) / bare exit(N) (not method calls, not definitions)
@@ -206,11 +215,6 @@ export function extract(rawSrc, file = '<memory>', knownConsts = {}) {
     }
   }
 
-  // `=> ("E_X", N)` tuples (BackupError::code): the pair feeds Out::fail's code and exit arguments
-  for (const m of src.matchAll(/=>\s*\(\s*"(E_[A-Z0-9_]+)"\s*,\s*(\d+)\s*\)/g)) {
-    if (inString[m.index]) continue
-    found.push({ file, line: lineOf(src, m.index), kind: 'code-map', context: fnAt(m.index), code: Number(m[2]), key: m[1], expr: m[2] })
-  }
   return found
 }
 
@@ -251,7 +255,12 @@ export function extractAll(srcDir = SRC) {
   for (const [, src] of files) {
     for (const m of src.matchAll(/\bconst\s+(EXIT_[A-Z0-9_]+)\s*:\s*i32\s*=\s*(\d+)\s*;/g)) consts[m[1]] = Number(m[2])
   }
-  return files.flatMap(([file, src]) => extract(src, file, consts))
+  // The code -> exit table: the arms of `exit_code_for`, found in any file (there is one).
+  const table = {}
+  for (const [file, src] of files) {
+    for (const f of extract(src, file, consts)) if (f.kind === 'exit_code_for') table[f.key] = f.code
+  }
+  return files.flatMap(([file, src]) => extract(src, file, consts, table))
 }
 
 /** Exit codes named in the first column of the table under `## CLI-Exit-Codes`. Accepts `3`, `1..255`, `1, 2` and `130`. */

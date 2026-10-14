@@ -286,8 +286,6 @@ struct Gen<'a> {
     schema: &'a Schema,
     rng: &'a mut Rng,
     optionals: Optionals,
-    /// Generate properties named `format`: the generated types do not have them (see `properties_named_format_survive`).
-    format_properties: bool,
 }
 
 impl Gen<'_> {
@@ -368,10 +366,6 @@ impl Gen<'_> {
             .map(|a| a.iter().filter_map(Value::as_str).collect())
             .unwrap_or_default();
         for (k, sub) in props {
-            // A property named `format` that the schema does not require is not in the generated types.
-            if k == "format" && !self.format_properties && !required.contains("format") {
-                continue;
-            }
             let include = required.contains(k.as_str())
                 || (depth < 10
                     && match self.optionals {
@@ -401,9 +395,7 @@ impl Gen<'_> {
             if out.len() >= min {
                 break;
             }
-            if !out.contains_key(k)
-                && (k != "format" || self.format_properties || required.contains("format"))
-            {
+            if !out.contains_key(k) {
                 out.insert(k.clone(), self.gen(sub, depth + 1));
             }
         }
@@ -547,18 +539,14 @@ fn generate(schema: &Schema, node: &Value, optionals: Optionals, rng: &mut Rng) 
         schema,
         rng,
         optionals,
-        format_properties: false,
     }
     .gen(node, 0)
 }
 
-/// KNOWN GAP (plur1bus-rpc `build.rs`): `rewrite_refs` removes the JSON Schema keyword `format` with `m.remove("format")` from every
-/// object it visits, which includes a `properties` map, so a *property* named `format` is dropped from the generated types too. It
-/// affects `media.generate` and `media.edit` (`request.format`: png, jpeg or webp): a typed `MediaGenerateParams` refuses a request
-/// that sets `format` (the struct is closed and has no such field). In `agent.export` (`bundle.format`, `bundle.manifest.format`) the
-/// property is `required`, so typify still makes a field for it, but typed as `serde_json::Value` (any value is accepted).
+/// `build.rs` strips the JSON Schema *keyword* `format` (uuid, date-time stay plain strings in Rust), but a *property* named
+/// `format` is kept: `media.generate` and `media.edit` (`request.format`: png, jpeg or webp) and `agent.export` (`bundle.format`,
+/// `bundle.manifest.format`, a pinned value). Until 2026-10 the keyword removal took the property with it (#405).
 #[test]
-#[ignore = "KNOWN GAP: build.rs strips properties named `format` (media.generate/edit request.format, agent.export bundle.format)"]
 fn properties_named_format_survive() {
     let schema = Schema::load();
     let mut failures = Vec::new();
@@ -568,7 +556,6 @@ fn properties_named_format_survive() {
             schema: &schema,
             rng: &mut Rng::for_case(&[e.name, e.type_name, "format"]),
             optionals: Optionals::All,
-            format_properties: true,
         }
         .gen(e.node(&schema), 0);
         if !x.to_string().contains("\"format\"") {
@@ -598,8 +585,8 @@ fn properties_named_format_survive() {
 ///   `memory.recall`'s `joined: false`, `memory.capture`'s `wait: true`, `waitMs: 60000`: the value the core assumes anyway);
 /// - an optional property that is `null`, or an empty array or object, is left out (an optional field is absent, not `null`; typify
 ///   writes a `None` as nothing and some empty `Vec`s and maps as nothing too). A required nullable property keeps its `null`.
-///   Where an empty or `null` value and a missing one mean different things (`project.card.update`'s `labels`, `dueAt`) see
-///   `explicit_null_and_empty_survive_for_optional_params`.
+///   In params an explicit `null` or `[]` is kept (`explicit_null_and_empty_survive_for_optional_params`); this form treats it
+///   like a missing key so that one comparison serves params, results and notifications.
 fn canonical(schema: &Schema, node: &Value, x: &Value) -> Value {
     let (node, _) = schema.resolve(node);
     // `oneOf`/`anyOf`: the variant the value was generated from is the first one it fits (type, required keys, closed objects).
@@ -1252,15 +1239,60 @@ fn a_value_of_the_wrong_json_type_is_refused_at_every_field() {
     report("wrong types", &failures);
 }
 
-/// KNOWN GAP (plur1bus-rpc `build.rs` / typify): a property whose schema is `{ "const": … }` without a `type`, or an `enum` with
-/// one value (28 consts: `accepted: true`, `ok: true`, `confirm: true`, `provider: "searxng"`, …; the export bundle's `format`) is
-/// generated as `serde_json::Value`, so the Rust type accepts any value there. The core validates both directions against the schema; only this client's typed read is lenient.
+/// A property whose schema is `{ "const": … }` or an `enum` with one value (29 consts: `accepted: true`, `ok: true`,
+/// `confirm: true`, `open: false`, `provider: "searxng"`, `v: 1`, …; the export bundle's `format`) is typed so that it accepts
+/// that value only: a value of another JSON type and another value of the same type are both refused. Until 2026-10 typify made
+/// a `const` a `serde_json::Value` that accepted anything (#405).
 #[test]
-#[ignore = "KNOWN GAP: schema `const` properties are generated as serde_json::Value and accept any JSON value"]
 fn pinned_fields_are_enforced_by_the_types() {
-    let (tried, failures) = wrong_type_failures(true);
+    let (tried, mut failures) = wrong_type_failures(true);
     assert!(tried > 0);
+    let schema = Schema::load();
+    let mut near = 0usize;
+    for e in table() {
+        for (b, x) in bases(&schema, &e, "near-miss").iter().enumerate() {
+            for p in all_points(&schema, &e, x) {
+                let Some(other) = near_miss(&p.schema) else {
+                    continue;
+                };
+                let mut doc = x.clone();
+                set_at(&mut doc, &p.path, other.clone());
+                near += 1;
+                if e.probe.through_value(&doc).is_ok() {
+                    failures.push(format!(
+                        "{} base {b}: accepted {other} where the schema pins {}, path {}",
+                        e.label(),
+                        pinned_value(&p.schema).unwrap(),
+                        path_text(&p.path)
+                    ));
+                }
+            }
+        }
+    }
+    assert!(near >= 29, "only {near} pinned fields were reached");
     report("const fields", &failures);
+}
+
+/// The one value a pinned node allows.
+fn pinned_value(node: &Value) -> Option<&Value> {
+    if !is_pinned(node) {
+        return None;
+    }
+    node.get("const")
+        .or_else(|| node.get("enum").and_then(|e| e.get(0)))
+}
+
+/// A value of the same JSON type as the pinned one, but another value.
+fn near_miss(node: &Value) -> Option<Value> {
+    Some(match pinned_value(node)? {
+        Value::Bool(b) => Value::Bool(!b),
+        Value::String(s) => Value::String(format!("{s}x")),
+        Value::Number(n) => match n.as_i64() {
+            Some(i) => json!(i + 1),
+            None => json!(n.as_f64()? + 1.0),
+        },
+        _ => return None,
+    })
 }
 
 fn path_text(path: &[Seg]) -> String {
@@ -1521,14 +1553,13 @@ fn has_required(schema: &Schema, node: &Value) -> bool {
         || node.get("oneOf").is_some()
 }
 
-/// KNOWN GAP (plur1bus-rpc `build.rs` / typify): an optional property whose schema allows `null` becomes `Option<T>`, and `None`
-/// is not written; an optional array or free-form map becomes a `Vec`/`HashMap` that is not written when empty. In an update the
-/// core reads an explicit `null` or `[]` as "clear the value" and a missing key as "leave it" (`packages/core/src/collab/board.ts`:
-/// `patch.dueAt !== undefined`, `patch.labels !== undefined`), so the typed params of `project.card.update` (`dueAt`, `labels`,
-/// `assignees`, `links`) and `project.column.update` (`wipLimit`) cannot express a clear. The CLI builds its params as plain JSON
-/// and is not affected.
+/// In an update the core reads an explicit `null` or `[]` as "clear the value" and a missing key as "leave it"
+/// (`packages/core/src/collab/board.ts`: `patch.dueAt !== undefined`, `patch.labels !== undefined`). So in every params type an
+/// optional property whose schema allows `null`, or that is an array, keeps all three states through the typed round trip:
+/// missing stays missing, `null` stays `null`, `[]` stays `[]` (`project.card.update`'s `dueAt`, `labels`, `links`,
+/// `project.column.update`'s `wipLimit`, `budget.set`'s `limit.soft`/`limit.hard`, …). Until 2026-10 the typed params wrote an
+/// explicit `null` or `[]` as a missing key, so a typed client could not clear a field (#405).
 #[test]
-#[ignore = "KNOWN GAP: typed params drop an explicit null or empty collection (project.card.update dueAt/labels/…, project.column.update wipLimit)"]
 fn explicit_null_and_empty_survive_for_optional_params() {
     let schema = Schema::load();
     let mut failures = Vec::new();
@@ -1545,31 +1576,79 @@ fn explicit_null_and_empty_survive_for_optional_params() {
                 continue;
             }
             let allowed = allowed_types(&p.schema).unwrap_or_default();
-            let clear = if allowed.contains("null") {
-                Value::Null
-            } else if allowed.contains("array") {
-                json!([])
-            } else {
+            let clears: Vec<Value> = [("null", Value::Null), ("array", json!([]))]
+                .into_iter()
+                .filter(|(t, _)| allowed.contains(t))
+                .map(|(_, v)| v)
+                .collect();
+            if clears.is_empty() {
                 continue;
-            };
+            }
+            for clear in clears {
+                let mut doc = x.clone();
+                set_at(&mut doc, &p.path, clear.clone());
+                tried += 1;
+                match e.probe.through_value(&doc) {
+                    Ok(v) if get_at_opt(&v, &p.path) == Some(&clear) => {}
+                    Ok(v) => failures.push(format!(
+                        "{}: an explicit {clear} at {} was written as {}",
+                        e.label(),
+                        path_text(&p.path),
+                        get_at_opt(&v, &p.path)
+                            .map_or("nothing (the key is gone)".to_string(), |v| v.to_string())
+                    )),
+                    Err(err) => failures.push(format!("{}: {err}", e.label())),
+                }
+            }
+            // An array that does not allow `null` still refuses it; a missing key stays missing.
+            if !allowed.contains("null") {
+                let mut doc = x.clone();
+                set_at(&mut doc, &p.path, Value::Null);
+                if e.probe.through_value(&doc).is_ok() {
+                    failures.push(format!(
+                        "{}: null accepted at {}",
+                        e.label(),
+                        path_text(&p.path)
+                    ));
+                }
+            }
             let mut doc = x.clone();
-            set_at(&mut doc, &p.path, clear.clone());
-            tried += 1;
+            let (key, parent) = p.path.split_last().unwrap();
+            let Seg::Key(key) = key else { continue };
+            get_at_mut(&mut doc, parent)
+                .as_object_mut()
+                .unwrap()
+                .remove(key);
             match e.probe.through_value(&doc) {
-                Ok(v) if get_at_opt(&v, &p.path) == Some(&clear) => {}
+                Ok(v) if get_at_opt(&v, &p.path).is_none() => {}
                 Ok(v) => failures.push(format!(
-                    "{}: an explicit {clear} at {} was written as {}",
+                    "{}: a missing {} came back as {}",
                     e.label(),
                     path_text(&p.path),
-                    get_at_opt(&v, &p.path)
-                        .map_or("nothing (the key is gone)".to_string(), |v| v.to_string())
+                    get_at_opt(&v, &p.path).unwrap()
                 )),
-                Err(err) => failures.push(format!("{}: {err}", e.label())),
+                Err(err) => failures.push(format!(
+                    "{}: without {}: {err}",
+                    e.label(),
+                    path_text(&p.path)
+                )),
             }
         }
     }
-    assert!(tried >= 4, "only {tried} cases");
+    // 21 places in 13 params types on 2026-10-14 (schema rpc 1.x).
+    assert!(tried >= 21, "only {tried} cases");
     report("explicit null / empty", &failures);
+}
+
+fn get_at_mut<'a>(root: &'a mut Value, path: &[Seg]) -> &'a mut Value {
+    let mut cur = root;
+    for seg in path {
+        cur = match seg {
+            Seg::Key(k) => cur.get_mut(k).unwrap(),
+            Seg::Idx(i) => cur.get_mut(*i).unwrap(),
+        };
+    }
+    cur
 }
 
 fn get_at_opt<'a>(root: &'a Value, path: &[Seg]) -> Option<&'a Value> {
@@ -2076,4 +2155,35 @@ table! {
     Notification "approval.resolved" ApprovalResolvedNotification,
     Notification "api.account.changed" ApiAccountChangedNotification,
     Notification "grant.changed" GrantChangedNotification,
+}
+
+/// The Rust shape the generator gives the explicit-value fields and the pinned values, as a typed client sees them.
+#[test]
+fn typed_params_say_missing_null_and_empty_apart_and_consts_are_literals() {
+    let p: types::ProjectCardUpdateParams = serde_json::from_value(
+        json!({ "projectId": "p", "cardId": "c", "dueAt": null, "labels": [] }),
+    )
+    .unwrap();
+    assert_eq!(p.due_at, Some(None));
+    assert_eq!(p.labels.as_deref().map(<[_]>::len), Some(0));
+    assert!(p.links.is_none());
+    assert_eq!(
+        serde_json::to_value(&p).unwrap(),
+        json!({ "projectId": "p", "cardId": "c", "dueAt": null, "labels": [] })
+    );
+    let p: types::ProjectCardUpdateParams =
+        serde_json::from_value(json!({ "projectId": "p", "cardId": "c", "dueAt": 5 })).unwrap();
+    assert_eq!(p.due_at, Some(Some(5)));
+    assert!(p.labels.is_none());
+
+    let r: types::CoreShutdownResult = serde_json::from_value(json!({ "accepted": true })).unwrap();
+    assert_eq!(r.accepted, types::ConstTrue);
+    assert!(
+        serde_json::from_value::<types::CoreShutdownResult>(json!({ "accepted": false })).is_err()
+    );
+    let closed = |open: bool| {
+        serde_json::from_value::<types::AgentCloseResult>(json!({ "agentId": "a1", "open": open }))
+    };
+    assert_eq!(closed(false).unwrap().open, types::ConstFalse);
+    assert!(closed(true).is_err());
 }

@@ -18,7 +18,6 @@ pub(crate) fn runner(out: &Out) -> Box<dyn Runner> {
                     "E_INVALID_PARAMS",
                     "PLUR1BUS_SERVICE_FAKE requires PLUR1BUS_ALLOW_TEST_INTERNALS=1",
                     json!({}),
-                    2,
                 );
             }
             Box::new(FakeRunner::new(dir.into()))
@@ -38,7 +37,6 @@ fn parse_env(out: &Out, raw: &[String]) -> Vec<(String, String)> {
                     "--env expects KEY=VALUE with KEY matching [A-Za-z_][A-Za-z0-9_]*, got {kv:?}"
                 ),
                 json!({ "reason": "env-malformed" }),
-                2,
             ),
         })
         .collect()
@@ -61,7 +59,7 @@ fn fail_service(out: &Out, e: &ServiceError) -> ! {
         | ServiceError::Command { .. }
         | ServiceError::StillLoaded { .. } => ("E_INTERNAL", "service-manager"),
     };
-    out.fail(code, &e.to_string(), json!({ "reason": reason }), 1)
+    out.fail(code, &e.to_string(), json!({ "reason": reason }))
 }
 
 pub fn run(out: &Out, layout: &Layout, cmd: ServiceCmd) {
@@ -74,7 +72,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: ServiceCmd) {
                     "E_INVALID_PARAMS",
                     "--env is not supported by Task Scheduler",
                     json!({ "reason": "env-unsupported" }),
-                    1,
                 );
             }
             let r = runner(out);
@@ -83,7 +80,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: ServiceCmd) {
                     "E_INTERNAL",
                     &format!("cannot locate the plur1bus binary: {e}"),
                     json!({}),
-                    1,
                 )
             });
             let name = service::service_name(layout, &paths::default_home());

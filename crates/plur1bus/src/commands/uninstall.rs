@@ -726,7 +726,7 @@ pub fn run(out: &Out, layout: &Layout, args: UninstallArgs) {
     };
     let p = match plan(&inputs) {
         Ok(p) => p,
-        Err(e) => out.fail(e.code, &e.message, json!({ "reason": e.reason }), 2),
+        Err(e) => out.fail(e.code, &e.message, json!({ "reason": e.reason })),
     };
     if args.dry_run || p.nothing_to_remove {
         out.ok(
@@ -761,7 +761,7 @@ pub fn run(out: &Out, layout: &Layout, args: UninstallArgs) {
     };
     let o = match execute(&p, want_backup, &mut host) {
         Ok(o) => o,
-        Err(a) => out.fail(a.code, &a.message, json!({ "reason": a.reason }), 1),
+        Err(a) => out.fail(a.code, &a.message, json!({ "reason": a.reason })),
     };
     if !p.purge {
         // Best effort; the home (and its audit log) is kept.
@@ -789,7 +789,6 @@ pub fn run(out: &Out, layout: &Layout, args: UninstallArgs) {
                 list.join("\n  ")
             ),
             json!({ "reason": "remove-failed", "plan": p, "result": o }),
-            1,
         );
     }
     out.ok("uninstall/1", &doc, || {
