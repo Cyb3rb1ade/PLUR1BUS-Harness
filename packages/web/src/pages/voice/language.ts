@@ -118,6 +118,8 @@ function LanguageForm({ data, canEdit, mode, onApplied, initial, reload }: { dat
   const stream = useRef<{ close(): void } | null>(null);
   const [announce, setAnnounce] = useState("");
   const lastBucket = useRef(-1);
+  // The last event and the answer of voice.language.set can both report the job as finished: only the first one applies it.
+  const finished = useRef(false);
 
   useEffect(() => () => { stream.current?.close(); }, []);
 
@@ -137,6 +139,8 @@ function LanguageForm({ data, canEdit, mode, onApplied, initial, reload }: { dat
   const tick = (key: string, on: boolean): void => { setTicked((s) => { const n = new Set(s); if (on) n.add(key); else n.delete(key); return n; }); };
 
   const finish = (applied: Applied): void => {
+    if (finished.current) return;
+    finished.current = true;
     stream.current?.close(); stream.current = null;
     setPhase({ kind: "saved", applied });
     setAnnounce(t("voice.download.done"));
@@ -148,7 +152,7 @@ function LanguageForm({ data, canEdit, mode, onApplied, initial, reload }: { dat
     if (!ready) return;
     const applied: Applied = { language, profile };
     const ids = missing.map((m) => m.modelId);
-    setPhase({ kind: "saving" }); setDownloads({}); setAnnounce(""); lastBucket.current = -1;
+    setPhase({ kind: "saving" }); setDownloads({}); setAnnounce(""); lastBucket.current = -1; finished.current = false;
     // Listen before asking, so no progress event falls between the answer and the subscription.
     let latest: Downloads = {};
     stream.current?.close();
