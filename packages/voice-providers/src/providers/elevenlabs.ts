@@ -70,7 +70,12 @@ export function createElevenLabs(o: ElevenLabsOptions): ElevenLabs {
       const res = await http.request(`${base}${ELEVENLABS.paths.ttsHttp(voice)}${query({ output_format: param })}`, {
         method: "POST", headers: await authHeaders({ "content-type": "application/json", accept: "audio/*" }), body: JSON.stringify(body), ...(options.signal ? { signal: options.signal } : {}),
       });
-      const data = new Uint8Array(await res.arrayBuffer());
+      let data: Uint8Array;
+      try {
+        data = new Uint8Array(await res.arrayBuffer());
+      } catch {
+        throw options.signal?.aborted ? abortedError(ID) : new VoiceProviderError("network", `${ID}: response ended early`, { provider: ID, secrets: keys.secrets });
+      }
       const usage: UsageReport = { provider: ID, operation: "tts", model: modelOf(options), chars: text.length };
       report(usage);
       return { data, format, sampleRate: rate, usage } satisfies TtsResult;
@@ -132,7 +137,8 @@ export function createElevenLabs(o: ElevenLabsOptions): ElevenLabs {
       }
     } catch (e) {
       if (options.signal?.aborted) throw abortedError(ID);
-      throw e;
+      if (e instanceof VoiceProviderError) throw e;
+      throw new VoiceProviderError("network", `${ID}: response ended early`, { provider: ID, secrets: keys.secrets });
     } finally {
       await reader.cancel().catch(() => {});
     }
