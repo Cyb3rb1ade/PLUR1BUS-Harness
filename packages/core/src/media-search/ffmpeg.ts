@@ -1,8 +1,9 @@
 import { spawn as nodeSpawn, type ChildProcess } from "node:child_process";
 import { accessSync, constants, statSync } from "node:fs";
 import { mkdir, mkdtemp, open, rm, writeFile } from "node:fs/promises";
-import { delimiter, join, resolve } from "node:path";
+import { delimiter, join } from "node:path";
 import { mediaError } from "./errors.ts";
+import { resolveInsideRoots } from "./paths.ts";
 import type { AudioDecoderPort, FrameExtractorPort, MediaSource } from "./types.ts";
 
 export interface FfmpegPortsOptions {
@@ -14,6 +15,8 @@ export interface FfmpegPortsOptions {
   maxFrameBytes?: number;   // one encoded frame, default 16 MiB
   audioChunkSec?: number;   // PCM chunk length, default 10 s
   spawn?: typeof nodeSpawn;
+  /** Directories media paths must lie in (symlinks resolved); unset: unrestricted. Byte sources are unaffected. */
+  allowedRoots?: readonly string[];
 }
 
 const SCENE_THRESHOLD = 0.3;
@@ -144,7 +147,7 @@ export function createFfmpegPorts(opts: FfmpegPortsOptions): { frames: FrameExtr
   async function prepareInput(src: MediaSource): Promise<{ input: string; cleanup(): Promise<void> }> {
     if ("path" in src) {
       if (typeof src.path !== "string" || src.path.length === 0 || src.path.includes("\0")) throw mediaError("E_MEDIA_UNSUPPORTED_KIND", "invalid media path", { reason: "bad-path" });
-      const abs = resolve(src.path);
+      const abs = await resolveInsideRoots(src.path, opts.allowedRoots);
       if (!(await sniffFile(abs).catch(() => false))) throw mediaError("E_MEDIA_UNSUPPORTED_KIND", "container not allowed", { reason: "container-not-allowed" });
       return { input: `file:${abs}`, cleanup: async () => {} };
     }

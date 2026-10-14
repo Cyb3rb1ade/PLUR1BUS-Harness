@@ -31,6 +31,7 @@ export interface CloudCaptionOptions {
   extractor?: FrameExtractorPort;
   transcribe?: (src: MediaSource, signal?: AbortSignal) => Promise<string>;
   maxOutputTokens?: number;
+  allowedRoots?: readonly string[];
   /** Rough tokens one image costs for admission. */
   estimatedImageTokens?: number;
 }
@@ -63,5 +64,5 @@ export function createCloudCaptionProvider(o: CloudCaptionOptions): CaptionProvi
       throw e;
     }
   };
-  return composeCaptionProvider({ id: o.id, local: false, maxChars: o.maxChars, captionImage, ...(o.extractor ? { extractor: o.extractor } : {}), ...(o.transcribe ? { transcribe: o.transcribe } : {}) });
+  return composeCaptionProvider({ id: o.id, local: false, maxChars: o.maxChars, captionImage, ...(o.extractor ? { extractor: o.extractor } : {}), ...(o.transcribe ? { transcribe: o.transcribe } : {}), ...(o.allowedRoots ? { allowedRoots: o.allowedRoots } : {}) });
 }

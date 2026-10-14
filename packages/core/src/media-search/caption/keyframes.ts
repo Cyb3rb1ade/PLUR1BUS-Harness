@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
+import { resolveInsideRoots } from "../paths.ts";
 import type { AudioDecoderPort, FrameExtractorPort, MediaSource } from "../types.ts";
 import { mediaError } from "../errors.ts";
 import { normaliseCaption } from "./service.ts";
@@ -8,10 +9,17 @@ export const KEYFRAME_MIN = 3;
 export const KEYFRAME_MAX = 5;
 const MAX_SOURCE_BYTES = 64 * 1024 * 1024;
 
-export async function readSource(src: MediaSource): Promise<Uint8Array> {
-  if ("bytes" in src) return src.bytes;
-  const bytes = await readFile(src.path);
-  if (bytes.byteLength > MAX_SOURCE_BYTES) throw mediaError("E_MEDIA_UNSUPPORTED_KIND", "medium too large to caption");
+const tooLarge = () => mediaError("E_MEDIA_UNSUPPORTED_KIND", "medium too large to caption");
+/** Reads a medium for captioning. With `roots`, a path must lie inside one of them (symlinks resolved). The size is checked before reading. */
+export async function readSource(src: MediaSource, roots?: readonly string[]): Promise<Uint8Array> {
+  if ("bytes" in src) {
+    if (src.bytes.byteLength > MAX_SOURCE_BYTES) throw tooLarge();
+    return src.bytes;
+  }
+  const file = await resolveInsideRoots(src.path, roots);
+  if ((await stat(file)).size > MAX_SOURCE_BYTES) throw tooLarge();
+  const bytes = await readFile(file);
+  if (bytes.byteLength > MAX_SOURCE_BYTES) throw tooLarge();
   return bytes;
 }
 
@@ -64,6 +72,8 @@ export interface ComposedCaptionOptions {
   extractor?: FrameExtractorPort;
   /** Audio -> transcript (local ASR only); absent: audio is unsupported. */
   transcribe?: (src: MediaSource, signal?: AbortSignal) => Promise<string>;
+  /** Directories media paths must lie in; unset: unrestricted. */
+  allowedRoots?: readonly string[];
 }
 /** One provider for all three kinds: image directly, video by keyframes, audio by transcript. */
 export function composeCaptionProvider(o: ComposedCaptionOptions): CaptionProvider {
@@ -72,7 +82,7 @@ export function composeCaptionProvider(o: ComposedCaptionOptions): CaptionProvid
     local: o.local,
     async caption(input: CaptionInput) {
       input.signal?.throwIfAborted();
-      if (input.kind === "image") return o.captionImage(await readSource(input.source), input.mime, input.signal);
+      if (input.kind === "image") return o.captionImage(await readSource(input.source, o.allowedRoots), input.mime, input.signal);
       if (input.kind === "video") {
         if (!o.extractor) throw mediaError("E_MEDIA_UNSUPPORTED_KIND", "no frame extractor for video captions");
         return captionVideoByKeyframes(input.source, { extractor: o.extractor, captionImage: o.captionImage, maxChars: o.maxChars() }, input.signal);
