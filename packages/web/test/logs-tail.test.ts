@@ -26,7 +26,9 @@ async function open(app: App, n = 30): Promise<LogsMock> {
 }
 /** Waits for the count line (rows are windowed, so DOM rows do not equal loaded rows). */
 const loaded = (p: Page, n: string) => p.locator(".logs-count").getByText(`${n} entries loaded`, { exact: true }).waitFor();
-const first = async (p: Page) => (await rows(p).first().textContent()) ?? "";
+/** Waits until the top row shows `text`. The count line updates before the windowed rows re-render, so reading the top row
+ *  right after `loaded()` can still see the old one; waiting on the row itself is the event the assertion is about. */
+const firstRowShows = (p: Page, text: string) => rows(p).first().filter({ hasText: text }).waitFor();
 
 describe("logs tail", opts, () => {
   test("anchors with a one-line call, then long-polls with the cursor, the filters and waitMs", async () => {
@@ -49,7 +51,7 @@ describe("logs tail", opts, () => {
       const m = await open(app);
       m.push(makeRecord(31), makeRecord(32));
       await loaded(app.page, "32");
-      assert.ok((await first(app.page)).includes("entry 00032"));
+      await firstRowShows(app.page, "entry 00032");
     });
   });
 
@@ -82,11 +84,11 @@ describe("logs tail", opts, () => {
       m.push(makeRecord(31), makeRecord(32), makeRecord(33));
       await app.page.locator(".logs-new").getByText("3 new entries").waitFor();
       await loaded(app.page, "30");
-      assert.ok((await first(app.page)).includes("entry 00030"));
+      await firstRowShows(app.page, "entry 00030");
       await btn.click();
       assert.equal(await btn.getAttribute("aria-pressed"), "false");
       await loaded(app.page, "33");
-      assert.ok((await first(app.page)).includes("entry 00033"));
+      await firstRowShows(app.page, "entry 00033");
       assert.equal(await app.page.locator(".logs-new").count(), 0);
     });
   });
