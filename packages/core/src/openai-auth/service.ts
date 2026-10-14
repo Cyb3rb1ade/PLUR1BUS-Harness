@@ -17,7 +17,7 @@ export interface AuthServiceOptions {
   store: SecretPort; http: HttpPort; clock: Clock; audit: AuditPort; owner?: RefreshPort;
   pkce?: () => PkcePort; timeoutMs?: number; refreshSkewMs?: number; random?: () => number;
 }
-interface LoginAttempt { person: string; abort: AbortController; result: Promise<CredentialInfo> }
+interface LoginAttempt { person: string; abort: AbortController; result: Promise<CredentialInfo>; settled: boolean }
 const INDEX = 'openai.credentials.index';
 /** Trusted in-process API. Principal must be supplied by the authenticated surface, never agent input. */
 export class AuthService {
@@ -35,7 +35,10 @@ export class AuthService {
   }
   async #save(info: CredentialInfo) { await this.#owner.exclusive(INDEX, async () => { const rows = await this.#index(); await this.#o.store.set(INDEX, JSON.stringify([...rows.filter(r => r.id !== info.id), info])); }); }
   async startLogin(request: { principal: PlanPrincipal; credentialId?: string }): Promise<{ authorizeUrl: Sensitive; loginId: string }> {
-    requireOwner(request.principal); if (this.#closed || this.#pending.size >= 16) throw new OpenAIError('invalid-request');
+    requireOwner(request.principal); if (this.#closed) throw new OpenAIError('invalid-request');
+    // Finished logins nobody collected must not hold a slot forever: evict the oldest, count only live ones.
+    for (const [key, a] of this.#pending) if (a.settled && this.#pending.size >= 16) this.#pending.delete(key);
+    if ([...this.#pending.values()].filter(a => !a.settled).length >= 16 || this.#pending.size >= 64) throw new OpenAIError('invalid-request');
     const id = request.credentialId ?? createHash('sha256').update(request.principal.user + ':' + randomUUID()).digest('hex');
     if (request.credentialId) await this.#owned(id, request.principal);
     const abort = new AbortController(), loginId = randomUUID();
@@ -51,7 +54,9 @@ export class AuthService {
     });
     // Observe failures even when the caller never awaits a cancelled login.
     void result.catch(failed);
-    this.#pending.set(loginId, { person: request.principal.user, abort, result });
+    const attempt: LoginAttempt = { person: request.principal.user, abort, result, settled: false };
+    void result.then(() => { attempt.settled = true; }, () => { attempt.settled = true; });
+    this.#pending.set(loginId, attempt);
     try { return { authorizeUrl: await url, loginId }; } catch (e) { this.#pending.delete(loginId); throw e; }
   }
   async awaitLogin(loginId: string, principal: PlanPrincipal): Promise<CredentialInfo> {

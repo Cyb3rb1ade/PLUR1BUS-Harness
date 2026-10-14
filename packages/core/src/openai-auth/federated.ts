@@ -19,7 +19,7 @@ async function supplierFile(path: string) {
 /** External suppliers are trusted configuration; execute a binary directly with an explicit environment. */
 export class FederatedCredential {
   readonly #source: FederatedSource; readonly #clock: () => number; readonly #skew: number;
-  #token: Sensitive | undefined; #expiry = 0; #flight: Promise<Sensitive> | undefined;
+  #token: Sensitive | undefined; #expiry = 0; #flight: Promise<Sensitive> | undefined; #epoch = 0;
   constructor(source: FederatedSource, clock: () => number, skewMs = 120000) {
     if (!!source.file === !!source.command || !Number.isFinite(skewMs) || skewMs < 0 || Object.keys(source.environment ?? {}).some(k => !/^[A-Z_][A-Z0-9_]*$/.test(k))) throw new OpenAIError('invalid-request');
     this.#source = structuredClone(source); this.#clock = clock; this.#skew = skewMs;
@@ -27,6 +27,7 @@ export class FederatedCredential {
   async lease(): Promise<Sensitive> {
     if (this.#token && this.#expiry - this.#skew > this.#clock()) return this.#token;
     if (this.#flight) return this.#flight;
+    const epoch = this.#epoch;
     this.#flight = (async () => {
       try {
         const source = this.#source;
@@ -36,9 +37,11 @@ export class FederatedCredential {
         if (Buffer.byteLength(raw) > 64 * 1024) throw new Error();
         const data = object(JSON.parse(raw)), expiry = data.expires_at;
         if (typeof expiry !== 'number' || !Number.isFinite(expiry) || expiry * 1000 <= this.#clock() + this.#skew) throw new Error();
-        this.#token = new Sensitive(text(data.access_token)); this.#expiry = expiry * 1000; return this.#token;
+        const token = new Sensitive(text(data.access_token));
+        if (epoch !== this.#epoch) throw new Error(); // closed while the supplier was running
+        this.#token = token; this.#expiry = expiry * 1000; return this.#token;
       } catch { this.#token = undefined; throw new OpenAIError('auth-required'); }
     })().finally(() => { this.#flight = undefined; }); return this.#flight;
   }
-  close() { this.#token = undefined; this.#expiry = 0; }
+  close() { this.#epoch++; this.#flight = undefined; this.#token = undefined; this.#expiry = 0; }
 }

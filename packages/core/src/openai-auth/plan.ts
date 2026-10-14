@@ -35,14 +35,14 @@ export class ChatGPTPlan {
       // PKCE port opens the listener before constructing the browser URL, with only the port varying.
       const port = this.#p.pkce;
       const redirect = await port.redirect();
+      try {
       const target = new URL(redirect);
       if (target.protocol !== 'http:' || target.hostname !== '127.0.0.1' || target.pathname !== '/auth/callback' || !target.port || target.username || target.password || target.search || target.hash) throw new OpenAIError('invalid-request');
       const u = new URL(d.authorization_endpoint);
       const client = old?.clientId ?? 'dynamic_agent_client';
       for (const [k,v] of Object.entries({ client_id: client, ...(old ? {} : { agent_name_hint: 'PLUR1BUS' }), ext_agent_host_id: host, response_type: 'code', redirect_uri: redirect, scope: SCOPES.join(' '), resource: RESOURCE, code_challenge_method: 'S256', code_challenge: createHash('sha256').update(verifier).digest('base64url'), state, nonce })) u.searchParams.set(k,v);
-      let callback: URL;
-      try { callback = new URL(await (() => { const signal = (this.#p.deadline ?? AbortSignal.timeout)(this.#p.timeoutMs ?? 600000); const combined = this.#p.signal ? AbortSignal.any([signal, this.#p.signal]) : signal; return bounded(this.#p.pkce.authorize({ url: new Sensitive(u.href), redirectUri: redirect, signal: combined }), combined); })()); }
-      finally { await port.close(); }
+      const callback = new URL(await (() => { const signal = (this.#p.deadline ?? AbortSignal.timeout)(this.#p.timeoutMs ?? 600000); const combined = this.#p.signal ? AbortSignal.any([signal, this.#p.signal]) : signal; return bounded(this.#p.pkce.authorize({ url: new Sensitive(u.href), redirectUri: redirect, signal: combined }), combined); })());
+      await port.close(); // release the listener before the token exchange; the outer finally covers every earlier failure
       const actual = Buffer.from(callback.searchParams.get('state') ?? ''), wanted = Buffer.from(state);
       if (callback.origin !== target.origin || callback.pathname !== target.pathname || callback.hash || callback.username || callback.password || callback.searchParams.getAll('state').length !== 1 || actual.length !== wanted.length || !timingSafeEqual(actual, wanted)) throw new OpenAIError('state-mismatch');
       if (callback.searchParams.get('error') === 'access_denied') throw new OpenAIError('access-denied');
@@ -56,6 +56,7 @@ export class ChatGPTPlan {
       this.#p.audit({ kind: 'login' }); // fail closed before persistence/release
       await this.#p.store.set(ref, JSON.stringify({ ...record, expiresAt: record.expiresAt - Math.floor((this.#p.random ?? Math.random)() * 15000) }));
       return { profileId: 'openai:chatgpt-plan', expiresAt: record.expiresAt };
+      } finally { await port.close(); }
     }));
   }
   async lease(account: string, principal: PlanPrincipal): Promise<Sensitive> {
