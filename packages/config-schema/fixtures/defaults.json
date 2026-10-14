@@ -10,6 +10,9 @@
   "remote": {
     "publish": "tailnet"
   },
+  "activity": {
+    "maxEntries": 1000
+  },
   "tools": {
     "hostctl": {
       "enabled": true,

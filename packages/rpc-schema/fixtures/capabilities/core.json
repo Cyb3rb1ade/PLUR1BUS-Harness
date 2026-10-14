@@ -336,6 +336,14 @@
       "stability": "experimental",
       "since": "1.6.0"
     },
+    "doctor.report": {
+      "stability": "experimental",
+      "since": "1.15.0"
+    },
+    "agent.activity.list": {
+      "stability": "experimental",
+      "since": "1.15.0"
+    },
     "agent.list": {
       "stability": "experimental",
       "since": "1.0.0"

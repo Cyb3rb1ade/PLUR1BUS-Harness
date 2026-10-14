@@ -4776,6 +4776,101 @@ Verify and import an agent.export bundle, stripping secrets and bounding rights.
 }
 ```
 
+### `agent.activity.list`
+
+**Stability:** experimental · since 1.15.0
+
+**Served by:** core
+
+Bounded in-process agent activity transitions, newest first. Human-only. Owner/Admin see all agents; other roles need use or manage rights. Restart, retention expiry or changed visibility invalidates cursors (E_INVALID_PARAMS reason bad-cursor).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string"
+    },
+    "since": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "until": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "kinds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "idle",
+          "recalling",
+          "capturing",
+          "checkpointing",
+          "dreaming",
+          "consolidating",
+          "maintenance"
+        ]
+      }
+    },
+    "cursor": {
+      "type": "string",
+      "maxLength": 8192
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200,
+      "default": 50
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "items"
+  ],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "agentId",
+          "activity"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "agentId": {
+            "type": "string"
+          },
+          "activity": {
+            "$ref": "#/$defs/Activity"
+          }
+        }
+      }
+    },
+    "nextCursor": {
+      "type": "string"
+    }
+  }
+}
+```
+
 ### `agent.list`
 
 **Stability:** experimental · since 1.0.0

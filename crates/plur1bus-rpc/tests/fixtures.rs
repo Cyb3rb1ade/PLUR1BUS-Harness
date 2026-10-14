@@ -215,6 +215,7 @@ fn method_fixture(name: &str, f: &Value) {
         "agent.list" => pair::<AgentListParams, AgentListResult>(name, f),
         "agent.open" => pair::<AgentOpenParams, AgentOpenResult>(name, f),
         "agent.close" => pair::<AgentCloseParams, AgentCloseResult>(name, f),
+        "agent.activity.list" => pair::<AgentActivityListParams, AgentActivityListResult>(name, f),
         "agent.status" => pair::<AgentStatusParams, AgentStatusResult>(name, f),
         "jobs.list" => pair::<JobsListParams, JobsListResult>(name, f),
         "jobs.run" | "jobs.run.system" => pair::<JobsRunParams, JobsRunResult>(name, f),

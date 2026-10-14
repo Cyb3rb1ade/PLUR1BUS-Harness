@@ -38,6 +38,7 @@ export function authenticatedPrincipal(ctx: CallContext): Principal {
 }
 
 export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
+  "agent.activity.list": { ...rule("agent.list", system), humanOnly: true },
   "inbox.list": rule("inbox.read", system),
   "inbox.count": rule("inbox.read", system),
   "inbox.markRead": rule("inbox.write", system),

@@ -1,6 +1,7 @@
 // Activity tab of /logs (F42, F43): a condensed, human-readable feed built from `logs.query` (audit and diagnostic streams),
 // grouped by day, with the `audit.verify` status on top. Roles: `logs.query` and `audit.read` are Owner and Admin only
 // (docs/rbac.md), so every other role gets the forbidden state without a call. Entry mapping lives in activity/model.ts.
+import { AgentActivity } from "./agent-activity.ts";
 import { h } from "preact";
 import { useState } from "preact/hooks";
 import type { View } from "../../view.ts";
@@ -38,7 +39,7 @@ export function ActivityFeed(): View {
   const [from, setFrom] = useState<string | null>(null);
   const feed = useFeed(allowed, from);
   const verify = useVerify(allowed, now);
-  if (!allowed) return h(PageState, { state: "forbidden" });
+  if (!allowed) return h("div", {}, h(AgentActivity, {}), h(PageState, { state: "forbidden" }));
 
   const s = feed.state;
   let body: View;
@@ -59,6 +60,7 @@ export function ActivityFeed(): View {
   }
 
   return h("div", { class: "activity" },
+    h(AgentActivity, {}),
     h(VerifyCard, { state: verify.state, onVerify: verify.run }),
     h("section", { "aria-labelledby": "activity-feed-title" },
       h("h2", { id: "activity-feed-title", class: "activity-title" }, t("activity.feed.title")),

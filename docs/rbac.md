@@ -403,3 +403,7 @@ manage). Import discards recipients absent on the target and reports them as
 Export reads live rights from AdminStore and includes them in its signed manifest.
 Required secret names are metadata only; no secret values are imported.
 See [agents.md](agents.md) for CLI formats, compatibility and recovery behavior.
+
+### Agent activity history
+
+`agent.activity.list` is human-only, uses the `agent.list` admission gate and filters every returned transition against current agent rights. Owner and Admin see all agents. Operator, Member and Viewer need `use` or `manage` for each agent. Cursor validity includes the visible roster, so a rights change requires a fresh query.

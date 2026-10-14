@@ -109,3 +109,7 @@ conflict, staged files are removed. If engine ingest or final registration
 fails after registration, the recoverable agent remains **paused** and the
 `E_STORAGE` error carries its `agentId` in `ids`. Inspect that agent before
 resuming; cross-store import is not a crash-atomic backup restore.
+
+## Activity history
+
+`agent.activity.list` returns recent state transitions, newest first, with optional agent, inclusive RFC 3339 time bounds, state kinds and cursor filters. The default page has 50 items and the maximum is 200. `activity.maxEntries` bounds the in-process ring (default 1000); a Core restart clears it. Expired, mismatched or changed-visibility cursors return `E_INVALID_PARAMS` with `reason: bad-cursor`. Start a fresh query to recover. Logs → Activity provides agent and time filters and next-page navigation; the existing audit feed retains its Owner/Admin restriction.

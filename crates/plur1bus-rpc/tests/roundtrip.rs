@@ -679,6 +679,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "agent.activity.list" => check_pair::<
+                types::AgentActivityListParams,
+                types::AgentActivityListResult,
+            >(name, fixture, &root_schema),
             "agent.status" => check_pair::<types::AgentStatusParams, types::AgentStatusResult>(
                 name,
                 fixture,

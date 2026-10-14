@@ -213,7 +213,8 @@ export function createCore(o: CoreOptions): Core {
   const token = randomBytes(32).toString("hex");
   const address = coreAddress(home);
   const startedAt = clock();
-  const activity = new ActivityTracker(clock);
+  let activityCapacity = () => 1000;
+  const activity = new ActivityTracker(clock, () => activityCapacity());
   let state: State = { state: "starting", since: startedAt };
   let server: RpcServer | null = null; let lock: { release(): void } | null = null;
   let engine: Engine | null = null; let logger: HarnessLogger | null = null; let agents: AgentRegistry | null = null;
@@ -317,6 +318,7 @@ export function createCore(o: CoreOptions): Core {
     const early: [Level, string, Record<string, unknown> | undefined][] = [];
     const at = (lvl: Level) => (msg: string, fields?: Record<string, unknown>) => { if (logger) logger[lvl](msg, fields); else early.push([lvl, msg, fields]); };
     const cs = await openConfigSource({ layout: l, supervised: o.supervisorConfig !== undefined, logger: { debug: at("debug"), info: at("info"), warn: at("warn"), error: at("error") }, ...o.supervisorConfig });
+    activityCapacity = () => cs.current().activity?.maxEntries ?? 1000;
     source = cs;
     const config = cs.current(); // the configuration the engine is built from (core-class keys)
     const cfg = () => cs.current();

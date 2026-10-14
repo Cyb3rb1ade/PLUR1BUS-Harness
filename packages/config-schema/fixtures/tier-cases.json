@@ -1110,6 +1110,23 @@
           "x-restart": "live",
           "x-tier": "advanced"
         },
+        "activity": {
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "description": "In-process agent activity history; cleared at core restart.",
+          "properties": {
+            "maxEntries": {
+              "type": "integer",
+              "minimum": 200,
+              "maximum": 100000,
+              "default": 1000,
+              "x-tier": "advanced",
+              "x-restart": "core",
+              "description": "Maximum retained agent activity transitions."
+            }
+          }
+        },
         "schemaVersion": {
           "description": "Configuration format version; this schema supports version 1.",
           "const": 1,

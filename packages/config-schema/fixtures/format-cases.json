@@ -13,6 +13,9 @@
       "remote": {
         "publish": "tailnet"
       },
+      "activity": {
+        "maxEntries": 1000
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -445,6 +448,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -879,6 +885,9 @@
       "remote": {
         "publish": "tailnet"
       },
+      "activity": {
+        "maxEntries": 1000
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -1311,6 +1320,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -1745,6 +1757,9 @@
       "remote": {
         "publish": "tailnet"
       },
+      "activity": {
+        "maxEntries": 1000
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -2177,6 +2192,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -2611,6 +2629,9 @@
       "remote": {
         "publish": "tailnet"
       },
+      "activity": {
+        "maxEntries": 1000
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -3043,6 +3064,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -3477,6 +3501,9 @@
       "remote": {
         "publish": "tailnet"
       },
+      "activity": {
+        "maxEntries": 1000
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -3909,6 +3936,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -4343,6 +4373,9 @@
       "remote": {
         "publish": "tailnet"
       },
+      "activity": {
+        "maxEntries": 1000
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -4775,6 +4808,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -5209,6 +5245,9 @@
       "remote": {
         "publish": "tailnet"
       },
+      "activity": {
+        "maxEntries": 1000
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -5641,6 +5680,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -6075,6 +6117,9 @@
       "remote": {
         "publish": "tailnet"
       },
+      "activity": {
+        "maxEntries": 1000
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -6507,6 +6552,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -6941,6 +6989,9 @@
       "remote": {
         "publish": "tailnet"
       },
+      "activity": {
+        "maxEntries": 1000
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -7373,6 +7424,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -7807,6 +7861,9 @@
       "remote": {
         "publish": "tailnet"
       },
+      "activity": {
+        "maxEntries": 1000
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -8239,6 +8296,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -8673,6 +8733,9 @@
       "remote": {
         "publish": "tailnet"
       },
+      "activity": {
+        "maxEntries": 1000
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -9105,6 +9168,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -9539,6 +9605,9 @@
       "remote": {
         "publish": "tailnet"
       },
+      "activity": {
+        "maxEntries": 1000
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -9971,6 +10040,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -10405,6 +10477,9 @@
       "remote": {
         "publish": "tailnet"
       },
+      "activity": {
+        "maxEntries": 1000
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -10837,6 +10912,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -11271,6 +11349,9 @@
       "remote": {
         "publish": "tailnet"
       },
+      "activity": {
+        "maxEntries": 1000
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -11703,6 +11784,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -12137,6 +12221,9 @@
       "remote": {
         "publish": "tailnet"
       },
+      "activity": {
+        "maxEntries": 1000
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -12570,6 +12657,9 @@
       "remote": {
         "publish": "tailnet"
       },
+      "activity": {
+        "maxEntries": 1000
+      },
       "tools": {
         "hostctl": {
           "enabled": true,
@@ -12999,6 +13089,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
