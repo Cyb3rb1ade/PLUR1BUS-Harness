@@ -221,11 +221,12 @@ test("a record whose property access throws is refused with a code, never thrown
   assert.ok(!a.ok && a.code === "schema", JSON.stringify(a));
 });
 
-// KNOWN GAP: spec section 2.4 truncates a wrapped output line to 4 KiB, but the schema bounds `text` in characters
-// (maxLength 4096, code points) and neither validateRecord nor Rust validate_line checks LIMITS.lineBytes, so 4096
-// four-byte characters (16 KiB) validate. Fixing it needs a schema or parity change, which is outside this audit.
-test("KNOWN GAP: a wrapped output line over lineBytes is refused", { todo: true }, () => {
+// Spec section 2.4 truncates a wrapped output line to 4 KiB; the schema bounds `text` in characters (maxLength 4096), so the byte
+// bound is checked in validateRecord (TypeScript side; the Rust validate_line does not check it yet).
+test("a wrapped output line over lineBytes is refused", () => {
   const r = { ...rec("process.output.line"), attrs: { text: "\u{1F600}".repeat(1500), untrusted: true } };
   const v = validateRecord(r);
-  assert.ok(!v.ok, "1500 four-byte characters are 6000 bytes, over the 4096-byte line limit");
+  assert.ok(!v.ok && v.code === "attrs_invalid", "1500 four-byte characters are 6000 bytes, over the 4096-byte line limit");
+  const edge = { ...rec("process.output.line"), attrs: { text: "\u{1F600}".repeat(1024), untrusted: true } };
+  assert.ok(validateRecord(edge).ok, "1024 four-byte characters are exactly 4096 bytes");
 });

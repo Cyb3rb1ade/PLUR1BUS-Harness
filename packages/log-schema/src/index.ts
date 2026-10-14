@@ -176,7 +176,7 @@ const fail = (code: ValidationCode, detail: string): ValidationResult => ({ ok: 
  * Validates one record against the schema and the catalogue. The checks run in a fixed order, and the first failure
  * names the code (the Rust `validate_line` runs the same order; fixtures/vectors.json pins it):
  * object → level in the table → event registered (and not an audit action) → msg bytes → attrs bytes → JSON Schema → key order →
- * level allowed for the event → source kind allowed → stream present iff the event is wrapped output → attrs group.
+ * level allowed for the event → source kind allowed → stream present iff the event is wrapped output → attrs group → wrapped output `text` within lineBytes (attrs_invalid).
  * Key order is read from the object's own key order, so pass a record parsed from a line, not a re-sorted copy.
  */
 export function validateRecord(record: unknown): ValidationResult {
@@ -218,6 +218,8 @@ function validateRecordUnsafe(record: unknown): ValidationResult {
     const e = check.errors?.[0];
     return fail("attrs_invalid", `attrs${e?.instancePath ?? ""} ${e?.message ?? "do not match the event's attrs group"}`);
   }
+  const text = (attrs as { text?: unknown }).text;
+  if (hit.streamed && typeof text === "string" && bytes(text) > LIMITS.lineBytes) return fail("attrs_invalid", `attrs/text exceeds ${LIMITS.lineBytes} bytes`);
   return { ok: true, entry: hit };
 }
 
