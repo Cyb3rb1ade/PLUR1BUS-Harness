@@ -266,18 +266,24 @@ export function grantReviewDue(g: Grant, now: number): boolean {
 }
 
 const ABS = /^(?:\/|[A-Za-z]:[\\/]|\\\\)/;
-function segments(p: string): string[] | null {
+/**
+ * Two spellings that must never cover each other: POSIX (`/…`, where `\` is an ordinary file-name character and only `/`
+ * separates) and Windows (drive or UNC, where both separators count).
+ */
+function segments(p: string): { posix: boolean; segs: string[] } | null {
   if (p.length === 0 || p.includes("\0") || !ABS.test(p)) return null;
-  const segs = p.split(/[\\/]+/).filter((s) => s.length > 0);
-  return segs.some((s) => s === "." || s === "..") ? null : segs;
+  const posix = p.startsWith("/");
+  const segs = p.split(posix ? /\/+/ : /[\\/]+/).filter((s) => s.length > 0);
+  return segs.some((s) => s === "." || s === "..") ? null : { posix, segs };
 }
 
 /** Exact-form, case-sensitive coverage on already-canonical paths; ambiguity resolves toward "not covered". */
 export function pathCovered(grantPath: string, recursive: boolean, target: string): boolean {
-  const g = segments(grantPath);
-  const t = segments(target);
-  if (!g || !t || g.length === 0) return false;
-  if (g.length > t.length || !g.every((s, i) => s === t[i])) return false;
+  const gp = segments(grantPath);
+  const tp = segments(target);
+  if (!gp || !tp || gp.posix !== tp.posix) return false;
+  const g = gp.segs, t = tp.segs;
+  if (g.length === 0 || g.length > t.length || !g.every((s, i) => s === t[i])) return false;
   return recursive ? true : t.length === g.length + 1;
 }
 

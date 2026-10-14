@@ -30,6 +30,7 @@ export function fromSideEffects(side: "none" | "local" | "external" | "money", i
 /** Extension manifest `tools[].effect`; a write with network, or with the network unknown, is external. */
 export function fromExtensionEffect(effect: "read" | "write" | "destructive", network: "none" | "declared" | undefined): Effect {
   if (effect === "read") return "read";
+  if (effect !== "write" && effect !== "destructive") return "external"; // RULING: an effect it cannot read is never a local write
   if (effect === "destructive") return network === "none" ? "local-destructive" : "external";
   return network === "none" ? "local-write" : "external";
 }
@@ -41,7 +42,7 @@ export interface McpAnnotations { readOnlyHint?: boolean; destructiveHint?: bool
  * (`readOnlyHint` is deliberately ignored: a server cannot lower its own tool's class).
  */
 export function fromMcp(declared: Effect | undefined, ann: McpAnnotations = {}): Effect {
-  let e: Effect = declared ?? "external";
+  let e: Effect = isEffect(declared) ? declared : "external"; // RULING: a value outside the vocabulary is read as no declaration
   if (ann.destructiveHint === true) e = maxEffect(e, "local-destructive");
   if (ann.openWorldHint === true) e = maxEffect(e, "external");
   return e;
