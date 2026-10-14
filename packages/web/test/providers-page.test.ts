@@ -26,7 +26,7 @@ describe("providers: states", opts, () => {
       await app.page.locator(".page-state[data-state=loading]").waitFor();
       await app.page.getByRole("row", { name: /openai/i }).waitFor();
       await app.page.getByText("ws_default").waitFor();
-      await app.page.getByText("ChatGPT-Plan").first().waitFor();
+      await app.page.getByText("ChatGPT plan").first().waitFor();
 
       // Ensure no tokens or secrets are rendered in the DOM
       const content = await app.page.content();
