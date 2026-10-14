@@ -37,8 +37,9 @@ export const modelNeedsResearchWarning = (m: VoiceModel): boolean => isResearchO
 /** The key a licence confirmation travels under: `"modelId@licenceId"`. */
 export const licenceKey = (m: Pick<VoiceModel, "modelId" | "licenceId">): string => `${m.modelId}@${m.licenceId}`;
 
-/** Models of a profile that would be downloaded and need a confirmation first. Installed models were accepted when they were fetched. */
-export const confirmationsNeeded = (models: readonly VoiceModel[]): VoiceModel[] => models.filter((m) => m.needsConfirmation && !m.installed);
+/** Models of a profile that would be downloaded and need a confirmation first. Installed models were accepted when they were fetched.
+ *  A research-only licence always needs it, whatever the server flagged: the person never skips that confirmation. */
+export const confirmationsNeeded = (models: readonly VoiceModel[]): VoiceModel[] => models.filter((m) => (m.needsConfirmation || modelNeedsResearchWarning(m)) && !m.installed);
 export const missingModels = (models: readonly VoiceModel[]): VoiceModel[] => models.filter((m) => !m.installed);
 
 /** Whether every needed confirmation is ticked (the Apply button stays disabled until it is). */

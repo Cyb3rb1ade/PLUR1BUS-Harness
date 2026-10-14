@@ -49,6 +49,7 @@ export function AgentsPage({ sub }: PageProps): View {
   const { state, reload } = useLoad((signal) => readAgents(signal), []);
   const [fresh, setFresh] = useState<Agent[]>([]);
   const [flash, setFlash] = useState("");
+  const [gone, setGone] = useState<string[]>([]);
   const canManage = roleIn(currentRole(), ["owner", "admin"]);
   const title = t("nav.agents");
 
@@ -56,13 +57,13 @@ export function AgentsPage({ sub }: PageProps): View {
   if (state.status === "fail") return h(Page, { title }, h(FailureState, { failure: state.failure, unavailable: t("agents.unavailable.title"), onRetry: reload }));
 
   const loaded = state.data.agents;
-  const agents = [...fresh.filter((f) => !loaded.some((a) => a.id === f.id)), ...loaded];
+  const agents = [...fresh.filter((f) => !loaded.some((a) => a.id === f.id)), ...loaded].filter((a) => !gone.includes(a.id));
   const create = canManage
     ? h("a", { class: "btn btn-primary", href: "#/agents/new" }, t("agents.create"))
     : null;
 
   if (agents.length === 0 && sub === undefined) {
-    return h(Page, { title }, h(PageState, { state: "empty", title: t("agents.empty.title"), detail: t("agents.empty.body") }, create ?? h(Notice, {}, t("agents.noCreateRole"))));
+    return h(Page, { title }, flash ? h(Notice, {}, flash) : null, h(PageState, { state: "empty", title: t("agents.empty.title"), detail: t("agents.empty.body") }, create ?? h(Notice, {}, t("agents.noCreateRole"))));
   }
 
   const isNew = sub === "new";
@@ -70,10 +71,19 @@ export function AgentsPage({ sub }: PageProps): View {
   const agent = id === null ? undefined : agents.find((a) => a.id === id);
 
   const list = h("div", {},
+    flash && agent === undefined && !isNew ? h(Notice, {}, flash) : null,
     create ?? h(Notice, {}, t("agents.noCreateRole")),
     h("ul", { class: "plain-list", "aria-label": t("agents.list.label"), onKeyDown: arrows }, agents.map((a) => h(Row, { key: a.id, agent: a, current: a.id === id }))));
 
+  const onDeleted = (a: Agent): void => {
+    setGone((g) => [...g, a.id]);
+    setFresh((f) => f.filter((x) => x.id !== a.id));
+    setFlash(t("agents.flash.deleted", { name: a.name }));
+    reload();
+    navigate("/agents");
+  };
   const onCreated = (a: Agent, already: boolean): void => {
+    setGone((g) => g.filter((x) => x !== a.id));
     setFresh((f) => [a, ...f.filter((x) => x.id !== a.id)]);
     setFlash(t(already ? "agents.flash.already" : "agents.flash.created", { name: a.name }));
     reload();
@@ -82,7 +92,7 @@ export function AgentsPage({ sub }: PageProps): View {
 
   let detail: View;
   if (isNew) detail = canManage ? h(CreateAgent, { existing: agents, onCreated }) : h(PageState, { state: "forbidden" });
-  else if (agent) detail = h("div", {}, flash ? h(Notice, {}, flash) : null, h(AgentDetail, { key: agent.id, agent, canManage }));
+  else if (agent) detail = h("div", {}, flash ? h(Notice, {}, flash) : null, h(AgentDetail, { key: agent.id, agent, canManage, onDeleted }));
   else detail = h(PageState, { state: "empty", title: t("agents.notFound.title"), detail: t("shared.notFound.detail") }, h("a", { class: "btn", href: "#/agents" }, t("agents.notFound.back")));
 
   return h(Page, { title, width: "full" },

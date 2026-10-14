@@ -44,7 +44,7 @@ function downloadBundle(agentId: string, bundle: unknown): void {
   }
 }
 
-export function AgentDetail({ agent, canManage }: { agent: Agent; canManage: boolean }): View {
+export function AgentDetail({ agent, canManage, onDeleted }: { agent: Agent; canManage: boolean; onDeleted?: (agent: Agent) => void }): View {
   const [state, setState] = useState<AgentState>(agent.state);
   const [rights, setRights] = useState<AgentRight[] | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -153,7 +153,8 @@ export function AgentDetail({ agent, canManage }: { agent: Agent; canManage: boo
       }
       const outcome = await deleteAgent(agent.id, agent.name, offerId);
       if (outcome.ok) {
-        setFlash(t("agents.flash.deleted", { name: agent.name }));
+        // The page drops the agent from its list and leaves this detail; the notice is shown there.
+        onDeleted?.(agent);
         return { ok: true };
       }
       if (outcome.kind === "engine-erasure-unavailable") {
