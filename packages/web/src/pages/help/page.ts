@@ -50,7 +50,7 @@ export function HelpPage({ sub }: PageProps): View {
   // Anchor navigation: once the page is on screen, bring the heading the link names into view.
   useEffect(() => {
     if (state.status !== "ready" || anchor === "") return;
-    const target = [...(document.getElementById("help-article")?.querySelectorAll("[id]") ?? [])].find((el) => el.id === anchor);
+    const target = Array.from(document.getElementById("help-article")?.querySelectorAll("[id]") ?? []).find((el) => el.id === anchor);
     target?.scrollIntoView();
   }, [state, anchor]);
 
