@@ -56,6 +56,7 @@ export const en = {
   "approvals.attest.inProgress": "Another decision for this request is waiting for its confirmation dialog.",
   "approvals.scope.alwaysConfigured": "Standing grant (up to {days} days unused)",
   "approvals.scope.alwaysUnknown": "Standing grant",
+  "approvals.col.action": "Action",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -115,4 +116,5 @@ export const de: Record<keyof typeof en, string> = {
   "approvals.attest.inProgress": "Eine andere Entscheidung für diese Anfrage wartet auf ihren Bestätigungsdialog.",
   "approvals.scope.alwaysConfigured": "Dauerberechtigung (max. {days} Tage ungenutzt)",
   "approvals.scope.alwaysUnknown": "Dauerberechtigung",
+  "approvals.col.action": "Aktion",
 };
