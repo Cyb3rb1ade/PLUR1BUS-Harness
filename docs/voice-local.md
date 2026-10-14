@@ -41,7 +41,7 @@ Licences as recorded in the catalog (from the model cards and the packages):
 | Pocket TTS en | CC-BY-4.0 file, but the package README says non-commercial | unconfirmed |
 | Martin de | unknown | unconfirmed, no package |
 
-Open questions for the owner: Martin (package and licence), Kroko (exact terms, share-alike), Pocket TTS (conflicting statements). The English fast voice (Piper Lessac) is research-only; use another voice for commercial use.
+Open questions for the owner: Martin (package and licence), Kroko (exact terms, share-alike), Pocket TTS (conflicting statements). The English fast voice (Piper Lessac) is research-only; use another voice for commercial use. The built-in catalog (`loadCatalog` without profiles) still preselects `piper-en-lessac-low` as the English `tts.fast`; "no research-only model is ever a default" is not yet enforced there. The core's own voice catalog replaces that choice, and the licence gate refuses the model until it is confirmed per model.
 
 Pinned packages (url, size, sha256) are in `src/local/catalog.json`; each was checked against the release asset and its file layout. Pocket TTS is pinned but this package's sherpa-onnx runner cannot drive it yet, so `en` / `quality` falls back to Kokoro. Parakeet 110M is a single-file CTC export (`nemo-ctc`).
 

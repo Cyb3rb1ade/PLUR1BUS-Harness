@@ -88,6 +88,24 @@ only after you have read that plan; outside an interactive terminal, `--yes` is 
 only be used for a change you have already dry-run. The write itself is atomic: a rejected value
 changes nothing on disk.
 
+### What the core accepts in `config.json`
+
+The core reads `config.json` itself at start and refuses a file that breaks one of these rules, with a `ConfigInvalid` error
+that names the rule and never quotes the file's content (a `JSON.parse` snippet could contain a secret):
+
+- **Size:** at most 8 MiB (8,388,608 bytes). A larger file is refused before it is read into memory.
+- **Depth:** objects and arrays may nest at most 64 levels deep. The scan is iterative, so a hostile file cannot exhaust the stack.
+- **Keys:** a `__proto__` key anywhere is refused (`/path/__proto__ is a forbidden key`). The same holds for a snapshot the
+  supervisor pushes and for `config set` patches, whose keys also may not be empty or contain a dot, and which may nest at most 32 levels.
+- **Errors:** validation reports at most 50 problems, then `... and N more`.
+- **Not JSON:** the message gives only the syntax-error position (`not JSON (syntax error at position 123)`).
+
+Writes are atomic and private. The new content goes to a freshly created temporary file next to `config.json`
+(`config.json.tmp-<pid>-<random>`, created exclusively with mode `0600`) and is renamed over the original; a failed
+write removes the temporary file. When a schema migration rewrites an older file, the previous content is first copied to
+`config.json.bak-<old schemaVersion>` (mode `0600`, an earlier backup of the same version is replaced) and then the migrated file is written.
+Filesystems without POSIX modes cannot enforce `0600`; the core sets it on a best-effort basis there.
+
 ## Repair
 
 ```sh

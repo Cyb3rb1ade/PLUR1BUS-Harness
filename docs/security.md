@@ -25,11 +25,13 @@ Settings → Secrets → *Rotate* (`secret.set`, owner only, audited).
 
 1. Type the new value into the masked field. The field is never prefilled and a password manager is not asked to fill it.
 2. *Save* only validates and shows the question *Replace the value of …?* The value stays in the read-only masked field; *Back* returns to editing.
-3. *Rotate now* sends the value once. The field is emptied before the request is awaited; the old value stops working and its leases are revoked.
+3. *Rotate now* sends the value once. The field is emptied before the request is awaited; the old value stops working, its leases are revoked, and a copy of the old value in the other backend (OS keyring or encrypted file) is removed too.
 4. The page then says only `<name>: updated on <time>` (the `updatedAt` of the answer). `secret.status` carries no per-secret time.
 
 A value is never shown, never put in a URL, `localStorage`, `sessionStorage` or a log line, and never repeated in an error text (the
-page shows fixed sentences). Deleting a secret still needs the typed name.
+page shows fixed sentences). Deleting a secret still needs the typed name; it removes the secret from both backends, including the encrypted file when the
+file fallback is switched off. A lease object printed or serialised (log line, JSON, debugger) shows `[redacted]` in place of the value, and every file error from
+the encrypted store is reduced to a code, so no file path leaves the store.
 
 ## The rules overview
 

@@ -223,7 +223,10 @@ What shipped for action items 5, 6 and 8 (`docs/superpowers/plans/2026-10-06-m2-
   index entry because the keyring cannot enumerate; one keyring service per home), the encrypted file, and an in-memory test
   backend. Selection is keyring first; the file serves only when `secrets.fileFallback.enabled` is `true` and the keyring is
   unavailable; otherwise `none`, and every value operation answers `E_NOT_AVAILABLE` (reason `no-backend`) naming the flag.
-  Reads fall through to the other available backend, deletes clear both, so a keyring that appears later hides nothing.
+  Reads fall through to the other available backend. Rotation (`secret.set`) writes the backend in use and then removes the name from the other
+  one, so an older copy cannot come back when the first backend goes away; delete clears both, and also clears the file backend when the fallback is
+  switched off or the file is not the backend in use, so a deleted secret cannot reappear when the flag is turned back on. A failure to clean the other
+  backend is logged (names only) and does not fail the call. Names such as `constructor` or `toString` are ordinary names in both backends (own-property checks).
 - **Q3 ruling (B19, owner decision still open).** The file's key is a machine-bound key file (`state/secrets/store.key`, 32
   random bytes, created once, 0600 or user-and-SYSTEM ACL), as `decisions-for-owner.md` B19 recommends. The passphrase mode B19
   keeps "available for higher-assurance installs" is not built. The fallback is off by default until the owner decides. The
@@ -235,7 +238,10 @@ What shipped for action items 5, 6 and 8 (`docs/superpowers/plans/2026-10-06-m2-
   `corrupt` (`E_STORAGE`); nothing partial is returned and the key is never regenerated over existing entries. Not defended: a
   reader of both files as this user, and whole-entry rollback to an older valid copy.
 - **Leases (action 6).** `{ leaseId, name, value, expiresAt, purpose, profileId }`, default 60 s, cap 5 min, injectable clock,
-  revoked on rotate and delete, in memory only, no RPC (the engine is in-process; an RPC lease would hand a value to a client).
+  revoked on rotate and delete, in memory only, no RPC (the engine is in-process; an RPC lease would hand a value to a client). A lease handed to a
+  caller is a frozen copy (it cannot extend `expiresAt` or change the value held in the table) whose `JSON.stringify` and `util.inspect` output shows
+  `value: "[redacted]"`; the `value` property itself stays readable for the one consumer that needs it. When a rotate or delete overlaps the read, issuing re-reads
+  (up to three times) and then fails with `lease-invalid` instead of leasing a value that was rotated away.
 - **Principals and RPC.** `owner`, `core` (leases only) and `agent`; anything else, including an unknown kind, is refused and the
   refusal audited. `secret.status|list|set|get|delete` (RPC 1.5.0, experimental, `x-since: 1.5.0`, no version bump in this
   change) take the principal from the connection, never from a parameter; today every connection that passed `core.auth` holds

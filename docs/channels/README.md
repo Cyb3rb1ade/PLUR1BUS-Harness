@@ -19,11 +19,8 @@ connection loss; g) stop leaves no unhandled rejection.
 | Telegram | ✓ | ✓ | ✓ | ✓ | ✓ | KNOWN GAP: "f) health is not ok after the connection is lost" (`contract-harness.test.ts`) | ✓ | KNOWN GAP ×5: part of a token echoed by the platform reaches `err.message` (`redaction-catalogue.test.ts`, `TelegramApi.#call`); low severity | KNOWN GAP: "property 3b: every part boundary falls on a grapheme boundary" (`split-property.test.ts`) | KNOWN GAP ×3: 500 and 503 on sends are not retried; 400 on `getUpdates` is retried (`rate-backoff.test.ts`) |
 | Discord | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ (health reports `reconnecting`) | KNOWN GAP: "g) stop while start waits for the first READY settles promptly instead of waiting out READY_WAIT_MS" (`contract-catalogue.test.ts`) | KNOWN GAP ×2: an intent or unknown option named by the token is echoed in a `RangeError` (first 40 characters; low) (`redaction-catalogue.test.ts`) | KNOWN GAP: "property 3b: every cut falls on an extended grapheme cluster boundary" (`split-property.test.ts`) | ✓ (`rate-backoff.test.ts`) |
 | Matrix | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ (`health()` is not ok while the sync loop waits in backoff after a transport/5xx/429 failure; `contract-catalogue.test.ts`) | ✓ | ✓ (`redaction-catalogue.test.ts`) | ✓ (`split-property.test.ts`) | ✓ (`rate-backoff.test.ts`) |
-| Matrix | ✓ | ✓ | ✓ | ✓ | ✓ | KNOWN GAP: "f) health is not ok after the connection is lost" (`contract-catalogue.test.ts`) | ✓ | ✓ (`redaction-catalogue.test.ts`) | KNOWN GAP ×5: "property 1" (a part overshoots by its closing fence), "property 3b", "property 4b" (reopened fence glued to code), "property 4c" (CRLF fences), "property 4d" (overflowing closing fence) (`split-property.test.ts`) | ✓ (`rate-backoff.test.ts`) |
-| Signal | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ (`redaction-catalogue.test.ts`; account digits, daemon socket path and TCP host) | KNOWN GAP: "property 3b: no extended grapheme cluster is split" (`split-property.test.ts`) | ✓ (`rate-backoff.test.ts`) |
 | Email | ✓ | ✓ | ✓ | ✓ ("d) the same UID twice in one batch is delivered once even when the mail has no Message-ID", `contract-catalogue.test.ts`) | ✓ | ✓ (health is `imap:down`) | ✓ ("g) stop issued right after start() was called leaves no IMAP socket open", `contract-catalogue.test.ts`) | ✓ (`redaction-catalogue.test.ts`) | ✓ ("property 3b: every cut falls on an extended grapheme cluster boundary", `split-property.test.ts`) | ✓ ("SMTP: stop() during a parked retry wait ends the send", `rate-backoff.test.ts`) |
 | Signal | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ (`redaction-catalogue.test.ts`; account digits, daemon socket path and TCP host) | ✓ ("property 3b: no extended grapheme cluster is split", `split-property.test.ts`) | ✓ (`rate-backoff.test.ts`) |
-| Email | ✓ | ✓ | ✓ | KNOWN GAP: "d) the same UID twice in one batch is delivered once even when the mail has no Message-ID" (`contract-catalogue.test.ts`) | ✓ | ✓ (health is `imap:down`) | KNOWN GAP: "g) stop issued right after start() was called leaves no IMAP socket open" (`contract-catalogue.test.ts`) | ✓ (`redaction-catalogue.test.ts`) | KNOWN GAP: "property 3b: every cut falls on an extended grapheme cluster boundary" (`split-property.test.ts`) | KNOWN GAP: "SMTP: stop() during a parked retry wait ends the send" (`rate-backoff.test.ts`) |
 | Slack | n/a: Slack is the reference harness (`test/contract-harness.test.ts`, one smoke test). Its a–g were not extended in this pass, which covered Discord, Matrix, Signal and Email. | n/a | n/a | n/a | n/a | n/a | n/a | KNOWN GAP (SECURITY): "a webSocket factory that throws while reconnecting keeps its error text out of the process" (`redaction-catalogue.test.ts`); the error escapes as an unhandled rejection with the bot token and the Socket Mode URL with its ticket | KNOWN GAP: "P3b: no extended grapheme cluster is split at a part boundary" (`split-property.test.ts`) | KNOWN GAP ×3: a file download is not retried on 503, and ignores `Retry-After` on 429; `ok: false` server errors on HTTP 200 are not retried (a judgement call; `rate-backoff.test.ts`) |
 
 Notes:
@@ -33,3 +30,16 @@ Notes:
   hardening gaps, not live leaks.
 - Core: the channel registry restarts a failing channel with growing gaps up to a 60 s cap, gives up after `maxRestarts`, and
   `stop()` ends the loop (`packages/core/test/channels/backoff-registry.test.ts`, 14 tests, all passing).
+
+## Core: registry and router
+
+`packages/core/src/channels/router.ts` and `registry.ts` sit between every channel and the session layer:
+
+- **Redelivered messages are dropped.** The router remembers the last **5000** accepted messages for **10 minutes** (key: channel, chat, sender and
+  message id; the oldest are evicted first). A message with the same key inside that window, for example after an adapter restart, a reconnect or a replayed
+  offset, costs no second turn and is logged as `channel.inbound.dropped` with reason `duplicate`. A message without an id is never merged with another.
+- **At most 20 messages per chat wait behind a running turn.** Messages of one chat are handled in order; when 20 are already waiting, further ones are
+  dropped (`channel.inbound.dropped`, reason `queue-full`) instead of queueing without bound.
+- **A message that is empty or only whitespace is dropped** as malformed (`channel.inbound.dropped`, reason `malformed`). The text limit of 65,536 characters is unchanged.
+- **Adapter text is masked.** Error texts that reach the router's log and the registry's status or health detail go through the host's secret redaction; a
+  registry-held text is cut to 500 characters (with `…`), and an error thrown by `send` is rethrown with its text masked.

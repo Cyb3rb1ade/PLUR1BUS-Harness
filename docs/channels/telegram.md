@@ -78,6 +78,8 @@ Options take effect on channel restart (restart class `module:telegram`).
 | `logger` | Optional structured, content-free log sink |
 | `baseUrl`, `fetch`, `sleep`, `now`, `random` | Host transport / deterministic test seams; never derive these from inbound input |
 
+Known deviations (`KNOWN GAP` todo tests in the package, not yet enforced): a `5xx` answer to a send is not retried with backoff (only 429, network errors and timeouts are, up to `maxSendRetries`), so it is rejected at once with kind `http`; a `4xx` other than 429 on `getUpdates` is retried after a backoff instead of being treated as final; `health()` stays `ok` after the connection to Telegram is lost (it turns false only on `401` or `403`); and an error message can contain part of a token that the platform echoed back.
+
 `start()` obtains bot identity, registers commands and selects transport. Polling calls `deleteWebhook` with `drop_pending_updates: false`; webhook mode calls `setWebhook` with `secret_token` and accepts messages/callback queries. The package never starts a public server. Mount the Fetch-compatible handler in the host:
 
 ```ts
