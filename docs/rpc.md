@@ -74,6 +74,217 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ## Methods
 
+### `jobs.create`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human-only user-job create. Current agent.manage rights are required; system and engine jobs are immutable. Editing changes runAs to the editor, never to a requested third person.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "schedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cron",
+        "timezone"
+      ],
+      "properties": {
+        "cron": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "enabled": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "name",
+    "agentId",
+    "prompt",
+    "schedule",
+    "enabled"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job"
+  ],
+  "properties": {
+    "job": {
+      "$ref": "#/$defs/UserJob"
+    }
+  }
+}
+```
+
+### `jobs.update`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human-only user-job update. Current agent.manage rights are required; system and engine jobs are immutable. Editing changes runAs to the editor, never to a requested third person.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "schedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cron",
+        "timezone"
+      ],
+      "properties": {
+        "cron": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job"
+  ],
+  "properties": {
+    "job": {
+      "$ref": "#/$defs/UserJob"
+    }
+  }
+}
+```
+
+### `jobs.delete`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human-only user-job delete. Current agent.manage rights are required; system and engine jobs are immutable. Editing changes runAs to the editor, never to a requested third person.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "confirm": {
+      "const": true
+    }
+  },
+  "required": [
+    "id",
+    "confirm"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "deleted"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "deleted": {
+      "const": true
+    }
+  }
+}
+```
+
 ### `voice.status`
 
 **Stability:** experimental · since 1.6.0
@@ -5241,6 +5452,7 @@ Lists scheduled jobs, optionally filtered by kind.
       "enum": [
         "agent",
         "system",
+        "user",
         "all"
       ],
       "description": "Filter jobs by kind. Defaults to 'agent'."
@@ -5262,65 +5474,79 @@ Lists scheduled jobs, optionally filtered by kind.
     "jobs": {
       "type": "array",
       "items": {
-        "type": "object",
-        "additionalProperties": true,
-        "required": [
-          "name",
-          "needsLlm",
-          "singleton"
-        ],
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "The job name."
-          },
-          "needsLlm": {
-            "type": "boolean"
-          },
-          "singleton": {
-            "type": "boolean"
-          },
-          "phase": {
-            "enum": [
-              "light",
-              "rem",
-              "deep"
-            ]
-          },
-          "kind": {
-            "enum": [
-              "agent",
-              "system"
-            ],
-            "description": "Whether the job is an agent job or a system job."
-          },
-          "schedule": {
+        "oneOf": [
+          {
             "type": "object",
-            "additionalProperties": false,
+            "additionalProperties": true,
             "required": [
-              "every",
-              "jitter"
+              "name",
+              "needsLlm",
+              "singleton"
             ],
-            "description": "Cadence information for scheduled runs.",
             "properties": {
-              "every": {
-                "type": "integer",
-                "description": "Nominal interval between runs in milliseconds."
+              "name": {
+                "type": "string",
+                "description": "The job name."
               },
-              "jitter": {
-                "type": "number",
-                "description": "Fractional jitter applied to the interval."
+              "needsLlm": {
+                "type": "boolean"
+              },
+              "singleton": {
+                "type": "boolean"
+              },
+              "phase": {
+                "enum": [
+                  "light",
+                  "rem",
+                  "deep"
+                ]
+              },
+              "kind": {
+                "enum": [
+                  "agent",
+                  "system"
+                ],
+                "description": "Whether the job is an agent job or a system job."
+              },
+              "schedule": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "every",
+                  "jitter"
+                ],
+                "description": "Cadence information for scheduled runs.",
+                "properties": {
+                  "every": {
+                    "type": "integer",
+                    "description": "Nominal interval between runs in milliseconds."
+                  },
+                  "jitter": {
+                    "type": "number",
+                    "description": "Fractional jitter applied to the interval."
+                  }
+                }
+              },
+              "nextRunAt": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "description": "Epoch timestamp in milliseconds of next scheduled run, or null if unscheduled."
               }
             }
           },
-          "nextRunAt": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "description": "Epoch timestamp in milliseconds of next scheduled run, or null if unscheduled."
+          {
+            "$ref": "#/$defs/UserJob"
           }
-        }
+        ]
+      }
+    },
+    "manageableAgents": {
+      "type": "array",
+      "description": "For kind user: live agent.manage targets for the authenticated person; the create/edit selector uses only these ids.",
+      "items": {
+        "$ref": "#/$defs/AgentId"
       }
     }
   }
@@ -5375,6 +5601,9 @@ Runs a job immediately. agentId is required for agent jobs and refused for syste
     },
     {
       "$ref": "#/$defs/SystemJobRun"
+    },
+    {
+      "$ref": "#/$defs/UserJobRun"
     }
   ]
 }
@@ -5412,6 +5641,14 @@ Returns past job execution records. When agentId is omitted, returns system job 
       "minimum": 1,
       "maximum": 1000,
       "description": "Maximum number of recent runs to return (newest first)."
+    },
+    "kind": {
+      "enum": [
+        "agent",
+        "system",
+        "user",
+        "all"
+      ]
     }
   }
 }
@@ -5436,6 +5673,9 @@ Returns past job execution records. When agentId is omitted, returns system job 
           },
           {
             "$ref": "#/$defs/SystemJobRun"
+          },
+          {
+            "$ref": "#/$defs/UserJobRun"
           }
         ]
       }
@@ -14702,6 +14942,189 @@ D109 §4: a grant was created or revoked (use, expiry and suspension are not not
 ## Definitions
 
 Shared `$defs` referenced above as `#/$defs/<Name>`.
+
+### `UserJob`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "agentId",
+    "prompt",
+    "schedule",
+    "enabled",
+    "id",
+    "kind",
+    "needsLlm",
+    "singleton",
+    "runAs",
+    "createdBy",
+    "createdAt",
+    "updatedAt",
+    "nextRunAt"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "schedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cron",
+        "timezone"
+      ],
+      "properties": {
+        "cron": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "kind": {
+      "const": "user"
+    },
+    "needsLlm": {
+      "const": true
+    },
+    "singleton": {
+      "const": true
+    },
+    "runAs": {
+      "type": "string"
+    },
+    "createdBy": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "updatedAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "nextRunAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "disabledReason": {
+      "enum": [
+        "skipped_owner_inactive",
+        "skipped_no_rights",
+        "skipped_agent_missing"
+      ]
+    }
+  }
+}
+```
+
+### `UserJobRun`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "jobId",
+    "job",
+    "kind",
+    "runAs",
+    "runAsDisplayName",
+    "trigger",
+    "startedAt",
+    "finishedAt",
+    "durationMs",
+    "outcome",
+    "agentId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string"
+    },
+    "jobId": {
+      "type": "string"
+    },
+    "job": {
+      "type": "string"
+    },
+    "runAs": {
+      "type": "string"
+    },
+    "runAsDisplayName": {
+      "type": "string"
+    },
+    "kind": {
+      "const": "user"
+    },
+    "trigger": {
+      "const": "recurring"
+    },
+    "startedAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "finishedAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "outcome": {
+      "enum": [
+        "running",
+        "completed",
+        "failed",
+        "abandoned",
+        "skipped_owner_inactive",
+        "skipped_no_rights",
+        "skipped_agent_missing",
+        "skipped_agent_inactive",
+        "skipped_budget",
+        "approval_timeout"
+      ]
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "requestedBy": {
+      "type": "string",
+      "description": "Authenticated person who requested a manual run; runAs remains the execution identity."
+    }
+  }
+}
+```
 
 ### `VoiceProfileName`
 

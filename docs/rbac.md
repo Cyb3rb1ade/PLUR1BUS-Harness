@@ -411,3 +411,9 @@ See [agents.md](agents.md) for CLI formats, compatibility and recovery behavior.
 ### Doctor snapshots
 
 `doctor.report` is human-only. Its admission gate permits all five human roles to read the cached report. The all-human read admission uses `agent.list`; the handler additionally authorizes `doctor.run` (including token scopes) and requires Owner, Admin or Operator for `refresh: true`; it rate-limits a fresh check to once per 30 seconds. Agents cannot request or read this report.
+
+### User recurring task methods
+
+New human-only rules: `jobs.create` → `agent.manage` on params.agentId; `jobs.update` and `jobs.delete` → `agent.list` for the initial authenticated read, followed by handler-level `agent.manage` checks on the stored and proposed targets. These require the corresponding token scopes as well as roles/rights. `jobs.list/history` user paths resolve a person and apply `agent.list` plus visibility filtering; legacy engine/system paths retain their existing classification.
+
+The existing `agent.manage` policy grants owner/admin and member-with-manage, and excludes operator/viewer. The existing `jobs.run` rule remains owner/admin/operator; user runs additionally need use rights and execute as stored `runAs`, never the triggering caller. Existing approval roles and surface requirements remain unchanged. The new create/update/delete methods, `doctor.report` and `agent.activity.list` are explicitly excluded from WebMCP exposure.

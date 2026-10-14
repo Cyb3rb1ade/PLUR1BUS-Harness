@@ -1,0 +1,16 @@
+import {test} from "node:test";
+import assert from "node:assert/strict";
+import {defaults} from "@plur1bus/config-schema";
+import {engineTurnMemory} from "../../src/session/memory-port.ts";
+import {deriveUserPrincipal} from "../../src/identity/principals.ts";
+import {tempDir} from "../helpers/temp-dir.ts";
+test("trusted recurring identity selects only runAs private memories, never an editor or caller identity",async()=>{
+ const alice=deriveUserPrincipal("alice"),bob=deriveUserPrincipal("bob");
+ const owners:string[]=[];const captures:string[]=[];
+ const engine:any={recall:async({principal}:any)=>{owners.push(principal.user);const text=principal.user===alice?"Alice private note":"Bob private note";return {blocks:[{name:"private",text,chars:text.length,droppable:false}],degraded:null};},capture:({principal}:any)=>{captures.push(principal.user);return{id:"capture",done:Promise.resolve({stored:1,skipped:0})};}};
+ const memory=engineTurnMemory({engine,config:defaults,agents:{workspaceOf:()=>tempDir("job-memory-"),has:()=>true} as any,logger:{info(){},warn(){}} as any,captureSignal:new AbortController().signal,isStopping:()=>false});
+ const caller={channel:"cli" as const,accountId:"recurring",userId:"bob"};
+ const result=await memory.recall({agentId:"main",caller,authenticatedPerson:"alice",query:"today",signal:new AbortController().signal});
+ assert.match(result.text,/Alice private note/);assert.doesNotMatch(result.text,/Bob private note/);assert.deepEqual(owners,[alice]);
+ await memory.capture({agentId:"main",caller,authenticatedPerson:"alice",sessionId:"session",turnId:"turn",messages:[{role:"user",content:"today"},{role:"assistant",content:"answer"}],incognito:false});assert.deepEqual(captures,[alice]);assert.notEqual(alice,bob);
+});

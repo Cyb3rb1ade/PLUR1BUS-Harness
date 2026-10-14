@@ -218,8 +218,13 @@ fn method_fixture(name: &str, f: &Value) {
         "doctor.report" => pair::<DoctorReportParams, DoctorReportResult>(name, f),
         "agent.activity.list" => pair::<AgentActivityListParams, AgentActivityListResult>(name, f),
         "agent.status" => pair::<AgentStatusParams, AgentStatusResult>(name, f),
+        "jobs.create" => pair::<JobsCreateParams, JobsCreateResult>(name, f),
+        "jobs.update" => pair::<JobsUpdateParams, JobsUpdateResult>(name, f),
+        "jobs.delete" => pair::<JobsDeleteParams, JobsDeleteResult>(name, f),
         "jobs.list" => pair::<JobsListParams, JobsListResult>(name, f),
-        "jobs.run" | "jobs.run.system" => pair::<JobsRunParams, JobsRunResult>(name, f),
+        "jobs.run" | "jobs.run.system" | "jobs.run.user" => {
+            pair::<JobsRunParams, JobsRunResult>(name, f)
+        }
         "jobs.history" => pair::<JobsHistoryParams, JobsHistoryResult>(name, f),
         "events.subscribe" => pair::<EventsSubscribeParams, EventsSubscribeResult>(name, f),
         "events.unsubscribe" => pair::<EventsUnsubscribeParams, EventsUnsubscribeResult>(name, f),

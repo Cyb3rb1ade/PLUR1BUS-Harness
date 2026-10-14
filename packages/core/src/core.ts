@@ -57,6 +57,8 @@ import { sessionUsage } from "./rpc/session-usage.ts";
 import { breakglassMemory } from "./rpc/breakglass-memory.ts";
 import { sessionWriteAccess } from "./rpc/session-access.ts";
 import { sessionTranscriptSurface } from "./rpc/session-overview.ts";
+import { UserJobs } from "./user-jobs/index.ts";
+import { attachUserJobMethods } from "./user-jobs/rpc.ts";
 import { createBreakGlass } from "./rbac/break-glass.ts";
 import { userPrincipalHash, validIdentity } from "./principal.ts";
 import { buildAuthSurface } from "./rpc/auth-surface.ts";
@@ -159,6 +161,8 @@ export interface CoreOptions {
    *  is the installation owner (R8) and refusals go to `<home>/logs/audit.log`. */
   rbac?: {
     resolve?: PrincipalResolver; audit?: AuditSink;
+    /** Trusted person-directory lookup for scheduled work. Null means deleted/inactive; never supplied by RPC params. */
+    resolvePerson?: (personId: string) => import("./rbac/types.ts").Principal | null;
     /** D109 §5: a server-side fact about a connection (desktop app, CLI on a TTY, fresh step-up) that raises a person to T3. Without it a token connection is T1 (#192); see rbac/connection-surface.ts. */
     attest?: (ctx: CallContext) => ConnectionAttestation | undefined;
   };
@@ -237,6 +241,8 @@ export function createCore(o: CoreOptions): Core {
   let replay: JournalReplay | null = null;
   let webSearch: SearxngWebSearch | null = null;
   let metricsHttp: MetricsServer | null = null;
+  let userJobs: UserJobs | null = null;
+  let userJobsTimer: ReturnType<typeof setInterval> | null = null;
   let sessions: SessionService | null = null;
   let turnComposition: TurnComposition | null = null;
   let permissions: PermissionRuntime | null = null; // D109: grants + approvals (`state/approvals.sqlite`), opened on first use
@@ -648,6 +654,33 @@ export function createCore(o: CoreOptions): Core {
         },
         // No `erase`: the pinned engine has no hard-erasure API. The handler records/refuses before any mutation.
       });
+      userJobs = new UserJobs({
+        path: path.join(l.state, "user-jobs.sqlite"), clock, audit: rbacAudit,
+        isStopping: () => shutdown.signal.aborted,
+        agentExists: id => registry.has(id) && !lifecycle.state(id).deleted, agents: () => registry.list().filter(id => !lifecycle.state(id).deleted),
+        resolve: personId => {
+          if (o.rbac?.resolvePerson) { const current = o.rbac.resolvePerson(personId); return current ? people.resolve(current) : null; }
+          if (personId !== LOCAL_OWNER.userId && !identityService.list({}).humans.some(h => h.id === personId)) return null;
+          return people.resolve({ kind: "person", userId: personId, role: people.role(personId, personId === LOCAL_OWNER.userId ? "owner" : "member") });
+        },
+        displayName: id => identityService.list({}).humans.find(h => h.id === id)?.displayName ?? id,
+        budgetBlocked: agentId => !budget || budget.status({ agentId }).limits.some(limit => limit.state === "hard"),
+        onRecorded: run => log.info("recurring job completed", { jobId: run.jobId, runAs: run.runAs, trigger: run.trigger, outcome: run.outcome }),
+        notify: run => {
+          const draft = { kind: "job-failed" as const, severity: "warning" as const, titleKey: "inbox.jobFailed", params: { job: run.job, reason: run.outcome }, ref: { route: "/recurring", objectId: run.jobId }, dedupeKey: `user-job:${run.runId}` };
+          inboxPort.publish({ ...draft, audience: "admins" });
+          if (run.outcome === "skipped_no_rights") inboxPort.publish({ ...draft, userId: run.runAs });
+        },
+        execute: async (job, person) => {
+          if (!sessions) return "failed";
+          if (!executionRegistry.has(job.agentId)) return "skipped_agent_inactive";
+          const session = sessions.store.createSession({ kind: "direct", agentId: job.agentId, owner: deriveUserPrincipal(person.userId), scope: "user", title: job.name });
+          const handle = sessions.runner.submit({ session, caller: { channel: "cli", accountId: "recurring", userId: person.userId }, text: job.prompt, approver: { person: person.userId, surface: 0 }, recurring: { jobId: job.id, jobName: job.name, runAs: person.userId, trigger: "recurring" } });
+          const result = await handle.done;
+          const outcome = result.error === "approval-timeout" ? "approval_timeout" : result.state === "completed" ? "completed" : result.error === "budget-exceeded" ? "skipped_budget" : "failed";
+          return outcome;
+        },
+      });
       const rawMethods = {
         ...buildMethods({
         engine: eng, config: cfg, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
@@ -711,6 +744,7 @@ export function createCore(o: CoreOptions): Core {
       Object.assign(rawMethods, breakglassMemory({ methods: rawMethods, engine: eng, identity: identityService, breakglass, workspace: id => registry.workspaceOf(id) }));
       let initialDoctorCheck: (() => Promise<unknown>) | undefined;
       Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, scheduleInitial: start => { initialDoctorCheck = start; } }));
+      Object.assign(rawMethods, attachUserJobMethods({ ...rawMethods }, userJobs, resolvePrincipal));
       const methods = guardMethods(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.store.getSession(id)?.agentId), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: AGENT_CREATION_RULES });
       server = createRpcServer({
         address, token, personOfConnection: async connectionId => { const p = await resolvePrincipal({ requestId: "audience", connectionId, signal: shutdown.signal }, "events.subscribe", {}); return p?.kind === "person" ? p.userId : null; }, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
@@ -748,6 +782,8 @@ export function createCore(o: CoreOptions): Core {
       } catch (err) { dreams = null; dreamsError = String((err as Error)?.message ?? err).slice(0, 300); logger.error("dreaming scheduler unavailable", { err }); }
       logger.info("core ready", { instanceId, address, supervised: o.lifeline !== undefined });
       void initialDoctorCheck?.().catch(() => {});
+      const runUserJobs = () => { if (userJobs && !shutdown.signal.aborted) void userJobs.tick().catch(() => log.warn("recurring scheduler failed")); };
+      userJobsTimer = setInterval(runUserJobs, 30_000); userJobsTimer.unref(); runUserJobs();
       // Spec §6.3: the models load in the background, after `ready` (B8 measures the socket, not the models).
       recallWarmPending = true;
       warmup = startWarmup({
@@ -787,7 +823,9 @@ export function createCore(o: CoreOptions): Core {
       orphans?.dispose();
       await step(log, "config watch", async () => { await source?.close(); });
       await step(log, "channels stop", async () => { await switchboard?.stop(); }); switchboard = null;
+      if (userJobsTimer) { clearInterval(userJobsTimer); userJobsTimer = null; }
       await step(log, "sessions close", async () => { await turnComposition?.close(); turnComposition = null; }); sessions = null;
+      await userJobs?.drain(); userJobs?.close(); userJobs = null;
       await step(log, "permissions close", async () => { permissionNotifier?.close(); await permissions?.close(); }); permissions = null; permissionNotifier = null;
       await step(log, "budget close", () => { budget?.close(); budget = null; });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
@@ -868,11 +906,13 @@ export function createCore(o: CoreOptions): Core {
       }, errors);
       // M1b-2c: the shutdown abort above ends running turns (failed, `aborted`); they finish their writes before the engine closes.
       await step(logger, "channels stop", async () => { await switchboard?.stop(); switchboard = null; }, errors); // adapters first: no inbound message may reach a closing session store
+      if (userJobsTimer) { clearInterval(userJobsTimer); userJobsTimer = null; }
       await step(logger, "sessions close", async () => { await turnComposition?.close(); turnComposition = null; sessions = null; }, errors);
       // A re-embedding run in flight ends at its next batch boundary (aborted, resumable) before the engine closes under it.
       await step(logger, "re-embedding run", async () => { await reembed?.stop(Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
       await step(logger, "admin stores close", () => { inbox?.close(); inbox = null; adminPeople?.close(); adminPeople = null; agentLifecycle?.close(); agentLifecycle = null; }, errors);
+      await userJobs?.drain(); userJobs?.close(); userJobs = null;
       await step(logger, "identity close", () => { identity?.close(); identity = null; }, errors);
       await step(logger, "budget close", () => { budget?.close(); budget = null; }, errors);
       await step(logger, "rpc drain", async () => {

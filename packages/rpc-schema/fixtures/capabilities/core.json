@@ -1,5 +1,17 @@
 {
   "methods": {
+    "jobs.create": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "jobs.update": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "jobs.delete": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "voice.status": {
       "stability": "experimental",
       "since": "1.6.0"
