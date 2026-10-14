@@ -81,11 +81,13 @@ describe("rerank pipeline: shape failures are always AdapterError", () => {
   });
 });
 
-// UNKLAR: options passed as null. The signature says RerankOptions, but the code only defaults undefined, so null reaches
-// opts.topN and the TypeError is turned into bad_response. The embedding pipeline reports the same kind of bad argument
-// as invalid_request. Whether a null options object should be invalid_request is not specified, so the expected kind is
-// not asserted here; the test only requires that some AdapterError comes back.
-it.skip("UNKLAR: null options are an AdapterError (kind to be confirmed: invalid_request or bad_response)", async () => {
-  const { deps } = kit({ status: 200, json: [] });
-  await assert.rejects(createRerankAdapter(TEI, deps).rerank("q", docs, null as never), (e: unknown) => e instanceof AdapterError);
-});
+// Options that are null or not an object are a caller error: invalid_request, nothing is sent (same class the embedding
+// pipeline uses for a bad inputType).
+for (const [label, bad] of [["null", null], ["a string", "topN"], ["a number", 3]] as const) {
+  it(`${label} options are invalid_request and send no request`, async () => {
+    const { deps, requests } = kit({ status: 200, json: [] });
+    await assert.rejects(createRerankAdapter(TEI, deps).rerank("q", docs, bad as never), (e: unknown) =>
+      e instanceof AdapterError && e.kind === "invalid_request" && e.retryable === false && e.provider === "tei");
+    assert.equal(requests.length, 0);
+  });
+}

@@ -109,7 +109,7 @@
 }
 
 .markdown-body a {
-  color: var(--accent);
+  color: var(--info-ink);
   text-decoration: underline;
   text-underline-offset: 2px;
 }

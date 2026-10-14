@@ -321,7 +321,7 @@ status falls under a documented class without its own row, and `no` when the map
 | 403 | `auth` / no / yes |
 | 404 (unknown model) | `invalid_request` / no / class |
 | 408 | `timeout` / yes / yes (the adapters have no client-side deadline, so 408 stands in for it) |
-| 413 (too large) | `invalid_request` / no / no (only a comment in `src/errors.ts`; the docs name the class only) |
+| 413 (too large) | `invalid_request` / no / class (other 4xx; `src/errors.ts` states it in a comment) |
 | 429 with `Retry-After: 7` | `rate_limit` / yes / yes (`retryAfterMs` 7000) |
 | 429 without `Retry-After` | `rate_limit` / yes / yes |
 | 500 | `overloaded` / yes / yes |

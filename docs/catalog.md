@@ -261,3 +261,133 @@ successful cache results. A fresh valid cache works offline. After expiry:
   reports; wire the port without introducing a second trust store.
 - Remaining X4 search/install/update/preflight integration. X1–X3/X5 are not
   declared complete by this trust-client PR; Q12's first packages remain owner work.
+
+## Edge-case behaviour (characterised, PR #409)
+
+The tests under `packages/core/test/catalog/` pin three areas that share the word "catalogue": the signed extension
+index (`packages/core/src/catalog/`), the curated model metadata table (`packages/core/src/discovery/metadata.ts`) and the
+built-in voice catalog (`packages/voice-providers/src/local/catalog.ts`, `packages/core/src/voice/v3-catalog.ts`).
+What follows is what the code does today. Cases tagged "characterization" in the tests were never specified; where one
+looks like a defect it is listed under [Open points](#open-points-offene-punkte) and is not a commitment. Test references
+are `file > test name` relative to `packages/core/test/catalog/`.
+
+### Signed index: parsing and validation (`verify.ts`, `ext-index/verify.ts`)
+
+All shape failures from `parseCatalogIndex`, `parseRevocations`, `parseRoot`, `envelope`, `payload` and `timestamp` are
+`CatalogError` with code `signature_invalid`, except where noted. The 600-case seeded mutation test
+(`index-entries.test.ts > 600 random mutations ...`) asserts nothing else than a typed `signature_invalid` ever escapes.
+
+* **Payload decoding.** The payload must be UTF-8 JSON; invalid UTF-8, an empty payload and trailing text are refused.
+  A leading UTF-8 byte order mark is tolerated: the decoder drops it, while the signature still covers the original
+  bytes. Test: `index-entries.test.ts > characterization: ... a UTF-8 byte order mark in front of the JSON is tolerated ...`.
+* **Pins.** The index must carry a positive integer `rootVersion` and `revocation: { version, sha256 }` (64 lowercase hex
+  characters). An embedded `revocations` array is refused unless it is empty; the parser always returns `revocations: []`.
+  Unknown extra fields on the index, a package or a version are carried along untouched. Test:
+  `index-entries.test.ts > characterization: ... unknown extra fields on the index, a package or a version are carried along untouched`.
+* **Entries.** `generatedAt` must precede `expires`. Package id, kind and name are strings (id non-empty; empty kind and
+  name are accepted). A version needs a non-empty `version`, lowercase 64-hex `sha256`, a positive safe-integer `size`
+  and a plain `https:` URL without credentials. `http:` is accepted only for the exact origin passed as `testOrigin`.
+  Duplicate versions within a package are refused.
+* **Package ids are compared exactly.** `owner/skill`, `Owner/Skill`, `owner/skill ` (trailing space), a Cyrillic look-alike
+  letter, a zero-width character and a division-slash variant are six separate packages; none is refused. Test:
+  `index-entries.test.ts > characterization: ... ids are compared exactly, so look-alike ids ... are separate packages and none of them is refused`.
+* **Duplicate package id** is refused, but the message is the generic `invalid index/package metadata`; the specific
+  `duplicate package id <id>` only exists in the lower-level `ext-index` parser. Test:
+  `index-entries.test.ts > characterization: ... a duplicate package id surfaces as the generic 'invalid index/package metadata' ...`.
+* **Empty content.** An index with no packages and a package with no versions both parse. The client later filters out
+  packages without versions (`client.ts`, the `filter((p) => p.versions.length > 0)` after revoked versions are removed).
+  Test: `index-entries.test.ts > an index with no packages, and a package with no versions, are accepted by the parser ...`.
+* **Timestamps** must match `YYYY-MM-DDTHH:MM:SS[.mmm]Z` exactly (UTC, 0 or 3 fractional digits, no surrounding
+  whitespace) and `Date.parse` must succeed. The pattern is not a calendar check: `2026-02-30T00:00:00Z` is read as
+  2 March and `T24:00:00Z` as midnight of the next day. `T23:59:60Z` and month 13 are refused. Tests:
+  `index-entries.test.ts > only UTC 'YYYY-MM-DDTHH:MM:SS[.mmm]Z' is accepted`, `... characterization: ... a calendar-invalid date that still matches the timestamp pattern rolls over instead of being refused ...`.
+
+### Signed index: revocations, roots and envelopes
+
+* **Revocation file.** Needs `type: "revocations"`, positive `version` and `rootVersion`, a set of non-empty key ids (a
+  key listed twice is refused), `expires`, and packages with non-empty `id`, string `reason` and at least one non-empty
+  version string. A violation in a package reads `... (exact versions required)`. Tests: `index-entries.test.ts > revocation files` block.
+  * The "exact versions" rule is only "non-empty strings": `1.*`, `<2.0.0` and `*` are accepted. The client compares versions
+    with `includes`, i.e. literally, so such entries revoke nothing. Test: `... characterization: ... 'exact versions required' is only checked as non-empty strings ...`.
+  * A revocation may name a key or a package that the index does not contain. Test: `... characterization: ... a revocation may name a package or key the index does not contain ...`.
+* **Roots.** `threshold` defaults to 1 and must be a positive integer not above the number of keys; at most 64 keys. An
+  empty key list is `key_unknown` ("no extension root keys provisioned"), not `signature_invalid`. Each key needs a
+  non-empty id, a raw 32-byte Ed25519 public key in canonical base64 and a valid `expires`; ids and key material must
+  be unique. Test: `index-entries.test.ts > trust roots`.
+* **Envelopes.** Shape: object with a string `payload` and at most 64 `{ keyId, signature }` entries. Base64 must be
+  canonical (padding, alphabet, length, no trailing bits); signatures must be 64 bytes. The threshold counts *distinct*
+  trusted signers. Revoked key: `key_revoked`. Expired key: `signature_invalid`. Expired root: `stale_index`; with
+  `historical = true` expired keys and roots still count. A key expiring exactly "now" is already expired. Tests:
+  `index-entries.test.ts > signed envelopes`.
+  * A signature by a key id the root does not list yields `key_unknown` for the **whole** envelope, even when valid
+    signatures from listed keys sit next to it (the loop throws on the first unknown id). Test: `index-entries.test.ts > a signature by a key the root does not list is key_unknown, even next to valid ones ...`.
+
+### Model metadata table (`discovery/metadata.ts`)
+
+`loadMetadataTable(raw)` validates a table (`schema: "plur1bus.model-metadata/1"`, non-empty `revision`, `vendors` object of
+rule arrays) and compiles it. A rule needs a string `pattern` (at most 200 characters, starting with `^` and ending
+with `$`, no numbered or named back-reference, no lookaround, unique across the table, compiling as a JavaScript
+`RegExp`), a `kind` and `capabilities` from the vocabularies, an optional positive-integer `contextWindow` and optional
+string `aliases` (unique across the table). All violations are collected into one error `invalid model metadata table:` with
+one line per violation; a rejected table loads nothing (no partial result). `lookup` tries the vendor section first,
+then `generic`; the first matching rule wins. Tests: `model-metadata.test.ts` (validation block).
+
+* Calling `loadMetadataTable(undefined)` loads the bundled table (default parameter), so an `undefined` that stems from a
+  failed read looks like success. Test: `model-metadata.test.ts > characterization: ... asking for the table with an undefined value loads the bundled table instead of failing ...`.
+* Unknown extra fields on the table or on a rule are ignored without a message. Test: `... characterization: ... unknown extra fields on the table or on a rule are ignored without a message`.
+* The "RE2-safe subset" is exactly the checks above. A nested quantifier such as `^(a+)+$` is accepted although it is
+  catastrophic in a backtracking engine; the pattern is only compiled by the loader, never run. Test: `... characterization: ... the 'RE2-safe subset' is only the three listed restrictions ...`.
+
+### Built-in voice catalog (`voice-providers` `local/catalog.ts`, core `voice/v3-catalog.ts`)
+
+* `loadCatalog(override)` merges an owner override over the built-in catalog. A built-in model that is overridden keeps
+  its **built-in licence**; every other field, including `download` URL and `sha256`, may be replaced. Test:
+  `voice-catalog.test.ts > characterization: ... an override of a built-in model may replace everything but the licence, including its download url and checksum`.
+* `models` or `languages` in an override that are not objects (`5`, `"x"`, an array) are ignored silently. Only an override
+  that is not an object as a whole is refused (`catalogOverride is not an object`). Test:
+  `voice-catalog.test.ts > characterization: ... 'models' or 'languages' that are not objects are ignored without a message ...`.
+* Invalid override entries throw `VoiceProviderError` with code `catalog` and a message starting `voice catalog: ` that
+  names the entry: role paths escaping the model directory, and model ids that are not safe directory names
+  (separators, leading dot or dash, empty, spaces, non-ASCII). The merge does not mutate the built-in catalog or the
+  override object. Tests: `voice-catalog.test.ts > voice catalog overrides: invalid entries are rejected ...`.
+* The built-in German quality voice is `voice-martin-de`: its licence's `commercial` value is `null` (unknown), so
+  `needsLicenceConfirmation` is true, and it has no package, so `downloadable` is not ok. It is therefore gated twice
+  (licence confirmation and missing download). Test: `voice-catalog.test.ts > characterization: ... the built-in catalog's German quality voice is a model with an unknown licence and no package ...`.
+* `voiceV3Catalog(override, profiles)` clones the loaded catalog and **replaces the whole `tts` selection of `de` and
+  `en`** with `{ fast, quality }` from the profiles (default `V3_TTS_DEFAULTS`); other languages from an override keep
+  their selection; stt, vad, models and licences are unchanged. The declared `tts.fallback` of `de` and `en` (for
+  example `kokoro-multi` for English) is dropped in the process, although `docs/voice-local.md` describes a fallback
+  tier. Test: `... characterization: ... the declared tts fallback of de and en is dropped when the profiles are applied`.
+* Profile ids are not checked against the catalog here (the configuration schema restricts them to an enum). A dangling
+  id leaves the language pointing at a missing model: `modelsFor(...).tts` is `undefined`, and a non-TTS model id
+  is selected as is. Test: `... characterization: ... profile ids are not checked against the catalog here ...`.
+
+### Open points (Offene Punkte)
+
+These are observations, not decisions. Do not rely on them.
+
+1. **Look-alike package ids are not refused** (case, trailing space, homoglyphs, zero-width characters). The index is
+   threshold-signed, so this is only reachable through a compromised or careless publisher, but nothing in the client
+   warns about near-duplicate ids.
+2. **Calendar-invalid timestamps roll over** (`2026-02-30` is 2 March, `T24:00:00Z` is the next day), so a signed expiry can
+   mean a different instant than it reads.
+3. **Revocation versions are not validated as exact versions.** A range or wildcard is accepted and silently has no effect,
+   although the error message demands "exact versions".
+4. **Revocations are not required to resolve** to a known key or package. Probably intended for forward revocation, but
+   undecided.
+5. **One stray signature rejects an otherwise valid envelope** (`key_unknown`). It may be intended (fail closed) but it
+   also blocks signing with a key that is not yet in the root.
+6. **Generic duplicate-id error.** The caller cannot tell which id was duplicated.
+7. **`loadMetadataTable(undefined)` falls back to the bundled table**, hiding a failed read of an external table.
+8. **The "RE2-safe" check does not exclude nested quantifiers**; rules are JavaScript `RegExp`, so a hostile external
+   table could cause catastrophic backtracking when `lookup` runs. Neither the loader nor `lookup` bounds this.
+9. **Voice overrides can swap a built-in model's download URL and checksum** while the built-in licence record is kept, so a
+   licence verdict given for the built-in package is attached to whatever bytes the override points at.
+10. **`voiceV3Catalog` drops the TTS fallback tier** of `de` and `en` (documented in `docs/voice-local.md`).
+11. **A dangling profile id is not detected** in `voiceV3Catalog`.
+12. **Non-object `models`/`languages` in an override are ignored silently.**
+13. **Known gaps (`todo` tests, not fixed):** (a) the built-in catalog preselects `piper-en-lessac-low`, a research-only
+    model, as English `tts.fast`; only `voiceV3Catalog` replaces it and the licence gate refuses it until confirmed per model
+    (`voice-catalog.test.ts > KNOWN GAP: core/catalog voice-providers builtin catalog (loadCatalog without profiles) ...`);
+    (b) an override model with id `__proto__` is dropped silently instead of being rejected like other unsafe ids; no
+    prototype pollution happens (`voice-catalog.test.ts > KNOWN GAP: ... (model id '__proto__') ...` and the neighbouring test that pins the present behaviour).

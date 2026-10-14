@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
+import { axeViolations } from "./axe.ts";
 import { browserSkip, openRoute, setup, teardown, withApp } from "./harness.ts";
 
 before(setup);
@@ -69,4 +70,17 @@ describe("Help page (docs/user)", opts, () => {
       assert.ok(await page.locator('.help-toc-link[href="#/help/betriebshandbuch"]').count() > 0 || await page.locator('.help-toc-link[href="#/help/operations"]').count() > 0);
     });
   });
+
+  for (const scheme of ["light", "dark"] as const) {
+    test(`no serious or critical axe violations on handbook pages with links and code blocks (${scheme})`, async () => {
+      for (const route of ["#/help", "#/help/quickstart", "#/help/operations"]) {
+        await withApp({ colorScheme: scheme, width: 1280, height: 800 }, async ({ page }) => {
+          await openRoute(page, route);
+          await page.locator("#help-article h2").first().waitFor();
+          const bad = (await axeViolations(page)).filter((v) => v.impact === "serious" || v.impact === "critical");
+          assert.deepEqual(bad.map((v) => `${route}: ${v.id}`), []);
+        });
+      }
+    });
+  }
 });

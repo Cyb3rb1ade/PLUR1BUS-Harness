@@ -239,3 +239,5 @@ Local verification on 2026-10-08: complete Core suite 3500 tests, 3489 passed,
 CLI → daemon → Core system matrix: 4 passed. Build, typecheck and lint/hygiene
 completed successfully. The two TODO gaps are the hard-link deny-name alias and
 WebMCP forbidden grant/approval prefixes. No CI state was polled or claimed.
+
+See also [../composition.md](../composition.md) for the edge-case behaviour of the composition layer (billing class, provider turn loop, provider HTTP, media).

@@ -249,7 +249,7 @@ describe("dreams scheduler: who may dream", () => {
     await h.sched.stop();
   });
 
-  it(runPhaseGap, { todo: runPhaseGap }, async () => {
+  it(runPhaseGap, async () => {
     const h = harness(dirs, { agents: ["alpha", "beta"] });
     h.captures("beta", 3);
     await h.sched.start();

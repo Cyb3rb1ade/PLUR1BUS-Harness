@@ -131,7 +131,7 @@ rerank timeout 5 s, 2 attempts (ADR-006). `dimensions` is always required: it is
 | `auth` | 401/403, or the secret could not be resolved (no request is sent) | no |
 | `rate_limit` | 429; `retryAfterMs` set when the server said so | yes |
 | `overloaded` | 5xx / 529 | yes |
-| `invalid_request` | bad arguments or a 4xx the server rejected | no |
+| `invalid_request` | bad arguments (including `null` or non-object call options, rejected before any request) or a 4xx the server rejected | no |
 | `too_large` | input over the token limit, 413, context-length 400, or too many documents for a listwise rerank | no |
 | `network` | connection failure | yes |
 | `timeout` | per-attempt deadline | yes |

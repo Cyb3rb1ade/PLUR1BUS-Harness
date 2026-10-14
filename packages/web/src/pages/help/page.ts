@@ -101,7 +101,7 @@ export function HelpPage({ sub }: PageProps): View {
         ),
       ),
       h(
-        "main",
+        "article",
         { class: "help-content", id: "help-article" },
         loading
           ? h(PageLoading, { label: t("help.loading") })

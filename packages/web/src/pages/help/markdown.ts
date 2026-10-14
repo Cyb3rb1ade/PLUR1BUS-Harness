@@ -253,7 +253,7 @@ export function renderMarkdown(nodes: MarkdownNode[]): View {
         case "p":
           return h("p", { key: idx }, node.children.map((c, i) => renderInline(c, i)));
         case "codeblock":
-          return h("pre", { key: idx }, h("code", { class: node.lang ? `language-${node.lang}` : undefined }, node.code));
+          return h("pre", { key: idx, tabIndex: 0 }, h("code", { class: node.lang ? `language-${node.lang}` : undefined }, node.code));
         case "ul":
           return h("ul", { key: idx }, node.items.map((item, i) => h("li", { key: i }, item.map((c, ci) => renderInline(c, ci)))));
         case "ol":

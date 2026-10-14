@@ -43,9 +43,7 @@ const OWN_PAGE_TEST: Readonly<Record<string, string>> = {
 const NO_OWN_TEST_YET: Readonly<Record<string, string>> = {};
 
 /** Real defects found by the smoke run on pages this change does not own: the test stays, marked as a todo. */
-const KNOWN_GAPS: Readonly<Record<string, string>> = {
-  help: "KNOWN GAP: axe color-contrast (serious) on #/help; already on origin/main, the help page is outside this change",
-};
+const KNOWN_GAPS: Readonly<Record<string, string>> = {};
 
 const routes = Object.keys(PAGES);
 
