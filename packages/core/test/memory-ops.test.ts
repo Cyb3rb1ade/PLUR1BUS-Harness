@@ -199,7 +199,7 @@ describe("memory ops (in-process core)", () => {
     await assert.rejects(c.call("memory.proposals.accept", { caller, agentId: "anna", proposalId: pr.proposalId }), rejectsWith("E_NOT_FOUND", "not-found"));
   });
 
-  it("topic with since is E_INVALID_PARAMS topic-xor-since; a whitespace-only correct text is E_INVALID_PARAMS reason invalid-input", async () => {
+  it("topic with since is E_INVALID_PARAMS topic-xor-since; a whitespace-only correct text is E_INVALID_PARAMS reason blank-text", async () => {
     const base = { caller, agentId: "bernd" };
     await assert.rejects(c.call("memory.list", { ...base, topic: "roadmap", since: 0 }), rejectsWith("E_INVALID_PARAMS", "topic-xor-since"));
     await assert.rejects(c.call("memory.list", base), rejectsWith("E_INVALID_PARAMS", "topic-xor-since"));
@@ -208,7 +208,7 @@ describe("memory ops (in-process core)", () => {
     const topical = await c.call<any>("memory.list", { ...base, topic: "roadmap" });
     assert.ok(Array.isArray(topical.items));
     const id = (await list("bernd")).items.find((x: any) => x.scope === "agent-private").id;
-    await assert.rejects(c.call("memory.correct", { ...base, id, text: "   " }), rejectsWith("E_INVALID_PARAMS", "invalid-input"));
+    await assert.rejects(c.call("memory.correct", { ...base, id, text: "   " }), rejectsWith("E_INVALID_PARAMS", "blank-text"));
   });
 
   it("an invalid caller identity degrades reads and refuses writes", async () => {
