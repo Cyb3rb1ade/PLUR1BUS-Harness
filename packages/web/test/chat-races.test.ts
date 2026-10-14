@@ -17,7 +17,7 @@ describe("chat: double dispatch", opts, () => {
       await box.fill("once");
       await page.evaluate(() => {
         const ta = document.querySelector("textarea") as HTMLTextAreaElement;
-        const send = [...document.querySelectorAll("button")].find((b) => b.textContent === "Send") as HTMLButtonElement;
+        const send = Array.from(document.querySelectorAll("button")).find((b) => b.textContent === "Send") as HTMLButtonElement;
         ta.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
         send.click();
       });
@@ -35,7 +35,7 @@ describe("chat: double dispatch", opts, () => {
       await box.fill("hello");
       await page.evaluate(() => {
         const ta = document.querySelector("textarea") as HTMLTextAreaElement;
-        const start = [...document.querySelectorAll("button")].find((b) => b.classList.contains("btn-primary") && b.closest(".chat-compose")) as HTMLButtonElement;
+        const start = Array.from(document.querySelectorAll("button")).find((b) => b.classList.contains("btn-primary") && b.closest(".chat-compose")) as HTMLButtonElement;
         ta.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
         start.click();
       });
