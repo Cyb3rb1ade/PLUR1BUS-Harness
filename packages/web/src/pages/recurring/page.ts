@@ -83,9 +83,8 @@ function RunConfirmDialog({
   useEffect(() => {
     if (!needsAgent) return;
     const ctl = new AbortController();
-    const done = getApi().rpc("agent.list", {}, { write: false, signal: ctl.signal }).then(
-      (out) => {
-        const ids = (out.agents ?? []).map((a) => a.agentId);
+    const done = listAgents(ctl.signal).then(
+      (ids) => {
         if (!ctl.signal.aborted) {
           setAgents(ids);
           setAgentId(ids[0] ?? "");
@@ -253,15 +252,21 @@ function JobsListTab(): View {
   );
 }
 
+/** The ids of the agents that exist (agent.list). */
+async function listAgents(signal: AbortSignal): Promise<string[]> {
+  const out = (await getApi().rpc("agent.list", {}, { write: false, signal })) as { agents?: { agentId: string }[] };
+  return (out.agents ?? []).map((a) => a.agentId);
+}
+
 /** The newest `limit` runs of the system jobs and of every agent's jobs. jobs.history without agentId answers the system jobs
  *  only (rpc.schema.json), so the agents come from agent.list and are asked one by one. */
 async function loadHistory(signal: AbortSignal): Promise<{ runs: (JobRun | SystemJobRun)[] }> {
   const api = getApi();
   const system = api.rpc("jobs.history", { limit: HISTORY_LIMIT }, { write: false, signal }) as Promise<{ runs?: (JobRun | SystemJobRun)[] }>;
-  const listed = api.rpc("agent.list", {}, { write: false, signal });
-  const [sys, agents] = await Promise.all([system, listed]);
-  const perAgent = await Promise.all((agents.agents ?? []).map((a) =>
-    api.rpc("jobs.history", { agentId: a.agentId, limit: HISTORY_LIMIT }, { write: false, signal }) as Promise<{ runs?: (JobRun | SystemJobRun)[] }>));
+  const listed = listAgents(signal);
+  const [sys, agentIds] = await Promise.all([system, listed]);
+  const perAgent = await Promise.all(agentIds.map((id) =>
+    api.rpc("jobs.history", { agentId: id, limit: HISTORY_LIMIT }, { write: false, signal }) as Promise<{ runs?: (JobRun | SystemJobRun)[] }>));
   const all = [sys, ...perAgent].flatMap((r) => r.runs ?? []);
   all.sort((a, b) => b.finishedAt - a.finishedAt);
   return { runs: all.slice(0, HISTORY_LIMIT) };
