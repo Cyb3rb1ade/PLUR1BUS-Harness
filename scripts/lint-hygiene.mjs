@@ -2,7 +2,7 @@
 // crates, packages, tests, scripts, apps (desktop shell), and the host clients and adapters under clients/ and hosts/ (HM2) — except the few lines explicitly allow-listed below (the
 // engine dependency line, a documented parity import, and the lines in this file and the
 // import-hygiene test that name the very patterns being checked for).
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { join, relative } from "node:path";
@@ -102,25 +102,70 @@ const ALLOW = new Map([
   ["crates/plur1bus/tests/cli_surface.rs", [/vec!\["import", "--detect", "openclaw"\]/]],
 ]);
 
+// The scan is relative to the repository root (of the current repository), whatever subdirectory the caller is in: from a subdirectory the
+// ROOTS would all be "absent" and the lint would report "hygiene ok" without having looked at anything.
+const top = spawnSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" });
+if (top.status === 0 && top.stdout.trim()) process.chdir(top.stdout.trim());
+
 let bad = 0;
 // Check all tracked paths, including documentation, independently of source exemptions.
 // Read index blobs: a staged secret must fail even if the working copy was cleaned.
-const tracked = spawnSync("git", ["ls-files", "--stage", "-z"], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
+const tracked = spawnSync("git", ["ls-files", "--stage", "-z"], { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
 if (tracked.status !== 0) {
   console.error("hygiene: cannot inspect tracked files");
   process.exit(1);
 }
+
+// One `git cat-file --batch` process per chunk instead of one process per tracked file (a spawn costs ~13 ms, which
+// made the lint take minutes on a checkout with thousands of files). Returns Map<hash, string | null>; null = unreadable.
+function readBlobs(hashes) {
+  const out = new Map();
+  const CHUNK = 256;
+  for (let i = 0; i < hashes.length; i += CHUNK) {
+    const part = hashes.slice(i, i + CHUNK);
+    const r = spawnSync("git", ["cat-file", "--batch"], { input: part.join("\n") + "\n", maxBuffer: 2 * 1024 * 1024 * 1024 });
+    if (r.status !== 0 || !r.stdout) {
+      for (const h of part) out.set(h, null);
+      continue;
+    }
+    const buf = r.stdout;
+    let pos = 0;
+    for (const h of part) {
+      const nl = buf.indexOf(10, pos);
+      if (nl < 0) {
+        out.set(h, null);
+        continue;
+      }
+      const header = buf.toString("utf8", pos, nl).split(" ");
+      pos = nl + 1;
+      if (header[1] !== "blob") {
+        out.set(h, null); // "missing", or not a blob
+        continue;
+      }
+      const size = Number(header[2]);
+      out.set(h, buf.toString("utf8", pos, pos + size));
+      pos += size + 1; // trailing LF after each object
+    }
+  }
+  return out;
+}
+
+const entries = [];
 for (const entry of tracked.stdout.split("\0").filter(Boolean)) {
   const [metadata, ...parts] = entry.split("\t");
   const path = parts.join("\t");
+  const [mode, hash] = metadata.split(" ");
+  entries.push({ path, mode, hash });
+}
+const blobs = readBlobs([...new Set(entries.filter((e) => e.mode !== "160000").map((e) => e.hash))]);
+for (const { path, mode, hash } of entries) {
   if (/\.(p12|p8|pfx|key|pem|keystore|oci\.tar)$/i.test(path)) {
     console.error(`[HYG-012] ${path}: forbidden tracked file`);
     bad += 1;
   }
-  const [mode, hash] = metadata.split(" ");
   if (mode === "160000") continue; // A submodule has no blob in this repository.
-  const blob = spawnSync("git", ["cat-file", "blob", hash], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-  if (blob.status !== 0) {
+  const blob = blobs.get(hash);
+  if (blob == null) {
     console.error(`${path}: cannot inspect tracked blob`);
     bad += 1;
     continue;
@@ -128,8 +173,8 @@ for (const entry of tracked.stdout.split("\0").filter(Boolean)) {
   // The binding plan quotes this header to specify this very check. Exempt only
   // that quoted literal in that one document; an actual header there still fails.
   const text = path === "docs/superpowers/plans/2026-09-27-desktop-app-d1.md"
-    ? blob.stdout.replaceAll("`untrusted comment: " + "minisign secret key`", "[documented header]")
-    : blob.stdout;
+    ? blob.replaceAll("`untrusted comment: " + "minisign secret key`", "[documented header]")
+    : blob;
   if (/-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----|untrusted comment: minisign (?:encrypted )?secret key/i.test(text)) {
     console.error(`[HYG-013] ${path}: private key header`);
     bad += 1;
@@ -137,10 +182,22 @@ for (const entry of tracked.stdout.split("\0").filter(Boolean)) {
 }
 
 function walk(dir) {
-  for (const name of readdirSync(dir)) {
+  for (const name of readdirSync(dir).sort()) {
     if (SKIP_DIRS.has(name)) continue;
     const p = join(dir, name);
-    const st = statSync(p);
+    let st;
+    try {
+      st = statSync(p);
+    } catch (err) {
+      // A dangling symlink has nothing to scan; any other failure must not silently end the walk (it used to abort
+      // the whole root and still print "hygiene ok").
+      if (err.code !== "ENOENT") {
+        console.error(`${p.replaceAll("\\", "/")}: cannot inspect (${err.code ?? err.message})`);
+        bad += 1;
+      }
+      continue;
+    }
+    if (lstatSync(p).isSymbolicLink() && st.isDirectory()) continue; // a link cycle would never end; the target is walked under its own path
     if (st.isDirectory()) {
       walk(p);
       continue;
@@ -173,7 +230,7 @@ function walk(dir) {
 }
 const EXT_DIR = "crates/plur1bus/src/ext";
 try {
-  for (const name of readdirSync(EXT_DIR)) {
+  for (const name of readdirSync(EXT_DIR).sort()) {
     const stem = name.replace(/\.rs$/, "");
     if (name.endsWith(".rs") && !EXT_SAFE.includes(stem) && !EXT_WORKER.includes(stem)) {
       console.error(`[HYG-011] ${EXT_DIR}/${name}:1: ext file is in neither EXT_SAFE nor EXT_WORKER (scripts/lint-hygiene.mjs, X1-R2)`);
@@ -186,8 +243,11 @@ try {
 for (const r of ROOTS) {
   try {
     walk(r);
-  } catch {
-    /* root absent */
+  } catch (err) {
+    if (err.code !== "ENOENT") {
+      console.error(`${r}: cannot scan (${err.code ?? err.message})`);
+      bad += 1;
+    }
   }
 }
 if (bad) {
