@@ -21,5 +21,6 @@ export function voiceSetupSelection(languages: readonly VoiceLanguage[], locale:
   return profile ? { language: language.language, profile } : null;
 }
 export function validateVoiceSetupSelection(p: VoiceLanguageSetParams): void {
+  if (typeof p !== 'object' || p === null || Array.isArray(p)) throw new RpcError('E_INVALID_PARAMS', 'Unsupported setup voice selection');
   if (!['de','en'].includes(p.language) || !['fast','quality'].includes(p.profile)) throw new RpcError('E_INVALID_PARAMS', 'Unsupported setup voice selection');
 }

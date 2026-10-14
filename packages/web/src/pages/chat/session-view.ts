@@ -41,6 +41,8 @@ export function SessionView({ sessionId }: { sessionId: string }): View {
   const box = useRef<HTMLTextAreaElement>(null);
   const logEl = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
+  // Synchronous guard: a second Enter/click can arrive before the re-render that greys out Send.
+  const submitting = useRef(false);
 
   useEffect(() => {
     if (carried?.error) ctl.notice.value = carried.error;
@@ -72,10 +74,12 @@ export function SessionView({ sessionId }: { sessionId: string }): View {
 
   const submit = async (): Promise<void> => {
     const text = draft.replace(/\s+$/, "");
-    if (text === "") return;
+    if (text === "" || submitting.current) return;
+    submitting.current = true;
     setDraft("");
     stick.current = true;
-    const ok = await ctl.send(text);
+    let ok = false;
+    try { ok = await ctl.send(text); } finally { submitting.current = false; }
     if (!ok) setDraft((d) => (d === "" ? text : d));
     box.current?.focus();
   };

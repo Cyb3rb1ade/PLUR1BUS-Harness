@@ -584,10 +584,19 @@ pub fn run(out: &Out, layout: &Layout, cmd: ModelCmd) {
                                         .is_some_and(|r| r.starts_with("failed"))
                                 })
                             });
-                    out.ok("model.scan/1", &v, || render_scan(&v));
                     if any_failed {
-                        std::process::exit(1);
+                        out.ok_but_failed(
+                            "model.scan/1",
+                            &v,
+                            || render_scan(&v),
+                            crate::output::Failure::new(
+                                "E_INTERNAL",
+                                "scan-failed",
+                                "the scan failed for at least one provider (see the providers)",
+                            ),
+                        );
                     }
+                    out.ok("model.scan/1", &v, || render_scan(&v));
                 }
                 Err(e) => out.from_rpc_error(&e),
             }

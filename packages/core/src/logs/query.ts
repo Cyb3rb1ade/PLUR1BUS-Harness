@@ -77,9 +77,12 @@ export function decodeCursor(cursor: string, fp: string): Key {
 }
 
 /** `ts` (D111) or the legacy `at` (ISO text or epoch milliseconds), normalised to `YYYY-MM-DDTHH:MM:SS.mmmZ`. */
+// A date-time without a zone designator is local time to Date.parse, which would make a record's place in a UTC range depend
+// on the host's TZ. The writers always emit `Z`; a foreign line without one is read as UTC.
+const ZONELESS = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)$/;
 function normalTs(r: Record<string, unknown>): string | null {
   const v = r.ts ?? r.at;
-  const ms = typeof v === "number" ? v : typeof v === "string" ? Date.parse(v) : NaN;
+  const ms = typeof v === "number" ? v : typeof v === "string" ? Date.parse(v.replace(ZONELESS, "$1T$2Z")) : NaN;
   if (!Number.isFinite(ms)) return null;
   const d = new Date(ms);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
@@ -166,11 +169,18 @@ export async function runQuery(o: QueryOptions): Promise<QueryResult> {
   const budget = o.maxScanBytes ?? 128 * 1024 * 1024;
   try {
     const sources: Source[] = files.map((f) => ({ it: fileCands(f, { order: o.order, filter: o.filter, after, stats, ...(o.maxLine ? { maxLine: o.maxLine } : {}) }), head: null }));
+    // Set when the budget ran out while skipping lines that produce no candidate (corrupt or over-long ones): the sources can
+    // no longer be merged in order, so the whole call ends there.
+    let overBudget = false;
     const advance = async (s: Source): Promise<void> => {
       for (;;) {
         const n = await s.it.next();
         if (n.done) { s.head = null; return; }
-        if (n.value === "corrupt" || n.value === "long") { corrupt++; continue; }
+        if (n.value === "corrupt" || n.value === "long") {
+          corrupt++;
+          if (stats.bytes > budget) { overBudget = true; s.head = null; return; }
+          continue;
+        }
         s.head = n.value; return;
       }
     };
@@ -179,6 +189,7 @@ export async function runQuery(o: QueryOptions): Promise<QueryResult> {
     let first: Key | null = null; let last: Key | null = null; let lastReturned: Key | null = null; let more = false; let truncated = false;
     const needle = o.filter.text?.toLowerCase();
     for (;;) {
+      if (overBudget) { truncated = true; more = true; break; }
       let pick: Source | null = null;
       for (const s of sources) {
         if (!s.head) continue;

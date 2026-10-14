@@ -125,6 +125,10 @@ fn firstaid_check_includes_models_roles_at_end() {
     let assert = cmd.assert().success();
     let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
     let doc: Value = serde_json::from_str(&stdout).unwrap();
+    assert!(
+        doc.get("error").is_none(),
+        "a success carries no error object: {doc}"
+    );
 
     let checks = doc["checks"].as_array().unwrap();
     let last = checks.last().unwrap();

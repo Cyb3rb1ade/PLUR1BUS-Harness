@@ -10,6 +10,9 @@ export type Outcome = "completed" | "skipped" | "failed" | "aborted";
 export type BreakerState = "closed" | "open";
 export type CandidateState = "shortlisted" | "promoted" | "rejected" | "expired";
 
+/** A crashed scheduled window is retried this many times (once), at the next start, as trigger `catchup`. */
+export const RETRY_CAP = 1;
+
 /** Reason codes (L16): every skip, failure and abort carries exactly one. Engine job reasons pass through unchanged
  *  when they explain a job-level skip or failure; these are the scheduler's own. */
 // RULING: `breaker_sessions`, not A3's `breaker_cost` — B5/Q1 removed the cost cap, so the session count is the only breach left.

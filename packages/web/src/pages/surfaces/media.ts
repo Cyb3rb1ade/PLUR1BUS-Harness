@@ -16,6 +16,7 @@ import "../../styles/surfaces.css";
 
 import { StoredImage } from "./stored-image.ts";
 export { StoredImage };
+const MEDIA_PAGE_SIZE = 24;
 function Generate({
   onClose,
   onQueued,
@@ -225,6 +226,7 @@ export function MediaPage(): View {
     [to, setTo] = useState(""),
     [selected, setSelected] = useState<Output | null>(null),
     [generate, setGenerate] = useState(false),
+    [pageIndex, setPageIndex] = useState(0),
     [remove, setRemove] = useState<Output | null>(null),
     [job, setJob] = useState(""),
     [jobState, setJobState] = useState("");
@@ -280,6 +282,10 @@ export function MediaPage(): View {
     ...(from ? { after: new Date(from).getTime() } : {}),
     ...(to ? { before: new Date(to).getTime() + 86400000 - 1 } : {}),
   });
+  // Every card loads its image over RPC, so only one page of cards exists at a time.
+  const pages = Math.max(1, Math.ceil(outputs.length / MEDIA_PAGE_SIZE));
+  const current = Math.min(pageIndex, pages - 1);
+  const visible = outputs.slice(current * MEDIA_PAGE_SIZE, (current + 1) * MEDIA_PAGE_SIZE);
   const input = (
     id: string,
     label: string,
@@ -294,7 +300,10 @@ export function MediaPage(): View {
         id,
         type,
         value,
-        onInput: (e: Event) => set((e.currentTarget as HTMLInputElement).value),
+        onInput: (e: Event) => {
+          set((e.currentTarget as HTMLInputElement).value);
+          setPageIndex(0);
+        },
       }),
     );
   return h(
@@ -323,7 +332,7 @@ export function MediaPage(): View {
       ? h(
           "div",
           { class: "media-grid" },
-          outputs.map((output) =>
+          visible.map((output) =>
             h(
               "article",
               { key: output.id, class: "card" },
@@ -339,6 +348,15 @@ export function MediaPage(): View {
           ),
         )
       : h(PageState, { state: "empty", title: t("surfaces.empty") }),
+    pages > 1
+      ? h(
+          "nav",
+          { class: "chip-row", "aria-label": t("surfaces.page.label") },
+          h("button", { type: "button", class: "btn", disabled: current === 0, onClick: () => setPageIndex(current - 1) }, t("surfaces.page.prev")),
+          h("span", { role: "status", "aria-live": "polite" }, t("surfaces.page.of", { page: current + 1, pages })),
+          h("button", { type: "button", class: "btn", disabled: current >= pages - 1, onClick: () => setPageIndex(current + 1) }, t("surfaces.page.next")),
+        )
+      : null,
     selected
       ? h(
           Dialog,

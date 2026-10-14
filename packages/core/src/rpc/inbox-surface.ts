@@ -36,9 +36,8 @@ export function buildInboxSurface(service: () => InboxService | null): Record<st
   };
 }
 
-/** `inbox.changed` carries no entry data. The server cannot address one connection, so the rule applies to the whole audience:
- *  unless every subscriber that named the event is the person it belongs to, it is withheld from all of them (fail closed).
- *  Clients refresh with inbox.count on connect, so a withheld event is a delay, never a loss. */
+/** `inbox.changed` carries no entry data. Each opted-in subscriber is resolved independently; only the matching
+ * person's connections enter the audience. Failed lookups and agent subscribers receive nothing. */
 export async function deliverInboxChange(change: InboxChange, d: {
   subscriptions: () => readonly { connectionId: string; names?: readonly string[] | undefined }[];
   principalOf: (connectionId: string) => Promise<Principal | null | undefined>;
@@ -46,10 +45,11 @@ export async function deliverInboxChange(change: InboxChange, d: {
 }): Promise<void> {
   const connections = [...new Set(d.subscriptions().filter(s => s.names?.includes("inbox.changed")).map(s => s.connectionId))];
   if (!connections.length) return;
+  const audience: { connectionId: string }[] = [];
   for (const id of connections) {
     let p: Principal | null | undefined;
-    try { p = await d.principalOf(id); } catch { return; }
-    if (!p || p.kind !== "person" || p.userId !== change.userId) return;
+    try { p = await d.principalOf(id); } catch { continue; }
+    if (p?.kind === "person" && p.userId === change.userId) audience.push({ connectionId: id });
   }
-  d.notify("inbox.changed", { change: change.change, kinds: change.kinds as InboxKind[] }, { optIn: true });
+  if (audience.length) d.notify("inbox.changed", { change: change.change, kinds: change.kinds as InboxKind[] }, { audience, optIn: true });
 }

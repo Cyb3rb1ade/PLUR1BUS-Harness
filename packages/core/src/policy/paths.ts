@@ -191,6 +191,33 @@ export function matchDeny(p: string, deny: readonly DenyEntry[]): DenyEntry | nu
   return null;
 }
 
+const ABSOLUTE_SPELLING = /^(?:\/|[A-Za-z]:[\\/]|\\\\)/u;
+
+/**
+ * RULING: a deny entry that can never match (an empty or relative path, a name with a separator, a wrong shape) is a rule the
+ * author believes protects something and does not, so it is refused up front instead of being skipped. Returns a description
+ * of the first bad entry, else null.
+ */
+export function invalidDenyEntry(deny: unknown): string | null {
+  if (deny === undefined) return null;
+  if (!Array.isArray(deny)) return "the deny-list is not an array";
+  for (const [i, e] of (deny as unknown[]).entries()) {
+    const at = `#${i}`;
+    if (e === null || typeof e !== "object" || Array.isArray(e)) return `${at} is not an object`;
+    const rec = e as Record<string, unknown>;
+    const hasName = "name" in rec, hasPath = "path" in rec;
+    if (hasName === hasPath) return `${at} must have exactly one of name or path`;
+    if (hasName) {
+      const n = rec.name;
+      if (typeof n !== "string" || n.length === 0 || n === "." || n === ".." || /[\\/\0]/u.test(n)) return `${at} has a name that cannot equal a path segment`;
+    } else {
+      const q = rec.path;
+      if (typeof q !== "string" || q.includes("\0") || !ABSOLUTE_SPELLING.test(q)) return `${at} has a path that is not absolute`;
+    }
+  }
+  return null;
+}
+
 /** Allow-side containment: exact string comparison, whole segments only. */
 export function containsExact(root: string, p: string, sep: string): boolean {
   if (p === root) return true;
@@ -268,6 +295,12 @@ interface ResolvedRoot { id: string; real: string }
 
 async function resolveRoots(roots: readonly PathRoot[], o: { windows: boolean; platform: NodeJS.Platform; allowUnc: boolean; home: string }): Promise<ResolvedRoot[] | PathRefusal> {
   const out: ResolvedRoot[] = [];
+  // `os.homedir()` may be a link; roots are compared by real path, so the home is compared by its real path as well.
+  let homeReal: string | null = null;
+  if (o.home && ABSOLUTE_SPELLING.test(o.home)) {
+    const h = await resolveReal(o.home, o.windows, o.platform);
+    if (!isRefusal(h) && h.exists) homeReal = h.real;
+  }
   for (const r of roots) {
     const s = checkSyntax(r.path, { platform: o.platform, windowsRules: o.windows, allowUnc: o.allowUnc });
     if (isRefusal(s)) return refuse("bad-root", `root ${JSON.stringify(r.id)}: ${s.reason}`);
@@ -276,7 +309,7 @@ async function resolveRoots(roots: readonly PathRoot[], o: { windows: boolean; p
     if (isRefusal(res)) return refuse("bad-root", `root ${JSON.stringify(r.id)}: ${res.reason}`);
     if (!res.exists) return refuse("bad-root", `root ${JSON.stringify(r.id)} does not exist`);
     if (r.identity && !sameIdentity(r.identity, res.identity)) return refuse("root-identity-changed", `root ${JSON.stringify(r.id)} was moved or replaced`);
-    if (isForbiddenRoot(res.real, o.windows, o.home)) return refuse("bad-root", `root ${JSON.stringify(r.id)} is a home, drive or system tree`);
+    if (isForbiddenRoot(res.real, o.windows, o.home) || (homeReal !== null && isForbiddenRoot(res.real, o.windows, homeReal))) return refuse("bad-root", `root ${JSON.stringify(r.id)} is a home, drive or system tree`);
     out.push({ id: r.id, real: res.real });
   }
   return out;
@@ -399,6 +432,8 @@ export async function canonicalisePath(input: string, o: CanonicaliseOptions): P
   const allowUnc = o.allowUnc ?? false;
   const home = o.home ?? osHomedir();
   const sep = windows ? "\\" : "/";
+  const badDeny = invalidDenyEntry(o.deny);
+  if (badDeny) return refuse("deny-listed", `invalid deny-list entry (fail closed): ${badDeny}`);
   const denyView = await resolveDeny(o.deny ?? [], windows, platform, o.scanCap ?? DENY_SCAN_CAP);
   const nameEntries = (o.deny ?? []).filter((e) => "name" in e);
   const deny = denyView.entries;

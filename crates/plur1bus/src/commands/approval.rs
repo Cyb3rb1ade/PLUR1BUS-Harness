@@ -286,7 +286,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: ApprovalCmd) {
             limit,
         } => {
             let p = list_params(status.map(|x| x.as_str()), agent.as_deref(), limit)
-                .unwrap_or_else(|why| out.fail("E_INVALID_PARAMS", &why, json!({}), 2));
+                .unwrap_or_else(|why| out.fail("E_INVALID_PARAMS", &why, json!({})));
             let v = call(out, &mut connect(out, layout), "approval.list", p);
             out.ok("approval.list/1", &v, || render_list(&v));
         }
@@ -317,9 +317,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: ApprovalCmd) {
                 out.fail(
                     "E_INVALID_PARAMS",
                     "approving needs a person: run it in a terminal and confirm, or pass --yes after reading the request (`plur1bus approval pending`)",
-                    json!({ "reason": "confirmation-required", "applied": false }),
-                    2,
-                );
+                    json!({ "reason": "confirmation-required", "applied": false }));
             }
             let mut client = connect(out, layout);
             let rec = call(out, &mut client, "approval.get", json!({ "id": id }));
@@ -334,7 +332,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: ApprovalCmd) {
                         s(&rec, "status")
                     ),
                     json!({ "reason": "not-pending", "applied": false }),
-                    1,
                 );
             }
             let scope = scope.map(|x| x.as_str());
@@ -343,7 +340,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: ApprovalCmd) {
                     "E_INVALID_PARAMS",
                     &why,
                     json!({ "reason": "scope-not-offered", "applied": false }),
-                    2,
                 );
             }
             if g == Gate::Prompt {
@@ -361,7 +357,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: ApprovalCmd) {
                         "E_INVALID_PARAMS",
                         "not approved",
                         json!({ "applied": false }),
-                        2,
                     );
                 }
             }

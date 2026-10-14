@@ -20,7 +20,9 @@ describe("composition/trace errorCode", () => {
     ["string", "boom", "turn-failed"],
     ["number", 42, "turn-failed"],
     ["empty object", {}, "turn-failed"],
-    ["characterization: empty-string code is still a string", { code: "" }, ""],
+    ["an empty code is no code: the fallback", { code: "" }, "turn-failed"],
+    ["an empty code falls through to a string kind", { code: "", kind: "rate_limit" }, "rate_limit"],
+    ["an empty code and an empty kind give the fallback", { code: "", kind: "" }, "turn-failed"],
   ];
   for (const [name, input, expected] of table) it(name, () => assert.equal(errorCode(input), expected));
 });

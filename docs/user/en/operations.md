@@ -260,9 +260,13 @@ For a single module, `plur1bus module restart <name>`; for everything, `plur1bus
 
 ### Exit codes
 
-`0` success; `1` a failure; `2` `E_NOT_AVAILABLE` or `E_APPROVAL_REQUIRED` (also what a not-yet-built command
-answers); `3` `E_LOCKED`. With `--json`, a failure is `{"error": "<code>", "message": ..., "schema": "error/1"}`,
-often with a `reason`.
+`0` success; `1` a failure (the command ran and did not succeed); `2` the command was refused before it did anything,
+nothing was changed: `E_INVALID_PARAMS` (bad input or a missing `--yes`), `E_NOT_AVAILABLE` (also what a not-yet-built
+command answers), `E_APPROVAL_REQUIRED`, or `E_CANCELLED` (you answered a confirmation with no); `3` `E_LOCKED`, the
+home or store is held by another process; `130` interrupted with Ctrl-C or by a signal. With `--json`, a failure is
+`{"error": "<code>", "message": ..., "schema": "error/1"}`, often with a `reason`. A check or run that finds a failure
+(`audit verify`, `dreams run`, `model scan`, `memory reembed`, `1staid check`) exits 1 and, with `--json`, adds the same
+document as `error` inside its result, so stdout stays one JSON document.
 
 ### Error codes
 

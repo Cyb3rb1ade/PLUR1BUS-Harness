@@ -190,19 +190,13 @@ fn confirm_reindex(out: &Out, yes: bool) {
         let mut line = String::new();
         std::io::stdin().read_line(&mut line).ok();
         if !line.trim().eq_ignore_ascii_case("y") {
-            out.fail(
-                "E_INVALID_PARAMS",
-                "not reindexed",
-                json!({"applied": false}),
-                2,
-            );
+            out.fail("E_CANCELLED", "not reindexed", json!({"applied": false}));
         }
     } else {
         out.fail(
             "E_INVALID_PARAMS",
             "reindex rebuilds the media index; re-run with --yes to confirm",
             json!({"applied": false}),
-            2,
         );
     }
 }

@@ -41,16 +41,15 @@ describe("composition billingClassOf (ADR-005: plan vs paid)", () => {
     for (const reg of ["none", "static", "dynamic"]) assert.equal(billingClassOf(def({ kind: "api_key", client_registration: reg })), "paid");
   });
 
-  // characterization: Ist-Verhalten, nicht spezifiziert. The docs say a provider "without a class is never refused for
-  // billing" (TurnProviderOptions.billing) but not which inputs produce no class. An unknown explicit path does NOT fall
-  // back to the credential kind: it yields no class at all.
-  it("characterization: an unknown explicit billing path yields no class instead of falling back to the kind", () => {
+  // billingClassOf answers "unknown" (undefined) and never guesses: an unknown explicit path does NOT fall back to the
+  // credential kind. composeAuth turns "unknown" into a refusal at load (fail closed, auth.test.ts > fail closed: ...).
+  it("an unknown explicit billing path is unknown (undefined), never a fallback to the kind", () => {
     assert.equal(billingClassOf(def({ kind: "api_key" }, "enterprise")), undefined);
     assert.equal(billingClassOf(def({ kind: "api_key" }, "")), undefined);
     assert.equal(billingClassOf(def({ kind: "api_key" }, "PLAN")), undefined, "case-sensitive");
   });
 
-  it("characterization: an unknown credential kind and a missing profile yield no class", () => {
+  it("an unknown credential kind and a missing profile are unknown (undefined)", () => {
     assert.equal(billingClassOf(def({ kind: "mystery" })), undefined);
     assert.equal(billingClassOf(def({})), undefined);
     assert.equal(billingClassOf(def(undefined)), undefined);

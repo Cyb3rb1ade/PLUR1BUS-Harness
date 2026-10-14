@@ -7,6 +7,11 @@ import { engineLoggerFrom, type HarnessLogger } from "./logger.ts";
 import type { Layout } from "./paths.ts";
 import { createPlatformCapabilities } from "./platform.ts";
 
+/** A probe that throws is "not offered": the engine reads `mutateConfig` as a plain property and must not get an exception from it. */
+function offered(probe: (() => boolean) | undefined): boolean {
+  try { return probe?.() !== false; } catch { return false; }
+}
+
 export function createHarnessHost(o: { layout: Layout; logger: HarnessLogger; config: HarnessConfig; engineConfig: Record<string, unknown>; agents: AgentRegistry; events: (name: string, payload: unknown) => void; clock?: () => number;
   /** Set only under a supervisor (B7): the engine's config changes go to the supervisor's `config.set`. */
   mutateConfig?: (patch: Record<string, unknown>) => Promise<void>;
@@ -29,7 +34,7 @@ export function createHarnessHost(o: { layout: Layout; logger: HarnessLogger; co
   // Absent without a supervisor: nothing else owns config.json while the core runs on its own.
   const mutate = o.mutateConfig;
   if (mutate) {
-    Object.defineProperty(host, "mutateConfig", { enumerable: true, get: () => (o.canMutateConfig?.() === false ? undefined : mutate) });
+    Object.defineProperty(host, "mutateConfig", { enumerable: true, get: () => (offered(o.canMutateConfig) ? mutate : undefined) });
   }
   return host;
 }

@@ -39,6 +39,8 @@ export function agentCreation(d: AgentCreationDeps) {
     const nameSchema = CONFIG_SCHEMA.properties.agents.propertyNames;
     if (!id || !new RegExp(nameSchema.pattern).test(id)) add("identity", "name", "invalid agent name");
     else if (Object.hasOwn(d.config().agents, id) || existsSync(d.layout.agentDir(id))) add("identity", "name", "agent already exists", "E_AGENT_EXISTS");
+    // A person ID is a rights recipient; an agent of the same name would make that person ungrantable and ambiguous.
+    else if (d.people().includes(id)) add("identity", "name", "name belongs to a person", "E_AGENT_EXISTS");
     const config = Object.fromEntries(Object.entries(p).filter(([k]) => k !== "name" && k !== "rights"));
     const candidate = { ...d.config(), agents: { wizard: config } };
     const checked = validate(candidate);
@@ -88,7 +90,11 @@ export function agentCreation(d: AgentCreationDeps) {
       d.audit.append({ at: d.clock(), actor: { user: who.userId, host: "rpc" }, action: "agent.created", target: v.id, detail: {} });
       return { agentId: v.id };
     } catch (e) {
-      if (registered) { d.pause(v.id); throw new RpcError("E_STORAGE", "agent registration requires recovery", { ids: { agentId: v.id } }); }
+      // A failed commit call may still have been applied (timeout after the Config owner's write): then the agent is
+      // registered and its data directory must survive. Treat it exactly like a failure after registration.
+      let applied = registered;
+      if (!applied && moved) { try { applied = Object.hasOwn(d.config().agents, v.id); } catch { applied = true; } }
+      if (applied) { d.pause(v.id); throw new RpcError("E_STORAGE", "agent registration requires recovery", { ids: { agentId: v.id } }); }
       if (moved) rmSync(root, { recursive: true, force: true });
       if (e instanceof RpcError) throw e;
       throw new RpcError("E_STORAGE", "agent registration unavailable");

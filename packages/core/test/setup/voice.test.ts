@@ -16,3 +16,8 @@ it('never preselects a model needing licence confirmation', () => {
   assert.deepEqual(voiceSetupSelection(languages,'en-GB'),{language:'en',profile:'quality'});
   assert.equal(voiceSetupSelection(languages,'fr-FR'),null);
 });
+import { validateVoiceSetupSelection } from '../../src/setup/model.ts';
+it('rejects a missing or non-object voice selection with E_INVALID_PARAMS instead of a TypeError', () => {
+  for (const bad of [undefined, null, 'de', 7, []]) assert.throws(() => validateVoiceSetupSelection(bad as never), (e: any) => e.error === 'E_INVALID_PARAMS', String(bad));
+  assert.doesNotThrow(() => validateVoiceSetupSelection({ language: 'de', profile: 'fast' }));
+});

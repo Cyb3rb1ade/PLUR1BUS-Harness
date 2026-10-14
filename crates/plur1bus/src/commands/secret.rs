@@ -29,9 +29,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: SecretCmd) {
                 out.fail(
                     "E_INVALID_PARAMS",
                     "a secret value is read from stdin and never from an argument; treat the value you just typed as exposed (shell history, process list) and rotate it",
-                    json!({ "reason": "value-in-argument" }),
-                    2,
-                );
+                    json!({ "reason": "value-in-argument" }));
             }
             let value = read_value(out, &mut std::io::stdin());
             // `value` leaves this scope with the request; nothing below formats it.
@@ -85,9 +83,7 @@ fn read_value(out: &Out, input: &mut impl Read) -> String {
         out.fail(
             "E_INVALID_PARAMS",
             "the value is read from stdin and never from an argument: pipe it, e.g. `printf %s \"$VALUE\" | plur1bus secret set NAME`",
-            json!({ "reason": "value-from-stdin" }),
-            2,
-        );
+            json!({ "reason": "value-from-stdin" }));
     }
     let mut buf = Vec::new();
     if input
@@ -99,12 +95,11 @@ fn read_value(out: &Out, input: &mut impl Read) -> String {
             "E_INVALID_PARAMS",
             "cannot read the value from stdin",
             json!({ "reason": "stdin-unreadable" }),
-            2,
         );
     }
     match parse_value(buf) {
         Ok(v) => v,
-        Err(why) => out.fail("E_INVALID_PARAMS", why, json!({ "detail": "value" }), 2),
+        Err(why) => out.fail("E_INVALID_PARAMS", why, json!({ "detail": "value" })),
     }
 }
 
@@ -140,19 +135,13 @@ fn confirm_remove(out: &Out, name: &str, yes: bool) {
         let mut line = String::new();
         std::io::stdin().read_line(&mut line).ok();
         if !line.trim().eq_ignore_ascii_case("y") {
-            out.fail(
-                "E_INVALID_PARAMS",
-                "not applied",
-                json!({ "applied": false }),
-                2,
-            );
+            out.fail("E_CANCELLED", "not applied", json!({ "applied": false }));
         }
     } else {
         out.fail(
             "E_INVALID_PARAMS",
             &format!("re-run with --yes to remove {name}"),
             json!({ "applied": false }),
-            2,
         );
     }
 }

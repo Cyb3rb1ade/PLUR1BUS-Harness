@@ -100,7 +100,7 @@ neither signed nor encrypted:
 ```sh
 plur1bus backup create --dry-run          # list what would be archived, write nothing
 plur1bus backup create                    # default: <home>/backups/plur1bus-backup-<UTC>.tar.gz
-plur1bus backup verify <archive>          # manifest and every SHA-256; exits 1 for an archive a restore would refuse
+plur1bus backup verify <archive>          # manifest and every SHA-256; exits 2 for an archive a restore would refuse
 ```
 
 SQLite databases under `state/` are copied with SQLite's online backup API while the core keeps running: the copy is

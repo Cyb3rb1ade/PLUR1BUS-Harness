@@ -32,13 +32,23 @@ interface Entry extends Session { csrf: Map<string, number> }
 export class SessionStore {
   readonly #clock: Clock; readonly #limits: SessionLimits;
   readonly #byId = new Map<string, Entry>();
+  readonly #ended = new Set<(session: Session) => void>();
+  onEnd(fn: (session: Session) => void): () => void { this.#ended.add(fn); return () => { this.#ended.delete(fn); }; }
+  /** Checks expiry without renewing idle time; a stream never keeps a session alive. */
+  peek(id: string | undefined): Session | undefined { return this.#entry(id); }
+  #remove(hash: string): boolean {
+    const e = this.#byId.get(hash); if (!e) return false;
+    this.#byId.delete(hash);
+    for (const fn of this.#ended) { try { fn(e); } catch { /* all streams still close */ } }
+    return true;
+  }
   constructor(clock: Clock, limits: SessionLimits = DEFAULT_SESSION_LIMITS) { this.#clock = clock; this.#limits = limits; }
 
   /** A new session; `id` is the cookie value and exists nowhere else. */
   create(principal: Principal, o: { authVersion?: number; stepUpAt?: number } = {}): { id: string; session: Session } {
     const now = this.#clock.now();
     this.#sweep(now);
-    while (this.#byId.size >= this.#limits.maxSessions) { const first = this.#byId.keys().next(); if (first.done) break; this.#byId.delete(first.value); }
+    while (this.#byId.size >= this.#limits.maxSessions) { const first = this.#byId.keys().next(); if (first.done) break; this.#remove(first.value); }
     const id = newSecret();
     const e: Entry = { principal, createdAt: now, absoluteExpiresAt: now + this.#limits.absoluteMs, idleExpiresAt: now + this.#limits.idleMs, authVersion: o.authVersion ?? 0, mustRotate: false, csrf: new Map(), ...(o.stepUpAt !== undefined ? { stepUpAt: o.stepUpAt } : {}) };
     this.#byId.set(sha256(id), e);
@@ -54,12 +64,12 @@ export class SessionStore {
     return e;
   }
 
-  destroy(id: string | undefined): boolean { return id !== undefined && this.#byId.delete(sha256(id)); }
+  destroy(id: string | undefined): boolean { return id !== undefined && this.#remove(sha256(id)); }
 
   /** "Log out everywhere": every session of one principal ends. Returns how many. */
   destroyAllFor(principalId: string): number {
     let n = 0;
-    for (const [h, e] of this.#byId) if (e.principal.id === principalId) { this.#byId.delete(h); n++; }
+    for (const [h, e] of this.#byId) if (e.principal.id === principalId) { this.#remove(h); n++; }
     return n;
   }
 
@@ -74,7 +84,7 @@ export class SessionStore {
   rotate(id: string | undefined, authVersion?: number): { id: string; session: Session } | undefined {
     const e = this.#entry(id);
     if (!e || id === undefined) return undefined;
-    this.#byId.delete(sha256(id));
+    this.#remove(sha256(id));
     const next = newSecret();
     e.csrf.clear(); e.mustRotate = false;
     if (authVersion !== undefined) e.authVersion = authVersion;
@@ -118,11 +128,11 @@ export class SessionStore {
     const h = sha256(id); const e = this.#byId.get(h);
     if (!e) return undefined;
     const now = this.#clock.now();
-    if (e.idleExpiresAt <= now || e.absoluteExpiresAt <= now) { this.#byId.delete(h); return undefined; }
+    if (e.idleExpiresAt <= now || e.absoluteExpiresAt <= now) { this.#remove(h); return undefined; }
     return e;
   }
 
-  #sweep(now: number): void { for (const [h, e] of this.#byId) if (e.idleExpiresAt <= now || e.absoluteExpiresAt <= now) this.#byId.delete(h); }
+  #sweep(now: number): void { for (const [h, e] of this.#byId) if (e.idleExpiresAt <= now || e.absoluteExpiresAt <= now) this.#remove(h); }
 }
 
 /** Constant-time check of a presented owner token against the real one (ruling R2). Both sides are hashed first so the

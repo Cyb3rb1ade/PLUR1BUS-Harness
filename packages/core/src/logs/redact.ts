@@ -153,6 +153,7 @@ function mapUrls(s: string, fn: (url: string) => string): string {
   }
   return out + s.slice(last);
 }
+const MAX_DEPTH = 64;
 
 export interface RedactOptions {
   /** Rule `pii` (`logs.redactPii`); default false. */
@@ -195,17 +196,26 @@ export function createRedactor(o: RedactOptions = {}): Redactor {
     return s;
   };
 
-  const value = <T>(v: T): T => {
-    if (typeof v === "string") return text(v) as T;
-    if (Array.isArray(v)) return v.map((x) => value(x)) as T;
+  // A line is JSON-parsed from a file anyone with log access may have written to: nesting is bounded so one record cannot
+  // overflow the stack (and fail a whole query); what is deeper is replaced, never passed on unredacted.
+  const walk = (v: unknown, ancestors: object[]): unknown => {
+    if (typeof v === "string") return text(v);
     if (v !== null && typeof v === "object") {
-      const out: Record<string, unknown> = {};
-      for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
-        out[k] = isSecretKey(k) && x !== null && x !== undefined ? tag("key") : value(x);
-      }
-      return out as T;
+      if (ancestors.includes(v)) throw new TypeError("circular value"); // the callers turn this into log.redaction.failed
+      if (ancestors.length >= MAX_DEPTH) return "[TRUNCATED:depth]";
+      ancestors.push(v);
+      try {
+        if (Array.isArray(v)) return v.map((x) => walk(x, ancestors));
+        const out: Record<string, unknown> = {};
+        for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
+          // defineProperty: a plain assignment to `__proto__` would set the prototype and lose the key.
+          Object.defineProperty(out, k, { value: isSecretKey(k) && x !== null && x !== undefined ? tag("key") : walk(x, ancestors), enumerable: true, writable: true, configurable: true });
+        }
+        return out;
+      } finally { ancestors.pop(); }
     }
     return v;
   };
+  const value = <T>(v: T): T => walk(v, []) as T;
   return { text, value };
 }

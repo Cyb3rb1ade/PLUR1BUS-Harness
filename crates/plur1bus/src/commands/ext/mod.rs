@@ -111,15 +111,6 @@ impl Failure {
             .then(|| self.reason().strip_prefix("acknowledge-"))
             .flatten()
     }
-
-    /// `E_LOCKED` → 3, `E_NOT_AVAILABLE` and `E_APPROVAL_REQUIRED` → 2, everything else → 1 (G18, X1-R14).
-    fn exit(&self) -> i32 {
-        match self.code.as_str() {
-            "E_LOCKED" => 3,
-            "E_NOT_AVAILABLE" | "E_APPROVAL_REQUIRED" => 2,
-            _ => 1,
-        }
-    }
 }
 
 pub(super) use crate::ext::record::strings;
@@ -184,7 +175,7 @@ pub(crate) fn fail(out: &Out, f: &Failure, hint: Option<&str>) -> ! {
         }
         m
     };
-    out.fail(&f.code, &message, extra, f.exit())
+    out.fail(&f.code, &message, extra)
 }
 
 /// The flag that gives acknowledgment `x`.
@@ -396,9 +387,16 @@ mod tests {
             .with_data(json!({ "capabilities": {}, "authority": "full" }));
         let f = Failure::from_ext(e);
         assert_eq!(f.wants(), Some("capabilities"));
-        assert_eq!(f.exit(), 2);
+        assert_eq!(crate::output::exit_code_for(&f.code), 2);
         assert_eq!(f.data.unwrap()["authority"], "full");
         let f = Failure::from_ext(ExtError::new("E_LOCKED", "skills-locked", "m"));
-        assert_eq!((f.exit(), f.data.is_none(), f.wants()), (3, true, None));
+        assert_eq!(
+            (
+                crate::output::exit_code_for(&f.code),
+                f.data.is_none(),
+                f.wants()
+            ),
+            (3, true, None)
+        );
     }
 }

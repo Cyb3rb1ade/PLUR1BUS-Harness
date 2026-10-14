@@ -51,10 +51,19 @@ pub fn run(out: &Out, layout: &Layout, cmd: AuditCmd) {
             require_supports(out, &client, "audit.verify");
             match client.call("audit.verify", json!({})) {
                 Ok(v) => {
-                    out.ok("audit.verify/1", &v, || render(&v));
                     if v["ok"].as_bool() != Some(true) {
-                        std::process::exit(1);
+                        out.ok_but_failed(
+                            "audit.verify/1",
+                            &v,
+                            || render(&v),
+                            crate::output::Failure::new(
+                                "E_STORAGE",
+                                "audit-verify-failed",
+                                "the audit log did not verify (see the findings)",
+                            ),
+                        );
                     }
+                    out.ok("audit.verify/1", &v, || render(&v));
                 }
                 Err(e) => out.from_rpc_error(&e),
             }

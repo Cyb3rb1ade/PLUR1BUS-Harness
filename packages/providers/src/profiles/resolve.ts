@@ -8,6 +8,11 @@ import {
 const MOA_UNSUPPORTED = 'strategy "moa" (mixture of agents) is not executable by the router yet';
 const LIST_CAP = 10;
 
+/** Own-property write: `table["__proto__"] = x` would replace the table's prototype instead of adding an entry. */
+function put<T>(table: Record<string, T>, key: string, value: T): void {
+  Object.defineProperty(table, key, { value, enumerable: true, writable: true, configurable: true });
+}
+
 function listCapped(items: readonly string[]): string {
   const shown = items.slice(0, LIST_CAP).join(", ");
   return items.length > LIST_CAP ? `${shown}, ... (${items.length - LIST_CAP} more)` : shown;
@@ -113,7 +118,7 @@ export function resolveModelProfiles(config: ModelProfilesConfig | undefined, re
 
   for (const [name, cfg] of Object.entries(config ?? {})) {
     const p = resolveProfile(name, cfg, registry, issues, warnings);
-    if (p !== undefined) profiles[name] = p;
+    if (p !== undefined) put(profiles, name, p);
   }
   if (issues.length > 0) throw new ProfileConfigError(issues);
 
@@ -134,9 +139,9 @@ export function resolveModelProfiles(config: ModelProfilesConfig | undefined, re
   const defaults: Record<string, RequestDefaults> = {};
   const unsupported: Record<string, string> = {};
   for (const [name, p] of Object.entries(profiles)) {
-    table[name] = p.candidates.map((c) => ({ provider: c.provider, model: c.model, adapter: registry.get(c.provider)!.adapter }));
-    defaults[name] = { ...p.params };
-    if (p.strategy === "moa") unsupported[name] = MOA_UNSUPPORTED;
+    put(table, name, p.candidates.map((c) => ({ provider: c.provider, model: c.model, adapter: registry.get(c.provider)!.adapter })));
+    put(defaults, name, { ...p.params });
+    if (p.strategy === "moa") put(unsupported, name, MOA_UNSUPPORTED);
   }
   return {
     profiles, table, defaults, unsupported,

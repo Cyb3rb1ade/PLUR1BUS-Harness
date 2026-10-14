@@ -1,3 +1,4 @@
+import { TRANSPORT_ROUTES, buildTransportHandlers } from "./transport-routes.ts";
 import { ERROR_CODES } from "@plur1bus/rpc-schema";
 import type { AuditEmitter } from "./audit.ts";
 import { nameHandle } from "./audit.ts";
@@ -32,7 +33,7 @@ export type Method = "GET" | "POST" | "DELETE";
  *    must work for a Viewer too. Deliberately narrow: the deny-by-default test names every route that uses it.
  *  - `{ action }`: a member of core's RBAC policy table, on the system resource, on the caller's own user (`self`) or on
  *    *some* user (`user`: the role is checked here, the handler names the target and checks again). */
-export type Authz = "public" | "authenticated" | { action: string; resource?: "system" | "self" | "user" };
+export type Authz = "public" | "authenticated" | "delegated" | { action: string; resource?: "system" | "self" | "user" };
 
 export interface RouteSpec {
   id: string; method: Method; path: string; summary: string; tag: string;
@@ -75,6 +76,7 @@ export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
 const SESSION_TIMES = { createdAt: iso, expiresAt: iso, idleExpiresAt: iso };
 
 export const ROUTES: readonly RouteSpec[] = [
+  ...TRANSPORT_ROUTES,
   {
     id: "session.create", method: "POST", path: `${API_PREFIX}/session`, tag: "session", summary: "Log in with the owner token or with a local account; sets the session cookie",
     auth: "none", authz: "public", csrf: false, rate: "auth", stability: "experimental", since: "1.0.0",
@@ -320,6 +322,7 @@ function tokenJson(t: PublicToken): Record<string, unknown> {
 export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
   const clearCookie = { "Set-Cookie": sessionCookie(d.tls, "", 0) };
   return {
+    ...buildTransportHandlers(d.core),
     "session.create": async (i) => {
       const b = loginBody(i.body);
       if (!b) throw errors.badRequest("body", "body must be {\"token\": string} or {\"username\": string, \"password\": string}");

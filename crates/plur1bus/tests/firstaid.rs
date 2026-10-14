@@ -780,6 +780,19 @@ fn an_unsecured_run_dir_fails_on_windows() {
     let v = json_stdout(&out);
     let checks = checks_by_id(&v);
     assert_eq!(checks["run.permissions"]["status"], "fail", "{v}");
+    // `json_stdout` parsed all of stdout as ONE document; the failure is its top-level `error` object (an `error/1`
+    // document), next to the unchanged `1staid.check/1` result.
+    assert_eq!(v["schema"], "1staid.check/1", "{v}");
+    assert_eq!(v["error"]["schema"], "error/1", "{v}");
+    assert_eq!(v["error"]["error"], "E_INTERNAL", "{v}");
+    assert_eq!(v["error"]["reason"], "checks-failed", "{v}");
+    assert!(
+        v["error"]["ids"]["failed"]
+            .as_str()
+            .unwrap()
+            .contains("run.permissions"),
+        "{v}"
+    );
 }
 
 /// The unix half of `run.permissions`: `run/` wider than 0700 is a failure.

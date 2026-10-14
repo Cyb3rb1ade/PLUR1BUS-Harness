@@ -7,10 +7,13 @@ import { Badge } from "../../../components/card.ts";
 import { Dialog } from "../../../components/dialog.ts";
 import { icon } from "../../../icons.ts";
 import { t } from "../../../i18n.ts";
-import { fieldRows, redactionRules, splitRedacted, type LogRecord } from "./model.ts";
+import { clipLine, fieldRows, redactionRules, safeText, splitRedacted, type LogRecord } from "./model.ts";
+
+/** What a field shows at most; the copy buttons still hand over the whole value. */
+const SHOW_MAX = 20_000;
 
 function Value({ text }: { text: string }): View[] {
-  return splitRedacted(text).map((p, i) => (p.redacted
+  return splitRedacted(safeText(clipLine(text, SHOW_MAX), { multiline: true })).map((p, i) => (p.redacted
     ? h("span", { key: i, class: "logs-redacted" }, icon("lock", 14), h("span", {}, p.text))
     : h("span", { key: i }, p.text)));
 }
@@ -32,7 +35,7 @@ export function DetailDialog({ rec, onClose }: { rec: LogRecord; onClose: () => 
     h("dl", { class: "logs-fields" }, fields.map((f) => {
       const redacted = f.value.includes("[REDACTED:");
       return h("div", { key: f.key, class: "logs-field" },
-        h("dt", {}, f.key),
+        h("dt", {}, safeText(clipLine(f.key, 200))),
         h("dd", {},
           f.block ? h("pre", { class: "logs-pre" }, h(Value, { text: f.value })) : h("span", { class: "logs-val" }, h(Value, { text: f.value })),
           h("span", { class: "logs-field-tools" },

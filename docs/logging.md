@@ -33,7 +33,7 @@ process's exception behavior. SIGKILL and power loss cannot flush an in-memory q
 
 The sole initialization seam is `core.ts` where the logger is created after loading configuration.
 The adapter in `logs/bootstrap.ts` maps Core start/ready/stop and scheduler skips to catalogue
-records. Existing callers retain `{at,level,role,...,msg}` through `writeLegacy`; the same writer
+records. Existing callers retain `{at,level,role,...,msg}` through `writeLegacy` (a caller field named `at`, `level`, `role` or `msg` is dropped; the envelope wins); the same writer
 redacts and bounds those records and owns their sink. This avoids migrating unrelated call sites
 or keeping two rotation owners. Legacy records are a temporary compatibility path, not D111 records.
 

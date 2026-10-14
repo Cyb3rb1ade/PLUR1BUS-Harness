@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadMetadataTable, lookup } from "../../src/discovery/metadata.ts";
+import { loadBundledMetadataTable, loadMetadataTable, lookup } from "../../src/discovery/metadata.ts";
 import { duplicateKeys, useTempDirs } from "./helpers.ts";
 
 const CATALOG_DIR = fileURLToPath(new URL("../../catalog/", import.meta.url));
@@ -204,17 +204,22 @@ describe("invalid tables are rejected loudly", () => {
     assert.throws(() => load(doc));
   });
 
-  it("characterization: Ist-Verhalten, nicht spezifiziert: asking for the table with an undefined value loads the bundled table instead of failing (a failed read passed through as undefined looks like success)", () => {
-    const bundled = loadMetadataTable();
-    assert.equal(loadMetadataTable(undefined).revision, bundled.revision);
+  it("an undefined table throws (a failed read passed through as undefined must not look like success); the bundled table has to be asked for explicitly", () => {
+    assert.throws(() => loadMetadataTable(undefined), /metadata table must be an object/);
+    const explicit = loadBundledMetadataTable();
+    assert.equal(explicit.revision, loadMetadataTable().revision); // calling with no argument at all is the explicit request
+    assert.ok(explicit.sections.size > 0);
   });
 
   it("characterization: Ist-Verhalten, nicht spezifiziert: unknown extra fields on the table or on a rule are ignored without a message", () => {
     assert.doesNotThrow(() => load({ ...valid(), note: "x", vendors: { generic: [{ pattern: "^a$", kind: "chat", capabilities: [], licence: "research-only", preselected: true }] } }));
   });
 
-  it("characterization: Ist-Verhalten, nicht spezifiziert: the 'RE2-safe subset' is only the three listed restrictions, so a nested quantifier (catastrophic in a backtracking engine) is accepted; it is not run here", () => {
-    assert.doesNotThrow(() => load(withRule({ pattern: "^(a+)+$", kind: "chat", capabilities: [] })));
+  it("nested quantifiers (catastrophic in a backtracking engine) are outside the RE2-safe subset; bounded and single-level repetition stays allowed", () => {
+    for (const p of ["^(a+)+$", "^(a*)*$", "^(a+)*$", "^(a|b+)+$", "^(?:a+)+$", "^(?<n>a+)+$", "^((a+)b)+$", "^(a{2,})+$", "^(a+){2,}$", "^(a+){1,3}$", "^(a{1,3}){2,5}$", "^([a-z]+\\d?)+$", "^(\\w+\\.)*$", "^(.*a){3,}$", "^(a+)+b$"])
+      rejects(withRule({ pattern: p, kind: "chat", capabilities: [] }), "RE2-safe subset");
+    for (const p of ["^gpt-4(?:\\.\\d+)?(?:-mini)?$", "^claude-[a-z]+-\\d+(?:-\\d+)?$", "^(a|b)+$", "^(ab)+$", "^[a+]+$", "^\\(a+\\)+$", "^a+b*c{2,4}$", "^(a){2}$", "^(a+)?$", "^(?:a+)?b$"])
+      assert.doesNotThrow(() => load(withRule({ pattern: p, kind: "chat", capabilities: [] })), p);
   });
 });
 
