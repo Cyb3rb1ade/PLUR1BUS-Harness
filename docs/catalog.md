@@ -341,14 +341,19 @@ then `generic`; the first matching rule wins. Tests: `model-metadata.test.ts` (v
 ### Built-in voice catalog (`voice-providers` `local/catalog.ts`, core `voice/v3-catalog.ts`)
 
 * `loadCatalog(override)` merges an owner override over the built-in catalog. A built-in model that is overridden keeps
-  its **built-in licence**; every other field, including `download` URL and `sha256`, may be replaced. Test:
-  `voice-catalog.test.ts > characterization: ... an override of a built-in model may replace everything but the licence, including its download url and checksum`.
-* `models` or `languages` in an override that are not objects (`5`, `"x"`, an array) are ignored silently. Only an override
+  its **built-in licence** as long as the override points at the built-in bytes. An override may change a built-in model's
+  `download` url or `sha256` **only together with its own, valid licence record** whose licence id differs from the built-in
+  one (a stored confirmation for the built-in package never carries over to other bytes); otherwise it is rejected with the
+  licence validation error (`model <id>: licence needs id, name, commercial (true|false|null) and status`). Every other field
+  stays overridable. Tests: `voice-catalog.test.ts > built-in models: download url and checksum change only together with an own licence record`.
+* `models` or `languages` in an override that are not objects (`5`, `"x"`, an array), and entries of them that are not
+  objects, are a validation error (`catalogOverride.models is not an object`, `catalogOverride.languages is not an object`,
+  `model <id> is not an object`, `language <code>: stt.fast and tts.fast are required`). Absent keys are fine. An override
   that is not an object as a whole is refused (`catalogOverride is not an object`). Test:
-  `voice-catalog.test.ts > characterization: ... 'models' or 'languages' that are not objects are ignored without a message ...`.
+  `voice-catalog.test.ts > 'models' or 'languages' that are not objects, and entries of them that are not objects, are a validation error ...`.
 * Invalid override entries throw `VoiceProviderError` with code `catalog` and a message starting `voice catalog: ` that
   names the entry: role paths escaping the model directory, and model ids that are not safe directory names
-  (separators, leading dot or dash, empty, spaces, non-ASCII). The merge does not mutate the built-in catalog or the
+  (separators, leading dot or dash, empty, spaces, non-ASCII, and the names `__proto__`, `constructor` and `prototype`). The merge does not mutate the built-in catalog or the
   override object. Tests: `voice-catalog.test.ts > voice catalog overrides: invalid entries are rejected ...`.
 * The built-in German quality voice is `voice-martin-de`: its licence's `commercial` value is `null` (unknown), so
   `needsLicenceConfirmation` is true, and it has no package, so `downloadable` is not ok. It is therefore gated twice
@@ -356,11 +361,14 @@ then `generic`; the first matching rule wins. Tests: `model-metadata.test.ts` (v
 * `voiceV3Catalog(override, profiles)` clones the loaded catalog and **replaces the whole `tts` selection of `de` and
   `en`** with `{ fast, quality }` from the profiles (default `V3_TTS_DEFAULTS`); other languages from an override keep
   their selection; stt, vad, models and licences are unchanged. The declared `tts.fallback` of `de` and `en` (for
-  example `kokoro-multi` for English) is dropped in the process, although `docs/voice-local.md` describes a fallback
-  tier. Test: `... characterization: ... the declared tts fallback of de and en is dropped when the profiles are applied`.
-* Profile ids are not checked against the catalog here (the configuration schema restricts them to an enum). A dangling
-  id leaves the language pointing at a missing model: `modelsFor(...).tts` is `undefined`, and a non-TTS model id
-  is selected as is. Test: `... characterization: ... profile ids are not checked against the catalog here ...`.
+  example `kokoro-multi` for English) is kept, as `docs/voice-local.md` describes. The profile ids are validated: the result
+  is parsed as a whole, so an unknown id or a model of the wrong kind is a `catalog` error naming it (for example
+  `language de: tts.fast names unknown model nope`). Tests: `voice-catalog.test.ts > voiceV3Catalog`.
+* **Owner decision 2026-10-14:** `piper-en-lessac-low` stays the English `tts.fast` preselection of the built-in
+  catalog. It is research-only (licence `Blizzard-2013-Lessac-research`, `commercial: false`), so preselection never
+  replaces the per-model confirmation: `downloadModel` and `LocalVoice.setLanguage` refuse it with `licence_required`
+  unless `piper-en-lessac-low@Blizzard-2013-Lessac-research` was confirmed. Tests: `voice-catalog.test.ts > owner decision 2026-10-14 ...`
+  and `packages/voice-providers/test/local-voice.test.ts > owner decision 2026-10-14 ...`.
 
 ### Open points (Offene Punkte)
 
@@ -381,13 +389,7 @@ These are observations, not decisions. Do not rely on them.
 7. **`loadMetadataTable(undefined)` falls back to the bundled table**, hiding a failed read of an external table.
 8. **The "RE2-safe" check does not exclude nested quantifiers**; rules are JavaScript `RegExp`, so a hostile external
    table could cause catastrophic backtracking when `lookup` runs. Neither the loader nor `lookup` bounds this.
-9. **Voice overrides can swap a built-in model's download URL and checksum** while the built-in licence record is kept, so a
-   licence verdict given for the built-in package is attached to whatever bytes the override points at.
-10. **`voiceV3Catalog` drops the TTS fallback tier** of `de` and `en` (documented in `docs/voice-local.md`).
-11. **A dangling profile id is not detected** in `voiceV3Catalog`.
-12. **Non-object `models`/`languages` in an override are ignored silently.**
-13. **Known gaps (`todo` tests, not fixed):** (a) the built-in catalog preselects `piper-en-lessac-low`, a research-only
-    model, as English `tts.fast`; only `voiceV3Catalog` replaces it and the licence gate refuses it until confirmed per model
-    (`voice-catalog.test.ts > KNOWN GAP: core/catalog voice-providers builtin catalog (loadCatalog without profiles) ...`);
-    (b) an override model with id `__proto__` is dropped silently instead of being rejected like other unsafe ids; no
-    prototype pollution happens (`voice-catalog.test.ts > KNOWN GAP: ... (model id '__proto__') ...` and the neighbouring test that pins the present behaviour).
+9. **Voice catalog (resolved 2026-10-14).** Overrides of built-in models change url or checksum only with their own licence
+   record; `voiceV3Catalog` keeps the TTS fallback tier and validates profile ids; non-object `models`/`languages` (and their
+   entries) in an override are rejected; the model ids `__proto__`, `constructor` and `prototype` are rejected; the research-only
+   English fast voice stays preselected by decision, behind the mandatory licence confirmation (see "Built-in voice catalog").
