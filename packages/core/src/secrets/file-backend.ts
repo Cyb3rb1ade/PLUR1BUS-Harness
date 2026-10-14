@@ -9,7 +9,7 @@ const KEY_BYTES = 32;
 const NONCE_BYTES = 12; // GCM's native 96-bit nonce, fresh random per write of an entry
 const TAG_BYTES = 16;
 
-interface Entry { createdAt: string; updatedAt: string; nonce: string; ct: string; tag: string }
+interface Entry { createdAt: string; updatedAt: string; updatedBy?: string; nonce: string; ct: string; tag: string }
 interface Doc { schema: typeof FILE_SCHEMA; entries: Record<string, Entry> }
 
 export interface FileBackendOptions {
@@ -135,7 +135,7 @@ export function createFileBackend(o: FileBackendOptions): SecretBackend {
         return Buffer.concat([d.update(Buffer.from(e.ct, "base64")), d.final()]).toString("utf8");
       } catch { throw corrupt("authentication-failed", name); }
     }),
-    put: (name, value, now) => serial(() => {
+    put: (name, value, now, updatedBy) => serial(() => {
       const doc = readDoc();
       const k = key(doc, true);
       const nonce = rand(NONCE_BYTES);
@@ -144,9 +144,9 @@ export function createFileBackend(o: FileBackendOptions): SecretBackend {
       const ct = Buffer.concat([c.update(Buffer.from(value, "utf8")), c.final()]);
       const at = now.toISOString();
       const createdAt = doc.entries[name]?.createdAt ?? at;
-      doc.entries[name] = { createdAt, updatedAt: at, nonce: nonce.toString("base64"), ct: ct.toString("base64"), tag: c.getAuthTag().toString("base64") };
+      doc.entries[name] = { createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}), nonce: nonce.toString("base64"), ct: ct.toString("base64"), tag: c.getAuthTag().toString("base64") };
       writeDoc(doc);
-      return { name, backend: "file" as const, createdAt, updatedAt: at };
+      return { name, backend: "file" as const, createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}) };
     }),
     delete: (name) => serial(() => {
       const doc = readDoc();
@@ -156,6 +156,6 @@ export function createFileBackend(o: FileBackendOptions): SecretBackend {
       return true;
     }),
     list: () => serial((): SecretMeta[] =>
-      Object.entries(readDoc().entries).map(([name, e]) => ({ name, backend: "file" as const, createdAt: e.createdAt, updatedAt: e.updatedAt })).sort((a, b) => a.name.localeCompare(b.name))),
+      Object.entries(readDoc().entries).map(([name, e]) => ({ name, backend: "file" as const, createdAt: e.createdAt, updatedAt: e.updatedAt, ...(e.updatedBy ? { updatedBy: e.updatedBy } : {}) })).sort((a, b) => a.name.localeCompare(b.name))),
   };
 }

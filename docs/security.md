@@ -95,3 +95,7 @@ Every deviation is a `todo` case named `KNOWN GAP` after its method; fixing the 
 * Write methods that WebMCP does not forbid and the exposure list does not name: the same families plus `dreams.schedule.set`, `dreams.enable`, `dreams.disable`, `memory.correct`, `memory.share`, `memory.propose`, `memory.proposals.accept`, `memory.proposals.reject`.
 
 Today only stable methods and the memory reads are tools by default, so the experimental ones above are reachable only if a page lists them in `include`.
+
+## Secret status metadata
+
+`secret.status` optionally includes `secrets`, a names-only metadata snapshot from the available backends. Creation and rotation persist timestamps with the existing metadata index; `updatedBy` identifies the authenticated person when known. Status never reads or decrypts values. Older entries without writer metadata remain readable. Settings displays timestamps from this snapshot and “Unknown” when metadata is unavailable. Owner-only access remains the existing ADR-005 rule.

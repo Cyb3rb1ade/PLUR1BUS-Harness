@@ -1,5 +1,6 @@
 // secrets area catalogue (Settings > Secrets): keys `secrets.<topic>`; en and de have the same keys and {placeholders}.
 export const en = {
+  "secrets.unknown": "Unknown",
   "secrets.title": "Secrets",
   "secrets.intro": "Names and metadata only. Values are write-only: they are never shown, never stored in this page and never read back.",
   "secrets.store": "Secret store",
@@ -55,6 +56,7 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "secrets.unknown": "Unbekannt",
   "secrets.title": "Geheimnisse",
   "secrets.intro": "Nur Namen und Metadaten. Werte sind nur schreibbar: Sie werden nie angezeigt, nie in dieser Seite gespeichert und nie zurückgelesen.",
   "secrets.store": "Geheimnisspeicher",

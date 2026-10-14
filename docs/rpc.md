@@ -20287,6 +20287,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "updatedAt": {
       "type": "string"
+    },
+    "updatedBy": {
+      "type": "string",
+      "description": "Person ID of the last writer, when known; never a secret value."
     }
   }
 }
@@ -20372,6 +20376,35 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "remedy": {
       "type": "string"
+    },
+    "secrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "backend"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "backend": {
+            "$ref": "#/$defs/SecretBackend"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "updatedBy": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Persisted metadata only. Unknown legacy timestamps and writer are omitted."
     }
   }
 }

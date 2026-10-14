@@ -25,6 +25,7 @@ export interface SecretStatus {
   /** Names held in the selected backend, null when it cannot be listed. */
   count: number | null;
   activeLeases: number;
+  secrets?: (Pick<SecretMeta, "name" | "backend"> & Partial<Omit<SecretMeta, "name" | "backend">>)[];
   remedy?: string;
 }
 
@@ -82,12 +83,21 @@ export function createSecretStore(o: SecretStoreOptions) {
       gate(p, "status", null, ["owner", "core"]);
       const s = await select();
       let count: number | null = null;
-      if (s.backend) { try { count = (await s.backend.list()).length; } catch { count = null; } }
+      let secrets: SecretMeta[] | undefined;
+      if (s.backend) {
+        try {
+          const names = new Map<string, SecretMeta>();
+          for (const b of [s.backend, s.other]) if (b) for (const meta of await b.list()) if (!names.has(meta.name)) names.set(meta.name, meta);
+          secrets = [...names.values()].sort((a, b) => a.name.localeCompare(b.name));
+          count = secrets.length;
+        } catch { count = null; }
+      }
       return {
         backend: s.kind, degraded: s.kind !== "keyring",
         keyring: { available: s.keyring.available, ...(s.keyring.reason ? { reason: s.keyring.reason } : {}) },
         file: { enabled: o.fileFallback(), available: s.fileAvailable, ...(s.fileReason ? { reason: s.fileReason } : {}) },
         count, activeLeases: leases.active().length,
+        ...(secrets ? { secrets: secrets.map(({ createdAt, updatedAt, ...meta }) => ({ ...meta, ...(createdAt ? { createdAt } : {}), ...(updatedAt ? { updatedAt } : {}) })) } : {}),
         ...(s.kind === "none" ? { remedy: NO_BACKEND } : {}),
       };
     },
@@ -98,7 +108,7 @@ export function createSecretStore(o: SecretStoreOptions) {
       const s = await select();
       const backend = need(s);
       audited(p, "secret.set", name, { backend: backend.kind });
-      const meta = await backend.put(name, value, now());
+      const meta = await backend.put(name, value, now(), p.kind === "owner" ? p.id : undefined);
       leases.revokeName(name); // a rotated secret invalidates what was leased from the old value
       return meta;
     },

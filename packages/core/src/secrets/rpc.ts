@@ -23,13 +23,13 @@ export interface SecretMethodDeps {
   store: SecretStore;
   /** Derives who is calling from the connection. A client can never name its own principal. Fail closed: a connection
    *  for which this answers anything but `owner` is refused every `secret.*` method. */
-  principalOf: (ctx: { connectionId: string }) => SecretPrincipal;
+  principalOf: (ctx: Parameters<Handler>[1]) => SecretPrincipal | Promise<SecretPrincipal>;
 }
 
 /** `secret.*` (M2, ADR-005): owner only. The store enforces it; the handlers add nothing but the wire mapping. */
 export function buildSecretMethods(d: SecretMethodDeps): Record<SecretMethod, Handler> {
   const wrap = (fn: (p: SecretPrincipal, params: any) => Promise<unknown>): Handler => async (params, ctx) => {
-    try { return await fn(d.principalOf(ctx), params); } catch (e) { throw toRpcError(e); }
+    try { return await fn(await d.principalOf(ctx), params); } catch (e) { throw toRpcError(e); }
   };
   return {
     "secret.status": wrap((p) => d.store.status(p)),

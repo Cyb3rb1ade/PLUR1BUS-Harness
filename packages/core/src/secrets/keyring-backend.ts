@@ -19,7 +19,7 @@ export const defaultKeyringLoader: KeyringLoader = async () => {
   return mod as KeyringModule;
 };
 
-interface Index { schema: typeof INDEX_SCHEMA; entries: Record<string, { createdAt: string; updatedAt: string }> }
+interface Index { schema: typeof INDEX_SCHEMA; entries: Record<string, { createdAt: string; updatedAt: string; updatedBy?: string }> }
 
 /**
  * OS keychain backend (macOS Keychain, Windows Credential Manager, libsecret). The keyring cannot enumerate, so the
@@ -69,14 +69,14 @@ export function createKeyringBackend(o: { service: string; load?: KeyringLoader 
       }
     },
     get: (name) => serial(() => guarded("reading from the keyring", async () => (await entry(name)).getPassword())),
-    put: (name, value, now) => serial(async () => {
+    put: (name, value, now, updatedBy) => serial(async () => {
       const idx = await readIndex();
       await guarded("writing to the keyring", async () => (await entry(name)).setPassword(value));
       const at = now.toISOString();
       const createdAt = idx.entries[name]?.createdAt ?? at;
-      idx.entries[name] = { createdAt, updatedAt: at };
+      idx.entries[name] = { createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}) };
       await writeIndex(idx);
-      return { name, backend: "keyring" as const, createdAt, updatedAt: at };
+      return { name, backend: "keyring" as const, createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}) };
     }),
     delete: (name) => serial(async () => {
       const idx = await readIndex();

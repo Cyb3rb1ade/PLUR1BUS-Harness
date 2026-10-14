@@ -671,7 +671,10 @@ export function createCore(o: CoreOptions): Core {
         // Every connection that passed `core.auth` holds `run/core.token`, which only this OS user can read: it is the
         // owner. There is no weaker caller on this socket today; per-connection principals arrive with M3's users and
         // D109's surface trust, and this is the one place they plug in. The store refuses anything but `owner`.
-        secrets: { store: secretStore, principalOf: () => ({ kind: "owner" }) },
+        secrets: { store: secretStore, principalOf: async ctx => {
+          const p = await resolvePrincipal(ctx, "secret.status", {});
+          return p?.kind === "person" && p.role === "owner" ? { kind: "owner", id: p.userId } : { kind: "agent" };
+        } },
         permissions: {
           permissions: () => perms.open(), principalOf: resolvePrincipal, clock,
           surfaceOf: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }),

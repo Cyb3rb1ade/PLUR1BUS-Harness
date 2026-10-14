@@ -7813,7 +7813,8 @@
         "name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$" },
         "backend": { "$ref": "#/$defs/SecretBackend" },
         "createdAt": { "type": "string" },
-        "updatedAt": { "type": "string" }
+        "updatedAt": { "type": "string" },
+        "updatedBy": { "type": "string", "description": "Person ID of the last writer, when known; never a secret value." }
       }
     },
     "SecretStatus": {
@@ -7834,7 +7835,8 @@
         },
         "count": { "type": ["integer", "null"], "minimum": 0 },
         "activeLeases": { "type": "integer", "minimum": 0 },
-        "remedy": { "type": "string" }
+        "remedy": { "type": "string" },
+        "secrets": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["name", "backend"], "properties": { "name": { "type": "string" }, "backend": { "$ref": "#/$defs/SecretBackend" }, "createdAt": { "type": "string" }, "updatedAt": { "type": "string" }, "updatedBy": { "type": "string" } } }, "description": "Persisted metadata only. Unknown legacy timestamps and writer are omitted." }
       }
     },
 
