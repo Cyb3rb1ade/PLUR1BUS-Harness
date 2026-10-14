@@ -154,3 +154,46 @@ are no new top-level error codes. Messages contain no key material or pairing co
 The central RBAC gate additionally returns `E_UNAUTHORIZED` for a missing
 principal and `E_DENIED` for forbidden role/kind/token scope, using the existing
 RBAC reasons. Repeating a completed revocation is idempotent.
+
+## CLI-Exit-Codes
+
+Which exit code a command ends with, collected from every exit site in `crates/plur1bus/src` by
+`scripts/check-cli-exit-codes.mjs` (`node scripts/check-cli-exit-codes.mjs --list` prints each site with its command
+context and error code). `node scripts/check-cli-exit-codes.mjs --check`, part of `pnpm docs:check`, fails when the
+sources use an exit code that is not in the first column of this table. This section complements the two tables above;
+it does not replace them.
+
+| Exit | Meaning | Typical commands | What to do |
+|---|---|---|---|
+| 0 | Success, or a run that found nothing to do. `repair` and `setup` exit 0 only when their final check is clean. | all | Nothing. |
+| 1 | The command ran and failed: `E_CORE_UNAVAILABLE`, `E_INTERNAL`, `E_STORAGE`, `E_CONFIG_INVALID`, `E_AGENT_UNKNOWN`, `E_NOT_FOUND`, `E_CONFLICT`, `E_UNAUTHORIZED`, `E_IMPORT_FAILED`, and, from direct `fail` sites, also `E_NOT_AVAILABLE`, `E_INVALID_PARAMS` and `E_CANCELLED` (see Inconsistencies). Also a supervisor that cannot set up its endpoint or lock, a failed `repair` or `setup` check, a `chat` turn that failed, and a child process (`acp serve`, `core run`) that exits non-zero, whose own code is passed through. | `agent`, `config`, `daemon start`, `media`, `memory`, `module`, `service`, `update`, `supervise` | Read the message (or `error`/`reason` with `--json`) and the matching row in the error-code table above. `E_CORE_UNAVAILABLE`: `plur1bus daemon start`. |
+| 2 | Refused before any work: a bad argument, a missing `--yes` or an answer other than yes at a confirmation prompt, an unknown `--only` step, an unknown or ambiguous `--agent`, a bad key or env value (`E_INVALID_PARAMS`); or `E_NOT_AVAILABLE`/`E_APPROVAL_REQUIRED` from the core. `supervise` exits 2 for an option that needs `PLUR1BUS_ALLOW_TEST_INTERNALS=1`. clap's own usage errors also exit 2. | `approval`, `budget`, `channel`, `config apply`, `dreams`, `grant`, `login`, `module`, `repair`, `secret`, `service`, `update`, `voice` | Fix the invocation and run it again. A confirmation refused by a script needs `--yes`. For `E_APPROVAL_REQUIRED`, approve the request first. |
+| 3 | Another process holds the store or the home: `E_LOCKED`, or a supervisor already running for this home. Under launchd the supervisor reports 2 and 3 as 0 so the service is not restarted in a loop. | `backup`, `ext`, `supervise` | Wait and retry, or stop the other process (`plur1bus daemon stop`). Do not start a second supervisor. |
+| 70 | Internal: the supervisor ended on a panic. | `supervise` (the OS service) | Read `logs/supervisor.log` and report it. The OS service restarts it. |
+| 130 | `login` was interrupted with Ctrl-C (`E_CANCELLED`, `reason=login-cancelled`). Nothing was saved. | `login` | Run `plur1bus login` again. |
+| 137 | Test internals only: `PLUR1BUS_TEST_UPDATE_KILL_AT` kills the updater right after a phase when `PLUR1BUS_ALLOW_TEST_INTERNALS=1`. Never seen in normal use. | `update apply` | Unset both variables. |
+| 1..255 | `import` passes the importer's own exit code through (1 when it names none or one outside the range). | `import` | Read the importer's message; the code is the importer's, not the CLI's. |
+
+### Inconsistencies
+
+Found while collecting the sites; nothing was changed in the Rust. The table above documents what the code does today.
+
+- `E_NOT_AVAILABLE` exits 2 when it comes through `output::exit_code_for`, `ext::Failure::exit` or `require_supports`
+  in `memory_ops`, but 1 at the 16 direct `out.fail(..., 1)` sites (`acp`, `container`, `media`, `module`, `update`,
+  `update_apply`, `commands::refuse_in_container`). The same situation ("not available here") has two exit codes
+  depending on which command reports it. The first table above says 2.
+- `E_INVALID_PARAMS` exits 2 at 40 sites (argument and confirmation refusals) but 1 at 15 (`agent`, `config`, `memory`,
+  `service`, `module install`, a core-rejected request via `from_rpc_error`, `backup`). A script cannot tell a usage
+  error from a rejected request by exit code alone.
+- `E_INVALID_PARAMS` is also used with exit 2 for runtime problems that are not usage: `media save` on a damaged
+  output (`invalid output range`, `incomplete output`), and "not applied" when a `config apply` prompt is answered no.
+- A declined confirmation exits 2 (`config apply`, `module`, `secret`, `ext`, with `E_INVALID_PARAMS`) but 1 for
+  `update apply` (`E_CANCELLED`, `reason=declined`). `E_CANCELLED` itself exits 130 from `login` and 1 from
+  `update apply`.
+- The code-to-exit mapping is written three times: `output::exit_code_for`, `ext::Failure::exit` (same table, kept by
+  hand) and `BackupError::code` (`E_LOCKED` is 3 there, as in the others). A change to one will drift from the others.
+- `supervise` exits 3 for "already running" but 1 when the lock is held and no supervisor answers. Both are "another
+  process holds the home"; the second one is the case that `E_LOCKED` exits 3 elsewhere.
+- Some commands (`audit verify`, `dreams`, `model scan`, `memory reembed`, `firstaid`) call `std::process::exit(1)`
+  directly after printing their normal result document, so a failed verification, run or scan exits 1 without an
+  `error/1` document; with `--json` the failure is in the result, not in `error`.
