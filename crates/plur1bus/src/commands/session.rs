@@ -228,20 +228,18 @@ pub(crate) fn pick_agent(out: &Out, config: &Value, agent: Option<String>) -> St
             "E_AGENT_UNKNOWN",
             "no agent is registered (plur1bus agent create <id>)",
             json!({}),
-            1,
         ),
         _ => out.fail(
             "E_INVALID_PARAMS",
             "several agents are registered: pick one with --agent",
             json!({ "agents": agents }),
-            2,
         ),
     }
 }
 
 pub fn chat(out: &Out, layout: &Layout, args: ChatArgs) {
     let config = cfg::read_for_lookup(&layout.config_path(), &[])
-        .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1));
+        .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({})));
     let caller = identity::caller();
     let mut c = connect_sessions(out, layout);
     let (session_id, agent) = match args.session {

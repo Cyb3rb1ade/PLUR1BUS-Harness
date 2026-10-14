@@ -128,7 +128,7 @@ pub(crate) fn fail_rpc(out: &Out, e: &RpcError) -> ! {
     if let Some(ids) = e.ids() {
         extra["ids"] = json!(ids);
     }
-    out.fail(&e.code_name(), &fail_message(e), extra, 1)
+    out.fail(&e.code_name(), &fail_message(e), extra)
 }
 
 /// The human message of a failed `config.*` call: what happened and what to do.
@@ -172,7 +172,7 @@ pub(crate) fn running(out: &Out, layout: &Layout) -> (Value, String) {
         Err(e) => fail_rpc(out, &e),
     }
     let loaded = cfg::load(&layout.config_path())
-        .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1));
+        .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({})));
     let revision = cfg::revision(&loaded.config);
     (loaded.config, revision)
 }
@@ -191,7 +191,7 @@ pub(crate) fn running_read_only(out: &Out, layout: &Layout) -> Value {
         Err(e) => fail_rpc(out, &e),
     }
     cfg::read(&layout.config_path())
-        .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1))
+        .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({})))
 }
 
 /// A `config.set/1` result and how it was produced.
@@ -259,12 +259,7 @@ fn confirm(out: &Out, preview: &Value, supervised: bool, yes: bool) {
         let mut line = String::new();
         std::io::stdin().read_line(&mut line).ok();
         if !line.trim().eq_ignore_ascii_case("y") {
-            out.fail(
-                "E_INVALID_PARAMS",
-                "not applied",
-                json!({"applied": false}),
-                2,
-            );
+            out.fail("E_CANCELLED", "not applied", json!({"applied": false}));
         }
     } else {
         out.fail(
@@ -278,7 +273,6 @@ fn confirm(out: &Out, preview: &Value, supervised: bool, yes: bool) {
                 "changed": preview["changed"],
                 "restart": preview["restart"]
             }),
-            2,
         );
     }
 }
@@ -326,7 +320,7 @@ pub(crate) fn apply(
         }
         Ok(Route::Direct) => {
             let loaded = cfg::load(&layout.config_path())
-                .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1));
+                .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({})));
             let current = cfg::revision(&loaded.config);
             if expect.is_some_and(|r| r != current) {
                 fail_rpc(out, &conflict(&current));
@@ -337,7 +331,7 @@ pub(crate) fn apply(
                 many => json!({ "keys": many }),
             };
             let plan = cfg::set_many(&loaded.config, &changes)
-                .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), extra.clone(), 1));
+                .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), extra.clone()));
             // B13: a changed `modules.<name>` must satisfy its manifest's configSchema, as through the supervisor.
             let module_errors = crate::modules::config_errors(
                 &crate::modules::scan(layout),
@@ -352,7 +346,6 @@ pub(crate) fn apply(
                         module_errors.join("; ")
                     ),
                     extra,
-                    1,
                 );
             }
             if let Some(violation) = crate::coexistence::store_violation(
@@ -363,7 +356,6 @@ pub(crate) fn apply(
                     "E_CONFIG_INVALID",
                     &violation.message(),
                     json!({ "reason": "foreign-host-store-path" }),
-                    1,
                 );
             }
             let restart = json!({
@@ -386,7 +378,7 @@ pub(crate) fn apply(
             }
             confirm(out, &preview, false, yes);
             cfg::write_atomic(&layout.config_path(), &plan.after)
-                .unwrap_or_else(|e| out.fail("E_INTERNAL", &e.to_string(), json!({}), 1));
+                .unwrap_or_else(|e| out.fail("E_INTERNAL", &e.to_string(), json!({})));
             Applied {
                 value: result(true, false, cfg::revision(&plan.after)),
                 supervised: false,
@@ -400,7 +392,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: ConfigCmd) {
     match cmd {
         ConfigCmd::Schema { tier } => {
             let s: Value = serde_json::from_str(cfg::SCHEMA_JSON)
-                .unwrap_or_else(|e| out.fail("E_INTERNAL", &e.to_string(), json!({}), 1));
+                .unwrap_or_else(|e| out.fail("E_INTERNAL", &e.to_string(), json!({})));
             // G15: a JSON Schema must not carry a foreign top-level key, so the schema itself is
             // wrapped under `jsonSchema` rather than getting `schema` inserted directly into it.
             let (tier_str, filtered) = match tier {
@@ -442,14 +434,13 @@ pub fn run(out: &Out, layout: &Layout, cmd: ConfigCmd) {
             };
             let v = routed.unwrap_or_else(|| {
                 let loaded = cfg::load(&layout.config_path())
-                    .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1));
+                    .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({})));
                 let revision = cfg::revision(&loaded.config);
                 get_result(&loaded.config, &revision, key.as_deref(), tier).unwrap_or_else(|| {
                     out.fail(
                         "E_INVALID_PARAMS",
                         &format!("no such key: {}", key.clone().unwrap_or_default()),
                         json!({}),
-                        1,
                     )
                 })
             });

@@ -33,7 +33,7 @@ pub(super) struct Feed {
 /// Fails the command; an extracted bundle is removed first.
 fn fail_feed(out: &Out, layout: &Layout, reason: &str, message: &str) -> ! {
     crate::update::bundle::cleanup(layout);
-    out.fail("E_NOT_AVAILABLE", message, json!({ "reason": reason }), 1)
+    out.fail("E_NOT_AVAILABLE", message, json!({ "reason": reason }))
 }
 
 /// `--ca-bundle` is the same as `PLUR1BUS_CA_BUNDLE`: checked now, so a bad file is one clear refusal.
@@ -44,7 +44,6 @@ fn apply_ca_bundle(out: &Out, args: &UpdateArgs) {
             "E_INVALID_PARAMS",
             &e.to_string(),
             json!({ "reason": "ca-bundle-invalid" }),
-            2,
         );
     }
     std::env::set_var(install::fetch::CA_BUNDLE_ENV, p);
@@ -58,24 +57,17 @@ fn load_feed(out: &Out, layout: &Layout, args: &UpdateArgs, persist: bool) -> Fe
             "E_NOT_AVAILABLE",
             "no install manifest here: run `plur1bus setup` first",
             json!({ "reason": "not-installed" }),
-            1,
         ),
         Err(e) => out.fail(
             "E_NOT_AVAILABLE",
             &format!("install manifest is unreadable: {e}"),
             json!({ "reason": "not-installed" }),
-            1,
         ),
     };
 
     let bundle = args.from.as_ref().map(|path| {
         crate::update::bundle::open(layout, path).unwrap_or_else(|e| {
-            out.fail(
-                "E_NOT_AVAILABLE",
-                &e.message,
-                json!({ "reason": e.reason }),
-                1,
-            )
+            out.fail("E_NOT_AVAILABLE", &e.message, json!({ "reason": e.reason }))
         })
     });
 
@@ -93,7 +85,6 @@ fn load_feed(out: &Out, layout: &Layout, args: &UpdateArgs, persist: bool) -> Fe
                 "E_NOT_AVAILABLE",
                 &format!("could not read the release manifest: {e}"),
                 json!({ "reason": e.reason() }),
-                1,
             ),
         },
     };

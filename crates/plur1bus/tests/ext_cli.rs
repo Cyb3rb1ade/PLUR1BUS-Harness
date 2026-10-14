@@ -471,7 +471,7 @@ fn plugin_install_refuses_a_skill_package_and_skill_install_refuses_a_module_pac
 
         let v = err_doc(
             &h.run(&["--json", "plugin", "install", p(&skill), "--yes"]),
-            1,
+            2,
             "E_INVALID_PARAMS",
             "package-invalid",
         );
@@ -484,7 +484,7 @@ fn plugin_install_refuses_a_skill_package_and_skill_install_refuses_a_module_pac
         );
         let v = err_doc(
             &h.run(&["--json", "skill", "install", p(&module), "--yes"]),
-            1,
+            2,
             "E_INVALID_PARAMS",
             "package-invalid",
         );
@@ -562,7 +562,7 @@ fn offline_install_takes_the_supervisor_lock_and_a_starting_supervisor_is_refuse
         .output()
         .unwrap();
     assert!(
-        !sup.status.success() && stderr(&sup).contains("is held but no supervisor answered"),
+        sup.status.code() == Some(3) && stderr(&sup).contains("is held but no supervisor answered"),
         "a supervisor started while the offline install held the lock: {:?} {}",
         sup.status,
         stderr(&sup)
@@ -724,20 +724,20 @@ fn ext_pack_then_ext_verify_round_trips() {
     assert!(stdout(&o).contains("demo/demo-skill"), "{}", stdout(&o));
 }
 
-/// A tampered package: `ext verify` names the reason and exits 1.
+/// A tampered package: `ext verify` names the reason and exits 2.
 #[test]
-fn ext_verify_of_a_tampered_package_prints_the_reason_and_exits_1() {
+fn ext_verify_of_a_tampered_package_prints_the_reason_and_exits_2() {
     let h = Home::new();
     let bad = h.write(
         "bad.p1x",
         &tamper(&skill_pkg(&h, "demo-skill"), Tamper::PayloadByte),
     );
     let o = h.run(&["ext", "verify", p(&bad)]);
-    assert_eq!(code(&o), 1, "{}", stdout(&o));
+    assert_eq!(code(&o), 2, "{}", stdout(&o));
     assert!(stderr(&o).contains("digest-mismatch"), "{}", stderr(&o));
     err_doc(
         &h.run(&["--json", "ext", "verify", p(&bad)]),
-        1,
+        2,
         "E_INVALID_PARAMS",
         "digest-mismatch",
     );
@@ -987,7 +987,7 @@ fn uninstall_checks_the_name_before_asking_and_names_a_bundled_hide() {
     let o = h.run(&["--json", "skill", "uninstall", "Bad Name"]);
     assert_eq!(
         (code(&o), doc(&o)["error"].clone()),
-        (1, json!("E_INVALID_PARAMS"))
+        (2, json!("E_INVALID_PARAMS"))
     );
     std::fs::write(
         h.home.join("manifest.json"),

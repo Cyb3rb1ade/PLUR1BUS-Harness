@@ -58,9 +58,7 @@ pub(crate) fn refuse_in_container(out: &Out, cmd: &str) {
         out.fail(
             "E_NOT_AVAILABLE",
             &format!("`plur1bus {cmd}` is not available in container mode: the image manages the installation"),
-            serde_json::json!({ "reason": "container-managed", "command": cmd }),
-            1,
-        );
+            serde_json::json!({ "reason": "container-managed", "command": cmd }));
     }
 }
 

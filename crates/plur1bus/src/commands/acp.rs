@@ -45,7 +45,7 @@ pub fn run(out: &Out, layout: &Layout, sub: AcpCmd) {
 
 fn serve(out: &Out, layout: &Layout, agent: Option<String>) {
     let config = cfg::read_for_lookup(&layout.config_path(), &[])
-        .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1));
+        .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({})));
     let agent = pick_agent(out, &config, agent);
     let js = locate_acp_js(layout);
     if !js.exists() {
@@ -55,9 +55,7 @@ fn serve(out: &Out, layout: &Layout, agent: Option<String>) {
                 "acp.js not found at {} (set PLUR1BUS_ACP_JS, or PLUR1BUS_CORE_JS to a built core, or run setup)",
                 js.display()
             ),
-            json!({ "reason": "acp-missing" }),
-            1,
-        );
+            json!({ "reason": "acp-missing" }));
     }
     let node = locate_node(layout);
     let status = Command::new(&node)
@@ -69,12 +67,11 @@ fn serve(out: &Out, layout: &Layout, agent: Option<String>) {
         .status();
     match status {
         Ok(s) if s.success() => {}
-        Ok(s) => crate::output::exit(s.code().unwrap_or(1)),
+        Ok(s) => crate::output::exit(crate::output::child_exit_code(&s)),
         Err(e) => out.fail(
             "E_NOT_AVAILABLE",
             &format!("cannot start {}: {e}", node.display()),
             json!({ "reason": "node-unavailable" }),
-            1,
         ),
     }
 }

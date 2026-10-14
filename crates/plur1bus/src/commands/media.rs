@@ -116,14 +116,9 @@ fn save(out: &Out, layout: &Layout, id: &str, index: u32, destination: &PathBuf)
         use std::os::unix::fs::OpenOptionsExt;
         options.mode(0o600);
     }
-    let mut file = options.open(&staging).unwrap_or_else(|_| {
-        out.fail(
-            "E_STORAGE",
-            "cannot create output staging file",
-            json!({}),
-            1,
-        )
-    });
+    let mut file = options
+        .open(&staging)
+        .unwrap_or_else(|_| out.fail("E_STORAGE", "cannot create output staging file", json!({})));
     let mut offset = 0_u64;
     let mut digest = Sha256::new();
     let expected;
@@ -135,17 +130,17 @@ fn save(out: &Out, layout: &Layout, id: &str, index: u32, destination: &PathBuf)
             json!({"id":id,"file":index,"offset":offset,"length":4*1024*1024}),
         );
         let bytes = decode(value["data"].as_str().unwrap_or(""))
-            .unwrap_or_else(|e| out.fail("E_INVALID_PARAMS", e, json!({}), 2));
+            .unwrap_or_else(|e| out.fail("E_STORAGE", e, json!({})));
         digest.update(&bytes);
         if file.write_all(&bytes).is_err() {
-            out.fail("E_STORAGE", "cannot write output", json!({}), 1);
+            out.fail("E_STORAGE", "cannot write output", json!({}));
         }
         match value["nextOffset"].as_u64() {
             Some(next) if next == offset + bytes.len() as u64 && next > offset => offset = next,
-            Some(_) => out.fail("E_INVALID_PARAMS", "invalid output range", json!({}), 2),
+            Some(_) => out.fail("E_STORAGE", "invalid output range", json!({})),
             None => {
                 if value["totalBytes"].as_u64() != Some(offset + bytes.len() as u64) {
-                    out.fail("E_INVALID_PARAMS", "incomplete output", json!({}), 2);
+                    out.fail("E_STORAGE", "incomplete output", json!({}));
                 }
                 expected = value["manifest"]["files"][index as usize]["sha256"]
                     .as_str()
@@ -156,10 +151,10 @@ fn save(out: &Out, layout: &Layout, id: &str, index: u32, destination: &PathBuf)
         }
     }
     if format!("{:x}", digest.finalize()) != expected {
-        out.fail("E_STORAGE", "output integrity failed", json!({}), 1);
+        out.fail("E_STORAGE", "output integrity failed", json!({}));
     }
     if file.sync_all().is_err() {
-        out.fail("E_STORAGE", "cannot flush output", json!({}), 1);
+        out.fail("E_STORAGE", "cannot flush output", json!({}));
     }
     drop(file);
     let published = std::fs::hard_link(&staging, destination);
@@ -169,7 +164,6 @@ fn save(out: &Out, layout: &Layout, id: &str, index: u32, destination: &PathBuf)
             "E_STORAGE",
             "cannot create output file (existing files are preserved)",
             json!({}),
-            1,
         );
     }
 }
@@ -287,7 +281,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: MediaCmd) {
                         "E_NOT_AVAILABLE",
                         "media job did not succeed",
                         json!({"reason":job["error"]}),
-                        1,
                     ),
                     _ => {}
                 }
@@ -296,7 +289,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: MediaCmd) {
                         "E_NOT_AVAILABLE",
                         "media wait timed out; job remains available",
                         json!({"reason":"timeout"}),
-                        1,
                     );
                 }
                 std::thread::sleep(Duration::from_millis(250));

@@ -364,7 +364,7 @@ fn setup_in_container_mode_is_container_managed() {
         .output()
         .unwrap();
     let v = doc(&out);
-    assert_eq!(out.status.code(), Some(1), "{v}");
+    assert_eq!(out.status.code(), Some(2), "{v}");
     assert_eq!(v["error"], "E_NOT_AVAILABLE");
     assert_eq!(v["reason"], "container-managed");
     assert!(!e.home.exists(), "nothing is created");

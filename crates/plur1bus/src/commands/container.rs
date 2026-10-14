@@ -88,7 +88,7 @@ pub(crate) fn detections() -> Vec<Detection> {
         .collect()
 }
 pub(crate) fn fail(out: &Out, reason: &str, message: &str) -> ! {
-    out.fail("E_NOT_AVAILABLE", message, json!({"reason":reason}), 1)
+    out.fail("E_NOT_AVAILABLE", message, json!({"reason":reason}))
 }
 /// Name of the one service that carries the harness core; the search wiring below lands on it.
 const HARNESS: &str = "plur1bus-harness";
