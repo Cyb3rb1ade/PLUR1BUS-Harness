@@ -63,6 +63,7 @@ export interface CreateGrantInput {
 const ATTESTED_VIA = /^attested:[a-z0-9][a-z0-9-]{0,31}$/;
 
 export interface GrantStoreOptions {
+  maxGrantDays?: () => number;
   db: DatabaseSync;
   chain: ApprovalChain;
   clock: Clock;
@@ -98,12 +99,14 @@ function definitionOf(r: GrantRow): string {
 interface View { grant: StoredGrant; state: GrantState }
 
 export class GrantStore implements GrantSource {
+  readonly maxGrantDays: () => number;
   readonly #db: DatabaseSync;
   readonly #chain: ApprovalChain;
   readonly #clock: Clock;
   readonly #audit: PolicyAudit | undefined;
 
   constructor(o: GrantStoreOptions) {
+    this.maxGrantDays = o.maxGrantDays ?? (() => 90);
     this.#audit = o.audit;
     this.#db = o.db;
     this.#chain = o.chain;

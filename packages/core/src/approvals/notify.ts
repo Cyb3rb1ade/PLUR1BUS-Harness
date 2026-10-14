@@ -33,6 +33,7 @@ export interface PermissionNotifier {
   grantChanged(change: "created" | "revoked", grant: GrantRecord): void;
   /** Resolves when everything queued so far has been delivered or withheld. */
   idle(): Promise<void>;
+  confirmationChanged(approval: ApprovalRecord): void;
   /** No delivery after this. */
   close(): void;
 }
@@ -86,6 +87,7 @@ export function createPermissionNotifier(o: PermissionNotifierOptions): Permissi
 
   return {
     events,
+    confirmationChanged(approval) { enqueue("approval.requested", "approval.read", approval.principal, () => ({ approval })); },
     grantChanged(change, grant) { enqueue("grant.changed", "grant.read", grant.person, () => ({ change, grant })); },
     idle: () => chain,
     close() { closed = true; },

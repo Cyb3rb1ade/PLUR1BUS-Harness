@@ -19,6 +19,6 @@ describe("default caption provider", () => {
   });
   it("configured cloud provider is looked up by id", () => {
     const cloud = new FakeCaptionProvider("openai", false);
-    assert.equal(resolveCaptionProvider({ config: { provider: "openai" }, pinned: false, providers: { cloud: id => (id === "openai" ? cloud : undefined) } }), cloud);
+    assert.equal(resolveCaptionProvider({ config: { provider: "openai", privacyAck: { provider: "openai", acknowledgedAt: "2026-10-14T10:00:00Z", by: "owner" } }, pinned: false, providers: { cloud: id => (id === "openai" ? cloud : undefined) } }), cloud);
   });
 });

@@ -24,11 +24,17 @@ describe("composeMediaSearch", () => {
     listener.onPut({ id: "out2", kind: "video", prompt: "a red kite in motion", files: [{ path: "0.mov", format: "mov" }] });
     listener.onDelete("out1");
     await c.hook.idle();
-    assert.equal(port.indexed[0]!.captionSource, "prompt");
-    assert.equal(port.indexed[0]!.caption, "a red kite");
-    assert.equal(port.indexed[0]!.scope.agentId, "bernd");
-    assert.equal(port.indexed[1]!.kind, "video");
-    assert.equal(port.indexed[1]!.mime, "video/quicktime");
+    // The hook runs concurrently; owner-file reads need not complete in enqueue order.
+    // Assert each medium's data and scope by identity, rather than OS I/O completion order.
+    assert.equal(port.indexed.length, 2);
+    const image = port.indexed.find(record => record.mediaId === "out1");
+    const video = port.indexed.find(record => record.mediaId === "out2");
+    assert.ok(image); assert.ok(video);
+    assert.equal(image.captionSource, "prompt");
+    assert.equal(image.caption, "a red kite");
+    assert.equal(image.scope.agentId, "bernd");
+    assert.equal(video.kind, "video");
+    assert.equal(video.mime, "video/quicktime");
     assert.deepEqual(port.removed, ["out1"]);
     await c.close();
     assert.equal(listener, undefined);

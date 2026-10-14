@@ -14,6 +14,8 @@ const caller = { channel: "cli", accountId: "a", userId: "u" };
 const SCHEMA = JSON.parse(readFileSync(fileURLToPath(new URL("../../../rpc-schema/schema/rpc.schema.json", import.meta.url)), "utf8"));
 
 const params: Record<string, unknown> = {
+  "jobs.create": { agentId: "bernd" }, "jobs.update": { id: "user:fixture" }, "jobs.delete": { id: "user:fixture", confirm: true },
+  "doctor.report": {}, "agent.activity.list": {},
   "media.preferences.get": {}, "media.preferences.set": {},
   "media.generate": {},
   "media.edit": {},

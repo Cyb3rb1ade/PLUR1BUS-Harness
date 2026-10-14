@@ -13,6 +13,7 @@ async function open(app: App, lang: "en" | "de" = "en"): Promise<void> {
   await app.page.clock.setFixedTime(NOW);
   await openRoute(app.page, "#/logs/activity", lang);
   await app.page.getByLabel(lang === "de" ? "Zeitraum" : "Time range").waitFor();
+  await app.page.getByRole("region", { name: lang === "de" ? "Letzte Aktivität" : "Recent activity" }).getByRole("heading", { name: lang === "de" ? "Heute" : "Today", exact: true }).waitFor();
 }
 
 const queries = (app: App) =>

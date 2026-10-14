@@ -304,3 +304,15 @@ describe("secrets: keyboard, a11y, layout, German", opts, () => {
     });
   });
 });
+
+test("Admin keeps the existing page gate but never sees Owner-only status timestamps", opts, async () => {
+  await withApp({ server: { role: "admin" } }, async app => {
+    seedSecrets(app.server.rpc);
+    await open(app);
+    const row = app.page.getByRole("row", { name: /anthropic\.apiKey/ });
+    await row.waitFor();
+    assert.equal(await row.getByRole("cell", { name: "Unknown", exact: true }).count(), 2);
+    assert.equal(await row.getByText(/2026/).count(), 0);
+    await expectAxeClean(app.page, "Admin metadata boundary");
+  });
+});

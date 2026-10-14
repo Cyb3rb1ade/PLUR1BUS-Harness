@@ -42,6 +42,23 @@ export function buildApprovalMethods(d: ApprovalMethodDeps): Record<ApprovalMeth
   const guard = guarded(d);
   // One dialog per request at a time: a second decision of the same request must not queue another OS prompt.
   const asking = new Set<string>();
+  type Confirmation = NonNullable<ApprovalRecord["osConfirmation"]>;
+  const confirmations = new Map<string, Confirmation>();
+  const platform = (method: string): NonNullable<Confirmation["platform"]> => ({ "touch-id": "touchid", touchid: "touchid", "windows-hello": "windows_hello", uac: "uac", polkit: "polkit" }[method] as NonNullable<Confirmation["platform"]> | undefined) ?? "other";
+  const requires = (v: ApprovalView, c: Caller): boolean => !!(c.surface === 1 && v.risk && v.flags && !surfaceMayDecide({ capability: v.capability, risk: v.risk as never, flags: v.flags as never }, 1, "once"));
+  const mapped = (v: ApprovalView, c: Caller): ApprovalRecord => {
+    const record = approvalRecordOf(v);
+    const known = confirmations.get(v.id);
+    if (v.status === "pending" && c.surface >= 2) record.osConfirmation = { required: false, status: "not_required" };
+    else if (known) record.osConfirmation = { ...known };
+    else if (v.status === "pending") record.osConfirmation = { required: requires(v, c), status: requires(v, c) ? "pending" : "not_required" };
+    return record;
+  };
+  const change = (v: ApprovalView, status: Confirmation["status"], method?: string): void => {
+    confirmations.set(v.id, { required: status !== "not_required", status, ...(method ? { platform: platform(method) } : confirmations.get(v.id)?.platform ? { platform: confirmations.get(v.id)!.platform! } : {}), updatedAt: new Date(d.clock()).toISOString() });
+    if (confirmations.size > 1000) confirmations.delete(confirmations.keys().next().value!);
+    d.notify?.confirmationChanged?.({ ...approvalRecordOf(v), osConfirmation: confirmations.get(v.id)! });
+  };
   const unavailable = (): RpcError => new RpcError("E_NOT_AVAILABLE", "no OS confirmation is available here; this connection can decide low-risk requests only", { reason: "attestation-unavailable" });
 
   /** Issue #192: does this decision need, and may it get, one OS confirmation? `attested` is the surface-2 lift for exactly this call. */
@@ -52,24 +69,29 @@ export function buildApprovalMethods(d: ApprovalMethodDeps): Record<ApprovalMeth
     const scope: GrantScope = p.scope ?? "once";
     const req = { capability: view.capability, risk: view.risk as never, flags: view.flags as never };
     if (surfaceMayDecide(req, 1, scope) || !surfaceMayDecide(req, 2, scope)) return undefined; // T1 suffices, or even T2 would not (T3 needs the embedder's attestation)
+    if (d.requireOsConfirmation?.() === false) return undefined; // disable the lift; the existing surface refusal still applies
     const attester = d.attester;
     if (!attester) return undefined; // no attestation wired in at all (an embedder that never asked for it): the D109 refusal stands unchanged
     if (asking.has(p.id)) throw new RpcError("E_CONFLICT", "another decision of this request is waiting for its OS confirmation", { reason: "attestation-in-progress" });
     if (p.attest !== true) {
       const probe = await attester.probe();
-      if (!probe.available) throw unavailable();
+      if (!probe.available) { change(view, "failed"); throw unavailable(); }
+      change(view, "pending", probe.method);
       throw new RpcError("E_APPROVAL_REQUIRED", `this decision needs one confirmation by the operating system (${probe.method})`, { reason: "attestation-required", detail: probe.method });
     }
     asking.add(p.id);
+    change(view, "pending");
     try {
       const r = await attester.attest({
         actionHash: attestationHash(view, scope, p.delegable === true), person: c.person, requestId: view.id, agentId: view.subject.id, scope,
         text: `Allow agent "${printable(view.subject.id)}" to use ${printable(view.capability)}${view.tool ? ` via ${printable(view.tool)}` : ""} ${SCOPE_WORDS[scope]}${p.delegable === true ? ", also for the helpers it starts" : ""}`,
       });
       if (!r.ok) {
+        change(view, r.reason === "cancelled" ? "denied" : "failed");
         if (r.reason === "unavailable") throw unavailable();
         throw new RpcError("E_DENIED", `the OS confirmation did not happen: ${r.reason}`, { reason: "attestation-failed", detail: r.reason });
       }
+      change(view, "confirmed", r.method);
       return { attestedVia: `attested:${r.method}` };
     } finally { asking.delete(p.id); }
   }
@@ -77,7 +99,7 @@ export function buildApprovalMethods(d: ApprovalMethodDeps): Record<ApprovalMeth
   const record = (h: PermissionHandles, c: Caller, id: string): ApprovalRecord => {
     const v = h.service.get(id, c.person);
     if (!v) throw notFound(id);
-    return approvalRecordOf(v);
+    return mapped(v, c);
   };
 
   return {
@@ -87,7 +109,7 @@ export function buildApprovalMethods(d: ApprovalMethodDeps): Record<ApprovalMeth
       const views = h.service.list({ principal: c.person, ...(p.status !== undefined ? { status: p.status } : {}) })
         .filter((v) => p.agent === undefined || v.subject.id === p.agent);
       const out = page("a", views, { filter: { agent: p.agent, status: p.status }, ...(p.limit !== undefined ? { limit: p.limit } : {}), ...(p.cursor !== undefined ? { cursor: p.cursor } : {}) });
-      return { approvals: out.items.map(approvalRecordOf), ...(out.nextCursor ? { nextCursor: out.nextCursor } : {}) };
+      return { approvals: out.items.map(v => mapped(v, c)), ...(out.nextCursor ? { nextCursor: out.nextCursor } : {}) };
     }),
 
     "approval.get": guard("approval.get", async (p: ApprovalGetParams, c: Caller, h) => record(h, c, p.id)),
@@ -104,6 +126,10 @@ export function buildApprovalMethods(d: ApprovalMethodDeps): Record<ApprovalMeth
       if (!res.ok) {
         if (res.reason === "scope-unavailable") throw new RpcError("E_INVALID_PARAMS", "that scope is not available for this request", { reason: "scope-unavailable", detail: "scope" });
         throw new RpcError("E_DENIED", `the decision was refused: ${res.reason}`, { reason: res.reason });
+      }
+      if (p.decision === "approve" && !lift && confirmations.has(p.id)) {
+        const view = h.service.get(p.id, c.person);
+        if (view) change(view, "not_required");
       }
       const approval = record(h, c, p.id);
       const first = res.scope !== undefined && res.scope !== "once" ? res.grantIds[0] : undefined;

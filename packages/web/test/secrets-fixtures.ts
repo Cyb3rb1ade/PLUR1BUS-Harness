@@ -7,7 +7,7 @@ export const meta = (name: string, over: Partial<Meta> = {}): Meta => ({ name, b
 export function seedSecrets(rpc: MockRpc, initial: Meta[] = [meta("anthropic.apiKey"), meta("telegram.token", { backend: "file" })]): { secrets: Meta[] } {
   const s = { secrets: [...initial] };
   rpc.handle("secret.list", () => ({ secrets: s.secrets }), { write: false });
-  rpc.handle("secret.status", () => ({ backend: "keyring", degraded: false, keyring: { available: true }, file: { enabled: false, available: null }, count: s.secrets.length, activeLeases: 2 }), { write: false });
+  rpc.handle("secret.status", () => ({ backend: "keyring", degraded: false, keyring: { available: true }, file: { enabled: false, available: null }, count: s.secrets.length, activeLeases: 2, secrets: s.secrets }), { write: false });
   rpc.handle("secret.set", (p) => {
     const { name } = p as { name: string; value: string };
     const old = s.secrets.find((m) => m.name === name);

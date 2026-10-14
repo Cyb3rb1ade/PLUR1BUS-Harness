@@ -69,6 +69,9 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus chat`↴](#plur1bus-chat)
 * [`plur1bus acp`↴](#plur1bus-acp)
 * [`plur1bus acp serve`↴](#plur1bus-acp-serve)
+* [`plur1bus jobs`↴](#plur1bus-jobs)
+* [`plur1bus jobs list`↴](#plur1bus-jobs-list)
+* [`plur1bus jobs create`↴](#plur1bus-jobs-create)
 * [`plur1bus dreams`↴](#plur1bus-dreams)
 * [`plur1bus dreams status`↴](#plur1bus-dreams-status)
 * [`plur1bus dreams run`↴](#plur1bus-dreams-run)
@@ -291,6 +294,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `session` — Chat sessions: list, show, archive
 * `chat` — [experimental] Chat with an agent (one message, or a line-by-line conversation on stdin)
 * `acp` — Agent Client Protocol (ACP): serve a harness agent to an editor over stdio
+* `jobs` — [experimental] User recurring tasks: list or create a scheduled turn
 * `dreams` — Dreaming: phase schedules, status, run, log
 * `config` — Configuration: get, set, schema
 * `module` — Modules: list, graph, install, uninstall, start, stop, restart
@@ -1213,6 +1217,53 @@ stdout carries only ACP JSON-RPC lines; diagnostics go to stderr and never conta
 ###### **Options:**
 
 * `--agent <AGENT>` — The agent the editor talks to (default: the only registered agent)
+
+
+
+## `plur1bus jobs`
+
+[experimental] User recurring tasks: list or create a scheduled turn
+
+**Usage:** `plur1bus jobs <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List scheduled tasks (defaults to user jobs)
+* `create` — [experimental] Create a recurring task under the authenticated person's identity
+
+
+
+## `plur1bus jobs list`
+
+[experimental] List scheduled tasks (defaults to user jobs)
+
+**Usage:** `plur1bus jobs list [OPTIONS]`
+
+###### **Options:**
+
+* `--kind <KIND>`
+
+  Default value: `user`
+
+  Possible values: `user`, `system`, `agent`, `all`
+
+
+
+
+## `plur1bus jobs create`
+
+[experimental] Create a recurring task under the authenticated person's identity
+
+**Usage:** `plur1bus jobs create [OPTIONS] --name <NAME> --agent <AGENT> --prompt <PROMPT> --cron <CRON> --timezone <TIMEZONE>`
+
+###### **Options:**
+
+* `--name <NAME>`
+* `--agent <AGENT>`
+* `--prompt <PROMPT>`
+* `--cron <CRON>` — Five-field cron expression
+* `--timezone <TIMEZONE>` — IANA timezone (never implicitly the host timezone)
+* `--disabled`
 
 
 

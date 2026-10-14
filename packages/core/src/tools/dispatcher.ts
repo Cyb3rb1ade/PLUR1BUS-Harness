@@ -16,6 +16,7 @@ export interface ToolCallRequest { id: string; name: string; args: unknown }
 
 export interface DispatchContext {
   agentId: string;
+  recurring?: { jobId: string; jobName: string };
   /** The opaque principal the call runs under (D17). */
   principal: string;
   sessionId?: string;
@@ -148,7 +149,7 @@ export class ToolDispatcher {
       if (decision.kind === "ask") {
         const asked = await this.#ask(tool, req, args, decision, ctx, context, call);
         if (asked === "aborted") return out(fail("aborted", "the call was aborted while waiting for approval", "none"));
-        if (!asked.answer.approved) return out(fail("tool-not-approved", asked.answer.reason ? `not approved: ${asked.answer.reason}` : "not approved", "ask-refused"));
+        if (!asked.answer.approved) return out(fail("tool-not-approved", asked.answer.reason ? `not approved: ${asked.answer.reason}` : "not approved", "ask-refused", ctx.recurring && asked.answer.parked ? { sourceCode: "approval-timeout" } : {}));
         // Execution start of an approved answer: the approval (and its once grant) is consumed atomically, single use.
         let began = true;
         try { began = this.#d.approvals.begin ? this.#d.approvals.begin(asked.answer, asked.ask) === true : true; } catch { began = false; }
@@ -209,7 +210,7 @@ export class ToolDispatcher {
   async #ask(tool: RegisteredTool, req: ToolCallRequest, args: unknown, d: Extract<Decision, { kind: "ask" }>, ctx: DispatchContext, context: Context, call: Call): Promise<{ answer: ApprovalAnswer; ask: ApprovalAsk } | "aborted"> {
     const request: ApprovalRequest = d.request;
     const ask: ApprovalAsk = {
-      request, callId: req.id, tool: tool.name, args, agentId: ctx.agentId, principal: ctx.principal,
+      ...(ctx.recurring ? { recurring: ctx.recurring } : {}), request, callId: req.id, tool: tool.name, args, agentId: ctx.agentId, principal: ctx.principal,
       ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), park: d.park, signal: ctx.signal,
       subjectKind: context.subject.kind, turnId: ctx.turnId ?? req.id,
       ...(context.taskId ?? ctx.taskId ? { taskId: (context.taskId ?? ctx.taskId)! } : {}), ...(context.projectId ? { projectId: context.projectId } : {}),
@@ -221,7 +222,7 @@ export class ToolDispatcher {
     // RULING: only a literal `approved: true` counts; any other shape is a refusal.
     if (!r || typeof r !== "object" || (r as { approved?: unknown }).approved !== true) {
       const reason = (r as { reason?: unknown } | undefined)?.reason;
-      return { answer: { approved: false, ...(typeof reason === "string" ? { reason: clip(reason) } : {}) }, ask };
+      return { answer: { approved: false, ...(ctx.recurring && (r as { parked?: unknown } | undefined)?.parked === true ? { parked: true } : {}), ...(typeof reason === "string" ? { reason: clip(reason) } : {}) }, ask };
     }
     return { answer: r, ask };
   }

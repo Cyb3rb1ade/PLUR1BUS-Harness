@@ -4,6 +4,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -12,6 +21,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -437,6 +449,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -445,6 +466,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -870,6 +894,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -878,6 +911,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -1303,6 +1339,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -1311,6 +1356,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -1736,6 +1784,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -1744,6 +1801,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -2169,6 +2229,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -2177,6 +2246,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -2602,6 +2674,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -2610,6 +2691,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -3035,6 +3119,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -3043,6 +3136,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -3468,6 +3564,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -3476,6 +3581,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -3901,6 +4009,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -3909,6 +4026,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -4334,6 +4454,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -4342,6 +4471,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -4767,6 +4899,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -4775,6 +4916,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -5200,6 +5344,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -5208,6 +5361,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -5633,6 +5789,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -5641,6 +5806,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -6066,6 +6234,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -6074,6 +6251,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -6499,6 +6679,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -6507,6 +6696,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -6932,6 +7124,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -6940,6 +7141,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -7365,6 +7569,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -7373,6 +7586,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -7798,6 +8014,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -7806,6 +8031,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -8231,6 +8459,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -8239,6 +8476,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -8664,6 +8904,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -8672,6 +8921,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -9097,6 +9349,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -9105,6 +9366,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -9530,6 +9794,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -9538,6 +9811,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -9963,6 +10239,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -9971,6 +10256,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -10396,6 +10684,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -10404,6 +10701,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -10829,6 +11129,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -10837,6 +11146,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -11262,6 +11574,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -11270,6 +11591,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -11695,6 +12019,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -11703,6 +12036,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -12128,6 +12464,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -12136,6 +12481,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -12561,6 +12909,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -12569,6 +12926,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {
@@ -12991,6 +13351,15 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "approvals": {
+        "maxGrantDays": 90,
+        "requireOsConfirmation": true
+      },
+      "breakglass": {
+        "reasonMinChars": 10,
+        "reasonMaxChars": 500,
+        "maxWindowMinutes": 60
+      },
       "inbox": {
         "retention": {
           "days": 90,
@@ -12999,6 +13368,9 @@
       },
       "remote": {
         "publish": "tailnet"
+      },
+      "activity": {
+        "maxEntries": 1000
       },
       "tools": {
         "hostctl": {

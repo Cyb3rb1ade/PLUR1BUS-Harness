@@ -280,3 +280,18 @@ describe("modules: accessibility", opts, () => {
     });
   });
 });
+
+ test("cached module updates show versions, blocks and check time", opts, async () => {
+  await withApp({}, async (app) => {
+    seed(app);
+    app.server.rpc.handle("module.list", () => ({ modules: [
+      {...MODULES[0], availableVersion:"1.1.0", feedCheckedAt:"2026-10-14T10:00:00Z"},
+      {...MODULES[1], updateBlockedReason:"signature", feedCheckedAt:"2026-10-14T10:00:00Z"},
+      {...MODULES[2], updateBlockedReason:"minFromVersion", feedCheckedAt:"2026-10-14T10:00:00Z"},
+    ]}), {write:false});
+    await open(app);
+    await app.page.getByText("Update available: 1.1.0", {exact:true}).waitFor();
+    await app.page.getByText("Update blocked: the feed signature could not be verified.", {exact:true}).waitFor();
+    await expectAxeClean(app.page, "module update metadata");
+  });
+ });

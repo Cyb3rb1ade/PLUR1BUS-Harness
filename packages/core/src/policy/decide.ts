@@ -101,6 +101,7 @@ export interface Grant {
 }
 
 export interface GrantSource {
+  maxGrantDays?: () => number;
   list(q: { person: string; agent: string; capability: string }): readonly Grant[];
   /** For ids a hand-off references (D104). Unknown or foreign ids return undefined. */
   get(id: string): Grant | undefined;
@@ -214,13 +215,13 @@ export function surfaceMayDecide(req: Pick<ApprovalRequest, "capability" | "risk
 }
 
 /** Expiry per scope; `always` expires 90 days after last use (creation if never used). */
-export function grantExpiry(g: Grant): number {
+export function grantExpiry(g: Grant, maxGrantDays = 90): number {
   const L = DEFAULTS.lifetimes;
   const bound =
     g.scope === "once" ? g.createdAt + L.onceUnusedMs
     : g.scope === "task" ? g.createdAt + L.taskMs
     : g.scope === "session" ? (g.lastUsedAt ?? g.createdAt) + L.sessionIdleMs
-    : (g.lastUsedAt ?? g.createdAt) + L.alwaysUnusedMs;
+    : (g.lastUsedAt ?? g.createdAt) + maxGrantDays * 24 * 60 * 60_000;
   return g.expiresAt === undefined ? bound : Math.min(bound, g.expiresAt);
 }
 
@@ -303,7 +304,7 @@ export function decide(call: Call, ctx: Context, deps: Deps): Decision {
   // (4) grants
   const now = deps.clock.now();
   for (const g of Number.isFinite(now) ? candidateGrants(call, ctx, deps, def.id) : []) {
-    if (validGrant(g) && grantApplies(g, def, call, ctx, flags, effect, batch, taintSuspends, now)) {
+    if (validGrant(g) && grantApplies(g, def, call, ctx, flags, effect, batch, taintSuspends, now, deps.grants.maxGrantDays?.() ?? 90)) {
       const out: Decision = { kind: "allow", via: "grant", grantId: g.id };
       if (grantReviewDue(g, now)) out.reviewDue = true;
       return out;
@@ -358,7 +359,7 @@ function candidateGrants(call: Call, ctx: Context, deps: Deps, capability: strin
 
 function grantApplies(
   g: Grant, def: CapabilityDef, call: Call, ctx: Context, flags: CallFlags,
-  effect: Effect, batch: boolean, taintSuspends: boolean, now: number,
+  effect: Effect, batch: boolean, taintSuspends: boolean, now: number, maxGrantDays: number,
 ): boolean {
   if (g.revoked === true || canon(g.capability) !== def.id || g.person !== ctx.principal.person) return false;
   if (!GRANT_SCOPES.includes(g.scope)) return false;
@@ -367,7 +368,7 @@ function grantApplies(
   const ownAgent = g.agent === ctx.subject.agentId;
   if (!ownAgent && !(ctx.subject.kind === "subagent" && ctx.handoff?.approvalsHeld.includes(g.id))) return false;
   if (scopeRank(g.scope) > scopeRank(maxScopeFor(def, { ...flags, batch }))) return false;
-  if (g.createdAt > now || now >= grantExpiry(g)) return false; // a grant from the future is not valid yet (fail closed)
+  if (g.createdAt > now || now >= grantExpiry(g, maxGrantDays)) return false; // a grant from the future is not valid yet (fail closed)
   if (g.surface < requiredSurface(def, g.scope, flags)) return false;
   if (taintSuspends && g.scope !== "once") return false;
   if (g.projectId !== undefined && g.projectId !== ctx.projectId) return false;

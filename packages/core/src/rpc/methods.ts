@@ -5,6 +5,7 @@ import type {
   MemoryCaptureParams, MemoryCaptureResult, MemoryCheckpointParams, MemoryCheckpointResult, MemoryRecallParams, MemoryRecallResult,
   BudgetSetParams, BudgetStatusParams, ModelsAcknowledgeParams, ModelsListParams, ModelsRemoveManualParams, ModelsScanParams, ModelsSetOverrideParams,
 } from "@plur1bus/rpc-schema";
+import { buildActivityMethods } from "../activity-rpc.ts";
 import type { ActivityTracker } from "../activity.ts";
 import { buildAdminMethods } from "../admin-ops.ts";
 import { buildAuditMethods } from "../audit/rpc.ts";
@@ -215,6 +216,7 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
     ...(d.auditChain ? buildAuditMethods({ chain: d.auditChain }) : {}),
     ...(d.backup ? buildBackupMethods({ engine: d.engine, layout: d.backup.layout, baseDbPath: d.backup.baseDbPath, logger: d.logger, isStopping: d.isStopping }) : {}),
 
+    ...buildActivityMethods(d.activity, () => d.agents.list()),
     "agent.list": async () => ({ agents: d.agents.list().map((agentId) => ({ agentId, open: openAgents.has(agentId), activity: d.activity.get(agentId) })) }),
     "agent.open": async (p: AgentOpenParams) => {
       requireAgent(d.agents, p.agentId);

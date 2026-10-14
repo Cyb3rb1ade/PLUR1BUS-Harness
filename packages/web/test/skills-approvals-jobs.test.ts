@@ -120,6 +120,7 @@ describe("Approvals page", opts, () => {
 
       const select = app.page.locator(".approval-scope-select");
       await select.waitFor();
+      await select.getByRole("option", { name: /90 days|90 Tage/ }).waitFor({ state: "attached" });
       // Verify scope selector options
       const options = await select.locator("option").allInnerTexts();
       assert.ok(options.some((o) => o.includes("90 days") || o.includes("90 Tage")));
@@ -179,8 +180,10 @@ describe("Recurring Tasks page", opts, () => {
       await app.page.getByText("consolidate").waitFor();
       await app.page.getByText("models.scan").waitFor();
 
-      // Check gap note for job creation
-      await app.page.getByText(/docs\/web-ui\.md/i).waitFor();
+      // The new user-job panel replaces the old unsupported-creation notice.
+      await app.page.getByText("No personal recurring tasks.", { exact: true }).waitFor();
+      assert.equal(await app.page.getByRole("button", { name: "Create recurring task", exact: true }).count(), 0, "no manageable targets were supplied");
+      assert.equal(calls(app, "jobs.create").length, 0);
     });
   });
 

@@ -108,6 +108,11 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: AcpCmd,
     },
+    /// [experimental] User recurring tasks: list or create a scheduled turn
+    Jobs {
+        #[command(subcommand)]
+        sub: JobsCmd,
+    },
     /// Dreaming: phase schedules, status, run, log
     Dreams {
         #[command(subcommand)]
@@ -1089,6 +1094,32 @@ pub enum AuditCmd {
     /// be gapless across rotated files, and the anchor file must match the newest line. Asks the core
     /// (`audit.verify`, Owner and Admin only); the CLI does not read the files itself.
     Verify,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum JobsCmd {
+    /// [experimental] List scheduled tasks (defaults to user jobs)
+    List {
+        #[arg(long, default_value = "user", value_parser = ["user", "system", "agent", "all"])]
+        kind: String,
+    },
+    /// [experimental] Create a recurring task under the authenticated person's identity
+    Create {
+        #[arg(long)]
+        name: String,
+        #[arg(long)]
+        agent: String,
+        #[arg(long)]
+        prompt: String,
+        /// Five-field cron expression
+        #[arg(long)]
+        cron: String,
+        /// IANA timezone (never implicitly the host timezone)
+        #[arg(long)]
+        timezone: String,
+        #[arg(long)]
+        disabled: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

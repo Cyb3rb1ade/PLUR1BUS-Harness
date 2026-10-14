@@ -87,7 +87,7 @@ export async function composeMediaSearch(d: MediaSearchDeps): Promise<MediaSearc
   const captions = createCaptionService({
     config: () => cfg().caption,
     provider: () => {
-      try { return resolveCaptionProvider({ config: cfg().caption, pinned: d.privacyPinned?.() ?? false, providers, embeddingLocal: cfg().provider.startsWith('local') }); }
+      try { return resolveCaptionProvider({ config: cfg().caption, pinned: d.privacyPinned?.() ?? false, providers, embeddingLocal: cfg().provider.startsWith('local') || cfg().provider === 'egemma2' }); }
       catch (e) { d.logger.warn('caption provider refused', { err: e }); return undefined; }
     },
   });

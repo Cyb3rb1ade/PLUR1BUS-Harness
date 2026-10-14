@@ -18,6 +18,11 @@ export interface PushTransport {
   post(a: { url: string; address?: string; family?: 4 | 6; headers: Record<string, string>; body: string; signal?: AbortSignal }): Promise<PushPostResult>;
 }
 
+const realTimers: PushScheduler = {
+  set: (fn, ms) => { const t = setTimeout(fn, ms); t.unref(); return t; },
+  clear: (h) => clearTimeout(h as NodeJS.Timeout),
+};
+
 export class PushError extends Error {
   readonly code: "not-supported" | "denied" | "not-found" | "invalid";
   constructor(code: PushError["code"], message: string) { super(message); this.name = "PushError"; this.code = code; }
@@ -92,6 +97,10 @@ export interface PushDispatcherOptions {
   maxAttempts: number;
   backoffMs: number;
   maxRedirects?: number;
+  /** Per POST; a receiver that accepts the connection and never answers is abandoned after this. Default 15 s. */
+  postTimeoutMs?: number;
+  /** Timer for `postTimeoutMs`; separate from the backoff scheduler. Default: unref'd real timers. */
+  timeoutScheduler?: PushScheduler;
 }
 
 export class PushDispatcher {
@@ -139,9 +148,15 @@ export class PushDispatcher {
     for (let hops = 0; hops <= maxRedirects; hops++) {
       const d = await this.#o.transport.decide(current);
       if (!d.allowed) return false;
-      const r = await this.#o.transport.post({
-        url: current, address: d.address, family: d.family, headers, body,
-      });
+      const ac = new AbortController();
+      const timeouts = this.#o.timeoutScheduler ?? realTimers;
+      const timer = timeouts.set(() => ac.abort(new Error("push delivery timed out")), this.#o.postTimeoutMs ?? 15_000);
+      let r: PushPostResult;
+      try {
+        r = await this.#o.transport.post({
+          url: current, address: d.address, family: d.family, headers, body, signal: ac.signal,
+        });
+      } finally { timeouts.clear(timer); }
       if (r.status >= 200 && r.status < 300) return true;
       if (REDIRECT.has(r.status) && r.location) {
         try { current = new URL(r.location, current).href; } catch { return false; }

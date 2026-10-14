@@ -19,3 +19,11 @@ describe("config-load", () => {
     assert.equal(readFileSync(p, "utf8"), '{ "schemaVersion": 1, "core": { "logLevel": "loud" } }');
   });
 });
+
+it("security limits are rejected by the actual config loader without rewriting", () => {
+ const p=join(tempDir("p1b-cfg-limits-"),"config.json");
+ for(const bad of [{approvals:{maxGrantDays:366}},{breakglass:{reasonMinChars:501,reasonMaxChars:500}},{breakglass:{maxWindowMinutes:1441}}]){
+  const raw=JSON.stringify({schemaVersion:1,...bad});writeFileSync(p,raw);
+  assert.throws(()=>loadConfig(p),ConfigInvalid);assert.equal(readFileSync(p,"utf8"),raw);
+ }
+});

@@ -62,3 +62,15 @@ describe("egress policy: invalid configuration fails closed", () => {
     }
   });
 });
+
+describe("egress policy: malformed live configuration fails closed (audit b05)", () => {
+  it("non-array lists never throw and leave a deny-all policy with an error", () => {
+    for (const bad of [{ allowHosts: null }, { allowHosts: undefined }, { allowHosts: "example.com" }, { allowPorts: undefined }, { allowPorts: 443 }, { allowPorts: null }]) {
+      const p = compileEgressPolicy({ ...cfg({ allowHosts: ["a.example"] }), ...bad } as never);
+      assert.ok(p.errors.length >= 1, JSON.stringify(bad));
+      assert.equal(hostAllowed(p, "a.example"), false);
+      assert.deepEqual(p.allowPorts, []);
+      assert.equal(p.allowLoopback, false);
+    }
+  });
+});

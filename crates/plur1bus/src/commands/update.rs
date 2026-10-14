@@ -1,6 +1,6 @@
 //! `plur1bus update --check` (spec §6.5, D78, HB10, H3b-b-2). Compares the install manifest with the signed
 //! release feed and names the units that would restart. Never
-//! writes anything: `update --check` only reads the install manifest and the release feed. Applying (D78) lives in
+//! changes installed units: `update --check` reads the manifest/feed and caches module metadata. Applying (D78) lives in
 //! `update_apply.rs` beside it and in `crate::update`.
 use crate::cli::{UpdateArgs, UpdateCmd};
 use crate::install;
@@ -116,7 +116,17 @@ fn load_feed(out: &Out, layout: &Layout, args: &UpdateArgs, persist: bool) -> Fe
 
     let verified = match verify_release(layout, &raw, &channel, &src, bundle.as_ref(), persist) {
         Ok(v) => v,
-        Err((reason, message)) => fail_feed(out, layout, reason, &message),
+        Err((reason, message)) => {
+            if !persist && reason == "release-signature-invalid" {
+                let modules = installed_modules(layout)
+                    .into_iter()
+                    .filter_map(|m| m["name"].as_str().map(str::to_owned))
+                    .map(|name| (name, json!({"updateBlockedReason":"signature"})))
+                    .collect::<serde_json::Map<_, _>>();
+                save_module_cache(layout, Value::Object(modules));
+            }
+            fail_feed(out, layout, reason, &message)
+        }
     };
     Feed {
         manifest,
@@ -126,6 +136,13 @@ fn load_feed(out: &Out, layout: &Layout, args: &UpdateArgs, persist: bool) -> Fe
         native,
         verified,
         bundle: bundle.map(|b| b.dir),
+    }
+}
+
+fn save_module_cache(layout: &Layout, modules: Value) {
+    let cache = json!({"format":1,"checkedAt":super::agent::rfc3339_now(),"modules":modules});
+    if plur1bus_config::write_atomic(&layout.state().join("module-updates.json"), &cache).is_err() {
+        eprintln!("warning: module update cache could not be written");
     }
 }
 
@@ -158,6 +175,12 @@ pub fn run(out: &Out, layout: &Layout, args: UpdateArgs) -> ! {
 
     let doc: Value = serde_json::from_slice(&raw).unwrap_or(json!({}));
     let installed_modules = installed_modules(layout);
+    let modules = native.as_ref().map(|n| n.modules.iter().map(|m| {
+        let mut item = json!({"availableVersion":m.version,"minFromVersion":head.min_from_version});
+        if is_newer(&head.min_from_version, &manifest.binary.version) { item["updateBlockedReason"] = json!("minFromVersion"); }
+        (m.name.clone(), item)
+    }).collect::<serde_json::Map<_,_>>()).unwrap_or_default();
+    save_module_cache(layout, Value::Object(modules));
     let installed_json = json!({
         "version": manifest.binary.version,
         "core": manifest.core.version,
@@ -469,4 +492,25 @@ pub(super) fn plan_changes(
         restart_modules.into_iter().collect(),
         supervisor_restart,
     )
+}
+
+#[cfg(test)]
+mod module_cache_tests {
+    use super::*;
+    #[test]
+    fn an_interrupted_module_cache_write_keeps_the_previous_snapshot() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("module-updates.json");
+        let old = json!({"format":1,"modules":{}});
+        plur1bus_config::write_atomic(&path, &old).unwrap();
+        let before = std::fs::read(&path).unwrap();
+        let temp = path.with_extension(format!("json.tmp-{}", std::process::id()));
+        std::fs::create_dir(&temp).unwrap();
+        assert!(plur1bus_config::write_atomic(
+            &path,
+            &json!({"format":1,"modules":{"fixture":{"availableVersion":"2.0.0"}}})
+        )
+        .is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+    }
 }

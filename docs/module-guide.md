@@ -511,3 +511,9 @@ both fetched and verified through point 1 above. `config` asks only the `basic`-
 anything is written: `profile-invalid` (a value other than `host` or `full`), `profile-change-unsupported` (the requested
 profile differs from the recorded one; host to full arrives with HM4) and `manifest-invalid` (`manifest.json` exists but
 cannot be read, HM2-R27). A host home has no guaranteed `config.json`. See `docs/hermes-host-mode.md`.
+
+### Cached module update availability
+
+A successful `plur1bus update --check` writes private, atomic metadata to the installation state directory. `module.list` only reads that cache; it never fetches a feed. Newer module versions appear as optional `availableVersion` with `feedCheckedAt`; `updateBlockedReason` is `minFromVersion` or `signature`. A rejected signature replaces cached offers with signature blocks and stores no unverified versions. Missing caches omit these fields; corrupt or unknown-format caches are ignored with a content-free warning. The cache contains no download URLs, signatures or credentials.
+
+Settings → Modules & Updates displays these optional offers and reasons without installing from the list. The timestamp describes the last explicit feed check; it does not imply a fresh network check or grant permission to update.

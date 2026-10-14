@@ -2,6 +2,7 @@
 import type { ApprovalRequest, GrantScope, SubjectKind } from "../policy/index.ts";
 
 export interface ApprovalAsk {
+  recurring?: { jobId: string; jobName: string };
   request: ApprovalRequest;
   callId: string;
   tool: string;
