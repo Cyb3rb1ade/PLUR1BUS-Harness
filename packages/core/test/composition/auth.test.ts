@@ -33,9 +33,9 @@ describe("composition/auth composeAuth: what it derives from the definitions", (
       key: definition("chat_completions", { id: "p1" }),
       cli: definition("chat_completions", { id: "p2", kind: "external_cli" }),
       explicit: definition("chat_completions", { id: "p3", billingPath: "plan" }),
-      login: definition("chat_completions", { id: "p5", kind: "oauth_pkce" }),
+      metered: definition("chat_completions", { id: "p5", kind: "external_cli", billingPath: "workload" }),
     });
-    try { assert.deepEqual(c.billing, { key: "paid", cli: "plan", explicit: "plan", login: "plan" }); } finally { c.close(); }
+    try { assert.deepEqual(c.billing, { key: "paid", cli: "plan", explicit: "plan", metered: "paid" }); } finally { c.close(); }
   });
 
   // Fail closed (ADR-005 §Never): a provider whose billing class cannot be determined would never be refused for billing, so
