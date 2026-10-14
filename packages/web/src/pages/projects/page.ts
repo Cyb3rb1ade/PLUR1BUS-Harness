@@ -82,9 +82,12 @@ export function ProjectsPage({ sub }: PageProps): View {
   };
 
   // Load board data for selected project
-  const loadBoard = async (projId: string) => {
+  // `background` refreshes (after a card move etc.) keep the mounted board in
+  // place; swapping it for the loading state would unmount BoardView and wipe
+  // its aria-live region (and focus) before assistive tech can announce it.
+  const loadBoard = async (projId: string, background = false) => {
     try {
-      setLoadingBoard(true);
+      if (!background) setLoadingBoard(true);
       setBoardFailure(null);
       const api = getApi();
 
@@ -159,7 +162,7 @@ export function ProjectsPage({ sub }: PageProps): View {
           }
           if (data?.projectId) {
             if (data.projectId === selectedProjectId) {
-              void loadBoard(data.projectId);
+              void loadBoard(data.projectId, true);
             }
             // Refresh stats
             void api
@@ -369,7 +372,7 @@ export function ProjectsPage({ sub }: PageProps): View {
       globalRole: role ?? null,
       agentId: null,
       isAgent: false,
-      onRefresh: () => void loadBoard(selectedProjectId),
+      onRefresh: () => void loadBoard(selectedProjectId, true),
     });
   } else {
     detailContent = h(PageState, {

@@ -398,13 +398,12 @@ test("property 3a: no surrogate pair is split at any cut, and every part is well
   }
 });
 
-// KNOWN GAP (see todo text): src/split.ts protects only surrogate pairs. A hard cut at max, which is what happens when
+// src/split.ts keeps grapheme clusters whole (not only surrogate pairs). A hard cut at max, which is what happens when
 // no separator lies in the second half of the window, can land inside CRLF, a combining sequence, a regional-indicator
 // flag, a keycap or a ZWJ sequence. A cluster that fits into one part (length <= max) must not be torn; a cluster that
 // is longer than max cannot be kept whole, so a cut inside it is not counted.
 test(
   "property 3b: every cut falls on an extended grapheme cluster boundary of the original (Intl.Segmenter), unless the cluster is longer than max",
-  { todo: "KNOWN GAP: channels-email splitMessage: erwartet Schnitt nur an Graphem-Grenzen (CRLF, kombinierende Zeichen, Flaggen und ZWJ-Sequenzen bleiben ganz, solange sie in einen Teil passen), tatsächlich fällt der harte Schnitt bei max mitten in solche Cluster; nur Surrogatpaare sind geschützt" },
   () => {
     for (const c of SPECS) {
       const segments = graphemes.segment(c.text);
