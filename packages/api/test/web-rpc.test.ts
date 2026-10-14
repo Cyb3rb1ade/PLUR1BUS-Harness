@@ -3,7 +3,8 @@ import { FakeClock } from "../src/clock.ts";
 import { webPrincipal, webConnection, forgetWebConnection } from "../src/principal.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { rpcRoute, webEndpoint } from "../src/rpc-route.ts";
+import { METHODS_BY_SERVER } from "@plur1bus/rpc-schema";
+import { WEB_CORE_METHODS, WEB_SUPERVISOR_METHODS, rpcRoute, webEndpoint } from "../src/rpc-route.ts";
 import { webEventAllowed } from "../src/events-route.ts";
 import { start, raw, login, csrfToken } from "./helpers.ts";
 import type { CoreRpc } from "../src/core-rpc.ts";
@@ -12,6 +13,10 @@ const person = { userId: "alice", kind: "person", role: "member" } as const;
 test("explicit web exposure rejects internal and unrelated supervisor methods", () => {
   for (const m of ["core.auth", "core.adopt", "core.shutdown", "supervisor.auth", "daemon.stop", "config.watch", "module.watch", "events.subscribe", "admin.backup.snapshot", "secret.get", "memory.capture", "api.unknown"]) assert.equal(webEndpoint(m), null, m);
   assert.equal(webEndpoint("inbox.list"), "core"); assert.equal(webEndpoint("config.set"), "supervisor");
+});
+test("every exposed method is declared on its routed server", () => {
+  for (const method of WEB_CORE_METHODS) assert.ok(METHODS_BY_SERVER.core.includes(method), method);
+  for (const method of WEB_SUPERVISOR_METHODS) assert.ok(METHODS_BY_SERVER.supervisor.includes(method), method);
 });
 test("principal spoofing is discarded; batches refused; errors have safe text with original code", async () => {
   let got: unknown;

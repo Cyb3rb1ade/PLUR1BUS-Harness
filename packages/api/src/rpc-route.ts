@@ -7,14 +7,14 @@ import type { CoreRpc } from "./core-rpc.ts";
 export const WEB_CORE_METHODS = new Set([
   "core.status", "agent.list", "agent.status", "agent.activity.list", "agent.pause", "agent.resume", "agent.archive", "agent.unarchive", "agent.export", "agent.delete", "agent.rights.get", "agent.rights.set",
   "inbox.count", "inbox.list", "inbox.markRead", "inbox.dismiss", "session.list", "session.get", "session.create", "session.submit", "session.cancel", "session.archive", "session.resume", "session.events",
-  "project.list", "project.get", "project.create", "project.update", "project.delete", "project.card.list", "project.card.create", "project.card.update", "project.card.move", "project.card.delete",
+  "project.list", "project.get", "project.create", "project.update", "project.card.list", "project.card.create", "project.card.update", "project.card.move",
   "memory.list", "memory.show", "memory.forget", "grant.list", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.verify", "approval.decide", "approval.cancel",
   "breakglass.list", "breakglass.notices", "breakglass.request", "breakglass.revoke", "identity.list", "identity.link.request", "identity.link.remove", "user.list", "user.role.set", "user.invite.create", "user.invite.list", "user.invite.revoke",
   "device.list", "device.rename", "device.revoke", "pairing.qr", "media.search", "media.index.status", "media.index.reindex", "media.caption.set", "media.output.get",
   "channel.list", "channel.get", "channel.set", "channel.enable", "channel.disable", "channel.test", "logs.query", "logs.tail", "audit.verify",
   "dreams.status", "dreams.log", "dreams.schedule.get", "dreams.schedule.set", "dreams.enable", "dreams.disable", "dreams.run", "jobs.list", "jobs.history", "jobs.run", "jobs.create", "jobs.update", "jobs.delete", "doctor.report",
-  "budget.status", "budget.set", "auth.status", "auth.credentials.list", "auth.login.start", "auth.login.await", "auth.login.callback", "auth.login.cancel", "auth.logout",
-  "voice.status", "voice.metrics.get", "voice.language.get", "voice.language.list", "voice.language.set", "voice.realtime.profile.get", "voice.realtime.profile.set", "voice.models.list", "voice.models.install", "voice.models.cancel", "voice.realtime.start", "voice.realtime.stop", "voice.agent.get", "voice.agent.set", "voice.transcribe", "voice.synthesize",
+  "budget.status", "budget.set", "auth.status", "auth.credentials.list", "auth.login.start", "auth.login.await", "auth.login.cancel", "auth.logout",
+  "voice.status", "voice.metrics.get", "voice.language.get", "voice.language.list", "voice.language.set", "voice.realtime.profile.get", "voice.realtime.profile.set", "voice.models.list", "voice.models.install", "voice.realtime.start", "voice.realtime.stop",
   "secret.status", "secret.list", "secret.set", "secret.delete", "models.list", "models.setOverride", "models.removeManual",
 ]);
 export const WEB_SUPERVISOR_METHODS = new Set(["config.get", "config.set", "module.list", "module.graph"]);

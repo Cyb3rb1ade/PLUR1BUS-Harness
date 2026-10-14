@@ -15,10 +15,13 @@ export function delegatedLink(home: string, o: { connect?: (o: ConnectOptions) =
   async function get(principal: ApiPrincipal, endpoint: "core" | "supervisor", connectionKey = "default"): Promise<CoreClient> {
     if (closed) throw new Error("closed");
     const key = `${endpoint}:${principal.kind}:${principal.userId}:${connectionKey}`;
+    const currentToken = o.readApiToken?.(home) ?? readRunToken(home, join(home, "run", "api-delegation.token"));
     let peer = peers.get(key);
+    // Config writes can restart the Core while the supervisor socket stays open. Retire before sending, never replay a write.
+    if (peer && peer.delegation.token !== currentToken) { peers.delete(key); void peer.pending.then(c => c.close()).catch(() => {}); peer = undefined; }
     if (peer) { peer.delegation.principal = structuredClone(principal); peer.touched = Date.now(); return peer.pending; }
     if (peers.size >= 128) throw new Error("API peer limit");
-    const api: ApiDelegation = { clientId: "harness-api", token: o.readApiToken?.(home) ?? readRunToken(home, join(home, "run", "api-delegation.token")), principal: structuredClone(principal) };
+    const api: ApiDelegation = { clientId: "harness-api", token: currentToken, principal: structuredClone(principal) };
     const pid = endpoint === "core" && o.readPid ? o.readPid(home) : readRecordedPid(endpoint === "core" ? corePidPath(home) : supervisorPidPath(home));
     const pending = (o.connect ?? connect)({ address: endpoint === "core" ? coreAddress(home) : supervisorAddress(home), token: endpoint === "core" && o.readToken ? o.readToken(home) : readRunToken(home, endpoint === "core" ? coreTokenPath(home) : supervisorTokenPath(home)), api, endpoint, connectTimeoutMs: 1000, handshakeTimeoutMs: 1000, callTimeoutMs: 300_000, ...(pid ? { expectedServerPid: pid } : {}) });
     peer = { pending, delegation: api, touched: Date.now(), active: 0, watchers: 0, ready: false }; peers.set(key, peer);

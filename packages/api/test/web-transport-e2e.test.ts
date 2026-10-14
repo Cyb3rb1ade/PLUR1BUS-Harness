@@ -22,7 +22,8 @@ test("real API → real Core: invited person, RBAC, CSRF, audience isolation, re
   const cfg = defaults(); cfg.agents.main = {};
   cfg.engine = { neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false }, merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false }, temporalContext: { enabled: false }, conversationReactivationRecall: { enabled: false }, reranker: { enabled: false } };
   writeFileSync(join(home, "config.json"), JSON.stringify(cfg));
-  const core = createCore({ home, testInternals: flatTestInternals() }); await core.start();
+  const disabled = new Set<string>();
+  const core = createCore({ home, testInternals: flatTestInternals(), rbac: { resolvePerson: id => disabled.has(id) ? null : { userId: id, kind: "person", role: "viewer" } } }); await core.start();
   const local = await connect({ address: core.address, token: core.token, expectedServerPid: process.pid });
   const invite = await local.call<any>("user.invite.create", { displayName: "Transport Viewer", role: "viewer", channel: "web", origin: "http://127.0.0.1" });
   const invited = await local.call<any>("user.invite.redeem", { token: invite.link.split("/").at(-1) });
@@ -73,4 +74,6 @@ test("real API → real Core: invited person, RBAC, CSRF, audience isolation, re
   const privateValues = [ownerToken, password, core.token, readFileSync(join(home, "run", "api-delegation.token"), "utf8")];
   const observed = JSON.stringify({ logs, audit: audit.events, events: [...os.events, ...resumed.events] }) + readFileSync(join(home, "logs", "core.log"), "utf8");
   for (const value of privateValues) assert.ok(!observed.includes(value), "credentials never reach logs, audit or events");
+  disabled.add("local-owner");
+  assert.equal((await rpc(owner, "inbox.count")).body.error.data.error, "E_UNAUTHORIZED", "active-person callback rechecked despite existing cookie and Core connection");
 });

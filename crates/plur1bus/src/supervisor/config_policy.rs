@@ -201,13 +201,18 @@ pub fn prepare(
             let selection_changed = ["provider", "endpoint", "base_url"]
                 .iter()
                 .any(|k| old.get(k) != map.get(*k));
-            let ack_changed = map
-                .get("privacyAck")
-                .is_some_and(|ack| old.get("privacyAck") != Some(ack));
+            let ack_changed = map.get("privacyAck").is_some_and(|ack| {
+                ["provider", "endpoint", "acknowledgedAt"]
+                    .iter()
+                    .any(|key| old["privacyAck"].get(*key) != ack.get(*key))
+            });
             if (selection_changed || provider_defs_changed) && !ack_changed {
                 map.remove("privacyAck");
             }
-            if ack_changed {
+            if map
+                .get("privacyAck")
+                .is_some_and(|ack| old.get("privacyAck") != Some(ack))
+            {
                 if let Some(ack) = map.get_mut("privacyAck").and_then(Value::as_object_mut) {
                     ack.insert("by".into(), json!(person));
                 }
@@ -224,12 +229,17 @@ pub fn prepare(
     let definitions_changed = before.get("providers") != after.get("providers");
     invalidate(before, &mut after, definitions_changed, person);
     // Parent replacement preserves removals while the existing config crate performs the complete schema validation.
-    Ok(after
+    let new = after.as_object().ok_or("invalid-config")?;
+    let keys: BTreeSet<_> = before
         .as_object()
-        .ok_or("invalid-config")?
-        .iter()
-        .filter(|(k, v)| before.get(*k) != Some(*v))
-        .map(|(k, v)| (k.clone(), v.clone()))
+        .into_iter()
+        .flat_map(|m| m.keys())
+        .chain(new.keys())
+        .collect();
+    Ok(keys
+        .into_iter()
+        .filter(|key| before.get(*key) != new.get(*key))
+        .map(|key| (key.clone(), new.get(key).cloned().unwrap_or(Value::Null)))
         .collect())
 }
 
@@ -276,6 +286,56 @@ mod tests {
         }
     }
     #[test]
+    fn actual_schema_annotations_enforce_all_five_roles() {
+        let paths = [
+            "approvals.maxGrantDays",
+            "approvals.requireOsConfirmation",
+            "breakglass.reasonMinChars",
+            "breakglass.reasonMaxChars",
+            "breakglass.maxWindowMinutes",
+            "memory.embedding.privacyAck",
+            "memory.mediaEmbedding.privacyAck",
+            "memory.mediaEmbedding.caption.privacyAck",
+            "agents.main.memory.mediaEmbedding.privacyAck",
+            "agents.main.memory.mediaEmbedding.caption.privacyAck",
+        ];
+        for path in paths {
+            let before = json!({});
+            let mut after = before.clone();
+            put(&mut after, path, json!("changed"), false).unwrap();
+            for role in ["owner", "admin", "operator", "member", "viewer"] {
+                let result = changes(schema(), &before, &after, role);
+                if matches!(role, "owner" | "admin") {
+                    let entries = result.unwrap();
+                    assert!(
+                        entries.iter().any(|e| e.key == path),
+                        "{path} has audit metadata"
+                    );
+                } else {
+                    assert_eq!(result, Err("config-write-role"), "{path}: {role}");
+                }
+            }
+        }
+    }
+    #[test]
+    fn changing_only_ack_writer_cannot_renew_consent_after_endpoint_switch() {
+        let before = json!({"memory":{"caption":{"endpoint":"https://old.invalid", "privacyAck":{"provider":"cloud", "endpoint":"https://old.invalid", "acknowledgedAt":"2026-10-14T00:00:00Z", "by":"alice"}}}});
+        let prepared = prepare(
+            &before,
+            &[
+                (
+                    "memory.caption.endpoint".into(),
+                    json!("https://new.invalid"),
+                ),
+                ("memory.caption.privacyAck.by".into(), json!("spoofed")),
+            ],
+            false,
+            "real-person",
+        )
+        .unwrap();
+        assert!(prepared[0].1["caption"].get("privacyAck").is_none());
+    }
+    #[test]
     fn audit_redacts_embedded_url_credentials_and_sensitive_query_parameters() {
         let schema = json!({"x-audit":true});
         for endpoint in [
@@ -310,6 +370,28 @@ mod tests {
         std::fs::remove_file(layout.audit_log()).unwrap();
         std::fs::create_dir(layout.audit_log()).unwrap();
         assert!(audit(&layout, "trusted-person", &changes, "revision-after").is_err());
+    }
+    #[test]
+    fn removal_of_a_root_is_retained_and_writer_only_changes_are_authenticated() {
+        let before = json!({"providers":{"demo":{}}, "memory":{"caption":{"privacyAck":{"provider":"local", "by":"alice"}}}});
+        let prepared = prepare(
+            &before,
+            &[("providers".into(), Value::Null)],
+            true,
+            "real-person",
+        )
+        .unwrap();
+        assert!(prepared
+            .iter()
+            .any(|(key, value)| key == "providers" && value.is_null()));
+        let prepared = prepare(
+            &before,
+            &[("memory.caption.privacyAck.by".into(), json!("spoofed"))],
+            false,
+            "real-person",
+        )
+        .unwrap();
+        assert_eq!(prepared[0].1["caption"]["privacyAck"]["by"], "real-person");
     }
     #[test]
     fn provider_switch_removes_old_ack_and_new_ack_records_real_writer() {
