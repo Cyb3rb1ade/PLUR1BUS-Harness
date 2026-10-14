@@ -8,7 +8,7 @@ import { resolveSecret } from "../secret.ts";
 import { postJson } from "../http.ts";
 import { withRetry } from "../retry.ts";
 import { toFloat32Vectors } from "../validate.ts";
-import { l2Normalize } from "../vector.ts";
+import { l2Normalize, norm } from "../vector.ts";
 import type { EmbeddingAdapter, EmbeddingIdentity, EmbedOptions, InputType, ResolvedDeps } from "../types.ts";
 
 export interface WireRequestContext {
@@ -32,6 +32,13 @@ export interface EmbeddingWire {
   parseResponse(json: unknown, count: number, provider: string): unknown;
 }
 
+/** Index loop on purpose: `Array.prototype.some` skips holes, and a hole would reach the wire as "undefined". */
+export function isStringArray(v: unknown): v is readonly string[] {
+  if (!Array.isArray(v)) return false;
+  for (let i = 0; i < v.length; i++) if (typeof v[i] !== "string") return false;
+  return true;
+}
+
 export function joinUrl(baseURL: string, path: string): string {
   return `${baseURL.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
 }
@@ -41,7 +48,9 @@ export function bearer(secret: string | undefined): Record<string, string> {
 }
 
 function identityOf(s: EmbeddingSettings): EmbeddingIdentity {
-  const revision = s.revision ?? (s.pinnedUpstream !== undefined ? `upstream:${s.pinnedUpstream}` : undefined);
+  // The upstream defines the vector space as much as a revision does, so it is never dropped when both are set.
+  const upstream = s.pinnedUpstream !== undefined ? `upstream:${s.pinnedUpstream}` : undefined;
+  const revision = s.revision !== undefined && upstream !== undefined ? `${s.revision}+${upstream}` : (s.revision ?? upstream);
   return Object.freeze({
     provider: s.provider,
     model: s.model,
@@ -73,7 +82,7 @@ export function makeEmbeddingAdapter(settings: EmbeddingSettings, wire: Embeddin
   };
 
   async function run(texts: readonly string[], opts: EmbedOptions): Promise<Float32Array[]> {
-    if (!Array.isArray(texts) || texts.some((t) => typeof t !== "string")) throw new AdapterError("invalid_request", "texts must be an array of strings", { provider });
+    if (!isStringArray(texts)) throw new AdapterError("invalid_request", "texts must be an array of strings", { provider });
     const inputType = opts?.inputType;
     if (inputType !== "query" && inputType !== "document") throw new AdapterError("invalid_request", 'inputType must be "query" or "document"', { provider });
     if (opts.signal?.aborted) throw new AdapterError("aborted", "aborted before the request was sent", { provider });
@@ -110,6 +119,8 @@ export function makeEmbeddingAdapter(settings: EmbeddingSettings, wire: Embeddin
       const vectors = toFloat32Vectors(raw, { provider, expectedCount: batch.length, dimensions: settings.dimensions });
       group.forEach((originalIndex, k) => {
         const v = vectors[k] as Float32Array;
+        // A zero vector has no direction: cosine is 0 against everything, so it would silently poison the index.
+        if (norm(v) === 0) throw new AdapterError("bad_response", `embedding ${k} is a zero vector`, { provider });
         out[originalIndex] = settings.normalize ? l2Normalize(v, provider) : v;
       });
     }
