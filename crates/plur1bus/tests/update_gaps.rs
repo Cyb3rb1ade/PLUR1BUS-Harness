@@ -1094,18 +1094,6 @@ fn update_check_compares_versions_numerically_and_ignores_build_metadata() {
     }
 }
 
-/// The rule the code states for itself (`is_newer`, `guard::compare`): a pre-release suffix is ignored, so these pairs are "equal".
-#[test]
-fn update_check_treats_a_pre_release_suffix_as_no_difference_as_the_code_documents() {
-    for (installed, target) in [
-        ("1.2.3", "1.2.3-rc.1"),
-        ("1.2.3-rc.1", "1.2.3"),
-        ("1.2.3-alpha", "1.2.3-beta"),
-    ] {
-        assert!(!available(installed, target), "{installed} → {target}");
-    }
-}
-
 /// SemVer §11 ordering in the update check (`commands/update.rs` `is_newer`, `update/guard.rs` `compare`), checked on the
 /// `beta` channel, where pre-releases are offered. It is the order `semver::Version` gives the desktop updater, with build
 /// metadata ignored (§10).
@@ -1176,7 +1164,7 @@ fn applying_a_pre_release_on_the_stable_channel_is_refused_and_changes_nothing()
     let f = Release::new(&e, "1.2.4-rc.1").feed(&e, "feed", &key);
     let before = state_of(&e);
     let (code, doc) = run(&mut online(&e, &f, &[]));
-    assert_eq!(code, 1, "{doc}");
+    assert_eq!(code, 2, "{doc}");
     assert_eq!(doc["reason"], "prerelease-on-stable", "{doc}");
     assert_eq!(state_of(&e), before);
 }
@@ -1225,8 +1213,10 @@ fn min_from_version_blocks_exactly_the_installs_below_it_with_a_hint_and_cannot_
         ("0.1.0", "0.1.1", true),
         ("0.9.0", "0.10.0", true),
         ("1.0.0", "0.10.0", false),
-        // A pre-release suffix is ignored here too: 0.3.0-rc.1 counts as 0.3.0.
-        ("0.3.0-rc.1", "0.3.0", false),
+        // A release candidate is below its release (SemVer §11), so it is below a minimum of that release.
+        ("0.3.0-rc.1", "0.3.0", true),
+        ("0.3.0", "0.3.0-rc.1", false),
+        ("0.3.0-rc.2", "0.3.0-rc.1", false),
         // A minimum that is not a version fails closed.
         ("0.5.0", "latest", true),
     ] {

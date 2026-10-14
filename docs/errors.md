@@ -108,7 +108,8 @@ the core sent. The last two are raised by the CLI itself.
 | `release-malformed`, `min-from-version`, `no-native-release`, `target-unsupported`, `unit-unsupported` | The release cannot be applied to this install (`unit-unsupported`: it also changes the Node runtime or modules, run `plur1bus setup`). |
 | `downgrade-refused` | The release is older than the installed version; `--allow-downgrade` overrides. |
 | `release-replay` | The release is older than the newest one this install accepted on the channel; `--allow-downgrade` overrides. |
-| `release-version-invalid` | A version that is not `major.minor.patch` cannot be ordered against the other. |
+| `release-version-invalid` | A version that is not a semantic version (`major.minor.patch`, optional `-pre-release`) cannot be ordered against the other. |
+| `prerelease-on-stable` | The release is a pre-release and this install follows the stable channel; `--channel beta` follows pre-releases. |
 | `guard-unreadable`, `addons-unreadable`, `state-unreadable` | A file under `<home>/update/` does not parse; it is never treated as empty. |
 | `addon-incompatible` | A required add-on would be incompatible with the new version; `--force` disables it and updates anyway. |
 | `addon-disable-failed` | (Outcome `rolled-back`.) An add-on could not be disabled after the swap; the update was rolled back. |

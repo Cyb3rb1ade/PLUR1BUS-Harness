@@ -85,6 +85,15 @@ fn prepare(layout: &Layout, args: &UpdateArgs, feed: &Feed) -> Result<Option<Pre
             "this build has no release key baked in, so it will not apply an update it cannot verify (`update --check` still works)",
         ));
     }
+    if !super::update::offerable(&feed.channel, &feed.head.version) {
+        return Err(no(
+            "prerelease-on-stable",
+            format!(
+                "{} is a pre-release and this install follows the stable channel: pass --channel beta to follow pre-releases",
+                feed.head.version
+            ),
+        ));
+    }
     let guard_state = guard::load(layout).map_err(|m| no("guard-unreadable", m))?;
     guard::check_version(
         &guard_state,

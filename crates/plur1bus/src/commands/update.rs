@@ -165,7 +165,7 @@ pub fn run(out: &Out, layout: &Layout, args: UpdateArgs) -> ! {
 
     let Feed {
         manifest,
-        channel: _,
+        channel,
         raw,
         head,
         native,
@@ -188,7 +188,8 @@ pub fn run(out: &Out, layout: &Layout, args: UpdateArgs) -> ! {
         "modules": installed_modules,
     });
 
-    let newer = is_newer(&head.version, &manifest.binary.version);
+    let newer =
+        offerable(&channel, &head.version) && is_newer(&head.version, &manifest.binary.version);
     let (available, changes, restart_core, restart_modules, supervisor_restart, blocked) = if !newer
     {
         (
@@ -361,26 +362,20 @@ pub(super) fn installed_modules(layout: &Layout) -> Vec<Value> {
         .collect()
 }
 
-/// `a > b`, comparing `major.minor.patch` numerically when both parse as semver's release triple; otherwise a
-/// plain string mismatch (a release build never ships a non-semver version, so this fallback is unreached in
-/// practice).
+/// `a > b` by SemVer precedence (pre-releases below their release, build metadata ignored) when both are valid
+/// semver; otherwise a plain string mismatch (a release build never ships a non-semver version, so this fallback is
+/// unreached in practice).
 pub(super) fn is_newer(a: &str, b: &str) -> bool {
-    match (parse_semver_triple(a), parse_semver_triple(b)) {
-        (Some(x), Some(y)) => x > y,
-        _ => a != b,
+    match crate::update::guard::precedence(a, b) {
+        Some(o) => o == std::cmp::Ordering::Greater,
+        None => a != b,
     }
 }
 
-fn parse_semver_triple(v: &str) -> Option<(u64, u64, u64)> {
-    let core = v.split(['-', '+']).next().unwrap_or(v);
-    let mut it = core.split('.');
-    let major = it.next()?.parse().ok()?;
-    let minor = it.next()?.parse().ok()?;
-    let patch = it.next()?.parse().ok()?;
-    if it.next().is_some() {
-        return None;
-    }
-    Some((major, minor, patch))
+/// Whether a release on `channel` may be offered: the stable channel never carries a pre-release (the desktop updater
+/// applies the same rule).
+pub(super) fn offerable(channel: &str, version: &str) -> bool {
+    !(channel == "stable" && crate::update::guard::is_prerelease(version))
 }
 
 /// The units that differ between the installed manifest and the release's `native` object (`None` for an
