@@ -100,7 +100,7 @@ Messages from the bot itself, sync copies, receipts and typing notices are ignor
 
 ## Outbound content
 
-Markdown is converted to plain text with Signal text styles: bold, italic, strikethrough, monospace (inline code and code blocks) and spoiler. Links become `text (url)` because Signal has no link markup. Headings become bold lines, bullets become `•`. Literal `@` text stays literal. Messages are split at 2000 UTF-16 code units, preferring paragraph breaks, and styles are re-based for each part, so a code block that spans two parts stays monospace in both.
+Markdown is converted to plain text with Signal text styles: bold, italic, strikethrough, monospace (inline code and code blocks) and spoiler. Links become `text (url)` because Signal has no link markup. Headings become bold lines, bullets become `•`. Literal `@` text stays literal. Messages are split at 2000 UTF-16 code units, preferring paragraph breaks and never inside an extended grapheme cluster (emoji ZWJ sequence, flag, keycap, combining mark, CRLF) that fits into one part, and styles are re-based for each part, so a code block that spans two parts stays monospace in both.
 
 - Quote-reply: `replyTo` quotes the referenced message when the channel saw it (a bounded recent cache). Otherwise the message is sent without a quote.
 - Attachments are sent as `data:` URIs with the filename sanitised. Output-store images are authorised before the file is read and verified against their hash.

@@ -3,7 +3,7 @@ import type { StyledText, TextStyle } from "./markdown.ts";
 /** Conservative: Signal accepts far more, but long texts get turned into attachments by clients. */
 export const SIGNAL_MAX_TEXT = 2000;
 
-/** Splits `text` into chunks of at most `max` UTF-16 code units, never inside a surrogate pair. Prefers a paragraph break,
+/** Splits `text` into chunks of at most `max` UTF-16 code units, never inside a surrogate pair or (when it fits) an extended grapheme cluster. Prefers a paragraph break,
  *  then newline, then space within the second half of the window. Lossless apart from dropping whitespace-only chunks. */
 export function splitMessage(text: string, max: number = SIGNAL_MAX_TEXT): string[] {
   return cuts(text, max)
@@ -21,11 +21,29 @@ function cuts(text: string, max: number): Array<[number, number]> {
     const prev = text.charCodeAt(a + cut - 1);
     const next = text.charCodeAt(a + cut);
     if (prev >= 0xd800 && prev <= 0xdbff && next >= 0xdc00 && next <= 0xdfff) cut -= 1;
+    cut = graphemeSafeCut(text.slice(a, a + max + 2), cut);
     out.push([a, a + cut]);
     a += cut;
   }
   out.push([a, text.length]);
   return out;
+}
+
+const SEGMENTER = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
+/** Moves `cut` back to the start of the extended grapheme cluster it falls into (ZWJ sequence, flag, keycap, combining
+ *  sequence, CRLF). A cluster that starts at the window start cannot be kept whole within `max`, so that cut stays. */
+function graphemeSafeCut(win: string, cut: number): number {
+  if (cut <= 0 || cut >= win.length) return cut;
+  // The window is one unit longer than any cut, so a lone surrogate at its end would split a cluster that really continues.
+  const last = win.charCodeAt(win.length - 1);
+  if (last >= 0xd800 && last <= 0xdbff) win = win.slice(0, -1);
+  for (const seg of SEGMENTER.segment(win)) {
+    const end = seg.index + seg.segment.length;
+    if (end <= cut) continue;
+    return seg.index > 0 && seg.index < cut ? seg.index : cut;
+  }
+  return cut;
 }
 
 function breakPoint(s: string, max: number): number {
