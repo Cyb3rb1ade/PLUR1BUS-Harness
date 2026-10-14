@@ -95,3 +95,19 @@ Every deviation is a `todo` case named `KNOWN GAP` after its method; fixing the 
 * Write methods that WebMCP does not forbid and the exposure list does not name: the same families plus `dreams.schedule.set`, `dreams.enable`, `dreams.disable`, `memory.correct`, `memory.share`, `memory.propose`, `memory.proposals.accept`, `memory.proposals.reject`.
 
 Today only stable methods and the memory reads are tools by default, so the experimental ones above are reachable only if a page lists them in `include`.
+
+## Browser transport threat model
+
+| Attack | Protection | Evidence |
+|---|---|---|
+| Cross-site cookie writes / DNS rebinding | Existing Host, Origin, Referer and Fetch-Site checks; one-time session CSRF on every `/rpc` POST | `packages/api/test/web-rpc.test.ts`, existing hardening suites |
+| Browser principal / actAs spoofing | Claims discarded; server builds identity from session; explicit bootstrap mapping | RPC unit test and real API/Core E2E; directory id `owner` regression |
+| Another local Core-token client delegates a person | Separate registered API credential; identity fixed per connection; authoritative stored roles | Real socket delegation test; missing and agent principals fail humanOnly |
+| Private event leak or cross-person resume | Audience metadata preserved; explicit event-name/global allowlists; filtered per-person replay buffer | Audience unit tests; two-person real Core E2E |
+| Connection/body flood or slow SSE reader | Body cap, independent RPC/IP/person rate class, eight streams/person, feed/peer/output caps | HTTP body test, stream-limit/expiry test, existing limiter tests |
+| Session resurrection via heartbeat | Non-renewing session checks; logout/rotation/expiry close streams | Real logout E2E and idle-expiry test |
+| Error leaks a secret marker | Fixed HTTP RPC messages; no stacks/details; raw handler errors logged with a fixed reason | Real socket marker test, credential scans, secrets-never-leave sweep |
+| Parent config replacement bypasses annotations | Supervisor checks changed annotated descendants after preparing the whole resulting tree | Five-role config-policy tests |
+| Sensitive config enters audit or old cloud consent survives a switch | Schema sensitivity inherited; credential keys redacted; old ack invalidation; authenticated writer; durable audit intent | Config-policy/audit tests |
+
+The API credential narrows ordinary local-client capabilities, but cannot isolate hostile processes of the same OS user. A cookie authenticates an account; it is not proof of physical human intent. Browser delegation preserves current surface trust and never performs automatic OS confirmation. Stronger broker/OS separation, account provisioning and active-person callbacks remain Owner decisions; details in the [transport handoff](handoff/2026-10-14-web-transport.md).

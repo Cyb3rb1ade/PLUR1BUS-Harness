@@ -568,3 +568,7 @@ Chromium against the mock API; axe in light and dark, English and German, 360 an
 - **Known gap (Surfaces).** The live identities form (`src/pages/settings/users/identities.ts`, reached through `#/identities`) pre-fills the channel with
   `telegram`, keeps an error after a success and has identical "Remove" buttons per row; it belongs to the Settings package. `surfaces/identities.ts` and
   `surfaces/projects.ts` are no longer reached and can be deleted.
+
+## Real browser transport
+
+The Harness API now serves the existing `/rpc` and `/events` paths with session cookies, CSRF, delegated Core/Supervisor identity and audience-filtered SSE. The typed client resumes through Last-Event-ID and reloads on restart. Mocks remain useful for page-state/a11y coverage; they are supplemented by the real API/Core transport test and `packages/web/test/real-transport.test.ts`, which opens Inbox, Chat list and Settings against the actual supervisor. Run the stack smoke after building the CLI/core with `PLUR1BUS_WEB_TRANSPORT_REQUIRED=1` and an installed Chromium. The transport exposes a reviewed subset; excluded internal/legacy calls still report their explicit RPC refusal. Concrete config annotations from #426 require that prerequisite to be integrated.
