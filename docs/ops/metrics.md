@@ -13,7 +13,7 @@ Off by default. In `config.json` (both keys restart the core, tier advanced):
 
 The endpoint binds `127.0.0.1` only. If the port is taken the core logs `metrics endpoint unavailable` and starts without
 it. On start the core creates `<home>/state/metrics.token` (64 hex characters, mode `0600`, user-only ACL on Windows) and
-keeps it across restarts, so a monitoring system can store it once. To rotate it, delete the file and restart the core.
+keeps it across restarts, so a monitoring system can store it once. A token file found with a wider mode is set back to `0600` on the next start. To rotate it, delete the file and restart the core.
 This token only opens `/metrics`; the core's RPC token (`run/core.token`) does not.
 
 ```bash
@@ -29,7 +29,7 @@ curl -s -H "Authorization: Bearer $(cat <home>/state/metrics.token)" http://127.
 | Methods and paths | `GET`/`HEAD` on `/metrics` only (405 / 404 otherwise); nothing can be changed through it |
 | Authentication | `Authorization: Bearer <token>`, constant-time compare; never a query parameter; 401 with `WWW-Authenticate` |
 | Brute force | 10 failures within 60 s lock that peer out for 60 s (429, `Retry-After`) |
-| RBAC | the token maps to a principal with scope `metrics.read` through the `MetricsAccess` port; the scope is required (403) |
+| RBAC | the token maps to a principal with scope `metrics.read` through the `MetricsAccess` port; the scope is required (403). A `MetricsAccess` that throws answers 500 (logged), never takes the process down |
 
 main has no RBAC layer yet, so the default `MetricsAccess` gives the one token exactly `metrics.read`. When RBAC lands it
 implements the same port against its policy.
