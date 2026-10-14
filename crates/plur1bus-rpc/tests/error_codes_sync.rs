@@ -686,11 +686,11 @@ fn the_module_api_rpc_error_table_names_only_schema_codes() {
     );
 }
 
-/// KNOWN GAP (packages/module-api, outside this change): `DEFAULT_JSONRPC_CODE` in `rpc-error.ts` has no entry for
-/// `E_PROJECT_WIP_LIMIT`, `E_INBOX_CURSOR` and `E_INVITE_INVALID`. At run time that is harmless, because the lookup falls back to
-/// `-32000`, which is what every other entry except `E_INVALID_PARAMS` has, but the table no longer lists the whole closed set.
+/// `DEFAULT_JSONRPC_CODE` in `packages/module-api/src/rpc-error.ts` lists the whole closed set. A missing entry would be harmless at
+/// run time (the lookup falls back to `-32000`, the value of every entry except `E_INVALID_PARAMS`), but the table is the one place
+/// that says which JSON-RPC code a module answers with. #405 found `E_PROJECT_WIP_LIMIT`, `E_INBOX_CURSOR` and `E_INVITE_INVALID`
+/// missing; they are listed now.
 #[test]
-#[ignore = "KNOWN GAP: packages/module-api/src/rpc-error.ts DEFAULT_JSONRPC_CODE lacks E_PROJECT_WIP_LIMIT, E_INBOX_CURSOR, E_INVITE_INVALID"]
 fn the_module_api_rpc_error_table_lists_every_schema_code() {
     compare(
         "schema",
