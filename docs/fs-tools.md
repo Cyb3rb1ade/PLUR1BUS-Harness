@@ -10,8 +10,8 @@ nothing registers itself.
 |---|---|---|
 | `file.stat` | read | type, size, mtime of the real target |
 | `file.list` | read | sorted, links shown never followed, deny-listed names hidden, ≤ 1000 entries, > 10 000 refused |
-| `file.read` | read | regular files only; ≤ 1 MiB unless `offset`/`length`; text (UTF-8) or `encoding: "base64"` |
-| `file.write` | local-write | whole file, temp + `fsync` + rename; create-only unless `overwrite: true`; parent must exist; ≤ 4 MiB |
+| `file.read` | read | regular files only; ≤ 1 MiB unless `offset`/`length`; text (UTF-8) or `encoding: "base64"`; the JSON-encoded result must also fit `limits.maxResultBytes` (1 MiB), so a text file full of newlines or a base64 range over about 780 000 bytes is refused with `too-large` and needs a smaller `length` |
+| `file.write` | local-write | whole file, temp + `fsync` + rename; create-only unless `overwrite: true`; parent must exist; ≤ 4 MiB (through the dispatcher the call arguments are capped at 256 KiB first, which is the effective limit there) |
 
 ## Guarantees
 - Every path is canonicalised on the **real target** and must lie inside a root; `..`, backslashes (POSIX), Windows
