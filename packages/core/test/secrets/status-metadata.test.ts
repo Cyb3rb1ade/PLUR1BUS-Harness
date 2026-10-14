@@ -37,3 +37,10 @@ it("keyring and file metadata retain the writer across backend reopening", async
     }
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+
+it("unknown legacy timestamps are omitted from status metadata", async () => {
+  const backend = createMemoryBackend();
+  backend.list = async () => [{ name: "legacy", backend: "memory", createdAt: "", updatedAt: "" }];
+  const store = createSecretStore({ keyring: backend, file: createMemoryBackend({ available: false }), fileFallback: () => false, audit: { record() {} } });
+  assert.deepEqual((await store.status({ kind: "owner" })).secrets, [{ name: "legacy", backend: "memory" }]);
+});
