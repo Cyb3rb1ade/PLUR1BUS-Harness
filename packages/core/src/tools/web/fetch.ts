@@ -266,7 +266,8 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
     if (args.crawl && target && (target.protocol === "http:" || target.protocol === "https:")) {
       const robots = await robotsFor(target, ctx.signal);
       if (!robotsAllows(robots, userAgent, `${target.pathname}${target.search}`)) throw new WebFailure("robots-disallowed", `robots.txt disallows ${target.pathname}`, { url: args.url });
-      await pacer.wait(target.host, (robots.crawlDelaySeconds(userAgent) ?? 0) * 1000);
+      try { await pacer.wait(target.host, (robots.crawlDelaySeconds(userAgent) ?? 0) * 1000, ctx.signal); }
+      catch { throw new WebFailure("timeout", "the request was cancelled while waiting its turn for this host"); }
     }
 
     const r = await guardedRequest(args.url, {
