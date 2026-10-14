@@ -71,7 +71,8 @@ describe("integers without an upper bound", () => {
   });
   test("the same holds per line of an integer list", () => {
     const ports = g({}, "network").find((x) => x.key === "egress.allowPorts")!;
-    assert.equal(parseDraft({ ...ports, max: undefined }, "443\n99999999999999999999").ok, false);
+    const { max: _max, ...unbounded } = ports;
+    assert.equal(parseDraft(unbounded, "443\n99999999999999999999").ok, false);
   });
 });
 
