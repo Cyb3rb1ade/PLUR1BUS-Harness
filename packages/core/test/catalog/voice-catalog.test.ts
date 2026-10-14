@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { defaults, validate } from "@plur1bus/config-schema";
 import { assertLicenceAccepted, builtinCatalog, downloadable, licenceKey, loadCatalog, mergeCatalog, modelsFor, needsLicenceConfirmation, parseCatalog, type Catalog, type CatalogModel } from "../../../voice-providers/src/index.ts";
 import { V3_TTS_DEFAULTS, voiceV3Catalog } from "../../src/voice/v3-catalog.ts";
-import { duplicateKeys, gap } from "./helpers.ts";
+import { duplicateKeys } from "./helpers.ts";
 
 const FILE = fileURLToPath(new URL("../../../voice-providers/src/local/catalog.json", import.meta.url));
 const TEXT = readFileSync(FILE, "utf8");
@@ -131,11 +131,18 @@ describe("shipped voice catalog: research-only licences are never defaults", () 
     assert.equal(v3.languages.en!.tts.fast, V3_TTS_DEFAULTS.en.fast); assert.equal(v3.languages.en!.tts.quality, V3_TTS_DEFAULTS.en.quality);
   });
 
-  const lessacTitle = gap("voice-providers builtin catalog (loadCatalog without profiles)",
-    "no research-only model preselected as a language's default (owner rule: Lessac and its like are never a default)",
-    "the built-in catalog preselects piper-en-lessac-low as English tts.fast (docs/voice-local.md lists it as the English fast voice); only the core's voiceV3Catalog replaces it and the licence gate refuses it until confirmed per model");
-  it(lessacTitle, { todo: lessacTitle }, () => {
-    for (const lang of Object.keys(cat.languages)) for (const [slot, id] of slotsOf(cat, lang)) assert.equal(isResearchOnly(cat.models[id]!), false, `${lang} ${slot} -> ${id}`);
+  // Owner decision 2026-10-14: piper-en-lessac-low stays the built-in English tts.fast preselection (docs/voice-local.md,
+  // "Licences"). Preselected is not accepted: the per-model licence confirmation at install stays mandatory.
+  it("owner decision 2026-10-14: piper-en-lessac-low stays the English tts.fast preselection of the built-in catalog, as a research-only model (Blizzard-2013-Lessac-research, commercial:false) that always needs the per-model confirmation", () => {
+    const m = cat.models[cat.languages.en!.tts.fast]!;
+    assert.equal(m.id, "piper-en-lessac-low"); assert.equal(modelsFor(cat, "en", "fast").tts.id, "piper-en-lessac-low");
+    assert.equal(m.licence.id, "Blizzard-2013-Lessac-research"); assert.equal(m.licence.commercial, false); assert.equal(isResearchOnly(m), true);
+    assert.equal(needsLicenceConfirmation(m), true);
+    assert.throws(() => assertLicenceAccepted(m, []), (e: unknown) => (e as { code?: string }).code === "licence_required" && (e as Error).message.includes("piper-en-lessac-low@Blizzard-2013-Lessac-research"));
+    assert.doesNotThrow(() => assertLicenceAccepted(m, [licenceKey(m)]));
+    // nothing else research-only is preselected: it is exactly this one slot
+    const preselected = Object.keys(cat.languages).flatMap((lang) => slotsOf(cat, lang).filter(([, id]) => isResearchOnly(cat.models[id]!)).map(([slot, id]) => `${lang} ${slot} -> ${id}`));
+    assert.deepEqual(preselected, ["en tts.fast -> piper-en-lessac-low"]);
   });
 
   it("characterization: Ist-Verhalten, nicht spezifiziert: the built-in catalog's German quality voice is a model with an unknown licence and no package (gated by the licence confirmation and by the missing download)", () => {
@@ -164,16 +171,26 @@ describe("voiceV3Catalog", () => {
     assert.equal(v3.languages.fr!.tts.fast, "x-tts"); assert.deepEqual(Object.keys(v3.languages).sort(), ["de", "en", "fr"]);
   });
 
-  it("characterization: Ist-Verhalten, nicht spezifiziert: the declared tts fallback of de and en is dropped when the profiles are applied (docs/voice-local.md describes the fallback tier)", () => {
+  it("keeps the declared tts fallback tier of de and en (docs/voice-local.md)", () => {
     assert.equal(cat.languages.en!.tts.fallback, "kokoro-multi");
-    assert.equal(voiceV3Catalog().languages.en!.tts.fallback, undefined);
-    assert.equal(voiceV3Catalog().languages.de!.tts.fallback, undefined);
+    for (const lang of ["de", "en"] as const) {
+      const v3 = voiceV3Catalog();
+      assert.equal(v3.languages[lang]!.tts.fallback, cat.languages[lang]!.tts.fallback, lang);
+      assert.equal(modelsFor(v3, lang, "fast").ttsFallback?.id, cat.languages[lang]!.tts.fallback, lang);
+    }
+    // an override's own fallback wins over the built-in one
+    const ov = { models: { "x-tts": { kind: "tts", engine: "vits", displayName: "X", licence: { id: "MIT", name: "MIT", commercial: true, status: "confirmed" }, download: [{ url: null, sha256: null, sizeBytes: null, path: "m.onnx" }], roles: { model: "m.onnx" } } }, languages: { en: { name: "English", stt: { fast: "zipformer-en-streaming" }, tts: { fast: "kokoro-multi", fallback: "x-tts" } } } };
+    assert.equal(voiceV3Catalog(ov).languages.en!.tts.fallback, "x-tts");
   });
 
-  it("characterization: Ist-Verhalten, nicht spezifiziert: profile ids are not checked against the catalog here (the configuration schema restricts them to an enum); a dangling one leaves a language pointing at nothing", () => {
-    const c = voiceV3Catalog(undefined, { de: { fast: "nope", quality: "silero-vad" }, en: { fast: "kokoro-multi", quality: "kokoro-multi" } });
-    assert.equal(c.models["nope"], undefined); assert.equal(modelsFor(c, "de", "fast").tts, undefined);
-    assert.equal(modelsFor(c, "de", "quality").tts.kind, "vad");
+  it("profile ids are checked against the catalog: an unknown model, a model of another kind or an inherited property name is a catalog error naming it", () => {
+    const bad = (id: string, tier: "fast" | "quality" = "fast", lang: "de" | "en" = "de") => () => voiceV3Catalog(undefined, { de: { ...V3_TTS_DEFAULTS.de }, en: { ...V3_TTS_DEFAULTS.en }, [lang]: { ...V3_TTS_DEFAULTS[lang], [tier]: id } } as never);
+    const is = (frag: string) => (e: unknown) => (e as { code?: string }).code === "catalog" && (e as Error).message.startsWith("voice catalog: ") && (e as Error).message.includes(frag);
+    assert.throws(bad("nope"), is("language de: tts.fast names unknown model nope"));
+    assert.throws(bad("silero-vad", "quality"), is("language de: tts.quality names silero-vad, a vad model"));
+    assert.throws(bad("kroko-de", "fast", "en"), is("language en: tts.fast names kroko-de, a stt model"));
+    for (const id of ["constructor", "__proto__", "toString"]) assert.throws(bad(id), is(`names unknown model ${id}`), id);
+    assert.doesNotThrow(bad("piper-en-lessac-low", "fast", "en"), "an existing tts model is accepted (the licence gate decides later)");
   });
 });
 
@@ -220,15 +237,16 @@ describe("voice catalog overrides: invalid entries are rejected with a message t
     for (const id of ["../evil", "a/b", "a\\b", ".hidden", "-lead", "", " x", "x y", "é"]) rejects(withModel(id, goodModel()), `model id ${id} is not a safe directory name`);
   });
 
-  const protoTitle = gap("voice-providers mergeCatalog / parseCatalog (model id '__proto__')",
-    "an override model whose id is '__proto__' is rejected like every other unsafe id ('model id __proto__ is not a safe directory name')",
-    "it is dropped silently: mergeCatalog assigns it to a local object's prototype slot, so parseCatalog never sees it (no pollution of Object.prototype or the catalog; the entry just vanishes)");
-  it(protoTitle, { todo: protoTitle }, () => rejects(withModel("__proto__", goodModel()), "model id __proto__ is not a safe directory name"));
+  it("an override model whose id is '__proto__', 'constructor' or 'prototype' is rejected like every other unsafe id", () => {
+    for (const id of ["__proto__", "constructor", "prototype"]) rejects(withModel(id, goodModel()), `model id ${id} is not a safe directory name`);
+    // a JSON-parsed document puts '__proto__' in as an own key as well
+    rejects(JSON.parse(`{"models":{"__proto__":${JSON.stringify(goodModel())}}}`), "model id __proto__ is not a safe directory name");
+    assert.equal(({} as { polluted?: boolean }).polluted, undefined);
+  });
 
-  it("an entry named '__proto__' leaves no trace: nothing is added to the catalog and Object.prototype stays clean (what does happen today, pinned next to the gap above)", () => {
-    const parsed = JSON.parse('{"models":{"__proto__":{"polluted":true}}}');
-    const c = loadCatalog(parsed);
-    assert.deepEqual(Object.keys(c.models), Object.keys(cat.models)); assert.equal(({} as { polluted?: boolean }).polluted, undefined); assert.equal(Object.hasOwn(c.models, "__proto__"), false);
+  it("an entry named '__proto__' (even a malformed one) is refused and Object.prototype stays clean", () => {
+    rejects(JSON.parse('{"models":{"__proto__":{"polluted":true}}}'), "model id __proto__ is not a safe directory name");
+    assert.equal(({} as { polluted?: boolean }).polluted, undefined);
   });
 
   it("language codes are checked, and a language must name existing models of the right kind", () => {
@@ -283,16 +301,51 @@ describe("voice catalog overrides: invalid entries are rejected with a message t
     assert.equal(builtinCatalog().models["new-voice"], undefined);
   });
 
-  it("characterization: Ist-Verhalten, nicht spezifiziert: 'models' or 'languages' that are not objects are ignored without a message (only a non-object override as a whole is refused)", () => {
-    assert.deepEqual(Object.keys(loadCatalog({ models: 5 }).models), Object.keys(cat.models));
-    assert.deepEqual(Object.keys(loadCatalog({ languages: "x" }).languages), Object.keys(cat.languages));
-    assert.deepEqual(Object.keys(loadCatalog({ models: [1] }).models), Object.keys(cat.models));
+  it("'models' or 'languages' that are not objects, and entries of them that are not objects, are a validation error (not ignored)", () => {
+    for (const bad of [5, "x", true, [1], []]) {
+      rejects({ models: bad }, "catalogOverride.models is not an object"); rejects({ languages: bad }, "catalogOverride.languages is not an object");
+    }
+    rejects({ models: { x: 5 } }, "model x is not an object"); rejects({ models: { x: null } }, "model x is not an object");
+    rejects({ languages: { fr: 5 } }, "language fr: stt.fast and tts.fast are required"); rejects({ languages: { fr: null } }, "language fr: stt.fast and tts.fast are required");
+    rejects({ models: { "kokoro-multi": 5 } }, "model kokoro-multi is not an object");
+    rejects({ languages: { en: "x" } }, "language en: stt.fast and tts.fast are required");
+    assert.deepEqual(Object.keys(loadCatalog({ models: {}, languages: {} }).models), Object.keys(cat.models), "explicitly empty objects are fine");
+    assert.deepEqual(Object.keys(loadCatalog({}).languages), Object.keys(cat.languages), "absent keys are fine");
   });
 
-  it("characterization: Ist-Verhalten, nicht spezifiziert: an override of a built-in model may replace everything but the licence, including its download url and checksum", () => {
+  describe("built-in models: download url and checksum change only together with an own licence record", () => {
     const sha = "a".repeat(64);
-    const m = loadCatalog({ models: { "kokoro-multi": { ...clone(RAW.models["kokoro-multi"]), download: [{ url: "https://example.invalid/m.tar.bz2", sha256: sha, sizeBytes: 5, archive: "tar.bz2" }] } } }).models["kokoro-multi"]!;
-    assert.equal(m.download[0]!.sha256, sha);
+    const swap = (extra: object = {}) => ({ models: { "kokoro-multi": { ...clone(RAW.models["kokoro-multi"]), download: [{ url: "https://example.invalid/m.tar.bz2", sha256: sha, sizeBytes: 5, archive: "tar.bz2" }], ...extra } } });
+    const own = { id: "Own-1", name: "Own licence", commercial: true, status: "confirmed" };
+    const msg = "model kokoro-multi: licence needs id, name, commercial (true|false|null) and status";
+
+    it("a swapped url or checksum with the built-in licence kept (absent, equal to the built-in one or invalid) is refused with the licence validation error", () => {
+      rejects(swap(), msg);
+      rejects(swap({ licence: undefined }), msg); rejects(swap({ licence: "junk" }), msg); rejects(swap({ licence: null }), msg);
+      rejects(swap({ licence: clone(RAW.models["kokoro-multi"]!["licence"]) }), msg);
+      const urlOnly = clone(RAW.models["kokoro-multi"]); urlOnly["download"][0].url = "https://example.invalid/other.tar.bz2";
+      rejects({ models: { "kokoro-multi": urlOnly } }, msg);
+      const shaOnly = clone(RAW.models["kokoro-multi"]); shaOnly["download"][0].sha256 = sha;
+      rejects({ models: { "kokoro-multi": shaOnly } }, msg);
+      const lessac = clone(RAW.models["piper-en-lessac-low"]); lessac["download"][0].url = "https://example.invalid/l.tar.bz2";
+      rejects({ models: { "piper-en-lessac-low": { ...lessac, licence: { ...lessac.licence, commercial: true, status: "confirmed" } } } }, "model piper-en-lessac-low: licence needs");
+    });
+
+    it("with an own, valid licence record the swap is accepted and the model carries that licence (and its own confirmation key)", () => {
+      const m = loadCatalog(swap({ licence: own })).models["kokoro-multi"]!;
+      assert.equal(m.download[0]!.sha256, sha); assert.deepEqual(m.licence, own); assert.equal(licenceKey(m), "kokoro-multi@Own-1");
+      const nc = loadCatalog(swap({ licence: { ...own, id: "Own-NC", commercial: false } })).models["kokoro-multi"]!;
+      assert.equal(needsLicenceConfirmation(nc), true);
+    });
+
+    it("an own licence record that is invalid is refused even with a swapped download", () => {
+      rejects(swap({ licence: { id: "Own-1", name: "x", commercial: "yes", status: "confirmed" } }), msg);
+    });
+
+    it("an unchanged download keeps the built-in licence whatever the override says about it, and other fields stay overridable", () => {
+      const m = loadCatalog({ models: { "kokoro-multi": { ...clone(RAW.models["kokoro-multi"]), displayName: "Renamed", licence: own } } }).models["kokoro-multi"]!;
+      assert.equal(m.displayName, "Renamed"); assert.deepEqual(m.licence, cat.models["kokoro-multi"]!.licence);
+    });
   });
 
   it("parseCatalog on garbage: not an object, wrong version, missing blocks", () => {
