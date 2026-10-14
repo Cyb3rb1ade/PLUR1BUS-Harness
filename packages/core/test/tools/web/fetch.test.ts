@@ -382,3 +382,34 @@ describe("web.fetch: the trace has URL, status, sizes, timing — never the body
     }
   });
 });
+
+describe("web.fetch: the metadata around a chunk is bounded too (maxTokens bounds only the text)", () => {
+  it("a huge title/lang/date/canonical and thousands of headings do not blow up every result", async () => {
+    const big = "x".repeat(200_000);
+    const headings = Array.from({ length: 5000 }, (_, i) => `<h2>${"Heading ".repeat(4)}${i}</h2><p>t</p>`).join("");
+    const html = `<!doctype html><html lang="${big}"><head><title>${big}</title><meta property="article:published_time" content="${big}"><link rel="canonical" href="http://e.test/${big}"></head><body><main>${headings}</main></body></html>`;
+    const s = await startStub(send("text/html", html));
+    try {
+      const r = await mk().fetch({ url: `http://127.0.0.1:${s.port}/`, maxTokens: 200 });
+      const size = Buffer.byteLength(JSON.stringify(r));
+      assert.ok(size < 40_000, `result is ${size} bytes`);
+      assert.ok((r.title ?? "").length <= 300);
+      assert.ok((r.lang ?? "").length <= 35);
+      assert.ok((r.publishedAt ?? "").length <= 64);
+      assert.ok(r.sections.length <= 200);
+      assert.ok(r.sections.every((x) => x.title.length <= 120));
+    } finally {
+      await s.close();
+    }
+  });
+  it("a section beyond the listed ones can still be selected by id", async () => {
+    const headings = Array.from({ length: 400 }, (_, i) => `<h2>H${i}</h2><p>body ${i}</p>`).join("");
+    const s = await startStub(send("text/html", page(`<main>${headings}</main>`)));
+    try {
+      const r = await mk().fetch({ url: `http://127.0.0.1:${s.port}/`, section: "s350" });
+      assert.match(r.markdown, /body 349|body 350/);
+    } finally {
+      await s.close();
+    }
+  });
+});

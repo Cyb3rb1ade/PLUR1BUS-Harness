@@ -150,6 +150,11 @@ function kindOf(mime: string): Kind | null {
 }
 
 const MAX_TOKENS_LIMIT = 100_000;
+/** The table of contents travels with every chunk; a page with thousands of headings must not inflate each result. Ids stay valid beyond the list. */
+const MAX_LISTED_SECTIONS = 200;
+const MAX_SECTION_TITLE = 120;
+const listSections = (all: Section[]): SectionRef[] =>
+  all.slice(0, MAX_LISTED_SECTIONS).map((s) => ({ id: s.id, title: s.title.length > MAX_SECTION_TITLE ? `${s.title.slice(0, MAX_SECTION_TITLE - 1)}…` : s.title, tokens: s.tokens }));
 
 function validate(a: WebFetchArgs): void {
   const bad = (m: string): never => {
@@ -326,7 +331,7 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
       status: r.status,
       contentType: mime,
       ...Object.fromEntries(Object.entries(meta).filter(([, v]) => v !== undefined)),
-      sections: sections.map((s) => ({ id: s.id, title: s.title, tokens: s.tokens })),
+      sections: listSections(sections),
       fetchedAt,
       provenance: { source: "web", url: r.url, fetchedAt, trust: "untrusted" },
     };

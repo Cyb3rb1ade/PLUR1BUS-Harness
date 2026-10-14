@@ -411,6 +411,10 @@ function findAll(root: El, pred: (el: El) => boolean): El[] {
   return hits;
 }
 
+/** Page-supplied metadata is returned with every chunk, so it is bounded however large the page makes it. */
+const META_MAX = { title: 300, lang: 35, publishedAt: 64, canonicalUrl: 2048 } as const;
+const clip = (s: string, max: number): string => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
+
 export function htmlToMarkdown(html: string, baseUrl: string): Extracted {
   let base: URL | null = null;
   try {
@@ -426,25 +430,25 @@ export function htmlToMarkdown(html: string, baseUrl: string): Extracted {
       case "title":
         if (meta.title === undefined) {
           const t = collapse(textOf(el)).trim();
-          if (t !== "") meta.title = t;
+          if (t !== "") meta.title = clip(t, META_MAX.title);
         }
         break;
       case "html":
-        if (el.attrs.lang && meta.lang === undefined) meta.lang = el.attrs.lang.trim();
+        if (el.attrs.lang && meta.lang === undefined) meta.lang = clip(el.attrs.lang.trim(), META_MAX.lang);
         break;
       case "link":
         if (/(^|\s)canonical(\s|$)/i.test(el.attrs.rel ?? "") && meta.canonicalUrl === undefined) {
           const u = absUrl(el.attrs.href, { base, keepHeader: false }, ["http:", "https:"]);
-          if (u) meta.canonicalUrl = u;
+          if (u && u.length <= META_MAX.canonicalUrl) meta.canonicalUrl = u;
         }
         break;
       case "meta": {
         const key = (el.attrs.property ?? el.attrs.name ?? el.attrs.itemprop ?? "").toLowerCase();
-        if (meta.publishedAt === undefined && (key === "article:published_time" || key === "date" || key === "datepublished" || key === "og:published_time") && el.attrs.content) meta.publishedAt = el.attrs.content.trim();
+        if (meta.publishedAt === undefined && (key === "article:published_time" || key === "date" || key === "datepublished" || key === "og:published_time") && el.attrs.content) meta.publishedAt = clip(el.attrs.content.trim(), META_MAX.publishedAt);
         break;
       }
       case "time":
-        if (meta.publishedAt === undefined && el.attrs.datetime) meta.publishedAt = el.attrs.datetime.trim();
+        if (meta.publishedAt === undefined && el.attrs.datetime) meta.publishedAt = clip(el.attrs.datetime.trim(), META_MAX.publishedAt);
         break;
       case "script":
         scripts++;
