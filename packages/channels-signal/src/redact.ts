@@ -6,7 +6,12 @@ const SOCKET_PATH = /(?:\/[\w.@-]+){2,}\.sock\b|\/(?:run|var|tmp|home|Users)\/[^
 
 export function redactString(s: string, ...known: readonly string[]): string {
   let out = s;
-  for (const k of known) if (k) out = out.split(k).join("[redacted]");
+  for (const k of known) {
+    if (!k) continue;
+    out = out.split(k).join("[redacted]");
+    // The same number is often logged without its plus sign.
+    if (/^\+\d{7,15}$/.test(k)) out = out.split(k.slice(1)).join("[redacted]");
+  }
   return out.replace(UUID, "[uuid]").replace(E164, "+[redacted]").replace(SOCKET_PATH, "[path]");
 }
 

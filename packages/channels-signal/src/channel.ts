@@ -53,6 +53,9 @@ const HARD_MAX_MEDIA = 25 * 1024 * 1024;
 const MAX_LINE_BYTES = 40 * 1024 * 1024;
 const DEDUPE_MAX = 2048;
 const QUOTE_MAX = 512;
+/** Notifications waiting for processing; more are dropped (a flooding peer must not grow memory without bound). */
+const QUEUE_MAX = 256;
+const MAX_ATTACHMENTS = 10;
 const SAFE_MIME =
   /^(image\/(jpeg|png|webp|gif)|audio\/(ogg|mpeg|mp4|aac|wav|x-wav|flac)|video\/(mp4|webm)|application\/(pdf|octet-stream)|text\/plain)$/;
 const CAPABILITIES: ChannelCapabilities = {
@@ -183,8 +186,10 @@ function kindOf(mime: string): Attachment["kind"] {
   if (mime.startsWith("video/")) return "video";
   return "document";
 }
+/** Basename only, no dot-segments or hidden names: "..", ".", ".bashrc" can never reach a host that joins it onto a path. Empty = no usable name. */
 function safeName(name: string): string {
-  return name.replace(/[^A-Za-z0-9_.-]/g, "_").slice(0, 120);
+  const base = name.split(/[\\/]/).pop() ?? "";
+  return base.replace(/[^A-Za-z0-9_.-]/g, "_").replace(/^\.+/, "").slice(0, 120);
 }
 
 /**
@@ -217,6 +222,7 @@ export class SignalChannel implements Channel {
   #starting: Promise<void> | undefined;
   #loop: Promise<void> | undefined;
   #queue: Promise<void> = Promise.resolve();
+  #queued = 0;
   #healthy = false;
   #accountUuid: string | undefined;
 
@@ -384,6 +390,7 @@ export class SignalChannel implements Channel {
     const target = this.#target(turn.chatId);
     const quote = turn.replyTo !== undefined ? this.#quoteFor(turn.replyTo) : undefined;
     const styled: StyledText = turn.markdown === false ? { text: turn.text, styles: [] } : toSignalText(turn.text);
+    for (const a of turn.attachments ?? []) this.#checkOutbound(a);
     const refs: SentRef[] = [];
     const chunks = splitStyled(styled, this.capabilities.maxMessageChars);
     for (const [i, chunk] of chunks.entries()) {
@@ -397,8 +404,7 @@ export class SignalChannel implements Channel {
       refs.push(await this.#sendParams(client, target.chatId, target.kind, params, signal));
     }
     for (const a of turn.attachments ?? []) {
-      this.#checkOutbound(a);
-      const name = a.filename ? safeName(a.filename) : `attachment.${a.kind}`;
+      const name = (a.filename ? safeName(a.filename) : "") || `attachment.${a.kind}`;
       const uri = `data:${a.mimeType};filename=${name};base64,${Buffer.from(a.data).toString("base64")}`;
       const params = { account: this.#o.account, ...target.params, message: "", attachments: [uri] };
       refs.push(await this.#sendParams(client, target.chatId, target.kind, params, signal));
@@ -532,10 +538,15 @@ export class SignalChannel implements Channel {
   // ---- inbound ---------------------------------------------------------------------------------------------------
 
   #enqueue(params: unknown): void {
+    if (this.#queued >= QUEUE_MAX) return this.#log("warn", "channel.signal.queue-full", {});
+    this.#queued += 1;
     this.#queue = this.#queue
       .then(() => this.#receive(params))
       .catch(() => {
         this.#log("error", "channel.signal.receive-failed", {});
+      })
+      .finally(() => {
+        this.#queued -= 1;
       });
   }
 
@@ -557,12 +568,16 @@ export class SignalChannel implements Channel {
     const p = params && typeof params === "object" ? (params as { envelope?: WireEnvelope; account?: string }) : undefined;
     const env = (p?.envelope ?? p) as WireEnvelope | undefined;
     if (!env || typeof env !== "object") return;
+    // A daemon serving several accounts tags each notification; never process another account's traffic.
+    if (p?.account !== undefined && p.account !== this.#o.account) return;
     if (env.syncMessage !== undefined || env.receiptMessage !== undefined || env.typingMessage !== undefined) return;
     const dm = env.dataMessage;
     if (!dm || typeof dm !== "object") return;
 
-    const number = pick(env.sourceNumber, env.source && E164.test(env.source) ? env.source : undefined);
-    const uuid = pick(env.sourceUuid, env.source && UUID.test(env.source) ? env.source : undefined);
+    // Sender identifiers must have the shape of a number or uuid: anything else (e.g. a string equal to an allowlisted group id)
+    // would otherwise become a DM chat id and ride on the group allowlist.
+    const number = pick(...[env.sourceNumber, env.source].filter((x) => typeof x === "string" && E164.test(x)));
+    const uuid = pick(...[env.sourceUuid, env.source].filter((x) => typeof x === "string" && UUID.test(x)));
     const senderIds = [number, uuid].filter((x): x is string => x !== undefined);
     if (senderIds.length === 0 || this.#isBot(number, uuid)) return;
     const senderId = senderIds[0]!;
@@ -582,8 +597,10 @@ export class SignalChannel implements Channel {
       chatId = groupId;
     } else {
       chatKind = "direct";
-      chatId = senderId;
-      if (!senderIds.some((id) => this.#dm.has(id)) && !this.#allow.has(chatId)) return this.#drop("dm-not-allowed");
+      // The chat id is an identifier the allowlists know, so replies (which go through #target) are always deliverable.
+      const known = senderIds.find((id) => this.#dm.has(id)) ?? senderIds.find((id) => this.#allow.has(id));
+      if (known === undefined) return this.#drop("dm-not-allowed");
+      chatId = known;
     }
 
     // Mentions: strip the placeholder for the bot (addressed); other mentions become readable @names.
@@ -775,6 +792,8 @@ export class SignalChannel implements Channel {
     const out: Attachment[] = [];
     const ac = this.#ac;
     if (!ac || !this.#client) throw new Error("not started");
+    if (list.length > MAX_ATTACHMENTS) throw new Error("too many attachments");
+    let total = 0;
     for (const a of list) {
       if (!a || typeof a.id !== "string" || !/^[A-Za-z0-9_+/=.-]{1,256}$/.test(a.id)) throw new Error("bad attachment");
       if (a.size !== undefined && (!Number.isSafeInteger(a.size) || a.size < 0 || a.size > this.#max))
@@ -786,13 +805,15 @@ export class SignalChannel implements Channel {
       const b64 = typeof r === "string" ? r : r && typeof r === "object" && typeof (r as { data?: unknown }).data === "string" ? (r as { data: string }).data : undefined;
       if (b64 === undefined || b64.length > Math.ceil(this.#max / 3) * 4 + 4) throw new Error("media size limit");
       const data = Buffer.from(b64, "base64");
+      total += data.length;
+      if (total > HARD_MAX_MEDIA) throw new Error("media size limit");
       if (data.length === 0 || data.length > this.#max || (a.size !== undefined && data.length > a.size))
         throw new Error("media size limit");
       out.push({
         kind: kindOf(mime),
         data: new Uint8Array(data),
         mimeType: mime,
-        ...(a.filename ? { filename: safeName(a.filename) } : {}),
+        ...(a.filename && safeName(a.filename) ? { filename: safeName(a.filename) } : {}),
       });
     }
     return out;
