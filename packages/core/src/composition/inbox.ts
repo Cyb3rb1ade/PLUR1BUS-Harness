@@ -24,7 +24,13 @@ export function openInbox(o: InboxCompositionOptions): InboxComposition {
   });
   const service = createInboxService({ store, admins: o.admins, onChange: o.onChange, onPublished: o.onPublished, log: o.log });
   let migrated = 0;
-  try { migrated = migrateBreakglassNotices(store, o.legacyNotices()); } catch (e) { o.log("break-glass notices were not copied to the inbox", { error: e instanceof Error ? e.message : String(e) }); }
+  const errText = (e: unknown) => e instanceof Error ? e.message : String(e);
+  try {
+    // One notice at a time: a malformed one is logged and skipped, it must not hide the valid notices behind it.
+    for (const n of o.legacyNotices()) {
+      try { migrated += migrateBreakglassNotices(store, [n]); } catch (e) { o.log("a break-glass notice was not copied to the inbox", { error: errText(e) }); }
+    }
+  } catch (e) { o.log("break-glass notices were not copied to the inbox", { error: errText(e) }); }
   return { service, store, migrated, close: () => store.close() };
 }
 
