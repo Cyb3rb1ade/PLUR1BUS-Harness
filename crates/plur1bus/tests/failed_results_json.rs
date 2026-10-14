@@ -195,3 +195,172 @@ fn a_damaged_media_output_is_a_storage_failure_with_exit_1() {
         );
     }
 }
+
+/// A failed `approval verify` (a broken chain) keeps its result, adds the `error/1` object and still exits 1.
+#[test]
+fn a_broken_approval_chain_is_one_document_with_an_error_object_and_exit_1() {
+    let d = tempfile::tempdir().unwrap();
+    spawn(
+        d.path(),
+        vec![(
+            "approval.verify",
+            json!({"ok": false, "entries": 9, "head": null, "brokenAt": 4, "reason": "mac-mismatch"}),
+        )],
+    );
+    let (code, stdout) = run(d.path(), &["--json", "approval", "verify"]);
+    assert_eq!(code, Some(1));
+    let v: Value = serde_json::from_str(&stdout).expect("stdout is exactly one JSON document");
+    assert_eq!(v["schema"], "approval.verify/1");
+    assert_eq!(v["brokenAt"], 4, "the result is kept");
+    assert_eq!(v["error"]["schema"], "error/1");
+    assert_eq!(v["error"]["error"], "E_STORAGE");
+    assert_eq!(v["error"]["reason"], "approval-chain-broken");
+    assert_eq!(v["error"]["detail"], "mac-mismatch");
+    let (code, stdout) = run(d.path(), &["approval", "verify"]);
+    assert_eq!(code, Some(1));
+    assert!(stdout.contains("BROKEN"), "{stdout}");
+}
+
+#[test]
+fn an_intact_approval_chain_has_no_error_object() {
+    let d = tempfile::tempdir().unwrap();
+    spawn(
+        d.path(),
+        vec![(
+            "approval.verify",
+            json!({"ok": true, "entries": 0, "head": null}),
+        )],
+    );
+    let (code, stdout) = run(d.path(), &["--json", "approval", "verify"]);
+    assert_eq!(code, Some(0));
+    let v: Value = serde_json::from_str(&stdout).unwrap();
+    assert!(v.get("error").is_none(), "{v}");
+}
+
+/// The result of a failed probe has an `error` string of its own (the core's reason); it becomes the `reason` of the
+/// `error/1` object that takes its place.
+#[test]
+fn a_failed_embedding_probe_is_one_document_with_an_error_object_and_exit_1() {
+    let identity = json!({"provider": "p", "model": "m", "dimensions": 3});
+    let d = tempfile::tempdir().unwrap();
+    spawn(
+        d.path(),
+        vec![(
+            "admin.embedding.probe",
+            json!({"ok": false, "error": "dimension-mismatch", "cached": false, "identity": identity,
+                   "durationMs": 1.0, "checkedAt": 1}),
+        )],
+    );
+    let (code, stdout) = run(d.path(), &["--json", "admin", "embedding", "probe"]);
+    assert_eq!(code, Some(1));
+    let v: Value = serde_json::from_str(&stdout).expect("stdout is exactly one JSON document");
+    assert_eq!(v["schema"], "admin.embedding.probe/1");
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["identity"]["model"], "m", "the result is kept");
+    assert_eq!(v["error"]["schema"], "error/1");
+    assert_eq!(v["error"]["error"], "E_INTERNAL");
+    assert_eq!(v["error"]["reason"], "dimension-mismatch");
+
+    let d = tempfile::tempdir().unwrap();
+    spawn(
+        d.path(),
+        vec![(
+            "admin.embedding.probe",
+            json!({"ok": true, "cached": false, "identity": identity, "durationMs": 1.0, "checkedAt": 1}),
+        )],
+    );
+    let (code, stdout) = run(d.path(), &["--json", "admin", "embedding", "probe"]);
+    assert_eq!(code, Some(0));
+    let v: Value = serde_json::from_str(&stdout).unwrap();
+    assert!(v.get("error").is_none(), "{v}");
+}
+
+#[test]
+fn a_failing_channel_test_is_one_document_with_an_error_object_and_exit_1() {
+    let d = tempfile::tempdir().unwrap();
+    spawn(
+        d.path(),
+        vec![(
+            "channel.test",
+            json!({"id": "telegram", "ok": false, "state": "error", "detail": "bad token", "sent": false}),
+        )],
+    );
+    let (code, stdout) = run(d.path(), &["--json", "channel", "test", "telegram"]);
+    assert_eq!(code, Some(1));
+    let v: Value = serde_json::from_str(&stdout).expect("stdout is exactly one JSON document");
+    assert_eq!(v["schema"], "channel.test/1");
+    assert_eq!(v["state"], "error", "the result is kept");
+    assert_eq!(v["error"]["schema"], "error/1");
+    assert_eq!(v["error"]["error"], "E_INTERNAL");
+    assert_eq!(v["error"]["reason"], "channel-test-failed");
+    assert_eq!(v["error"]["detail"], "bad token");
+
+    let d = tempfile::tempdir().unwrap();
+    spawn(
+        d.path(),
+        vec![(
+            "channel.test",
+            json!({"id": "telegram", "ok": true, "state": "running", "sent": false}),
+        )],
+    );
+    let (code, stdout) = run(d.path(), &["--json", "channel", "test", "telegram"]);
+    assert_eq!(code, Some(0));
+    let v: Value = serde_json::from_str(&stdout).unwrap();
+    assert!(v.get("error").is_none(), "{v}");
+}
+
+/// `chat --message`: a turn that `failed` carries an `error` string from the core; the document gets the `error/1`
+/// object in its place (`reason=turn-failed`, the core's string as `detail`), exit 1.
+#[test]
+fn a_failed_chat_turn_is_one_document_with_an_error_object_and_exit_1() {
+    let d = tempfile::tempdir().unwrap();
+    let submit = |state: &str, extra: Value| {
+        let mut v = json!({"sessionId": "s1", "turnId": "t1", "messageId": "m1", "state": state});
+        for (k, x) in extra.as_object().unwrap() {
+            v[k] = x.clone();
+        }
+        v
+    };
+    spawn(
+        d.path(),
+        vec![
+            (
+                "session.get",
+                json!({"session": {"id": "s1", "agentId": "main"}}),
+            ),
+            (
+                "session.submit",
+                submit("failed", json!({"error": "provider-timeout"})),
+            ),
+        ],
+    );
+    let args = ["--json", "chat", "--session", "s1", "hi"];
+    let (code, stdout) = run(d.path(), &args);
+    assert_eq!(code, Some(1), "{stdout}");
+    let v: Value = serde_json::from_str(&stdout).expect("stdout is exactly one JSON document");
+    assert_eq!(v["schema"], "chat.turn/1");
+    assert_eq!(v["state"], "failed", "the result is kept");
+    assert_eq!(v["error"]["schema"], "error/1");
+    assert_eq!(v["error"]["error"], "E_INTERNAL");
+    assert_eq!(v["error"]["reason"], "turn-failed");
+    assert_eq!(v["error"]["detail"], "provider-timeout");
+
+    let d = tempfile::tempdir().unwrap();
+    spawn(
+        d.path(),
+        vec![
+            (
+                "session.get",
+                json!({"session": {"id": "s1", "agentId": "main"}}),
+            ),
+            (
+                "session.submit",
+                submit("completed", json!({"reply": "ok"})),
+            ),
+        ],
+    );
+    let (code, stdout) = run(d.path(), &args);
+    assert_eq!(code, Some(0), "{stdout}");
+    let v: Value = serde_json::from_str(&stdout).unwrap();
+    assert!(v.get("error").is_none(), "{v}");
+}
