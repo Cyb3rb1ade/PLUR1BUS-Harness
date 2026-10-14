@@ -29,7 +29,7 @@ import { createPolicyAudit } from '../policy/audit.ts';
 import type { GrantSource } from '../policy/index.ts';
 import { createMcpRegistry } from '../mcp/index.ts';
 import { composeMedia, type MediaDefinition } from './media.ts';
-import { composeAuth, type ProviderDefinition } from './auth.ts';
+import { composeAuth, type ProviderDefinition, type RefusedProvider } from './auth.ts';
 import { composeTools, type ToolCompositionOptions } from './tools.ts';
 import { createTurnProvider, type TurnProviderOptions } from './provider.ts';
 import { ToolRegistry } from '../tools/registry.ts';
@@ -68,7 +68,7 @@ export interface CompositionDeps {
   /** web.search over the SearXNG sidecar (`sidecars/web-search.ts`); absent, no search tool is registered. */
   webSearch?: import('../tools/web/search.ts').WebSearch;
 }
-export interface TurnComposition { discoveryCredentials: (definition: ProviderDefinition) => import("../auth/credentials.ts").CredentialsProvider | undefined; voice: VoiceRuntime; openai: OpenAIRuntime; sessions: SessionService; collab: Collab | null; surfaceMethods: Record<string, Handler>; close(): Promise<void> }
+export interface TurnComposition { /** Provider definitions refused at composition (`E_CONFIG_INVALID`); they serve no turn. Empty when all were composed. */ refusedProviders: readonly RefusedProvider[]; discoveryCredentials: (definition: ProviderDefinition) => import("../auth/credentials.ts").CredentialsProvider | undefined; voice: VoiceRuntime; openai: OpenAIRuntime; sessions: SessionService; collab: Collab | null; surfaceMethods: Record<string, Handler>; close(): Promise<void> }
 /**
  * D109: the approval service's repeat-denied / prompt-cap context for one dispatched call. The permission stores are opened by
  * `beforeTools` before any dispatch; if they are not, this throws and the dispatcher refuses the call (fail closed).
@@ -120,6 +120,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     disposers.push(() => registered.clear());
     const auth = isolated('turn providers', () => composeAuth({ config: cfg, definitions, openai, secrets: d.secrets, egress: d.egress, registerSecret, log: record => d.logger.info('turn.stage', { ...record }), ...(options.fetch ? { fetch: options.fetch } : {}) }));
     if (auth) disposers.push(() => auth.close());
+    for (const r of auth?.refused ?? []) d.logger.error('turn provider refused', { code: r.code, provider: r.provider, reason: r.reason });
     const hostctl = createHostctlPool({ config: cfg.tools?.hostctl, audit: event => d.audit.append({ at: d.clock(), actor: { user: event.principal, host: 'local' }, action: event.operation, target: event.paths.join(';'), detail: { ...event } }) });
     disposers.push(() => hostctl.close());
     const audit = createPolicyAudit({ sink: d.audit, clock: { now: d.clock } });
@@ -184,7 +185,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     sessions = openSessionService({ ...maintenance, dbPath: join(d.home, 'state', 'sessions.sqlite'), clock: d.clock, logger: d.logger, agents: d.agents, isStopping: d.isStopping, memory, provider: () => provider, notify: d.notify, signal: d.signal, onSessionEnd: id => { void hostctl.endSession(id).catch(err => d.logger.warn('hostctl session cleanup failed', { err })); }, ...(d.approver ? { approver: d.approver } : {}) });
     let closed = false;
     const opened = sessions;
-    return { discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, surfaceMethods: { ...mediaSurface.methods, ...mediaSearchMethods({ home: d.home, config: d.config, agents: d.agents }, mediaSearch) }, async close() {
+    return { refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, surfaceMethods: { ...mediaSurface.methods, ...mediaSearchMethods({ home: d.home, config: d.config, agents: d.agents }, mediaSearch) }, async close() {
       if (closed) return; closed = true;
       await opened.close();
       for (const close of disposers.reverse()) try { await close(); } catch (e) { d.logger.warn('turn service shutdown failed', { err: e }); }
