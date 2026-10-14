@@ -1,11 +1,37 @@
 import { isIP } from 'node:net';
 import { MediaError, failure } from './types.ts';
 import type { ImageFormat } from './types.ts';
+function privateV4(p: readonly number[]): boolean {
+  const [a, b] = [p[0]!, p[1]!];
+  // 0/8 "this network", loopback, RFC 1918, link-local (cloud metadata lives at 169.254.169.254) and carrier-grade NAT.
+  return a === 0 || a === 127 || a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31) || (a === 169 && b === 254) || (a === 100 && b >= 64 && b <= 127);
+}
+/** Eight 16-bit groups of an IPv6 literal, or undefined. Handles `::` and a dotted IPv4 tail, which is how URL parsing spells mapped addresses it did not normalise. */
+function groupsV6(text: string): number[] | undefined {
+  let t = text.split('%')[0]!; const dot = t.lastIndexOf('.');
+  if (dot >= 0) {
+    const colon = t.lastIndexOf(':'); const v4 = t.slice(colon + 1).split('.').map(Number);
+    if (v4.length !== 4 || v4.some(n => !Number.isInteger(n) || n < 0 || n > 255)) return undefined;
+    t = `${t.slice(0, colon + 1)}${((v4[0]! << 8) | v4[1]!).toString(16)}:${((v4[2]! << 8) | v4[3]!).toString(16)}`;
+  }
+  const halves = t.split('::'); if (halves.length > 2) return undefined;
+  const groups = (part: string): number[] | undefined => { if (part === '') return []; const items = part.split(':'); return items.every(g => /^[0-9a-f]{1,4}$/i.test(g)) ? items.map(g => parseInt(g, 16)) : undefined; };
+  const head = groups(halves[0]!); const rest = halves.length === 2 ? groups(halves[1]!) : [];
+  if (!head || !rest) return undefined;
+  if (halves.length === 1) return head.length === 8 ? head : undefined;
+  const fill = 8 - head.length - rest.length; return fill >= 1 ? [...head, ...Array<number>(fill).fill(0), ...rest] : undefined;
+}
+/** True for loopback, "this host", RFC 1918, link-local, carrier-grade NAT and unique-local addresses, `localhost`, including IPv4-mapped IPv6 spellings of them. */
 export function privateHost(host: string): boolean {
-  const h = host.replace(/^\[|\]$/g, '');
-  if (h === 'localhost' || h === '::1') return true;
-  if (isIP(h) === 4) { const p = h.split('.').map(Number); return p[0] === 127 || p[0] === 10 || (p[0] === 192 && p[1] === 168) || (p[0] === 172 && p[1]! >= 16 && p[1]! <= 31); }
-  return isIP(h) === 6 && /^(fc|fd)/i.test(h);
+  const h = host.replace(/^\[|\]$/g, '').toLowerCase().replace(/\.$/, '');
+  if (h === 'localhost') return true;
+  if (isIP(h) === 4) return privateV4(h.split('.').map(Number));
+  if (isIP(h) !== 6) return false;
+  const g = groupsV6(h); if (!g) return true; // an IPv6 literal we cannot read is never treated as public
+  if (g.slice(0, 7).every(x => x === 0)) return true; // :: and ::1
+  if ((g[0]! & 0xffc0) === 0xfe80 || (g[0]! & 0xfe00) === 0xfc00) return true;
+  const embedded = g.slice(0, 5).every(x => x === 0) && (g[5] === 0xffff || g[5] === 0) || (g[0] === 0x64 && g[1] === 0xff9b && g.slice(2, 6).every(x => x === 0)); // mapped, compatible, NAT64
+  return embedded && privateV4([g[6]! >> 8, g[6]! & 255, g[7]! >> 8, g[7]! & 255]);
 }
 export function checkedUrl(value: string): URL {
   let url: URL; try { url = new URL(value); } catch { throw new MediaError('unsupported_parameter'); }
