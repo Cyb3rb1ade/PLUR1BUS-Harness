@@ -230,3 +230,61 @@ describe("exec.run tool spec", () => {
     assert.equal(ok.value.stdout, "hi");
   });
 });
+
+describe("exec.run: a request cannot steer which program runs", () => {
+  it("allowlist tier: PATH (and the other lookup variables) cannot be requested, so `git` stays the allowlisted git", async () => {
+    const { root, sub } = tmpRoot();
+    const m = mk({ root, envAllow: ["PATH", "PATHEXT", "COMSPEC", "SystemRoot", "GIT_AUTHOR_NAME"] });
+    m.port.onSpawn = (p) => p.exit(0);
+    for (const name of ["PATH", "PATHEXT", "COMSPEC", "SystemRoot"]) {
+      await fails(execRun({ program: "git", cwd: sub, env: { [name]: "/tmp/evil" } }, m.deps), "env-refused");
+    }
+    assert.equal(m.port.spawned.length, 0);
+    await run(m, { program: "git", cwd: sub, env: { GIT_AUTHOR_NAME: "Ann" } });
+    assert.equal(m.port.spawned.length, 1);
+  });
+  it("ask tier: the approved action covers env values, not just names (an approval for PATH=/usr/bin is not one for PATH=/tmp/evil)", async () => {
+    const { root, sub } = tmpRoot();
+    const m = mk({ root, mode: "ask" });
+    m.port.onSpawn = (p) => p.exit(0);
+    await run(m, { program: "git", cwd: sub, env: { PATH: "/usr/bin" } });
+    await run(m, { program: "git", cwd: sub, env: { PATH: "/tmp/evil" } });
+    const hashes = m.audit.events.filter((e) => e.action === "exec.run").map((e) => e.detail.actionHash);
+    assert.equal(hashes.length, 2);
+    assert.notEqual(hashes[0], hashes[1]);
+    assert.ok(!JSON.stringify(m.audit.events).includes("/tmp/evil"), "values stay out of the audit");
+  });
+  it("Windows spells a program with trailing dots: bash.exe. is bash.exe, x.bat. is a batch script", async () => {
+    const { root, sub } = tmpRoot();
+    const m = mk({ root, allowlist: [{ program: "bash.exe." }, { program: "x.bat." }, { program: "SUDO.EXE.." }] });
+    for (const program of ["bash.exe.", "pwsh.exe..", "x.bat.", "x.cmd..", "SUDO.EXE.."]) {
+      await assert.rejects(execRun({ program, cwd: sub }, m.deps), (e: unknown) => e instanceof ExecFailure && e.code === "program-refused", program);
+    }
+  });
+});
+
+describe("exec.run: an aborted call never starts the program", () => {
+  it("an already aborted signal spawns nothing and reports aborted", async () => {
+    const { root, sub } = tmpRoot();
+    const m = mk({ root });
+    const ac = new AbortController();
+    ac.abort();
+    const r = await execRun({ program: "git", cwd: sub }, m.deps, ac.signal);
+    assert.equal(r.aborted, true);
+    assert.equal(m.port.spawned.length, 0);
+  });
+  it("an abort while the approval is pending ends the wait; a late approval starts nothing", async () => {
+    const { root, sub } = tmpRoot();
+    let approve!: (a: { approved: boolean }) => void;
+    const m = mk({ root, mode: "ask" }, { approvals: { request: () => new Promise((res) => { approve = res; }) } });
+    const ac = new AbortController();
+    const p = execRun({ program: "git", cwd: sub }, m.deps, ac.signal);
+    await new Promise((r) => setTimeout(r, 10));
+    ac.abort();
+    const r = await Promise.race([p, new Promise<"stuck">((res) => setTimeout(() => res("stuck"), 500))]);
+    assert.notEqual(r, "stuck", "the call must not wait for the person after it was cancelled");
+    approve({ approved: true });
+    await new Promise((res) => setTimeout(res, 10));
+    assert.equal(m.port.spawned.length, 0);
+  });
+});
