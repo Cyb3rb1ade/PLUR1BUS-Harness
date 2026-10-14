@@ -94,14 +94,15 @@ export function parseDraft(f: Field, raw: string | boolean): Parsed {
     case "string": return { ok: true, value: text };
     case "int": case "number": {
       const s = text.trim();
-      const okFormat = f.kind === "int" ? /^-?\d+$/.test(s) : s !== "" && Number.isFinite(Number(s));
+      // An integer that doubles cannot hold exactly would be sent rounded (or as Infinity, which JSON turns into null).
+      const okFormat = f.kind === "int" ? /^-?\d+$/.test(s) && Number.isSafeInteger(Number(s)) : s !== "" && Number.isFinite(Number(s));
       if (!okFormat) return { ok: false, error: f.kind === "int" ? "settings.err.int" : "settings.err.number" };
       return bounds(Number(s)) ?? { ok: true, value: Number(s) };
     }
     case "strings": return { ok: true, value: text.split("\n").map((l) => l.trim()).filter((l) => l !== "") };
     case "ints": {
       const items = text.split("\n").map((l) => l.trim()).filter((l) => l !== "");
-      if (!items.every((s) => /^-?\d+$/.test(s))) return { ok: false, error: "settings.err.ints" };
+      if (!items.every((s) => /^-?\d+$/.test(s) && Number.isSafeInteger(Number(s)))) return { ok: false, error: "settings.err.ints" };
       const nums = items.map(Number);
       for (const n of nums) { const bad = bounds(n); if (bad) return bad; }
       return { ok: true, value: nums };
