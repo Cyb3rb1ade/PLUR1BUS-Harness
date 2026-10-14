@@ -18,6 +18,9 @@ export interface ScanScheduler {
   onScanned(provider: string): void;
 }
 
+// setTimeout treats anything above 2^31 - 1 ms as 1 ms, which would turn a far-future target into a busy re-arm loop.
+const MAX_TIMER_MS = 2 ** 31 - 1;
+
 export function createScanScheduler(o: {
   service: DiscoveryService;
   store: CatalogStore;
@@ -60,7 +63,8 @@ export function createScanScheduler(o: {
       armedTimers.delete(provider);
     }
 
-    const delayMs = Math.max(0, atMs - o.clock.now());
+    // A clamped timer fires early; its callback sees the stored nextScanAt in the future and re-arms.
+    const delayMs = Math.min(MAX_TIMER_MS, Math.max(0, atMs - o.clock.now()));
     const handle = o.clock.setTimer(async () => {
       armedTimers.delete(provider);
       if (stopped) return;

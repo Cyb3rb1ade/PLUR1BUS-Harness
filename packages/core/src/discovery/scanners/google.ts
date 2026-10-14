@@ -3,7 +3,7 @@ import type { ProfileInfo } from "../ports.ts";
 // GET /models?pageSize=1000, next page adds pageToken=<nextPageToken>. Key travels in lease header (x-goog-api-key).
 import type { ModelKind, RawEntry } from "../types.ts";
 import { ScanError, type PinnedClient } from "../http.ts";
-import { checkId, checkPositiveInt, checkString, finalizeEntries } from "../validate.ts";
+import { checkId, present, checkPositiveInt, checkString, finalizeEntries } from "../validate.ts";
 import type { ScanOutput, Scanner } from "./index.ts";
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -26,8 +26,8 @@ export const scanGoogle: Scanner = async (_profile: ProfileInfo, client: PinnedC
       let nameStr = checkString(item.name);
       if (nameStr.startsWith("models/")) nameStr = nameStr.slice("models/".length);
       const id = checkId(nameStr);
-      const displayName = item.displayName !== undefined ? checkString(item.displayName) : undefined;
-      const contextWindow = item.inputTokenLimit !== undefined ? checkPositiveInt(item.inputTokenLimit) : undefined;
+      const displayName = present(item.displayName) ? checkString(item.displayName) : undefined;
+      const contextWindow = present(item.inputTokenLimit) ? checkPositiveInt(item.inputTokenLimit) : undefined;
 
       let kind: ModelKind | undefined;
       if (Array.isArray(item.supportedGenerationMethods)) {

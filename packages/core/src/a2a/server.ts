@@ -54,7 +54,10 @@ export function createA2aServer(o: A2aServerOptions): A2aServer {
         if (!handler || !host || !allowedHosts.has(host) || !target.startsWith("/")) { send(res, 421, { "Content-Type": "application/json" }, '{"error":"misdirected"}'); return; }
         const h: Record<string, string | undefined> = {};
         for (const [k, v] of Object.entries(req.headers)) h[k] = Array.isArray(v) ? v.join(", ") : v;
+        const gone = new AbortController();
+        res.once("close", () => gone.abort());
         const areq: A2aHttpRequest = {
+          signal: gone.signal,
           method: req.method ?? "", path: target.split("?", 1)[0]!, headers: h,
           remote: (req.socket.remoteAddress ?? "unknown").replace(/^::ffff:/, ""), readBody: (limit) => readBody(req, limit),
         };
@@ -66,7 +69,7 @@ export function createA2aServer(o: A2aServerOptions): A2aServer {
           try {
             for await (const chunk of r.stream) {
               if (res.writableEnded) break;
-              if (!res.write(chunk)) await new Promise<void>((resolve) => res.once("drain", resolve));
+              if (!res.write(chunk)) await new Promise<void>((resolve) => { res.once("drain", resolve); res.once("close", resolve); });
             }
           } finally { if (!res.writableEnded) res.end(); }
           return;
