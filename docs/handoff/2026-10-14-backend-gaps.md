@@ -1,6 +1,6 @@
 # Backend-Follow-ups vom 14. Oktober 2026
 
-Repository: `Cyb3rb1ade/PLUR1BUS-Harness`. Basis `7ad60760` aus `origin/main`, Branch `codex/backend-gaps-1014`, eigener Worktree. PR: wird nach Abschluss der lokalen Prüfung ergänzt. Kein Force, Rebase, Amend, Merge oder CI-Polling. Keine neuen Abhängigkeiten; Engine-Pin und committed Lockfile unverändert.
+Repository: `Cyb3rb1ade/PLUR1BUS-Harness`. Basis `7ad60760` aus `origin/main`, Branch `codex/backend-gaps-1014`, eigener Worktree. PR: [#426](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/426) (Draft). Kein Force, Rebase, Amend, Merge oder CI-Polling. Keine neuen Abhängigkeiten; Engine-Pin und committed Lockfile unverändert.
 
 ## Feature-Bericht
 
