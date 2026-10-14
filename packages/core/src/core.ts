@@ -1,3 +1,4 @@
+import { authorize } from "./rbac/authorize.ts";
 import { apiAdmission } from "./rpc/api-admission.ts";
 import { apiIdentities } from "./rpc/api-identity.ts";
 import { buildDoctorMethods } from "./doctor-report.ts";
@@ -426,7 +427,7 @@ export function createCore(o: CoreOptions): Core {
       const events = (name: string, payload: unknown) => {
         // ADR-016 §6: the harness-owned notification, projected onto its schema.
         const m = mapEngineEvent(name, payload);
-        if (m) server?.notify(m.method, m.params, m.audience ? { audience: m.audience } : {});
+        if (m) server?.notify(m.method, m.params, m.audience ? { audience: m.audience.map(agentId => ({ agentId })) } : {});
         else if (!unmapped.has(name)) { unmapped.add(name); logger?.debug("unmapped engine event", { name }); }
         // G13: the deprecated verbatim forward, only to subscriptions that name engine.event.
         if (ENGINE_EVENT_NAMES.includes(name)) {
@@ -450,7 +451,7 @@ export function createCore(o: CoreOptions): Core {
       if (storeSchema.current !== null && storeSchema.current !== storeSchema.expected) {
         logger.warn("store schema differs from the engine's expected version; run `plur1bus admin migrate`", { current: storeSchema.current, expected: storeSchema.expected });
       }
-      activity.onChange((agentId, a) => server?.notify("agent.activity", { agentId, activity: a }));
+      activity.onChange((agentId, a) => server?.notify("agent.activity", { agentId, activity: a }, { audience: [{ agentId }] }));
 
       const discDefaults = defaultDiscoveryAdapters({ logger, runtime: {
         definitions: () => o.composition?.definitions ?? Object.fromEntries(Object.entries(cfg().providers).filter(([, value]) => !!value && typeof value === "object" && "wireFormat" in value)) as Record<string, DiscoveryProviderDefinition>,
@@ -761,8 +762,17 @@ export function createCore(o: CoreOptions): Core {
       let initialDoctorCheck: (() => Promise<unknown>) | undefined;
       Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, scheduleInitial: start => { initialDoctorCheck = start; } }));
       Object.assign(rawMethods, attachUserJobMethods({ ...rawMethods }, userJobs, resolvePrincipal));
+      // events.subscribe is handled in the shared transport; this guard still supplies its admission/audit.
+      rawMethods["events.subscribe"] = async () => ({});
       const methods = guardMethods(apiAdmission(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: AGENT_CREATION_RULES });
+      const subscribe = methods["events.subscribe"]!;
+      methods["events.subscribe"] = async (p, ctx) => {
+        // The API's credential-only control link watches account revocations, never agent events.
+        if (apiPrincipal(ctx) === null && p.agentId === undefined && Array.isArray(p.names) && p.names.length === 1 && p.names[0] === "api.account.changed") return {};
+        return subscribe(p, ctx);
+      };
       server = createRpcServer({
+        canReadAgent: async (ctx, agentId) => authorize(await resolvePrincipal(ctx, "events.subscribe", { agentId }), "agent.read", { kind: "agent", agentId }, { now: clock() }).effect === "allow",
         address, token, apiToken, apiPrincipalOf: apiIdentity.forwarded, onApiAuthenticated: apiIdentity.authenticated, apiPersonOfConnection: async (connectionId, p) => { const who = apiIdentity.resolve({ requestId: "audience", connectionId, signal: shutdown.signal }); return who?.kind === "person" && who.userId === p.userId ? who.userId : null; }, personOfConnection: async connectionId => { const p = await resolvePrincipal({ requestId: "audience", connectionId, signal: shutdown.signal }, "events.subscribe", {}); return p?.kind === "person" ? p.userId : null; }, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
         onConnectionClosed: (id) => { apiIdentity.closed(id); orphans?.connectionClosed(id); void turnComposition?.voice.v3.connectionClosed(id); },
         onCall: (method, result) => metrics.rpcCall(method, result),

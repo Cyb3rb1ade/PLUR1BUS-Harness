@@ -1,3 +1,4 @@
+import { authorize } from "./rbac-bridge.ts";
 import { randomUUID } from "node:crypto";
 import type { ServerResponse } from "node:http";
 import type { ApiPrincipal, AudienceTarget } from "@plur1bus/module-api";
@@ -5,7 +6,8 @@ import type { CoreRpc } from "./core-rpc.ts";
 import type { Session, SessionStore } from "./session.ts";
 import { ApiError, errors } from "./errors.ts";
 
-export const WEB_EVENT_NAMES = new Set(["core.state", "inbox.changed", "approval.requested", "approval.resolved", "grant.changed", "session.event", "project.card.changed", "project.column.changed", "voice.realtime.state", "voice.realtime.transcript", "voice.download.progress"]);
+export const AGENT_WEB_EVENTS = new Set(["recall.completed", "recall.degraded", "recall.block-clipped", "recall.block-dropped", "job.run", "dream.completed", "acl.denied", "agent.activity"]);
+export const WEB_EVENT_NAMES = new Set([...AGENT_WEB_EVENTS, "core.state", "inbox.changed", "approval.requested", "approval.resolved", "grant.changed", "session.event", "project.card.changed", "project.column.changed", "voice.realtime.state", "voice.realtime.transcript", "voice.download.progress"]);
 export const GLOBAL_WEB_EVENTS = new Set(["core.state"]);
 export function webEventAllowed(method: string, principal: ApiPrincipal, delivery: { audience: readonly AudienceTarget[] | null; connectionId: string }): boolean {
   if (!WEB_EVENT_NAMES.has(method)) return false;
@@ -14,6 +16,7 @@ export function webEventAllowed(method: string, principal: ApiPrincipal, deliver
   return delivery.audience.some(a => {
     if (typeof a === "string") return a === delivery.connectionId;
     if (!a || typeof a !== "object" || Array.isArray(a) || Object.keys(a).length !== 1) return false;
+    if ("agentId" in a) return AGENT_WEB_EVENTS.has(method) && typeof a.agentId === "string" && authorize(principal, "agent.read", { kind: "agent", agentId: a.agentId }).effect === "allow";
     return "connectionId" in a ? a.connectionId === delivery.connectionId : "personId" in a && a.personId === principal.userId;
   });
 }
