@@ -48,6 +48,7 @@ function ApprovalCard({
   canDecide: boolean;
   onDecided: () => void;
 }): View {
+  const confirmation = approval.osConfirmation;
   const options = approval.grantOptions ?? [{ scope: "once", requiredSurface: 1 }];
   const [selectedScope, setSelectedScope] = useState<GrantScopeName>(options[0]?.scope ?? "once");
   const [delegable, setDelegable] = useState(approval.delegable ?? false);
@@ -111,6 +112,9 @@ function ApprovalCard({
   return h(
     "article",
     { class: "approval-card-d109", "aria-labelledby": `approval-title-${approval.id}` },
+    confirmation ? h("p", { class: "field-hint", role: "status" },
+      t(`approvals.os.${confirmation.status}` as Key), confirmation.platform ? ` · ${confirmation.platform}` : "",
+      confirmation.status === "pending" ? ` ${t("approvals.os.deviceHint")}` : "") : null,
     h(
       "div",
       { class: "approval-card-head" },

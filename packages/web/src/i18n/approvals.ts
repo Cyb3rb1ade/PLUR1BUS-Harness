@@ -1,5 +1,11 @@
 // Approvals: requests, grants, D109 cards, decision, cancellation, revocation, attestation.
 export const en = {
+  "approvals.os.pending": "OS confirmation pending",
+  "approvals.os.confirmed": "OS confirmation confirmed",
+  "approvals.os.denied": "OS confirmation denied",
+  "approvals.os.failed": "OS confirmation failed; retry on the device",
+  "approvals.os.not_required": "No OS confirmation required",
+  "approvals.os.deviceHint": "Confirm on the device to continue.",
   "approvals.title": "Approvals & Grants",
   "approvals.intro": "Review pending authorization requests and manage active standing grants.",
   "approvals.tab.pending": "Pending Requests",
@@ -51,6 +57,12 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "approvals.os.pending": "OS-Bestätigung ausstehend",
+  "approvals.os.confirmed": "OS-Bestätigung erteilt",
+  "approvals.os.denied": "OS-Bestätigung abgelehnt",
+  "approvals.os.failed": "OS-Bestätigung fehlgeschlagen; erneut auf dem Gerät versuchen",
+  "approvals.os.not_required": "Keine OS-Bestätigung erforderlich",
+  "approvals.os.deviceHint": "Zum Fortfahren auf dem Gerät bestätigen.",
   "approvals.title": "Freigaben & Grants",
   "approvals.intro": "Ausstehende Autorisierungsanfragen prüfen und aktive Dauerberechtigungen verwalten.",
   "approvals.tab.pending": "Ausstehende Anfragen",

@@ -215,3 +215,19 @@ describe("approval.decide with an OS attestation", () => {
     r.service.dispose();
   });
 });
+
+it("approval exposes pending OS confirmation and then the confirmed platform", T, async () => {
+  const a = spy();
+  const r = await withAttester(a);
+  const { id, answer } = await r.park(SHELL);
+  const pending = await r.call("approval.get", { id });
+  assert.equal(pending.osConfirmation.required, true);
+  assert.equal(pending.osConfirmation.status, "pending");
+  await refused(r.call("approval.decide", { id, decision: "approve", scope: "session" }));
+  assert.equal((await r.call("approval.get", { id })).osConfirmation.platform, "touchid");
+  const decided = await r.call("approval.decide", { id, decision: "approve", scope: "session", attest: true });
+  assert.equal(decided.approval.osConfirmation.status, "confirmed");
+  assert.equal(decided.approval.osConfirmation.platform, "touchid");
+  assert.equal((await answer).approved, true);
+  r.service.dispose();
+});

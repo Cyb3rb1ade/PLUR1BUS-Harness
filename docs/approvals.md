@@ -659,3 +659,7 @@ Tool-Ergebnisse nie. Abweichung: `plur1bus approval audit` und eine 400-Tage-Auf
 10. Kleinere Spezifikationspunkte: Task-Parken und wiederholte Benachrichtigung, Ermüdungsschutz-Details, Diff und Modellbegründung
     in der Anfrage, `grant show`, `approval show`, `approval audit`, `grant.changed` für `used`, `expired`, `suspended`, der
     Inbox-Hinweis nach 90 Tagen, Oberflächen in den Einstellungen.
+
+## OS confirmation status
+
+`approval.get` and `approval.list` optionally include `osConfirmation`: required, pending/confirmed/denied/failed/not_required, platform and update time. It describes the current process's attempts; old resolved requests can omit it after restart. Pending T1 requests show whether OS confirmation is needed. The existing action-, person-, scope- and request-bound attestation remains mandatory for a T1 → T2 lift; a displayed confirmed state never authorizes another decision. Changes reuse `approval.requested`, through the existing permission-filtered notifier. The web queue shows pending device confirmation, success and failure.

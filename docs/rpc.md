@@ -20808,6 +20808,44 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "delegable"
   ],
   "properties": {
+    "osConfirmation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "status"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "confirmed",
+            "denied",
+            "failed",
+            "not_required"
+          ]
+        },
+        "platform": {
+          "type": "string",
+          "enum": [
+            "touchid",
+            "windows_hello",
+            "uac",
+            "polkit",
+            "other"
+          ]
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "Connection-relative OS confirmation state. A status is informational; approval still verifies a fresh, action-bound attestation."
+    },
     "id": {
       "$ref": "#/$defs/ApprovalId"
     },
