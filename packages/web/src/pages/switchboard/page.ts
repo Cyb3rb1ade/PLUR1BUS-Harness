@@ -1,7 +1,7 @@
 // Switchboard: list of connected channels, host state, effective configuration with secrets as names only,
 // enable/disable, field edit with schema validation & secret rejection, health test & send-owner, link-help.
 import { h } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Badge } from "../../components/card.ts";
 import { Dialog } from "../../components/dialog.ts";
@@ -105,7 +105,11 @@ function EditDialog({
   const [err, setErr] = useState("");
   const [isSecretErr, setIsSecretErr] = useState(false);
 
+  // A ref, not `busy`: a second Enter or click can arrive before the re-render that disables the button.
+  const inFlight = useRef(false);
   const save = async (): Promise<void> => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setErr("");
     setIsSecretErr(false);
@@ -117,10 +121,12 @@ function EditDialog({
         parsedVal = val;
       }
       await getApi().rpc("channel.set", { id: channelId, key, value: parsedVal });
+      inFlight.current = false;
       setBusy(false);
       onSaved();
       onClose();
     } catch (e) {
+      inFlight.current = false;
       setBusy(false);
       const o = (typeof e === "object" && e !== null ? e : {}) as {
         reason?: string;
@@ -149,10 +155,10 @@ function EditDialog({
         h(
           "button",
           {
-            type: "button",
+            type: "submit",
+            form: "channel-set-form",
             class: "btn btn-primary",
             disabled: busy,
-            onClick: () => { void save(); },
           },
           t("switchboard.action.save"),
         ),
@@ -333,12 +339,9 @@ function DetailView({
                 type: "button",
                 class: "btn btn-primary",
                 disabled: busy,
+                onClick: () => void toggle(true),
               },
-              h(
-                "span",
-                { onClick: () => void toggle(true) },
-                t("switchboard.action.enable"),
-              ),
+              t("switchboard.action.enable"),
             ),
         h(
           "button",
@@ -490,7 +493,7 @@ function SwitchboardContent({ sub }: { sub?: string }): View {
   const [selectedId, setSelectedId] = useState<string | null>(sub ?? null);
 
   useEffect(() => {
-    if (sub) setSelectedId(sub);
+    setSelectedId(sub ? sub : null);
   }, [sub]);
 
   if (state.status === "loading") return h(PageLoading, { label: t("state.loading") });
@@ -502,7 +505,9 @@ function SwitchboardContent({ sub }: { sub?: string }): View {
     });
 
   const { host, channels } = state.data;
-  const selected = selectedId || channels[0]?.id || null;
+  // `selectedId` drives the compact push navigation (list OR detail); the first channel is only the wide-layout default.
+  const selected = selectedId || null;
+  const shown = selected ?? channels[0]?.id ?? null;
 
   const select = (id: string): void => {
     setSelectedId(id);
@@ -530,7 +535,7 @@ function SwitchboardContent({ sub }: { sub?: string }): View {
                 {
                   type: "button",
                   class: "nav-link",
-                  "aria-current": selected === c.id ? "true" : undefined,
+                  "aria-current": shown === c.id ? "true" : undefined,
                   onClick: () => select(c.id),
                 },
                 h(
@@ -560,8 +565,8 @@ function SwitchboardContent({ sub }: { sub?: string }): View {
         ),
   );
 
-  const detailPane = selected
-    ? h(DetailView, { channelId: selected, host, onRefresh: reload })
+  const detailPane = shown
+    ? h(DetailView, { key: shown, channelId: shown, host, onRefresh: reload })
     : h(
         "div",
         null,
@@ -578,7 +583,8 @@ function SwitchboardContent({ sub }: { sub?: string }): View {
     h(ListDetail, {
       list: listPane,
       detail: detailPane,
-      selected: Boolean(selected),
+      ...(shown !== null ? { empty: detailPane } : {}),
+      selected: selected !== null,
       listLabel: t("switchboard.list.title"),
       detailLabel: t("switchboard.title"),
       onBack: () => {
