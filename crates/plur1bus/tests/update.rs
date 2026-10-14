@@ -412,7 +412,7 @@ fn min_from_version_blocks() {
 fn not_installed_is_not_available_with_the_setup_hint() {
     let h = Home::new(); // no manifest.json written
     let (code, doc) = run(&mut update_cmd(&h));
-    assert_eq!(code, 1, "{doc}");
+    assert_eq!(code, 2, "{doc}");
     assert_eq!(doc["error"], "E_NOT_AVAILABLE");
     assert_eq!(doc["reason"], "not-installed");
     assert!(
@@ -443,7 +443,7 @@ fn a_bad_signature_is_refused_when_a_key_is_present() {
         .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
         .env("PLUR1BUS_TEST_RELEASE_PUBKEY", &pubkey)
         .args(["--manifest", path.to_str().unwrap()]));
-    assert_eq!(code, 1, "{doc}");
+    assert_eq!(code, 2, "{doc}");
     assert_eq!(doc["error"], "E_NOT_AVAILABLE");
     assert_eq!(doc["reason"], "release-signature-invalid");
 }
@@ -488,7 +488,7 @@ fn update_check_in_container_mode_is_container_managed() {
     let (code, doc) = run(update_cmd(&h)
         .env("PLUR1BUS_CONTAINER", "1")
         .args(["--manifest", path.to_str().unwrap()]));
-    assert_eq!(code, 1, "{doc}");
+    assert_eq!(code, 2, "{doc}");
     assert_eq!(doc["error"], "E_NOT_AVAILABLE");
     assert_eq!(doc["reason"], "container-managed");
 }
@@ -503,7 +503,7 @@ fn update_without_check_needs_an_install_and_writes_nothing() {
         .arg(&h.home)
         .args(["update", "--yes"]);
     let (code, doc) = run(&mut c);
-    assert_eq!(code, 1, "{doc}");
+    assert_eq!(code, 2, "{doc}");
     assert_eq!(doc["reason"], "not-installed");
     assert!(!h.home.join("update").exists());
 }
@@ -528,7 +528,7 @@ fn offline_malformed_or_oversized_manifests_fail_cleanly_and_write_nothing() {
         &format!("http://127.0.0.1:{port}/stable.json"),
     ]));
     let took = started.elapsed();
-    assert_eq!(code, 1, "{doc}");
+    assert_eq!(code, 2, "{doc}");
     assert_eq!(doc["reason"], "release-unreachable", "{doc}");
     assert!(took < Duration::from_secs(31), "took {took:?}");
 
@@ -536,7 +536,7 @@ fn offline_malformed_or_oversized_manifests_fail_cleanly_and_write_nothing() {
     let bad = h._dir.path().join("bad.json");
     fs::write(&bad, b"{").unwrap();
     let (code, doc) = run(update_cmd(&h).args(["--manifest", bad.to_str().unwrap()]));
-    assert_eq!(code, 1, "{doc}");
+    assert_eq!(code, 2, "{doc}");
     assert_eq!(doc["reason"], "release-malformed", "{doc}");
 
     // Oversized (over the 1 MiB cap).
@@ -545,7 +545,7 @@ fn offline_malformed_or_oversized_manifests_fail_cleanly_and_write_nothing() {
     f.write_all(&vec![b' '; 50 * 1024 * 1024]).unwrap();
     drop(f);
     let (code, doc) = run(update_cmd(&h).args(["--manifest", huge.to_str().unwrap()]));
-    assert_eq!(code, 1, "{doc}");
+    assert_eq!(code, 2, "{doc}");
     assert_eq!(doc["reason"], "download-too-large", "{doc}");
 
     assert_eq!(

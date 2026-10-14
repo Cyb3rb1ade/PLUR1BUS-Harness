@@ -114,7 +114,6 @@ pub fn run(out: &Out, layout: &Layout) -> ! {
                 core_js.display()
             ),
             json!({}),
-            1,
         );
     }
     let mut cmd = Command::new(&node);
@@ -131,18 +130,16 @@ pub fn run(out: &Out, layout: &Layout) -> ! {
             "E_CORE_UNAVAILABLE",
             &format!("cannot exec {}: {e}", node.display()),
             json!({}),
-            1,
         );
     }
     #[cfg(windows)]
     {
         match cmd.status() {
-            Ok(s) => std::process::exit(s.code().unwrap_or(1)),
+            Ok(s) => std::process::exit(crate::output::child_exit_code(&s)),
             Err(e) => out.fail(
                 "E_CORE_UNAVAILABLE",
                 &format!("cannot start {}: {e}", node.display()),
                 json!({}),
-                1,
             ),
         }
     }

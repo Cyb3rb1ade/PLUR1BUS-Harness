@@ -9,7 +9,7 @@ import { startFakeVendor, sinePcm16, type FakeVendor } from "./helpers/fake-vend
 import { FakeEngine, testCatalogOverride, testFiles } from "./helpers/fake-engine.ts";
 import { collect, until } from "./helpers/common.ts";
 import { builtinCatalog, licenceKey } from "../src/local/catalog.ts";
-import type { DownloadProgress } from "../src/local/download.ts";
+import { downloadModel, type DownloadProgress } from "../src/local/download.ts";
 
 interface Rig { voice: LocalVoice; engine: FakeEngine; vendor: FakeVendor; dir: string; hits: string[]; done(): Promise<void> }
 async function rig(config: LocalVoiceConfig = {}, locale = "de_DE.UTF-8", now?: () => number): Promise<Rig> {
@@ -394,4 +394,31 @@ test("F19: local ASR honours options.language against the model's fixed language
     assert.ok((await r.voice.asr.transcribe(audio)).text);
     await assert.rejects(r.voice.asr.transcribe(audio, { language: "en-US" }), (e) => isVoiceProviderError(e) && e.code === "unsupported" && /de.*en-US/.test(e.message));
   } finally { await r.done(); }
+});
+
+test("owner decision 2026-10-14: the research-only Lessac voice is the preselected English fast voice, yet it is never installed without the per-model licence confirmation", async () => {
+  const cat = builtinCatalog();
+  const lessac = cat.models["piper-en-lessac-low"]!;
+  assert.equal(cat.languages["en"]!.tts.fast, "piper-en-lessac-low");
+  assert.equal(lessac.licence.commercial, false);
+  const urls: string[] = [];
+  const fetchSpy = async (url: string) => { urls.push(url); return new Response("nope", { status: 404 }); };
+  const dir = await mkdtemp(join(tmpdir(), "voice-local-gate-"));
+  try {
+    const voice = new LocalVoice({ modelsDir: dir, engine: new FakeEngine(), fetch: fetchSpy as never, systemLocale: () => "en_US" });
+    // preselected: yes
+    assert.equal(voice.resolveFor().language, "en");
+    // install without the licence confirmation: no. The preselected voice is skipped for its declared fallback, never fetched.
+    await assert.rejects(voice.setLanguage("en", { profile: "fast", download: true }), (e) => isVoiceProviderError(e));
+    assert.ok(!urls.includes(lessac.download[0]!.url!), `lessac fetched without confirmation: ${urls.join(",")}`);
+    const pending = voice.pendingLicences("en", "fast");
+    assert.ok(JSON.stringify(pending).includes(licenceKey(lessac)));
+    // with the confirmation for exactly this model and licence id the install proceeds to the download
+    // the downloader itself refuses before any request, and proceeds to the download only with the exact key
+    urls.length = 0;
+    await assert.rejects(downloadModel(lessac, { modelsDir: dir, fetch: fetchSpy as never }), (e) => isVoiceProviderError(e) && e.code === "licence_required");
+    assert.equal(urls.length, 0);
+    await assert.rejects(downloadModel(lessac, { modelsDir: dir, fetch: fetchSpy as never, acceptedLicences: [licenceKey(lessac)] }), (e) => isVoiceProviderError(e) && e.code !== "licence_required");
+    assert.deepEqual(urls, [lessac.download[0]!.url]);
+  } finally { await rm(dir, { recursive: true, force: true }); }
 });

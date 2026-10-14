@@ -8,7 +8,8 @@ import { CapabilityIndex } from '../toolcall/capabilities.ts';
 import { compileDialect, fromRegisteredTool, restoreStrictArguments } from '../toolcall/dialects.ts';
 import type { ProviderFamily } from '../toolcall/quirks.ts';
 import { capResult, type FullResultPort } from '../toolcall/results.ts';
-import { ToolDispatcher, type GrantUse, type DispatchContext } from '../tools/dispatcher.ts';
+import { ToolDispatcher, type GrantUse, type DispatchContext, type ToolResult } from '../tools/dispatcher.ts';
+import { createRedactor } from '../logs/redact.ts';
 import { AuthError } from '../auth/errors.ts';
 import type { SurfaceTrustLevel } from '../rbac/surface.ts';
 import type { ToolRegistry } from '../tools/registry.ts';
@@ -20,6 +21,36 @@ import type { ChatProvider, ChatRequest, ChatChunk } from '../session/provider.t
 import { currentTrace, newTrace, withTrace } from '../logs/trace.ts';
 import { stage, type PipelineLog } from './trace.ts';
 import { turnContext, promptContext } from './context.ts';
+
+/** Upper bound of the serialised `TurnToolError.detail` of a failed tool call, and of its error message. */
+const MAX_DETAIL_CHARS = 4096, MAX_DETAIL_MESSAGE = 500, MAX_DETAIL_ID = 128;
+type ToolFailure = Extract<ToolResult, { isError: true }>;
+export type ToolErrorDetail = Pick<ToolFailure, 'callId' | 'tool' | 'isError' | 'error'> & Partial<Pick<ToolFailure, 'provenance' | 'meta'>>;
+const clip = (s: string, max: number) => s.length > max ? `${s.slice(0, max - 1)}…` : s;
+/**
+ * The `detail` of a TurnToolError for a failed call: a redacted copy of the envelope (registered secret values and the log
+ * redaction rules), its message bounded; an envelope still over MAX_DETAIL_CHARS keeps only identity, code and message.
+ */
+export function toolErrorDetail(output: ToolFailure, secrets: Iterable<string> = []): ToolErrorDetail {
+  const redacted = createRedactor({ secrets }).value(output);
+  const error = { ...redacted.error, message: clip(String(redacted.error.message), MAX_DETAIL_MESSAGE) };
+  const full: ToolErrorDetail = { ...redacted, error };
+  if (JSON.stringify(full).length <= MAX_DETAIL_CHARS) return full;
+  return { callId: clip(String(redacted.callId), MAX_DETAIL_ID), tool: clip(String(redacted.tool), MAX_DETAIL_ID), isError: true, error: { code: error.code, message: error.message, ...(error.sourceCode === undefined ? {} : { sourceCode: clip(error.sourceCode, MAX_DETAIL_ID) }) } };
+}
+/**
+ * Tool-call ids of one response, made unique deterministically: the first call keeps its id, each later duplicate gets
+ * `<id>_<n>` with the smallest n >= 2 that no call of the response uses. Never merged under one id.
+ */
+export function uniqueToolCallIds<T extends { id: string }>(calls: readonly T[]): T[] {
+  const taken = new Set(calls.map(c => c.id)), seen = new Set<string>();
+  return calls.map(c => {
+    if (!seen.has(c.id)) { seen.add(c.id); return c; }
+    let n = 2; while (taken.has(`${c.id}_${n}`)) n++;
+    const id = `${c.id}_${n}`; taken.add(id); seen.add(id);
+    return { ...c, id };
+  });
+}
 
 export class TurnToolError extends Error {
   readonly code: string; readonly detail: unknown;
@@ -42,6 +73,8 @@ export interface TurnProviderOptions {
   billing?: Readonly<Record<string, BillingClass>>;
   /** Profiles whose config explicitly allows a fallback across billing classes. Default: refuse. */
   allowCrossBilling?: (profile: string) => boolean;
+  /** Secret values this process registered (leased credentials); a failed tool's `detail` is redacted against them. */
+  secrets?: () => Iterable<string>;
   log: PipelineLog; resultStore: FullResultPort;
   maxTokens?: number; maxRounds?: number; topK?: number; system?: readonly string[];
   router?: Pick<RouterConfig, 'retry' | 'clock' | 'random' | 'breaker' | 'profileDefaults' | 'unsupportedProfiles'>;
@@ -274,9 +307,10 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         if (done.text.startsWith(roundText) && done.text.length > roundText.length) yield { type: 'delta', text: done.text.slice(roundText.length) };
         if (done.usage?.inputTokens !== undefined && done.usage.outputTokens !== undefined) { totalInputTokens += done.usage.inputTokens; totalOutputTokens += done.usage.outputTokens; yield { type: 'usage', inputTokens: totalInputTokens, outputTokens: totalOutputTokens }; }
         if (!done.toolCalls.length) return;
-        const toolCalls = done.toolCalls.map(c => ({ id: c.id, name: c.name, arguments: c.argumentsRaw }));
+        const calls = uniqueToolCallIds(done.toolCalls);
+        const toolCalls = calls.map(c => ({ id: c.id, name: c.name, arguments: c.argumentsRaw }));
         messages = [...messages, { role: 'assistant', content: done.text || null, toolCalls }];
-        for (const call of done.toolCalls) {
+        for (const call of calls) {
           signal.throwIfAborted();
           if (!selected.some(t => t.name === call.name)) throw new TurnToolError('tool-unknown', call.name);
           const tool = selected.find(t => t.name === call.name)!;
@@ -287,8 +321,8 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           signal.throwIfAborted();
           const output = await stage('tool-dispatch', signal, o.log, () => dispatcher.call({ id: call.id, name: call.name, args }, { ...(req.recurring ? { recurring: req.recurring } : {}), agentId: req.agentId, principal: approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface, signal }));
           if (fatal) throw fatal;
-          if (output.isError && approvalNeedsPerson) throw new TurnToolError('approval-requires-person', output);
-          if (output.isError) throw new TurnToolError(output.error.sourceCode ?? output.error.code, output);
+          if (output.isError && approvalNeedsPerson) throw new TurnToolError('approval-requires-person', toolErrorDetail(output, o.secrets?.() ?? []));
+          if (output.isError) throw new TurnToolError(output.error.sourceCode ?? output.error.code, toolErrorDetail(output, o.secrets?.() ?? []));
           if (repairs.has(call.name)) {
             const assistant = messages.at(-1);
             if (assistant?.role === 'assistant') { const executed = assistant.toolCalls?.find(c => c.id === call.id); if (executed) executed.arguments = JSON.stringify(repairs.get(call.name)); }

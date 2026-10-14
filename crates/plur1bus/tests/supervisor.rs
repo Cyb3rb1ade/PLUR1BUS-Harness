@@ -436,6 +436,22 @@ fn a_supervisor_under_launchd_that_finds_the_lock_held_by_an_offline_install_exi
 }
 
 #[test]
+fn a_supervisor_that_finds_the_lock_held_by_an_offline_install_exits_3_like_a_second_supervisor() {
+    // The home is held by another process and nobody answers: the same exit as "supervisor already running" (3,
+    // `E_LOCKED`). Only launchd keeps 1 for this case so that it retries (the test above).
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    let lock = hold_lock_like_an_offline_install(home);
+
+    let out = command(home).output().unwrap();
+    drop(lock);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(3), "{stderr}");
+    assert!(stderr.contains("no supervisor answered"), "{stderr}");
+    assert!(!run_dir(home).join("supervisor.token").exists());
+}
+
+#[test]
 fn a_supervisor_that_finds_the_lock_released_during_its_probe_wait_starts() {
     // The offline mutation ends within the 3 s probe wait: the second try_lock wins and this process serves.
     let dir = tempfile::tempdir().unwrap();

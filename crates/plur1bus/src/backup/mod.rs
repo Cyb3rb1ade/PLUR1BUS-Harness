@@ -31,13 +31,14 @@ impl BackupError {
 
     /// The CLI error code (an `ErrorCode` of the RPC schema) and exit status for this reason.
     pub fn code(&self) -> (&'static str, i32) {
-        match self.reason {
-            "core-running" => ("E_LOCKED", 3),
-            "core-unavailable" => ("E_CORE_UNAVAILABLE", 1),
-            "io" | "restore-failed" | "source-busy" | "snapshot-mismatch" => ("E_STORAGE", 1),
-            "exists" => ("E_CONFLICT", 1),
-            _ => ("E_INVALID_PARAMS", 1),
-        }
+        let code = match self.reason {
+            "core-running" => "E_LOCKED",
+            "core-unavailable" => "E_CORE_UNAVAILABLE",
+            "io" | "restore-failed" | "source-busy" | "snapshot-mismatch" => "E_STORAGE",
+            "exists" => "E_CONFLICT",
+            _ => "E_INVALID_PARAMS",
+        };
+        (code, crate::output::exit_code_for(code))
     }
 }
 

@@ -59,12 +59,7 @@ fn ask(question: &str) -> bool {
 }
 
 fn declined(out: &Out) -> ! {
-    out.fail(
-        "E_INVALID_PARAMS",
-        "not applied",
-        json!({ "applied": false }),
-        2,
-    )
+    out.fail("E_CANCELLED", "not applied", json!({ "applied": false }))
 }
 
 fn state_filter(s: Option<ExtState>) -> Option<Vec<String>> {

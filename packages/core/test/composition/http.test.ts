@@ -121,12 +121,19 @@ describe("composition/http providerFetch with an injected transport", () => {
     assert.equal("body" in init!, false);
   });
 
-  // characterization: Ist-Verhalten, nicht spezifiziert. A non-JSON string body on an anthropic request is not wrapped in a
-  // ProviderError: the SyntaxError from JSON.parse escapes, and the transport is never called.
-  it("characterization: an unparsable anthropic body surfaces a raw SyntaxError and sends nothing", async () => {
+  // A non-JSON string body on an anthropic request is refused locally with the adapter's own error type, so router retry and
+  // error mapping see a typed failure (and the budget knows nothing billable left the harness).
+  it("an unparsable anthropic body is refused as a ProviderError (request_refused_locally) and nothing is sent", async () => {
     let called = false;
     const f = providerFetch(never, "anthropic_messages", (async () => { called = true; return okResponse(); }) as typeof fetch);
-    await assert.rejects(() => f("https://x.invalid/", { method: "POST", body: "not json" }), SyntaxError);
+    await assert.rejects(() => f("https://x.invalid/", { method: "POST", body: "not json" }), (e) => e instanceof ProviderError && e.kind === "invalid_request" && e.code === "request_refused_locally" && !(e instanceof SyntaxError));
+    assert.equal(called, false);
+  });
+
+  it("an anthropic body that parses to a non-object is refused the same way", async () => {
+    let called = false;
+    const f = providerFetch(never, "anthropic_messages", (async () => { called = true; return okResponse(); }) as typeof fetch);
+    for (const body of ["null", "[]", "42"]) await assert.rejects(() => f("https://x.invalid/", { method: "POST", body }), (e) => e instanceof ProviderError && e.code === "request_refused_locally", body);
     assert.equal(called, false);
   });
 

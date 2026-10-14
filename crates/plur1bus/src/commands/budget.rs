@@ -255,7 +255,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: BudgetCmd) {
             };
             let params = match set_params(&args) {
                 Ok(p) => p,
-                Err(msg) => out.fail("E_INVALID_PARAMS", &msg, json!({}), 2),
+                Err(msg) => out.fail("E_INVALID_PARAMS", &msg, json!({})),
             };
             let mut client = connect_core(out, layout, "budget", Duration::from_secs(15));
             require_supports(out, &client, "budget.set");

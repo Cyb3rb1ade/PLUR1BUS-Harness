@@ -14,7 +14,6 @@ fn connect(out: &Out, layout: &Layout) -> Client {
                     "E_UNAUTHORIZED",
                     &format!("{e}"),
                     json!({ "reason": reason, "detail": detail }),
-                    1,
                 )
             }
             let detail = super::daemon::supervisor_detail(layout);
@@ -28,7 +27,6 @@ fn connect(out: &Out, layout: &Layout) -> Client {
                         "detail": detail
                     }
                 }),
-                1,
             )
         });
     super::connect_recorded(
@@ -52,7 +50,6 @@ fn connect(out: &Out, layout: &Layout) -> Client {
                     "detail": detail
                 }
             }),
-            1,
         )
     })
 }
@@ -93,10 +90,23 @@ fn llm_sessions_today(job_defs: &Value, job_runs: &Value, midnight_ms: u64) -> u
     count
 }
 
+/// The `error` of a dream run that did not complete (`failed` or `aborted`, or an outcome this CLI does not know).
+fn run_failure(target: &str, outcome: &str, v: &Value) -> crate::output::Failure {
+    let mut f = crate::output::Failure::new(
+        "E_INTERNAL",
+        "dream-run-failed",
+        format!("dreams: {target} ended {outcome}"),
+    );
+    if let Some(r) = v["reason"].as_str() {
+        f.extra["detail"] = json!(r);
+    }
+    f
+}
+
 pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
     // Read without creating config.json: only the supervisor (or a config-writing command) writes it (M4).
     let config = cfg::read_for_lookup(&layout.config_path(), &[])
-        .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1));
+        .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({})));
     let registered: Vec<String> = config["agents"]
         .as_object()
         .map(|m| m.keys().cloned().collect())
@@ -107,7 +117,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
                 "E_AGENT_UNKNOWN",
                 &format!("agent {id} is not registered"),
                 json!({}),
-                1,
             )
         }
     };
@@ -207,7 +216,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
                     "E_INVALID_PARAMS",
                     "--dry-run applies to the phases light, rem and deep",
                     json!({}),
-                    2,
                 );
             }
             let mut c = connect(out, layout);
@@ -220,7 +228,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
                     .call("dreams.run", params)
                     .unwrap_or_else(|e| out.from_rpc_error(&e));
                 let outcome = v["outcome"].as_str().unwrap_or("-").to_string();
-                out.ok("dreams.run/1", &v, || {
+                let human = || {
                     if dry_run {
                         format!(
                             "{target}: {} ({}) jobs: {}",
@@ -250,11 +258,17 @@ pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
                             v["runId"]
                         )
                     }
-                });
+                };
                 // A skip is a recorded, explained outcome (exit 0); a failure or an abort is not.
                 if matches!(outcome.as_str(), "failed" | "aborted") {
-                    std::process::exit(1);
+                    out.ok_but_failed(
+                        "dreams.run/1",
+                        &v,
+                        human,
+                        run_failure(&target, &outcome, &v),
+                    );
                 }
+                out.ok("dreams.run/1", &v, human);
                 return;
             }
             let job = target;
@@ -262,7 +276,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
                 .call("jobs.run", json!({ "agentId": agent, "job": job }))
                 .unwrap_or_else(|e| out.from_rpc_error(&e));
             let outcome = v["outcome"].as_str().unwrap_or("?").to_string();
-            out.ok("dreams.run/1", &v, || {
+            let human = || {
                 format!(
                     "{job}: {outcome}{} in {} ms (run {})",
                     v["reason"]
@@ -272,10 +286,16 @@ pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
                     v["durationMs"],
                     v["runId"]
                 )
-            });
+            };
             if !matches!(outcome.as_str(), "completed" | "skipped") {
-                std::process::exit(1);
+                out.ok_but_failed(
+                    "dreams.run/1",
+                    &v,
+                    human,
+                    run_failure(&format!("{agent}/{job}"), &outcome, &v),
+                );
             }
+            out.ok("dreams.run/1", &v, human);
         }
         DreamsCmd::Log {
             agent,
@@ -385,7 +405,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
                         "E_INVALID_PARAMS",
                         "nothing to change: give --cron, --timezone or --enabled",
                         json!({}),
-                        2,
                     );
                 }
                 let mut params = json!({ "agentId": agent, "phase": phase.as_str() });
@@ -498,6 +517,18 @@ fn scheduler_text(s: &Value) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_failed_run_is_an_internal_error_with_a_reason_and_the_exit_stays_1() {
+        let f = run_failure("bernd/light", "failed", &json!({ "reason": "llm-timeout" }));
+        assert_eq!(f.code, "E_INTERNAL");
+        assert_eq!(f.extra["reason"], "dream-run-failed");
+        assert_eq!(f.extra["detail"], "llm-timeout");
+        assert!(f.message.contains("bernd/light") && f.message.contains("failed"));
+        assert_eq!(crate::output::exit_code_for(f.code), 1);
+        let f = run_failure("light", "aborted", &json!({}));
+        assert!(f.extra.get("detail").is_none());
+    }
 
     #[test]
     fn test_llm_sessions_today_counts_rem_and_deep_phases() {
