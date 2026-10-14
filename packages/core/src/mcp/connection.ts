@@ -23,6 +23,7 @@ import { toolHeaderExtractor } from "./tool-headers.ts";
 const SDK_TIMER_SLACK_MS = 5000;
 const MAX_NAME = 128;
 const MAX_DESCRIPTION = 8192;
+const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/;
 const STDERR_LINE_MAX = 2000;
 const STDERR_PARTIAL_MAX = 64 * 1024;
 const STDERR_BURST = 20;
@@ -202,7 +203,7 @@ export class McpConnection {
     const out: McpToolDescriptor[] = [];
     this.tools.clear(); this.outputValidators.clear();
     for (const item of raw) {
-      if (typeof item.name !== "string" || !item.name || item.name.length > MAX_NAME || this.tools.has(item.name) || !item.inputSchema || typeof item.inputSchema !== "object" || Array.isArray(item.inputSchema) || (item.inputSchema as Record<string, unknown>).type !== "object") throw new McpClientError("protocol", "MCP tool descriptor invalid", { server: this.d.def.name });
+      if (typeof item.name !== "string" || !item.name || item.name.length > MAX_NAME || CONTROL_CHARS.test(item.name) || this.tools.has(item.name) || !item.inputSchema || typeof item.inputSchema !== "object" || Array.isArray(item.inputSchema) || (item.inputSchema as Record<string, unknown>).type !== "object") throw new McpClientError("protocol", "MCP tool descriptor invalid", { server: this.d.def.name });
       const tool = toDescriptor(item);
       if (this.transport instanceof ModernHttpTransport) {
         try { this.transport.setToolHeaders(tool.name, toolHeaderExtractor(tool.inputSchema)); }

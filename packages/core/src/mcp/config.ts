@@ -102,7 +102,7 @@ function validateTimeouts(raw: unknown, name: string): McpTimeouts {
   if (raw === undefined) return out;
   if (typeof raw !== "object" || raw === null) return invalid(name, "timeouts must be an object");
   for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
-    if (!(k in DEFAULT_TIMEOUTS)) invalid(name, `unknown timeout: ${k}`);
+    if (!Object.hasOwn(DEFAULT_TIMEOUTS, k)) invalid(name, `unknown timeout: ${k}`);
     if (typeof v !== "number" || !Number.isInteger(v) || v < MIN_MS || v > MAX_MS) invalid(name, `timeouts.${k} must be an integer from ${MIN_MS} to ${MAX_MS}`);
     out[k as keyof McpTimeouts] = v as number;
   }
