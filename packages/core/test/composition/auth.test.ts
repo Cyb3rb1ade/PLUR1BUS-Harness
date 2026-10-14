@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { defaults, type HarnessConfig } from "@plur1bus/config-schema";
 import { composeAuth, type ProviderDefinition } from "../../src/composition/auth.ts";
 import { ProviderError } from "../../../providers/src/index.ts";
+import { RpcError } from "../../src/rpc/errors.ts";
 import { wireFixture, type Wire } from "../integration/wire-fixture.ts";
 import { fakeEgress, fakeSecretService, recordingLog } from "./helpers.ts";
 
@@ -27,14 +28,34 @@ describe("composition/auth composeAuth: what it derives from the definitions", (
     try { assert.deepEqual(c.families, { a: "openai-chat", b: "anthropic", c: "openai-responses", d: "gemini" }); } finally { c.close(); }
   });
 
-  it("records a billing class only for definitions that have one (plan vs paid, ADR-005)", () => {
+  it("records the billing class of every correct definition unchanged (plan vs paid, ADR-005)", () => {
     const c = compose({
       key: definition("chat_completions", { id: "p1" }),
       cli: definition("chat_completions", { id: "p2", kind: "external_cli" }),
       explicit: definition("chat_completions", { id: "p3", billingPath: "plan" }),
-      unknown: definition("chat_completions", { id: "p4", billingPath: "enterprise" }),
+      login: definition("chat_completions", { id: "p5", kind: "oauth_pkce" }),
     });
-    try { assert.deepEqual(c.billing, { key: "paid", cli: "plan", explicit: "plan" }); } finally { c.close(); }
+    try { assert.deepEqual(c.billing, { key: "paid", cli: "plan", explicit: "plan", login: "plan" }); } finally { c.close(); }
+  });
+
+  // Fail closed (ADR-005 §Never): a provider whose billing class cannot be determined would never be refused for billing, so
+  // a plan provider with a misspelled path could be reached by fallback from a paid one. composeAuth refuses it at load.
+  const unclassified: [string, () => Def][] = [
+    ["a misspelled billingPath", () => definition("chat_completions", { billingPath: "enterprise" })],
+    ["an empty billingPath", () => ({ ...definition("chat_completions"), billingPath: "" })],
+    ["a billingPath in the wrong case", () => definition("chat_completions", { billingPath: "PLAN" })],
+    ["a misspelled profile.billing_path", () => { const d = definition("chat_completions"); (d.profile as unknown as Record<string, unknown>).billing_path = "chatgpt-plan"; return d; }],
+    ["an unknown credential kind", () => definition("chat_completions", { kind: "mystery" })],
+    ["a missing profile", () => ({ wireFormat: "chat_completions", entries: [] }) as unknown as Def],
+  ];
+  for (const [name, make] of unclassified) it(`fail closed: ${name} refuses the provider at load with E_CONFIG_INVALID`, () => {
+    const good = definition("chat_completions", { id: "good" });
+    assert.throws(() => compose({ good, broken: make() }), (e) => {
+      assert.ok(e instanceof RpcError, `RpcError expected, got ${String(e)}`);
+      assert.equal(e.error, "E_CONFIG_INVALID");
+      assert.deepEqual(e.ids, { provider: "broken" });
+      return true;
+    });
   });
 
   it("without modelProfiles a default profile is made from the providers that name a default model, in definition order", () => {
@@ -107,6 +128,15 @@ describe("composition/auth composeAuth: the provider adapters it builds", () => 
       } finally { c.close(); }
     });
   }
+
+  for (const wire of ["chat_completions", "anthropic_messages"] as const) it(`${wire}: every leased credential value is registered as a secret for redaction`, async () => {
+    const w = wireFixture(wire, [{ text: "hi" }]); const registered: string[] = [];
+    const c = composeAuth({ config: config(), definitions: { fixture: definition(wire) }, secrets: fakeSecretService({ "fixture.key": "redact-probe-alpha" }).service, egress: fakeEgress().egress, fetch: w.fetch, registerSecret: (v) => registered.push(v) });
+    try {
+      await drain(c.profiles.default![0]!.adapter.stream(userMessage));
+      assert.ok(registered.includes("redact-probe-alpha"), "the bare credential, without its header scheme");
+    } finally { c.close(); }
+  });
 
   it("a missing credential becomes an auth ProviderError and no request is made", async () => {
     const w = wireFixture("chat_completions", [{ text: "hi" }]);
