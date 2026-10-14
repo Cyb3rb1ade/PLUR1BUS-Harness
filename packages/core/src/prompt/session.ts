@@ -1,5 +1,5 @@
 import type { ContextBlock } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
-import { joinRecall, type PromptBuilder } from "./builder.ts";
+import { checkConversationItem, joinRecall, type PromptBuilder } from "./builder.ts";
 import type { CacheTtl } from "./model-table.ts";
 import type { ConversationItem, PromptEvent, RenderedPrompt, ToolDef } from "./types.ts";
 
@@ -78,7 +78,7 @@ export function createPromptSession(o: PromptSessionOptions): PromptSession {
     get memorySnapshot() { return memorySnapshot; },
     refreshMemorySnapshot(snapshot) { if (snapshot !== memorySnapshot) { memorySnapshot = snapshot; refreshed = true; } },
     setModel(next) { model = next; },
-    append(item) { items.push({ ...item }); },
+    append(item) { checkConversationItem(item); items.push({ ...item }); },
     recall(result, opts = {}) {
       const events: PromptEvent[] = [];
       const j = joinRecall(agentId, model, { blocks: result.blocks, ...(result.capChars !== undefined ? { capChars: result.capChars } : {}), ...(opts.delivery ? { delivery: opts.delivery } : {}), ...(opts.toolUseId ? { toolUseId: opts.toolUseId } : {}) }, (e) => { events.push(e); emit?.(e); });
