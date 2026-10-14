@@ -38,7 +38,13 @@ const MAX_MESSAGE = 500;
 
 export function redact(text: string, secrets: readonly string[] = []): string {
   let out = text;
-  for (const s of secrets) if (s.length >= 4) out = out.split(s).join("[redacted]");
+  for (const s of secrets) {
+    if (s.length < 4) continue;
+    out = out.split(s).join("[redacted]");
+    // The same value percent-encoded, as it appears in a query string.
+    const enc = encodeURIComponent(s);
+    if (enc !== s) out = out.split(enc).join("[redacted]");
+  }
   // Query-string credentials, bearer tokens and header-style keys that slip into vendor error text.
   out = out.replace(/([?&](?:key|api_key|apikey|access_token|token)=)[^&\s"']+/gi, "$1[redacted]");
   out = out.replace(/(Bearer\s+)[A-Za-z0-9._~+/=-]{8,}/g, "$1[redacted]");

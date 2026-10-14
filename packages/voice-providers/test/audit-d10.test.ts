@@ -175,7 +175,7 @@ test("gemini: an audio part whose mime type names rate 0 or an absurd rate ends 
   }
 });
 
-test("gemini: negative or fractional token counts are not reported as tokens", async () => {
+test("gemini: a negative token count is not reported as tokens", async () => {
   const v = await startFakeVendor({ ws: (s) => { (async () => { await s.waitFor(1); s.send({ setupComplete: {} }); s.send({ usageMetadata: { promptTokenCount: -4, responseTokenCount: 9 }, serverContent: { turnComplete: true } }); })(); } });
   try {
     const session = await createGeminiLive({ getSecret, apiKeyRef: "voice.key", baseUrl: v.httpUrl, defaultModel: "m" }).connect();
