@@ -94,6 +94,17 @@ the core sent. The last two are raised by the CLI itself.
 | `send-failed` | `E_NOT_AVAILABLE` | 2 | The channel refused or failed the test message; `detail` is its (redacted) error. |
 | `config-refused` | `E_CONFIG_INVALID` | 1 | The supervisor refused the change; nothing was written. |
 
+## Media reasons (`plur1bus media ... --wait`)
+
+`plur1bus media generate|edit --wait` follows the job until it ends. Both failures are runtime failures of a command that
+did its work (the job was queued), so they are `E_INTERNAL`, exit 1 (they were `E_NOT_AVAILABLE`, exit 2). The job is
+not lost: `plur1bus media job <id>` shows it.
+
+| `reason` | Code | Exit | Meaning |
+|---|---|---|---|
+| `media-job-failed` | `E_INTERNAL` | 1 | The job ended `failed` or `cancelled`; `detail` is the job's error. Nothing was written to `--out`. |
+| `media-wait-timeout` | `E_INTERNAL` | 1 | The job was still running after ten minutes. It stays queryable and may still finish. |
+
 ## Update reasons (`plur1bus update`)
 
 `plur1bus update` reports `E_NOT_AVAILABLE` (exit 2; `confirmation-required` is `E_INVALID_PARAMS`, also exit 2; a declined prompt is `E_CANCELLED` with `reason=declined`, exit 2) with a `reason`. Nothing was changed for any of them, except where the table says otherwise. See [updates.md](updates.md).
@@ -169,7 +180,7 @@ it does not replace them.
 | Exit | Meaning | Typical commands | What to do |
 |---|---|---|---|
 | 0 | Success, or a run that found nothing to do. `repair` and `setup` exit 0 only when their final check is clean. | all | Nothing. |
-| 1 | The command ran and failed: `E_CORE_UNAVAILABLE`, `E_INTERNAL`, `E_STORAGE`, `E_CONFIG_INVALID`, `E_AGENT_UNKNOWN`, `E_NOT_FOUND`, `E_CONFLICT`, `E_UNAUTHORIZED`, `E_IMPORT_FAILED` and every other code that is not listed under 2 or 3. Also a supervisor that cannot set up its endpoint or lock, a failed `repair` or `setup` check, a `chat` turn that failed, a verification, run or scan that reports a failure (`audit verify`, `dreams run`, `model scan`, `memory reembed`, `1staid check`), and a child process (`acp serve`, `core run`) that exits non-zero, whose own code is passed through. | `agent`, `config`, `daemon start`, `media`, `memory`, `module`, `service`, `update`, `supervise` | Read the message (or `error`/`reason` with `--json`) and the matching row in the error-code table above. `E_CORE_UNAVAILABLE`: `plur1bus daemon start`. |
+| 1 | The command ran and failed: `E_CORE_UNAVAILABLE`, `E_INTERNAL`, `E_STORAGE`, `E_CONFIG_INVALID`, `E_AGENT_UNKNOWN`, `E_NOT_FOUND`, `E_CONFLICT`, `E_UNAUTHORIZED`, `E_IMPORT_FAILED` and every other code that is not listed under 2 or 3. Also a supervisor that cannot set up its endpoint or lock, a failed `repair` or `setup` check, a `chat` turn that failed, a `media ... --wait` job that failed or timed out, a verification, run, probe or scan that reports a failure (`audit verify`, `approval verify`, `dreams run`, `model scan`, `memory reembed`, `1staid check`, `admin embedding probe`, `channel test`), and a child process (`acp serve`, `core run`) that exits non-zero, whose own code is passed through. | `agent`, `config`, `daemon start`, `media`, `memory`, `module`, `service`, `update`, `supervise` | Read the message (or `error`/`reason` with `--json`) and the matching row in the error-code table above. `E_CORE_UNAVAILABLE`: `plur1bus daemon start`. |
 | 2 | Refused before any work, nothing changed: `E_INVALID_PARAMS` (a bad argument or input, a missing `--yes` outside a terminal, an unknown `--only` step, an unknown or ambiguous `--agent`, a bad key or env value, a request the core rejected), `E_NOT_AVAILABLE` (not possible here or now, also `module start` without a supervisor and `update --rollback` with nothing to roll back), `E_APPROVAL_REQUIRED` (from the core) and `E_CANCELLED` (a prompt answered no, in every command including `update apply`). `supervise` exits 2 for an option that needs `PLUR1BUS_ALLOW_TEST_INTERNALS=1`. clap's own usage errors also exit 2. | `approval`, `budget`, `channel`, `config apply`, `dreams`, `grant`, `login`, `module`, `repair`, `secret`, `service`, `update`, `voice` | Fix the invocation and run it again. A confirmation refused by a script needs `--yes`. For `E_APPROVAL_REQUIRED`, approve the request first. |
 | 3 | Another process holds the store or the home: `E_LOCKED`, or a supervisor already running for this home, or the supervisor lock held with no supervisor answering (an offline `module install`). Under launchd the supervisor reports 2 and 3 as 0 so the service is not restarted in a loop; the "held, nobody answered" case is the one exception there and ends with 1, which launchd retries. | `backup`, `ext`, `supervise` | Wait and retry, or stop the other process (`plur1bus daemon stop`). Do not start a second supervisor. |
 | 70 | Internal: the supervisor ended on a panic. | `supervise` (the OS service) | Read `logs/supervisor.log` and report it. The OS service restarts it. |

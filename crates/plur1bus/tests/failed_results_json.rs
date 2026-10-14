@@ -364,3 +364,58 @@ fn a_failed_chat_turn_is_one_document_with_an_error_object_and_exit_1() {
     let v: Value = serde_json::from_str(&stdout).unwrap();
     assert!(v.get("error").is_none(), "{v}");
 }
+
+fn run_env(home: &Path, args: &[&str], env: &[(&str, &str)]) -> (Option<i32>, String) {
+    let o = Command::cargo_bin("plur1bus")
+        .unwrap()
+        .arg("--home")
+        .arg(home)
+        .args(args)
+        .envs(env.iter().copied())
+        .output()
+        .unwrap();
+    (
+        o.status.code(),
+        String::from_utf8_lossy(&o.stdout).into_owned(),
+    )
+}
+
+/// `media generate --wait`: a job that did not succeed and a wait that ran out are runtime failures (`E_INTERNAL`,
+/// exit 1), not "not available" (exit 2).
+#[test]
+fn media_wait_failures_are_internal_errors_with_exit_1() {
+    for (state, reason, env) in [
+        ("failed", "media-job-failed", vec![]),
+        ("cancelled", "media-job-failed", vec![]),
+        (
+            "running",
+            "media-wait-timeout",
+            vec![
+                ("PLUR1BUS_ALLOW_TEST_INTERNALS", "1"),
+                ("PLUR1BUS_TEST_MEDIA_WAIT_MS", "300"),
+            ],
+        ),
+    ] {
+        let d = tempfile::tempdir().unwrap();
+        spawn(
+            d.path(),
+            vec![
+                ("media.generate", json!({"jobId": "j1"})),
+                (
+                    "media.job.get",
+                    json!({"id": "j1", "state": state, "error": "adapter-refused"}),
+                ),
+            ],
+        );
+        let (code, stdout) = run_env(
+            d.path(),
+            &["--json", "media", "generate", "a fox", "--wait"],
+            &env,
+        );
+        assert_eq!(code, Some(1), "{state}: {stdout}");
+        let v: Value = serde_json::from_str(&stdout).unwrap();
+        assert_eq!(v["schema"], "error/1", "{state}: {v}");
+        assert_eq!(v["error"], "E_INTERNAL", "{state}: {v}");
+        assert_eq!(v["reason"], reason, "{state}: {v}");
+    }
+}
