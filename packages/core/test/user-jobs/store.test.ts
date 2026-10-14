@@ -16,7 +16,7 @@ function rig() {
   const calls: any[] = [];
   const notices: any[] = [];
   const audit = memoryAuditSink();
-  const opts = { path: join(tempDir("p1b-userjobs-"), "jobs.sqlite"), clock: () => now, audit, agentExists: () => exists, resolve: (id: string) => id === "owner" ? owner : person, budgetBlocked: () => budget, notify: (x: any) => notices.push(x), execute: async (j: any, p: any) => { calls.push({ j, p }); return "completed" as const; } };
+  const opts = { path: join(tempDir("p1b-userjobs-"), "jobs.sqlite"), clock: () => now, audit, agentExists: () => exists, resolve: (id: string) => id === "owner" ? owner : person, budgetBlocked: () => budget, notify: (x: any) => notices.push(x), submitTurn: async (j: any, p: any) => { calls.push({ j, p }); return "completed" as const; } };
   const jobs = new UserJobs(opts);
   return { jobs, opts, calls, notices, audit, setNow: (v: number) => { now = v; }, advance: () => { now += 60000; }, setPerson: (v: Principal | null) => { person = v; }, deleteAgent: () => { exists = false; }, blockBudget: () => { budget = true; } };
 }
@@ -136,7 +136,7 @@ test("overlapping scheduler scans do not replay a slot completed by the other sc
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
   const started: string[] = [];
-  r.opts.execute = async (job: any) => { started.push(job.name); if (job.name === "First") await gate; return "completed"; };
+  r.opts.submitTurn = async (job: any) => { started.push(job.name); if (job.name === "First") await gate; return "completed"; };
   try {
     r.jobs.create({...input, name:"First"},member); r.jobs.create({...input,name:"Second"},member);
     r.advance(); const firstScan=r.jobs.tick();

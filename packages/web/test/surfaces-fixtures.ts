@@ -200,6 +200,7 @@ export function seedApprovals(
   approvals: ApprovalRecord[] = sampleApprovals,
   grants: GrantRecord[] = sampleGrants
 ): void {
+  rpc.handle("config.get", () => ({ value: { approvals: { maxGrantDays: 90, requireOsConfirmation: true } }, revision: "fixture" }), { write: false });
   rpc.handle("approval.list", () => ({ approvals }), { write: false });
   rpc.handle("approval.get", (params) => {
     const { id } = params as { id: string };

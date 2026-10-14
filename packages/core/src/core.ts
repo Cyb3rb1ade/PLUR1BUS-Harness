@@ -671,7 +671,7 @@ export function createCore(o: CoreOptions): Core {
           inboxPort.publish({ ...draft, audience: "admins" });
           if (run.outcome === "skipped_no_rights") inboxPort.publish({ ...draft, userId: run.runAs });
         },
-        execute: async (job, person) => {
+        submitTurn: async (job, person) => {
           if (!sessions) return "failed";
           if (!executionRegistry.has(job.agentId)) return "skipped_agent_inactive";
           const session = sessions.store.createSession({ kind: "direct", agentId: job.agentId, owner: deriveUserPrincipal(person.userId), scope: "user", title: job.name });

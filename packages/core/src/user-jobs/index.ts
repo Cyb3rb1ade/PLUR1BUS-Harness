@@ -59,7 +59,7 @@ export interface UserJobsOptions {
   budgetBlocked: (agentId: string) => boolean;
   notify: (run: UserJobRun) => void;
   onRecorded?: (run: UserJobRun) => void;
-  execute: (job: UserJob, person: Principal) => Promise<UserJobOutcome>;
+  submitTurn: (job: UserJob, person: Principal) => Promise<UserJobOutcome>;
 }
 const denied = () => new RpcError("E_DENIED", "user job operation denied");
 const invalid = () => new RpcError("E_INVALID_PARAMS", "invalid user job definition");
@@ -307,7 +307,7 @@ export class UserJobs {
               record.outcome = "skipped_budget";
             }
             else {
-              record.outcome = await this.#o.execute(j, person);
+              record.outcome = await this.#o.submitTurn(j, person);
             }
           }
         }
