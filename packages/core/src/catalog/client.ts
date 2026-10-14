@@ -1,6 +1,6 @@
 import { isLoopbackHost } from "../egress/index.ts";
-import { BUNDLED_CATALOG_ROOT, CatalogError, type CatalogClient, type CatalogOptions, type CatalogFailure, type CatalogResult, type CatalogView, type CatalogSnapshot, type CatalogCheckpoint, type CatalogRoot, type CatalogIndex, type PackageRevocation } from "./types.ts";
-import { digest, envelope, fail, json, parseRoot, parseRevocations, parseCatalogIndex, timestamp, verifyEnvelope, payload } from "./verify.ts";
+import { BUNDLED_CATALOG_ROOT, CatalogError, type CatalogClient, type CatalogOptions, type CatalogFailure, type CatalogResult, type CatalogView, type CatalogSnapshot, type CatalogCheckpoint, type CatalogRoot, type CatalogIndex, type PackageRevocation, type CatalogWarning } from "./types.ts";
+import { digest, envelope, fail, json, parseRoot, parseRevocations, parseCatalogIndex, timestamp, verifyEnvelope, payload, revocationMatches, revocationCovers } from "./verify.ts";
 
 function failure(e: unknown): CatalogFailure {
   return e instanceof CatalogError ? { code: e.code, message: e.message } : { code: "transport", message: "catalogue I/O or reporting failed" };
@@ -11,7 +11,7 @@ async function result<T>(op: () => Promise<T>): Promise<CatalogResult<T>> {
 function monotone(version: number, hash: string, oldVersion: number | undefined, oldHash: string | undefined, name: string): void {
   if (oldVersion !== undefined && (version < oldVersion || (version === oldVersion && hash !== oldHash))) throw new CatalogError("rollback_detected", `${name} rollback or conflicting content at version ${version}`);
 }
-const revokedPackage = (revocations: PackageRevocation[], id: string, version: string) => revocations.find((r) => r.id === id && r.versions.includes(version));
+const revokedPackage = (revocations: PackageRevocation[], id: string, version: string) => revocations.find((r) => r.id === id && r.versions.some((pattern) => revocationMatches(pattern, version)));
 
 export function createCatalogClient(options: CatalogOptions): CatalogClient {
   // Clone caller-owned trust configuration; a result/config mutation must not change an accepted trust decision.
@@ -46,7 +46,7 @@ export function createCatalogClient(options: CatalogOptions): CatalogClient {
       return response.body;
     } catch { throw new CatalogError("transport", `catalogue request failed for ${url.host} (policy, status, size, timeout or redirect)`); }
   }
-  interface Verified { root: CatalogRoot; index: CatalogIndex; floor: CatalogCheckpoint; expires: number }
+  interface Verified { root: CatalogRoot; index: CatalogIndex; floor: CatalogCheckpoint; expires: number; warnings: CatalogWarning[] }
   function authenticate(snapshot: CatalogSnapshot, previous: CatalogCheckpoint | null): Verified {
     let root = prepare();
     if (!Array.isArray(snapshot.rotations) || snapshot.rotations.length > 64) return fail("rotation chain too long or malformed");
@@ -77,7 +77,7 @@ export function createCatalogClient(options: CatalogOptions): CatalogClient {
     // Revocations are permanent. Neither a rotation nor a newer list can resurrect a key or package version.
     const revoked = new Set(rev.keys);
     for (const id of oldRevoked) if (!revoked.has(id)) throw new CatalogError("key_revoked", `revocation list removed revoked key ${id}`);
-    for (const p of previous?.revokedPackages ?? []) for (const version of p.versions) if (!revokedPackage(rev.packages, p.id, version)) throw new CatalogError("revoked_package", `revocation list removed ${p.id}@${version}`);
+    for (const p of previous?.revokedPackages ?? []) for (const version of p.versions) if (!rev.packages.some((n) => n.id === p.id && n.versions.some((pattern) => revocationCovers(pattern, version)))) throw new CatalogError("revoked_package", `revocation list removed ${p.id}@${version}`);
     const revokedPublicKeys = new Set(previous?.revokedPublicKeys ?? []);
     for (const k of allKeys) if (revoked.has(k.id)) revokedPublicKeys.add(k.publicKey);
     for (const signer of [...indexVerified.signers, ...revVerified.signers]) if (root.keys.some((k) => k.id === signer && revokedPublicKeys.has(k.publicKey))) throw new CatalogError("key_revoked", "revoked key material signed metadata under an alias");
@@ -87,10 +87,15 @@ export function createCatalogClient(options: CatalogOptions): CatalogClient {
     if (timestamp(index.generatedAt) > now()) return fail("index generatedAt is in the future");
     const floor: CatalogCheckpoint = { serial: index.serial, indexHash: digest(indexVerified.bytes), rootVersion: root.version, rootHash,
       revocationVersion: rev.version, revocationHash: digest(revVerified.bytes), revokedKeys: [...revoked], revokedPublicKeys: [...revokedPublicKeys], revokedPackages: rev.packages, rotationHashes };
-    return { root, index, floor, expires };
+    const knownKeys = new Set(allKeys.map((k) => k.id)); const knownPackages = new Set(index.packages.map((p) => p.id));
+    const warnings: CatalogWarning[] = [
+      ...rev.keys.filter((id) => !knownKeys.has(id)).map((id): CatalogWarning => ({ kind: "revocation_unknown_key", id, message: `revocation names key ${JSON.stringify(id)} which no trust root lists; it stays revoked` })),
+      ...[...new Set(rev.packages.map((p) => p.id))].filter((id) => !knownPackages.has(id)).map((id): CatalogWarning => ({ kind: "revocation_unknown_package", id, message: `revocation names package ${JSON.stringify(id)} which the index does not contain; it stays revoked` })),
+    ];
+    return { root, index, floor, expires, warnings };
   }
   async function view(verified: Verified, snapshot: CatalogSnapshot, source: "network" | "cache"): Promise<CatalogView> {
-    const { index, floor, expires } = verified;
+    const { index, floor, expires, warnings } = verified;
     if (options.installed) {
       const installed = await options.installed.list();
       await options.installed.report(installed.flatMap((item) => {
@@ -98,7 +103,7 @@ export function createCatalogClient(options: CatalogOptions): CatalogClient {
         return r ? [{ ...item, status: "revoked" as const, reason: r.reason }] : [];
       }));
     }
-    return { index: { ...index, packages: index.packages.map((p) => ({ ...p, versions: p.versions.filter((v) => !revokedPackage(floor.revokedPackages, p.id, v.version)) })).filter((p) => p.versions.length > 0) }, rootVersion: floor.rootVersion, fetchedAt: snapshot.fetchedAt, source, stale: expires <= now() };
+    return { index: { ...index, packages: index.packages.map((p) => ({ ...p, versions: p.versions.filter((v) => !revokedPackage(floor.revokedPackages, p.id, v.version)) })).filter((p) => p.versions.length > 0) }, rootVersion: floor.rootVersion, fetchedAt: snapshot.fetchedAt, source, stale: expires <= now(), warnings };
   }
   async function refresh(signal?: AbortSignal): Promise<CatalogView> {
     prepare();

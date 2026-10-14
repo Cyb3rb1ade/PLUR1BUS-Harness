@@ -31,6 +31,25 @@ export function verifySignature(bytes: Uint8Array, signatureB64: string, keys: M
   throw new ExtIndexError("signature-invalid", "signature does not verify with any configured key");
 }
 
+const clip = (id: string): string => (id.length > 80 ? `${id.slice(0, 77)}...` : id);
+/** Plain when printable ASCII, JSON-quoted otherwise (so a space or invisible character in an id is visible in the message). */
+const shown = (id: string): string => (/^[\x21-\x7e]+$/.test(id) ? clip(id) : JSON.stringify(clip(id)));
+// Characters that are invisible or only look like another: whitespace, control/format (zero-width) characters.
+const INVISIBLE = /[\p{Z}\p{C}]/gu;
+// Letters (Cyrillic, Greek) and slash variants that render like their Latin/ASCII counterparts. Not exhaustive: a
+// deliberately small table of the common cases; NFKC already folds full-width and compatibility forms.
+const CONFUSABLES: Record<string, string> = {
+  "а": "a", "в": "b", "с": "c", "е": "e", "н": "h", "і": "i", "ј": "j", "к": "k", "м": "m", "о": "o", "р": "p", "ѕ": "s", "т": "t", "у": "y", "х": "x", "ӏ": "l",
+  "α": "a", "β": "b", "ε": "e", "ι": "i", "κ": "k", "ν": "v", "ο": "o", "ρ": "p", "τ": "t", "υ": "u", "χ": "x",
+  "∕": "/", "⁄": "/", "╱": "/", "⧸": "/", "／": "/", "‐": "-", "‑": "-", "‒": "-", "–": "-", "−": "-", "﹣": "-", "－": "-", "․": ".", "ǀ": "l",
+};
+/** Comparison key: NFKC, lower case, invisible characters dropped, known look-alike letters/slashes mapped to ASCII. */
+export function idSkeleton(id: string): string {
+  let out = "";
+  for (const ch of id.normalize("NFKC").toLowerCase().replace(INVISIBLE, "")) out += CONFUSABLES[ch] ?? ch;
+  return out.normalize("NFKC");
+}
+
 const SHA256 = /^[0-9a-f]{64}$/;
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const bad = (what: string): never => {
@@ -59,13 +78,16 @@ export function parseIndex(bytes: Uint8Array): { index: ExtIndex; expiresAt: num
   parseTime(raw.generatedAt, "generatedAt");
   const expiresAt = parseTime(raw.expires, "expires");
   if (!Array.isArray(raw.packages)) return bad("packages is not an array");
-  const seen = new Set<string>();
+  const seen = new Set<string>(); const skeletons = new Map<string, string>();
   for (const p of raw.packages as unknown[]) {
     if (!isObj(p)) return bad("package entry is not an object");
     const { id, kind, name, versions } = p as Partial<IndexPackage> & Record<string, unknown>;
     if (typeof id !== "string" || id === "" || typeof kind !== "string" || typeof name !== "string") return bad("package id/kind/name missing");
-    if (seen.has(id)) return bad(`duplicate package id ${id}`);
+    if (seen.has(id)) return bad(`duplicate package id ${shown(id)}`);
     seen.add(id);
+    const skeleton = idSkeleton(id); const twin = skeletons.get(skeleton);
+    if (twin !== undefined) return bad(`look-alike package id ${JSON.stringify(clip(id))} collides with ${JSON.stringify(clip(twin))}`);
+    skeletons.set(skeleton, id);
     if (!Array.isArray(versions)) return bad(`${id}: versions is not an array`);
     for (const v of versions as unknown[]) {
       if (!isObj(v)) return bad(`${id}: version entry is not an object`);
