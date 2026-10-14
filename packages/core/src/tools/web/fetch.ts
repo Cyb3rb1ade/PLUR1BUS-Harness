@@ -4,7 +4,7 @@
 // (`needs-render`).
 import { randomBytes } from "node:crypto";
 import { WebFailure, type WebFailureCode } from "./failure.ts";
-import { guardedRequest, DEFAULT_MAX_BYTES, DEFAULT_TIMEOUT_MS, type HttpResponse } from "./http.ts";
+import { guardedRequest, DEFAULT_MAX_BYTES, DEFAULT_TIMEOUT_MS, type HttpOptions, type HttpResponse } from "./http.ts";
 import { makeAddressPolicy, systemResolver, type Resolver } from "./guard.ts";
 import { decodeBody, estimateTokens, htmlToMarkdown, splitSections, type Section } from "./html.ts";
 import { HostPacer, parseRobots, robotsAllows, type Robots } from "./robots.ts";
@@ -81,6 +81,8 @@ export interface WebFetchConfig {
   now?: () => number;
   trace?: (e: TraceEvent) => void;
   tlsCa?: string;
+  /** The egress gate (B4): consulted on every hop, robots.txt included; a throw refuses the hop. Without it only the address guard applies. */
+  gate?: HttpOptions["gate"];
 }
 
 export interface WebFetchContext {
@@ -150,6 +152,11 @@ function kindOf(mime: string): Kind | null {
 }
 
 const MAX_TOKENS_LIMIT = 100_000;
+/** The table of contents travels with every chunk; a page with thousands of headings must not inflate each result. Ids stay valid beyond the list. */
+const MAX_LISTED_SECTIONS = 200;
+const MAX_SECTION_TITLE = 120;
+const listSections = (all: Section[]): SectionRef[] =>
+  all.slice(0, MAX_LISTED_SECTIONS).map((s) => ({ id: s.id, title: s.title.length > MAX_SECTION_TITLE ? `${s.title.slice(0, MAX_SECTION_TITLE - 1)}…` : s.title, tokens: s.tokens }));
 
 function validate(a: WebFetchArgs): void {
   const bad = (m: string): never => {
@@ -211,7 +218,7 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
   const maxExtractedTokens = cfg.maxExtractedTokens ?? 200_000;
   const robotsCache = new Map<string, { robots: Robots; at: number }>();
 
-  const base = (signal?: AbortSignal) => ({ resolver, policy, userAgent, signal, tlsCa: cfg.tlsCa, maxRedirects: cfg.maxRedirects });
+  const base = (signal?: AbortSignal) => ({ resolver, policy, userAgent, signal, tlsCa: cfg.tlsCa, maxRedirects: cfg.maxRedirects, gate: cfg.gate });
 
   async function robotsFor(url: URL, signal?: AbortSignal): Promise<Robots> {
     const hit = robotsCache.get(url.origin);
@@ -266,7 +273,8 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
     if (args.crawl && target && (target.protocol === "http:" || target.protocol === "https:")) {
       const robots = await robotsFor(target, ctx.signal);
       if (!robotsAllows(robots, userAgent, `${target.pathname}${target.search}`)) throw new WebFailure("robots-disallowed", `robots.txt disallows ${target.pathname}`, { url: args.url });
-      await pacer.wait(target.host, (robots.crawlDelaySeconds(userAgent) ?? 0) * 1000);
+      try { await pacer.wait(target.host, (robots.crawlDelaySeconds(userAgent) ?? 0) * 1000, ctx.signal); }
+      catch { throw new WebFailure("timeout", "the request was cancelled while waiting its turn for this host"); }
     }
 
     const r = await guardedRequest(args.url, {
@@ -325,7 +333,7 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
       status: r.status,
       contentType: mime,
       ...Object.fromEntries(Object.entries(meta).filter(([, v]) => v !== undefined)),
-      sections: sections.map((s) => ({ id: s.id, title: s.title, tokens: s.tokens })),
+      sections: listSections(sections),
       fetchedAt,
       provenance: { source: "web", url: r.url, fetchedAt, trust: "untrusted" },
     };
