@@ -32,7 +32,7 @@ describe("setup wizard: a save in flight", { skip: browserSkip }, () => {
       await next(page);
       await page.getByLabel("Display name").fill("Hal");
       await page.evaluate(() => {
-        const b = [...document.querySelectorAll("button")].find((x) => x.textContent === "Next")!;
+        const b = Array.from(document.querySelectorAll("button")).find((x) => x.textContent === "Next")!;
         b.click(); b.click();
       });
       await stepHeading(page, /Main model/).waitFor();

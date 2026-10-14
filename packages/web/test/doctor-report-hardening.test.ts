@@ -62,10 +62,10 @@ describe("doctor report: in the browser", { skip: browserSkip }, () => {
       await openRoute(app.page, "#/doctor");
       await app.page.getByText(/cache ok/).waitFor();
       await app.page.evaluate(() => {
-        const b = [...document.querySelectorAll("button")].find((x) => x.textContent === "Refresh provisioning")!;
+        const b = Array.from(document.querySelectorAll("button")).find((x) => x.textContent === "Refresh provisioning")!;
         b.click(); b.click();
       });
-      await app.page.waitForFunction(() => ![...document.querySelectorAll("button")].some((x) => x.textContent === "Refresh provisioning" && x.disabled));
+      await app.page.waitForFunction(() => !Array.from(document.querySelectorAll("button")).some((x) => x.textContent === "Refresh provisioning" && x.disabled));
       assert.equal(refreshes, 1);
       assert.equal(await app.page.getByText("Refresh failed or was requested within 30 seconds.").count(), 0);
     });
