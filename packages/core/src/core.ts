@@ -1,3 +1,5 @@
+import { apiAdmission } from "./rpc/api-admission.ts";
+import { apiIdentities } from "./rpc/api-identity.ts";
 import { createAuthSecretStore } from "./auth/secret-store.ts";
 import { createWriter } from "./logs/writer.ts";
 import { createD111Events } from "./discovery/events-logger.ts";
@@ -211,6 +213,7 @@ export function createCore(o: CoreOptions): Core {
   const l = layout(home); const clock = o.clock ?? Date.now;
   const instanceId = o.instanceId ?? randomUUID();
   const token = randomBytes(32).toString("hex");
+  const apiToken = randomBytes(32).toString("hex");
   const address = coreAddress(home);
   const startedAt = clock();
   const activity = new ActivityTracker(clock);
@@ -545,7 +548,15 @@ export function createCore(o: CoreOptions): Core {
         onPublished: kind => metrics.inboxPublished(kind), log: (m, f) => log.warn(m, f),
         onChange: c => { void deliverInboxChange(c, { subscriptions: () => server?.subscriptions() ?? [], principalOf: async id => resolvePrincipal({ requestId: "inbox", connectionId: id, signal: shutdown.signal }, "inbox.count", {}), notify: (m, p, opts) => { if (!shutdown.signal.aborted) server?.notify(m, p, opts); } }).catch(() => { log.debug("inbox event withheld"); }); } });
       const originalResolver: PrincipalResolver = o.rbac?.resolve ?? (() => LOCAL_OWNER);
-      const resolvePrincipal: PrincipalResolver = async (ctx, method, params) => { const who = await originalResolver(ctx, method, params); return who ? people.resolve(who) : who; };
+      const apiIdentity = apiIdentities(p => {
+        if (!people.users().some(u => u.id === p.userId)) return null;
+        return { ...people.resolve({ ...p, kind: "person" }), kind: p.kind };
+      });
+      const resolvePrincipal: PrincipalResolver = async (ctx, method, params) => {
+        const api = apiIdentity.resolve(ctx);
+        if (api !== undefined) return api;
+        const who = await originalResolver(ctx, method, params); return who ? people.resolve(who) : who;
+      };
       const rbacAudit = o.rbac?.audit ?? teeAuditSinks(createJsonlAuditSink(path.join(l.logs, "audit.log"), { securePath: (p) => platform.securePath(p) }), chain);
       const notifier = createPermissionNotifier({
         subscriptions: () => server?.subscriptions() ?? [], notify: (m, p, opts) => server?.notify(m, p, opts),
@@ -671,7 +682,10 @@ export function createCore(o: CoreOptions): Core {
         // Every connection that passed `core.auth` holds `run/core.token`, which only this OS user can read: it is the
         // owner. There is no weaker caller on this socket today; per-connection principals arrive with M3's users and
         // D109's surface trust, and this is the one place they plug in. The store refuses anything but `owner`.
-        secrets: { store: secretStore, principalOf: () => ({ kind: "owner" }) },
+        secrets: { store: secretStore, principalOf: ctx => {
+          const p = apiIdentity.resolve(ctx as CallContext);
+          return p === undefined ? { kind: "owner" } : p?.kind === "person" && p.role === "owner" ? { kind: "owner", id: p.userId } : { kind: "agent" };
+        } },
         permissions: {
           permissions: () => perms.open(), principalOf: resolvePrincipal, clock,
           surfaceOf: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }),
@@ -700,15 +714,17 @@ export function createCore(o: CoreOptions): Core {
       rawMethods["agent.list"] = async (p, ctx) => { const r = await listAgents!(p,ctx) as { agents: { agentId: string }[] }; return { ...r, agents: r.agents.filter(a => !lifecycle.state(a.agentId).deleted).map(a => ({ ...a, lifecycle: lifecycle.state(a.agentId) })) }; };
       rawMethods["agent.status"] = async (p, ctx) => { if (lifecycle.state(p.agentId).deleted) throw new RpcError("E_NOT_FOUND", "agent not found"); return { ...await agentStatus!(p,ctx) as object, lifecycle: lifecycle.state(p.agentId) }; };
       Object.assign(rawMethods, breakglassMemory({ methods: rawMethods, engine: eng, identity: identityService, breakglass, workspace: id => registry.workspaceOf(id) }));
-      const methods = guardMethods(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.store.getSession(id)?.agentId), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: AGENT_CREATION_RULES });
+      const methods = guardMethods(apiAdmission(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: AGENT_CREATION_RULES });
       server = createRpcServer({
-        address, token, personOfConnection: async connectionId => { const p = await resolvePrincipal({ requestId: "audience", connectionId, signal: shutdown.signal }, "events.subscribe", {}); return p?.kind === "person" ? p.userId : null; }, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
-        onConnectionClosed: (id) => { orphans?.connectionClosed(id); void turnComposition?.voice.v3.connectionClosed(id); },
+        address, token, apiToken, apiPrincipalOf: apiIdentity.forwarded, onApiAuthenticated: apiIdentity.authenticated, apiPersonOfConnection: async (connectionId, p) => { const who = apiIdentity.resolve({ requestId: "audience", connectionId, signal: shutdown.signal }); return who?.kind === "person" && who.userId === p.userId ? who.userId : null; }, personOfConnection: async connectionId => { const p = await resolvePrincipal({ requestId: "audience", connectionId, signal: shutdown.signal }, "events.subscribe", {}); return p?.kind === "person" ? p.userId : null; }, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
+        onConnectionClosed: (id) => { apiIdentity.closed(id); orphans?.connectionClosed(id); void turnComposition?.voice.v3.connectionClosed(id); },
         onCall: (method, result) => metrics.rpcCall(method, result),
       });
 
       wroteRunFiles = true;
       writeFileSync(l.coreToken, token, { mode: 0o600 });
+      writeFileSync(path.join(l.run, "api-delegation.token"), apiToken, { mode: 0o600 });
+      platform.securePath(path.join(l.run, "api-delegation.token"));
       writeFileSync(l.corePid, `${process.pid} ${instanceId}\n`, { mode: 0o600 }); // S6
       platform.securePath(l.coreToken); platform.securePath(l.corePid);
       await server.listen();
@@ -809,7 +825,7 @@ export function createCore(o: CoreOptions): Core {
 
   function removeRunFiles(): void {
     if (!wroteRunFiles) return; // a refused core never touches the running core's token and pid
-    rmSync(l.coreToken, { force: true }); rmSync(l.corePid, { force: true }); wroteRunFiles = false;
+    rmSync(l.coreToken, { force: true }); rmSync(path.join(l.run, "api-delegation.token"), { force: true }); rmSync(l.corePid, { force: true }); wroteRunFiles = false;
   }
 
   /** Runs one shutdown step: a failure is logged and collected, never propagated. */
