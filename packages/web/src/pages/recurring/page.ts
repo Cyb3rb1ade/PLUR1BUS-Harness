@@ -3,12 +3,12 @@
 import { h } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
-import { Badge, Card, type BadgeTone } from "../../components/card.ts";
+import { Badge } from "../../components/card.ts";
 import { Dialog } from "../../components/dialog.ts";
 import { Page } from "../../components/page.ts";
 import { PageLoading, PageState } from "../../components/page-state.ts";
 import { Tabs } from "../../components/tabs.ts";
-import { t, type Key } from "../../i18n.ts";
+import { formatDateTime, t } from "../../i18n.ts";
 import { registerArea } from "../../i18n/index.ts";
 import * as area from "../../i18n/recurring.ts";
 import { FailureState } from "../common/states.ts";
@@ -22,40 +22,12 @@ import type {
 
 import "../../styles/recurring.css";
 import { UserJobsPanel } from "./user-jobs.ts";
+import { outcomeLabel, outcomeTone } from "./outcome.ts";
 import type { UserJob } from "../../../../rpc-schema/generated/types.ts";
 
 registerArea("recurring", area);
 
 type JobEntry = JobsListResult["jobs"][number];
-
-function outcomeTone(outcome: string): BadgeTone {
-  switch (outcome) {
-    case "completed":
-      return "ok";
-    case "skipped":
-      return "neutral";
-    case "incomplete":
-    case "failed":
-    case "abandoned":
-      return "err";
-    default:
-      return "neutral";
-  }
-}
-
-const OUTCOME_LABEL = {
-  completed: "recurring.status.completed",
-  skipped: "recurring.status.skipped",
-  incomplete: "recurring.status.incomplete",
-  failed: "recurring.status.failed",
-  abandoned: "recurring.status.abandoned",
-} as const satisfies Record<string, Key>;
-
-/** The outcome in the UI language; an outcome this UI does not know (the schema keeps runs open) is shown as the server sent it. */
-function outcomeLabel(outcome: string): string {
-  // An own-property check: `in` would also match inherited names such as "toString" and hand a function to t().
-  return Object.prototype.hasOwnProperty.call(OUTCOME_LABEL, outcome) ? t(OUTCOME_LABEL[outcome as keyof typeof OUTCOME_LABEL]) : outcome;
-}
 
 /** Who may start a job by hand (docs/rbac.md, `jobs.run`): Owner, Admin and Operator. Reading the list and the history is open. */
 const HISTORY_LIMIT = 50;
@@ -123,8 +95,8 @@ function RunConfirmDialog({
       onClose();
     } catch (e) {
       setBusy(false);
-      const o = (typeof e === "object" && e !== null ? e : {}) as { message?: string };
-      setErr(o.message || "Failed to trigger job run.");
+      void e; // server text never reaches the dialog
+      setErr(t("recurring.error.run"));
     } finally {
       inFlight.current = false;
     }
@@ -221,7 +193,7 @@ function JobsListTab(): View {
                 h(
                   "td",
                   null,
-                  j.nextRunAt ? new Date(j.nextRunAt).toLocaleTimeString() : "—",
+                  j.nextRunAt ? formatDateTime(new Date(j.nextRunAt)) : "—",
                 ),
                 canRun
                   ? h(
@@ -307,7 +279,7 @@ function HistoryTab(): View {
         h(
           "div",
           null,
-          h("span", { class: "field-hint" }, new Date(r.finishedAt).toLocaleTimeString()),
+          h("span", { class: "field-hint" }, formatDateTime(new Date(r.finishedAt))),
         ),
       ),
     ),
