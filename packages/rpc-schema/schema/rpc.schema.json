@@ -1243,7 +1243,10 @@
         "enabled": { "type": "boolean" },
         "errors": { "type": "array", "items": { "type": "string" } },
         "child": { "oneOf": [{ "$ref": "#/$defs/ChildStatus" }, { "type": "null" }] },
-        "detail": { "type": ["object", "null"] }
+        "detail": { "type": ["object", "null"] },
+        "availableVersion": { "type": "string" },
+        "updateBlockedReason": { "type": "string", "enum": ["minFromVersion", "signature"] },
+        "feedCheckedAt": { "type": "string", "format": "date-time" }
       }
     },
     "ModuleGraph": {

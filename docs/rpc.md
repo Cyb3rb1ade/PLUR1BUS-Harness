@@ -17011,6 +17011,20 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "object",
         "null"
       ]
+    },
+    "availableVersion": {
+      "type": "string"
+    },
+    "updateBlockedReason": {
+      "type": "string",
+      "enum": [
+        "minFromVersion",
+        "signature"
+      ]
+    },
+    "feedCheckedAt": {
+      "type": "string",
+      "format": "date-time"
     }
   }
 }
