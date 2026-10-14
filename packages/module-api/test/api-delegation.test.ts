@@ -18,7 +18,8 @@ test("real socket: only API credential delegates; missing principal and agents f
   const inbox = new InboxStore({ path: ":memory:", clock: Date.now }); t.after(() => inbox.close());
   const marker = randomBytes(32).toString("base64url");
   const methods = guardMethods({ "core.status": async () => { throw new Error(marker); }, "inbox.count": async () => inbox.count("alice") }, { resolve: ctx => apiPrincipal(ctx), now: Date.now });
-  const server = createRpcServer({ address, token, apiToken, methods, logger, hello: () => ({ rpc: "1.6.0", instanceId: "test", pid: process.pid }), apiPersonOfConnection: async (_c, p) => p.kind === "person" ? p.userId : null });
+  let active = true;
+  const server = createRpcServer({ address, token, apiToken, methods, logger, hello: () => ({ rpc: "1.6.0", instanceId: "test", pid: process.pid }), apiPersonOfConnection: async (_c, p) => active && p.kind === "person" ? p.userId : null });
   await server.listen(); t.after(async () => { await server.close(); await logger.close(); rmSync(dir, { recursive: true, force: true }); });
   const api = { clientId: "harness-api" as const, token: apiToken, principal: { userId: "alice", kind: "person" as const, role: "member" as const } };
   await assert.rejects(connect({ address, token, api: { ...api, token } }), e => (e as any).error === "E_UNAUTHORIZED");
@@ -38,6 +39,9 @@ test("real socket: only API credential delegates; missing principal and agents f
   server.notify("inbox.changed", { change: "created", kinds: ["approval"] }, { audience: [{ personId: "alice" }] });
   await new Promise(r => setTimeout(r, 30)); assert.equal(received.length, 1);
   assert.deepEqual((received[0] as any).delivery.audience, [{ personId: "alice" }]);
+  active = false;
+  server.notify("inbox.changed", { change: "created", kinds: ["approval"] }, { audience: [{ connectionId: server.subscriptions()[0]!.connectionId }] });
+  await new Promise(r => setTimeout(r, 30)); assert.equal(received.length, 1, "inactive person receives no connection-bound event");
   api.principal = { ...api.principal, userId: "bob" };
   await assert.rejects(alice.call("inbox.count"), e => (e as any).reason === "api-identity-change");
 });
