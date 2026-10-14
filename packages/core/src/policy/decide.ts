@@ -141,20 +141,56 @@ function canon(s: string): string {
   return s.trim().toLowerCase();
 }
 
+/** `*` matches any run of characters (line breaks included); everything else is literal. Linear backtracking over the last `*`, never a regex. */
+function globMatch(pattern: string, name: string): boolean {
+  let p = 0, n = 0, star = -1, mark = 0;
+  while (n < name.length) {
+    if (p < pattern.length && pattern[p] === "*") { star = p++; mark = n; }
+    else if (p < pattern.length && pattern[p] === name[n]) { p++; n++; }
+    else if (star >= 0) { p = star + 1; n = ++mark; }
+    else return false;
+  }
+  while (p < pattern.length && pattern[p] === "*") p++;
+  return p === pattern.length;
+}
+
 /**
  * ADR-003 `tools.deny` entries: an exact tool or capability name, or a glob where `*` matches any run of characters
  * (`*`, `fs*`, `fs.*`), compared case-folded. RULING: an entry that is not a non-empty string cannot be read as a rule,
- * so it denies everything (fail closed) instead of being skipped silently.
+ * so it denies everything (fail closed) instead of being skipped silently; the same holds for a list that is not an array.
  */
-function matchesDeny(list: readonly unknown[], call: Call, capability: string): "invalid" | boolean {
+function matchesDeny(list: unknown, call: Call, capability: string): "invalid" | boolean {
+  if (!Array.isArray(list)) return "invalid";
   const names = [canon(call.tool), capability];
   let hit = false;
-  for (const entry of list) {
+  for (const entry of list as readonly unknown[]) {
     if (typeof entry !== "string" || canon(entry).length === 0) return "invalid";
-    const re = new RegExp(`^${canon(entry).split("*").map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*")}$`);
-    if (names.some((n) => re.test(n))) hit = true;
+    const pattern = canon(entry);
+    if (names.some((n) => globMatch(pattern, n))) hit = true;
   }
   return hit;
+}
+
+const SUBJECT_KINDS: readonly string[] = ["agent", "subagent", "acp-agent", "mcp-client", "acp-editor", "a2a-peer", "remote-harness"];
+const FLAG_KEYS = ["privileged", "irreversible", "batch", "shellAllowlisted", "sandboxed", "secretSlotDeclared", "publishPublic", "systemTree"] as const;
+const isObj = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
+const strList = (v: unknown): v is readonly string[] => Array.isArray(v) && v.every((x) => typeof x === "string");
+const nonEmpty = (v: unknown): v is string => typeof v === "string" && v.length > 0;
+
+/** RULING: a call or context the evaluator cannot read is refused before any rule runs; half-reading it could skip a floor. */
+function malformed(call: Call, ctx: Context): "invalid-call" | "invalid-context" | null {
+  const f: unknown = call?.flags;
+  if (!isObj(call) || !isObj(f) || typeof f.outsideRoots !== "boolean" || typeof f.denyListHit !== "boolean") return "invalid-call";
+  if (FLAG_KEYS.some((k) => f[k] !== undefined && typeof f[k] !== "boolean")) return "invalid-call";
+  if (typeof call.tool !== "string" || typeof call.actionHash !== "string") return "invalid-call";
+  if (call.targets !== undefined && !strList(call.targets)) return "invalid-call";
+  if (call.access !== undefined && call.access !== "read" && call.access !== "write") return "invalid-call";
+  if (!isObj(ctx) || !isObj(ctx.principal) || !nonEmpty(ctx.principal.person) || !isObj(ctx.subject) || !nonEmpty(ctx.subject.agentId) || !SUBJECT_KINDS.includes(ctx.subject.kind)) return "invalid-context";
+  if (ctx.headless !== undefined && (!isObj(ctx.headless) || !nonEmpty(ctx.headless.jobId))) return "invalid-context";
+  if (ctx.tokenScopes !== undefined && !strList(ctx.tokenScopes)) return "invalid-context";
+  if (ctx.deniedActionHashes !== undefined && !strList(ctx.deniedActionHashes)) return "invalid-context";
+  if (ctx.handoff !== undefined && (!isObj(ctx.handoff) || !strList(ctx.handoff.scope) || !strList(ctx.handoff.approvalsHeld) || !nonEmpty(ctx.handoff.taskId))) return "invalid-context";
+  return null;
 }
 
 function validGrant(g: Grant): boolean {
@@ -248,6 +284,8 @@ export function pathCovered(grantPath: string, recursive: boolean, target: strin
 // ---- the evaluator ----
 
 export function decide(call: Call, ctx: Context, deps: Deps): Decision {
+  const bad = malformed(call, ctx);
+  if (bad) return deny("policy-never", bad);
   const capability = typeof call.capability === "string" ? canon(call.capability) : "";
   const def = CAPABILITIES.get(capability);
   if (!def) return deny("policy-never", "unknown-capability"); // RULING: an unknown capability id is never, not approval
@@ -259,7 +297,7 @@ export function decide(call: Call, ctx: Context, deps: Deps): Decision {
   if (def.base.inside === "never") return deny("policy-never", "never");
   if (def.id === "secrets.use" && flags.secretSlotDeclared !== true) return deny("policy-never", "never:secret-slot");
   // (3) tools.deny
-  if (ctx.toolsDeny) {
+  if (ctx.toolsDeny !== undefined) {
     const m = matchesDeny(ctx.toolsDeny, call, def.id);
     if (m === "invalid") return deny("policy-never", "tools.deny:invalid");
     if (m) return deny("policy-never", "tools.deny");
@@ -311,7 +349,8 @@ export function decide(call: Call, ctx: Context, deps: Deps): Decision {
   }
 
   if (ctx.deniedActionHashes?.includes(call.actionHash)) return deny("repeat-denied", "fatigue:repeat-denied");
-  if ((ctx.promptsThisHour ?? 0) >= DEFAULTS.maxPromptsPerTaskPerHour) return deny("prompt-cap", "fatigue:prompt-cap"); // RULING: over the cap = refused, not queued
+  const prompts = ctx.promptsThisHour ?? 0;
+  if (!(typeof prompts === "number" && prompts < DEFAULTS.maxPromptsPerTaskPerHour)) return deny("prompt-cap", "fatigue:prompt-cap"); // RULING: over the cap = refused, not queued
   return ask(def, call, ctx, effect, taintSuspends, taintSuspends ? "taint-suspended" : cls === "approval" ? "approval-class" : "approval");
 }
 
@@ -336,7 +375,7 @@ function ask(def: CapabilityDef, call: Call, ctx: Context, effect: Effect, taint
     park: ctx.headless !== undefined,
     why,
     request: {
-      capability: def.id, tool: call.tool, effect, flags: { ...flags }, risk,
+      capability: def.id, tool: call.tool, effect, flags: { ...flags, ...(isBatch(flags, call.targets) ? { batch: true } : {}) }, risk,
       reversible: flags.irreversible !== true && effect !== "local-destructive" && effect !== "money",
       actionHash: call.actionHash, grantOptions: options, requiredSurface: options[0]!.requiredSurface,
       tainted: ctx.taint?.tainted === true, taintSuspended, originSurface: ctx.surface,
@@ -360,7 +399,8 @@ function grantApplies(
   g: Grant, def: CapabilityDef, call: Call, ctx: Context, flags: CallFlags,
   effect: Effect, batch: boolean, taintSuspends: boolean, now: number,
 ): boolean {
-  if (g.revoked === true || canon(g.capability) !== def.id || g.person !== ctx.principal.person) return false;
+  // Anything but an explicit false/absent revocation marker counts as revoked (a store may hand back 1 or "true").
+  if ((g.revoked !== undefined && g.revoked !== false) || canon(g.capability) !== def.id || g.person !== ctx.principal.person) return false;
   if (!GRANT_SCOPES.includes(g.scope)) return false;
   if (ctx.headless) { if (g.jobId !== ctx.headless.jobId || g.scope !== "always") return false; } // §9
   else if (g.jobId !== undefined) return false;
@@ -368,6 +408,7 @@ function grantApplies(
   if (!ownAgent && !(ctx.subject.kind === "subagent" && ctx.handoff?.approvalsHeld.includes(g.id))) return false;
   if (scopeRank(g.scope) > scopeRank(maxScopeFor(def, { ...flags, batch }))) return false;
   if (g.createdAt > now || now >= grantExpiry(g)) return false; // a grant from the future is not valid yet (fail closed)
+  if (g.lastUsedAt !== undefined && g.lastUsedAt > now) return false; // a use in the future would stretch the idle/90-day expiry
   if (g.surface < requiredSurface(def, g.scope, flags)) return false;
   if (taintSuspends && g.scope !== "once") return false;
   if (g.projectId !== undefined && g.projectId !== ctx.projectId) return false;
