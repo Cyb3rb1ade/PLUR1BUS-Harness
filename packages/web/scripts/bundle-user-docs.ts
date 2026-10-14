@@ -83,7 +83,7 @@ export function bundleDocs({ userDocsDir = defaultUserDocsDir, outDir = defaultO
   console.log("Bundled docs/user into packages/web/src/pages/help/docs-bundle/{de,en}/*");
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (process.argv.includes("--check")) {
     const problems = checkBundle();
     if (problems.length > 0) {

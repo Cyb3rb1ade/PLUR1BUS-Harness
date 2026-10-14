@@ -87,7 +87,8 @@ if (check) {
   } catch {
     // Missing is drift
   }
-  if (current !== content) {
+  // A Windows checkout with core.autocrlf carries CRLF; the generated text is LF (the other generators compare the same way).
+  if (current?.replace(/\r\n/g, "\n") !== content) {
     console.error(`settings-index: drift in ${outFile}; run pnpm gen`);
     process.exit(1);
   }

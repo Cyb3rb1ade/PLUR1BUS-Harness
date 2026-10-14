@@ -13,6 +13,8 @@
 //   python_matrix  the python-host matrix, with the macOS entry only when macos=true
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export const LABEL = "ci:macos";
 // Platform-sensitive paths: a change here can behave differently on macOS. Edit ONLY this list.
@@ -65,6 +67,14 @@ export function pythonMatrix(macos) {
   ];
 }
 
+/** Paths changed between two commits, as git stores them. `-z` keeps non-ASCII names unquoted (the default output wraps
+ *  them in quotes with octal escapes, which no glob matches); `--no-renames` lists both the old and the new path of a
+ *  moved file, so moving a file out of a platform-sensitive directory still counts as a change there. */
+export function changedFiles(base, head, cwd = process.cwd()) {
+  return execFileSync("git", ["diff", "--name-only", "-z", "--no-renames", `${base}...${head}`], { encoding: "utf8", cwd, maxBuffer: 256 * 1024 * 1024 })
+    .split("\0").filter(Boolean);
+}
+
 function main() {
   const env = process.env;
   const extra = [];
@@ -72,8 +82,7 @@ function main() {
   const event = env.EVENT_NAME ?? "";
   let files = [];
   if (event === "pull_request") {
-    files = execFileSync("git", ["diff", "--name-only", `${env.BASE_SHA}...${env.HEAD_SHA}`], { encoding: "utf8" })
-      .split("\n").filter(Boolean);
+    files = changedFiles(env.BASE_SHA, env.HEAD_SHA);
   }
   const labels = JSON.parse(env.LABELS || "[]");
   const r = plan({ event, action: env.ACTION ?? "", labelName: env.LABEL_NAME ?? "", labels, files, extra });
@@ -82,4 +91,4 @@ function main() {
   console.error(`macos-plan: event=${event} files=${files.length} -> ${out.trim().split("\n").slice(0, 2).join(" ")}`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

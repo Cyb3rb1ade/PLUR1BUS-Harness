@@ -6,7 +6,8 @@ import { globSync } from "node:fs";
 // A test that passes its own `{ timeout }` keeps it. Note: it cannot interrupt a blocking spawnSync inside a test.
 const TEST_TIMEOUT_MS = 120_000;
 
-const files = globSync("test/**/*.test.ts");
+// Sorted: glob order is the filesystem's, and the files run one after the other, so the log order would vary per machine.
+const files = globSync("test/**/*.test.ts").sort();
 if (files.length === 0) { console.log("no tests"); process.exit(0); }
 const r = spawnSync(process.execPath, ["--experimental-strip-types", "--conditions=source", "--no-warnings=ExperimentalWarning", "--test", "--test-concurrency=1", `--test-timeout=${TEST_TIMEOUT_MS}`, ...files], { stdio: "inherit" });
 process.exit(r.status ?? 1);
