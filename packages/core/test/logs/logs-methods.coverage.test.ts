@@ -222,7 +222,7 @@ describe("logs.tail: edge cases", () => {
     const r: any = await createLogsMethods({ dir, maxScanBytes: 100, ...fake() })["logs.tail"]!({ limit: 100 }, ctx());
     assert.equal(r.truncated, true);
   });
-  it("an already aborted connection signal does not wait", { skip: "BUG: bereits abgebrochenes ctx.signal beendet logs.tail nicht (addEventListener feuert nicht) – siehe docs/testing/coverage-2026-10.md#logs-tail-preaborted-signal" }, async () => {
+  it("an already aborted connection signal does not wait", async () => {
     put(dir, "core.log", rec(0, "info", "a"));
     const f = fake(); const ac = new AbortController();
     const h = createLogsMethods({ dir, now: f.now, sleep: f.sleep });

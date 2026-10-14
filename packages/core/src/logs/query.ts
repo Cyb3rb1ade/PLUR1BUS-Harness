@@ -190,8 +190,8 @@ export async function runQuery(o: QueryOptions): Promise<QueryResult> {
       await advance(pick);
       let rec: Record<string, unknown> | null = null;
       if (c.pre) {
-        // A line the redactor cannot walk (nesting deeper than the stack) is withheld, never returned raw and never fatal.
-        try { rec = redactor.value(c.rec); } catch { corrupt++; rec = null; }
+        // A line the redactor cannot walk (nesting deeper than the stack: RangeError) is withheld, never returned raw and never fatal.
+        try { rec = redactor.value(c.rec); } catch (e) { if (!(e instanceof RangeError)) throw e; corrupt++; rec = null; }
         // The text is matched against the redacted record, so a search cannot confirm a secret.
         if (rec && needle !== undefined && JSON.stringify(rec).toLowerCase().indexOf(needle) < 0) rec = null;
       }

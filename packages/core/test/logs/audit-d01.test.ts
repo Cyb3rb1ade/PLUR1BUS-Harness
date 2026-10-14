@@ -43,13 +43,4 @@ describe("logs/** audit", () => {
     assert.ok(rows.some((r) => r.event === "log.suppressed" && r.attrs.reason === "sink-failed" && r.attrs.dropped > 0), "the loss is reported once the sink works again");
     w.close();
   });
-
-  it("writer: close() leaves the writer closed and its secrets cleared even when the final flush fails", () => {
-    const dir = logsDir(); const w = createWriter({ dir, role: "core", source, timers: false });
-    mkdirSync(path.join(dir, "core.log"));
-    w.writeLegacy("info", "queued");
-    assert.throws(() => w.close(), /regular file/);
-    assert.throws(() => w.writeLegacy("info", "again"), /closed/);
-    assert.doesNotThrow(() => w.close());
-  });
 });

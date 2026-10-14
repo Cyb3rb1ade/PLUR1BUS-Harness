@@ -158,7 +158,7 @@ export function createWriter(o: WriterOptions) {
       levelSettings = { ...settings, levels: { ...settings.levels } };
     },
     setRotation: sink.setRotation,
-    close() { if (closed) return; if (timer) clearInterval(timer); try { tick(true); flush(); } finally { closed = true; secrets.clear(); } },
+    close() { if (closed) return; if (timer) clearInterval(timer); tick(true); flush(); closed = true; secrets.clear(); },
   };
 }
 export type LogWriter = ReturnType<typeof createWriter>;

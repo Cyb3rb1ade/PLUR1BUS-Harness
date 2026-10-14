@@ -78,6 +78,7 @@ export function createLogsMethods(d: LogsDeps): Record<string, Handler> {
     const abort = (): void => stop.abort();
     ctx.signal.addEventListener("abort", abort, { once: true });
     d.signal?.addEventListener("abort", abort, { once: true });
+    if (ctx.signal.aborted || d.signal?.aborted) abort(); // a listener never fires for a signal that is already aborted
     try {
       let cursor = params.cursor;
       for (;;) {
