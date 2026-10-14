@@ -29,4 +29,18 @@ describe("core lock", () => {
     mkdirSync(path); // a directory where the lock file belongs
     assert.throws(() => acquireCoreLock(path, "i1"), (e: unknown) => e instanceof Error && !("error" in e));
   });
+  it("release is idempotent: a second call (signal handler plus normal exit) does not throw and does not free another holder's lock", () => {
+    const path = join(tempDir("p1b-lock-"), "core.lock");
+    const a = acquireCoreLock(path, "i1"); a.release();
+    const b = acquireCoreLock(path, "i2");
+    assert.doesNotThrow(() => a.release());
+    assert.throws(() => acquireCoreLock(path, "i3"), (e: any) => e.error === "E_LOCKED", "b still holds the lock");
+    b.release();
+  });
+  it("a second acquire in the same process while held is E_LOCKED", () => {
+    const path = join(tempDir("p1b-lock-"), "core.lock");
+    const a = acquireCoreLock(path, "i1");
+    assert.throws(() => acquireCoreLock(path, "i2"), (e: any) => e.error === "E_LOCKED");
+    a.release();
+  });
 });
