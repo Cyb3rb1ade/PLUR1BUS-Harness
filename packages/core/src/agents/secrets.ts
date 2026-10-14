@@ -10,11 +10,12 @@ export function agentRequiredSecrets(config: HarnessConfig, agent: HarnessConfig
       else if (typeof v === "object") visit(v);
     }
   };
-  for (const name of agent.channels ?? []) visit(config.channels[name as keyof HarnessConfig["channels"]]);
-  const profile = agent.model ? config.modelProfiles[agent.model] : undefined;
+  // Names come from config values: only own entries count ("toString", "constructor" are not channels or profiles).
+  for (const name of agent.channels ?? []) if (Object.hasOwn(config.channels, name)) visit(config.channels[name as keyof HarnessConfig["channels"]]);
+  const profile = agent.model && Object.hasOwn(config.modelProfiles, agent.model) ? config.modelProfiles[agent.model] : undefined;
   for (const model of [...(profile?.candidates.map(c => c.model) ?? []), ...(profile?.aggregator ? [profile.aggregator] : [])]) {
     const provider = model.slice(0, model.indexOf("/"));
-    visit(config.providers[provider]);
+    if (Object.hasOwn(config.providers, provider)) visit(config.providers[provider]);
   }
   return [...names].sort();
 }

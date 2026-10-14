@@ -97,6 +97,11 @@ is refused unless `--channel` names it. `--from` cannot be combined with `--mani
 artefacts verified, before the swap; `--check` never writes it).
 
 - A release **older than the installed version** is refused (`downgrade-refused`).
+  "Older" follows SemVer precedence: `1.2.0-rc.1` is older than `1.2.0`, `rc.2` newer than `rc.1`, numeric
+  identifiers compare numerically (`rc.2` < `rc.10`), and build metadata (`+build`) is ignored. The desktop updater
+  orders versions the same way.
+- The **stable channel never offers a pre-release**: `update --check` reports nothing available for it, and applying one
+  is refused with `prerelease-on-stable` (pass `--channel beta` to follow pre-releases).
 - A validly signed release **older than the highest accepted one** is a replay (`release-replay`): a stale manifest
   served again.
 - `--allow-downgrade` lifts both, for a person who means it. The highest-seen version is never lowered.

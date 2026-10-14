@@ -24,11 +24,19 @@ export function buildDoctorMethods(o: { home: string; clock: () => number; check
   let cached: Report | null = null;
   let lastStarted = -Infinity;
   let inFlight: Promise<Report> | null = null;
-  const redactor = createRedactor();
-  const safe = (text: string): string => redactor.text(text).split(o.home).join("[home]").split(homedir()).join("[user-home]").slice(0, 4096);
+  const redactor = createRedactor({ pii: true });
+  // Replacing "" would interleave the marker between every character, and "/" would eat every path separator.
+  const literal = (text: string, home: string, marker: string): string => {
+    const root = home.replace(/[\\/]+$/, "");
+    return root.length > 1 ? text.split(root).join(marker) : text;
+  };
+  // Another person's home directory (the CLI may report any path it touched) is personal data: keep only the marker.
+  const FOREIGN_HOME = /(?:[A-Za-z]:)?[\\/](?:home|Users)[\\/][^\s"'<>|:;,()[\]{}\\/]+/gi;
+  const safe = (text: string): string => literal(literal(redactor.text(text), o.home, "[home]"), homedir(), "[user-home]").replace(FOREIGN_HOME, "[user-home]").slice(0, 4096);
   async function generate(): Promise<Report> {
     lastStarted = o.clock();
-    const raw = await (o.check ?? (() => runFirstAid(o.home)))() as { schema?: unknown; checks?: unknown };
+    // Whatever the probe throws (a spawn error carries paths) is not shown to the caller.
+    const raw = await (o.check ?? (() => runFirstAid(o.home)))().catch((e: unknown) => { throw e instanceof RpcError ? e : new RpcError("E_NOT_AVAILABLE", "installation diagnostics are unavailable", { reason: "firstaid-unavailable" }); }) as { schema?: unknown; checks?: unknown };
     if (!raw || raw.schema !== "1staid.check/1" || !Array.isArray(raw.checks)) throw new RpcError("E_NOT_AVAILABLE", "installation diagnostics are unavailable", { reason: "firstaid-invalid" });
     const checks: Check[] = raw.checks.map((item: unknown) => {
       const c = item as { id?: unknown; status?: unknown; summary?: unknown; hint?: unknown };
@@ -57,6 +65,9 @@ export function buildDoctorMethods(o: { home: string; clock: () => number; check
       return await start();
     }
     if (inFlight) return await inFlight;
+    // A failed startup snapshot must not leave readers without a report until an operator refreshes: retry lazily,
+    // inside the same rate limit as a refresh.
+    if (!cached && o.clock() - lastStarted >= 30000) return await start();
     if (!cached) throw new RpcError("E_NOT_AVAILABLE", "installation diagnostics are unavailable", { reason: "firstaid-unavailable" });
     return structuredClone(cached);
   } };

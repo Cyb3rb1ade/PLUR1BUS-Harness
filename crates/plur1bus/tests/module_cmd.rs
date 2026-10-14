@@ -412,7 +412,7 @@ fn install_refuses_escaping_entries_symlinks_and_reserved_names_and_copies_nothi
     }
     for (src, reason) in cases {
         let (code, v) = h.cli(&["module", "install", path_str(&src)]);
-        assert_eq!(code, 1, "{src:?}: {v}");
+        assert_eq!(code, 2, "{src:?}: {v}");
         assert_eq!(v["error"], "E_INVALID_PARAMS", "{src:?}: {v}");
         assert_eq!(v["reason"], reason, "{src:?}: {v}");
         assert_eq!(h.modules_listing(), before, "{src:?} left something behind");
@@ -461,7 +461,7 @@ fn install_refuses_a_module_whose_socket_path_would_be_too_long() {
     assert!(address.len() >= limit, "{address}");
     let src = h.source("long-name", json!({ "name": name }));
     let (code, v) = h.cli(&["module", "install", path_str(&src)]);
-    assert_eq!(code, 1, "{v}");
+    assert_eq!(code, 2, "{v}");
     assert_eq!(v["error"], "E_INVALID_PARAMS", "{v}");
     assert_eq!(v["reason"], "socket-path-too-long", "{v}");
     assert!(h.modules_listing().is_empty(), "{:?}", h.modules_listing());
@@ -499,7 +499,7 @@ fn reinstall_replaces_and_restarts_a_running_module() {
     // A refusal through the supervisor is the same refusal, and nothing changes.
     let bad = h.source("core", json!({ "name": "core" }));
     let (code, v) = h.cli(&["module", "install", path_str(&bad)]);
-    assert_eq!((code, &v["reason"]), (1, &json!("reserved-name")), "{v}");
+    assert_eq!((code, &v["reason"]), (2, &json!("reserved-name")), "{v}");
     assert_eq!(h.modules_listing(), ["fixture"]);
     stop(&mut s, &mut c);
 }
@@ -560,12 +560,12 @@ fn start_without_a_supervisor_is_supervisor_not_running() {
     );
     for verb in ["start", "stop", "restart"] {
         let (code, v) = h.cli(&["module", verb, "fixture"]);
-        assert_eq!(code, 1, "{verb}: {v}");
+        assert_eq!(code, 2, "{verb}: {v}");
         assert_eq!(v["error"], "E_NOT_AVAILABLE", "{verb}: {v}");
         assert_eq!(v["reason"], "supervisor-not-running", "{verb}: {v}");
     }
     let out = h.run(false, &["module", "start", "fixture"]);
-    assert_eq!(out.status.code(), Some(1));
+    assert_eq!(out.status.code(), Some(2));
     assert!(
         String::from_utf8_lossy(&out.stderr).contains("daemon start"),
         "{out:?}"
@@ -783,7 +783,7 @@ fn disabling_by_config_stops_the_module_and_enabling_starts_it() {
     let list = h.ok(&["module", "list"], "module.list");
     assert_eq!(entry(&list, "fixture")["enabled"], false);
     let (code, v) = h.cli(&["module", "start", "fixture"]);
-    assert_eq!((code, &v["reason"]), (1, &json!("disabled")), "{v}");
+    assert_eq!((code, &v["reason"]), (2, &json!("disabled")), "{v}");
 
     h.ok(
         &["config", "set", "modules.fixture.enabled", "true", "--yes"],
@@ -897,13 +897,13 @@ fn offline_install_and_uninstall_refuse_while_a_supervisor_starts_or_the_module_
         let (code, v) = h.cli(&["module", "install", path_str(&v2)]);
         assert_eq!(
             (code, &v["reason"]),
-            (1, &json!("supervisor-running")),
+            (2, &json!("supervisor-running")),
             "{v}"
         );
         let (code, v) = h.cli(&["module", "uninstall", "fixture", "--yes"]);
         assert_eq!(
             (code, &v["reason"]),
-            (1, &json!("supervisor-running")),
+            (2, &json!("supervisor-running")),
             "{v}"
         );
         unchanged(&h);
@@ -912,9 +912,9 @@ fn offline_install_and_uninstall_refuse_while_a_supervisor_starts_or_the_module_
     let pid_file = h.home.join("run/module-fixture.pid");
     std::fs::write(&pid_file, format!("{} some-instance\n", std::process::id())).unwrap();
     let (code, v) = h.cli(&["module", "install", path_str(&v2)]);
-    assert_eq!((code, &v["reason"]), (1, &json!("module-running")), "{v}");
+    assert_eq!((code, &v["reason"]), (2, &json!("module-running")), "{v}");
     let (code, v) = h.cli(&["module", "uninstall", "fixture", "--yes"]);
-    assert_eq!((code, &v["reason"]), (1, &json!("module-running")), "{v}");
+    assert_eq!((code, &v["reason"]), (2, &json!("module-running")), "{v}");
     unchanged(&h);
     std::fs::remove_file(&pid_file).unwrap();
     let v = h.ok(&["module", "install", path_str(&v2)], "module.install");
@@ -949,7 +949,7 @@ fn stop_works_for_a_running_module_whose_manifest_became_invalid() {
     let _ = m;
     // It cannot be started again while its manifest is invalid.
     let (code, v) = h.cli(&["module", "start", "fixture"]);
-    assert_eq!((code, &v["reason"]), (1, &json!("manifest-invalid")), "{v}");
+    assert_eq!((code, &v["reason"]), (2, &json!("manifest-invalid")), "{v}");
     stop(&mut s, &mut c);
 }
 
@@ -984,7 +984,7 @@ fn a_need_stopped_by_request_holds_its_dependents() {
     let (code, v) = h.cli(&["module", "start", "fixture-b"]);
     assert_eq!(
         (code, &v["reason"]),
-        (1, &json!("needs-unavailable")),
+        (2, &json!("needs-unavailable")),
         "{v}"
     );
     h.ok(&["module", "start", "fixture"], "module.start");

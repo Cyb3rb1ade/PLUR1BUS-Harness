@@ -120,6 +120,43 @@ it("persists revocations and refuses removing them or replaying old revocation v
   f.serve(2); failure(await f.make().refresh(), "rollback_detected");
   f.serve(2, { rev: revocations({ version: 3 }) }); failure(await f.make().refresh(), "revoked_package");
 });
+it("a revocation with a prefix wildcard 'N.*' revokes every matching version: the offer, the download and the installed report", async (t) => {
+  const f = await fixture(t);
+  const versions = ["1.0.0", "1.4.2", "2.0.0"].map((version) => ({ version, url: `${f.config.url.replace(/\/index$/, "")}/artifact`, size: 7, sha256: hash(Buffer.from("package")) }));
+  f.serve(1, { rev: revocations({ packages: [{ id: "owner/skill", versions: ["1.*"], reason: "bad 1.x" }] }), overrides: { packages: [{ id: "owner/skill", kind: "skill", name: "skill", versions }] } });
+  const view = ok(await f.client.refresh());
+  assert.deepEqual(view.index.packages[0]!.versions.map((v) => v.version), ["2.0.0"]);
+  assert.deepEqual(f.reports[0], [{ id: "owner/skill", version: "1.0.0", status: "revoked", reason: "bad 1.x" }]);
+  failure(await f.client.download({ serial: 1, id: "owner/skill", version: "1.4.2" }), "revoked_package");
+});
+it("a revocation list cannot narrow a wildcard revocation it already carried (permanence holds for patterns)", async (t) => {
+  const f = await fixture(t);
+  f.serve(1, { rev: revocations({ version: 2, packages: [{ id: "owner/skill", versions: ["1.*"], reason: "bad" }] }) }); ok(await f.client.refresh());
+  f.serve(2, { rev: revocations({ version: 3, packages: [{ id: "owner/skill", versions: ["1.0.0"], reason: "bad" }] }) }); failure(await f.make().refresh(), "revoked_package");
+  f.serve(2, { rev: revocations({ version: 3, packages: [{ id: "owner/skill", versions: ["*"], reason: "worse" }] }) }); ok(await f.make().refresh());
+});
+it("a revocation that names a package or key the index and root do not contain is kept and reported as a warning", async (t) => {
+  const f = await fixture(t);
+  f.serve(1, { rev: revocations({ keys: ["ghost-key"], packages: [{ id: "no/such-package", versions: ["9.9.9"], reason: "r" }, { id: "owner/skill", versions: ["7.7.7"], reason: "known package, version absent" }] }) });
+  const view = ok(await f.client.refresh());
+  assert.deepEqual(view.warnings.map((w) => [w.kind, w.id]).sort(), [["revocation_unknown_key", "ghost-key"], ["revocation_unknown_package", "no/such-package"]]);
+  assert.equal(view.index.packages[0]!.versions.length, 1);
+  // kept: a later list may not drop it
+  f.serve(2, { rev: revocations({ version: 2 }) }); failure(await f.make().refresh(), "key_revoked");
+  // the cached view carries the same warnings
+  f.routes.clear(); const cached = ok(await f.make().get()); assert.equal(cached.source, "cache"); assert.equal(cached.warnings.length, 2);
+});
+it("a view without dangling revocations has an empty warnings list", async (t) => {
+  const f = await fixture(t); f.serve(); assert.deepEqual(ok(await f.client.refresh()).warnings, []);
+});
+it("an index with a look-alike pair of package ids is refused end to end", async (t) => {
+  const f = await fixture(t); const v = { version: "1.0.0", url: "https://assets.test/p.p1x", size: 7, sha256: hash(Buffer.from("package")) };
+  f.serve(1, { overrides: { packages: [{ id: "owner/skill", kind: "skill", name: "a", versions: [v] }, { id: "Owner/Skill", kind: "skill", name: "b", versions: [v] }] } });
+  failure(await f.client.refresh(), "signature_invalid");
+});
+it("one extra signature by a key the root does not list does not discard an envelope that meets the threshold", async (t) => {
+  const f = await fixture(t); f.serve(1, { signers: [...f.keys, key("future-key")] }); ok(await f.client.refresh());
+});
 it("checks artifact hash and size against signed metadata", async (t) => {
   const f = await fixture(t); f.serve(); ok(await f.client.refresh()); f.routes.set("/artifact", { body: Buffer.from("tamper!") });
   failure(await f.client.download({ serial: 1, id: "owner/skill", version: "1.0.0" }), "hash_mismatch");

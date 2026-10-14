@@ -18,6 +18,8 @@ export function NewChat(): View {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Key | null>(null);
   const box = useRef<HTMLTextAreaElement>(null);
+  // Synchronous guard: `busy` only turns true after a re-render, a second Enter/click would create a second chat.
+  const starting = useRef(false);
   useEffect(() => { void loadAgents(); }, []);
 
   const a = agents.value;
@@ -26,7 +28,8 @@ export function NewChat(): View {
 
   const start = async (): Promise<void> => {
     const first = text.replace(/\s+$/, "");
-    if (busy || agentId === null || first === "") return;
+    if (starting.current || agentId === null || first === "") return;
+    starting.current = true;
     setBusy(true);
     setNotice(null);
     const memoryMode: MemoryMode = incognito ? "incognito" : "remember";
@@ -35,6 +38,7 @@ export function NewChat(): View {
       sessionId = (await getApi().rpc("session.create", { agentId, kind: "direct", memoryMode })).session.id;
     } catch (e) {
       setNotice(submitErrorKey(e));
+      starting.current = false;
       setBusy(false);
       box.current?.focus();
       return;

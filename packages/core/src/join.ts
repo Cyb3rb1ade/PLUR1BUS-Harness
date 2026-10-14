@@ -18,10 +18,13 @@ function safeKeep(text: string, keep: number): number {
  * cap when nothing droppable is left. Deferrals are reported in block order.
  */
 export function joinBlocks(blocks: ContextBlock[], capChars: number): { text: string; deferrals: Deferral[] } {
+  // A cap that is not a number must not switch the cap off (every comparison with NaN is false): it counts as 0. A
+  // fractional cap is floored so the deferral lengths stay integers.
+  const cap = Number.isNaN(capChars) ? 0 : Math.floor(capChars);
   const parts = blocks.map((b, index) => ({ name: b.name, text: b.text, droppable: b.droppable, index }));
   const deferrals: Array<Deferral & { index: number }> = [];
   const joined = () => parts.filter((p) => p.text.length).map((p) => p.text).join(SEP);
-  for (let over = joined().length - capChars; over > 0; over = joined().length - capChars) {
+  for (let over = joined().length - cap; over > 0; over = joined().length - cap) {
     const candidates = parts.filter((p) => p.droppable && p.text.length).reverse();
     if (!candidates.length) break;
     const clip = candidates.find((p) => p.text.length > over && safeKeep(p.text, p.text.length - over) > 0);

@@ -267,7 +267,6 @@ fn fail_service(out: &Out, e: &ServiceError) -> ! {
         "E_INTERNAL",
         &e.to_string(),
         json!({ "reason": "service-manager" }),
-        1,
     )
 }
 
@@ -310,7 +309,6 @@ fn wait_for_ready(
                 "E_CORE_UNAVAILABLE",
                 &format!("the core crashed: {reason}"),
                 json!({ "reason": "core-crashed", "detail": reason, "status": last }),
-                1,
             );
         }
         if Instant::now() >= deadline {
@@ -318,7 +316,6 @@ fn wait_for_ready(
                 "E_CORE_UNAVAILABLE",
                 "the core did not become ready in time",
                 json!({ "reason": "not-ready", "status": last }),
-                1,
             );
         }
         std::thread::sleep(POLL_INTERVAL);
@@ -368,7 +365,6 @@ pub(crate) fn start(out: &Out, layout: &Layout, no_wait: bool) -> (bool, &'stati
                 "E_INTERNAL",
                 &format!("cannot locate the plur1bus binary: {e}"),
                 json!({}),
-                1,
             )
         });
         spawned = Some(spawn_supervise(&bin, layout).unwrap_or_else(|e| {
@@ -376,7 +372,6 @@ pub(crate) fn start(out: &Out, layout: &Layout, no_wait: bool) -> (bool, &'stati
                 "E_INTERNAL",
                 &format!("cannot spawn the supervisor: {e}"),
                 json!({}),
-                1,
             )
         }));
     }
@@ -417,7 +412,6 @@ pub(crate) fn start(out: &Out, layout: &Layout, no_wait: bool) -> (bool, &'stati
                             "E_CORE_UNAVAILABLE",
                             &format!("the spawned supervisor did not start: {detail}"),
                             json!({ "reason": "supervisor-exited", "detail": detail }),
-                            1,
                         );
                     }
                 }
@@ -433,7 +427,6 @@ pub(crate) fn start(out: &Out, layout: &Layout, no_wait: bool) -> (bool, &'stati
             "E_CORE_UNAVAILABLE",
             "the supervisor did not become reachable in time",
             json!({ "reason": "not-ready" }),
-            1,
         );
     };
 

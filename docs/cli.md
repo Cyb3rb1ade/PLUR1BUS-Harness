@@ -1761,7 +1761,7 @@ The core stages the memory store through the engine's snapshot and every SQLite 
 
 [experimental] Check an archive: manifest, every entry against its SHA-256, nothing extra, nothing missing
 
-Exits 1 with a `reason` (archive-corrupt, truncated, manifest-invalid, unsupported-format, unexpected-entry, checksum-mismatch, missing-entry) for an archive a restore would refuse.
+Exits 2 (`E_INVALID_PARAMS`) with a `reason` (archive-corrupt, truncated, manifest-invalid, unsupported-format, unexpected-entry, checksum-mismatch, missing-entry) for an archive a restore would refuse.
 
 **Usage:** `plur1bus backup verify <FILE>`
 
@@ -4312,7 +4312,7 @@ Fills `files`, `scripts` and `created`, and writes the package deterministically
 
 [experimental] Verify a `.p1x` without a home: layout, hashes, signature, manifest and compatibility
 
-Trusts only the pinned keys, checks no revocations and no installed names. Exit 1 with the reason when the package is refused.
+Trusts only the pinned keys, checks no revocations and no installed names. Exit 2 with the reason when the package is refused.
 
 **Usage:** `plur1bus ext verify <FILE>`
 

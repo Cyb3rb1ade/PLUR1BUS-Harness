@@ -27,7 +27,11 @@ export class FileJobPersistence implements JobPersistence {
   }
   async list(): Promise<Job[]> {
     await mkdir(this.root, { recursive: true, mode: 0o700 }); const jobs: Job[] = [];
-    for (const name of await readdir(this.root)) if (name.endsWith('.json')) { const job = await this.get(name.slice(0, -5)); if (job) jobs.push(job); }
+    for (const name of await readdir(this.root)) {
+      if (!name.endsWith('.json')) continue;
+      // One unreadable or foreign file must not hide every other job from recovery.
+      try { const job = await this.get(name.slice(0, -5)); if (job) jobs.push(job); } catch { /* skipped: not a job record this runner wrote */ }
+    }
     return jobs;
   }
   async claim(id: string): Promise<() => Promise<void>> {
@@ -54,7 +58,11 @@ export class JobRunner {
     try { const job = await this.persistence.get(id); if (job && job.state === 'queued') { job.state = 'cancelled'; job.updatedAt = Date.now(); await this.persistence.put(job); } } finally { await release(); }
   }
   async run(id: string, signal?: AbortSignal): Promise<void> {
-    const release = await this.persistence.claim(id);
+    // Registered before the claim is awaited: a cancel() that arrives while the job is starting finds the controller instead of failing on the claim.
+    if (this.controllers.has(id)) throw new MediaError('backend_unavailable');
+    const controller = new AbortController(); this.controllers.set(id, controller);
+    let release: () => Promise<void>;
+    try { release = await this.persistence.claim(id); } catch (e) { this.controllers.delete(id); throw e; }
     try {
       const job = await this.persistence.get(id);
       if (!job || !['queued', 'running'].includes(job.state)) throw new MediaError('unsupported_parameter');
@@ -64,7 +72,6 @@ export class JobRunner {
       if (existing) {
         await this.budget?.settle(id, existing.metadata.costUsd ?? null); job.output = existing; job.state = 'succeeded'; job.progress = { fraction: 1 }; job.updatedAt = Date.now(); await this.persistence.put(job); return;
       }
-      const controller = new AbortController(); this.controllers.set(id, controller);
       const combined = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
       let reserved = false;
       const save = async () => { job.updatedAt = Date.now(); await this.persistence.put(job); };
@@ -80,11 +87,21 @@ export class JobRunner {
         await this.budget?.settle(id, result.metadata.costUsd ?? null); reserved = false;
         job.state = 'succeeded'; job.progress = { fraction: 1 }; await save();
       } catch (e) {
-        const error = failure(e, combined); job.error = error.code; job.state = error.code === 'cancelled' ? 'cancelled' : 'failed';
+        // A deadline on the caller's signal is a timeout; only a deliberate abort (cancel() or the caller aborting) is a cancellation.
+        const timedOut = combined.aborted && !controller.signal.aborted && (combined.reason as { name?: string } | undefined)?.name === 'TimeoutError';
+        const error = timedOut ? new MediaError('timeout') : failure(e, combined); job.error = error.code; job.state = error.code === 'cancelled' ? 'cancelled' : 'failed';
         if (reserved) { try { await this.budget?.settle(id, null); } catch { /* reservation reconciliation belongs to the budget port */ } }
         await save();
       } finally { this.controllers.delete(id); }
-    } finally { await release(); }
+    } finally { this.controllers.delete(id); await release(); }
   }
-  async recover(): Promise<void> { for (const job of await this.persistence.list()) if (['queued', 'running'].includes(job.state)) await this.run(job.id); }
+  /** Runs every queued or interrupted job. A job another runner holds, or that changed since listing, is left to its owner; an unexpected failure is rethrown after the rest were tried. */
+  async recover(): Promise<void> {
+    let unexpected: unknown;
+    for (const job of await this.persistence.list()) {
+      if (!['queued', 'running'].includes(job.state)) continue;
+      try { await this.run(job.id); } catch (e) { if (!(e instanceof MediaError)) unexpected ??= e; }
+    }
+    if (unexpected !== undefined) throw unexpected;
+  }
 }

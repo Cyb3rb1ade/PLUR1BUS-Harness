@@ -1447,33 +1447,45 @@ pub fn run(out: &Out, layout: &Layout, cmd: FirstAidCmd) {
             let runner = super::service::runner(out);
             let checks = collect(layout, runner.as_ref(), Instant::now() + GATHER_BUDGET);
             let ok = !checks.iter().any(|c| c.status == Status::Fail);
-            out.ok(
-                "1staid.check/1",
-                &json!({ "ok": ok, "checks": checks }),
-                || {
-                    checks
-                        .iter()
-                        .map(|c| {
-                            let mark = match c.status {
-                                Status::Ok => "ok",
-                                Status::Info => "info",
-                                Status::Warn => "warn",
-                                Status::Fail => "FAIL",
-                                Status::Skip => "skip",
-                            };
-                            if c.status == Status::Info {
-                                format!("{mark:<5} {}", c.summary)
-                            } else {
-                                format!("{mark:<5} {:<24} {}", c.id, c.summary)
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                },
-            );
+            let human = || {
+                checks
+                    .iter()
+                    .map(|c| {
+                        let mark = match c.status {
+                            Status::Ok => "ok",
+                            Status::Info => "info",
+                            Status::Warn => "warn",
+                            Status::Fail => "FAIL",
+                            Status::Skip => "skip",
+                        };
+                        if c.status == Status::Info {
+                            format!("{mark:<5} {}", c.summary)
+                        } else {
+                            format!("{mark:<5} {:<24} {}", c.id, c.summary)
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            };
+            let doc = json!({ "ok": ok, "checks": checks });
             if !ok {
-                std::process::exit(1);
+                let failing: Vec<&str> = checks
+                    .iter()
+                    .filter(|c| c.status == Status::Fail)
+                    .map(|c| c.id)
+                    .collect();
+                out.ok_but_failed(
+                    "1staid.check/1",
+                    &doc,
+                    human,
+                    crate::output::Failure {
+                        code: "E_INTERNAL",
+                        message: format!("{} check(s) failed", failing.len()),
+                        extra: json!({ "reason": "checks-failed", "ids": { "failed": failing.join(",") } }),
+                    },
+                );
             }
+            out.ok("1staid.check/1", &doc, human);
         }
         FirstAidCmd::Repair(args) => super::repair::run(out, layout, args),
         FirstAidCmd::Bundle(args) => super::firstaid_bundle::run(out, layout, args),

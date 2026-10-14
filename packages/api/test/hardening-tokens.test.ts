@@ -44,6 +44,7 @@ test("every route has a classification: public (login only), self-service, or an
     const az = (r as { authz?: RouteSpec["authz"] }).authz;
     if (az === undefined) { problems.push(`${r.id}: no authz`); continue; }
     if (az === "public") { if (!PUBLIC.includes(r.id) || r.auth !== "none") problems.push(`${r.id}: public but not a login step`); continue; }
+    if (az === "delegated") { if (!["web.rpc", "web.events"].includes(r.id) || r.auth !== "session") problems.push(`${r.id}: invalid delegated route`); continue; }
     if (az === "authenticated") { if (!SELF_SERVICE.includes(r.id)) problems.push(`${r.id}: authenticated without being session self-service`); continue; }
     if (!policyFor(az.action)) { problems.push(`${r.id}: action ${az.action} is not in the policy table`); continue; }
     const min = minRoleOf(az.action);
@@ -56,6 +57,7 @@ test("every route has a classification: public (login only), self-service, or an
 
 test("a route that is public or only needs a live session can never be an action a human-only or secret-handling role table guards", () => {
   for (const r of ROUTES) {
+    if (r.authz === "delegated") { assert.equal(r.auth, "session"); assert.ok(["web.rpc", "web.events"].includes(r.id)); continue; }
     if (r.authz === "public" || r.authz === "authenticated") continue;
     const spec = policyFor(r.authz.action)!;
     assert.equal(spec.humanOnly === true && r.auth === "any", false, `${r.id}: a human-only action must not be reachable with a personal token`);

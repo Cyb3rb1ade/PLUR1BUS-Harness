@@ -109,6 +109,16 @@ export function createSystemJobs(options: CreateSystemJobsOptions): SystemJobs {
     }));
   }
 
+  /** The run already happened: a ledger fault when recording its end is logged, never allowed to lose the result,
+   *  turn a completed job into a failed one, or mask the handler's own error. */
+  function safeFinish(record: SystemRunRecord): void {
+    try {
+      ledger.finish(record);
+    } catch (err) {
+      options.logger.warn("failed to record the end of a system job run in the ledger", { runId: record.runId, job: record.job, error: String(err) });
+    }
+  }
+
   async function run(
     name: string,
     rawArgs: unknown,
@@ -122,7 +132,8 @@ export function createSystemJobs(options: CreateSystemJobsOptions): SystemJobs {
     const validatedArgs = handler.validateArgs(rawArgs);
     const runId = randomUUID();
     const startedAt = options.clock.now();
-    const argsToStore = Object.keys(validatedArgs).length > 0 ? validatedArgs : undefined;
+    // A snapshot: the handler gets the live object and may mutate it; the record must say what was started.
+    const argsToStore = Object.keys(validatedArgs).length > 0 ? structuredClone(validatedArgs) : undefined;
 
     ledger.begin({
       runId,
@@ -140,8 +151,9 @@ export function createSystemJobs(options: CreateSystemJobsOptions): SystemJobs {
         signal: o.signal ?? new AbortController().signal,
       });
 
-      const finishedAt = options.clock.now();
-      const durationMs = Math.max(0, finishedAt - startedAt);
+      // The system clock may step back during a run: a record never finishes before it started.
+      const finishedAt = Math.max(startedAt, options.clock.now());
+      const durationMs = finishedAt - startedAt;
 
       const record: SystemRunRecord = {
         runId,
@@ -158,12 +170,12 @@ export function createSystemJobs(options: CreateSystemJobsOptions): SystemJobs {
         ...(argsToStore !== undefined ? { args: argsToStore } : {}),
       };
 
-      ledger.finish(record);
+      safeFinish(record);
       if (record.outcome === "failed") try { options.onFailed?.(record); } catch { /* notification only */ }
       return { record, detail: outcome.detail };
     } catch (err) {
-      const finishedAt = options.clock.now();
-      const durationMs = Math.max(0, finishedAt - startedAt);
+      const finishedAt = Math.max(startedAt, options.clock.now());
+      const durationMs = finishedAt - startedAt;
 
       const failedRecord: SystemRunRecord = {
         runId,
@@ -179,7 +191,7 @@ export function createSystemJobs(options: CreateSystemJobsOptions): SystemJobs {
         ...(argsToStore !== undefined ? { args: argsToStore } : {}),
       };
 
-      ledger.finish(failedRecord);
+      safeFinish(failedRecord);
       try { options.onFailed?.(failedRecord); } catch { /* notification only */ }
       throw err;
     } finally {

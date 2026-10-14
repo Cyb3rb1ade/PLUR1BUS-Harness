@@ -163,4 +163,23 @@ describe("warmup", () => {
     assert.equal(ready.reranker.id, "local-transformers");
     assert.equal("error" in ready.embedder, false);
   });
+
+  it("a throwing onDone is logged at warn and does not skip the recall-path pass", async () => {
+    const lines: Line[] = []; const order: string[] = [];
+    const engine = {
+      models: { status: () => models("loading", "loading"), warm: async () => models("ready", "disabled") },
+      memory: { list: async () => { order.push("list"); return { items: [], truncated: false }; } },
+    } as unknown as E.Engine;
+    const w = startWarmup({
+      engine, logger: recordingLogger(lines), signal: new AbortController().signal, onDone: () => { throw new Error("status refresh failed"); },
+      recallPath: { agents: () => ["bernd"], principal: (agentId) => ({ agentId } as unknown as E.Principal) },
+      onRecallDone: () => order.push("onRecallDone"),
+    });
+    await w.done;
+    assert.deepEqual(order, ["list", "onRecallDone"]);
+    assert.ok(lines.some(([lvl, msg]) => lvl === "warn" && /onDone|status/.test(msg)), JSON.stringify(lines));
+  });
+
+  it.todo("KNOWN GAP: the recall-path pass has only a per-agent budget, so N hung agents keep the engine at models-warming for N times recallTimeoutMs; it needs an overall budget (a new WarmupOptions field, wired in the composition root)");
+  it.todo("KNOWN GAP: models.warm() itself has no deadline (a first-run model download may legitimately take minutes); a hung provider keeps recallWarmPending true until shutdown");
 });

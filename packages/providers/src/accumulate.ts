@@ -75,6 +75,8 @@ export class ChatAccumulator {
   }
 
   get finished(): boolean { return this.#raw !== undefined; }
+  /** The usage known so far (the last one the server sent). */
+  get usage(): Usage | undefined { return this.#usage; }
 
   push(chunk: unknown): ChatStreamEvent[] {
     if (!isRecord(chunk)) throw protocol("chunk is not an object");
@@ -86,8 +88,9 @@ export class ChatAccumulator {
     if (Array.isArray(choices)) for (const c of choices) this.#choice(c, events);
     if (usage !== undefined && usage !== null) {
       const u = parseUsage(usage);
-      // RULING: an empty usage object says nothing; it neither emits an event nor erases a usage already known.
-      if (u !== undefined) { this.#usage = u; events.push({ type: "usage", usage: u }); }
+      // RULING: an empty usage object says nothing and never erases a usage already known. The figure is kept, not emitted:
+      // servers repeat it (cumulative) or send it before the content, and the stream contract is one `usage` after `finish`.
+      if (u !== undefined) this.#usage = u;
     }
     return events;
   }

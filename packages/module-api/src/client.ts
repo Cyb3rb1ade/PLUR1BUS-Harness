@@ -1,3 +1,5 @@
+import type { AudienceTarget } from "./rpc-server.ts";
+import type { ApiDelegation } from "./api-principal.ts";
 import { createConnection, type Socket } from "node:net";
 import { LineDecoder, encodeLine } from "./framing.ts";
 import { checkAddress, type TrustOptions } from "./trust.ts";
@@ -41,7 +43,7 @@ export interface CoreClient {
   /** Calls a schema-validated RPC method and resolves to its result. */
   call<T = unknown>(method: string, params?: object): Promise<T>;
   /** Registers a notification listener and returns a function that removes it. */
-  onNotification(handler: (method: string, params: unknown) => void): () => void;
+  onNotification(handler: (method: string, params: unknown, delivery?: { audience: readonly AudienceTarget[] | null; connectionId: string }) => void): () => void;
   /** Called once when the connection ends (the peer closed it, an error, or close()). */
   onClose(handler: () => void): () => void;
   /** Closes the RPC connection and rejects any calls still pending on it. */
@@ -52,7 +54,10 @@ export interface CoreClient {
 }
 /** `endpoint` picks the handshake: `core.auth` (default), `supervisor.auth` (ruling S2) or `module.auth` (B9). */
 export interface ConnectOptions {
+  api?: ApiDelegation;
   address: string; token: string; endpoint?: "core" | "supervisor" | "module"; connectTimeoutMs?: number; callTimeoutMs?: number;
+  /** Separate bounded handshake for clients with long-running method calls. Defaults to callTimeoutMs. */
+  handshakeTimeoutMs?: number;
   /** The pid that must serve `address`: the one in `run/core.pid` (core) or `run/supervisor.pid` (supervisor). On Windows,
    *  where any account can create a pipe of a free name, it is required: without it the connect is refused before it
    *  starts (`E_UNAUTHORIZED`, reason `server-pid-unknown`), so a missing pid file never means "skip the check"
@@ -105,7 +110,7 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
   }
 
   const pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: NodeJS.Timeout }>();
-  const handlers = new Set<(method: string, params: unknown) => void>();
+  const handlers = new Set<(method: string, params: unknown, delivery?: { audience: readonly AudienceTarget[] | null; connectionId: string }) => void>();
   const closeHandlers = new Set<() => void>();
   const dec = new LineDecoder();
   let nextId = 1; let closed = false;
@@ -118,7 +123,7 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
     const msgs = values as any[];
     if (tooLong) { sock.destroy(); failAll(new RpcCallError(-32602, "E_INVALID_PARAMS", tooLong.message, "line-too-long")); return; }
     for (const m of msgs) {
-      if (m.id === undefined && typeof m.method === "string") { for (const h of handlers) h(m.method, m.params); continue; }
+      if (m.id === undefined && typeof m.method === "string") { for (const h of handlers) h(m.method, m.params, opts.api && typeof m.connectionId === "string" ? { audience: m.audience ?? null, connectionId: m.connectionId } : undefined); continue; }
       const p = pending.get(m.id); if (!p) continue;
       pending.delete(m.id); clearTimeout(p.timer);
       if (m.error) p.reject(new RpcCallError(m.error.code, m.error.data?.error ?? "E_INTERNAL", m.error.message, m.error.data?.reason, m.error.data?.detail, stringMap(m.error.data?.ids)));
@@ -133,19 +138,19 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
   });
   sock.on("error", (e) => { const err = e as NodeJS.ErrnoException; lastSocketError = { code: err.code, message: err.message }; });
 
-  function call<T = unknown>(method: string, params: object = {}): Promise<T> {
+  function call<T = unknown>(method: string, params: object = {}, timeoutMs = callTimeoutMs): Promise<T> {
     if (closed) return Promise.reject(new RpcCallError(-32000, "E_CORE_UNAVAILABLE", "connection closed", "closed"));
     const id = nextId++;
     return new Promise<T>((resolve, reject) => {
-      const timer = setTimeout(() => { pending.delete(id); reject(new RpcCallError(-32000, "E_CORE_UNAVAILABLE", `${method} timed out`, "call-timeout")); }, callTimeoutMs);
+      const timer = setTimeout(() => { pending.delete(id); reject(new RpcCallError(-32000, "E_CORE_UNAVAILABLE", `${method} timed out`, "call-timeout")); }, timeoutMs);
       pending.set(id, { resolve: resolve as (v: unknown) => void, reject, timer });
-      sock.write(encodeLine({ jsonrpc: "2.0", id, method, params }));
+      sock.write(encodeLine({ jsonrpc: "2.0", id, method, params, ...(opts.api ? { api: opts.api } : {}) }));
     });
   }
 
   let hello: Hello;
   try {
-    hello = await call<Hello>(`${opts.endpoint ?? "core"}.auth`, { token: opts.token });
+    hello = await call<Hello>(`${opts.endpoint ?? "core"}.auth`, { token: opts.token }, opts.handshakeTimeoutMs ?? callTimeoutMs);
     const major = Number(hello.rpc.split(".")[0]);
     if (major !== SUPPORTED_RPC_MAJOR) { sock.destroy(); throw new RpcCallError(-32000, "E_RPC_VERSION", `server rpc ${hello.rpc}, client supports ${SUPPORTED_RPC_MAJOR}.x`, "major-mismatch"); }
     // Without a native pid lookup the best a Node client can do on Windows: the server must at least claim the recorded pid.

@@ -295,11 +295,11 @@ fn an_unreadable_update_state_is_reported_by_status_and_refuses_a_rollback() {
     fs::write(e.home.join("update/state.json"), "{ not json").unwrap();
     let before = state_of(&e);
     let (code, v) = run(&mut cmd(&e, None, &["update", "status"]));
-    assert_eq!(code, 1, "{v}");
+    assert_eq!(code, 2, "{v}");
     assert_eq!(v["error"], "E_NOT_AVAILABLE");
     assert_eq!(v["reason"], "state-unreadable");
     let (code, v) = run(&mut cmd(&e, None, &["update", "--rollback"]));
-    assert_eq!(code, 1, "{v}");
+    assert_eq!(code, 2, "{v}");
     assert_eq!(v["reason"], "state-unreadable");
     assert_eq!(state_of(&e), before);
 }
@@ -309,7 +309,7 @@ fn a_rollback_with_no_snapshot_has_nothing_to_roll_back_and_changes_nothing() {
     let e = env();
     let before = state_of(&e);
     let (code, v) = run(&mut cmd(&e, None, &["update", "--rollback"]));
-    assert_eq!(code, 1, "{v}");
+    assert_eq!(code, 2, "{v}");
     assert_eq!(v["error"], "E_NOT_AVAILABLE");
     assert_eq!(v["reason"], "nothing-to-roll-back");
     assert_eq!(state_of(&e), before);
@@ -326,7 +326,7 @@ fn a_bundle_path_that_does_not_exist_is_unreadable_and_writes_nothing() {
         Some(&pk_of(&key)),
         &["update", "--plan", "--from", missing.to_str().unwrap()],
     ));
-    assert_eq!(code, 1, "{v}");
+    assert_eq!(code, 2, "{v}");
     assert_eq!(v["error"], "E_NOT_AVAILABLE");
     assert_eq!(v["reason"], "bundle-unreadable");
     untouched(&e, &before);
@@ -344,7 +344,7 @@ fn a_file_that_is_neither_zstd_nor_zip_is_not_an_archive() {
         Some(&pk_of(&key)),
         &["update", "--yes", "--from", text.to_str().unwrap()],
     ));
-    assert_eq!(code, 1, "{v}");
+    assert_eq!(code, 2, "{v}");
     assert_eq!(v["reason"], "archive-unsupported");
     untouched(&e, &before);
 }
@@ -364,7 +364,7 @@ fn a_bundle_without_its_signature_is_refused_and_nothing_changes() {
         Some(&pk_of(&key)),
         &["update", "--yes", "--from", bundle.to_str().unwrap()],
     ));
-    assert_eq!(code, 1, "{v}");
+    assert_eq!(code, 2, "{v}");
     assert_eq!(v["error"], "E_NOT_AVAILABLE");
     assert_eq!(v["reason"], "bundle-invalid", "{v}");
     untouched(&e, &before);
@@ -409,7 +409,7 @@ fn a_corrupt_guard_file_refuses_the_plan_and_the_apply_alike() {
         vec!["update", "--yes", "--from", b],
     ] {
         let (code, v) = run(&mut cmd(&e, Some(&pk_of(&key)), &args));
-        assert_eq!(code, 1, "{args:?}: {v}");
+        assert_eq!(code, 2, "{args:?}: {v}");
         assert_eq!(v["reason"], "guard-unreadable", "{args:?}");
     }
     untouched(&e, &before);
