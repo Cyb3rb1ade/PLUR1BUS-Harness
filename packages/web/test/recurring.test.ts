@@ -84,7 +84,14 @@ function seed(app: App, o: Seed = {}): Hits {
   const hits = new Hits();
   const rpc: MockRpc = app.server.rpc;
   rpc.handle("jobs.list", async () => { hits.hit("jobs.list"); await o.holdList; return { jobs: o.jobs ?? JOBS }; }, { write: false });
-  rpc.handle("jobs.history", async () => { hits.hit("jobs.history"); await o.holdHistory; return { runs: o.runs ?? RUNS }; }, { write: false });
+  // Like the real core: no agentId = the system runs, an agentId = that agent's runs.
+  rpc.handle("jobs.history", async (params) => {
+    hits.hit("jobs.history");
+    await o.holdHistory;
+    const { agentId } = (params ?? {}) as { agentId?: string };
+    return { runs: (o.runs ?? RUNS).filter((r) => ("agentId" in r ? r.agentId : undefined) === agentId) };
+  }, { write: false });
+  rpc.handle("agent.list", () => ({ agents: [{ agentId: "main", open: false, activity: { state: "idle" } }] }), { write: false });
   rpc.handle("jobs.run", async (params) => {
     hits.hit("jobs.run");
     await o.holdRun;
@@ -96,6 +103,8 @@ function seed(app: App, o: Seed = {}): Hits {
 }
 
 const calls = (app: App, method: string): { params: unknown; csrf: string | null }[] => app.server.rpc.calls.filter((c) => c.method === method);
+/** The system-job history requests: jobs.history without an agentId (the page asks once per agent besides). */
+const systemHistory = (app: App) => calls(app, "jobs.history").filter((c) => (c.params as { agentId?: string }).agentId === undefined);
 
 // ---- the contract: what the page sends must be what rpc.schema.json allows ---------------------------------------------
 
@@ -271,10 +280,13 @@ describe("Recurring Tasks: run history", opts, () => {
     await withApp({}, async (app) => {
       seed(app);
       await openHistory(app);
-      const history = calls(app, "jobs.history");
+      const history = systemHistory(app);
       assert.equal(history.length, 1);
       assert.deepEqual(history[0]!.params, { limit: 50 });
       assertParamsFit("jobs.history", history[0]!.params);
+      const perAgent = calls(app, "jobs.history").filter((c) => (c.params as { agentId?: string }).agentId !== undefined);
+      assert.deepEqual(perAgent.map((c) => c.params), [{ agentId: "main", limit: 50 }]);
+      assertParamsFit("jobs.history", perAgent[0]!.params);
       // User jobs add an explicit kind filter. Cursor/offset still require a deliberate paging design.
       assert.deepEqual(Object.keys(METHODS["jobs.history"]!.params.properties ?? {}).sort(), ["agentId", "job", "kind", "limit", "since"]);
       assert.equal(await app.page.getByRole("button", { name: /more|older|next|page|weitere|ältere|nächste|seite/i }).count(), 0);
@@ -314,7 +326,37 @@ describe("Recurring Tasks: run history", opts, () => {
       app.server.rpc.scenario("jobs.history", "success");
       await err.getByRole("button", { name: "Try again" }).click();
       await app.page.locator(".recurring-history-item").first().waitFor();
-      assert.equal(calls(app, "jobs.history").length, 2);
+      assert.equal(systemHistory(app).length, 2);
+    });
+  });
+
+  test("runs of several agents and the system jobs are merged newest first, cut at 50", async () => {
+    await withApp({}, async (app) => {
+      seed(app);
+      app.server.rpc.handle("agent.list", () => ({ agents: [{ agentId: "main", open: false, activity: { state: "idle" } }, { agentId: "scout", open: false, activity: { state: "idle" } }] }), { write: false });
+      app.server.rpc.handle("jobs.history", (params) => {
+        const { agentId } = (params ?? {}) as { agentId?: string };
+        const mk = (n: number, id: string): JobRun => ({ ...agentRun(n, `job-${id}-${n}`, "completed", 10), agentId: id, startedAt: NOW + n * 1000, finishedAt: NOW + n * 1000 + 10 });
+        if (agentId === undefined) return { runs: Array.from({ length: 30 }, (_, i) => ({ ...systemRun(i, `sys-${i}`, "completed", 5), startedAt: NOW + i * 3000, finishedAt: NOW + i * 3000 + 5 })) };
+        return { runs: Array.from({ length: 30 }, (_, i) => mk(i, agentId)) };
+      }, { write: false });
+      await openHistory(app);
+      await app.page.locator(".recurring-history-item").first().waitFor();
+      assert.equal(await app.page.locator(".recurring-history-item").count(), 50);
+      assert.equal(calls(app, "jobs.history").filter((c) => (c.params as { agentId?: string }).agentId === "scout").length, 1);
+      const names = await app.page.locator(".recurring-history-item strong").allInnerTexts();
+      assert.equal(names[0], "sys-29", "the newest run comes first");
+      assert.deepEqual(app.problems, []);
+    });
+  });
+
+  test("when the agents cannot be listed the history shows the error, not a silent half list", async () => {
+    await withApp({}, async (app) => {
+      seed(app);
+      app.server.rpc.scenario("agent.list", "error", { code: "E_INTERNAL", message: "no agents" });
+      await openHistory(app);
+      await app.page.locator(".page-state[data-state=error]").waitFor();
+      assert.equal(await app.page.locator(".recurring-history-item").count(), 0);
     });
   });
 
@@ -329,10 +371,9 @@ describe("Recurring Tasks: run history", opts, () => {
     });
   });
 
-  // KNOWN GAP (page, not fixed: needs a decision which agents to ask): jobs.history without agentId answers the SYSTEM job
-  // history only (rpc.schema.json, core methods.ts). The page lists agent jobs such as "consolidate" and can run them, but never
-  // shows their runs, because it never passes an agentId.
-  test("the history also shows runs of agent jobs", { todo: "KNOWN GAP web Recurring History: erwartet Läufe des Agenten-Jobs consolidate im Verlauf (jobs.history mit agentId), tatsächlich nur Systemjobs (jobs.history ohne agentId, packages/web/src/pages/recurring/page.ts HistoryTab)" }, async () => {
+  // jobs.history without agentId answers the SYSTEM job history only (rpc.schema.json, core methods.ts). The page therefore asks
+  // agent.list and then jobs.history once per agent, and merges the runs newest first.
+  test("the history also shows runs of agent jobs", async () => {
     await withApp({}, async (app) => {
       seed(app);
       // Like the real core: no agentId = system runs, an agentId = that agent's runs.
@@ -467,10 +508,8 @@ describe("Recurring Tasks: Run now needs a confirmation", opts, () => {
     });
   });
 
-  // KNOWN GAP (page, not fixed: needs an agent choice): jobs.run for an agent job needs an existing agent. The page sends the
-  // literal "default" and never asks agent.list, so on a harness whose agents are called otherwise the run is refused
-  // (E_AGENT_UNKNOWN).
-  test("an agent job runs on an agent that exists", { todo: "KNOWN GAP web Recurring Run now: erwartet agentId aus agent.list (hier main), tatsächlich fest \"default\" (packages/web/src/pages/recurring/page.ts RunConfirmDialog)" }, async () => {
+  // jobs.run for an agent job needs an existing agent: the page takes the ids from agent.list (a choice when there are several).
+  test("an agent job runs on an agent that exists", async () => {
     await withApp({}, async (app) => {
       seed(app);
       app.server.rpc.handle("agent.list", () => ({ agents: [{ agentId: "main", open: false, activity: { state: "idle" } }] }), { write: false });
@@ -479,6 +518,49 @@ describe("Recurring Tasks: Run now needs a confirmation", opts, () => {
       await confirmButton(app.page).click();
       await dialog(app.page).waitFor({ state: "detached" });
       assert.equal((calls(app, "jobs.run")[0]!.params as { agentId?: string }).agentId, "main");
+    });
+  });
+});
+
+describe("Recurring Tasks: the agent a job runs on", opts, () => {
+  test("with several agents the dialog asks which one, and the choice is what jobs.run gets", async () => {
+    await withApp({}, async (app) => {
+      seed(app);
+      app.server.rpc.handle("agent.list", () => ({ agents: [{ agentId: "main", open: false, activity: { state: "idle" } }, { agentId: "scout", open: false, activity: { state: "idle" } }] }), { write: false });
+      await openList(app);
+      await openDialog(app, 0);
+      const pick = dialog(app.page).locator("#recurring-run-agent");
+      await pick.waitFor();
+      assert.equal(await pick.inputValue(), "main");
+      await pick.selectOption("scout");
+      await confirmButton(app.page).click();
+      await dialog(app.page).waitFor({ state: "detached" });
+      assert.equal((calls(app, "jobs.run")[0]!.params as { agentId?: string }).agentId, "scout");
+    });
+  });
+
+  test("a system job never asks agent.list", async () => {
+    await withApp({}, async (app) => {
+      seed(app);
+      await openList(app);
+      await openDialog(app, 1);
+      await confirmButton(app.page).click();
+      await dialog(app.page).waitFor({ state: "detached" });
+      assert.equal(calls(app, "agent.list").length, 0);
+      assert.ok(!("agentId" in (calls(app, "jobs.run")[0]!.params as object)));
+    });
+  });
+
+  test("when the agents cannot be listed, the dialog says so and nothing is sent", async () => {
+    await withApp({}, async (app) => {
+      seed(app);
+      app.server.rpc.scenario("agent.list", "error", { code: "E_INTERNAL", message: "no agents" });
+      await openList(app);
+      await openDialog(app, 0);
+      await dialog(app.page).locator(".form-error[role=alert]").waitFor();
+      await confirmButton(app.page).click({ force: true });
+      await app.page.waitForTimeout(150);
+      assert.equal(calls(app, "jobs.run").length, 0);
     });
   });
 });

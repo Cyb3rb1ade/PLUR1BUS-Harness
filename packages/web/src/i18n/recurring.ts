@@ -42,6 +42,9 @@ export const en = {
   "recurring.user.failed": "The task could not be saved. Check your rights and retry.",
   "recurring.user.empty": "No personal recurring tasks.",
   "recurring.user.history": "Task history",
+  "recurring.run.agent": "Run on agent",
+  "recurring.run.noAgent": "There is no agent to run this job on.",
+  "recurring.run.agentsFailed": "The agents could not be loaded, so the job cannot be started. Close the dialog and try again.",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -87,4 +90,7 @@ export const de: Record<keyof typeof en, string> = {
   "recurring.user.failed": "Die Aufgabe konnte nicht gespeichert werden. Prüfe deine Rechte und versuche es erneut.",
   "recurring.user.empty": "Keine eigenen wiederkehrenden Aufgaben.",
   "recurring.user.history": "Aufgabenverlauf",
+  "recurring.run.agent": "Auf Agent ausführen",
+  "recurring.run.noAgent": "Es gibt keinen Agenten, auf dem dieser Job laufen kann.",
+  "recurring.run.agentsFailed": "Die Agenten konnten nicht geladen werden, der Job kann nicht gestartet werden. Dialog schließen und erneut versuchen.",
 };

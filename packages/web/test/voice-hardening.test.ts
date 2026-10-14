@@ -193,7 +193,7 @@ describe("voice settings: download progress from a stream the page does not cont
 });
 
 describe("voice: the agent override", opts, () => {
-  test("KNOWN GAP: Reset should remove the override (voice.agent.override.clear); it writes the global values for the agent instead", { todo: "KNOWN GAP: the UI has no call to voice.agent.override.clear, so a reset agent stops following later changes of the global profile" }, async () => {
+  test("Reset removes the override (voice.agent.override.clear) instead of writing the global values for the agent", async () => {
     await withApp({}, async (app) => {
       installAgents(app.server); const w = installVoice(app.server); w.agents["main"] = profileOf({ endpointingMs: 1200 });
       await openRoute(app.page, "#/agents/main"); await app.page.locator("#voice-ag-endpointing").waitFor();
