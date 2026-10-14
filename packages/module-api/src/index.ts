@@ -13,3 +13,4 @@ export * from "./lock.ts";
 export * from "./adoption.ts";
 export * from "./control-server.ts";
 export * from "./runtime.ts";
+export * from "./api-principal.ts";

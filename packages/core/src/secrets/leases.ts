@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { inspect } from "node:util";
 import { SecretError } from "./types.ts";
 
 export const DEFAULT_LEASE_TTL_MS = 60_000;
@@ -9,6 +10,16 @@ export interface Lease { leaseId: string; name: string; value: string; expiresAt
 export type LeaseInfo = Omit<Lease, "value">;
 
 interface Held { lease: Lease; revoked: boolean }
+
+/** What a caller receives: a frozen copy (it cannot stretch `expiresAt` or swap the value in the table) that prints
+ *  without the value under JSON.stringify and util.inspect. `lease.value` itself stays readable. */
+function present(l: Lease): Lease {
+  const { value: _v, ...info } = l;
+  const v: Lease = { ...l };
+  Object.defineProperty(v, "toJSON", { value: () => ({ ...info, value: "[redacted]" }), enumerable: false });
+  Object.defineProperty(v, inspect.custom, { value: () => `Lease ${inspect({ ...info, value: "[redacted]" })}`, enumerable: false });
+  return Object.freeze(v);
+}
 
 /** Short-lived, revocable, in-memory only. Expiry is checked against the injected clock on every use; an expired or
  *  revoked lease drops its value at once. Never persisted, never logged. */
@@ -21,14 +32,14 @@ export function createLeaseTable(clock: () => number) {
       const ttl = o.ttlMs ?? DEFAULT_LEASE_TTL_MS;
       if (!Number.isInteger(ttl) || ttl < 1 || ttl > MAX_LEASE_TTL_MS) throw new SecretError("invalid-ttl", `lease ttlMs must be an integer in 1..${MAX_LEASE_TTL_MS}`);
       const lease: Lease = { leaseId: `lse_${randomBytes(16).toString("hex")}`, name, value, expiresAt: clock() + ttl, purpose: o.purpose, profileId: o.profileId };
-      held.set(lease.leaseId, { lease, revoked: false });
-      return lease;
+      held.set(lease.leaseId, { lease: Object.freeze({ ...lease }), revoked: false });
+      return present(lease);
     },
     /** The value while the lease is live; `lease-invalid` once it expired, was revoked, or never existed. */
     read(leaseId: string): Lease {
       const h = held.get(leaseId);
       if (!h || h.revoked || h.lease.expiresAt <= clock()) { held.delete(leaseId); throw new SecretError("lease-invalid", "lease is expired, revoked or unknown"); }
-      return h.lease;
+      return present(h.lease);
     },
     revoke(leaseId: string): boolean { const h = held.get(leaseId); if (!h) return false; held.delete(leaseId); return true; },
     /** A rotated or deleted secret invalidates every lease on it. */

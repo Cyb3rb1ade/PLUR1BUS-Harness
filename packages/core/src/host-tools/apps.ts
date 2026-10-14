@@ -1,7 +1,7 @@
 import { denyEntriesFor, denyHit } from "./denylist.ts";
 import { which } from "./context.ts";
 import { HostFailure, requireString } from "./errors.ts";
-import { runCaptured } from "./exec.ts";
+import { runCaptured, runChecked } from "./exec.ts";
 import { asObject, joinPath, type HostContext, type HostTool } from "./types.ts";
 
 const URL_SCHEMES = new Set(["http:", "https:", "mailto:"]);
@@ -104,10 +104,22 @@ export const appsListTool: HostTool = {
   },
 };
 
-function classify(target: string, kind: unknown): "app" | "file" | "url" {
-  if (kind === "app" || kind === "file" || kind === "url") return kind;
-  if (/^[a-z][a-z0-9+.-]*:/i.test(target)) return "url";
-  return "file";
+// Two or more characters, so that a Windows drive letter ("C:\\x") is a path, not a scheme.
+const SCHEME = /^[a-z][a-z0-9+.-]+:/i;
+const KINDS = ["app", "file", "url"] as const;
+
+/** Lexically expand "~" and collapse "." / ".." so deny-list prefixes cannot be dodged with dot segments. */
+function normaliseForDeny(target: string, home: string): string {
+  const expanded = /^~(?=$|[\\/])/.test(target) ? home + target.slice(1) : target;
+  const lead = /^[\\/]+/.exec(expanded)?.[0] ?? "";
+  const out: string[] = [];
+  for (const seg of expanded.split(/[\\/]+/)) {
+    if (seg === "" || seg === ".") continue;
+    if (seg === ".." && out.length > 0 && out[out.length - 1] !== "..") out.pop();
+    else if (seg === ".." && lead !== "") continue;
+    else out.push(seg);
+  }
+  return lead + out.join("/");
 }
 
 export const appsOpenTool: HostTool = {
@@ -123,24 +135,29 @@ export const appsOpenTool: HostTool = {
   async run(input, ctx) {
     const o = asObject(input);
     const target = requireString(o.target, "target", 1, 4096);
-    const kind = classify(target, o.kind);
+    if (o.kind !== undefined && !KINDS.some((k) => k === o.kind)) throw new HostFailure("invalid_input", "kind must be app, file or url");
+    const hasScheme = SCHEME.test(target);
+    const kind = (o.kind as (typeof KINDS)[number] | undefined) ?? (hasScheme ? "url" : "file");
     const deny = denyEntriesFor(ctx.homedir, ctx.env, ctx.platform);
-    if (kind === "url") {
+    if (kind === "url" || hasScheme) {
+      // A scheme is a launch request for its handler (ssh:, vnc:, smb:, file:), whatever `kind` claims.
       let url: URL;
       try { url = new URL(target); } catch { throw new HostFailure("invalid_input", "target is not a URL"); }
       if (!URL_SCHEMES.has(url.protocol)) throw new HostFailure("denied_by_denylist", `URL scheme ${url.protocol} is not allowed`);
-    } else if (denyHit(target, deny)) {
-      throw new HostFailure("denied_by_denylist", "the target matches the credential deny-list");
-    }
-    if (ctx.platform === "darwin") {
-      const args = kind === "app" ? ["-a", target] : [target];
-      await runCaptured(ctx, { program: "open", args });
-    } else if (ctx.platform === "win32") {
-      await runCaptured(ctx, { program: "explorer.exe", args: [target] });
     } else {
-      const bin = (await which(ctx, "xdg-open")) ?? "xdg-open";
-      await runCaptured(ctx, { program: "xdg-open", args: [target] });
-      void bin;
+      if (target.startsWith("-")) throw new HostFailure("invalid_input", "target must not start with '-'");
+      if (denyHit(target, deny) || denyHit(normaliseForDeny(target, ctx.homedir), deny)) {
+        throw new HostFailure("denied_by_denylist", "the target matches the credential deny-list");
+      }
+    }
+    const fail = { code: "not_found", message: "the target could not be opened" } as const;
+    if (ctx.platform === "darwin") {
+      const args = kind === "app" && !hasScheme ? ["-a", target] : [target];
+      await runChecked(ctx, { program: "open", args }, fail);
+    } else if (ctx.platform === "win32") {
+      await runChecked(ctx, { program: "explorer.exe", args: [target] }, fail);
+    } else {
+      await runChecked(ctx, { program: "xdg-open", args: [target] }, fail);
     }
     return { opened: true, target, kind };
   },

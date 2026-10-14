@@ -1,4 +1,4 @@
-import { probeEndpoint } from "./probe.ts";
+import { boundMs, probeEndpoint } from "./probe.ts";
 import type { LocalCandidate, ProbeOptions, ProbeResult } from "./types.ts";
 
 export const DEFAULT_CANDIDATES: readonly LocalCandidate[] = Object.freeze([
@@ -36,7 +36,7 @@ function baseUrlOf(origin: string): string {
 export async function discoverLocalEndpoints(o: DiscoverOptions = {}): Promise<DiscoveredEndpoint[]> {
   const candidates = o.candidates ?? DEFAULT_CANDIDATES;
   const { candidates: _c, deadlineMs, ...probe } = o;
-  const deadline = deadlineMs ?? DEFAULT_DISCOVER_DEADLINE_MS;
+  const deadline = boundMs(deadlineMs, DEFAULT_DISCOVER_DEADLINE_MS);
   const inner = new AbortController();
   const signal = o.signal ? AbortSignal.any([o.signal, inner.signal]) : inner.signal;
   let timer: NodeJS.Timeout | undefined;

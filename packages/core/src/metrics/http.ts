@@ -86,7 +86,9 @@ export function createMetricsServer(o: MetricsServerOptions): MetricsServer {
     if (f.lockedUntil > now) return reply(res, 429, "too many failed attempts\n", { "retry-after": Math.ceil((f.lockedUntil - now) / 1000) });
 
     const m = /^Bearer ([^\s]+)$/.exec(req.headers.authorization ?? "");
-    const granted = m ? access.authorize(m[1]!) : null;
+    let granted: MetricsPrincipal | null = null;
+    // The port is foreign code: a throw must not reach the request event (an uncaught exception ends the core).
+    try { granted = m ? access.authorize(m[1]!) : null; } catch (err) { o.logger.error("metrics authorization failed", { err }); return reply(res, 500, "internal error\n"); }
     if (!granted) {
       f.times = f.times.filter((t) => now - t < FAILURE_WINDOW_MS); f.times.push(now);
       if (f.times.length >= MAX_FAILURES) { f.lockedUntil = now + LOCKOUT_MS; f.times = []; o.logger.warn("metrics endpoint locked after repeated failures"); }
@@ -102,12 +104,13 @@ export function createMetricsServer(o: MetricsServerOptions): MetricsServer {
 
   return {
     async listen() {
+      if (server) throw new Error("metrics endpoint is already listening");
       const s = createServer({ maxHeaderSize: 8192, requestTimeout: 10_000, headersTimeout: 5_000, keepAliveTimeout: 5_000 }, handle);
       s.maxHeadersCount = 50;
-      server = s;
       await new Promise<void>((res, rej) => { s.once("error", rej); s.listen(o.port, host, () => { s.off("error", rej); res(); }); });
       const a = s.address();
-      if (!a || typeof a === "string") throw new Error("metrics endpoint has no TCP address");
+      if (!a || typeof a === "string") { await new Promise<void>((res) => s.close(() => res())); throw new Error("metrics endpoint has no TCP address"); }
+      server = s;
       o.logger.info("metrics endpoint listening", { host, port: a.port });
       return { host, port: a.port };
     },

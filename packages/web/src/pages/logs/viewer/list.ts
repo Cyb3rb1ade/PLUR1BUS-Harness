@@ -6,11 +6,13 @@ import { useId, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../../view.ts";
 import { icon } from "../../../icons.ts";
 import { t } from "../../../i18n.ts";
-import { hasRedaction, messageOf, type LogRecord } from "./model.ts";
+import { clipLine, hasRedaction, messageOf, safeText, type LogRecord } from "./model.ts";
 import type { Row } from "./use-log.ts";
 
 const OVERSCAN = 6;
-const fmtTime = (ts: string): string => (ts.length >= 23 ? `${ts.slice(5, 10)} ${ts.slice(11, 23)}` : ts);
+const fmtTime = (ts: string): string => safeText(clipLine(ts.length >= 23 ? `${ts.slice(5, 10)} ${ts.slice(11, 23)}` : ts, 40));
+/** A row shows one clean, bounded line: a huge message is cut first (cheap), then control and bidi characters are made visible (the detail has all of it). */
+const rowText = (s: string, max: number): string => safeText(clipLine(s, max));
 
 function LevelBadge({ rec }: { rec: LogRecord }): View {
   return rec.level === null ? h("span", { class: "logs-level", "data-level": "none" }, "–") : h("span", { class: "logs-level", "data-level": rec.level }, t(`logs.level.${rec.level}`));
@@ -112,9 +114,9 @@ export function LogList({ rows, hasMore, onOpen }: LogListProps): View {
         },
           h("div", { role: "gridcell", class: "c-time" }, fmtTime(rec.ts)),
           h("div", { role: "gridcell", class: "c-level" }, h(LevelBadge, { rec })),
-          h("div", { role: "gridcell", class: "c-component" }, rec.component),
+          h("div", { role: "gridcell", class: "c-component" }, rowText(rec.component, 80)),
           h("div", { role: "gridcell", class: "c-message" },
-            h("span", { class: "logs-msg" }, messageOf(rec)),
+            h("span", { class: "logs-msg" }, rowText(messageOf(rec), 400)),
             hasRedaction(rec) ? h("span", { class: "logs-redacted-tag" }, icon("lock", 12), h("span", {}, t("logs.redacted"))) : null));
       }),
       h(Spacer, { rows: Math.max(0, rows.length - 1 - last), rowH }))));

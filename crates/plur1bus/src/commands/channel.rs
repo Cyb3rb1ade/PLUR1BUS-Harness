@@ -453,7 +453,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: ChannelCmd) {
             "E_INVALID_PARAMS",
             &message,
             json!({ "reason": "secret-value" }),
-            2,
         );
     }
     let (method, params) = request(&cmd);
@@ -464,7 +463,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: ChannelCmd) {
                 "E_INVALID_PARAMS",
                 &message,
                 json!({ "reason": "secret-value" }),
-                2,
             ),
             None => out.from_rpc_error(&e),
         },

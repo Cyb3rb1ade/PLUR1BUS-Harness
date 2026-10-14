@@ -4,7 +4,7 @@
 // Admin see the actions, every other role sees the state only. The Settings card (media-search/settings.ts) keeps its own layout;
 // the rules and the texts both use come from media-search/model.ts and the mediasearch catalogue.
 import { h } from "preact";
-import { useState } from "preact/hooks";
+import { useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { ConfirmDialog, type ConfirmResult } from "../../components/confirm-dialog.ts";
 import { PageLoading } from "../../components/page-state.ts";
@@ -37,6 +37,7 @@ function actionFailure(e: unknown): string {
 
 function Panel({ status, canManage, reload, message, setMessage }: { status: MediaIndexStatus; canManage: boolean; reload: () => void; message: Message; setMessage: (m: Message) => void }): View {
   const [busy, setBusy] = useState("");
+  const acting = useRef(false); // set in the click itself, so a second click before the re-render sends nothing
   const [confirming, setConfirming] = useState(false);
   const bf = backfillView(status.backfill);
   const { counts } = status;
@@ -44,12 +45,14 @@ function Panel({ status, canManage, reload, message, setMessage }: { status: Med
   const reasonKey = bf.paused ? (`mediasearch.status.reason.${bf.paused}` as Key) : null;
 
   const act = async (method: "media.index.pause" | "media.index.resume"): Promise<void> => {
+    if (acting.current) return;
+    acting.current = true;
     setBusy(method); setMessage(null);
     try {
       await getApi().rpc(method, {}, { write: true });
       setMessage({ tone: "ok", text: t(method === "media.index.pause" ? "memory.media.paused" : "memory.media.resumed") });
       reload();
-    } catch (e) { setMessage({ tone: "err", text: actionFailure(e) }); } finally { setBusy(""); }
+    } catch (e) { setMessage({ tone: "err", text: actionFailure(e) }); } finally { acting.current = false; setBusy(""); }
   };
 
   // The dialog stays open until the server accepted the call; a refusal is shown inside it.

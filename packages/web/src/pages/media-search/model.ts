@@ -2,7 +2,7 @@
 // Everything here follows the binding contract (media-search-contract.md): free provider choice, validation only for
 // capability, licence, privacy pin and availability, captioning preselected only when embedding is local, defaults as in
 // the contract. Changes are sent only where a value differs from the contract default, so an untouched form writes nothing.
-import type { MediaIndexKind, MediaSearchParams } from "../../../../rpc-schema/generated/types.ts";
+import type { MediaIndexKind, MediaSearchHit, MediaSearchParams } from "../../../../rpc-schema/generated/types.ts";
 import { MEDIA_EMBEDDING_DEFAULTS, isMediaErrorCode, type CaptionSourceSetting, type MediaBackfillSetting, type MediaCapabilities, type MediaErrorCode, type MediaModality } from "./contract.ts";
 import { t, type Key } from "../../i18n.ts";
 import { DEFAULT_EMBEDDING, choiceById, choicesOf } from "../setup/licences.ts";
@@ -144,6 +144,33 @@ export function searchParams(f: SearchForm): MediaSearchParams | null {
   const text = f.text.trim();
   return text === "" ? null : { text, ...common };
 }
+
+const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+
+/** The hits of a media.search answer, read defensively: `null` when the answer has no list of hits; a hit without a string id, a known
+ *  kind and a finite score is dropped, and a segment with non-numeric parts is left off the hit (the page formats those numbers). */
+export function parseHits(res: unknown): MediaSearchHit[] | null {
+  const list = typeof res === "object" && res !== null ? (res as { hits?: unknown }).hits : undefined;
+  if (!Array.isArray(list)) return null;
+  const out: MediaSearchHit[] = [];
+  for (const raw of list) {
+    if (typeof raw !== "object" || raw === null) continue;
+    const h = raw as Record<string, unknown>;
+    if (typeof h.mediaId !== "string" || !(MEDIA_KINDS as readonly unknown[]).includes(h.kind) || !isNum(h.score)) continue;
+    const seg = h.segment as Record<string, unknown> | null | undefined;
+    out.push({
+      mediaId: h.mediaId, kind: h.kind as MediaIndexKind, score: h.score,
+      ...(seg && isNum(seg.idx) && isNum(seg.startMs) && isNum(seg.endMs) ? { segment: { idx: seg.idx, startMs: seg.startMs, endMs: seg.endMs } } : {}),
+      ...(typeof h.caption === "string" ? { caption: h.caption } : {}),
+    });
+  }
+  return out;
+}
+
+/** The player gets a data: URL built from the server's media type; only audio and video types (optionally with plain parameters)
+ *  go in, so a type with a comma, a second `data:` part or a document type never reaches the element. */
+export const playableType = (mimeType: string, kind: MediaIndexKind): boolean =>
+  kind !== "image" && /^(audio|video)\/[A-Za-z0-9.+-]+(; ?[A-Za-z0-9_.-]+=[A-Za-z0-9_.+-]+)*$/.test(mimeType);
 
 /** The place of a segment as m:ss–m:ss, for video and audio hits. */
 export function segmentLabel(startMs: number, endMs: number): string {

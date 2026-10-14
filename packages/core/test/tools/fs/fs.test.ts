@@ -358,6 +358,27 @@ describe("limits, binary and special files", () => {
   });
 });
 
+describe("the encoded read result fits the result limit", () => {
+  it("text whose JSON escaping pushes the result over the limit is refused with a range hint, not handed on to fail opaquely", T, async () => {
+    await writeFile(join(root, "lines.txt"), "a\n".repeat(450_000)); // 900 000 bytes, ~1.35 MB once JSON-encoded
+    await fails(ops().read({ path: join(root, "lines.txt") }), "too-large");
+    const part = await ops().read({ path: join(root, "lines.txt"), length: 300_000 });
+    assert.ok(Buffer.byteLength(JSON.stringify(part)) <= 1 << 20);
+    assert.equal(part.truncated, true);
+  });
+  it("base64 grows by a third: a range that only fits as bytes is refused", T, async () => {
+    await writeFile(join(root, "bin.dat"), Buffer.alloc(800_000, 7));
+    await fails(ops().read({ path: join(root, "bin.dat"), encoding: "base64" }), "too-large");
+    const part = await ops().read({ path: join(root, "bin.dat"), encoding: "base64", length: 700_000 });
+    assert.ok(Buffer.byteLength(JSON.stringify(part)) <= 1 << 20);
+  });
+  it("the limit is configurable and small reads are untouched", T, async () => {
+    await writeFile(join(root, "s.txt"), "hello");
+    assert.equal((await ops().read({ path: join(root, "s.txt") })).content, "hello");
+    await fails(ops({ limits: { maxResultBytes: 100 } }).read({ path: join(root, "s.txt") }), "too-large");
+  });
+});
+
 describe("atomic write", () => {
   it("create-only refuses an existing file (default) and replaces it only with overwrite: true", T, async () => {
     const o = ops();

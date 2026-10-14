@@ -28,6 +28,34 @@ export interface McpBridgeResult { tools: ToolDef[]; skipped: { tool: string; re
 const MAX_NAME = 64;
 const MAX_DESCRIPTION = 1000;
 
+const MAX_SCHEMA_BYTES = 64 * 1024;
+const MAX_SCHEMA_DEPTH = 24;
+
+/**
+ * A server's input schema is third-party input that this process evaluates and sends to the model on every turn. Returns a
+ * clone without `pattern` (a server-chosen regular expression such as `^(a+)+$` would run in this process on
+ * model-chosen text and could freeze it; the server validates its own arguments anyway), or null when the schema is too
+ * large or too deep to be a plausible tool description.
+ */
+export function sanitizeSchema(schema: Record<string, unknown>): Record<string, unknown> | null {
+  let json: string | undefined;
+  try { json = JSON.stringify(schema); } catch { return null; }
+  if (json === undefined || json.length > MAX_SCHEMA_BYTES) return null;
+  let tooDeep = false;
+  const strip = (v: unknown, depth: number): unknown => {
+    if (depth > MAX_SCHEMA_DEPTH) { tooDeep = true; return null; }
+    if (Array.isArray(v)) return v.map((x) => strip(x, depth + 1));
+    if (v && typeof v === "object") {
+      const out: Record<string, unknown> = {};
+      for (const [k, x] of Object.entries(v)) if (!(k === "pattern" && typeof x === "string")) out[k] = strip(x, depth + 1);
+      return out;
+    }
+    return v;
+  };
+  const clean = strip(JSON.parse(json), 0);
+  return tooDeep ? null : (clean as Record<string, unknown>);
+}
+
 function safe(part: string): string | null {
   const s = part.toLowerCase().replace(/[^a-z0-9_.-]/g, "_");
   return /[a-z0-9]/.test(s) ? s : null;
@@ -45,6 +73,8 @@ export async function mcpToolDefs(port: McpToolPort, server: string, caller: Mcp
     const name = `mcp.${serverPart}.${toolPart}`;
     if (name.length > MAX_NAME) { skipped.push({ tool: d.name, reason: "too-long" }); continue; }
     if (!d.inputSchema || typeof d.inputSchema !== "object" || d.inputSchema.type !== "object") { skipped.push({ tool: d.name, reason: "schema" }); continue; }
+    const inputSchema = sanitizeSchema(d.inputSchema);
+    if (!inputSchema) { skipped.push({ tool: d.name, reason: "schema" }); continue; }
     if (seen.has(name)) { skipped.push({ tool: d.name, reason: "collision" }); continue; }
     seen.add(name);
     const ann = (d.annotations ?? {}) as McpAnnotations;
@@ -55,7 +85,7 @@ export async function mcpToolDefs(port: McpToolPort, server: string, caller: Mcp
     tools.push({
       name,
       description: (d.description ?? d.title ?? d.name).slice(0, MAX_DESCRIPTION),
-      inputSchema: d.inputSchema,
+      inputSchema,
       capability: "net.submit",
       effect,
       risk: destructive || effect !== "external" ? "high" : "medium",

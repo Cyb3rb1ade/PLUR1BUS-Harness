@@ -12,13 +12,14 @@ One central decision for every outgoing request the core makes: **which destinat
 |---|---|---|
 | `egress.allowHosts` | `[]` | Exact names, `*.suffix` (subdomains of any depth, never the apex), `*` (any **name**), or an exact IP literal (IPv6 in brackets). Empty = nothing is reachable. |
 | `egress.allowPorts` | `[443]` | The only destination ports; the scheme's default port is checked like any other. |
-| `egress.allowLoopback` | `false` | Plain `http` and loopback targets, only for hosts that are themselves loopback spellings (`localhost`, `127.0.0.0/8`, `::1`) **and** listed in `allowHosts`. |
+| `egress.allowLoopback` | `false` | Plain `http` and loopback targets, only for hosts that are themselves loopback spellings (`localhost`, `127.0.0.0/8`, `::1`) **and** listed in `allowHosts` by name or address (the wildcard `*` does not list them). |
 
 An invalid entry (bad name, non-canonical IP such as `0x7f.1` or `2130706433`, port outside 1..65535) makes the **whole**
 policy deny-all; `egress.status` reports the errors.
 
 ## The decision, per hop (first request and every redirect)
 
+0. Refused outright: embedded credentials (`user:pw@`), an empty host label (`example.com..`); a malformed list in the configuration counts as an error (deny-all), it never throws.
 1. Scheme: `https` only; `http` only to a loopback host with `allowLoopback`. Everything else is refused.
 2. Port in `allowPorts`; host in `allowHosts` (judged on the URL's normalised host: `0x7f.1`, `2130706433`,
    `[::ffff:7f00:1]` are already `127.0.0.1` / the same IPv6 address when the URL is parsed). Refusals here happen

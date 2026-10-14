@@ -2,10 +2,11 @@ import { randomBytes } from 'node:crypto';
 import { currentTrace, newTrace, withTrace } from '../logs/trace.ts';
 export interface PipelineRecord { stage: string; phase: 'start' | 'end' | 'error'; trace_id: string; span_id: string; parent_span_id: string; durationMs?: number; code?: string }
 export type PipelineLog = (record: PipelineRecord) => void;
+/** The `code` of an error record: a non-empty string `code`, else a non-empty string `kind`, else `turn-failed` (never empty). */
 export function errorCode(error: unknown): string {
   if (error && typeof error === 'object') {
-    if ('code' in error && typeof error.code === 'string') return error.code;
-    if ('kind' in error && typeof error.kind === 'string') return error.kind;
+    if ('code' in error && typeof error.code === 'string' && error.code !== '') return error.code;
+    if ('kind' in error && typeof error.kind === 'string' && error.kind !== '') return error.kind;
   }
   return 'turn-failed';
 }

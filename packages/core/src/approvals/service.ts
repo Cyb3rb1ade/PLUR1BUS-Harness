@@ -30,6 +30,7 @@ export const DEFAULT_FOREGROUND_WAIT_MS = 10 * 60_000;
 const HOUR_MS = 60 * 60_000;
 const MAX_SUMMARY = 2048;
 const MAX_TARGETS = 50;
+const MAX_JOB_NAME = 80;
 
 export interface Timers { set(fn: () => void, ms: number): () => void }
 const realTimers: Timers = { set(fn, ms) { const t = setTimeout(fn, ms); return () => clearTimeout(t); } };
@@ -204,7 +205,11 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
       payload = hashAndSize(json);
       summary = redactor.text(json.length > 8192 ? json.slice(0, 8192) : json).slice(0, MAX_SUMMARY);
     } catch { /* an argument object that cannot be serialised is shown as such */ }
-    if (ask.recurring) summary = `${redactor.text(`aus wiederkehrender Aufgabe ${ask.recurring.jobName}`)}: ${summary}`.slice(0, MAX_SUMMARY);
+    if (ask.recurring) {
+      // The label is a user-chosen name: flattened (no control / bidi characters) and short, so it can neither hide the arguments nor pose as part of them.
+      const name = String(ask.recurring.jobName).replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069]+/g, " ").trim().slice(0, MAX_JOB_NAME);
+      summary = `${redactor.text(`aus wiederkehrender Aufgabe ${name}`)}: ${summary}`.slice(0, MAX_SUMMARY);
+    }
     const all = (ask.targets ?? []).filter((t): t is string => typeof t === "string");
     const shown = all.slice(0, MAX_TARGETS);
     const masked = shown.map((t) => redactor.text(t));
@@ -355,6 +360,7 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
       recSoft("approval.refused", { person: input.person, requestId: input.requestId, decision: input.decision, ...(input.scope ? { scope: input.scope } : {}), decisionSurface: input.surface, reason });
       return { ok: false, reason };
     };
+    if (input.surface !== 0 && input.surface !== 1 && input.surface !== 2 && input.surface !== 3) return refuse("surface-untrusted");
     let r: ApprovalRecord | undefined;
     try { r = store.get(input.requestId); } catch (e) { integrityFailure(e); failAll("the approval store failed its integrity check"); throw e; }
     if (!r || r.bound.principal !== input.person) return refuse("approval-mismatch");

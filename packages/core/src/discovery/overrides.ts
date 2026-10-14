@@ -25,7 +25,20 @@ export interface SetOverride {
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const OVERRIDE_KEYS = ["displayName", "kind", "contextWindow", "capabilities", "aliases"] as const;
 
+/** A manual entry's id must fit what the catalog file accepts: non-empty, at most 512 UTF-8 bytes, no control character. */
+function validateManualId(id: unknown): void {
+  if (typeof id !== "string" || id.length === 0 || Buffer.byteLength(id, "utf8") > 512 || CONTROL.test(id)) {
+    throw new CatalogError("invalid", "id");
+  }
+}
+
 export function validateOverrides(set: ModelOverrides, provider: string, id: string, catalog: CatalogFile): void {
+  // Closed key set: an own "__proto__" key would otherwise reach Object.assign below as a prototype setter and
+  // let inherited, unvalidated fields into the entry.
+  if (typeof set !== "object" || set === null || Array.isArray(set)) throw new CatalogError("invalid", "set");
+  for (const k of Object.keys(set)) {
+    if (!(OVERRIDE_KEYS as readonly string[]).includes(k)) throw new CatalogError("invalid", k);
+  }
   if (set.displayName !== undefined) {
     if (typeof set.displayName !== "string" || set.displayName.length === 0 || Buffer.byteLength(set.displayName, "utf8") > 512 || CONTROL.test(set.displayName)) {
       throw new CatalogError("invalid", "displayName");
@@ -34,7 +47,7 @@ export function validateOverrides(set: ModelOverrides, provider: string, id: str
   if (set.kind !== undefined && !(MODEL_KINDS as readonly unknown[]).includes(set.kind)) {
     throw new CatalogError("invalid", "kind");
   }
-  if (set.contextWindow !== undefined && !(typeof set.contextWindow === "number" && Number.isInteger(set.contextWindow) && set.contextWindow > 0)) {
+  if (set.contextWindow !== undefined && !(typeof set.contextWindow === "number" && Number.isSafeInteger(set.contextWindow) && set.contextWindow > 0)) {
     throw new CatalogError("invalid", "contextWindow");
   }
   if (set.capabilities !== undefined && !(Array.isArray(set.capabilities) && set.capabilities.every((c) => (CAPABILITIES as readonly unknown[]).includes(c)))) {
@@ -80,6 +93,7 @@ export function applyOverride(
   if (p.set) validateOverrides(p.set, p.provider, p.id, c);
 
   if (p.create) {
+    validateManualId(p.id);
     if (c.models.some((m) => m.provider === p.provider && (m.id === p.id || m.aliases.includes(p.id)))) {
       throw new CatalogError("conflict");
     }

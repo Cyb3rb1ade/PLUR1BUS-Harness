@@ -310,7 +310,7 @@ fn container_mode_refuses() {
             .args(args)
             .output()
             .unwrap();
-        assert_eq!(out.status.code(), Some(1));
+        assert_eq!(out.status.code(), Some(2));
         let v: Value = serde_json::from_slice(&out.stdout).unwrap();
         assert_eq!(v["error"], "E_NOT_AVAILABLE");
         assert_eq!(v["reason"], "container-managed");

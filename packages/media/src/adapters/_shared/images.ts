@@ -118,9 +118,44 @@ function stripWebp(b: Buffer, bad: () => MediaError): Buffer {
   // Always rebuilt: bytes after the RIFF payload must not survive either.
   return writeRiff(kept.map(c => { if (c.type !== 'VP8X' || !c.data.length) return c; const data = Buffer.from(c.data); data[0] = data[0]! & ~(VP8X_EXIF | VP8X_XMP); return { type: c.type, data }; }));
 }
+/** Longest side and pixel count a header may claim. A few hundred bytes can declare 2^31 x 2^31; whatever decodes it would allocate for that. */
+export const MAX_IMAGE_SIDE = 32768; export const MAX_IMAGE_PIXELS = 2 ** 28;
+/** Canvas size declared by the header (PNG IHDR, first JPEG SOF, WebP VP8X/VP8L/VP8); undefined when it cannot be read. Never decodes pixels. */
+export function declaredSize(b: Buffer, format: ImageFormat): { width: number; height: number } | undefined {
+  try {
+    if (format === 'png') return b.length >= 24 && b.toString('ascii', 12, 16) === 'IHDR' ? { width: b.readUInt32BE(16), height: b.readUInt32BE(20) } : undefined;
+    if (format === 'jpeg') {
+      let i = 2;
+      while (i + 4 <= b.length) {
+        if (b[i] !== 0xff) return undefined;
+        const marker = b[i + 1]!; if (marker === 0xff) { i++; continue; }
+        if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd8)) { i += 2; continue; }
+        if (marker === 0xd9 || marker === 0xda) return undefined;
+        if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) return { height: b.readUInt16BE(i + 5), width: b.readUInt16BE(i + 7) };
+        i += 2 + b.readUInt16BE(i + 2);
+      }
+      return undefined;
+    }
+    let i = 12; const end = Math.min(b.length, b.readUInt32LE(4) + 8);
+    while (i + 8 <= end) {
+      const type = b.toString('ascii', i, i + 4); const size = b.readUInt32LE(i + 4); const data = i + 8;
+      if (type === 'VP8X' && size >= 10) return { width: b.readUIntLE(data + 4, 3) + 1, height: b.readUIntLE(data + 7, 3) + 1 };
+      if (type === 'VP8L' && size >= 5 && b[data] === 0x2f) { const bits = b.readUInt32LE(data + 1); return { width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 }; }
+      if (type === 'VP8 ' && size >= 10 && b[data + 3] === 0x9d) return { width: b.readUInt16LE(data + 6) & 0x3fff, height: b.readUInt16LE(data + 8) & 0x3fff };
+      i = data + size + (size % 2);
+    }
+  } catch { /* a header too short to read is the format parser's business */ }
+  return undefined;
+}
+/** Refuses a declared canvas of zero, beyond MAX_IMAGE_SIDE, or beyond MAX_IMAGE_PIXELS. Headers that cannot be read pass: the format checks own those. */
+export function assertDimensions(bytes: Uint8Array, format: ImageFormat): void {
+  const size = declaredSize(Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength), format); if (!size) return;
+  if (size.width < 1 || size.height < 1 || size.width > MAX_IMAGE_SIDE || size.height > MAX_IMAGE_SIDE || size.width * size.height > MAX_IMAGE_PIXELS) throw new MediaError('too_large');
+}
 /** Removes EXIF/GPS, XMP, IPTC, comments and textual chunks without touching pixel data. Format comes from magic bytes. */
 export function stripMetadata(bytes: Uint8Array, onInvalid: ErrorCode = 'unsupported_parameter'): { bytes: Uint8Array; format: ImageFormat } {
   const bad = () => new MediaError(onInvalid); const format = sniffFormat(bytes); const b = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (format) assertDimensions(bytes, format);
   if (format === 'png') return { bytes: stripPng(b, bad), format };
   if (format === 'jpeg') return { bytes: stripJpeg(b, bad), format };
   if (format === 'webp') return { bytes: stripWebp(b, bad), format };
@@ -135,5 +170,6 @@ export function sanitizeRequest(req: ImageRequest): ImageRequest {
 /** A provider's declared content type is never trusted: the bytes must start like the image they claim to be. */
 export function verifyOutput(file: { bytes: Uint8Array; format: ImageFormat }): { bytes: Uint8Array; format: ImageFormat } {
   const format = sniffFormat(file.bytes); if (!format) throw new MediaError('invalid_response');
+  assertDimensions(file.bytes, format);
   return { bytes: file.bytes, format };
 }

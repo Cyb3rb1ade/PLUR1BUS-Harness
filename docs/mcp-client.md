@@ -125,7 +125,7 @@ structured content can be any JSON value. Tool results keep the D19 provenance
 envelope; resource/prompt content and descriptors are redacted data as well.
 
 `aggregate(caller)` fetches visible servers concurrently, returning tools with
-collision-free `server::localTool` names, resources tagged with their server, and
+collision-free `server::localTool` names (server names cannot contain `:`; a tool list with control-character names is refused), resources tagged with their server, and
 prefixed prompts. One failed feature/server appears in `errors` without hiding
 healthy results. Aggregate names are a future registry binding; call the existing
 `callTool(server, localTool, args, caller)` API with the explicit server identity.

@@ -6,6 +6,8 @@ Every route is **deny by default**: a route that is not `public` answers 401 wit
 
 | Method | Path | Operation | Auth | Action | CSRF | Rate class | Stability · since |
 |---|---|---|---|---|---|---|---|
+| `POST` | `/rpc` | `web.rpc` | session | `delegated` | yes | rpc | experimental · 1.0.0 |
+| `GET` | `/events` | `web.events` | session | `delegated` | no | stream | experimental · 1.0.0 |
 | `POST` | `/api/v1/session` | `session.create` | public | `public` | no | auth | experimental · 1.0.0 |
 | `DELETE` | `/api/v1/session` | `session.delete` | session | `authenticated` | yes | write | experimental · 1.0.0 |
 | `DELETE` | `/api/v1/sessions` | `sessions.revoke-all` | session | `authenticated` | yes | write | experimental · 1.0.0 |

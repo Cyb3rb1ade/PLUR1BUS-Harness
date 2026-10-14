@@ -55,6 +55,9 @@ export const en = {
   "library.captionPlaceholder": "Enter caption text…",
   "library.unavailable": "Media service is not available on this harness.",
   "library.error": "An error occurred while loading or updating media.",
+  "library.more": "Show more",
+  "library.emptyFiltered": "No media of this type.",
+  "library.captionCancel": "Cancel",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -114,4 +117,7 @@ export const de: Record<keyof typeof en, string> = {
   "library.captionPlaceholder": "Beschreibung eingeben …",
   "library.unavailable": "Der Mediendienst ist auf dieser Harness nicht verfügbar.",
   "library.error": "Beim Laden oder Bearbeiten der Medien ist ein Fehler aufgetreten.",
+  "library.more": "Mehr anzeigen",
+  "library.emptyFiltered": "Keine Medien dieses Typs.",
+  "library.captionCancel": "Abbrechen",
 };

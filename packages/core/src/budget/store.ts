@@ -71,7 +71,9 @@ export function openBudgetDb(o: OpenStoreOptions): DatabaseSync {
   } catch (e) {
     throw new BudgetStoreError("open-failed", `cannot prepare ${o.path}: ${(e as Error).message}`);
   }
-  const db = new DatabaseSync(o.path);
+  let db: DatabaseSync;
+  try { db = new DatabaseSync(o.path); }
+  catch (e) { throw new BudgetStoreError("open-failed", `cannot open ${o.path}: ${(e as Error).message}`); }
   try {
     db.exec(`PRAGMA busy_timeout = ${Math.max(0, Math.floor(o.busyTimeoutMs ?? 5000))}`);
     db.exec("PRAGMA journal_mode = WAL");
@@ -79,7 +81,7 @@ export function openBudgetDb(o: OpenStoreOptions): DatabaseSync {
     migrate(db);
   } catch (e) {
     try { db.close(); } catch { /* already closed */ }
-    throw e;
+    throw e instanceof BudgetStoreError ? e : new BudgetStoreError("open-failed", `cannot initialise ${o.path}: ${(e as Error).message}`);
   }
   return db;
 }

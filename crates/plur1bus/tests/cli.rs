@@ -113,12 +113,12 @@ fn setup_update_and_repair_are_no_longer_stubs() {
 }
 
 /// `update --check` with no install manifest (2a-H3b-b Task 5, HB9): `E_NOT_AVAILABLE reason=not-installed`,
-/// the `plur1bus setup` hint, exit 1, and nothing written under `home` (full coverage: `tests/update.rs`).
+/// the `plur1bus setup` hint, exit 2, and nothing written under `home` (full coverage: `tests/update.rs`).
 #[test]
 fn update_check_reports_not_installed_and_writes_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let h = dir.path().to_str().unwrap();
-    let v = json_code(&["--json", "--home", h, "update", "--check"], &[], 1);
+    let v = json_code(&["--json", "--home", h, "update", "--check"], &[], 2);
     assert_eq!(v["error"], "E_NOT_AVAILABLE");
     assert_eq!(v["reason"], "not-installed");
     assert!(v["message"].as_str().unwrap().contains("plur1bus setup"));
@@ -127,10 +127,10 @@ fn update_check_reports_not_installed_and_writes_nothing() {
 
 #[test]
 fn update_applies_only_on_an_install_and_never_in_container_mode() {
-    // M8: `update` is real. In a home `setup` never ran it says so (exit 1) instead of answering a milestone.
+    // M8: `update` is real. In a home `setup` never ran it says so (exit 2) instead of answering a milestone.
     let dir = tempfile::tempdir().unwrap();
     let h = dir.path().to_str().unwrap();
-    let v = json_code(&["--json", "--home", h, "update", "--yes"], &[], 1);
+    let v = json_code(&["--json", "--home", h, "update", "--yes"], &[], 2);
     assert_eq!(v["error"], "E_NOT_AVAILABLE");
     assert_eq!(v["reason"], "not-installed");
     // The image owns the installation in container mode: apply and rollback are refused there, like `--check`.
@@ -138,7 +138,7 @@ fn update_applies_only_on_an_install_and_never_in_container_mode() {
         vec!["--json", "--home", h, "update", "--yes"],
         vec!["--json", "--home", h, "update", "--rollback"],
     ] {
-        let v = json_code(&args, &[("PLUR1BUS_CONTAINER", "1")], 1);
+        let v = json_code(&args, &[("PLUR1BUS_CONTAINER", "1")], 2);
         assert_eq!(v["reason"], "container-managed", "{args:?}");
     }
     // Nothing to roll back and no update yet: `status` reads, never writes.
@@ -147,7 +147,7 @@ fn update_applies_only_on_an_install_and_never_in_container_mode() {
         (v["schema"].as_str(), v["phase"].as_str()),
         (Some("update.status/1"), Some("idle"))
     );
-    let v = json_code(&["--json", "--home", h, "update", "--rollback"], &[], 1);
+    let v = json_code(&["--json", "--home", h, "update", "--rollback"], &[], 2);
     assert_eq!(v["reason"], "nothing-to-roll-back");
 }
 
@@ -157,17 +157,17 @@ fn setup_and_update_check_are_container_managed_in_container_mode() {
     let h = dir.path().to_str().unwrap();
     // `setup` refuses in container mode; outside it, it would install for real (tests/setup.rs covers it).
     let setup_args = vec!["--json", "--home", h, "setup", "--non-interactive"];
-    let v = json_code(&setup_args, &[("PLUR1BUS_CONTAINER", "1")], 1);
+    let v = json_code(&setup_args, &[("PLUR1BUS_CONTAINER", "1")], 2);
     assert_eq!(v["error"], "E_NOT_AVAILABLE");
     assert_eq!(v["reason"], "container-managed");
 
     let update_args = vec!["--json", "--home", h, "update", "--check"];
-    let v = json_code(&update_args, &[("PLUR1BUS_CONTAINER", "1")], 1);
+    let v = json_code(&update_args, &[("PLUR1BUS_CONTAINER", "1")], 2);
     assert_eq!(v["error"], "E_NOT_AVAILABLE");
     assert_eq!(v["reason"], "container-managed");
     // Only exactly "1" is container mode: otherwise `update --check` runs for real (Task 5) and reports
     // `not-installed` since this home has no install manifest.
-    let v = json_code(&update_args, &[("PLUR1BUS_CONTAINER", "true")], 1);
+    let v = json_code(&update_args, &[("PLUR1BUS_CONTAINER", "true")], 2);
     assert_eq!(v["error"], "E_NOT_AVAILABLE");
     assert_eq!(v["reason"], "not-installed");
 
@@ -207,7 +207,7 @@ fn agent_create_list_remove_without_a_core() {
     bin()
         .args(["--home", h, "agent", "create", "Bernd"])
         .assert()
-        .code(1)
+        .code(2)
         .stderr(predicate::str::contains("must match"));
     bin()
         .args(["--home", h, "agent", "create", "bernd"])
@@ -225,12 +225,12 @@ fn agent_create_list_remove_without_a_core() {
     bin()
         .args(["--home", h, "agent", "create", "bernd"])
         .assert()
-        .code(1);
+        .code(2);
     // The Hermes provider's `bind` keys on this reason (hosts/hermes/plur1bus/cli.py).
     let out = bin()
         .args(["--json", "--home", h, "agent", "create", "bernd"])
         .assert()
-        .code(1)
+        .code(2)
         .get_output()
         .stdout
         .clone();
@@ -1715,7 +1715,7 @@ fn config_set_with_an_unresponsive_supervisor_fails_and_writes_nothing() {
         ])
         .timeout(std::time::Duration::from_secs(60))
         .assert()
-        .code(1)
+        .code(2)
         .get_output()
         .stdout
         .clone();
@@ -2069,9 +2069,9 @@ fn a_closed_stdout_pipe_keeps_the_failing_exit_code() {
         .get_output()
         .status
         .code();
-    assert_eq!(open, Some(1));
+    assert_eq!(open, Some(2));
     let (code, stderr) = closed_stdout(home.path(), &["--json", "config", "get", "no.such.key"]);
-    assert_eq!(code, Some(1), "stderr: {stderr}");
+    assert_eq!(code, Some(2), "stderr: {stderr}");
 }
 
 /// A successful read command with a closed stdout (human and `--json`) exits 0.
@@ -2134,11 +2134,11 @@ fn closed_stdout_and_stderr_keep_the_exit_code_without_a_panic() {
     // Failing command, human and --json: `fail` writes to stderr / stdout, both gone.
     assert_eq!(
         closed_stdout_and_stderr(home.path(), &["config", "get", "no.such.key"]),
-        Some(1)
+        Some(2)
     );
     assert_eq!(
         closed_stdout_and_stderr(home.path(), &["--json", "config", "get", "no.such.key"]),
-        Some(1)
+        Some(2)
     );
 }
 

@@ -123,11 +123,26 @@ export function createCollab(o: CollabOptions): Collab {
     if (p.archivedAt !== null) throw new CollabError("archived", `project ${id} is archived`, { reason: "archived" });
     return p;
   };
-  const readableProject = (id: string): Project => {
+  /** RBAC `project.read` is role-wide; what a project shows to a person is decided by stored membership (privileged roles see all). */
+  const privileged = (principal: Principal): boolean => principal.role === "owner" || principal.role === "admin" || principal.role === "operator";
+  const visible = (principal: Principal, p: Project): boolean =>
+    privileged(principal)
+    || p.members.some((m) => m.userId === principal.userId)
+    || (principal.kind === "agent" && p.agents.includes(principal.userId));
+  /** A project the caller may not see is refused exactly like a missing one (privileged roles get a plain not-found). */
+  const visibleProject = (principal: Principal, id: string, what = "project"): Project => {
     const p = store.getProject(id);
-    if (!p) throw new CollabError("not-found", `project ${id} not found`, { reason: "project" });
-    return p;
+    if (p && visible(principal, p)) return p;
+    if (privileged(principal)) throw new CollabError("not-found", `${what} ${id} not found`, { reason: what });
+    throw new CollabError("unauthorized", "project access refused", { reason: "membership" });
   };
+  const redactTask = (t: DelegateTask): DelegateTask => ({
+    ...t,
+    task: redact.text(t.task),
+    acceptanceCriteria: redact.text(t.acceptanceCriteria),
+    result: t.result ? redact.text(t.result) : t.result,
+    error: t.error ? redact.text(t.error) : t.error,
+  });
 
   const assertAgents = (project: Project, fromAgent: string, toAgent: string): { sameProject: boolean } => {
     const inP = (id: string) => project.agents.includes(id);
@@ -170,7 +185,8 @@ export function createCollab(o: CollabOptions): Collab {
     };
     const remain = project.settings.timeoutMs;
     if (remain > 0 && Number.isFinite(remain)) {
-      chain.timeout = setTimeout(() => abort.abort(new Error("timeout")), remain);
+      // Node fires a timer beyond 2^31-1 ms after 1 ms; a huge configured timeout must mean "very long", not "at once".
+      chain.timeout = setTimeout(() => abort.abort(new Error("timeout")), Math.min(remain, 2_147_483_647));
       chain.timeout.unref?.();
     }
     chains.set(traceId, chain);
@@ -186,7 +202,11 @@ export function createCollab(o: CollabOptions): Collab {
   const getChain = (traceId: string | undefined, project: Project, rootAgent: string, extra?: AbortSignal): Chain => {
     if (!traceId) return beginChain(project, rootAgent, extra);
     const existing = chains.get(traceId);
-    if (existing) { attachSignal(existing, extra); return existing; }
+    if (existing) {
+      // A trace belongs to one project: another project's live chain is reported as missing, never joined.
+      if (existing.projectId !== project.id) throw new CollabError("not-found", `trace ${traceId} not found`, { reason: "trace" });
+      attachSignal(existing, extra); return existing;
+    }
     const persisted = store.getTrace(traceId);
     if (!persisted || persisted.projectId !== project.id) throw new CollabError("not-found", `trace ${traceId} not found`, { reason: "trace" });
     const abort = new AbortController();
@@ -268,6 +288,7 @@ export function createCollab(o: CollabOptions): Collab {
       api.close();
     },
     close() {
+      if (storeClosed) return;
       for (const c of chains.values()) { if (c.timeout) clearTimeout(c.timeout); }
       storeClosed = true;
       store.close();
@@ -289,13 +310,12 @@ export function createCollab(o: CollabOptions): Collab {
     },
 
     getProject(principal, id) {
-      const p = readableProject(id);
       authz(principal, "project.read", { kind: "project", projectId: id });
-      return p;
+      return visibleProject(principal, id);
     },
 
     listProjects(principal) {
-      return store.listProjects().filter((p) => authorize(principal, "project.read", { kind: "project", projectId: p.id }).effect === "allow");
+      return store.listProjects().filter((p) => visible(principal, p) && authorize(principal, "project.read", { kind: "project", projectId: p.id }).effect === "allow");
     },
 
     archiveProject(principal, id) {
@@ -335,8 +355,8 @@ export function createCollab(o: CollabOptions): Collab {
 
     async consult(input) {
       if (!input.question.trim()) throw new CollabError("invalid", "question is required", { reason: "question" });
-      const project = liveProject(input.projectId);
       authz(input.principal, "project.write", { kind: "project", projectId: input.projectId });
+      const project = liveProject(input.projectId);
       authz(input.principal, "agent.use", { kind: "agent", agentId: input.fromAgent });
       authz(input.principal, "agent.use", { kind: "agent", agentId: input.toAgent });
       const path = input.path ?? [input.fromAgent];
@@ -398,8 +418,8 @@ export function createCollab(o: CollabOptions): Collab {
 
     delegate(input) {
       if (!input.task.trim()) throw new CollabError("invalid", "task is required", { reason: "task" });
-      const project = liveProject(input.projectId);
       authz(input.principal, "project.write", { kind: "project", projectId: input.projectId });
+      const project = liveProject(input.projectId);
       authz(input.principal, "agent.use", { kind: "agent", agentId: input.fromAgent });
       authz(input.principal, "agent.use", { kind: "agent", agentId: input.toAgent });
       const path = input.path ?? [input.fromAgent];
@@ -475,7 +495,8 @@ export function createCollab(o: CollabOptions): Collab {
       const t = store.getTask(id);
       if (!t) throw new CollabError("not-found", `task ${id} not found`, { reason: "task" });
       authz(principal, "project.read", { kind: "project", projectId: t.projectId });
-      return t.result ? { ...t, result: redact.text(t.result) } : t;
+      visibleProject(principal, t.projectId, "task");
+      return redactTask(t);
     },
 
     cancelChain(principal, traceId) {
@@ -491,11 +512,13 @@ export function createCollab(o: CollabOptions): Collab {
       const t = store.getTrace(traceId);
       if (!t) throw new CollabError("not-found", `trace ${traceId} not found`, { reason: "trace" });
       authz(principal, "project.read", { kind: "project", projectId: t.projectId });
+      visibleProject(principal, t.projectId, "trace");
       return redactTrace(t);
     },
 
     listTraces(principal, projectId) {
       authz(principal, "project.read", { kind: "project", projectId });
+      visibleProject(principal, projectId);
       return store.listTraces(projectId).map(redactTrace);
     },
 

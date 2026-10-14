@@ -59,6 +59,24 @@ catalog deltas. The D111 catalogue registers `model.discovered`, `model.unavaila
 rotation, level settings, redaction and schema validation apply. Event attributes contain
 metadata and fixed failure tokens, never credential values or provider response bodies.
 
+## Limits and edge cases
+
+A scan stops at 5 s for the connection, 15 s per request and 60 s overall, reads at most 10
+pages, 4 MiB per body (also after decompression), 8 MiB in total and 5 000 entries. One invalid
+entry fails the whole scan as `failed:invalid`, so a real model is never marked unavailable
+because a neighbour was malformed; an optional field that is `null` counts as absent, an `id`
+that is missing or malformed does not. An empty list is `failed:empty` and changes nothing.
+
+Aliases are unique per provider. When two models claim one alias, an alias set by the user
+(override or manual entry) wins, then a model that the provider still lists, then the more recent one. Models that disappear stay in the catalog as `unavailable`; they are not
+pruned. The catalog file is capped at 16 MiB: a write that would exceed it fails with
+`store_write_failed` instead of producing a file the next start would quarantine.
+
+A manual entry's `id` is non-empty, at most 512 bytes, without control characters.
+`models.setOverride` rejects unknown keys in `set` and a `contextWindow` above 2^53 - 1 as
+`E_INVALID_PARAMS`. Timers are never armed further out than 2^31 - 1 ms; a longer wait is
+re-armed in steps.
+
 ## Offline verification
 
 `packages/core/test/discovery/real-core.test.ts` runs all scanner protocols and the real

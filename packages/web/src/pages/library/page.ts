@@ -28,6 +28,20 @@ export interface LibraryOutput {
   files?: { path: string; format: string; bytes: number }[];
 }
 
+const PAGE_SIZE = 24;
+
+/** An entry the list can render: a record with a string id and prompt. Anything else (null, a number, a half record) is left
+ *  out instead of taking the whole page down. */
+function isListed(v: unknown): v is LibraryOutput {
+  if (!v || typeof v !== "object") return false;
+  const o = v as { id?: unknown; prompt?: unknown };
+  return typeof o.id === "string" && typeof o.prompt === "string";
+}
+
+function kindOf(o: LibraryOutput): string {
+  return o.kind || (o.mimeType?.startsWith("video/") ? "video" : o.mimeType?.startsWith("audio/") ? "audio" : "image");
+}
+
 export function LibraryPage(): View {
   const { state, reload } = useLoad<{ outputs: LibraryOutput[] }>(
     async (signal) =>
@@ -40,6 +54,7 @@ export function LibraryPage(): View {
   );
 
   const [kindFilter, setKindFilter] = useState<string>("");
+  const [shown, setShown] = useState(PAGE_SIZE);
   const [selected, setSelected] = useState<LibraryOutput | null>(null);
   const [previewData, setPreviewData] = useState<{
     data?: string | undefined;
@@ -132,12 +147,9 @@ export function LibraryPage(): View {
     );
   }
 
-  const rawOutputs = state.data.outputs || [];
-  const filteredOutputs = rawOutputs.filter((o) => {
-    if (!kindFilter) return true;
-    const k = o.kind || (o.mimeType?.startsWith("video/") ? "video" : o.mimeType?.startsWith("audio/") ? "audio" : "image");
-    return k === kindFilter;
-  });
+  const rawOutputs = Array.isArray(state.data?.outputs) ? state.data.outputs.filter(isListed) : [];
+  const filteredOutputs = rawOutputs.filter((o) => !kindFilter || kindOf(o) === kindFilter);
+  const visibleOutputs = filteredOutputs.slice(0, shown);
 
   return h(
     Page,
@@ -156,8 +168,10 @@ export function LibraryPage(): View {
             {
               id: "kind-filter",
               value: kindFilter,
-              onChange: (e: Event) =>
-                setKindFilter((e.currentTarget as HTMLSelectElement).value),
+              onChange: (e: Event) => {
+                setKindFilter((e.currentTarget as HTMLSelectElement).value);
+                setShown(PAGE_SIZE);
+              },
             },
             h("option", { value: "" }, t("library.filter.all")),
             h("option", { value: "image" }, t("library.filter.image")),
@@ -177,11 +191,11 @@ export function LibraryPage(): View {
       ),
     ),
     filteredOutputs.length === 0
-      ? h(PageState, { state: "empty", title: t("library.empty") })
+      ? h(PageState, { state: "empty", title: rawOutputs.length === 0 ? t("library.empty") : t("library.emptyFiltered") })
       : h(
           "div",
           { class: "library-grid" },
-          filteredOutputs.map((item) =>
+          visibleOutputs.map((item) =>
             h(
               "article",
               { key: item.id, class: "card library-card" },
@@ -190,16 +204,25 @@ export function LibraryPage(): View {
                 {
                   class: "library-thumb-wrapper",
                   onClick: () => setSelected(item),
+                  onKeyDown: (e: KeyboardEvent) => {
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelected(item);
+                    }
+                  },
                   tabIndex: 0,
                   role: "button",
                   "aria-label": `${t("library.preview")}: ${item.prompt}`,
                 },
-                h(StoredImage, { id: item.id }),
+                kindOf(item) === "image"
+                  ? h(StoredImage, { id: item.id, alt: item.caption || item.prompt })
+                  : h("span", { class: "library-kind-tile" }, t(`library.filter.${kindOf(item)}` as "library.filter.image")),
               ),
               h(
                 "div",
                 { class: "library-card-info" },
-                h("p", { class: "library-prompt", title: item.prompt }, item.prompt),
+                h("p", { class: "library-prompt", id: `library-prompt-${item.id}`, title: item.prompt }, item.prompt),
                 item.caption
                   ? h("p", { class: "library-caption-preview" }, item.caption)
                   : null,
@@ -218,6 +241,7 @@ export function LibraryPage(): View {
                   {
                     type: "button",
                     class: "btn btn-quiet",
+                    "aria-describedby": `library-prompt-${item.id}`,
                     onClick: () => setSelected(item),
                   },
                   t("library.preview"),
@@ -228,6 +252,7 @@ export function LibraryPage(): View {
                       {
                         type: "button",
                         class: "btn btn-danger btn-quiet",
+                        "aria-describedby": `library-prompt-${item.id}`,
                         onClick: () => setDeleteTarget(item),
                       },
                       t("library.delete"),
@@ -237,6 +262,13 @@ export function LibraryPage(): View {
             ),
           ),
         ),
+    filteredOutputs.length > shown
+      ? h(
+          "div",
+          { class: "library-more" },
+          h("button", { type: "button", class: "btn", onClick: () => setShown((n) => n + PAGE_SIZE) }, t("library.more")),
+        )
+      : null,
     selected
       ? h(
           Dialog,
@@ -259,8 +291,8 @@ export function LibraryPage(): View {
                     src: `data:${previewData.mimeType};base64,${previewData.data}`,
                     class: "library-preview-player",
                   })
-                : h(StoredImage, { id: selected.id, download: true })
-              : h(StoredImage, { id: selected.id, download: true }),
+                : h(StoredImage, { id: selected.id, download: true, alt: selected.caption || selected.prompt })
+              : h(StoredImage, { id: selected.id, download: true, alt: selected.caption || selected.prompt }),
             h(
               "div",
               { class: "library-caption-section" },
@@ -270,6 +302,7 @@ export function LibraryPage(): View {
                     "div",
                     { class: "library-caption-edit" },
                     h("textarea", {
+                      "aria-label": t("library.caption"),
                       class: "library-caption-textarea",
                       value: captionText,
                       placeholder: t("library.captionPlaceholder"),
@@ -297,9 +330,13 @@ export function LibraryPage(): View {
                         {
                           type: "button",
                           class: "btn",
-                          onClick: () => setEditingCaption(false),
+                          onClick: () => {
+                            setCaptionText(selected.caption || "");
+                            setCaptionError("");
+                            setEditingCaption(false);
+                          },
                         },
-                        t("dialog.close"),
+                        t("library.captionCancel"),
                       ),
                     ),
                   )
@@ -337,6 +374,7 @@ export function LibraryPage(): View {
                 ? h(
                     "button",
                     {
+                      type: "button",
                       class: "btn btn-danger",
                       onClick: () => {
                         setDeleteTarget(selected);

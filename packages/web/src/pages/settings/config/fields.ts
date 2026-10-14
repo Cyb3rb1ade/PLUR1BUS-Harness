@@ -44,7 +44,9 @@ export function FieldRow({ field: f, draft, error, disabled, highlighted, onChan
         h("span", { "aria-hidden": "true" }, raw === true ? t("settings.cfg.on") : t("settings.cfg.off")));
       break;
     case "enum":
-      control = h("select", { ...common, value: String(raw ?? ""), onChange: onInput }, (f.options ?? []).map((o) => h("option", { value: o, selected: o === raw }, o)));
+      // A value from a newer harness is not among the known options: it stays visible (and selected) instead of showing the first option.
+      control = h("select", { ...common, value: String(raw ?? ""), onChange: onInput },
+        (typeof raw === "string" && raw !== "" && !(f.options ?? []).includes(raw) ? [raw, ...(f.options ?? [])] : (f.options ?? [])).map((o) => h("option", { value: o, selected: o === raw }, o)));
       break;
     case "strings": case "ints":
       control = h("textarea", { ...common, rows: 3, spellcheck: false, value: String(raw ?? ""), onInput });

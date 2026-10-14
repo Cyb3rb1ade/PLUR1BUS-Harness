@@ -58,7 +58,10 @@ describe("Extensions rights in the browser", { skip: browserSkip }, () => {
       assert.equal(app.server.rpc.calls.filter((c) => c.method === "ext.enable").length, 0);
       await dlg.getByRole("checkbox").check();
       assert.equal(await submit.isDisabled(), false);
+      // Closing the dialog precedes the asynchronous CSRF exchange and mutation. Observe the actual RPC response.
+      const enabled = app.page.waitForResponse(response => response.url().endsWith("/rpc") && response.status() === 200 && response.request().postDataJSON()?.method === "ext.enable");
       await submit.click();
+      await enabled;
       await dlg.waitFor({ state: "detached" });
       assert.equal(app.server.rpc.calls.filter((c) => c.method === "ext.enable").length, 1);
     });

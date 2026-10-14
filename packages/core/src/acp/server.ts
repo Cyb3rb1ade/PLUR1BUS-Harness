@@ -45,6 +45,7 @@ export class AcpServer {
   readonly #pending = new Set<Promise<unknown>>();
   #initialized = false;
   #closed = false;
+  #outGone = false;
   constructor(o: AcpServerOptions) { this.#o = o; }
 
   /** Serves until the input ends, then cancels what is still running and waits for it. */
@@ -59,16 +60,28 @@ export class AcpServer {
       };
       this.#o.input.on("data", (c: Buffer | string) => handle(reader.push(typeof c === "string" ? Buffer.from(c) : c)));
       this.#o.input.on("error", () => { this.#o.log?.("input-error"); });
-      this.#o.input.on("end", () => {
-        handle(reader.end());
+      // The input is gone (ended, or destroyed after an error: `close` without `end`) or nobody reads the output any more:
+      // finish exactly once, cancel what is running and wait for it.
+      let finished = false;
+      const finish = (flush: boolean) => {
+        if (finished) return;
+        finished = true;
+        if (flush) handle(reader.end());
         this.#closed = true;
         for (const [sid, st] of this.#running) { st.cancelRequested = true; void this.#o.backend.cancel(sid).catch(() => {}); }
         void (async () => { while (this.#pending.size > 0) await Promise.allSettled([...this.#pending]); resolve(); })();
-      });
+      };
+      this.#o.input.on("end", () => finish(true));
+      this.#o.input.on("close", () => finish(false));
+      // A reader that went away (EPIPE, closed pipe): stop writing, stop the work nobody can receive. Without a listener
+      // the stream's `error` event would be an uncaught exception.
+      const outGone = () => { if (!this.#outGone) { this.#outGone = true; this.#o.log?.("output-error"); finish(false); } };
+      this.#o.output.on("error", outGone);
+      this.#o.output.on("close", outGone);
     });
   }
 
-  #send(m: unknown): void { try { this.#o.output.write(encodeLine(m)); } catch { this.#o.log?.("output-error"); } }
+  #send(m: unknown): void { if (this.#outGone) return; try { this.#o.output.write(encodeLine(m)); } catch { this.#o.log?.("output-error"); } }
   #reply(id: Id, result: unknown): void { this.#send({ jsonrpc: "2.0", id, result }); }
   #fail(id: Id, e: unknown): void {
     if (e instanceof AcpError) { this.#send({ jsonrpc: "2.0", id, error: { code: e.code, message: e.message, ...(e.data ? { data: e.data } : {}) } }); return; }

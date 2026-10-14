@@ -15,7 +15,7 @@ not commitments. Test references are `file > test name` relative to `packages/co
 | File | Role |
 |---|---|
 | `index.ts` | `openTurnComposition`: opens budget, voice, auth, MCP, media, sessions, collaboration, in this order, and closes them in reverse. `approvalPolicyContext` (fail closed when the permission stores are not open) and `routerEventSink` (router events to log and audit). |
-| `auth.ts` | `composeAuth`: one streaming adapter per provider definition, credential lease per attempt, tool-call dialect family per wire format, billing class per provider (`billingClassOf`). |
+| `auth.ts` | `composeAuth`: one streaming adapter per provider definition, credential lease per attempt (each leased value is registered for redaction), tool-call dialect family per wire format, billing class per provider (`billingClassOf`, refused at load when it cannot be determined). |
 | `provider.ts` | `createTurnProvider`: the turn loop (identity, triage, tool registry, capability routing, prompt, provider call, tool dispatch, result cap), repair of invalid tool arguments, budget tickets and retry budget, cross-billing refusal. |
 | `http.ts` | `providerFetch` (egress decision, pinned address, no redirects) and `anthropicBreakpoints` (cache markers for the Anthropic wire body). |
 | `media.ts` | `composeMedia`: the first configured image adapter, wrapped so that egress and the secret lease happen per operation; the output store under `<home>/media/outputs`. |
@@ -27,7 +27,8 @@ not commitments. Test references are `file > test name` relative to `packages/co
 ## Billing class (`billingClassOf`, `auth.ts`)
 
 ADR-005: a fallback must not cross silently between a subscription ("plan") and a metered ("paid") provider. The class of
-each provider is derived once in `composeAuth` and stored in `billing[providerId]` only if one was found.
+each provider is derived once in `composeAuth` and stored in `billing[providerId]`. Every composed provider has a class:
+a provider without one is refused at load (fail closed, below).
 
 Order of decision:
 
@@ -37,16 +38,20 @@ Order of decision:
 3. Without an explicit path, the credential kind: `api_key`, `adc`, `federated_token` give `paid`; `oauth_pkce`,
    `device_code`, `external_cli` give `plan`.
 
-Tests: `billing.test.ts` (all cases except the two below).
+Tests: `billing.test.ts`.
 
-* **Unknown explicit path: no class.** `enterprise`, `""` and `PLAN` (the match is case-sensitive) do not fall back to the
-  credential kind; the result is `undefined`. Test: `billing.test.ts > characterization: an unknown explicit billing path yields no class instead of falling back to the kind`.
-* **Unknown kind or missing profile: no class.** `kind: "mystery"`, `{}` and `undefined` give `undefined`. Test:
-  `billing.test.ts > characterization: an unknown credential kind and a missing profile yield no class`.
-* A provider without a class is never refused for billing: the guard in `provider.ts` compares `billing[primary]` with
-  `billing[candidate]` and only refuses when **both** are set and differ and the profile does not allow cross billing
-  (`providers.modelProfilePolicy.<profile>.allowCrossBilling`). A refusal emits `provider.cross_billing_refused` (warning)
-  and lets the router try the next candidate.
+* **Unknown explicit path, unknown kind or missing profile: refused at load.** `billingClassOf` answers `undefined` for an
+  explicit path outside the vocabulary (`enterprise`, `""`, `PLAN`: the match is case-sensitive and never falls back to the
+  credential kind), for an unknown credential kind and for a missing profile. `composeAuth` then refuses the whole provider
+  set before anything is composed, with `E_CONFIG_INVALID` (`ids.provider` names the provider, `detail` says why). The
+  composition root logs `turn providers unavailable` and no turn reaches a provider until the configuration is fixed.
+  Correct configurations get the same classes as before. Tests: `auth.test.ts > fail closed: ...` (one test per case),
+  `auth.test.ts > records the billing class of every correct definition unchanged (plan vs paid, ADR-005)`,
+  `billing.test.ts > an unknown explicit billing path is unknown (undefined), never a fallback to the kind`.
+* The guard in `provider.ts` compares `billing[primary]` with `billing[candidate]` and refuses when both are set and differ
+  and the profile does not allow cross billing (`providers.modelProfilePolicy.<profile>.allowCrossBilling`). A refusal emits
+  `provider.cross_billing_refused` (warning) and lets the router try the next candidate. A candidate without a class can
+  only come from the test seam `CompositionOptions.providers.billing`; it is not refused for billing.
 
 ## Provider turn loop (`provider.ts`)
 
@@ -59,22 +64,31 @@ Behaviour at the edges (tests in `provider.test.ts`):
 * A tool call for a name that is not among the selected tools ends the turn with `TurnToolError("tool-unknown")`. Invalid
   arguments are repaired at most once; a second invalid answer ends the turn with `tool-call-invalid`. The round limit
   (default 25, `maxRounds`) ends the turn with `turn-round-limit` and the limit as `detail`.
-* **Duplicate tool-call ids in one response are not rejected.** Both calls run, in order, and both results are appended as
-  `tool` messages under the same id. Test: `provider.test.ts > characterization: duplicate tool-call ids in one response are not rejected`.
-* **A failing tool ends the turn** with a `TurnToolError` whose `code` is the tool's own error code and whose `detail` is the
-  original error envelope. That envelope contains the text the tool threw. The text is **not** sent to the model (no second
-  model call is made) and is not part of the streamed chunks. Tests: `provider.test.ts > a failing tool ends the turn with the tool's own error code and the original envelope`,
-  `provider.test.ts > characterization: a tool's thrown message is kept in TurnToolError.detail and never reaches the model or the stream`.
+* **Duplicate tool-call ids in one response are made unique, never merged** (`uniqueToolCallIds`). The first call keeps its
+  id; each later duplicate gets `<id>_<n>` with the smallest `n >= 2` that no call of the same response uses. The new id is
+  used everywhere for that call: the `tool.call`/`tool.result` chunks (the web chat keys tool cards by id and shows both),
+  the dispatcher, and the assistant `toolCalls` and `tool` messages sent back to the provider. The suffix stays inside the
+  provider id grammars (Anthropic: letters, digits, `_`, `-`). Tests: `provider.test.ts > duplicate tool-call ids in one response are made unique deterministically; both run, nothing is merged`,
+  `provider.test.ts > a renamed duplicate never takes an id another call of the same response already uses`.
+* **A failing tool ends the turn** with a `TurnToolError` whose `code` is the tool's own error code and whose `detail` is a
+  redacted, bounded copy of the error envelope (`toolErrorDetail`): every string is redacted against the secret values this
+  composition leased (provider credentials, media keys; `TurnProviderOptions.secrets`) and the log redaction rules, the
+  message is cut to 500 characters, and an envelope still over 4096 characters keeps only `callId`, `tool`, `isError` and
+  `error.code`/`message`/`sourceCode`. The text is **not** sent to the model (no second model call is made) and is not
+  part of the streamed chunks. Tests: `provider.test.ts > a failing tool ends the turn with the tool's own error code and the original envelope`,
+  `provider.test.ts > a tool's thrown message is redacted against registered secrets and bounded in TurnToolError.detail`,
+  `provider.test.ts > toolErrorDetail reduces a bulky envelope (long hint, many issues) to its identity, code and a bounded message`.
 
 ## Error codes of a turn (`trace.ts`)
 
-`errorCode(error)` produces the `code` field of the `error` span record. Precedence: a string `code`, else a string `kind`,
-else `"turn-failed"`. Tests: `trace.test.ts > composition/trace errorCode`.
+`errorCode(error)` produces the `code` field of the `error` span record. Precedence: a non-empty string `code`, else a
+non-empty string `kind`, else `"turn-failed"`; the result is never empty. Tests: `trace.test.ts > composition/trace errorCode`.
 
 * `code` wins over `kind`; a non-string `code` (for example the number `429`) is skipped and the string `kind` is used; if
   both are non-strings the result is `turn-failed`. Tests (all `characterization:` rows of the table): `code wins over kind`,
   `non-string code falls through to kind`, `non-string code and kind`.
-* An empty string is still a string: `{ code: "" }` gives `""`, an empty code in the log. Test row `empty-string code is still a string`.
+* An empty code is no code: `{ code: "" }` gives `turn-failed`, `{ code: "", kind: "rate_limit" }` gives `rate_limit`. Test
+  rows `an empty code is no code: the fallback`, `an empty code falls through to a string kind`.
 * `null`, `undefined`, primitives and `{}` give `turn-failed`.
 
 `stage(name, signal, log, run)` throws first if the signal is already aborted, logs `start`, runs the work, checks the
@@ -86,8 +100,10 @@ exception object. Span ids are 16 hex characters, trace ids 32.
 * `providerFetch` with an injected transport (recorded fixtures) never consults egress and forces `redirect: "error"`. Only
   for `anthropic_messages` and only for a **string** body the JSON is parsed and the cache markers are rewritten; any other body
   is passed through, and a request without body forwards no `body` key.
-* **An unparsable string body on an anthropic request** is not wrapped: the raw `SyntaxError` from `JSON.parse` escapes and
-  the transport is never called. Test: `http.test.ts > characterization: an unparsable anthropic body surfaces a raw SyntaxError and sends nothing`.
+* **A string body on an anthropic request that is not a JSON object** (unparsable, `null`, an array, a number) is refused
+  locally with `ProviderError("invalid_request")`, code `request_refused_locally`; the transport is never called and the
+  budget treats the attempt as not billable. Tests: `http.test.ts > an unparsable anthropic body is refused as a ProviderError (request_refused_locally) and nothing is sent`,
+  `http.test.ts > an anthropic body that parses to a non-object is refused the same way`.
 * Without an injected transport: abort check, egress decision (`egress_denied` as a `ProviderError`, nothing connected),
   refusal of non-http(s) URLs, credentials in the URL and non-string bodies (`request_refused_locally`), connection to the
   address egress vetted while keeping the original host name, and refusal of any 3xx response (`provider redirects refused`).
@@ -101,12 +117,13 @@ exception object. Span ids are 16 hex characters, trace ids 32.
 * `composeMedia` returns `null` without configured adapters, takes only the **first** one, refuses a plaintext `apiKey` (also an
   empty string) with `MediaError("unsupported_parameter")` and validates the adapter configuration at composition time.
   Creation needs neither a secret nor an egress decision.
-* Per operation: abort check, egress decision for the base URL and then every download host (one refusal stops the
-  operation with `backend_unavailable`, before any secret is read), secret lease as the core (a missing secret is
-  `backend_unavailable`, never a keyless request), second abort check, adapter call. The lease is revoked right away.
-* **The abort signal is checked before egress and again after the secret lookup, not between them.** A cancel that lands
-  while egress is deciding still leases the secret once; the operation then throws the abort reason and the lease is
-  revoked. Test: `media.test.ts > characterization: a signal aborted while egress decides still leases the secret once, then throws the abort reason`.
+* Per operation: abort check, egress decision for the base URL and then every download host, each followed by an abort
+  check (one refusal stops the operation with `backend_unavailable`, before any secret is read), secret lease as the core
+  (a missing secret is `backend_unavailable`, never a keyless request; the value is registered for redaction), abort check,
+  adapter call. The lease is revoked right away.
+* **A cancel that lands while egress decides leases nothing**: the operation throws the abort reason before the next host is
+  asked and before the secret is read. Tests: `media.test.ts > a signal aborted while egress decides leases no secret and throws the abort reason`,
+  `media.test.ts > a cancel during the base-URL decision stops before the download hosts are asked`.
 
 ## Other composition behaviour covered by tests
 
@@ -127,24 +144,25 @@ exception object. Span ids are 16 hex characters, trace ids 32.
 
 ## Open points (Offene Punkte)
 
-These are observations, not decisions. Do not rely on them.
+Observations from the test wave (#422). Fixed points stay listed with the test that now pins the behaviour.
 
-1. **A mistyped `billingPath` disables the billing check for that provider.** An unknown explicit path yields no class instead
-   of falling back to the credential kind (or failing), and a provider without a class is never refused for billing. A plan
-   provider with `billingPath: "enterprise"` can therefore be reached by fallback from a paid one and vice versa without an
-   event. Nothing in `composeAuth` logs the missing class.
-2. **Unknown kinds and missing profiles also silently yield no class**, with the same effect.
-3. **`TurnToolError.detail` carries the raw text a tool threw.** The turn loop does not forward it, but any consumer of
-   `detail` receives text a tool or its library chose (the test uses a secret-like marker to show this). Whether `detail`
-   should be reduced to a code is undecided.
-4. **Duplicate tool-call ids are sent back under one id.** A provider that requires unique ids may reject the next
-   request; the code does not check for this.
-5. **An unparsable anthropic body leaks a raw `SyntaxError`** and not a `ProviderError`, so retry and error mapping in the router
-   see an untyped failure.
-6. **`errorCode` returns `""` for an empty-string `code`**, which produces an error record without a usable code. `kind` is not
-   consulted in that case.
-7. **Late cancel in `composeMedia` still leases a secret** (once, revoked afterwards). A lease is taken for an operation that was already
-   cancelled.
-8. **Known gap (`todo` test, not fixed):** `openInbox` copies legacy break-glass notices in one pass and stops at the first
-   malformed notice, so valid notices behind it are lost and the copy is retried at every start with the same result
-   (`inbox.test.ts > KNOWN GAP: core/composition openInbox ...`).
+1. **Fixed: a mistyped `billingPath` disabled the billing check for that provider.** It is now refused at load with
+   `E_CONFIG_INVALID` ([Billing class](#billing-class-billingclassof-authts); `auth.test.ts > fail closed: a misspelled billingPath refuses the provider at load with E_CONFIG_INVALID`).
+2. **Fixed: unknown kinds and missing profiles silently yielded no class.** Same refusal (`auth.test.ts > fail closed: an unknown credential kind refuses the provider at load with E_CONFIG_INVALID`,
+   `auth.test.ts > fail closed: a missing profile refuses the provider at load with E_CONFIG_INVALID`).
+3. **Fixed: `TurnToolError.detail` carried the raw text a tool threw.** It is a redacted, bounded copy now
+   (`provider.test.ts > a tool's thrown message is redacted against registered secrets and bounded in TurnToolError.detail`). Kept on
+   purpose: `detail` still holds the (redacted) message and is not reduced to a code, because the session layer and the
+   operator need to see why a tool failed. Secrets the composition never leased (for example values an MCP server holds) are
+   only caught by the pattern rules of the log redactor.
+4. **Fixed: duplicate tool-call ids were sent back under one id.** They are made unique deterministically
+   (`provider.test.ts > duplicate tool-call ids in one response are made unique deterministically; both run, nothing is merged`).
+5. **Fixed: an unparsable anthropic body leaked a raw `SyntaxError`.** It is a `ProviderError` with code `request_refused_locally`
+   (`http.test.ts > an unparsable anthropic body is refused as a ProviderError (request_refused_locally) and nothing is sent`).
+6. **Fixed: `errorCode` returned `""` for an empty-string `code`.** It falls through to `kind` and then to `turn-failed`
+   (`trace.test.ts > an empty code is no code: the fallback`).
+7. **Fixed: a late cancel in `composeMedia` still leased a secret.** The signal is checked after every egress decision
+   (`media.test.ts > a signal aborted while egress decides leases no secret and throws the abort reason`).
+8. **Fixed (#421): `openInbox` stopped copying legacy break-glass notices at the first malformed one.** Valid notices behind
+   it are copied (`inbox.test.ts > KNOWN GAP: core/composition openInbox ...`; the test is active, only its title keeps the
+   old wording).

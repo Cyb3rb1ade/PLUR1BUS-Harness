@@ -29,7 +29,7 @@ export interface SecretMethodDeps {
 /** `secret.*` (M2, ADR-005): owner only. The store enforces it; the handlers add nothing but the wire mapping. */
 export function buildSecretMethods(d: SecretMethodDeps): Record<SecretMethod, Handler> {
   const wrap = (method: SecretMethod, fn: (p: SecretPrincipal, params: any) => Promise<unknown>): Handler => async (params, ctx) => {
-    try { return await fn(await d.principalOf(ctx, method, params), params); } catch (e) { throw toRpcError(e); }
+    try { return await fn(await d.principalOf(ctx, method, params), params ?? {}); } catch (e) { throw toRpcError(e); }
   };
   return {
     "secret.status": wrap("secret.status", (p) => d.store.status(p)),

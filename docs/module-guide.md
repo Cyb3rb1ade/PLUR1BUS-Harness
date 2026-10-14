@@ -320,18 +320,18 @@ supervisor to have anything to act on:
 | `module graph` | Computed from the manifests on disk | Same computation, same result |
 | `module install <path>` | Stages and commits directly on disk | Routed to the supervisor, which serialises installs one at a time |
 | `module uninstall <name>` | Removes the directory directly | Routed; stops the module first if it is running |
-| `module start\|stop\|restart <name>` | `E_NOT_AVAILABLE reason=supervisor-not-running`, exit 1 | The only way these three verbs work |
+| `module start\|stop\|restart <name>` | `E_NOT_AVAILABLE reason=supervisor-not-running`, exit 2 | The only way these three verbs work |
 
 `module install <dir>` remains the **developer** path (trust `dev`, no manifest, no signature). To install a
 module or channel from a package with a manifest, per-file hashes, a trust tier, a capability disclosure and
 a trash, use `plur1bus plugin install <file.p1x>` (X1, `docs/extensions.md`); it commits through the same
 `modules::install::{stage, commit}` described below.
 
-**Exit codes when a supervisor is in the way differ between the two command families.** `plur1bus module`
+**Exit codes when a supervisor is in the way are the same for both command families.** `plur1bus module`
 answers `E_NOT_AVAILABLE reason=supervisor-running` (an offline change while a supervisor holds
-`run/supervisor.lock`) and `supervisor-not-running` with **exit 1**. The extension commands (`plugin`, `skill`,
-`ext`) answer the same `supervisor-running` with **exit 2**, because every `E_NOT_AVAILABLE` and
-`E_APPROVAL_REQUIRED` from them exits 2 (G18; X1-C26). `module` keeps exit 1 for compatibility (ADR-012 §10.14).
+`run/supervisor.lock`) and `supervisor-not-running` with **exit 2**, like the extension commands (`plugin`, `skill`,
+`ext`): every `E_NOT_AVAILABLE` exits 2 (docs/errors.md, "CLI-Exit-Codes"). Before the 2026-10-14 consistency
+wave `module` exited 1 for these two (ADR-012 §10.14); scripts that branched on that need 2.
 
 **Install refusals** (`InstallError`, `crates/plur1bus/src/modules/install.rs`) — every one of these
 is checked *before* anything is copied, so a refused install always leaves `modules/` byte-for-byte
@@ -383,10 +383,11 @@ before every subsequent `stage` call.
 exclusive lock file the supervisor itself takes before probing its own address at start (ADR-012
 §10.5/§10.12) — so an offline module change and a starting-or-stopping supervisor can never race
 each other over the same module directory: whichever loses the lock is refused (the CLI with
-`E_NOT_AVAILABLE reason=supervisor-running`, exit 1) rather than corrupting the module tree. A
+`E_NOT_AVAILABLE reason=supervisor-running`, exit 2) rather than corrupting the module tree. A
 supervisor that finds the lock held probes its address for up to 3 s: if another supervisor answers,
 it exits 3 (the "already running" refusal, mapped to 0 under launchd); if nobody answers, it tries
-the lock once more and continues as the supervisor when it wins, and otherwise exits 1 — a
+the lock once more and continues as the supervisor when it wins, and otherwise exits 3 as well (the home
+is held by another process); under launchd only, this case exits 1 instead — a
 transient failure that launchd's `KeepAlive{SuccessfulExit:false}` retries, so a supervisor started
 while an offline install held the lock is restarted instead of staying down.
 

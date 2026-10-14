@@ -8,6 +8,7 @@ import { navigate, query } from "../../router.ts";
 import { DEFAULT_SECTION, SECTIONS, sectionById, type SectionDef } from "../../settings-sections.ts";
 import { lazySection } from "../common/lazy-section.ts";
 import type { PageProps } from "../registry.ts";
+import { leaveAllowed } from "./unsaved.ts";
 
 export type SectionProps = { section: SectionDef; focus?: string };
 import "../../styles/settings.css";
@@ -33,11 +34,11 @@ export function SettingsPage({ sub }: PageProps): View {
   return h(Page, { title: t("settings.title"), width: "full" },
     h("div", { class: "settings-layout" },
       h("nav", { class: "settings-nav", "aria-label": t("settings.nav") },
-        h("a", { class: "settings-nav-link", href: "#/settings/users?tab=identities" }, t("nav.identities")),
+        h("a", { class: "settings-nav-link", href: "#/settings/users?tab=identities", onClick: (e: MouseEvent) => { if (!leaveAllowed()) e.preventDefault(); } }, t("nav.identities")),
         h("ul", null, SECTIONS.map((s) => h("li", { key: s.id },
           h("a", {
             href: `#/settings/${s.id}`, class: "settings-nav-link", ...(s.id === section.id ? { "aria-current": "true" } : {}),
-            onClick: (e: MouseEvent) => { if (e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey) { e.preventDefault(); navigate(`/settings/${s.id}`); } },
+            onClick: (e: MouseEvent) => { if (e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey) { e.preventDefault(); if (leaveAllowed()) navigate(`/settings/${s.id}`); } },
           }, t(s.label)))))),
       h("div", { class: "settings-content" }, section.id === "memory" ? h(MediaIndexPanel, {}) : null, body)));
 }

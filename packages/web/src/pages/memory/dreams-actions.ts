@@ -1,7 +1,7 @@
 // Dangerous Dreams actions behind a confirmation dialog: "Run now" (with the dry-run plan first) and enable / disable of a phase.
 // A refusal by the server (E_DENIED) disables the action from then on and says why; it is never hidden.
 import { h } from "preact";
-import { useState } from "preact/hooks";
+import { useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Badge } from "../../components/card.ts";
 import { Dialog } from "../../components/dialog.ts";
@@ -33,16 +33,19 @@ export function RunDialog({ agentId, phase, onClose, onDone }: { agentId: string
     }
   }, [agentId, phase]);
   const [busy, setBusy] = useState(false);
+  // Set in the click itself: a second click before the re-render must not start a second run.
+  const sent = useRef(false);
   const [failure, setFailure] = useState<Failure | null>(null);
 
   const ready = plan.state.status === "ok" && plan.state.data.wouldRun && !busy;
   const confirm = (): void => {
-    if (!ready) return;
+    if (!ready || sent.current) return;
+    sent.current = true;
     setBusy(true);
     setFailure(null);
     getApi().rpc("dreams.run", { agentId, phase }).then(
       (r) => { const run = r as DreamRun; onDone({ text: t("memory.dialog.runDone", { phase: phaseLabel(phase), agent: agentId, run: run.runId, outcome: run.outcome ?? t("memory.outcome.open") }), runId: run.runId }); },
-      (e: unknown) => { const f = failureOf(e); if (f.kind === "forbidden") markRefused("dreams.run"); setFailure(f); setBusy(false); },
+      (e: unknown) => { const f = failureOf(e); if (f.kind === "forbidden") markRefused("dreams.run"); sent.current = false; setFailure(f); setBusy(false); },
     );
   };
 
@@ -74,14 +77,16 @@ export function RunDialog({ agentId, phase, onClose, onDone }: { agentId: string
 
 export function ToggleDialog({ agentId, phase, enable, onClose, onDone }: { agentId: string; phase: DreamPhase; enable: boolean; onClose: () => void; onDone: (r: DialogResult) => void }): View {
   const [busy, setBusy] = useState(false);
+  const sent = useRef(false);
   const [failure, setFailure] = useState<Failure | null>(null);
   const confirm = (): void => {
-    if (busy) return;
+    if (busy || sent.current) return;
+    sent.current = true;
     setBusy(true);
     setFailure(null);
     getApi().rpc(enable ? "dreams.enable" : "dreams.disable", { agentId, phase }).then(
       () => { onDone({ text: t(enable ? "memory.dialog.enabled" : "memory.dialog.disabled", { phase: phaseLabel(phase), agent: agentId }) }); },
-      (e: unknown) => { const f = failureOf(e); if (f.kind === "forbidden") markRefused("dreams.schedule"); setFailure(f); setBusy(false); },
+      (e: unknown) => { const f = failureOf(e); if (f.kind === "forbidden") markRefused("dreams.schedule"); sent.current = false; setFailure(f); setBusy(false); },
     );
   };
   return h(Dialog, {

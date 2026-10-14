@@ -2,13 +2,14 @@
 // running configuration (`config.get`) and the static field metadata (config/meta.ts; there is no schema RPC). Edit, review a diff
 // (`config.set` with dryRun), save (`config.set` with ifRevision). Secrets-bearing keys are never shown.
 import { h } from "preact";
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { View } from "../../../view.ts";
 import { PageLoading, PageState } from "../../../components/page-state.ts";
 import { t } from "../../../i18n.ts";
 import { FailureState, Notice } from "../../common/states.ts";
 import { currentRole, getApi, roleIn, useLoad } from "../../common/load.ts";
 import type { SectionProps } from "../page.ts";
+import { setUnsaved } from "../unsaved.ts";
 import { FieldRow, groupOf, groupTitle, RestartBadge } from "../config/fields.ts";
 import { fieldId } from "../config/meta.ts";
 import { buildFields, collectChanges, initialDraft, mapInvalid, restartKind, show, type Change, type Draft, type Field } from "../config/model.ts";
@@ -100,7 +101,12 @@ function Form({ data, section, focus, onSaved, reload }: FormProps): View {
 
   const { changes, errors: localErrors } = collectChanges(fields, draft);
   const dirty = changes.length;
+  // A dry run or a save answers for the draft it was sent with: every edit makes an answer in flight stale.
+  const epoch = useRef(0);
+  const unsaved = dirty > 0 || Object.keys(errors).length > 0;
+  useEffect(() => { setUnsaved(unsaved); return () => { setUnsaved(false); }; }, [unsaved]);
   const edit = (key: string, value: string | boolean): void => {
+    epoch.current += 1;
     setDraft((d) => ({ ...d, [key]: value }));
     setErrors((e) => { if (!(key in e)) return e; const { [key]: _drop, ...rest } = e; return rest; });
     setReview(null);
@@ -137,10 +143,12 @@ function Form({ data, section, focus, onSaved, reload }: FormProps): View {
     }
     setErrors({});
     setBusy("review");
+    const mine = epoch.current;
     try {
       const res = await getApi().rpc("config.set", params(changes, { dryRun: true }) as never) as unknown;
-      setReview({ changes, plan: isObj(res) && isObj(res.restart) ? res.restart as Plan : null, local: false });
+      if (mine === epoch.current) setReview({ changes, plan: isObj(res) && isObj(res.restart) ? res.restart as Plan : null, local: false });
     } catch (e) {
+      if (mine !== epoch.current) return;
       if (fail(e) === "local") setReview({ changes, plan: null, local: true });
     } finally { setBusy(null); }
   };
@@ -196,7 +204,7 @@ function Form({ data, section, focus, onSaved, reload }: FormProps): View {
     !review ? h("div", { class: "cfg-bar" },
       h("p", { class: "cfg-count", role: "status" }, dirty ? t("settings.cfg.count", { n: dirty }) : t("settings.cfg.noChanges")),
       h("div", { class: "cfg-actions" },
-        h("button", { type: "button", class: "btn", disabled: dirty === 0 && Object.keys(errors).length === 0, onClick: () => { setDraft(initialDraft(fields)); setErrors({}); setBanner(null); } }, t("settings.cfg.discard")),
+        h("button", { type: "button", class: "btn", disabled: dirty === 0 && Object.keys(errors).length === 0, onClick: () => { epoch.current += 1; setDraft(initialDraft(fields)); setErrors({}); setBanner(null); } }, t("settings.cfg.discard")),
         h("button", { type: "button", class: "btn btn-primary", disabled: !canWrite || busy !== null || (dirty === 0 && Object.keys(localErrors).length === 0), onClick: () => { void startReview(); } }, busy === "review" ? t("settings.cfg.reviewing") : t("settings.cfg.review")),
         !canWrite ? h("button", { type: "button", class: "btn btn-primary", disabled: true, "aria-describedby": "cfg-ro" }, t("settings.cfg.save")) : null)) : null);
 }

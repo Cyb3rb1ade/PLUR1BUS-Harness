@@ -63,7 +63,10 @@ The numbers live in `DEFAULTS` in `packages/core/src/policy/capabilities.ts` and
 | `always` | the *(person, agent)* pair, optionally a project; a headless job's standing grant also carries a `jobId` | revocation, or 90 days without use (restarts at every recorded use); `--expires` can only shorten it |
 
 A decision that uses an `always` grant at least 90 days old carries `reviewDue` (`grantReviewDue`). Uses are chained at most
-once per hour per grant (`USE_RECORD_GRANULARITY_MS`), which is all the 90-day clock needs.
+once per hour per grant (`USE_RECORD_GRANULARITY_MS`), which is all the 90-day clock needs. A use is recorded only on a grant that is still
+within its lifetime: a lapsed grant is never revived by `markUsed`. `--expires` must lie in the future, and a path grant must name a
+canonical absolute path with at least one segment (no `/`, trailing or doubled separator, or `.` segment); identifier fields are
+capped at 256 characters.
 
 *Deviation (action hash):* the spec binds `once` to capability, tool, arguments, targets, `cwd` and environment names. The
 dispatcher hashes capability, tool, canonical arguments and targets (`ToolDispatcher.#buildCall`); `cwd` and environment names
@@ -116,7 +119,7 @@ tainted and has read private data (3.5).
 
 ### 2.3 Revocation
 
-`plur1bus grant revoke <id>` / `grant.revoke` is immediate: the next `list` or `get` no longer yields the grant; a call that is
+`plur1bus grant revoke <id>` / `grant.revoke` is immediate: the next `list` no longer yields the grant and `get` returns it flagged `revoked` (the evaluator never applies a revoked grant); a call that is
 already running finishes, the next call is decided again. Revoking an ended grant changes nothing. Revocation only narrows, so a
 broken chain or a failing audit line never blocks it.
 
