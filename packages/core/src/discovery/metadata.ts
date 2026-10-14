@@ -163,6 +163,10 @@ export function dedupResolvedAliases(
 
         return {
           model: m,
+          // A user's own alias (override or manual entry) outranks a table alias, and a model that is still
+          // listed outranks one that has gone: the alias must resolve to something that can be used.
+          userAlias: m.source === "manual" || (m.overrides.aliases?.includes(alias) ?? false),
+          live: m.status !== "unavailable",
           rawCreated,
           idDateMs,
           isBaseMatch,
@@ -170,6 +174,8 @@ export function dedupResolvedAliases(
       });
 
       scored.sort((a, b) => {
+        if (a.userAlias !== b.userAlias) return a.userAlias ? -1 : 1;
+        if (a.live !== b.live) return a.live ? -1 : 1;
         if (a.rawCreated !== undefined && b.rawCreated !== undefined) {
           return b.rawCreated - a.rawCreated;
         }
