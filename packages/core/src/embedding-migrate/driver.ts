@@ -88,6 +88,8 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
   const sleep = d.sleep ?? defaultSleep;
   const newId = d.newId ?? (() => `reembed-${now()}-${randomBytes(4).toString("hex")}`);
   let loop: { done: Promise<Checkpoint>; ac: AbortController } | null = null;
+  /** A plan or a switch in flight: both await outside the loop and must not interleave with each other, a start or an abort. */
+  let busy: "plan" | "switch" | null = null;
 
   const read = (): Checkpoint | null => {
     try { return d.store.read(); } catch (e) {
@@ -95,13 +97,29 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
       throw e;
     }
   };
-  const save = (c: Checkpoint, patch: Partial<Checkpoint>): Checkpoint => { const next = { ...c, ...patch, updatedAt: now() }; d.store.write(next); return next; };
+  /** A checkpoint write that fails is a storage error with a stable code, never a raw exception (and never a path). */
+  const put = (c: Checkpoint): void => {
+    try { d.store.write(c); } catch (e) {
+      if (e instanceof MigrationStateError && e.code === "state-corrupt") throw new MigrationError("state-corrupt", e.message);
+      throw new MigrationError("state-unreadable", "migration checkpoint cannot be written");
+    }
+  };
+  const save = (c: Checkpoint, patch: Partial<Checkpoint>): Checkpoint => { const next = { ...c, ...patch, updatedAt: now() }; put(next); return next; };
+  /** Same vector space as far as the checkpoint is concerned: provider, model and dimensions. */
+  const sameSpace = (a: EmbeddingFingerprint, b: EmbeddingFingerprint) => a.provider === b.provider && a.model === b.model && a.dimensions === b.dimensions;
 
   const batchesOf = (tables: { rowCount: number }[]) => tables.reduce((s, t) => s + Math.ceil(t.rowCount / d.engine.batchSize), 0);
 
   async function plan(req: { target: EmbeddingFingerprint; throttleMs?: number; targetGeneration?: string }): Promise<PlanOutcome> {
     const throttleMs = req.throttleMs ?? DEFAULT_THROTTLE_MS;
     if (!Number.isSafeInteger(throttleMs) || throttleMs < 0 || throttleMs > MAX_THROTTLE_MS) throw new MigrationError("plan-refused", `throttleMs must be an integer between 0 and ${MAX_THROTTLE_MS}`);
+    if (loop) throw new MigrationError("migration-running", "a re-embedding run is in progress; stop it with --abort first");
+    if (busy) throw new MigrationError("migration-active", `a ${busy} is already in progress`);
+    busy = "plan";
+    try { return await planLocked(req, throttleMs); } finally { busy = null; }
+  }
+
+  async function planLocked(req: { target: EmbeddingFingerprint; targetGeneration?: string }, throttleMs: number): Promise<PlanOutcome> {
     const existing = read();
     // A planned migration that never started has copied nothing: planning again simply replaces it.
     if (existing && !TERMINAL.includes(existing.phase) && existing.phase !== "planned") throw new MigrationError("migration-active", `migration ${existing.id} is ${existing.phase}; finish it with --run or stop it with --abort first`);
@@ -121,6 +139,9 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
       throw new MigrationError("plan-refused", message.slice(0, 500));
     }
     const p = enginePlan.plan;
+    // The engine must have planned the target that was asked for: a different model or dimension count here would copy the
+    // store into a vector space the checkpoint (and the later switch) does not describe.
+    if (!sameSpace(p.target.fingerprint, req.target)) throw new MigrationError("plan-refused", "the engine planned a different target embedding (provider, model or dimensions) than the one requested; nothing was started");
     const probe = probeCompatibility({
       stored: p.source.fingerprint, target: req.target,
       targetProbe: { ok: p.target.probeStatus === "passed" || p.target.probeStatus === "probe_deferred_local_artifact" },
@@ -132,7 +153,7 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
       counts: { rows: p.estimates.rows, tables: p.source.tables.length, batches, rowsDone: 0, batchesDone: 0 },
       throttleMs, abortRequested: false, error: null,
     };
-    d.store.write(cp);
+    put(cp);
     d.logger?.info("re-embedding planned", { id: p.id, rows: cp.counts.rows, batches });
     return {
       probe,
@@ -146,7 +167,15 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
 
   /** Applies the engine's record to the checkpoint's counters. */
   const track = (c: Checkpoint, rec: EngineRecord, batchRan: boolean): Checkpoint =>
-    save(c, { counts: { ...c.counts, rowsDone: rec.cursor.completedRows, batchesDone: c.counts.batchesDone + (batchRan ? 1 : 0) } });
+    save(c, { counts: { ...c.counts, rowsDone: rec.cursor.completedRows, batchesDone: Math.max(c.counts.batchesDone + (batchRan ? 1 : 0), Math.min(batchesBefore(rec), c.counts.batches)) } });
+  /** Batches the engine's cursor says are behind it: a count that survives a restart which lost the last checkpoint write. */
+  const batchesBefore = (rec: EngineRecord): number => {
+    const bs = d.engine.batchSize; const ts = rec.source.tables;
+    let n = 0;
+    for (let i = 0; i < Math.min(rec.cursor.tableIndex, ts.length); i++) n += Math.ceil(ts[i]!.rowCount / bs);
+    if (rec.cursor.tableIndex < ts.length) n += Math.ceil(rec.cursor.offset / bs);
+    return n;
+  };
 
   async function body(initial: Checkpoint, signal: AbortSignal): Promise<Checkpoint> {
     let c = initial;
@@ -156,8 +185,13 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
       if (!rec) return stop("failed", { code: "engine-record-missing", message: "the engine has no record of this migration; plan again" });
       while (rec.state === "planned" || rec.state === "confirmed" || rec.state === "running") {
         if (signal.aborted) return stop("aborted");
+        const before = rec.cursor;
         rec = rec.state === "running" ? await d.engine.resume({ id: c.id, token: c.token }) : await d.engine.apply({ id: c.id, token: c.token });
         c = track(c, rec, true);
+        // Every batch moves the cursor; one that does not would repeat for ever (each pass costs provider calls).
+        if (rec.state === "running" && rec.cursor.tableIndex === before.tableIndex && rec.cursor.offset === before.offset && rec.cursor.completedRows === before.completedRows) {
+          throw new Error("the engine made no progress in a batch; halting so the run can be resumed");
+        }
         if (rec.state === "running") {
           if (signal.aborted) return stop("aborted");
           await sleep(c.throttleMs, signal);
@@ -183,6 +217,7 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
 
   async function start() {
     if (loop) throw new MigrationError("migration-running", "a re-embedding run is already in progress");
+    if (busy) throw new MigrationError("migration-active", `a ${busy} is in progress; wait for it to finish`);
     const c = read();
     if (!c) throw new MigrationError("no-migration", "no re-embedding migration is planned (plan one first)");
     if (!["planned", "running", "aborted", "validating"].includes(c.phase)) throw new MigrationError("not-runnable", `migration ${c.id} is ${c.phase}; there is nothing to run`);
@@ -198,13 +233,14 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
     let engineState: string | null = null;
     if (c) { try { engineState = (await d.engine.status(c.id))?.state ?? null; } catch { engineState = null; } }
     const k = c?.counts ?? { rows: 0, rowsDone: 0, batches: 0, batchesDone: 0 };
-    return { checkpoint: c ? publicView(c) : null, engineState, running: loop !== null, progress: { rows: k.rows, rowsDone: k.rowsDone, batches: k.batches, batchesDone: k.batchesDone, percent: k.rows === 0 ? 0 : Math.floor((k.rowsDone * 100) / k.rows) } };
+    return { checkpoint: c ? publicView(c) : null, engineState, running: loop !== null, progress: { rows: k.rows, rowsDone: k.rowsDone, batches: k.batches, batchesDone: k.batchesDone, percent: k.rows === 0 ? 0 : Math.min(100, Math.floor((k.rowsDone * 100) / k.rows)) } };
   }
 
   async function abort(): Promise<PublicCheckpoint> {
     const c = read();
     if (!c) throw new MigrationError("no-migration", "no re-embedding migration to abort");
     if (TERMINAL.includes(c.phase)) throw new MigrationError("not-abortable", `migration ${c.id} is already ${c.phase}`);
+    if (busy) throw new MigrationError("not-abortable", `a ${busy} is in progress for migration ${c.id}; it cannot be aborted half-way`);
     if (loop) {
       const l = loop;
       save(c, { abortRequested: true });
@@ -218,6 +254,12 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
     const c = read();
     if (!c) throw new MigrationError("no-migration", "no re-embedding migration to switch");
     if (c.phase !== "ready-to-switch" || loop) throw new MigrationError("not-ready-to-switch", `migration ${c.id} is ${c.phase}; a switch needs a copied and validated generation`);
+    if (busy) throw new MigrationError("migration-running", `a ${busy} is already in progress`);
+    busy = "switch"; // set before the first await: a second switch (or an abort, a plan) now meets it
+    try { return await switchLocked(c); } finally { busy = null; }
+  }
+
+  async function switchLocked(c: Checkpoint): Promise<PublicCheckpoint> {
     if (!d.switchPort) {
       const err = new MigrationError("switch-unavailable", "this core cannot write the active embedding selection (no supervisor owns config.json); start the daemon and retry");
       save(c, { error: { code: err.code, message: err.message } }); // the phase stays ready-to-switch: status says why
@@ -225,6 +267,10 @@ export function createMigrationDriver(d: DriverDeps): MigrationDriver {
     }
     const rec = await d.engine.status(c.id);
     if (!rec || rec.state !== "ready_to_switch") throw new MigrationError("not-ready-to-switch", `the engine reports ${rec?.state ?? "no record"} for ${c.id}`);
+    // The generation the engine finished must be the one this checkpoint planned: never write another vector space into the config.
+    if (rec.target.generation !== c.targetGeneration || !sameSpace(rec.target.fingerprint, c.target)) {
+      throw new MigrationError("not-ready-to-switch", `the engine's target for ${c.id} (generation, provider, model or dimensions) differs from the planned one; plan again`);
+    }
     try {
       await d.switchPort.apply({ generation: c.targetGeneration, fingerprint: c.target, fingerprintId: rec.target.fingerprintId });
     } catch (e) {
