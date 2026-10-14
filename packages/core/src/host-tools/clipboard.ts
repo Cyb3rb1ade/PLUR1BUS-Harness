@@ -1,6 +1,6 @@
 import { which } from "./context.ts";
 import { HostFailure, requireString } from "./errors.ts";
-import { runCaptured } from "./exec.ts";
+import { runChecked } from "./exec.ts";
 import { asObject, CLIPBOARD_MAX_BYTES, type HostContext, type HostTool } from "./types.ts";
 
 async function linuxClipboard(ctx: HostContext): Promise<{ read: string[]; write: string[]; program: string } | null> {
@@ -27,13 +27,13 @@ export const clipboardReadTool: HostTool = {
     asObject(_input);
     let r;
     if (ctx.platform === "darwin") {
-      r = await runCaptured(ctx, { program: "pbpaste", args: [] });
+      r = await runChecked(ctx, { program: "pbpaste", args: [] }, { code: "not_supported_on_platform", message: "the clipboard command failed" }, { whole: true });
     } else if (ctx.platform === "win32") {
-      r = await runCaptured(ctx, { program: "powershell", args: ["-NoProfile", "-NonInteractive", "-Command", "Get-Clipboard"] });
+      r = await runChecked(ctx, { program: "powershell", args: ["-NoProfile", "-NonInteractive", "-Command", "Get-Clipboard"] }, { code: "not_supported_on_platform", message: "the clipboard command failed" }, { whole: true });
     } else {
       const tool = await linuxClipboard(ctx);
       if (!tool) throw new HostFailure("not_found", "no clipboard tool (wl-paste, xclip or xsel) is available");
-      r = await runCaptured(ctx, { program: tool.read[0]!, args: tool.read.slice(1) });
+      r = await runChecked(ctx, { program: tool.read[0]!, args: tool.read.slice(1) }, { code: "not_supported_on_platform", message: "the clipboard command failed" }, { whole: true });
     }
     let text = r.stdout;
     if (text.endsWith("\r\n")) text = text.slice(0, -2);
@@ -62,17 +62,17 @@ export const clipboardWriteTool: HostTool = {
     if (bytes > CLIPBOARD_MAX_BYTES) throw new HostFailure("too_large", `clipboard exceeds ${CLIPBOARD_MAX_BYTES} bytes`);
     const text = raw;
     if (ctx.platform === "darwin") {
-      await runCaptured(ctx, { program: "pbcopy", args: [], stdin: text });
+      await runChecked(ctx, { program: "pbcopy", args: [], stdin: text }, { code: "not_supported_on_platform", message: "the clipboard command failed" });
     } else if (ctx.platform === "win32") {
-      await runCaptured(ctx, {
+      await runChecked(ctx, {
         program: "powershell",
         args: ["-NoProfile", "-NonInteractive", "-Command", "Set-Clipboard -Value ([Console]::In.ReadToEnd())"],
         stdin: text,
-      });
+      }, { code: "not_supported_on_platform", message: "the clipboard command failed" });
     } else {
       const tool = await linuxClipboard(ctx);
       if (!tool) throw new HostFailure("not_found", "no clipboard tool (wl-copy, xclip or xsel) is available");
-      await runCaptured(ctx, { program: tool.write[0]!, args: tool.write.slice(1), stdin: text });
+      await runChecked(ctx, { program: tool.write[0]!, args: tool.write.slice(1), stdin: text }, { code: "not_supported_on_platform", message: "the clipboard command failed" });
     }
     return { bytes };
   },
