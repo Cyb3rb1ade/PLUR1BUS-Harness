@@ -4,6 +4,8 @@ import { validateChannelManifest, type ChannelManifest } from "./manifest.ts";
 import type { ChannelRouter } from "./router.ts";
 import type { Channel, ChannelFactory, ChannelHealth, ChannelHost, ChannelLogger, InboundMessage, OutboundMessage } from "./types.ts";
 
+const MAX_TEXT_KEPT = 500;
+
 /** `misconfigured`: enabled, but it cannot start until the operator fixes the configuration (a missing secret, an invalid value). Nothing is retried. */
 export type ChannelState = "stopped" | "waiting" | "starting" | "running" | "backoff" | "failed" | "misconfigured";
 
@@ -70,7 +72,12 @@ export class ChannelRegistry {
 
   list(): ChannelStatus[] { return [...this.#entries.values()].map(snapshot); }
 
-  #err(e: unknown): string { const t = errText(e); return this.#o.redact ? this.#o.redact(t) : t; }
+  #err(e: unknown): string { return this.#clip(errText(e)); }
+  /** Masks secret values and bounds the text: adapter output (errors, health details) is never kept or shown raw. */
+  #clip(text: string): string {
+    const t = this.#o.redact ? this.#o.redact(text) : text;
+    return t.length > MAX_TEXT_KEPT ? `${t.slice(0, MAX_TEXT_KEPT)}…` : t;
+  }
 
   /** The validated manifest of a registered channel (read-only accessor for `channel.*`). */
   manifestOf(name: string): ChannelManifest | undefined { return this.#entries.get(name)?.manifest; }
@@ -87,7 +94,7 @@ export class ChannelRegistry {
     if (!ch || e.state !== "running") return { ok: false, detail: "not running" };
     try {
       const h = await withTimeout(this.#o.clock, () => ch.health(), this.#o.callTimeoutMs, `${name}.health`);
-      return h && typeof h.ok === "boolean" ? { ok: h.ok, ...(h.detail !== undefined ? { detail: String(h.detail) } : {}) } : { ok: false, detail: "malformed health answer" };
+      return h && typeof h.ok === "boolean" ? { ok: h.ok, ...(h.detail !== undefined ? { detail: this.#clip(String(h.detail)) } : {}) } : { ok: false, detail: "malformed health answer" };
     } catch (err) {
       return { ok: false, detail: this.#err(err) };
     }
@@ -98,8 +105,14 @@ export class ChannelRegistry {
     const e = this.#entries.get(name);
     const ch = e?.channel;
     if (!e || !ch || e.state !== "running") return false;
-    await withTimeout(this.#o.clock, () => ch.send(msg), this.#o.callTimeoutMs, `${name}.send`);
+    await this.#send(ch, name, msg);
     return true;
+  }
+
+  /** One bounded send; a failure is rethrown with its text masked, so no adapter error text leaves the registry raw. */
+  async #send(ch: Channel, name: string, msg: OutboundMessage): Promise<void> {
+    try { await withTimeout(this.#o.clock, () => ch.send(msg), this.#o.callTimeoutMs, `${name}.send`); }
+    catch (err) { throw new Error(this.#err(err)); }
   }
 
   /** Schedule a start (after the manifest's `startDelayMs`). Returns at once; never throws. */
@@ -193,7 +206,7 @@ export class ChannelRegistry {
       try {
         const h = await withTimeout(this.#o.clock, () => ch.health(), this.#o.callTimeoutMs, `${e.manifest.name}.health`);
         if (!h || !h.ok) throw new Error(`unhealthy${h?.detail ? `: ${h.detail}` : ""}`);
-        if (e.gen === gen) e.health = { ok: true, ...(h.detail !== undefined ? { detail: String(h.detail) } : {}) };
+        if (e.gen === gen) e.health = { ok: true, ...(h.detail !== undefined ? { detail: this.#clip(String(h.detail)) } : {}) };
       } catch (err) {
         return this.#crashed(e, gen, err);
       }
@@ -243,7 +256,7 @@ export class ChannelRegistry {
         // A channel speaks only for itself, and only for the chat kinds its manifest declares.
         if (msg?.channel !== name) { this.#o.log.warn("channel.inbound.dropped", { channel: name, reason: "channel-mismatch" }); return; }
         if (!e.manifest.chatKinds.includes(msg.chatKind)) { this.#o.log.warn("channel.inbound.dropped", { channel: name, reason: "chat-kind" }); return; }
-        await this.#o.router.handle(msg, (out) => withTimeout(this.#o.clock, () => ch.send(out), this.#o.callTimeoutMs, `${name}.send`));
+        await this.#o.router.handle(msg, (out) => this.#send(ch, name, out));
       },
     };
   }
