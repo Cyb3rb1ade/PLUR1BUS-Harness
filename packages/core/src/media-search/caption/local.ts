@@ -98,6 +98,7 @@ export interface LocalCaptionOptions {
   maxChars: () => number;
   extractor?: FrameExtractorPort;
   transcribe?: (src: MediaSource, signal?: AbortSignal) => Promise<string>;
+  allowedRoots?: readonly string[];
 }
 export function createLocalCaptionProvider(o: LocalCaptionOptions): CaptionProvider {
   const model = o.model ?? CAPTION_MODELS[DEFAULT_CAPTION_MODEL]!;
@@ -107,5 +108,6 @@ export function createLocalCaptionProvider(o: LocalCaptionOptions): CaptionProvi
     id: "local", local: true, maxChars: o.maxChars,
     captionImage: async (image, mime, signal) => (await engine()).captionImage(image, mime, signal),
     ...(o.extractor ? { extractor: o.extractor } : {}), ...(o.transcribe ? { transcribe: o.transcribe } : {}),
+    ...(o.allowedRoots ? { allowedRoots: o.allowedRoots } : {}),
   });
 }
