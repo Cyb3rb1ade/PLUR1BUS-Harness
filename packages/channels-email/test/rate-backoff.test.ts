@@ -455,9 +455,6 @@ test("SMTP: three network failures exhaust the retry limit the same way", async 
 // loop goes straight on to the next attempt, and the mail is delivered after stop().
 test(
   "SMTP: stop() during a parked retry wait ends the send: no attempt after stop, nothing delivered, the send rejects",
-  {
-    todo: "KNOWN GAP: channels-email EmailChannel.sendTurn (#deliver): erwartet nach stop() während einer geparkten Retry-Wartezeit keinen weiteren SMTP-Versuch und eine abgelehnte Zusage (channel.ts:711 prüft signal.aborted nur nach einem Fehlschlag), tatsächlich weckt stop() die Wartezeit, es folgt ein zweiter Versuch und die Mail wird nach stop() zugestellt",
-  },
   async () => {
     const rig = await makeRig({ prepare: (fx) => fx.smtp.failNext("MAIL", 451, 1) });
     try {

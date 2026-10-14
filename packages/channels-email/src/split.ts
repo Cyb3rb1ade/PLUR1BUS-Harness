@@ -12,11 +12,21 @@ export function splitMessage(text: string, max: number = EMAIL_MAX_BODY_CHARS): 
     const prev = rest.charCodeAt(cut - 1);
     const next = rest.charCodeAt(cut);
     if (prev >= 0xd800 && prev <= 0xdbff && next >= 0xdc00 && next <= 0xdfff) cut -= 1;
+    cut = graphemeSafeCut(rest, cut);
     out.push(rest.slice(0, cut));
     rest = rest.slice(cut);
   }
   out.push(rest);
   return out.filter((c) => c.trim().length > 0);
+}
+
+const SEGMENTER = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
+/** Moves `cut` back to the start of the grapheme cluster it falls into, unless that would leave an empty part
+ *  (a cluster longer than the window cannot be kept whole). */
+function graphemeSafeCut(s: string, cut: number): number {
+  const seg = SEGMENTER.segment(s.slice(0, cut + 64)).containing(cut);
+  return seg !== undefined && seg.index > 0 && seg.index < cut ? seg.index : cut;
 }
 
 function breakPoint(s: string, max: number): number {
