@@ -1,6 +1,7 @@
 // Core catalogue: shell, navigation, sign-in, session, shared page states and components. Owned by the shell; page areas
 // add their own file (see ./index.ts).
 export const en = {
+  "join.title": "Create your account", "join.code": "Invitation code", "join.username": "Username", "join.password": "Password (at least 12 characters)", "join.repeat": "Repeat password", "join.submit": "Create account", "join.success": "Account created. Sign in to continue.", "join.login": "Sign in", "join.invalid": "Check your invitation and account details.", "join.used": "This invitation is not valid or has already been used.", "join.exists": "This username or person already has an account.", "join.rate": "Too many attempts. Try again later.",
   "app.skip": "Skip to content",
   "app.loading": "Checking your session…",
   "app.more": "More",
@@ -85,6 +86,7 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "join.title": "Konto erstellen", "join.code": "Einladungscode", "join.username": "Benutzername", "join.password": "Passwort (mindestens 12 Zeichen)", "join.repeat": "Passwort wiederholen", "join.submit": "Konto erstellen", "join.success": "Konto erstellt. Bitte melde dich an.", "join.login": "Anmelden", "join.invalid": "Prüfe Einladung und Kontodaten.", "join.used": "Diese Einladung ist ungültig oder wurde bereits verwendet.", "join.exists": "Dieser Benutzername oder diese Person hat bereits ein Konto.", "join.rate": "Zu viele Versuche. Bitte versuche es später erneut.",
   "app.skip": "Zum Inhalt springen",
   "app.loading": "Sitzung wird geprüft …",
   "app.more": "Mehr",

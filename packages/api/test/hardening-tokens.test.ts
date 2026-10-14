@@ -30,8 +30,8 @@ const MIN_ROLE: Record<string, string> = {
   "totp.status": "viewer", "totp.setup": "member", "totp.confirm": "member", "totp.disable": "member",
   "breakglass.request": "admin", "breakglass.list": "admin", "breakglass.revoke": "admin", "notices.list": "viewer",
 };
-const PUBLIC = ["session.create", "session.totp"];
-const SELF_SERVICE = ["csrf.issue", "session.delete", "sessions.revoke-all", "whoami"];
+const PUBLIC = ["invitation.redeem", "session.create", "session.totp"];
+const SELF_SERVICE = ["account.bootstrap", "csrf.issue", "session.delete", "sessions.revoke-all", "whoami"];
 
 function minRoleOf(action: string): string | undefined {
   const spec = policyFor(action); if (!spec) return undefined;
@@ -153,7 +153,7 @@ test("a token of a disabled or deleted account is refused at its next use with t
     for (const t of [dead, second, `plb_${"0".repeat(12)}_${"A".repeat(43)}`, "plb_nope", "x"]) { const r = await use(t); assert.equal(r.status, 401, t.slice(0, 12)); bodies.add(r.text); }
     assert.equal(bodies.size, 1, "revoked, disabled-account, unknown and malformed tokens answer with the same bytes");
     h.users.change("u-alice", { disabled: false });
-    assert.equal((await use(second)).status, 200, "re-enabling the account re-enables its live tokens (they were never revoked)");
+    assert.equal((await use(second)).status, 401, "enable requires fresh credentials; disabled tokens remain revoked");
   } finally { await h.close(); }
 });
 

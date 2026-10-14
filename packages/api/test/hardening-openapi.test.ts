@@ -3,6 +3,8 @@
 // its failure paths and each answer is checked against the response schema the document names for its status.
 // Already pinned elsewhere (not repeated): route <-> operation in both directions, handler <-> route, $refs resolve and
 // docs/openapi.json equals the generator's output in-process (openapi.test.ts).
+import { AccountStore } from "../src/account-store.ts";
+import { randomBytes } from "node:crypto";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -15,7 +17,7 @@ import { buildOpenApi } from "../src/openapi.ts";
 import { ROUTES, type RouteSpec } from "../src/routes.ts";
 import { totpCodeAt } from "../src/totp.ts";
 import { validate, type Doc } from "./openapi-validate.ts";
-import { addUser, csrfToken, FIXTURE_PASSWORD, jsonHeaders, login, loginAs, raw, start, write, type FakeCore, type Harness, type Res } from "./helpers.ts";
+import { OWNER_TOKEN, fakeCore, addUser, csrfToken, FIXTURE_PASSWORD, jsonHeaders, login, loginAs, raw, start, write, type FakeCore, type Harness, type Res } from "./helpers.ts";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const doc = buildOpenApi() as unknown as Doc & { paths: Record<string, Record<string, any>> };
@@ -106,11 +108,21 @@ const pwLogin = (h: Harness, username: string, extra: Record<string, string> = {
 
 test("every route, driven through its success and failure paths on the real server, answers as the document says", async () => {
   problems.length = 0; seen.length = 0;
-  const h = await start({ rateClasses: wide });
+  const accounts = new AccountStore({ path: ":memory:", resolve: async userId => ({ userId, kind: "person", role: "member", disabled: false, version: 1 }) });
+  const core = fakeCore(); const inviteCode = randomBytes(32).toString("base64url"); let consumed = false;
+  Object.assign(core, { serviceCall: async (method: string, p: { token?: string }) => { if (p.token !== inviteCode || consumed) throw new Error("invalid invitation"); if (method === "user.invite.redeem") consumed = true; return { userId: "invited-person", role: "member" }; } });
+  const h = await start({ rateClasses: wide, accounts, core });
   try {
     for (const [id, role] of [["u-alice", "member"], ["u-vera", "viewer"], ["u-ada", "admin"], ["u-dana", "member"], ["u-carol", "member"]] as const) await addUser(h, { id, username: id.slice(2), role });
     const owner = (await login(h)).cookie; const alice = (await loginAs(h, "alice")).cookie; const vera = (await loginAs(h, "vera")).cookie; const ada = (await loginAs(h, "ada")).cookie;
 
+    const registration = (body: object, headers: Record<string, string> = {}) => raw(h, { method: "POST", path: "/api/v1/invitations/redeem", headers: { ...jsonHeaders(), ...headers }, body: JSON.stringify(body) });
+    rec("invitation.redeem", "invalid invitation", await registration({ code: randomBytes(32).toString("base64url"), username: "validname", password: FIXTURE_PASSWORD }));
+    rec("invitation.redeem", "valid invitation", await registration({ code: inviteCode, username: "validname", password: FIXTURE_PASSWORD }));
+    rec("account.bootstrap", "missing session", await raw(h, { method: "POST", path: "/api/v1/accounts/bootstrap", headers: jsonHeaders(), body: "{}" }));
+    rec("account.bootstrap", "wrong proof", await write(h, owner, { path: "/api/v1/accounts/bootstrap", body: { proof: "wrong", username: "ownerlogin", password: FIXTURE_PASSWORD } }));
+    rec("account.bootstrap", "invalid username", await write(h, owner, { path: "/api/v1/accounts/bootstrap", body: { proof: OWNER_TOKEN, username: "owner", password: FIXTURE_PASSWORD } }));
+    rec("account.bootstrap", "current bootstrap proof", await write(h, owner, { path: "/api/v1/accounts/bootstrap", body: { proof: OWNER_TOKEN, username: "ownerlogin", password: FIXTURE_PASSWORD } }));
     // session.create
     rec("session.create", "owner token", (await login(h)).res); rec("session.create", "local account", await pwLogin(h, "alice"));
     const owner2 = await raw(h, { method: "POST", path: "/api/v1/session", headers: jsonHeaders(), body: JSON.stringify({ token: "f".repeat(64) }) }); rec("session.create", "wrong owner token", owner2);
@@ -251,7 +263,7 @@ test("every route was exercised on its success status and on each failure status
   const missing: string[] = [];
   for (const r of ROUTES) {
     const got = byRoute(r.id);
-    const want = [r.successStatus, ...Object.keys(r.extra ?? {}).map(Number), 401, ...(r.requestBody ? [400] : []), ...(r.csrf || typeof r.authz === "object" ? [403] : [])];
+    const want = [r.successStatus, ...Object.keys(r.extra ?? {}).map(Number), ...(r.id === "invitation.redeem" ? [] : [401]), ...(r.requestBody ? [400] : []), ...(r.csrf || typeof r.authz === "object" ? [403] : [])];
     for (const s of want) if (!got.has(s)) missing.push(`${r.id}: ${s} was never observed (saw ${[...got].sort().join(",") || "nothing"})`);
   }
   for (const s of [413, 415, 421, 429, 504]) if (!seen.some((x) => x.status === s)) missing.push(`no route answered ${s} in this run`);

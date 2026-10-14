@@ -1,3 +1,4 @@
+import { ACCOUNT_ROUTES, buildAccountHandlers } from "./account-routes.ts";
 import { TRANSPORT_ROUTES, buildTransportHandlers } from "./transport-routes.ts";
 import { ERROR_CODES } from "@plur1bus/rpc-schema";
 import type { AuditEmitter } from "./audit.ts";
@@ -76,7 +77,7 @@ export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
 const SESSION_TIMES = { createdAt: iso, expiresAt: iso, idleExpiresAt: iso };
 
 export const ROUTES: readonly RouteSpec[] = [
-  ...TRANSPORT_ROUTES,
+  ...TRANSPORT_ROUTES, ...ACCOUNT_ROUTES,
   {
     id: "session.create", method: "POST", path: `${API_PREFIX}/session`, tag: "session", summary: "Log in with the owner token or with a local account; sets the session cookie",
     auth: "none", authz: "public", csrf: false, rate: "auth", stability: "experimental", since: "1.0.0",
@@ -245,6 +246,7 @@ export interface HandlerDeps {
   principal: Principal; healthTimeoutMs: number; log: { info(msg: string, f?: Record<string, unknown>): void; warn(msg: string, f?: Record<string, unknown>): void };
   /** Password login; without it only the owner token logs in. */
   login?: PasswordLogin | undefined;
+  resolveBootstrap?: (() => Promise<import("./account-store.ts").CorePerson | null>) | undefined;
   tokens?: TokenService | undefined;
   users?: UserDirectory | undefined;
   totp?: TotpService | undefined;
@@ -322,6 +324,7 @@ function tokenJson(t: PublicToken): Record<string, unknown> {
 export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
   const clearCookie = { "Set-Cookie": sessionCookie(d.tls, "", 0) };
   return {
+    ...buildAccountHandlers(d, undefined, d.core),
     ...buildTransportHandlers(d.core),
     "session.create": async (i) => {
       const b = loginBody(i.body);
@@ -333,7 +336,9 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
           d.audit.emit("auth.login.failure", "anonymous", "owner-token", { via: "owner-token", reason: "invalid-token", ip: i.ip });
           throw new ApiError(401, "E_UNAUTHORIZED", "authentication failed", { reason: "invalid-token" });
         }
-        principal = d.principal;
+        const current = d.resolveBootstrap ? await d.resolveBootstrap() : undefined;
+        if (d.resolveBootstrap && (!current || current.disabled)) throw errors.unauthenticated("invalid-token");
+        principal = current ? { ...d.principal, role: current.role } : d.principal; authVersion = current?.version ?? 0;
       } else {
         const r = d.login ? await d.login.check(b.username, b.password) : ({ ok: false, locked: false } as const);
         if (!r.ok) {

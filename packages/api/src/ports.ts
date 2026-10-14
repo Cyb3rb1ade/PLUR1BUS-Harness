@@ -1,8 +1,8 @@
 import type { AgentRight, ProjectRight, Role } from "./rbac-bridge.ts";
 
 /** A local account. The core has no credential store yet (`identity` knows humans and channel links only), so the API
- *  owns this port; the in-memory implementation serves tests, the real store is a follow-up. `version` rises with every
- *  change of role, rights, password or second factor: sessions are rotated when it moves. */
+ *  owns this port; the durable adapter stores credentials and joins live authority from Core. `version` rises with every
+ *  change of role, rights, password or enabled second factor: durable sessions end when it moves. */
 export interface UserRecord {
   readonly id: string;
   readonly username: string;
@@ -32,8 +32,8 @@ export interface TokenStore {
   update(id: string, patch: { lastUsedAt?: number; revokedAt?: number }): Promise<void>;
 }
 
-/** A user's second factor. `secret` is the base32 TOTP seed: it must be recoverable to check codes, so the real store
- *  belongs in the core's secret store (follow-up); the in-memory store is for tests. `backupHashes` are SHA-256 of the
+/** A user's second factor. `secret` is the base32 TOTP seed: it must be recoverable to check codes, so the durable store
+ *  secures its private database; the in-memory store is for tests. `backupHashes` are SHA-256 of the
  *  normalised one-time codes. `lastStep` is the newest accepted time step (replay guard). */
 export interface TotpRecord {
   readonly userId: string; readonly secret: string; readonly enabled: boolean; readonly createdAt: number;
@@ -46,6 +46,8 @@ export interface TotpStore {
 }
 
 export interface UserDirectory {
+  /** Login-only credential view: authority must be resolved after password verification. */
+  credentialsByUsername?(username: string): Promise<UserRecord | undefined>;
   findByUsername(username: string): Promise<UserRecord | undefined>;
   findById(id: string): Promise<UserRecord | undefined>;
   updatePasswordHash(id: string, hash: string): Promise<void>;

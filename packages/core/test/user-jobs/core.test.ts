@@ -17,9 +17,8 @@ test("real core user jobs execute as their registered creator and re-check store
     cfg.engine = { neo: { enabled: false }, gc: { enabled: false }, dreaming: { enabled: false }, reranker: { enabled: false } };
     writeFileSync(`${home}/config.json`, JSON.stringify(cfg));
     let who: Principal = { ...LOCAL_OWNER, kind: "person" };
-    let inactivePerson: string | undefined;
     const requests: ChatRequest[] = [];
-    const core = createCore({ home, testInternals: flatTestInternals(), chatProvider: new FakeChatProvider({ onRequest: r => requests.push(r) }), rbac: { resolve: () => who, resolvePerson: id => id === inactivePerson ? null : { kind: "person", userId: id, role: "member" } }, dreams: { scheduler: false } });
+    const core = createCore({ home, testInternals: flatTestInternals(), chatProvider: new FakeChatProvider({ onRequest: r => requests.push(r) }), rbac: { resolve: () => who, resolvePerson: id => ({ kind: "person", userId: id, role: "member" }) }, dreams: { scheduler: false } });
     await core.start();
     const client = await connect({ address: core.address, token: core.token });
     t.after(async () => { await client.close(); await core.stop({ budgetMs: 5000 }); });
@@ -60,7 +59,7 @@ test("real core user jobs execute as their registered creator and re-check store
     const adminRun = await client.call<any>("jobs.run", { job: created.job.id });
     assert.equal(adminRun.outcome, "completed");
     assert.equal(requests[1]?.recurring?.runAs, admin.id);
-    inactivePerson = admin.id;
+    await client.call("user.disable", { userId: admin.id });
     const inactive = await client.call<any>("jobs.run", { job: created.job.id });
     assert.equal(inactive.outcome, "skipped_owner_inactive");
     assert.equal(requests.length, 2);

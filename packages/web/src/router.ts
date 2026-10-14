@@ -3,6 +3,7 @@ import { ALL_ITEMS, GALLERY_ENABLED, GALLERY_ITEM, HIDDEN_ITEMS, LANDING, type N
 
 export type Route =
   | { kind: "login" }
+  | { kind: "join" }
   /** `sub` is the path after the first segment (`/memories/dreams` -> "dreams", `/chat/ses_1` -> "ses_1"), absent when empty. */
   | { kind: "page"; item: NavItem; sub?: string }
   | { kind: "not-found"; path: string };
@@ -11,7 +12,7 @@ function currentPath(): string {
   const raw = globalThis.location?.hash ?? "";
   const p = raw.startsWith("#") ? raw.slice(1) : raw;
   const clean = p.split("?")[0] ?? "";
-  return clean === "" ? "/" : clean.replace(/\/+$/, "") || "/";
+  return clean === "" && new URLSearchParams(globalThis.location?.search ?? "").has("code") ? "/join" : clean === "" ? "/" : clean.replace(/\/+$/, "") || "/";
 }
 
 /** The query of the current hash route (`#/settings/general?focus=core.logLevel` -> focus=core.logLevel); empty when there is none. */
@@ -35,6 +36,7 @@ export const path = signal(currentPath());
 export const query = signal(currentQuery());
 
 export function resolve(p: string): Route {
+  if (p === "/join" || p.startsWith("/invite/")) return { kind: "join" };
   if (p === "/login") return { kind: "login" };
   const [first = "", ...rest] = p.split("/").filter((seg) => seg !== "");
   const found = ALL_ITEMS.find((i) => i.path === `/${first}`) ?? HIDDEN_ITEMS.find((i) => i.path === `/${first}`) ?? (GALLERY_ENABLED && first === GALLERY_ITEM.id ? GALLERY_ITEM : undefined);

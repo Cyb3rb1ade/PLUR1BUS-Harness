@@ -11,7 +11,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
 import type { Engine, EngineStatus, HostServices, ModelsStatus } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import type { HarnessConfig } from "@plur1bus/config-schema";
-import { checkAdoptionNonce, createOrphanWatch, type OrphanWatch, type SecurePathOptions } from "@plur1bus/module-api";
+import { apiPrincipal, checkAdoptionNonce, createOrphanWatch, type OrphanWatch, type SecurePathOptions } from "@plur1bus/module-api";
 import { RPC_VERSION, SCHEMA, buildCapabilities, precompileMethods, type CoreStatusResult, type JobsStatus, type ProcessState } from "@plur1bus/rpc-schema";
 import { ActivityTracker } from "./activity.ts";
 import { ADMIN_METHODS } from "./admin-ops.ts";
@@ -553,20 +553,22 @@ export function createCore(o: CoreOptions): Core {
 
       // D109: who a connection is, where policy lines go, and the permission stores (opened on first use, so the keychain is not touched at start).
       const people = new AdminStore({ path: path.join(l.state, "admin.sqlite"), ownerId: LOCAL_OWNER.userId }); adminPeople = people;
-      inbox = openInbox({ stateDir: l.state, clock, retention: { maxAgeDays: o.inbox?.maxAgeDays ?? config.inbox.retention.days, maxEntries: o.inbox?.maxEntries ?? config.inbox.retention.maxEntries }, admins: () => people.users().filter(u => u.role === "owner" || u.role === "admin").map(u => u.id), legacyNotices: () => people.allNotices(),
+      inbox = openInbox({ stateDir: l.state, clock, retention: { maxAgeDays: o.inbox?.maxAgeDays ?? config.inbox.retention.days, maxEntries: o.inbox?.maxEntries ?? config.inbox.retention.maxEntries }, admins: () => people.users().filter(u => !u.disabled && (u.role === "owner" || u.role === "admin")).map(u => u.id), legacyNotices: () => people.allNotices(),
         onPublished: kind => metrics.inboxPublished(kind), log: (m, f) => log.warn(m, f),
         onChange: c => { void deliverInboxChange(c, { subscriptions: () => server?.subscriptions() ?? [], principalOf: async id => resolvePrincipal({ requestId: "inbox", connectionId: id, signal: shutdown.signal }, "inbox.count", {}), notify: (m, p, opts) => { if (!shutdown.signal.aborted) server?.notify(m, p, opts); } }).catch(() => { log.debug("inbox event withheld"); }); } });
       const originalResolver: PrincipalResolver = o.rbac?.resolve ?? (() => LOCAL_OWNER);
       const apiIdentity = apiIdentities(p => {
-        if (!people.users().some(u => u.id === p.userId)) return null;
+        if (!people.resolvePerson(p.userId)) return null;
         const current = o.rbac?.resolvePerson ? o.rbac.resolvePerson(p.userId) : { ...p, kind: "person" as const };
         if (!current || current.userId !== p.userId || current.kind !== "person") return null;
         return { ...people.resolve(current), kind: p.kind, ...(p.tokenScopes ? { tokenScopes: p.tokenScopes } : {}) };
       });
       const resolvePrincipal: PrincipalResolver = async (ctx, method, params) => {
+        const forwarded = apiPrincipal(ctx);
+        if (forwarded && people.person(forwarded.userId)?.disabled) throw new RpcError("E_DENIED", "person is disabled", { reason: "person-disabled" });
         const api = apiIdentity.resolve(ctx);
         if (api !== undefined) return api;
-        const who = await originalResolver(ctx, method, params); return who ? people.resolve(who) : who;
+        const who = await originalResolver(ctx, method, params); return who && who.kind === "person" && people.person(who.userId)?.disabled ? null : who ? people.resolve(who) : who;
       };
       const rbacAudit = o.rbac?.audit ?? teeAuditSinks(createJsonlAuditSink(path.join(l.logs, "audit.log"), { securePath: (p) => platform.securePath(p) }), chain);
       const notifier = createPermissionNotifier({
@@ -654,7 +656,7 @@ export function createCore(o: CoreOptions): Core {
           if (result.rejected) throw new RpcError("E_STORAGE", "memory cards were rejected");
         },
       });
-      const adminSurface = buildAdminSurface({ people, lifecycle, identity: identityService, sessions: () => sessions?.store ?? null, breakglass, ownership, clock, audit: rbacAudit, sessionUsage: ids => sessionUsage(path.join(l.state, "budget.sqlite"), ids),
+      const adminSurface = buildAdminSurface({ rightsChanged: userId => { server?.notify("api.account.changed", { userId }, { audience: apiIdentity.services().map(connectionId => ({ connectionId })) }); }, people, lifecycle, identity: identityService, sessions: () => sessions?.store ?? null, breakglass, ownership, clock, audit: rbacAudit, sessionUsage: ids => sessionUsage(path.join(l.state, "budget.sqlite"), ids),
         agents: () => cfg().agents,
         export: async (id, who) => {
           const root = l.agentDir(id), workspace = registry.workspaceOf(id);
@@ -672,6 +674,7 @@ export function createCore(o: CoreOptions): Core {
         isStopping: () => shutdown.signal.aborted,
         agentExists: id => registry.has(id) && !lifecycle.state(id).deleted, agents: () => registry.list().filter(id => !lifecycle.state(id).deleted),
         resolve: personId => {
+          if (people.person(personId)?.disabled) return null;
           if (o.rbac?.resolvePerson) { const current = o.rbac.resolvePerson(personId); return current ? people.resolve(current) : null; }
           if (personId !== LOCAL_OWNER.userId && !identityService.list({}).humans.some(h => h.id === personId)) return null;
           return people.resolve({ kind: "person", userId: personId, role: people.role(personId, personId === LOCAL_OWNER.userId ? "owner" : "member") });

@@ -32,21 +32,49 @@ export class AdminStore {
       CREATE TABLE IF NOT EXISTS admin_invites (id TEXT PRIMARY KEY,user_id TEXT NOT NULL,role TEXT NOT NULL,channel TEXT NOT NULL,expires_at INTEGER NOT NULL,revoked INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL DEFAULT 0,created_by TEXT NOT NULL DEFAULT '',token_hash TEXT UNIQUE,redeemed_at INTEGER) STRICT;
       CREATE TABLE IF NOT EXISTS attempts (key TEXT PRIMARY KEY,failures INTEGER NOT NULL,window_start INTEGER NOT NULL,locked_until INTEGER NOT NULL) STRICT;`);
+    const columns = new Set(this.db.prepare("PRAGMA table_info(admin_roles)").all().map(r => r.name));
+    for (const [name, type] of [["disabled", "INTEGER NOT NULL DEFAULT 0"], ["disabled_at", "INTEGER"], ["disabled_by", "TEXT"], ["version", "INTEGER NOT NULL DEFAULT 1"]])
+      if (!columns.has(name)) this.db.exec(`ALTER TABLE admin_roles ADD COLUMN ${name} ${type}`);
     // Seed only an empty installation: demoting the bootstrap owner must survive a restart.
     if (Number((this.db.prepare("SELECT COUNT(*) AS n FROM admin_roles").get() as any).n) === 0)
-      this.db.prepare("INSERT INTO admin_roles VALUES (?, 'owner')").run(o.ownerId);
+      this.db.prepare("INSERT INTO admin_roles(user_id,role) VALUES (?, 'owner')").run(o.ownerId);
   }
   close() { this.db.close(); }
   role(id: string, fallback: Role = "member"): Role { return (this.db.prepare("SELECT role FROM admin_roles WHERE user_id=?").get(id) as { role: Role } | undefined)?.role ?? fallback; }
-  users(): { id: string; role: Role }[] { return (this.db.prepare("SELECT user_id AS id, role FROM admin_roles ORDER BY user_id").all() as any[]); }
+  users(): { id: string; role: Role; disabled: boolean; disabledAt: number | null; disabledBy: string | null; version: number }[] {
+    return (this.db.prepare("SELECT user_id AS id, role, disabled, disabled_at AS disabledAt, disabled_by AS disabledBy, version FROM admin_roles ORDER BY user_id").all() as any[]).map(r => ({ ...r, disabled: r.disabled === 1 }));
+  }
+  person(id: string): (Principal & { disabled: boolean; version: number }) | null {
+    const row = this.users().find(r => r.id === id);
+    return row ? { ...this.resolve({ kind: "person", userId: id, role: row.role }), disabled: row.disabled, version: row.version } : null;
+  }
+  resolvePerson(id: string): Principal | null { const p = this.person(id); return p && !p.disabled ? p : null; }
+  setDisabled(id: string, disabled: boolean, by: string, now: number, beforeCommit: () => void): void {
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const row = this.person(id);
+      if (!row) throw new RpcError("E_NOT_FOUND", "person not found");
+      if (disabled && !row.disabled && row.role === "owner" && Number((this.db.prepare("SELECT COUNT(*) AS n FROM admin_roles WHERE role='owner' AND disabled=0").get() as any).n) <= 1)
+        throw new RpcError("E_CONFLICT", "the last active Owner cannot be disabled", { reason: "last-owner" });
+      if (row.disabled !== disabled) {
+        beforeCommit();
+        this.db.prepare("UPDATE admin_roles SET disabled=?,disabled_at=?,disabled_by=?,version=version+1 WHERE user_id=?").run(disabled ? 1 : 0, disabled ? now : null, disabled ? by : null, id);
+      }
+      this.db.exec("COMMIT");
+    } catch (e) { this.db.exec("ROLLBACK"); throw e; }
+  }
+  validateInvite(hash: string | null, now: number): InviteRow | undefined {
+    if (!hash) return undefined;
+    return this.db.prepare("SELECT id,user_id AS userId,role,channel,expires_at AS expiresAt,revoked,created_at AS createdAt,1 AS shareable,redeemed_at AS redeemedAt FROM admin_invites WHERE token_hash=? AND revoked=0 AND redeemed_at IS NULL AND expires_at>?").get(hash, now) as InviteRow | undefined;
+  }
   setRole(id: string, role: Role, beforeCommit: () => void): void {
     if (!ROLES.includes(role)) throw new RpcError("E_INVALID_PARAMS", "unknown role preset");
     this.db.exec("BEGIN IMMEDIATE");
     try {
-      if (this.role(id) === "owner" && role !== "owner" && Number((this.db.prepare("SELECT COUNT(*) AS n FROM admin_roles WHERE role='owner'").get() as any).n) <= 1)
+      if (this.role(id) === "owner" && !this.person(id)?.disabled && role !== "owner" && Number((this.db.prepare("SELECT COUNT(*) AS n FROM admin_roles WHERE role='owner' AND disabled=0").get() as any).n) <= 1)
         throw new RpcError("E_CONFLICT", "the last Owner cannot be demoted", { reason: "last-owner" });
       beforeCommit();
-      this.db.prepare("INSERT INTO admin_roles VALUES (?,?) ON CONFLICT(user_id) DO UPDATE SET role=excluded.role").run(id, role);
+      this.db.prepare("INSERT INTO admin_roles(user_id,role) VALUES (?,?) ON CONFLICT(user_id) DO UPDATE SET role=excluded.role,version=version+1").run(id, role);
       this.db.exec("COMMIT");
     } catch (e) { this.db.exec("ROLLBACK"); throw e; }
   }
@@ -54,6 +82,7 @@ export class AdminStore {
   setRight(agentId: string, userId: string, right: AgentRight | null) {
     if (right === null) this.db.prepare("DELETE FROM admin_rights WHERE agent_id=? AND user_id=?").run(agentId, userId);
     else { if (right !== "use" && right !== "manage") throw new RpcError("E_INVALID_PARAMS", "invalid agent right"); this.db.prepare("INSERT INTO admin_rights VALUES (?,?,?) ON CONFLICT(agent_id,user_id) DO UPDATE SET right=excluded.right").run(agentId, userId, right); }
+    this.db.prepare("UPDATE admin_roles SET version=version+1 WHERE user_id=?").run(userId);
   }
   resolve(p: Principal): Principal {
     // Never turn an agent into a person or widen its role/scopes. Stored rights are authoritative once assigned.

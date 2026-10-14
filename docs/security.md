@@ -112,6 +112,19 @@ Today only stable methods and the memory reads are tools by default, so the expe
 
 The API credential narrows ordinary local-client capabilities, but cannot isolate hostile processes of the same OS user. A cookie authenticates an account; it is not proof of physical human intent. Browser delegation preserves current surface trust and never performs automatic OS confirmation. Stronger broker/OS separation, durable account provisioning and the production active-person source remain Owner decisions; details in the [transport handoff](handoff/2026-10-14-web-transport.md).
 
+### Known boundary: same OS user
+
+`run/api-delegation.token` is private (0600) and rotated when the Core restarts, including configuration restarts. A process running as the same OS user can read it and impersonate the API. This is the same trust boundary as the existing local IPC credentials. Today, service installations can use a separate OS user to isolate them from interactive applications; strict API/Core separation through different users, a broker or attestation is planned, and is not implemented.
+
+The durable account database holds credentials only; Core person status and rights are authoritative. Disabled/missing people cannot log in, use sessions/tokens, or retain a stream. Core revisions prevent revoked tokens or sessions from returning after enable. Cookie authentication does not prove a human or raise browser trust; the WebMCP exclusions and OS confirmation requirements remain.
+
+| Boundary | Check | Remaining limit |
+|---|---|---|
+| Invite → account | Validate before collision disclosure; pending credentials before atomic consumption | Activation failure after consumption requires a new invitation; audited |
+| Account → Core person | Current Core role, rights, status and revision per use | Same OS-user delegation credential boundary |
+| Disable → credential lifetime | Session/SSE invalidation; permanent token revocation by issuance revision | Dedicated API service notification; five-second synchronization or next request/heartbeat after disconnect |
+| Channel inbound → person | Deferred to switchboard owner | KNOWN GAP: channel inbound ignores person.disabled |
+
 ## Secret status metadata
 
 `secret.status` optionally includes `secrets`, a names-only metadata snapshot from the available backends. Creation and rotation persist timestamps with the existing metadata index; `updatedBy` identifies the authenticated person when known. Status never reads or decrypts values. Older entries without writer metadata remain readable. Settings displays timestamps from this snapshot and “Unknown” when metadata is unavailable. Owner-only access remains the existing ADR-005 rule.

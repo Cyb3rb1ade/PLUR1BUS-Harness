@@ -7,6 +7,7 @@ import { connect } from "node:net";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { RPC_RULES } from "../../core/src/rbac/guard.ts";
 import { METHODS } from "@plur1bus/rpc-schema";
 import { ROUTES } from "../src/routes.ts";
 import { ownerTokenVerifier } from "../src/session.ts";
@@ -160,7 +161,7 @@ test("OK-7: the route table is deny-by-default and its only core calls are core.
         if (r.auth !== "none") assert.equal(res.status, 401, `${r.id} anonymous`); else assert.notEqual(res.status, 200);
       }
     }
-    assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id), ["session.create", "session.totp"]);
+    assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id), ["invitation.redeem", "session.create", "session.totp"]);
     assert.ok(ROUTES.filter((r) => r.method !== "GET" && r.auth !== "none").every((r) => r.csrf), "every authenticated write needs CSRF");
     for (const r of ROUTES) if (r.auth !== "none" && r.method === "GET") await raw(h, { path: r.path, headers: { cookie } });
     const called = new Set(h.core.calls.map((c) => c.method));
@@ -177,7 +178,7 @@ test("OK-8: routes, RPC_RULES (core guard) and docs/rbac.md agree: every admin.*
   const methods = METHODS;
   const text = readFileSync(path.join(repo, "docs/rbac.md"), "utf8");
   const guard = readFileSync(path.join(repo, "packages/core/src/rbac/guard.ts"), "utf8");
-  const admin = new Set([...guard.matchAll(/"(admin\.[A-Za-z.]+)": rule\(/g)].map((m) => m[1]!));
+  const admin = new Set(Object.keys(RPC_RULES).filter(m => m.startsWith("admin.")));
   assert.ok(admin.size >= 11, "guard.ts lists the admin.* family");
   assert.ok(methods.some((m) => m.startsWith("admin.")), "the schema's method map was found");
   for (const m of methods.filter((n) => n.startsWith("admin."))) assert.ok(admin.has(m), `RPC_RULES lacks ${m}`);

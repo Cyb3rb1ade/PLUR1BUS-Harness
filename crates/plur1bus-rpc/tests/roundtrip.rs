@@ -168,6 +168,24 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::AgentRightsSetParams,
                 types::AgentRightsSetResult,
             >(name, fixture, &root_schema),
+            "user.disable" => check_pair::<types::UserDisableParams, types::UserDisableResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "user.enable" => check_pair::<types::UserEnableParams, types::UserEnableResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "admin.api.person.resolve" => check_pair::<
+                types::AdminApiPersonResolveParams,
+                types::AdminApiPersonResolveResult,
+            >(name, fixture, &root_schema),
+            "admin.api.invite.validate" => check_pair::<
+                types::AdminApiInviteValidateParams,
+                types::AdminApiInviteValidateResult,
+            >(name, fixture, &root_schema),
             "user.list" => check_pair::<types::UserListParams, types::UserListResult>(
                 name,
                 fixture,

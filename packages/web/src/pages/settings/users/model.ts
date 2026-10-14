@@ -28,7 +28,7 @@ export const NAME_MAX = 128;
 export const presetName = (r: string): string => (r in PRESET_TEXT ? t(`users.preset.${r}.name` as Key) : r);
 const PRESET_TEXT: Record<RolePreset, true> = { owner: true, admin: true, operator: true, member: true, viewer: true };
 
-export type Row = { id: string; name: string; self: boolean; role: RolePreset | null; statusKeys: { key: Key; n?: number }[] };
+export type Row = { id: string; name: string; self: boolean; role: RolePreset | null; disabled?: boolean; statusKeys: { key: Key; n?: number }[] };
 
 /** Builds rows when user.list is supported. */
 export function buildRowsFromUserList(self: { id: string; role: string }, list: UserListResult | null): Row[] {
@@ -49,7 +49,8 @@ export function buildRowsFromUserList(self: { id: string; role: string }, list: 
       name: u.displayName || u.id,
       self: false,
       role: u.role as RolePreset,
-      statusKeys: [],
+      disabled: u.disabled ?? false,
+      statusKeys: u.disabled ? [{ key: "users.status.disabled" }] : [],
     });
   }
   return rows;
