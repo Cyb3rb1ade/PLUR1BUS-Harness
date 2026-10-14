@@ -16,9 +16,21 @@ function fileBytes(file: Record<string, unknown>): { b64: string; byteLength: nu
   if (raw === undefined) return undefined;
   // Length of base64 is a cheap upper bound; Buffer.from would allocate the decoded body.
   const padded = raw.replace(/\s+/g, "");
-  const byteLength = Math.floor(padded.length * 3 / 4);
-  return { b64: padded, byteLength };
+  return { b64: padded, byteLength: Math.floor(padded.length * 3 / 4) };
 }
+
+const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+/** Exact decoded size of a canonical base64 string, or undefined when it is not canonical base64. */
+function decodedSize(b64: string): number | undefined {
+  if (!BASE64.test(b64)) return undefined;
+  const pad = b64.endsWith("==") ? 2 : b64.endsWith("=") ? 1 : 0;
+  return b64.length / 4 * 3 - pad;
+}
+
+// File metadata ends up in the turn text; a control or line-separator character there could forge extra lines.
+// eslint-disable-next-line no-control-regex
+const LINE_FORGERY = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g;
+const flat = (s: string, max: number): string => s.replace(LINE_FORGERY, " ").slice(0, max).trim();
 
 export function parseParts(raw: unknown, limits: A2aLimits): { parts: A2aPart[]; text: string } {
   if (!Array.isArray(raw) || raw.length === 0) throw new PartError("invalid", "message.parts must be a non-empty array");
@@ -38,11 +50,16 @@ export function parseParts(raw: unknown, limits: A2aLimits): { parts: A2aPart[];
     } else if (p.kind === "file") {
       if (!isObj(p.file)) throw new PartError("invalid", "file part needs a file object");
       const f = p.file;
-      const name = typeof f.name === "string" ? f.name.slice(0, 256) : undefined;
-      const mimeType = typeof f.mimeType === "string" ? f.mimeType.slice(0, 128) : undefined;
-      const uri = typeof f.uri === "string" ? f.uri.slice(0, 2048) : undefined;
+      const name = typeof f.name === "string" ? flat(f.name, 256) : undefined;
+      const mimeType = typeof f.mimeType === "string" ? flat(f.mimeType, 128) : undefined;
+      const uri = typeof f.uri === "string" ? flat(f.uri, 2048) : undefined;
       const encoded = fileBytes(f);
       if (encoded && encoded.byteLength > limits.maxFileBytes) throw new PartError("too-large", "file part is too large");
+      if (encoded) {
+        const exact = decodedSize(encoded.b64);
+        if (exact === undefined) throw new PartError("invalid", "file bytes are not valid base64");
+        encoded.byteLength = exact;
+      }
       if (!encoded && !uri) throw new PartError("invalid", "file part needs bytes or a uri");
       const file: A2aFilePart["file"] = {};
       if (name) file.name = name;

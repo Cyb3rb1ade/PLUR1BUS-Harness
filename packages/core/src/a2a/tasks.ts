@@ -46,6 +46,9 @@ export interface StartArgs {
   contextId?: string; taskId?: string; push?: A2aPushConfig;
 }
 
+/** Push configs one task may hold; each one is a delivery on every terminal/paused transition. */
+const MAX_PUSH_CONFIGS_PER_TASK = 8;
+
 export class TaskStore {
   readonly #o: TaskStoreOptions; readonly #sched: Scheduler;
   readonly #tasks = new Map<string, Rec>();
@@ -61,6 +64,8 @@ export class TaskStore {
   #prune(): void {
     const now = this.#o.clock();
     for (const [id, r] of this.#tasks) {
+      // A peer that never answers input-required/auth-required would hold a live slot (and any stream) forever.
+      if (RESUMABLE_STATES.has(r.state) && now - r.updatedAt >= this.#o.retentionMs) { r.reason = "canceled"; this.#finish(r, "canceled"); }
       if (TERMINAL_STATES.has(r.state) && now - r.updatedAt >= this.#o.retentionMs) {
         this.#tasks.delete(id);
         for (const [k, v] of this.#byMessage) if (v === id) this.#byMessage.delete(k);
@@ -226,8 +231,9 @@ export class TaskStore {
 
   async settled(id: string): Promise<void> { await this.#tasks.get(id)?.done; }
 
-  async *subscribe(id: string, peerId: string, agentId: string, fromSeq = 0): AsyncIterable<A2aStreamEvent> {
+  async *subscribe(id: string, peerId: string, agentId: string, fromSeq = 0, signal?: AbortSignal): AsyncIterable<A2aStreamEvent> {
     const rec = this.#owned(id, peerId, agentId);
+    if (signal?.aborted) return;
     const cap = this.#o.maxStreamConnectionsPerPeer ?? 8;
     const n = this.#streams.get(peerId) ?? 0;
     if (n >= cap) throw new TaskError("too-many", "too many open streams for this peer");
@@ -245,9 +251,11 @@ export class TaskStore {
           return;
         }
         await new Promise<void>((resolve) => {
-          const w = (): void => { rec.waiters.delete(w); resolve(); };
+          const w = (): void => { rec.waiters.delete(w); signal?.removeEventListener("abort", w); resolve(); };
           rec.waiters.add(w);
+          signal?.addEventListener("abort", w, { once: true });
         });
+        if (signal?.aborted) return;
       }
     } finally {
       const left = (this.#streams.get(peerId) ?? 1) - 1;
@@ -256,13 +264,13 @@ export class TaskStore {
   }
 
   /** Resume a stream at the current snapshot (no replay of prior artifact chunks). */
-  async *resubscribe(id: string, peerId: string, agentId: string): AsyncIterable<A2aStreamEvent> {
+  async *resubscribe(id: string, peerId: string, agentId: string, signal?: AbortSignal): AsyncIterable<A2aStreamEvent> {
     const rec = this.#owned(id, peerId, agentId);
     const from = rec.events.length;
     const snap = statusUpdate(this.#view(rec, 0), rec.state, TERMINAL_STATES.has(rec.state), new Date(rec.updatedAt).toISOString());
     yield snap;
     if (TERMINAL_STATES.has(rec.state)) return;
-    yield* this.subscribe(id, peerId, agentId, from);
+    yield* this.subscribe(id, peerId, agentId, from, signal);
   }
 
   async admitPush(url: string): Promise<void> {
@@ -274,6 +282,7 @@ export class TaskStore {
     if (!this.#o.push) throw new PushError("not-supported", "push notifications are not configured");
     const rec = this.#owned(id, peerId, agentId);
     const stored = assignPushId(cfg);
+    if (!rec.push.has(stored.id!) && rec.push.size >= MAX_PUSH_CONFIGS_PER_TASK) throw new TaskError("too-many", "too many push notification configs for this task");
     rec.push.set(stored.id!, stored);
     return toTaskPush(rec.id, stored);
   }
