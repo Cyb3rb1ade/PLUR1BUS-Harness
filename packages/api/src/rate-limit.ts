@@ -3,9 +3,9 @@ import type { Clock } from "./clock.ts";
 export interface BucketSpec { capacity: number; refillPerSec: number }
 /** The route classes of ADR-004 *Rate limits*: `auth` (login), `totp` (second factor), `read`, `write`, and `stream`
  *  (opening a long-lived SSE/WebSocket connection; no such route exists yet, the class is ready for the first one). */
-export type RateClass = "auth" | "totp" | "read" | "write" | "stream";
+export type RateClass = "auth" | "totp" | "read" | "write" | "stream" | "rpc";
 /** A configuration may name only `auth`, `read` and `write`; `totp` and `stream` then keep their defaults. */
-export type RateClasses = Record<"auth" | "read" | "write", BucketSpec> & Partial<Record<"totp" | "stream", BucketSpec>>;
+export type RateClasses = Record<"auth" | "read" | "write", BucketSpec> & Partial<Record<"totp" | "stream" | "rpc", BucketSpec>>;
 
 /** Per principal and per IP, per route class. `auth` is the login class: a handful of attempts, then one more every
  *  12 s. `totp` is stricter still: 5 codes, then one more a minute (a six-digit code has a million values; the ±1 window
@@ -15,6 +15,7 @@ export const DEFAULT_RATE_CLASSES: Record<RateClass, BucketSpec> = {
   totp: { capacity: 5, refillPerSec: 1 / 60 },
   read: { capacity: 120, refillPerSec: 20 },
   write: { capacity: 30, refillPerSec: 5 },
+  rpc: { capacity: 60, refillPerSec: 10 },
   stream: { capacity: 6, refillPerSec: 0.2 },
 };
 
