@@ -50,14 +50,21 @@ export function createGate(policy: EgressPolicy, hooks: GateHooks = {}): HopGate
         return deny("scheme", `${url.protocol} to ${host} is not allowed (https only; http only to a listed loopback host when egress.allowLoopback is on)`);
       }
       if (host === "") return deny("invalid-url", "URL has no host");
+      // The guarded client refuses these too; refusing here keeps the dry run and the dial in agreement.
+      if (url.username !== "" || url.password !== "") return deny("invalid-url", "URLs with embedded credentials are refused");
+      // One trailing dot is the root label; an empty label anywhere else is not a name and must not be normalised onto an allowlist entry.
+      if (host.startsWith(".") || host.endsWith(".") || host.includes("..")) return deny("invalid-url", `${host} has an empty label`);
       const port = effectivePort(url);
       if (!policy.allowPorts.includes(port)) return deny("port", `port ${port} is not in egress.allowPorts`);
       if (!hostAllowed(policy, host)) return deny("host-not-allowed", `${host} is not in egress.allowHosts`);
+      // `*` stands for public names; a loopback spelling must be listed on its own to be reachable.
+      if (policy.allowLoopback && isLoopbackHost(host) && !hostAllowed(policy, host, { explicitOnly: true })) return deny("host-not-allowed", `${host} is a loopback host and must be listed in egress.allowHosts by name`);
     },
     afterResolve(url, pin) {
       const host = bareHost(url);
       const a = parseAddress(pin.address);
       const loopbackPin = a !== null && classifyAddress(a).reason === "loopback";
+      if (loopbackPin && !policy.allowLoopback) return deny("loopback", `${host} resolved to a loopback address and egress.allowLoopback is off`);
       // RULING: a public name that answers with a loopback address is rebinding-shaped; refused whatever allowLoopback says.
       if (loopbackPin && !isLoopbackHost(host)) return deny("loopback", `${host} resolved to a loopback address`);
       if (url.protocol === "http:" && !loopbackPin) return deny("scheme", `plain http to ${host} is only allowed for loopback`);

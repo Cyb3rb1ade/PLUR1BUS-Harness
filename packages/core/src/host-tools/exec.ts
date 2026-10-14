@@ -24,6 +24,14 @@ class Capture {
   text(): string { return Buffer.concat(this.chunks).toString("utf8"); }
 }
 
+/** Spawn errors carry the program path and OS detail; callers only get a classified, path-free failure. */
+function spawnFailure(e: unknown): HostFailure {
+  const c = (e as { code?: unknown } | null)?.code;
+  if (c === "ENOENT" || c === "ENOTDIR") return new HostFailure("not_found", "the program was not found");
+  if (c === "EACCES" || c === "EPERM") return new HostFailure("permission_denied", "the program could not be started");
+  return new HostFailure("not_found", "the program could not be started");
+}
+
 function clamp(v: number | undefined, def: number, max: number): number {
   if (v === undefined) return def;
   if (!Number.isInteger(v) || v < 1) throw new HostFailure("invalid_input", "timeout and size limits must be positive integers");
@@ -59,8 +67,9 @@ export function createNodeExec(clock: HostClock): HostExec {
           child.stdout?.on("data", (c: Uint8Array) => out.push(c));
           child.stderr?.on("data", (c: Uint8Array) => err.push(c));
           if (req.stdin !== undefined) {
-            child.stdin?.write(req.stdin);
-            child.stdin?.end();
+            // A child that exits without draining stdin raises EPIPE here; unhandled it would crash the host.
+            child.stdin?.on("error", () => { /* the exit status tells the story */ });
+            child.stdin?.end(req.stdin);
           }
           const kill = (): void => { try { child.kill("SIGKILL"); } catch { /* gone */ } };
           const timer = clock.setTimeout(() => { timedOut = true; kill(); }, timeoutMs);
@@ -72,7 +81,7 @@ export function createNodeExec(clock: HostClock): HostExec {
             signal?.removeEventListener("abort", onAbort);
             if (settled) return;
             settled = true;
-            reject(e);
+            reject(spawnFailure(e));
           });
           child.once("close", (code, sig) => {
             clock.clearTimeout(timer);
@@ -84,7 +93,7 @@ export function createNodeExec(clock: HostClock): HostExec {
             });
           });
         } catch (e) {
-          reject(e instanceof Error ? e : new Error(String(e)));
+          reject(e instanceof HostFailure ? e : spawnFailure(e));
         }
       });
     },
@@ -101,5 +110,18 @@ export async function runCaptured(ctx: { exec: HostExec; clock: HostClock; timeo
   }, signal);
   if (r.aborted) throw new HostFailure("aborted", "the call was aborted");
   if (r.timedOut) throw new HostFailure("timeout", "the command timed out");
+  return r;
+}
+
+/** Like runCaptured, but a non-zero exit (or a truncated capture when `whole`) is a failure the caller must see. */
+export async function runChecked(
+  ctx: Parameters<typeof runCaptured>[0],
+  req: ExecRequest,
+  failure: { code: "not_found" | "permission_denied" | "not_supported_on_platform"; message: string },
+  opts: { whole?: boolean } = {},
+): Promise<ExecResult> {
+  const r = await runCaptured(ctx, req);
+  if (r.exitCode !== 0) throw new HostFailure(failure.code, failure.message);
+  if (opts.whole && r.truncated) throw new HostFailure("too_large", "the command output exceeded the size limit");
   return r;
 }

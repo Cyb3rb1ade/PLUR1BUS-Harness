@@ -160,3 +160,26 @@ describe("config source (B7)", () => {
     assert.deepEqual(flattenPatch("engine", { a: null, b: { c: { d: false } } }), [{ key: "engine.a", value: null }, { key: "engine.b.c.d", value: false }]);
   });
 });
+
+describe("config source hardening (c10)", () => {
+  it("flattenPatch refuses keys that would address a different path", () => {
+    assert.throws(() => flattenPatch("engine", { "a.b": 1 }), /key/);
+    assert.throws(() => flattenPatch("engine", { "": 1 }), /key/);
+    assert.throws(() => flattenPatch("engine", { a: JSON.parse('{"__proto__":{"x":1}}') }), /key/);
+    assert.deepEqual(flattenPatch("engine", { a: { b: 1 }, c: [1] }), [{ key: "engine.a.b", value: 1 }, { key: "engine.c", value: [1] }]);
+  });
+  it("flattenPatch fails cleanly on a cyclic patch", () => {
+    const p: any = { a: {} }; p.a.b = p;
+    assert.throws(() => flattenPatch("engine", p), (e: any) => e instanceof Error && !(e instanceof RangeError));
+  });
+  it("a pushed config with a __proto__ key is ignored and logged without values", async () => {
+    const home = homeWith(defaults());
+    const { sup, source, logger } = await supervised(home, withLevel("info"));
+    const before = source.revision();
+    const bad = JSON.parse(JSON.stringify(defaults())); bad.engine = JSON.parse('{"__proto__":{"zxq":1}}');
+    sup.push(bad as Record<string, unknown>);
+    await until(() => logger.records.some((r) => r.level === "warn" && r.msg.includes("invalid")));
+    assert.equal(source.revision(), before);
+    assert.equal(Object.hasOwn(source.current().engine, "__proto__"), false);
+  });
+});

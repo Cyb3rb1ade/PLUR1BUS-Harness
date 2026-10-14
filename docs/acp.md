@@ -35,6 +35,7 @@ Prompt blocks: `text` and `resource_link` are used; every other block type is re
   started (only their count is logged).
 - **A failed turn is `-32603 "turn failed"`** with a fixed message; the provider's error text stays in the core.
 - **One prompt per session at a time** (`-32000`, `reason: turn-in-progress`).
-- **Closing stdin cancels running turns** and ends the process.
+- **Closing stdin cancels running turns** and ends the process; so does a destroyed stdin or a stdout whose reader went away
+  (broken pipe): nothing more is written and the running turns are cancelled.
 - **Not yet:** `session/request_permission`, `fs/*`, `terminal/*`, `session/load|list|resume|…`, non-text content,
   the approval policy hookup (needs the Approval store), A2A/MCP-server side.

@@ -155,6 +155,10 @@ function attrsValidator(entry: CatalogueEntry): ValidateFunction {
 
 const utf8 = new TextEncoder();
 const bytes = (s: string): number => utf8.encode(s).length;
+/** Compact-JSON byte length of a value, or null when it cannot be serialised (cycle, BigInt, throwing toJSON, nesting too deep). */
+function jsonBytes(v: unknown): number | null {
+  try { const text = JSON.stringify(v); return text === undefined ? 0 : bytes(text); } catch { return null; }
+}
 
 /** RFC 3339 `YYYY-MM-DDTHH:MM:SS.mmmZ` with a real calendar date and time (no leap seconds). The schema pattern only checks the shape. */
 function realTimestamp(ts: string): boolean {
@@ -176,6 +180,9 @@ const fail = (code: ValidationCode, detail: string): ValidationResult => ({ ok: 
  * Key order is read from the object's own key order, so pass a record parsed from a line, not a re-sorted copy.
  */
 export function validateRecord(record: unknown): ValidationResult {
+  try { return validateRecordUnsafe(record); } catch (e) { return fail("schema", `record cannot be read: ${e instanceof Error ? e.name : "error"}`); }
+}
+function validateRecordUnsafe(record: unknown): ValidationResult {
   if (record === null || typeof record !== "object" || Array.isArray(record)) return fail("not_object", "a record is a JSON object");
   const r = record as Record<string, unknown>;
   if ("level" in r && !isLevel(r.level)) return fail("invalid_level", `level ${JSON.stringify(r.level)} is not one of ${LEVELS.map((l) => l.name).join(", ")}`);
@@ -183,7 +190,11 @@ export function validateRecord(record: unknown): ValidationResult {
   if ("event" in r && typeof r.event === "string" && !entry) return fail("unknown_event", `event ${JSON.stringify(r.event)} is not in the catalogue`);
   if (entry && entry.stream === "audit") return fail("wrong_stream", `${entry.event} is an audit action; write it as an audit record (validateAuditRecord)`);
   if (typeof r.msg === "string" && bytes(r.msg) > LIMITS.msgBytes) return fail("msg_too_long", `msg exceeds ${LIMITS.msgBytes} bytes`);
-  if ("attrs" in r && r.attrs !== null && typeof r.attrs === "object" && bytes(JSON.stringify(r.attrs)) > LIMITS.attrsBytes) return fail("attrs_too_large", `attrs exceed ${LIMITS.attrsBytes} bytes`);
+  if ("attrs" in r && r.attrs !== null && typeof r.attrs === "object") {
+    const size = jsonBytes(r.attrs);
+    if (size === null) return fail("schema", "/attrs cannot be serialised as JSON (cycle, BigInt or nesting too deep)");
+    if (size > LIMITS.attrsBytes) return fail("attrs_too_large", `attrs exceed ${LIMITS.attrsBytes} bytes`);
+  }
   if (!validateShape(r)) {
     const e = validateShape.errors?.[0];
     return fail("schema", `${e?.instancePath || "/"} ${e?.message ?? "does not match the record schema"}`);
@@ -252,11 +263,18 @@ export function validateLine(line: string): ValidationResult {
  * ones; an action that is registered but not audit is `unknown_event`, and a diagnostic record is `schema`.
  */
 export function validateAuditRecord(record: unknown): ValidationResult {
+  try { return validateAuditRecordUnsafe(record); } catch (e) { return fail("schema", `record cannot be read: ${e instanceof Error ? e.name : "error"}`); }
+}
+function validateAuditRecordUnsafe(record: unknown): ValidationResult {
   if (record === null || typeof record !== "object" || Array.isArray(record)) return fail("not_object", "an audit line is a JSON object");
   const r = record as Record<string, unknown>;
   const entry = "action" in r ? lookupEvent(r.action) : undefined;
   if ("action" in r && typeof r.action === "string" && (!entry || entry.stream !== "audit")) return fail("unknown_event", `action ${JSON.stringify(r.action)} is not an audit action in the catalogue`);
-  if ("detail" in r && r.detail !== null && typeof r.detail === "object" && bytes(JSON.stringify(r.detail)) > LIMITS.attrsBytes) return fail("attrs_too_large", `detail exceeds ${LIMITS.attrsBytes} bytes`);
+  if ("detail" in r && r.detail !== null && typeof r.detail === "object") {
+    const size = jsonBytes(r.detail);
+    if (size === null) return fail("schema", "/detail cannot be serialised as JSON (cycle, BigInt or nesting too deep)");
+    if (size > LIMITS.attrsBytes) return fail("attrs_too_large", `detail exceeds ${LIMITS.attrsBytes} bytes`);
+  }
   if (!validateAuditShape(r)) {
     const e = validateAuditShape.errors?.[0];
     return fail("schema", `${e?.instancePath || "/"} ${e?.message ?? "does not match the audit record schema"}`);

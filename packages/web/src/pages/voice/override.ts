@@ -53,7 +53,7 @@ function OverrideLoaded({ agentId, canManage, pair }: { agentId: string; canMana
 
   return h(Card, { title: t("voice.agent.title"), level: 3 },
     h("p", { class: "reading" }, t("voice.agent.lead")),
-    h(RealtimeForm, { idp: "voice-ag", draft, onChange: (d) => { setDraft(d); setMsg(null); }, canEdit: canManage, effective, metrics: agent.metrics, overridden }),
+    h(RealtimeForm, { idp: "voice-ag", draft, onChange: (d) => { setDraft(d); setMsg(null); }, canEdit: canManage && !busy, effective, metrics: agent.metrics, overridden }),
     h("div", { class: "setup-nav" },
       h("button", { type: "button", class: "btn btn-primary", id: "voice-ag-save", disabled: !canManage || busy || sameDraft(draft, draftOf(agent.profile)), onClick: () => { void write(draft, t("voice.rt.saved")); } }, t("voice.rt.save")),
       h("button", { type: "button", class: "btn", id: "voice-ag-reset", disabled: !canManage || busy || (overridden.size === 0 && sameDraft(draft, draftOf(agent.profile))), onClick: () => { void write(base, t("voice.agent.resetDone")); } }, t("voice.agent.reset"))),

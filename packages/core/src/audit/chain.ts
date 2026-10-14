@@ -47,6 +47,17 @@ export interface AuditChain extends AuditSink {
   readonly dir: string;
 }
 
+/** The record must survive `JSON.stringify` unchanged: a NaN/Infinity `at` would become `null`, an `undefined` field would vanish. */
+function assertRecordable(e: AuditEvent): void {
+  const o = e as unknown as Record<string, unknown>;
+  const actor = o.actor as Record<string, unknown> | null | undefined;
+  const plain = (v: unknown): boolean => typeof v === "object" && v !== null && !Array.isArray(v);
+  const ok = typeof o.at === "number" && Number.isFinite(o.at) && o.at >= 0
+    && plain(actor) && typeof actor?.user === "string" && typeof actor?.host === "string"
+    && typeof o.action === "string" && typeof o.target === "string" && plain(o.detail);
+  if (!ok) throw new Error("audit-chain: invalid event; refusing to record it");
+}
+
 export const hashLine = (line: string): string => createHash("sha256").update(line, "utf8").digest("hex");
 
 interface Parsed { seq: number; prev: string }
@@ -172,7 +183,11 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
         // RULING: an unterminated tail is a crashed write. It is moved to a `.torn-<ms>` file (evidence, never silently
         // dropped) and the file is cut back to its last complete line; the line never reached the anchor.
         const bytes = readFileSync(f).subarray(t.tornFrom);
-        writeFileSync(`${f}.torn-${Date.now()}`, bytes, { mode: 0o600 });
+        // Never overwrite earlier evidence: two crashes within one millisecond get distinct names.
+        let tornPath = `${f}.torn-${Date.now()}`;
+        for (let n = 1; existsSync(tornPath); n++) tornPath = `${f}.torn-${Date.now()}-${n}`;
+        writeFileSync(tornPath, bytes, { mode: 0o600, flag: "wx" });
+        secure(tornPath);
         truncateSync(f, t.tornFrom);
         t = scanTail(f);
       }
@@ -193,6 +208,7 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
     const target = path.join(dir, name);
     if (existsSync(target)) throw new Error("audit-chain: rotation target exists");
     renameSync(active, target);
+    secured.delete(active); // the next active file is a new inode: re-secure it
     return name;
   };
 
@@ -209,6 +225,7 @@ export function createAuditChain(o: AuditChainOptions): AuditChain {
   return {
     dir,
     append(e: AuditEvent): void {
+      assertRecordable(e);
       withLock(() => {
         let st = tailState();
         // Fail closed when the chain is not what the anchor remembers: appending would paper over the tampering.

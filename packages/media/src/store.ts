@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { safeId } from './files.ts';
 import { embedImage } from './adapters/_shared/metadata.ts';
-import { MediaError, metadataEnabled, validateRequest } from './types.ts';
+import { MediaError, failure, metadataEnabled, validateRequest } from './types.ts';
 import type { ImageRequest, ImageResult } from './types.ts';
 export interface Manifest {
   schema: 'media.output/1'; id: string; createdAt: number; prompt: string; kind?: 'image' | 'video'; parameters: Omit<ImageRequest, 'referenceImages' | 'mask' | 'referenceVideo'>;
@@ -29,7 +29,8 @@ export class OutputStore {
     await mkdir(this.root, { recursive: true, mode: 0o700 });
     const lock = join(this.root, '.lock');
     try { await mkdir(lock); } catch { throw new MediaError('backend_unavailable'); }
-    try { return await fn(); } finally { await rm(lock, { recursive: true, force: true }); }
+    // Only stable codes leave the store: raw fs/parse/stream errors carry paths, URLs and fragments of remote or stored text.
+    try { return await fn(); } catch (e) { throw e instanceof MediaError ? e : failure(e); } finally { await rm(lock, { recursive: true, force: true }); }
   }
   private async manifests(): Promise<Manifest[]> {
     const entries = await readdir(this.root, { withFileTypes: true }); const out: Manifest[] = [];
@@ -133,7 +134,8 @@ export class OutputStore {
         await rm(source); const handle = await open(join(stage,'manifest.json'),'wx',0o600);
         try { await handle.writeFile(json); await handle.sync(); } finally { await handle.close(); }
         result.processingSignal?.throwIfAborted(); await rename(stage,join(this.root,id)); return manifest;
-      } finally { await rm(stage,{recursive:true,force:true}); }
+      } catch (e) { throw failure(e, result.processingSignal?.aborted ? result.processingSignal : undefined); }
+      finally { await rm(stage,{recursive:true,force:true}); }
     });
     this.#notify(l => l.onPut?.(published));
     return published;

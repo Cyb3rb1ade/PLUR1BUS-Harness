@@ -9,6 +9,18 @@ const PATHS: Record<LocalDialect, string> = { ollama: "/api/tags", openai: "/v1/
 
 class Bad extends Error {}
 
+/** The longest delay a timer honours; a longer one (Infinity included) would fire after 1 ms or make `AbortSignal.timeout` throw. */
+const MAX_TIMER_MS = 2 ** 31 - 1;
+
+/**
+ * A caller-supplied bound in ms. The probe never throws on configuration it can make sense of: unset, NaN, zero or
+ * negative is the default, anything above the timer range (Infinity: "as long as it takes") is the longest bound.
+ */
+export function boundMs(v: number | undefined, fallback: number): number {
+  if (v === undefined || typeof v !== "number" || Number.isNaN(v) || v <= 0) return fallback;
+  return Math.min(v, MAX_TIMER_MS);
+}
+
 function parseOrigin(origin: string): URL | undefined {
   try {
     const u = new URL(origin);
@@ -56,7 +68,8 @@ function isTimeout(e: unknown): boolean {
 /** One keyless request for one dialect. Never sends credentials; never follows a redirect. */
 async function tryDialect(origin: URL, dialect: LocalDialect, o: ProbeOptions, baseUrl: string): Promise<ProbeResult> {
   const doFetch = o.fetch ?? globalThis.fetch;
-  const timeout = AbortSignal.timeout(o.timeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS);
+  const timeoutMs = boundMs(o.timeoutMs, DEFAULT_PROBE_TIMEOUT_MS);
+  const timeout = AbortSignal.timeout(timeoutMs);
   const signal = o.signal ? AbortSignal.any([o.signal, timeout]) : timeout;
   const fail = (state: ProbeResult["state"], detail: string, httpStatus?: number): ProbeResult =>
     ({ state, baseUrl, models: [], detail, ...(httpStatus === undefined ? {} : { httpStatus }) });
@@ -67,7 +80,7 @@ async function tryDialect(origin: URL, dialect: LocalDialect, o: ProbeOptions, b
     const models = parseModelList(dialect, await readCapped(res));
     return { state: models.length === 0 ? "empty" : "ok", baseUrl, dialect, models, httpStatus: res.status };
   } catch (e) {
-    if (isTimeout(e) || timeout.aborted) return fail("timeout", `no answer within ${o.timeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS} ms`);
+    if (isTimeout(e) || timeout.aborted) return fail("timeout", `no answer within ${timeoutMs} ms`);
     if (o.signal?.aborted) throw o.signal.reason ?? e;
     if (e instanceof Bad) return fail("protocol", e.message);
     return fail("unreachable", "connection failed");

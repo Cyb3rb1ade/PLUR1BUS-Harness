@@ -9,12 +9,64 @@ export interface MetadataRule { pattern: string; kind: ModelKind; contextWindow?
 export interface CompiledTable { revision: string; sections: Map<string, { rule: MetadataRule; re: RegExp }[]> }
 
 const MAX_PATTERN = 200;
-// The RE2-safe subset: no backreference, no named back-reference, no lookaround; anchored; at most 200 characters.
+// The RE2-safe subset: no backreference, no named back-reference, no lookaround, no nested quantifier; anchored; at most 200 characters.
 const BACKREF = /\\[1-9]|\\k</;
 const LOOKAROUND = /\(\?<?[=!]/;
 
-/** Throws an Error listing every violation. Default: the bundled table. */
-export function loadMetadataTable(raw: unknown = bundled): CompiledTable {
+/** The table that ships with the harness, compiled. The only way to get it besides calling `loadMetadataTable()` with no argument. */
+export function loadBundledMetadataTable(): CompiledTable { return loadMetadataTable(bundled); }
+
+/**
+ * True when a repeated group (`+`, `*`, `{n,}` or `{n,m}` with m > 1) contains another such repetition at any depth, e.g.
+ * `(a+)+`, `(a|b*)*`, `((a+)b)+`, `(a{1,3}){2,5}` (exponential or polynomial backtracking in a JavaScript RegExp).
+ * `?` is not a repetition here. Escapes and character classes are skipped as single atoms.
+ */
+export function hasNestedQuantifier(p: string): boolean {
+  const quantifier = (i: number): { len: number; repeating: boolean } => {
+    const lazy = (n: number) => n + (p[i + n] === "?" ? 1 : 0);
+    const c = p[i];
+    if (c === "*" || c === "+") return { len: lazy(1), repeating: true };
+    if (c === "?") return { len: lazy(1), repeating: false };
+    if (c === "{") {
+      const m = /^\{(\d+)(,(\d*))?\}/.exec(p.slice(i, i + 24));
+      if (m) return { len: lazy(m[0].length), repeating: (m[2] === undefined ? Number(m[1]) : m[3] === "" ? Infinity : Number(m[3])) > 1 };
+    }
+    return { len: 0, repeating: false };
+  };
+  const groups: { inner: boolean }[] = [{ inner: false }];
+  let i = 0;
+  while (i < p.length) {
+    const c = p[i]!;
+    if (c === "(") {
+      groups.push({ inner: false }); i++;
+      if (p[i] === "?") { i++; if (p[i] === ":") i++; else if (p[i] === "<") { while (i < p.length && p[i] !== ">") i++; i++; } }
+      continue;
+    }
+    if (c === ")" && groups.length > 1) {
+      const g = groups.pop()!; i++;
+      const q = quantifier(i); i += q.len;
+      if (q.repeating && g.inner) return true;
+      if (q.repeating || g.inner) groups[groups.length - 1]!.inner = true;
+      continue;
+    }
+    if (c === "\\") i += 2;
+    else if (c === "[") {
+      i++; if (p[i] === "^") i++; if (p[i] === "]") i++;
+      while (i < p.length && p[i] !== "]") i += p[i] === "\\" ? 2 : 1;
+      i++;
+    } else i++;
+    const q = quantifier(i); i += q.len;
+    if (q.repeating) groups[groups.length - 1]!.inner = true;
+  }
+  return false;
+}
+
+/**
+ * Throws an Error listing every violation. Calling it with NO argument loads the bundled table (an explicit request);
+ * passing `undefined` (e.g. the result of a failed read of an external table) throws instead of silently falling back.
+ */
+export function loadMetadataTable(...args: [raw?: unknown]): CompiledTable {
+  const raw = args.length === 0 ? bundled : args[0];
   const errors: string[] = [];
   const sections = new Map<string, { rule: MetadataRule; re: RegExp }[]>();
   const seen = new Map<string, string>();
@@ -37,6 +89,7 @@ export function loadMetadataTable(raw: unknown = bundled): CompiledTable {
         if (p.length > MAX_PATTERN) { errors.push(`${w}: pattern longer than ${MAX_PATTERN} characters`); ok = false; }
         if (!p.startsWith("^") || !p.endsWith("$")) { errors.push(`${w}: pattern must be anchored with ^ and $`); ok = false; }
         if (BACKREF.test(p) || LOOKAROUND.test(p)) { errors.push(`${w}: pattern is outside the RE2-safe subset`); ok = false; }
+        else if (hasNestedQuantifier(p)) { errors.push(`${w}: pattern is outside the RE2-safe subset (nested quantifier)`); ok = false; }
         if (seen.has(p)) { errors.push(`${w}: duplicate pattern (also ${seen.get(p)})`); ok = false; } else seen.set(p, w);
         if (!(MODEL_KINDS as readonly unknown[]).includes(rule.kind)) { errors.push(`${w}: kind is not in the vocabulary`); ok = false; }
         if (!(Array.isArray(rule.capabilities) && rule.capabilities.every((c) => (CAPABILITIES as readonly unknown[]).includes(c)))) { errors.push(`${w}: capabilities not in the vocabulary`); ok = false; }
@@ -163,6 +216,10 @@ export function dedupResolvedAliases(
 
         return {
           model: m,
+          // A user's own alias (override or manual entry) outranks a table alias, and a model that is still
+          // listed outranks one that has gone: the alias must resolve to something that can be used.
+          userAlias: m.source === "manual" || (m.overrides.aliases?.includes(alias) ?? false),
+          live: m.status !== "unavailable",
           rawCreated,
           idDateMs,
           isBaseMatch,
@@ -170,6 +227,8 @@ export function dedupResolvedAliases(
       });
 
       scored.sort((a, b) => {
+        if (a.userAlias !== b.userAlias) return a.userAlias ? -1 : 1;
+        if (a.live !== b.live) return a.live ? -1 : 1;
         if (a.rawCreated !== undefined && b.rawCreated !== undefined) {
           return b.rawCreated - a.rawCreated;
         }

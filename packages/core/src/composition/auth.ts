@@ -9,6 +9,7 @@ import { stage, type PipelineLog } from './trace.ts';
 import type { ProviderFamily } from '../toolcall/quirks.ts';
 import { providerFetch } from './http.ts';
 import type { BillingClass } from './provider.ts';
+import { RpcError } from '../rpc/errors.ts';
 
 /** `billingPath` (ADR-005 D110 vocabulary): `chatgpt_plan`/`cli_login`/`plan` bill a subscription, `api_key`/`workload`/`paid` are metered. */
 export interface ProviderDefinition extends ProfileCredentials { openai?: OpenAIProviderBinding; wireFormat: 'chat_completions' | 'anthropic_messages' | 'codex_responses' | 'gemini'; defaultModel?: string; models?: string[]; billingPath?: string }
@@ -21,7 +22,28 @@ export function billingClassOf(def: Pick<ProviderDefinition, 'billingPath' | 'pr
   const kind = def.profile?.kind;
   return kind === 'api_key' || kind === 'adc' || kind === 'federated_token' ? 'paid' : kind === 'oauth_pkce' || kind === 'device_code' || kind === 'external_cli' ? 'plan' : undefined;
 }
-export function composeAuth(o: { config: HarnessConfig; definitions: Readonly<Record<string, ProviderDefinition>>; secrets: SecretStore; egress: Egress; log?: PipelineLog; fetch?: typeof fetch; openai?: OpenAIRuntime }) {
+/**
+ * Fail closed (ADR-005 §Never): a provider whose billing class cannot be determined (misspelled or empty billing path, unknown
+ * credential kind, missing profile) would never be refused for billing, so it is refused before anything is composed.
+ */
+function requireBillingClasses(definitions: Readonly<Record<string, ProviderDefinition>>): Record<string, BillingClass> {
+  const billing: Record<string, BillingClass> = {};
+  for (const [id, def] of Object.entries(definitions)) {
+    const profile = (def as Partial<ProviderDefinition> | undefined)?.profile;
+    const cls = profile && typeof profile === 'object' ? billingClassOf(def) : undefined;
+    if (cls) { billing[id] = cls; continue; }
+    const path = def?.billingPath ?? (profile as { billing_path?: unknown } | undefined)?.billing_path;
+    const why = !profile || typeof profile !== 'object' ? 'the provider has no auth profile'
+      : path !== undefined ? `billing path ${JSON.stringify(path)} is not one of ${[...PLAN_PATHS, ...PAID_PATHS].join(', ')}`
+      : `credential kind ${JSON.stringify(profile.kind)} has no billing class`;
+    throw new RpcError('E_CONFIG_INVALID', `provider ${id}: billing class cannot be determined`, { detail: why, ids: { provider: id } });
+  }
+  return billing;
+}
+export function composeAuth(o: { config: HarnessConfig; definitions: Readonly<Record<string, ProviderDefinition>>; secrets: SecretStore; egress: Egress; log?: PipelineLog; fetch?: typeof fetch; openai?: OpenAIRuntime; registerSecret?: (value: string) => void }) {
+  const billing = requireBillingClasses(o.definitions);
+  // The leased value is registered for redaction (TurnToolError.detail): the whole header value and the bare credential.
+  const registerCredential = (value: string) => { if (!o.registerSecret) return; o.registerSecret(value); const bare = value.replace(/^(?:Bearer|Basic)\s+/i, ''); if (bare !== value) o.registerSecret(bare); };
   const http = createOAuthHttp({ egress: o.egress });
   const credentials = createCredentialsProvider({ profiles: Object.values(o.definitions).filter(def => !o.openai?.handles(def)), store: createAuthSecretStore(o.secrets), clock: { now: Date.now }, refresher: new HttpRefresher(http), adc: new GoogleAdc({ http, clock: { now: Date.now } }) });
   // Read-only discovery access to the same pool/refresh owner. A changed profile cannot reuse a lease
@@ -30,10 +52,8 @@ export function composeAuth(o: { config: HarnessConfig; definitions: Readonly<Re
   const credentialsForDiscovery = (def: ProviderDefinition) => discoveryProfiles.get(def.profile.id) === JSON.stringify([def.profile, def.entries, def.strategy]) ? credentials : undefined;
   const registry: Map<string, ProviderRegistry extends ReadonlyMap<string, infer E> ? E : never> = new Map();
   const families: Record<string, ProviderFamily> = {};
-  const billing: Record<string, BillingClass> = {};
   for (const [id, def] of Object.entries(o.definitions)) {
     const format = def.wireFormat;
-    const cls = billingClassOf(def); if (cls) billing[id] = cls;
     const fetch = providerFetch(o.egress, format, o.fetch);
     families[id] = format === 'anthropic_messages' ? 'anthropic' : format === 'codex_responses' ? 'openai-responses' : format === 'gemini' ? 'gemini' : 'openai-chat';
     const managed = o.openai?.handles(def) ? o.openai.adapter(def) : undefined;
@@ -41,7 +61,11 @@ export function composeAuth(o: { config: HarnessConfig; definitions: Readonly<Re
       if (managed) { yield* managed.stream(request, options); return; }
       options?.signal?.throwIfAborted();
       let lease: AuthorizationLease | undefined;
-      const header = async () => { lease = await stage('auth', options?.signal ?? new AbortController().signal, o.log ?? (() => {}), () => credentials.getAuthorization({ profileId: def.profile.id, model: request.model })); options?.signal?.throwIfAborted(); return lease.header.value; };
+      const header = async () => {
+        lease = await stage('auth', options?.signal ?? new AbortController().signal, o.log ?? (() => {}), () => credentials.getAuthorization({ profileId: def.profile.id, model: request.model }));
+        registerCredential(lease.header.value);
+        options?.signal?.throwIfAborted(); return lease.header.value;
+      };
       const config = { ...(def.profile.base_url ? { baseUrl: def.profile.base_url } : {}), fetch, ...(def.profile.extra_headers ? { headers: def.profile.extra_headers } : {}) };
       const adapter = format === 'anthropic_messages' ? createAnthropicAdapter({ ...config, credentials: { apiKey: header } }) : format === 'codex_responses' ? createResponsesAdapter({ ...config, credentials: { authorization: header } }) : format === 'gemini' ? createGeminiAdapter({ ...config, credentials: { apiKey: header } }) : createChatCompletionsAdapter({ ...config, baseUrl: def.profile.base_url ?? 'https://api.openai.com/v1', credentials: { authorization: header } });
       try {

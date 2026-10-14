@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { lstatSync } from "node:fs";
 import path from "node:path";
 import type { IpcAddress, PlatformCapabilities } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
@@ -12,20 +13,43 @@ export {
 
 /** The host's platform capabilities (engine `PlatformCapabilities`); `securePath` is module-api's `createSecurePath`. */
 export function createPlatformCapabilities(o: SecurePathOptions = {}): PlatformCapabilities {
-  return { securePath: createSecurePath(o), ipcAddress, isUnsafeLink, canonicalIdentityPath };
+  const platform = o.platform ?? process.platform;
+  return {
+    securePath: createSecurePath(o),
+    ipcAddress: (stateRoot: string) => ipcAddress(stateRoot, platform),
+    isUnsafeLink,
+    canonicalIdentityPath: (p: string) => canonicalIdentityPath(p, platform),
+  };
 }
 
-function ipcAddress(stateRoot: string): IpcAddress {
-  if (process.platform === "win32") return { kind: "named-pipe", address: `\\\\.\\pipe\\plur1bus-embed-${Buffer.from(stateRoot).toString("hex").slice(0, 32)}` };
+/** The pipe name hashes the whole canonical state root (not a prefix of it: homes under one profile share their first
+ *  bytes), so one state root has one pipe whatever its spelling and two state roots never share one. */
+function ipcAddress(stateRoot: string, platform: NodeJS.Platform): IpcAddress {
+  if (platform === "win32") return { kind: "named-pipe", address: `\\\\.\\pipe\\plur1bus-embed-${createHash("sha256").update(canonicalIdentityPath(stateRoot, platform)).digest("hex").slice(0, 32)}` };
   return { kind: "unix-socket", address: path.join(stateRoot, "embedding.sock") };
 }
 
+/** Fails closed: only "nothing there" is safe. A path that cannot be examined (permission, too long, a link loop) is not
+ *  vouched for. */
 function isUnsafeLink(p: string): boolean {
-  try { return lstatSync(p).isSymbolicLink(); } catch { return false; }
+  try { return lstatSync(p).isSymbolicLink(); } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    return code !== "ENOENT" && code !== "ENOTDIR";
+  }
 }
 
-function canonicalIdentityPath(p: string): string {
-  return process.platform === "win32" ? path.win32.normalize(p).toLowerCase().replace(/^[a-z]:/, (d) => d.toLowerCase()) : path.posix.normalize(p);
+/** The comparison key of a path: normalised, without a trailing separator (the root keeps its own), Windows paths
+ *  lower-cased with the extended-length (question-mark) and UNC prefixes removed, macOS paths in NFC (the default volume treats NFC and NFD as one name). */
+function canonicalIdentityPath(p: string, platform: NodeJS.Platform): string {
+  const flavour = platform === "win32" ? path.win32 : path.posix;
+  let s = p;
+  if (platform === "win32") s = s.replace(/^\\\\[?.]\\UNC\\/i, "\\\\").replace(/^\\\\[?.]\\(?=[A-Za-z]:)/, "");
+  s = flavour.normalize(s);
+  if (platform === "win32") s = s.toLowerCase();
+  if (platform === "darwin") s = s.normalize("NFC");
+  const root = flavour.parse(s).root;
+  while (s.length > root.length && s.endsWith(flavour.sep)) s = s.slice(0, -1);
+  return s;
 }
 
 export const platformCapabilities: PlatformCapabilities = createPlatformCapabilities();

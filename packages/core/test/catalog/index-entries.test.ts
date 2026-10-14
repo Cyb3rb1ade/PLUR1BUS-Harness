@@ -80,14 +80,24 @@ describe("catalogue index: package ids and versions are unique", () => {
     assert.equal(parseCatalogIndex(bytes(doc({ packages: [pkg("owner/a", [{ version: "1.0.0" }]), pkg("owner/b", [{ version: "1.0.0" }])] }))).packages.length, 2);
   });
 
-  it("characterization: Ist-Verhalten, nicht spezifiziert: ids are compared exactly, so look-alike ids (case, trailing space, Cyrillic letters, zero-width) are separate packages and none of them is refused", () => {
-    const ids = ["owner/skill", "Owner/Skill", "owner/skill ", "owner/skіll", "owner/skill​", "owner∕skill"];
-    const i = parseCatalogIndex(bytes(doc({ packages: ids.map((id) => pkg(id)) })));
-    assert.deepEqual(i.packages.map((p) => p.id), ids);
+  it("package ids that collide after NFKC + lower-casing (case, full-width forms) or after dropping spaces, zero-width characters and known Cyrillic/Greek/slash look-alikes are refused, naming both ids", () => {
+    for (const twin of ["Owner/Skill", "owner/skill ", "owner/skіll", "owner/skill\u200b", "owner\u2215skill", "ｏｗｎｅｒ/skill", "owner/ѕkill", "оwner/skill"]) {
+      assert.throws(() => parseCatalogIndex(bytes(doc({ packages: [pkg("owner/skill"), pkg(twin)] }))),
+        (e: unknown) => e instanceof CatalogError && e.code === "signature_invalid" && e.message.includes("look-alike package id") && e.message.includes(JSON.stringify(twin)) && e.message.includes('"owner/skill"'), JSON.stringify(twin));
+    }
+    // the check is symmetric in order and also holds in the lower-level parser
+    assert.throws(() => parseIndex(bytes(doc({ packages: [pkg("Owner/Skill"), pkg("owner/skill")] }))), (e: unknown) => e instanceof ExtIndexError && e.code === "malformed" && e.message.includes("look-alike"));
   });
 
-  it("characterization: Ist-Verhalten, nicht spezifiziert: a duplicate package id surfaces as the generic 'invalid index/package metadata', the specific id is only in the lower-level parser's message", () => {
-    assert.throws(() => parseCatalogIndex(bytes(doc({ packages: [pkg("owner/a"), pkg("owner/a")] }))), (e: unknown) => e instanceof CatalogError && e.message === "invalid index/package metadata");
+  it("distinct ids that do not collide stay separate packages (a lone unusual id is not refused; only collisions are)", () => {
+    const ids = ["owner/skill", "owner/skills", "other/skill", "owner/skill-2", "solo/skіll"];
+    assert.deepEqual(parseCatalogIndex(bytes(doc({ packages: ids.map((id) => pkg(id)) }))).packages.map((p) => p.id), ids);
+  });
+
+  it("a duplicate package id is refused and the error names the id", () => {
+    assert.throws(() => parseCatalogIndex(bytes(doc({ packages: [pkg("owner/a"), pkg("owner/a")] }))), (e: unknown) => e instanceof CatalogError && e.code === "signature_invalid" && e.message.includes("duplicate package id owner/a"));
+    const long = "owner/" + "x".repeat(500);
+    assert.throws(() => parseCatalogIndex(bytes(doc({ packages: [pkg(long), pkg(long)] }))), (e: unknown) => e instanceof CatalogError && e.message.includes("duplicate package id") && e.message.length < 300);
   });
 
   it("an index with no packages, and a package with no versions, are accepted by the parser (characterization: Ist-Verhalten, nicht spezifiziert; the client later drops a package without versions from the offer)", () => {
@@ -130,16 +140,23 @@ describe("catalogue index: entry fields", () => {
     assert.equal(i["note"], "x"); assert.equal(i.packages[0]!["preselected"], true); assert.equal(i.packages[0]!.versions[0]!["channel"], "beta");
   });
 
-  it("characterization: Ist-Verhalten, nicht spezifiziert: a calendar-invalid date that still matches the timestamp pattern rolls over instead of being refused (2026-02-30 is 2 March)", () => {
-    assert.equal(timestamp("2026-02-30T00:00:00Z"), Date.parse("2026-03-02T00:00:00Z"));
-    assert.equal(timestamp("2026-10-07T24:00:00Z"), Date.parse("2026-10-08T00:00:00Z"));
+  it("a calendar-invalid date that matches the timestamp pattern is refused instead of rolling over", () => {
+    for (const bad of ["2026-02-30T00:00:00Z", "2026-02-29T00:00:00Z", "2026-04-31T00:00:00Z", "2026-00-10T00:00:00Z", "2026-10-00T00:00:00Z", "2026-10-07T24:00:00Z", "2026-10-07T12:60:00Z"]) {
+      assert.throws(() => parseCatalogIndex(bytes(doc({ expires: bad }))), (e: unknown) => e instanceof CatalogError && e.code === "signature_invalid", bad);
+    }
   });
 });
 
 describe("timestamps", () => {
+  it("leap days are real calendar dates", () => {
+    assert.equal(timestamp("2028-02-29T00:00:00Z"), Date.parse("2028-02-29T00:00:00Z"));
+    assert.throws(() => timestamp("2027-02-29T00:00:00Z"), (e: unknown) => code(e) === "signature_invalid");
+    assert.equal(timestamp("0004-02-29T00:00:00Z"), Date.parse("0004-02-29T00:00:00Z"));
+  });
+
   it("only UTC 'YYYY-MM-DDTHH:MM:SS[.mmm]Z' is accepted", () => {
     assert.equal(timestamp("2026-10-07T12:00:00Z"), NOW); assert.equal(timestamp("2026-10-07T12:00:00.250Z"), NOW + 250);
-    for (const bad of ["2026-10-07", "2026-10-07 12:00:00Z", "2026-10-07T12:00:00", "2026-10-07T12:00:00+00:00", "2026-10-07T12:00:00z", "2026-10-07T12:00:00.1Z", "2026-10-07T12:00:00.1234Z", "2026-13-01T00:00:00Z", "2026-10-07T23:59:60Z", " 2026-10-07T12:00:00Z", "2026-10-07T12:00:00Z\n", "soon", "", 5, null, undefined, {}])
+    for (const bad of ["2026-10-07", "2026-10-07 12:00:00Z", "2026-10-07T12:00:00", "2026-10-07T12:00:00+00:00", "2026-10-07T12:00:00z", "2026-10-07T12:00:00.1Z", "2026-10-07T12:00:00.1234Z", "2026-13-01T00:00:00Z", "2026-10-07T23:59:60Z", "2026-02-30T00:00:00Z", "2026-10-07T24:00:00Z", "2026-04-31T12:00:00Z", " 2026-10-07T12:00:00Z", "2026-10-07T12:00:00Z\n", "soon", "", 5, null, undefined, {}])
       assert.throws(() => timestamp(bad), (e: unknown) => code(e) === "signature_invalid", String(bad));
   });
 });
@@ -165,11 +182,22 @@ describe("revocation files", () => {
       no({ packages: [p] }, "exact versions required");
   });
 
-  it("characterization: Ist-Verhalten, nicht spezifiziert: 'exact versions required' is only checked as non-empty strings, so a range or wildcard such as '1.*' is accepted and (matched literally by the client) revokes nothing", () => {
-    assert.deepEqual(ok({ packages: [{ id: "owner/skill", versions: ["1.*", "<2.0.0", "*"], reason: "r" }] }).packages[0]!.versions, ["1.*", "<2.0.0", "*"]);
+  it("a version pattern is either an exact version, '*', or a dotted prefix wildcard such as '1.*'; ranges and other globs are refused", () => {
+    assert.deepEqual(ok({ packages: [{ id: "owner/skill", versions: ["1.*", "*", "1.2.3", "2.0.0-rc.1+build", "1.2.*"], reason: "r" }] }).packages[0]!.versions, ["1.*", "*", "1.2.3", "2.0.0-rc.1+build", "1.2.*"]);
+    for (const bad of ["<2.0.0", ">=1.0.0", "^1.2.0", "~1.2", "1*", "1.*.3", "*.1", "1.**", "1 - 2", "1.0.0 || 2.0.0", "1.0.0, 2.0.0", "!1.0.0", "=1.0.0", " 1.0.0", "1.0.0 ", "1.?", "[1-2].0"])
+      no({ packages: [{ id: "owner/skill", versions: ["1.0.0", bad], reason: "r" }] }, "exact versions required");
   });
 
-  it("characterization: Ist-Verhalten, nicht spezifiziert: a revocation may name a package or key the index does not contain (nothing requires it to resolve)", () => {
+  it("revocationMatches applies the documented semantics: exact equality, '*' for every version, 'N.*' for every version starting with 'N.'", async () => {
+    const { revocationMatches } = await import("../../src/catalog/verify.ts");
+    assert.ok(revocationMatches("1.2.3", "1.2.3")); assert.ok(!revocationMatches("1.2.3", "1.2.4"));
+    assert.ok(revocationMatches("*", "anything")); assert.ok(revocationMatches("*", "1.0.0-rc.1"));
+    assert.ok(revocationMatches("1.*", "1.0.0")); assert.ok(revocationMatches("1.*", "1.10.2")); assert.ok(revocationMatches("1.*", "1.0.0-rc.1"));
+    assert.ok(!revocationMatches("1.*", "10.0.0")); assert.ok(!revocationMatches("1.*", "1")); assert.ok(!revocationMatches("1.*", "2.1.0"));
+    assert.ok(revocationMatches("1.2.*", "1.2.9")); assert.ok(!revocationMatches("1.2.*", "1.3.0"));
+  });
+
+  it("a revocation may name a package or key the index does not contain: it is kept, and the client reports it (see trust.test.ts)", () => {
     const r = ok({ keys: ["no-such-key"], packages: [{ id: "no/such-package", versions: ["9.9.9"], reason: "r" }] });
     assert.equal(r.keys[0], "no-such-key"); assert.equal(r.packages[0]!.id, "no/such-package");
   });
@@ -244,9 +272,34 @@ describe("signed envelopes", () => {
     throwsCode(() => verifyEnvelope(whitespace, r1(), NOW), "signature_invalid");
   });
 
-  it("a signature by a key the root does not list is key_unknown, even next to valid ones (characterization: Ist-Verhalten, nicht spezifiziert: one stray signature rejects the whole envelope)", () => {
-    const e = signed({ x: 1 }, [a, stranger]);
-    throwsCode(() => verifyEnvelope(e, r1(), NOW), "key_unknown", "unknown signing key stranger");
+  it("a signature by a key the root does not list is key_unknown when nothing else reaches the threshold", () => {
+    throwsCode(() => verifyEnvelope(signed({ x: 1 }, [stranger]), r1(), NOW), "key_unknown", "unknown signing key stranger");
+    throwsCode(() => verifyEnvelope(signed({ x: 1 }, [a, stranger]), r1([a, b], 2), NOW), "key_unknown", "unknown signing key stranger");
+  });
+
+  it("extra signatures never veto: an unknown, malformed, wrongly signed or expired extra signature is ignored while `threshold` distinct valid signatures exist", () => {
+    const good = signed({ x: 1 }, [a]); const sig = good.signatures[0]!;
+    const withExtra = (extra: { keyId: string; signature: string }, order: "before" | "after" = "after") => ({ ...good, signatures: order === "after" ? [sig, extra] : [extra, sig] });
+    const strangerSig = signed({ x: 1 }, [stranger]).signatures[0]!;
+    for (const order of ["before", "after"] as const) {
+      const unknown = verifyEnvelope(withExtra(strangerSig, order), r1(), NOW); assert.deepEqual(unknown.signers, ["a"]); assert.equal(unknown.ignored[0]!.keyId, "stranger"); assert.equal(unknown.ignored[0]!.code, "key_unknown");
+      assert.deepEqual(verifyEnvelope(withExtra({ keyId: "b", signature: sig.signature }, order), r1(), NOW).signers, ["a"]); // a's signature presented as b's: does not verify
+      assert.deepEqual(verifyEnvelope(withExtra({ keyId: "b", signature: "not base64!" }, order), r1(), NOW).signers, ["a"]);
+      assert.deepEqual(verifyEnvelope(withExtra({ keyId: "b", signature: Buffer.alloc(10).toString("base64") }, order), r1(), NOW).signers, ["a"]);
+    }
+    const bExpired = parseRoot({ ...root([a, b]), keys: [root([a]).keys[0]!, { ...root([b]).keys[0]!, expires: "2026-10-01T00:00:00Z" }] });
+    assert.deepEqual(verifyEnvelope(signed({ x: 1 }, [a, b]), bExpired, NOW).signers, ["a"]);
+  });
+
+  it("a signature by a REVOKED key still rejects the envelope with key_revoked, even next to valid ones (fail closed)", () => {
+    throwsCode(() => verifyEnvelope(signed({ x: 1 }, [a, b]), r1(), NOW, new Set(["b"])), "key_revoked", "signing key b is revoked");
+  });
+
+  it("the threshold is on valid signatures only: with threshold 2, one valid signature plus any number of broken ones is refused, with the first failure's code", () => {
+    const both = signed({ x: 1 }, [a, stranger]);
+    throwsCode(() => verifyEnvelope(both, r1([a, b], 2), NOW), "key_unknown", "unknown signing key stranger");
+    const ok2 = signed({ x: 1 }, [a, b, stranger]);
+    assert.deepEqual(verifyEnvelope(ok2, r1([a, b], 2), NOW).signers.sort(), ["a", "b"]);
   });
 
   it("the threshold counts distinct trusted signers: two signatures by the same key are one", () => {

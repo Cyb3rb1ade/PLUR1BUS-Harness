@@ -26,7 +26,10 @@ export function lifecycleAdmission(handlers: Record<string, Handler>, lifecycle:
 /** Engine jobs launched outside RPC (dreams/post-turn) pass the same gate. Already running jobs finish normally. */
 export function lifecycleEngine(engine: import("@cyb3rb1ade/plur1bus-memory/types/engine.js").Engine, lifecycle: AgentLifecycle): import("@cyb3rb1ade/plur1bus-memory/types/engine.js").Engine {
   return { ...engine, jobs: { ...engine.jobs, run: async (job, id, options) => {
-    if (!lifecycle.usable(id)) throw new RpcError("E_CONFLICT", "agent background work is suspended", { reason: lifecycle.state(id).archived ? "archived" : "paused" });
+    if (!lifecycle.usable(id)) {
+      const state = lifecycle.state(id);
+      throw new RpcError(state.deleted ? "E_NOT_FOUND" : "E_CONFLICT", "agent background work is suspended", { reason: state.deleted ? "deleted" : state.archived ? "archived" : "paused" });
+    }
     return engine.jobs.run(job,id,options);
   } } };
 }

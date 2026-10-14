@@ -25,6 +25,8 @@ export class CoreMLAdapter implements ImageAdapter {
   private session: CoreMLSession | undefined; private mode: Promise<'jsonl' | 'oneshot'> | undefined;
   constructor(config: CoreMLConfig) {
     this.model = config.model; this.config = config;
+    // The model is a directory name below the models directory; the helper must not be pointed anywhere else.
+    if (typeof config.model !== 'string' || /[\\/\0]/.test(config.model) || config.model === '.' || config.model === '..') throw new MediaError('unsupported_parameter');
     if (!config.helperPath || !config.model || !Number.isFinite(config.timeoutMs ?? 300000) || (config.timeoutMs ?? 300000) <= 0) throw new MediaError('unsupported_parameter');
     const bad = (config.computeUnits !== undefined && !COMPUTE_UNITS.includes(config.computeUnits)) || (config.scheduler !== undefined && !/^[A-Za-z0-9_.-]{1,64}$/.test(config.scheduler))
       || (config.strength !== undefined && !(config.strength > 0 && config.strength <= 1)) || (config.protocol !== undefined && !['auto', 'oneshot', 'jsonl'].includes(config.protocol))

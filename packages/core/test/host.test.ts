@@ -27,4 +27,19 @@ describe("harness host", () => {
     assert.equal(typeof host.platform.securePath, "function");
     await logger.close();
   });
+  it("audit: mutateConfig is offered only while canMutateConfig answers true; a throwing probe withdraws it instead of throwing into the engine", async () => {
+    const l = layout(tempDir("p1b-host-"));
+    const cfg = defaults(); cfg.agents.bernd = {};
+    const reg = createAgentRegistry(cfg, l);
+    const logger = createLogger({ file: l.logFile("core"), level: "info", role: "core" });
+    let probe: () => boolean = () => true;
+    const mutate = async () => {};
+    const host = createHarnessHost({ layout: l, logger, config: cfg, engineConfig: buildEngineConfig(cfg, l), agents: reg, events: () => {}, mutateConfig: mutate, canMutateConfig: () => probe() });
+    assert.equal(host.mutateConfig, mutate);
+    probe = () => false; assert.equal(host.mutateConfig, undefined);
+    probe = () => { throw new Error("supervisor gone"); };
+    assert.doesNotThrow(() => host.mutateConfig);
+    assert.equal(host.mutateConfig, undefined);
+    await logger.close();
+  });
 });

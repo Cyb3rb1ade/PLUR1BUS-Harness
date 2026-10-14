@@ -22,12 +22,9 @@ export class LineReader {
       const end = nl === -1 ? chunk.length : nl;
       const piece = chunk.subarray(start, end);
       if (!this.#discarding) {
-        if (this.#size + piece.length > this.#max + (nl === -1 ? 0 : 1)) {
-          // Bytes before the newline may include a trailing `\r`; a line is over the limit when its payload is.
-          const payload = this.#size + piece.length - (nl !== -1 && piece.at(-1) === 0x0d ? 1 : 0);
-          if (payload > this.#max) { out.push({ overflow: true }); this.#reset(); this.#discarding = nl === -1; }
-          else { this.#chunks.push(piece); this.#size += piece.length; }
-        } else { this.#chunks.push(piece); this.#size += piece.length; }
+        // One byte of slack for a `\r` that may still be followed by its `\n` in the next chunk; `#take` makes the exact call.
+        if (this.#size + piece.length > this.#max + 1) { out.push({ overflow: true }); this.#reset(); this.#discarding = nl === -1; }
+        else { this.#chunks.push(piece); this.#size += piece.length; }
       }
       if (nl === -1) break;
       if (this.#discarding) this.#discarding = false;

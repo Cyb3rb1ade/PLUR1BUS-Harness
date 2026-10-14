@@ -147,7 +147,7 @@ function RealtimeLoaded({ data, canEdit }: { data: RealtimeData; canEdit: boolea
   return h("div", { class: "voice-rt-page" },
     h(Card, { title: t("voice.rt.title"), level: 3 },
       h("p", { class: "reading" }, t("voice.rt.lead")),
-      h(RealtimeForm, { idp: "voice-rt", draft, onChange: (d) => { setDraft(d); setMsg(null); }, canEdit, effective, metrics: data.metrics }),
+      h(RealtimeForm, { idp: "voice-rt", draft, onChange: (d) => { setDraft(d); setMsg(null); }, canEdit: canEdit && !busy, effective, metrics: data.metrics }),
       h("div", { class: "setup-nav" }, h("button", { type: "button", class: "btn btn-primary", id: "voice-rt-save", disabled: !canEdit || busy, onClick: () => { void save(); } }, t("voice.rt.save"))),
       msg ? h("p", { role: msg.tone === "err" ? "alert" : "status", class: msg.tone === "err" ? "form-error" : "field-hint" }, msg.text) : null,
       !canEdit ? h(Notice, {}, t("voice.readonly")) : null),

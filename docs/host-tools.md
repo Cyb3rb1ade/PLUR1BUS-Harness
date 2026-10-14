@@ -67,8 +67,13 @@ a process whose user is not the caller (unless uid 0). The argv is always `["-<S
 **`pkg.install` / `pkg.remove`** return `{ plan: { program, args, capability: "pkg.change", riskClass: "high", executed: false } }`
 and do not spawn the manager. Execution is a D109 approval follow-up.
 
-**`apps.open`** allows URL schemes `http:`, `https:`, `mailto:` only. Other schemes and deny-listed
-file paths fail with `denied_by_denylist`.
+**`apps.open`** allows URL schemes `http:`, `https:`, `mailto:` only. The allowlist applies to any target that
+carries a scheme, whatever `kind` says (`ssh:`, `vnc:`, `smb:`, `file:` fail with `denied_by_denylist`); a single
+letter before `:` is a Windows drive, not a scheme. File and app targets are checked against the deny-list both
+as given and after `~` expansion and `.` / `..` collapsing; symlinks are not resolved. Targets starting with `-`
+and an unknown `kind` are `invalid_input`. A non-zero exit of the opener is reported as `not_found`.
+It is registered as `sys.read` / `low`, which the policy table auto-allows, although opening an executable
+launches it: see Limits.
 
 **Clipboard** content is never placed on argv, never interpolated into an error message, and never
 logged by this library. Writes above 64 KiB are `too_large`.
@@ -112,7 +117,15 @@ No network. System access in production code is `node:child_process` (fixed argv
 - `sys.battery` is best-effort (`available: false` when the platform has no battery).
 - `apps.running` on Linux needs `wmctrl`; without it the result is `{ apps: [], available: false }`.
 - Clipboard backends that are missing (`wl-paste` / `xclip` / `xsel`) yield `not_found`.
-- Output is capped; a hung child is killed after `timeoutMs`.
+- Output is capped; a hung child is killed after `timeoutMs`. A truncated process table fails `proc.list`,
+  `proc.info` and `proc.kill` with `too_large` (a partial table would defeat the harness-tree check); a truncated
+  clipboard read is `too_large` rather than a silent prefix.
+- Spawn failures and unexpected exceptions are reported without paths or OS text (`not_found`,
+  `permission_denied`, otherwise `invalid_input` "the operation failed"). A non-zero exit of the clipboard and
+  notification backends is `not_supported_on_platform`.
+- `apps.open` and `notify` run under `sys.read` (policy `allowed`, no approval). `apps.open` can launch an
+  executable or script, so this is an approval gap until it gets an approval-class capability.
+- `notify` passes `--` before title and body to `notify-send`, and escapes PowerShell typographic double quotes.
 
 ## Follow-ups (not this PR)
 

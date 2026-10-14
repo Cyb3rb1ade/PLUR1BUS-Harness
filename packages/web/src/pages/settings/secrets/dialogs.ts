@@ -10,7 +10,8 @@ import { Dialog } from "../../../components/dialog.ts";
 import { t } from "../../../i18n.ts";
 import { bad, Field } from "../../common/field.ts";
 
-const NAME = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/;
+/** The names the secret store accepts. */
+export const SECRET_NAME = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/;
 export type SaveResult = { ok: true } | { ok: false; message: string };
 
 export type SecretDialogProps = {
@@ -35,7 +36,7 @@ export function SecretDialog({ rotate, existing, onSave, onClose }: SecretDialog
   const submit = async (): Promise<void> => {
     if (busy) return;
     const input = value.current;
-    const nErr = rotate !== undefined ? "" : !NAME.test(name) ? t("secrets.err.name") : existing.includes(name) ? t("secrets.err.exists") : "";
+    const nErr = rotate !== undefined ? "" : !SECRET_NAME.test(name) ? t("secrets.err.name") : existing.includes(name) ? t("secrets.err.exists") : "";
     const vErr = input && input.value.length > 0 ? "" : t("secrets.err.value");
     setNameErr(nErr); setValueErr(vErr); setSaveErr("");
     if (nErr || vErr || !input) return;

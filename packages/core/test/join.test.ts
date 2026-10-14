@@ -38,4 +38,19 @@ describe("joinBlocks", () => {
   it("Infinity cap joins everything", () => {
     assert.equal(joinBlocks([b("a", "x".repeat(50_000))], Number.POSITIVE_INFINITY).text.length, 50_000);
   });
+  it("audit: a NaN cap fails closed (nothing droppable survives) instead of disabling the cap", () => {
+    const r = joinBlocks([b("start", "S", false), b("memories", "MMMM")], Number.NaN);
+    assert.equal(r.text, "S");
+    assert.deepEqual(r.deferrals.map((d) => [d.block, d.kind]), [["memories", "dropped"]]);
+  });
+  it("audit: a fractional cap is floored, so the deferral lengths stay integers and the text is within the cap", () => {
+    const r = joinBlocks([b("memories", "0123456789")], 4.5);
+    assert.equal(r.text, "0123");
+    assert.deepEqual(r.deferrals, [{ block: "memories", kind: "clipped", from: 10, to: 4, reason: "global-cap" }]);
+  });
+  it("audit: a negative cap drops every droppable block and leaves a non-droppable one alone", () => {
+    const r = joinBlocks([b("start", "S", false), b("memories", "M")], -5);
+    assert.equal(r.text, "S");
+    assert.deepEqual(r.deferrals.map((d) => d.kind), ["dropped"]);
+  });
 });

@@ -68,6 +68,18 @@ Before writing, the guard derives the fingerprint the engine will derive from th
 `create-engine.js` calls at start) and refuses on any difference, because a mismatch would make the core refuse to start. No
 supervisor (config is just the file) → `switch-unavailable`, nothing written. The **old generation is kept** on disk.
 
+## Guards
+
+- **One operation at a time.** A plan or a switch in flight refuses a second plan, a start, a switch and an abort; a run in
+  flight refuses a plan. A switch is never aborted half-way.
+- **The engine's answer must match the checkpoint.** A plan whose target provider, model or dimensions differ from the
+  requested one is refused (`plan-refused`, no checkpoint). A switch is refused (`not-ready-to-switch`) when the engine's
+  finished target differs from the planned one, so a different vector space is never written to the configuration.
+- **No progress, no loop.** A batch that leaves the engine's cursor where it was halts the run (`aborted`, error
+  `engine-error`, "no progress"); it can be resumed.
+- **Progress.** `percent` is capped at 100; `batchesDone` is raised to what the engine's cursor shows, so it stays right after a
+  restart that lost the last checkpoint write.
+
 ## Throttling
 
 A pause of `--throttle-ms` (default 250) after every batch but the last; the engine's batch is 8 rows. Batch size × pause
@@ -79,10 +91,12 @@ bounds the load on the provider and the machine.
 |---|---|
 | `E_CONFLICT` `migration-active` | `plan` while an earlier migration has started and is unfinished (a planned one that never started is replaced) |
 | `E_CONFLICT` `migration-running` / `not-runnable` / `not-abortable` / `not-ready-to-switch` | the call does not fit the phase |
+| `E_CONFLICT` `migration-active` / `migration-running` / `not-abortable` | a plan or a switch is in flight and another plan, start, switch or abort arrives (one at a time per core); a plan during a run is `migration-running` |
+| `E_CONFLICT` `not-ready-to-switch` | also when the engine's finished target (generation, provider, model, dimensions) differs from the planned one; nothing is written |
 | `E_NOT_FOUND` `no-migration` | `run`/`abort` without a plan |
 | `E_INVALID_PARAMS` `plan-refused` | the engine refused the plan (e.g. not enough free disk) |
 | `E_NOT_AVAILABLE` `switch-unavailable` | no supervisor, a provider the Harness does not run, or a fingerprint the engine would not derive |
-| `E_STORAGE` `switch-failed` / `state-corrupt` | the config write failed / the checkpoint is unusable |
+| `E_STORAGE` `switch-failed` / `state-corrupt` / `state-unreadable` | the config write failed / the checkpoint is unusable / the checkpoint cannot be read or written (the message names no path) |
 
 ## What is not done (open points)
 

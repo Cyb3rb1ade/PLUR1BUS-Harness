@@ -51,7 +51,9 @@ export function LimitDialog({ limit, limits, periods, onClose, onSaved }: { limi
   const before: Bounds | null = existing ? { soft: existing.soft, hard: existing.hard } : null;
 
   const usedAmount = currentConsumption(periods ?? [], limits, key);
-  const belowUsed = usedAmount > 0 && ((parsed.hard !== null && parsed.hard < usedAmount) || (parsed.soft !== null && parsed.soft < usedAmount));
+  // Reaching a bound is already that state (used >= bound, see limitView), so a bound equal to the use needs the same confirmation.
+  const belowUsed = usedAmount > 0 && ((parsed.hard !== null && parsed.hard <= usedAmount) || (parsed.soft !== null && parsed.soft <= usedAmount));
+  const atUsed = belowUsed && ![parsed.hard, parsed.soft].some((b) => b !== null && b < usedAmount);
 
   const review = (): void => {
     const errs: Errors = {};
@@ -106,10 +108,10 @@ export function LimitDialog({ limit, limits, periods, onClose, onSaved }: { limi
         h("div", {}, h("dt", {}, t("budget.field.hard")), h("dd", {}, shown("hard")))),
       belowUsed
         ? h("div", { class: "field budget-below-used" },
-          h("p", { class: "form-error", role: "alert" }, t("budget.warn.belowUsed", { used: amount(metric, usedAmount) })),
+          h("p", { class: "form-error", role: "alert" }, t(atUsed ? "budget.warn.atUsed" : "budget.warn.belowUsed", { used: amount(metric, usedAmount) })),
           h("label", { class: "budget-below-used-check" },
             h("input", { id: "confirm-below-used", type: "checkbox", checked: confirmedBelow, onChange: (e: Event) => { setConfirmedBelow((e.target as HTMLInputElement).checked); } }),
-            h("span", {}, t("budget.confirm.belowUsed"))))
+            h("span", {}, t(atUsed ? "budget.confirm.atUsed" : "budget.confirm.belowUsed"))))
         : null);
   }
 

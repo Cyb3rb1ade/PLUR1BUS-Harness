@@ -179,7 +179,7 @@ export interface Limits {
   maxEventBytes: number;
   /** One tool call's accumulated arguments. */
   maxToolArgumentBytes: number;
-  /** A non-stream response body or an error body read for classification. */
+  /** A non-stream response body, an error body read for classification, or everything one streamed response may send. */
   maxBodyBytes: number;
 }
 

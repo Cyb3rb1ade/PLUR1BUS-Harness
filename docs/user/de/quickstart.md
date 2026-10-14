@@ -101,7 +101,7 @@ einen laufenden Core; das Archiv enthält nie Geheimnisse (API-Schlüssel bleibe
 ```sh
 plur1bus backup create --dry-run          # zeigen, was archiviert würde, nichts schreiben
 plur1bus backup create                    # Standard: <home>/backups/plur1bus-backup-<UTC>.tar.gz
-plur1bus backup verify <Archiv>           # Manifest und jede SHA-256; Exit 1 bei einem Archiv, das ein Restore ablehnt
+plur1bus backup verify <Archiv>           # Manifest und jede SHA-256; Exit 2 bei einem Archiv, das ein Restore ablehnt
 ```
 
 SQLite-Datenbanken unter `state/` werden mit der Online-Backup-API von SQLite kopiert, während der Core weiterläuft: Die

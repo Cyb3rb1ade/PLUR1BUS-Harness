@@ -1,3 +1,4 @@
+import { bindApiPrincipal, verifyApiDelegation, type ApiPrincipal } from "./api-principal.ts";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { createConnection, createServer, type Server, type Socket } from "node:net";
@@ -68,13 +69,18 @@ function warnIfDeprecated(logger: HarnessLogger, role: RpcServerRole, kind: "met
 }
 
 interface Dispatch { method: string; done: Promise<void>; settled: boolean }
-interface Conn { id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null; closing: boolean }
+interface Conn { api?: ApiPrincipal | null; id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null; closing: boolean }
 
 /** Endpoint, handshake, handlers, and lifecycle hooks for {@link createRpcServer}. */
 export interface RpcServerOptions {
   /** The role this process serves (default `core`): its handshake is `<server>.auth`, and only the methods whose
    *  `x-server` is `server` are dispatched (any other is method-not-found). */
   server?: RpcServerRole;
+  /** Credential registered for harness-api; regular endpoint tokens cannot delegate. */
+  apiToken?: string;
+  apiPrincipalOf?: (principal: ApiPrincipal) => ApiPrincipal | null | Promise<ApiPrincipal | null>;
+  onApiAuthenticated?: (id: string, principal: ApiPrincipal | null) => void;
+  apiPersonOfConnection?: (id: string, principal: ApiPrincipal) => Promise<string | null>;
   address: string; token: string;
   /** The handshake's result. */
   hello: () => object;
@@ -129,6 +135,16 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
   }
 
   async function dispatch(c: Conn, msg: any): Promise<void> {
+    let delegated: ApiPrincipal | null | undefined;
+    const authDelegation = msg?.method === authMethod ? msg?.params?.api : undefined;
+    const hasApi = msg && typeof msg === "object" && (Object.hasOwn(msg, "api") || authDelegation !== undefined);
+    if (hasApi) {
+      try { delegated = verifyApiDelegation(msg.api ?? authDelegation, o.apiToken); }
+      catch (e) { return errorReply(c, msg?.id, e as RpcError); }
+      msg = { ...msg }; delete msg.api;
+    } else if (c.api !== undefined) return errorReply(c, msg?.id, new RpcError("E_UNAUTHORIZED", "API principal required", { reason: "api-principal-required" }));
+    if (c.api !== undefined && (c.api?.userId !== delegated?.userId || c.api?.kind !== delegated?.kind))
+      return errorReply(c, msg?.id, new RpcError("E_UNAUTHORIZED", "API connection identity cannot change", { reason: "api-identity-change" }));
     const req = validateRequest(msg);
     if (!req.ok) return errorReply(c, msg?.id, new RpcError("E_INVALID_PARAMS", "invalid request", { reason: "invalid-request", detail: req.errors.join("; "), jsonrpcCode: -32600 }));
     const { id, method, params = {} } = msg;
@@ -139,10 +155,16 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
       if (!v.ok) { replyAndClose(c, id, new RpcError("E_INVALID_PARAMS", "invalid params", { detail: v.errors.join("; ") })); return; }
       if (!tokenMatches(params.token)) { replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "bad token", { reason: "bad-token" })); return; }
       c.authed = true;
+      if (hasApi) { c.api = delegated ?? null; o.onApiAuthenticated?.(c.id, c.api); }
       if (c.authTimer) { clearTimeout(c.authTimer); c.authTimer = null; }
-      return send(c, { jsonrpc: "2.0", id, result: o.hello() });
+      let principal: ApiPrincipal | null = null;
+      try { principal = hasApi && delegated ? await o.apiPrincipalOf?.(delegated) ?? null : null; }
+      catch { return replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "API identity unavailable", { reason: "no-principal" })); }
+      return send(c, { jsonrpc: "2.0", id, result: { ...o.hello(), ...(hasApi ? { apiPrincipal: principal } : {}) } });
     }
     if (!c.authed) return errorReply(c, id, new RpcError("E_UNAUTHORIZED", "authenticate first", { reason: "auth-required" }));
+    if (hasApi && c.api === undefined) return errorReply(c, id, new RpcError("E_UNAUTHORIZED", "delegate at handshake", { reason: "api-handshake-required" }));
+    if (hasApi) { c.api = delegated ?? null; o.onApiAuthenticated?.(c.id, c.api); }
     warnIfDeprecated(o.logger, role, "method", method);
 
     if (method === "events.subscribe" && served.has(method)) {
@@ -168,7 +190,9 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
     const t0 = performance.now();
     let outcome = "E_INTERNAL";
     try {
-      const result = await handler(params, { requestId: String(id), connectionId: c.id, signal: ac.signal });
+      const ctx = { requestId: String(id), connectionId: c.id, signal: ac.signal };
+      if (c.api !== undefined) bindApiPrincipal(ctx, delegated ?? null);
+      const result = await handler(params, ctx);
       const rv = validateResult(method, result);
       if (!rv.ok) { log.error("result violates schema", { errors: rv.errors }); return errorReply(c, id, new RpcError("E_INTERNAL", "result violates schema", { reason: "result-schema" })); }
       send(c, { jsonrpc: "2.0", id, result });
@@ -176,7 +200,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
       log.debug("ok", { ms: Math.round(performance.now() - t0) });
     } catch (e) {
       if (e instanceof RpcError) { outcome = e.error; log.info("rpc error", { error: e.error, reason: e.reason }); return errorReply(c, id, e); }
-      log.error("handler failed", { err: e });
+      log.error("handler failed", { reason: "handler-threw" });
       errorReply(c, id, new RpcError("E_INTERNAL", "internal error", { reason: "handler-threw" }));
     } finally {
       try { o.onCall?.(method, outcome, performance.now() - t0); } catch { /* a metrics hook never affects a reply */ }
@@ -254,7 +278,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
       return closing;
     },
     notify(method, params, opts = {}) {
-      const line = encodeLine({ jsonrpc: "2.0", method, params });
+
       // Capture the audience before asynchronous identity lookup; a caller cannot widen it later.
       const audience = opts.audience?.map(target => typeof target === "string" ? target : { ...target });
       for (const c of conns.values()) {
@@ -271,13 +295,16 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
               // A connection/person target cannot bypass a subscription's existing agent filter.
               if (sub.agentId && !(audience.some(t => typeof t === "string" && t === sub.agentId)
                 || (params as { agentId?: unknown }).agentId === sub.agentId)) continue;
-            } else if (sub.agentId && (params as { agentId?: unknown }).agentId !== sub.agentId) continue;
+            } else if (c.api !== undefined && !["core.state"].includes(method)) continue;
+            else if (sub.agentId && (params as { agentId?: unknown }).agentId !== sub.agentId) continue;
+            const line = encodeLine({ jsonrpc: "2.0", method, params,
+              ...(c.api !== undefined ? { audience: audience ?? null, connectionId: c.id } : {}) });
             writeToSocket(c, line); break; // one delivery per connection
           }
         };
-        if (audience?.some(t => typeof t === "object" && "personId" in t)) {
-          // Lookup failure, absent identity, and disconnect during lookup all fail closed.
-          void Promise.resolve().then(() => o.personOfConnection?.(c.id)).then(deliver).catch(() => {});
+        if (c.api !== undefined || audience?.some(t => typeof t === "object" && "personId" in t)) {
+          // API connection audiences also require a currently active person; a stale socket is no authority.
+          void Promise.resolve().then(() => c.api !== undefined ? (c.api ? o.apiPersonOfConnection?.(c.id, c.api) : null) : o.personOfConnection?.(c.id)).then(person => { if (c.api !== undefined && !person) return; deliver(person); }).catch(() => {});
         } else deliver();
       }
     },

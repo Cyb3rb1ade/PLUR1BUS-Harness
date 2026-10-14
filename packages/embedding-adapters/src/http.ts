@@ -100,7 +100,7 @@ async function readBounded(res: Response, limit: number, onOverflow: () => never
 }
 
 /** Up to ERROR_BODY_LIMIT bytes of an error body, for the message only. Never throws. */
-async function readErrorSnippet(res: Response): Promise<string> {
+async function readErrorSnippet(res: Response, secrets: readonly string[]): Promise<string> {
   try {
     if (!res.body) return "";
     const reader = res.body.getReader();
@@ -116,7 +116,9 @@ async function readErrorSnippet(res: Response): Promise<string> {
     const bytes = new Uint8Array(total);
     let at = 0;
     for (const p of parts) { bytes.set(p, at); at += p.byteLength; }
-    return new TextDecoder("utf-8", { fatal: false }).decode(bytes).replace(/\s+/g, " ").trim().slice(0, SNIPPET_CHARS);
+    // Redact before cutting (a cut can split a secret), and drop control characters (log/terminal injection).
+    const text = redactSecrets(new TextDecoder("utf-8", { fatal: false }).decode(bytes), secrets);
+    return text.replace(/[\u0000-\u0008\u000e-\u001f\u007f]/g, "").replace(/\s+/g, " ").trim().slice(0, SNIPPET_CHARS);
   } catch {
     return "";
   }
@@ -157,7 +159,7 @@ export async function postJson(r: PostJsonRequest, deps: HttpDeps): Promise<unkn
     }
 
     if (res.status < 200 || res.status >= 300) {
-      const snippet = await readErrorSnippet(res);
+      const snippet = await readErrorSnippet(res, r.secrets);
       const retryAfterMs = retryAfterFrom(res, nowMs);
       throw new AdapterError(statusToKind(res.status, snippet), `HTTP ${res.status} from ${r.provider}${snippet ? `: ${snippet}` : ""}`, {
         ...ctx,

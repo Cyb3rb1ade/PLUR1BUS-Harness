@@ -114,9 +114,7 @@ pub fn run(out: &Out, layout: &Layout, a: ImportArgs) {
                 "import.js not found at {} (set PLUR1BUS_IMPORT_JS, or PLUR1BUS_CORE_JS to a built core, or run setup)",
                 js.display()
             ),
-            json!({ "reason": "importer-missing" }),
-            1,
-        );
+            json!({ "reason": "importer-missing" }));
     }
     let node = locate_node(layout);
     let output = Command::new(&node)
@@ -131,7 +129,6 @@ pub fn run(out: &Out, layout: &Layout, a: ImportArgs) {
             "E_IMPORT_FAILED",
             &format!("cannot start {}: {e}", node.display()),
             json!({ "reason": "node-unavailable" }),
-            1,
         ),
     };
     let Some(env) = parse_envelope(&output.stdout) else {
@@ -145,7 +142,6 @@ pub fn run(out: &Out, layout: &Layout, a: ImportArgs) {
                     .map_or("signal".to_string(), |c| c.to_string())
             ),
             json!({ "reason": "importer-crashed" }),
-            1,
         );
     };
     if env["ok"] == json!(true) {
@@ -165,7 +161,7 @@ pub fn run(out: &Out, layout: &Layout, a: ImportArgs) {
         if let Some(r) = env["reason"].as_str() {
             extra["reason"] = json!(r);
         }
-        out.fail(code, message, extra, exit);
+        out.fail_exit(code, message, extra, exit);
     }
 }
 

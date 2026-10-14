@@ -30,14 +30,12 @@ pub fn run(out: &Out, layout: &Layout, args: BundleArgs) -> ! {
                 "E_INTERNAL",
                 "the bundle's re-scan still found secret-like content; nothing was written",
                 json!({ "reason": "redaction-rescan", "entries": entries }),
-                1,
             )
         }
         Err(BundleError::Io(e)) => out.fail(
             "E_STORAGE",
             &format!("cannot read the installation: {e}"),
             json!({}),
-            1,
         ),
     };
     let dest = bundle::destination(layout, args.out.as_deref(), now_ms).unwrap_or_else(|e| {
@@ -45,7 +43,6 @@ pub fn run(out: &Out, layout: &Layout, args: BundleArgs) -> ! {
             "E_STORAGE",
             &format!("cannot prepare the output path: {e}"),
             json!({}),
-            1,
         )
     });
     if let Err(e) = bundle::write_zip(&built, &dest) {
@@ -58,7 +55,6 @@ pub fn run(out: &Out, layout: &Layout, args: BundleArgs) -> ! {
             code,
             &format!("cannot write {}: {e}", dest.display()),
             json!({ "path": dest }),
-            1,
         );
     }
     let entries: Vec<_> = built.parts.iter().map(|p| p.path.as_str()).collect();
