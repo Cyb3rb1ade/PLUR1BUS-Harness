@@ -15,6 +15,8 @@ export interface ThreadStore {
 }
 
 export const MAX_REFERENCES_CHARS = 900;
+/** Entry cap; FileThreadStore refuses longer chains. */
+export const MAX_REFERENCES_COUNT = 64;
 const MAX_THREADS = 5000;
 
 /** One email thread == one chat. The key is derived from the root Message-ID, so it is opaque and stable. */
@@ -31,12 +33,12 @@ export function replySubject(subject: string): string {
 
 /**
  * The References chain for a reply: parent's chain plus the parent itself, capped. The root (first) entry is always kept;
- * the oldest middle entries are dropped first.
+ * the oldest middle entries are dropped first. Also capped to MAX_REFERENCES_COUNT entries.
  */
 export function capReferences(chain: readonly string[], max = MAX_REFERENCES_CHARS): string[] {
   const out = [...chain];
   const len = (xs: readonly string[]) => xs.reduce((n, x) => n + x.length + 3, 0);
-  while (out.length > 1 && len(out) > max) out.splice(1, 1);
+  while (out.length > 1 && (len(out) > max || out.length > MAX_REFERENCES_COUNT)) out.splice(1, 1);
   return out;
 }
 
@@ -71,7 +73,7 @@ function validRecord(v: unknown): v is ThreadRecord {
     typeof r.subject === "string" &&
     r.subject.length <= 998 &&
     Array.isArray(r.chain) &&
-    r.chain.length <= 64 &&
+    r.chain.length <= MAX_REFERENCES_COUNT &&
     r.chain.every((x) => typeof x === "string" && x.length > 0 && x.length <= 998 && !/[\s<>]/.test(x))
   );
 }

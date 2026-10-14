@@ -208,6 +208,11 @@ export class ImapConnection {
   async idle(maxMs: number, sleep: (ms: number, signal: AbortSignal) => Promise<void>): Promise<"event" | "timeout"> {
     this.#lock();
     const ac = new AbortController();
+    // IDLE is silent by design for up to `maxMs`; the socket's inactivity timeout (a few minutes) would destroy it. The
+    // IDLE timer below bounds the wait instead, and the timeout is re-armed when IDLE ends.
+    const sock = this.#reader.socket;
+    const ioTimeout = sock.timeout;
+    sock.setTimeout(0);
     try {
       const tag = this.#nextTag();
       this.#write(`${tag} IDLE\r\n`);
@@ -243,6 +248,7 @@ export class ImapConnection {
       }
     } finally {
       ac.abort();
+      if (ioTimeout && !sock.destroyed) sock.setTimeout(ioTimeout);
       this.#busy = false;
     }
   }
