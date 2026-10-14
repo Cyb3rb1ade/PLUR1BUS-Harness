@@ -141,8 +141,8 @@ describe("dreams scheduler: not twice across restarts and repeated starts", () =
 });
 
 describe("dreams scheduler: orphaned runs", () => {
-  const openRow = (store: DreamStore, id: string, agentId: string, phase: Phase, claimKey?: string) => {
-    store.insertRun({ runId: id, agentId, phase, jobId: "x", partition: "agent-private", idempotencyKey: claimKey ?? `k-${id}`, trigger: "cron", scheduledFor: T0, startedAt: T0 - HOUR, logPath: null });
+  const openRow = (store: DreamStore, id: string, agentId: string, phase: Phase, claimKey?: string, scheduledFor: number | null = null) => {
+    store.insertRun({ runId: id, agentId, phase, jobId: "x", partition: "agent-private", idempotencyKey: claimKey ?? `k-${id}`, trigger: "cron", scheduledFor, startedAt: T0 - HOUR, logPath: null });
     if (claimKey) store.claimKey(id, claimKey);
   };
 
@@ -177,8 +177,7 @@ describe("dreams scheduler: orphaned runs", () => {
     await h.sched.stop();
   });
 
-  it("a crashed window is not retried by itself: the next window or an importance trigger picks the corpus up", async () => {
-    // characterization: Ist-Verhalten, nicht spezifiziert. docs/dreams.md: "its corpus stays eligible", and says nothing about a retry.
+  it("a crashed window is retried once at the next start, as trigger catchup, for the same scheduled instant", async () => {
     const h = harness(dirs);
     h.captures("alpha", 3);
     await h.sched.start(); await h.sched.stop();
@@ -186,15 +185,50 @@ describe("dreams scheduler: orphaned runs", () => {
     await h.clock.advance(4 * HOUR + 10 * MIN);
     h.store.updateSchedule("alpha", "deep", { nextRunAt: T0 + DAY + 4 * HOUR });
     h.store.updateSchedule("alpha", "light", { nextRunAt: T0 + 8 * HOUR }); h.store.updateSchedule("alpha", "rem", { nextRunAt: T0 + DAY + HOUR + 15 * MIN });
-    openRow(h.store, "crash", "alpha", "deep", "k-crash");
+    openRow(h.store, "crash", "alpha", "deep", "k-crash", T0 + 4 * HOUR);
     const again = h.make(); await again.start();
     assert.equal(h.store.getRun("crash")!.reason, "crashed");
-    assert.equal(h.engine.callsOf("consolidate-daily"), 0, "no automatic retry");
+    assert.equal(h.engine.callsOf("consolidate-daily"), 1, "one automatic retry");
+    const retry = rows(h, "deep").find((r) => r.runId !== "crash")!;
+    assert.equal(retry.trigger, "catchup"); assert.equal(retry.scheduledFor, T0 + 4 * HOUR); assert.equal(retry.outcome, "completed");
+    assert.equal(h.store.getSchedule("alpha", "deep")!.capturesAcc, 0, "the retry consumed the corpus");
+    await again.stop();
+  });
+
+  it("the retry is capped at one: a retry that crashes again is not retried, the next window picks the corpus up", async () => {
+    const h = harness(dirs);
+    h.captures("alpha", 3);
+    await h.sched.start(); await h.sched.stop();
+    await h.clock.advance(4 * HOUR + 10 * MIN);
+    h.store.updateSchedule("alpha", "deep", { nextRunAt: T0 + DAY + 4 * HOUR });
+    h.store.updateSchedule("alpha", "light", { nextRunAt: T0 + 8 * HOUR }); h.store.updateSchedule("alpha", "rem", { nextRunAt: T0 + DAY + HOUR + 15 * MIN });
+    // the original crashed and its retry (trigger catchup, same scheduled instant) crashed too
+    openRow(h.store, "crash", "alpha", "deep", "k-crash", T0 + 4 * HOUR);
+    h.store.insertRun({ runId: "crash-retry", agentId: "alpha", phase: "deep", jobId: "x", partition: "agent-private", idempotencyKey: "k-retry", trigger: "catchup", scheduledFor: T0 + 4 * HOUR, startedAt: T0 - 1, logPath: null });
+    const again = h.make(); await again.start();
+    assert.equal(h.store.getRun("crash-retry")!.reason, "crashed");
+    assert.equal(h.engine.callsOf("consolidate-daily"), 0, "no second retry");
     assert.equal(h.store.getSchedule("alpha", "deep")!.capturesAcc, 3, "the corpus was not consumed");
     const manual = await again.runPhase("alpha", "deep", { trigger: "manual" });
     assert.equal(manual.outcome, "completed");
     await again.stop();
   });
+
+  it("a crashed manual or importance run (no scheduled instant) is not retried; neither is one of a removed agent or a disabled phase", async () => {
+    const h = harness(dirs, { agents: ["alpha"] });
+    h.captures("alpha", 3);
+    await h.sched.start(); await h.sched.stop();
+    h.store.updateSchedule("alpha", "rem", { enabled: false });
+    h.store.insertRun({ runId: "m", agentId: "alpha", phase: "deep", jobId: "x", partition: "agent-private", idempotencyKey: "k-m", trigger: "manual", scheduledFor: null, startedAt: T0 - 5, logPath: null });
+    h.store.insertRun({ runId: "i", agentId: "alpha", phase: "light", jobId: "x", partition: "agent-private", idempotencyKey: "k-i", trigger: "importance", scheduledFor: null, startedAt: T0 - 4, logPath: null });
+    openRow(h.store, "ghost", "ghost", "deep", undefined, T0 - 3);
+    openRow(h.store, "off", "alpha", "rem", undefined, T0 - 2);
+    const again = h.make(); await again.start();
+    assert.equal(h.engine.calls.length, 0, "no retries");
+    for (const id of ["m", "i", "ghost", "off"]) assert.equal(h.store.getRun(id)!.reason, "crashed", id);
+    await again.stop();
+  });
+
 
   it("a run that is still open is not reported as running after a restart (the in-flight marker is memory, not ledger)", async () => {
     const h = harness(dirs);
@@ -219,7 +253,7 @@ describe("dreams scheduler: who may dream", () => {
     await h.sched.idle();
     assert.equal(h.engine.callsFor("beta"), 0, "a capture for a removed agent is ignored");
     assert.equal(h.store.getSchedule("beta", "deep")!.importanceAcc, 3, "and not recorded");
-    assert.equal(h.store.listSchedules("beta").length, 3, "characterization: Ist-Verhalten, nicht spezifiziert: the removed agent's schedule rows are kept");
+    assert.equal(h.store.listSchedules("beta").length, 3, "within a running process the removed agent's rows stay (it may come back); they are cleaned up at the next start");
     assert.deepEqual(h.sched.status().agents.map((a) => a.agentId), ["alpha"], "status lists registered agents only");
     await h.sched.stop();
   });
@@ -235,7 +269,7 @@ describe("dreams scheduler: who may dream", () => {
     await again.stop();
   });
 
-  it("characterization: Ist-Verhalten, nicht spezifiziert: a removed agent that returns fires its stale firing once as cron (not as catchup)", async () => {
+  it("a removed agent that returns fires its missed window once as catchup, with the stale scheduled instant", async () => {
     const h = harness(dirs, { agents: ["alpha", "beta"] });
     h.captures("beta", 3);
     await h.sched.start();
@@ -245,7 +279,42 @@ describe("dreams scheduler: who may dream", () => {
     h.agents.push("beta");
     await h.advance(HOUR, HOUR);
     const rem = rows(h, "rem", "beta");
-    assert.equal(rem.length, 1); assert.equal(rem[0]!.trigger, "cron"); assert.equal(rem[0]!.scheduledFor, stale);
+    assert.equal(rem.length, 1); assert.equal(rem[0]!.trigger, "catchup"); assert.equal(rem[0]!.scheduledFor, stale);
+    await h.advance(DAY, HOUR);
+    assert.deepEqual(rows(h, "rem", "beta").map((r) => r.trigger).sort(), ["catchup", "cron"], "after the catch-up the schedule is normal again");
+    await h.sched.stop();
+  });
+
+  it("the schedule rows of a removed agent are deleted at the next start; its ledger rows stay; a returning agent starts fresh (no catch-up)", async () => {
+    const h = harness(dirs, { agents: ["alpha", "beta"] });
+    h.captures("beta", 3);
+    await h.sched.start();
+    await h.advance(DAY, HOUR);
+    await h.sched.stop();
+    const ledger = rows(h, undefined, "beta").length;
+    assert.ok(ledger > 0);
+    h.agents.splice(h.agents.indexOf("beta"), 1);
+    const again = h.make(); await again.start();
+    assert.equal(h.store.listSchedules("beta").length, 0, "rows cleaned up");
+    assert.equal(h.store.listSchedules("alpha").length, 3, "the registered agent's rows are untouched");
+    assert.equal(rows(h, undefined, "beta").length, ledger, "the ledger keeps its history");
+    await again.stop();
+    await h.clock.advance(2 * DAY);
+    h.agents.push("beta");
+    const third = h.make(); await third.start();
+    assert.equal(h.store.listSchedules("beta").length, 3);
+    assert.equal(rows(h, undefined, "beta").length, ledger, "fresh rows: no stale firing");
+    await third.stop();
+  });
+
+  it("forgetAgent removes the rows at once, for the caller that removes an agent, and refuses a registered agent", async () => {
+    const h = harness(dirs, { agents: ["alpha", "beta"] });
+    await h.sched.start();
+    assert.throws(() => h.sched.forgetAgent("beta"), /still registered/);
+    h.agents.splice(h.agents.indexOf("beta"), 1);
+    assert.equal(h.sched.forgetAgent("beta"), 3);
+    assert.equal(h.store.listSchedules("beta").length, 0);
+    assert.equal(h.sched.forgetAgent("beta"), 0, "idempotent");
     await h.sched.stop();
   });
 
@@ -371,5 +440,31 @@ describe("dreams scheduler: importance state survives a restart", () => {
     assert.equal(light.length, 1); assert.equal(light[0]!.trigger, "importance"); assert.equal(light[0]!.outcome, "completed");
     assert.deepEqual(h.events.filter((e) => e.name === "trigger.importance").map((e) => e.phase), ["light"], "rem (300) and deep (450) are far from their thresholds");
     await again.stop();
+  });
+});
+
+describe("dreams scheduler: DST in Europe/Berlin on an injected clock", () => {
+  it("an hourly schedule runs once per real-time hour through the fall-back night 2026-10-25: the repeated 02:00 wall hour is not lost", async () => {
+    const start = Date.parse("2026-10-24T22:00:00Z");
+    const h = harness(dirs, { start, over: { defaultTimezone: "Europe/Berlin" } });
+    h.captures("alpha", 3);
+    await h.sched.start();
+    h.sched.setSchedule("alpha", "rem", { cron: "0 * * * *" });
+    await h.advance(5 * HOUR + MIN, 15 * MIN);
+    const fired = rows(h, "rem").map((r) => new Date(r.scheduledFor!).toISOString()).sort();
+    assert.deepEqual(fired, ["2026-10-24T23:00:00.000Z", "2026-10-25T00:00:00.000Z", "2026-10-25T01:00:00.000Z", "2026-10-25T02:00:00.000Z", "2026-10-25T03:00:00.000Z"]);
+    assert.ok(rows(h, "rem").every((r) => r.trigger === "cron"));
+    await h.sched.stop();
+  });
+
+  it("a daily schedule at a fixed wall time in the repeated hour still runs once (02:30 on the fall-back night)", async () => {
+    const start = Date.parse("2026-10-24T22:00:00Z");
+    const h = harness(dirs, { start, over: { defaultTimezone: "Europe/Berlin" } });
+    h.captures("alpha", 3);
+    await h.sched.start();
+    h.sched.setSchedule("alpha", "rem", { cron: "30 2 * * *" });
+    await h.advance(6 * HOUR, 15 * MIN);
+    assert.deepEqual(rows(h, "rem").map((r) => new Date(r.scheduledFor!).toISOString()), ["2026-10-25T00:30:00.000Z"]);
+    await h.sched.stop();
   });
 });

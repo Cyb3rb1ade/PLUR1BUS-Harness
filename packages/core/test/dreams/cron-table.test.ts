@@ -28,11 +28,14 @@ describe("dreams/cron parseCron: field forms", () => {
     });
   }
 
-  it("a field is restricted unless it is exactly '*'", () => {
+  it("a field is restricted unless it starts with '*' (Vixie cron)", () => {
     const c = parseCron("0 0 * * *");
     assert.equal(c.domRestricted, false); assert.equal(c.dowRestricted, false);
     const d = parseCron("0 0 1 * 1");
     assert.equal(d.domRestricted, true); assert.equal(d.dowRestricted, true);
+    const e = parseCron("0 0 */2 * */3");
+    assert.equal(e.domRestricted, false); assert.equal(e.dowRestricted, false);
+    assert.equal(parseCron("0 0 1-31 * 1-5").domRestricted, true, "a full range written as '1-31' is restricted: only a leading '*' counts");
   });
 
   const invalid = [
@@ -114,17 +117,41 @@ describe("dreams/cron nextAfter: daylight saving time", () => {
     assert.equal(next("0 4 * * *", "Europe/Berlin", "2026-10-24T12:00:00Z"), "2026-10-25T03:00:00.000Z"); // 04:00 CET (after fall back)
     assert.equal(next("0 4 * * *", "Europe/Berlin", "2026-03-28T12:00:00Z"), "2026-03-29T02:00:00.000Z"); // 04:00 CEST
   });
-  it("characterization: Ist-Verhalten, nicht spezifiziert: an hourly cron skips the repeated hour at fall back (2 h gap in real time)", () => {
+  it("an hourly cron fires at every real-time hour across fall back: the repeated 02:00 wall hour runs once per occurrence, no 2 h gap", () => {
     const c = parseCron("0 * * * *"); const out: string[] = [];
     let t = iso("2026-10-24T23:30:00Z");
-    for (let i = 0; i < 3; i++) { t = nextAfter(c, "Europe/Berlin", t)!; out.push(at(t)!); }
-    // documented: an ambiguous wall time fires at its first occurrence. The second 02:00 (01:00Z) is the same wall time.
-    assert.deepEqual(out, ["2026-10-25T00:00:00.000Z", "2026-10-25T02:00:00.000Z", "2026-10-25T03:00:00.000Z"]);
+    for (let i = 0; i < 4; i++) { t = nextAfter(c, "Europe/Berlin", t)!; out.push(at(t)!); }
+    // 02:00 CEST = 00:00Z (first occurrence), 02:00 CET = 01:00Z (second occurrence), then 03:00 CET = 02:00Z
+    assert.deepEqual(out, ["2026-10-25T00:00:00.000Z", "2026-10-25T01:00:00.000Z", "2026-10-25T02:00:00.000Z", "2026-10-25T03:00:00.000Z"]);
   });
-  it("characterization: Ist-Verhalten, nicht spezifiziert: '*/2' in day-of-month counts as restricted, so it is OR-ed with day-of-week", () => {
-    // Vixie cron treats a field that starts with '*' as unrestricted for the OR rule; here only a bare '*' is unrestricted.
-    // 2026-10-13 is a Tuesday and an odd day of month: matched by dom */2 alone, although day-of-week asks for Monday.
-    assert.equal(next("0 3 */2 * 1", "UTC", "2026-10-13T00:00:00Z"), "2026-10-13T03:00:00.000Z");
+  it("a sub-hourly wildcard cron also keeps its real-time rhythm through the repeated hour", () => {
+    const c = parseCron("*/30 * * * *"); const out: string[] = [];
+    let t = iso("2026-10-24T23:45:00Z");
+    for (let i = 0; i < 5; i++) { t = nextAfter(c, "Europe/Berlin", t)!; out.push(at(t)!); }
+    assert.deepEqual(out, ["2026-10-25T00:00:00.000Z", "2026-10-25T00:30:00.000Z", "2026-10-25T01:00:00.000Z", "2026-10-25T01:30:00.000Z", "2026-10-25T02:00:00.000Z"]);
+  });
+  it("a cron with fixed hours still fires at the first occurrence only, even when the hour list is a step ('0 2,3 * * *')", () => {
+    assert.equal(next("0 2,3 * * *", "Europe/Berlin", "2026-10-25T00:00:00Z"), "2026-10-25T02:00:00.000Z", "03:00 CET; the second 02:00 does not fire");
+  });
+  it("an hourly cron does not fire twice at spring forward (the missing hour has no wall time)", () => {
+    const c = parseCron("0 * * * *"); const out: string[] = [];
+    let t = iso("2026-03-29T00:30:00Z");
+    for (let i = 0; i < 3; i++) { t = nextAfter(c, "Europe/Berlin", t)!; out.push(at(t)!); }
+    assert.deepEqual(out, ["2026-03-29T01:00:00.000Z", "2026-03-29T02:00:00.000Z", "2026-03-29T03:00:00.000Z"]);
+  });
+  it("'*/n' in day-of-month is unrestricted for the OR rule, like Vixie cron: it ANDs with a restricted day-of-week", () => {
+    // 2026-10-13 is a Tuesday and an odd day. dom */2 (odd days) AND dow 1 (Monday): the next such day is Monday 2026-10-19.
+    assert.equal(next("0 3 */2 * 1", "UTC", "2026-10-13T00:00:00Z"), "2026-10-19T03:00:00.000Z");
+    // and '*/2' alone is still every odd day
+    assert.equal(next("0 3 */2 * *", "UTC", "2026-10-13T04:00:00Z"), "2026-10-15T03:00:00.000Z");
+    // a dom that does not start with '*' is restricted: OR with day-of-week (1st or any Monday)
+    assert.equal(next("0 3 1 * 1", "UTC", "2026-10-13T00:00:00Z"), "2026-10-19T03:00:00.000Z");
+    assert.equal(next("0 3 * * 1", "UTC", "2026-10-13T00:00:00Z"), "2026-10-19T03:00:00.000Z");
+  });
+  it("'*/n' in day-of-week is unrestricted as well: '0 3 15 * */2' is the 15th AND even weekdays", () => {
+    // 2026-10-15 is a Thursday (4): */2 = 0,2,4,6 -> matches. 2026-11-15 is a Sunday (0): matches too.
+    assert.equal(next("0 3 15 * */2", "UTC", "2026-10-14T00:00:00Z"), "2026-10-15T03:00:00.000Z");
+    assert.equal(next("0 3 15 * */2", "UTC", "2026-10-16T00:00:00Z"), "2026-11-15T03:00:00.000Z");
   });
 });
 
