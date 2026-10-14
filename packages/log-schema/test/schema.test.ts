@@ -195,3 +195,37 @@ test("audit is its own record type with the HB12 v1 fields (R1)", () => {
     assert.ok(!CATALOGUE.events.some((o) => o !== e && o.stream !== "audit" && o.event === e.event), e.event);
   }
 });
+
+test("a record that cannot be serialised is refused with a code, never thrown (circular, BigInt, deep, throwing toJSON)", () => {
+  const circular: Record<string, unknown> = {};
+  circular.self = circular;
+  let deep: Record<string, unknown> = {};
+  for (let i = 0; i < 200_000; i++) deep = { d: deep };
+  const hostile: unknown[] = [circular, { big: 10n }, deep, { toJSON() { throw new Error("boom"); } }];
+  for (const attrs of hostile) {
+    const v = validateRecord({ ...rec("provider.request.failed"), attrs });
+    assert.ok(!v.ok, "a record with unserialisable attrs is not valid");
+    const a = validateAuditRecord({ ...rec("agent.created"), detail: attrs });
+    assert.ok(!a.ok, "same for an audit detail");
+  }
+});
+
+test("a record whose property access throws is refused with a code, never thrown", () => {
+  const trap = { ...rec("provider.request.failed") };
+  Object.defineProperty(trap, "msg", { enumerable: true, get() { throw new Error("getter"); } });
+  const v = validateRecord(trap);
+  assert.ok(!v.ok && v.code === "schema", JSON.stringify(v));
+  const audit = { ...rec("agent.created") };
+  Object.defineProperty(audit, "target", { enumerable: true, get() { throw new Error("getter"); } });
+  const a = validateAuditRecord(audit);
+  assert.ok(!a.ok && a.code === "schema", JSON.stringify(a));
+});
+
+// KNOWN GAP: spec section 2.4 truncates a wrapped output line to 4 KiB, but the schema bounds `text` in characters
+// (maxLength 4096, code points) and neither validateRecord nor Rust validate_line checks LIMITS.lineBytes, so 4096
+// four-byte characters (16 KiB) validate. Fixing it needs a schema or parity change, which is outside this audit.
+test("KNOWN GAP: a wrapped output line over lineBytes is refused", { todo: true }, () => {
+  const r = { ...rec("process.output.line"), attrs: { text: "\u{1F600}".repeat(1500), untrusted: true } };
+  const v = validateRecord(r);
+  assert.ok(!v.ok, "1500 four-byte characters are 6000 bytes, over the 4096-byte line limit");
+});
