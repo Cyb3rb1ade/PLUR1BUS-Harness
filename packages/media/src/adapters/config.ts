@@ -1,6 +1,7 @@
 import type { AdapterConfig } from '../registry.ts';
 import type { HttpAdapterConfig } from '../adapters.ts';
 import type { CoreMLConfig, ComputeUnits } from '../coreml.ts';
+import { isIP } from 'node:net';
 import { privateHost } from '../http.ts';
 /** `media.adapters.*` as validated by config-schema. Secret *references* only; values come from `resolveSecret` (the core's secret store). */
 export interface MediaAdapterSettings { adapters?: Record<string, Record<string, unknown> | undefined>; video?: { adapters?: Record<string, import('./video.ts').VideoProfile | undefined>; maxBytes?: number; embedMetadata?: boolean } }
@@ -31,7 +32,7 @@ export async function adapterConfigsFromSettings(settings: MediaAdapterSettings 
     if (dt.enabled !== true) skip('draw-things', 'disabled');
     else if (!str(dt.model)) skip('draw-things', 'no_model');
     else {
-      const host = str(dt.host) ?? '127.0.0.1'; const port = num(dt.port) ?? 7860; const bare = host.replace(/^\[|\]$/g, ''); const loopback = bare === 'localhost' || bare === '::1' || /^127\./.test(bare);
+      const host = str(dt.host) ?? '127.0.0.1'; const port = num(dt.port) ?? 7860; const bare = host.replace(/^\[|\]$/g, ''); const loopback = bare === 'localhost' || bare === '::1' || (isIP(bare) === 4 && /^127\./.test(bare));
       if (!loopback && dt.allowLan !== true) skip('draw-things', 'lan_not_allowed');
       else if (!privateHost(bare) && !loopback) skip('draw-things', 'lan_not_allowed');
       else configs.push({ id: 'draw-things', model: str(dt.model)!, baseUrl: `http://${bare.includes(':') ? `[${bare}]` : bare}:${port}`, ...(loopback ? {} : { allowLan: true }), ...(num(dt.timeoutMs) === undefined ? {} : { timeoutMs: num(dt.timeoutMs)! }), ...(num(dt.maxConcurrent) === undefined ? {} : { maxConcurrent: num(dt.maxConcurrent)! }) });
