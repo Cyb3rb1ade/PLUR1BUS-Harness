@@ -207,6 +207,49 @@ void rig; void rpc;
 describe("b01: known gaps (see docs/a2a.md, Known limits)", () => {
   it.todo("KNOWN GAP: a turn reply and its event log are unbounded in memory");
   it.todo("KNOWN GAP: a full store of terminal tasks lets one peer block every other peer until retention passes (pinned by limits.test.ts)");
-  it.todo("KNOWN GAP: push redirects forward token and bearer credentials to the redirect target");
-  it.todo("KNOWN GAP: push 4xx answers are retried although the code comment says they are not");
+});
+
+describe("b01: push delivery", () => {
+  const TASK = { kind: "task", id: "t1", contextId: "c1", status: { state: "completed", timestamp: "2026-01-01T00:00:00.000Z" } } as never;
+  const allow = async (url: string) => { const u = new URL(url); return { allowed: true as const, host: u.hostname, port: Number(u.port || 80), address: "127.0.0.1", family: 4 as const }; };
+  function rigPush(responses: { status: number; location?: string }[], maxAttempts = 3) {
+    const calls: { url: string; headers: Record<string, string> }[] = []; let i = 0; const delays: number[] = [];
+    const transport: PushTransport = { decide: allow, post: async (a) => { calls.push({ url: a.url, headers: a.headers }); return responses[Math.min(i++, responses.length - 1)]!; } };
+    const scheduler = { set: (fn: () => void, ms: number) => { delays.push(ms); setImmediate(fn); return 1; }, clear: () => {} };
+    const d = new PushDispatcher({ transport, scheduler, clock: { now: () => 0 }, maxAttempts, backoffMs: 1 });
+    return { d, calls, delays };
+  }
+  const cfg = { url: "http://hook.test/x", token: "tok-b01", authentication: { schemes: ["Bearer"], credentials: "cred-b01" } };
+
+  it("a redirect to another origin does not receive the token or the bearer credentials", async () => {
+    const { d, calls } = rigPush([{ status: 302, location: "http://other.test/y" }, { status: 200 }]);
+    d.deliver(cfg, TASK); await d.idle();
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0]!.headers["x-a2a-notification-token"], "tok-b01");
+    assert.equal(calls[0]!.headers.authorization, "Bearer cred-b01");
+    assert.equal(calls[1]!.headers["x-a2a-notification-token"], undefined);
+    assert.equal(calls[1]!.headers.authorization, undefined);
+    assert.equal(calls[1]!.headers["content-type"], "application/json; charset=utf-8");
+  });
+
+  it("a same-origin redirect keeps the credentials", async () => {
+    const { d, calls } = rigPush([{ status: 307, location: "/moved" }, { status: 200 }]);
+    d.deliver(cfg, TASK); await d.idle();
+    assert.equal(calls[1]!.url, "http://hook.test/moved");
+    assert.equal(calls[1]!.headers.authorization, "Bearer cred-b01");
+    assert.equal(calls[1]!.headers["x-a2a-notification-token"], "tok-b01");
+  });
+
+  it("a 4xx answer is not retried (408 and 429 still are)", async () => {
+    for (const status of [400, 401, 404, 410]) {
+      const { d, calls, delays } = rigPush([{ status }], 3);
+      d.deliver(cfg, TASK); await d.idle();
+      assert.equal(calls.length, 1, `status ${status}`); assert.equal(delays.length, 0);
+    }
+    for (const status of [408, 429, 503]) {
+      const { d, calls } = rigPush([{ status }], 2);
+      d.deliver(cfg, TASK); await d.idle();
+      assert.equal(calls.length, 2, `status ${status}`);
+    }
+  });
 });
