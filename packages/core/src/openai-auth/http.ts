@@ -26,6 +26,7 @@ export function createOpenAIHttp(o: { egress: Pick<Egress, 'decide'>; fetch?: ty
       Object.defineProperty(result, inspect.custom, { value: () => ({ status: result.status, body: '[redacted]' }) });
       Object.defineProperty(result, 'toJSON', { value: () => ({ status: result.status, body: '[redacted]' }) });
       return result;
-    } catch (e) { throw e instanceof OpenAIError ? e : new OpenAIError('transport-failed'); }
+    } // bounded() reports abort reasons with login-* codes; on the HTTP transport those are plain transport failures.
+    catch (e) { throw e instanceof OpenAIError && e.code !== 'login-timeout' && e.code !== 'login-cancelled' ? e : new OpenAIError('transport-failed'); }
   } };
 }

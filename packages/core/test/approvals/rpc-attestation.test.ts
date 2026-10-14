@@ -215,3 +215,42 @@ describe("approval.decide with an OS attestation", () => {
     r.service.dispose();
   });
 });
+
+it("approval exposes pending OS confirmation and then the confirmed platform", T, async () => {
+  const a = spy();
+  const r = await withAttester(a);
+  const { id, answer } = await r.park(SHELL);
+  const pending = await r.call("approval.get", { id });
+  assert.equal(pending.osConfirmation.required, true);
+  assert.equal(pending.osConfirmation.status, "pending");
+  await refused(r.call("approval.decide", { id, decision: "approve", scope: "session" }));
+  assert.equal((await r.call("approval.get", { id })).osConfirmation.platform, "touchid");
+  const decided = await r.call("approval.decide", { id, decision: "approve", scope: "session", attest: true });
+  assert.equal(decided.approval.osConfirmation.status, "confirmed");
+  assert.equal(decided.approval.osConfirmation.platform, "touchid");
+  assert.equal((await answer).approved, true);
+  r.service.dispose();
+});
+
+it("a trusted connection does not inherit another attempt's pending OS requirement", T, async () => {
+  const a = spy(); const r = await withAttester(a);
+  const { id, answer } = await r.park(SHELL);
+  await refused(r.call("approval.decide", { id, decision: "approve" }));
+  r.attestation = { kind: "desktop-app" };
+  assert.deepEqual((await r.call("approval.get", { id })).osConfirmation, { required: false, status: "not_required" });
+  const decided = await r.call("approval.decide", { id, decision: "approve" });
+  assert.equal(decided.approval.osConfirmation.required, false);
+  assert.equal(decided.approval.osConfirmation.status, "not_required");
+  assert.equal(a.calls.length, 0);
+  await answer; r.service.dispose();
+});
+
+it("disabling optional OS confirmation never bypasses the existing surface rule", T, async () => {
+ const a=spy();const r=await rpcRig({deps:{attester:a,requireOsConfirmation:()=>false}});
+ try {
+  const {id}=await r.park(SHELL);
+  const result=await refused(r.call("approval.decide",{id,decision:"approve",scope:"session",attest:true}));
+  assert.equal(result.error,"E_DENIED");assert.equal(result.reason,"surface-untrusted");
+  assert.equal(a.calls.length,0);assert.equal(r.stores.grants.inspect().length,0);
+ } finally {r.service.dispose();}
+});

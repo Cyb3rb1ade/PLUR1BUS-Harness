@@ -1,0 +1,18 @@
+{
+  "params": {
+    "agentId": "bernd",
+    "limit": 50
+  },
+  "result": {
+    "items": [
+      {
+        "id": "transition-1",
+        "agentId": "bernd",
+        "activity": {
+          "state": "recalling",
+          "since": 1758700000000
+        }
+      }
+    ]
+  }
+}

@@ -204,6 +204,7 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
       payload = hashAndSize(json);
       summary = redactor.text(json.length > 8192 ? json.slice(0, 8192) : json).slice(0, MAX_SUMMARY);
     } catch { /* an argument object that cannot be serialised is shown as such */ }
+    if (ask.recurring) summary = `${redactor.text(`aus wiederkehrender Aufgabe ${ask.recurring.jobName}`)}: ${summary}`.slice(0, MAX_SUMMARY);
     const all = (ask.targets ?? []).filter((t): t is string => typeof t === "string");
     const shown = all.slice(0, MAX_TARGETS);
     const masked = shown.map((t) => redactor.text(t));

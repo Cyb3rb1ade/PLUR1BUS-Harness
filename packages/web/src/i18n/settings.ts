@@ -98,6 +98,8 @@ export const en = {
   "settings.security.link.breakglass.hint": "Time-limited read access to another person's data.",
   "settings.security.link.devices": "Devices & remote",
   "settings.security.link.devices.hint": "Paired devices and remote access.",
+  "settings.security.limits": "Approval and emergency access limits",
+  "settings.security.limits.readOnly": "Read only. Changes require the authenticated configuration transport and an audit entry.",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -197,4 +199,6 @@ export const de: Record<keyof typeof en, string> = {
   "settings.security.link.breakglass.hint": "Befristeter Lesezugriff auf die Daten einer anderen Person.",
   "settings.security.link.devices": "Geräte & Fernzugriff",
   "settings.security.link.devices.hint": "Gekoppelte Geräte und Fernzugriff.",
+  "settings.security.limits": "Grenzen für Freigaben und Notfallzugriff",
+  "settings.security.limits.readOnly": "Nur lesend. Änderungen benötigen den authentifizierten Konfigurationstransport und einen Audit-Eintrag.",
 };

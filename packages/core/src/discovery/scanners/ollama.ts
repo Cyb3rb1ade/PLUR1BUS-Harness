@@ -3,7 +3,7 @@ import type { ProfileInfo } from "../ports.ts";
 // GET /api/tags. Keeps tag in model name.
 import type { RawEntry } from "../types.ts";
 import { ScanError, type PinnedClient } from "../http.ts";
-import { checkId, checkString, finalizeEntries } from "../validate.ts";
+import { checkId, present, checkString, finalizeEntries } from "../validate.ts";
 import type { ScanOutput, Scanner } from "./index.ts";
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -18,15 +18,15 @@ export const scanOllama: Scanner = async (_profile: ProfileInfo, client: PinnedC
     if (!isObj(item)) throw new ScanError("failed:invalid", "bad_envelope");
     const id = checkId(item.name);
     let created: number | undefined;
-    if (item.modified_at !== undefined) {
+    if (present(item.modified_at)) {
       const str = checkString(item.modified_at);
       const parsed = Date.parse(str);
       if (Number.isFinite(parsed) && parsed > 0) created = parsed;
     }
 
     if (isObj(item.details)) {
-      if (item.details.family !== undefined) checkString(item.details.family);
-      if (item.details.parameter_size !== undefined) checkString(item.details.parameter_size);
+      if (present(item.details.family)) checkString(item.details.family);
+      if (present(item.details.parameter_size)) checkString(item.details.parameter_size);
     }
 
     return {

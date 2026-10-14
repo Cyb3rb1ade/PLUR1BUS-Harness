@@ -39,6 +39,24 @@ function clipSnapshot(text: string, cap: number): string {
   return (nl >= cap / 2 ? text.slice(0, nl) : text.slice(0, hard)).trimEnd();
 }
 
+/** A cap is a count of chars: a number NaN or below zero would make every `length > cap` comparison false and silently lift the budget. */
+function checkCap(cap: number, what: string): void {
+  if (typeof cap !== "number" || Number.isNaN(cap) || cap < 0) throw new TypeError(`${what} must be a nonnegative number (Infinity for uncapped)`);
+}
+
+/**
+ * Shape check for one conversation entry, shared by the builder and `PromptSession.append`. The role is part of the trust
+ * boundary: tool output and recall are user-side content, a tool call is the assistant's; accepting any role would let
+ * tool or recall text be rendered as the assistant's own speech. Returns the entry's kind.
+ */
+export function checkConversationItem(item: ConversationItem): NonNullable<ConversationItem["kind"]> {
+  const kind = item.kind ?? "text";
+  if ((kind === "tool_use" || kind === "tool_result") && !item.id) throw new TypeError(`conversation ${kind} needs an id`);
+  if (kind === "tool_use" && item.role !== "assistant") throw new TypeError("conversation tool_use must have the assistant role");
+  if ((kind === "tool_result" || kind === "context") && item.role !== "user") throw new TypeError(`conversation ${kind} must have the user role`);
+  return kind;
+}
+
 /** RULING: chars / 4 is a deliberately low token estimate (CJK is denser), so R2 warns early rather than late. */
 const tokens = (chars: number): number => Math.ceil(chars / 4);
 
@@ -60,6 +78,7 @@ const project = (s: Segment) => ({ kind: s.kind, role: s.role, id: s.id, text: s
  * later folds into the conversation, joined and reported once).
  */
 export function joinRecall(agentId: string, model: string, v: VolatileInput, push: (e: PromptEvent) => void): { text: string; delivery: "tool_result" | "context"; toolUseId?: string } {
+  if (v.capChars !== undefined) checkCap(v.capChars, "volatile capChars");
   const blocks = v.blocks.map((b) => { const text = normalizeText(b.text); return { ...b, text, chars: text.length }; });
   const { text, deferrals } = joinBlocks(blocks, v.capChars ?? DEFAULT_VOLATILE_CAP_CHARS);
   for (const d of deferrals) {
@@ -92,11 +111,13 @@ export function createPromptBuilder(options: PromptBuilderOptions = {}): PromptB
 
     // Zone 1: tools, one segment each, sorted by name so registration order never reaches the prefix.
     const names = new Set<string>();
-    const toolSegs: Segment[] = [...input.tools]
+    // The order and the duplicate check use the NFC name that canonicalJson renders, so NFC/NFD spellings cannot move the prefix.
+    const toolSegs: Segment[] = input.tools
+      .map((t) => ({ t, name: normalizeText(t.name) }))
       .sort((a, b) => Buffer.compare(Buffer.from(a.name), Buffer.from(b.name)))
-      .map((t) => {
-        if (names.has(t.name)) throw new TypeError(`duplicate tool name: ${t.name}`);
-        names.add(t.name);
+      .map(({ t, name }) => {
+        if (names.has(name)) throw new TypeError(`duplicate tool name: ${name}`);
+        names.add(name);
         return { zone: "tools", kind: "tool_def", text: canonicalJson(t) } as Segment;
       });
 
@@ -105,6 +126,7 @@ export function createPromptBuilder(options: PromptBuilderOptions = {}): PromptB
 
     // Zone 3: the frozen snapshot, capped (L3: a clip is an event). RULING: default cap is the engine's 17 000-char inject budget.
     const memCap = input.zoneCaps?.memory ?? DEFAULT_MEMORY_CAP_CHARS;
+    checkCap(memCap, "memory zone cap");
     let memText = normalizeText(input.memory);
     if (memText.length > memCap) {
       const from = memText.length;
@@ -115,8 +137,7 @@ export function createPromptBuilder(options: PromptBuilderOptions = {}): PromptB
 
     // Zone 4: the conversation, append-only.
     const convSegs: Segment[] = input.conversation.map((item: ConversationItem) => {
-      const kind = item.kind ?? "text";
-      if ((kind === "tool_use" || kind === "tool_result") && !item.id) throw new TypeError(`conversation ${kind} needs an id`);
+      const kind = checkConversationItem(item);
       return { zone: "conversation", kind, role: item.role, text: normalizeText(item.text), ...(item.id ? { id: item.id } : {}) } as Segment;
     });
 

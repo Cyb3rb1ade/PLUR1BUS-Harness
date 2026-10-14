@@ -51,6 +51,7 @@ export const en = {
   "breakglass.error.unavailable": "The break-glass service is currently unavailable.",
   "breakglass.error.failed": "Failed to complete request: {message}",
   "breakglass.error.generic": "An error occurred. Please try again.",
+  "breakglass.dialog.reasonBounds": "Reason: {min} to {max} trimmed characters.",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -105,4 +106,5 @@ export const de: Record<keyof typeof en, string> = {
   "breakglass.error.unavailable": "Der Break-Glass-Dienst ist derzeit nicht verfügbar.",
   "breakglass.error.failed": "Anforderung fehlgeschlagen: {message}",
   "breakglass.error.generic": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
+  "breakglass.dialog.reasonBounds": "Begründung: {min} bis {max} Zeichen ohne äußere Leerzeichen.",
 };

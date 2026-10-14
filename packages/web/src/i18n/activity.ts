@@ -1,5 +1,18 @@
 // activity area catalogue (Logs > Activity feed): keys `activity.<topic>`; en and de have the same keys and {placeholders}.
 export const en = {
+  "activity.agent.state.idle": "Idle",
+  "activity.agent.state.recalling": "Recalling",
+  "activity.agent.state.capturing": "Capturing",
+  "activity.agent.state.checkpointing": "Checkpointing",
+  "activity.agent.state.dreaming": "Dreaming",
+  "activity.agent.state.consolidating": "Consolidating",
+  "activity.agent.state.maintenance": "Maintenance",
+  "activity.agent.unavailable": "Agent activity could not be loaded.",
+  "activity.agent.reload": "Reload agent activity",
+  "activity.agent.title": "Agent activity",
+  "activity.agent.filter": "Agent ID",
+  "activity.agent.since": "From",
+  "activity.agent.until": "Until",
   "activity.feed.title": "Recent activity",
   "activity.feed.lead": "Agent runs, dreams, model scans, backups, sign-ins and break-glass access in plain words. The Logs tab has every detail.",
   "activity.group.today": "Today",
@@ -64,6 +77,19 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "activity.agent.state.idle": "Inaktiv",
+  "activity.agent.state.recalling": "Erinnert",
+  "activity.agent.state.capturing": "Erfasst",
+  "activity.agent.state.checkpointing": "Sichert Zwischenstand",
+  "activity.agent.state.dreaming": "Träumt",
+  "activity.agent.state.consolidating": "Konsolidiert",
+  "activity.agent.state.maintenance": "Wartung",
+  "activity.agent.unavailable": "Agentenaktivität konnte nicht geladen werden.",
+  "activity.agent.reload": "Agentenaktivität neu laden",
+  "activity.agent.title": "Agentenaktivität",
+  "activity.agent.filter": "Agenten-ID",
+  "activity.agent.since": "Von",
+  "activity.agent.until": "Bis",
   "activity.feed.title": "Letzte Aktivität",
   "activity.feed.lead": "Agentenläufe, Träume, Modell-Scans, Backups, Anmeldungen und Break-Glass-Zugriffe in einfachen Worten. Alle Einzelheiten stehen im Tab Protokolle.",
   "activity.group.today": "Heute",

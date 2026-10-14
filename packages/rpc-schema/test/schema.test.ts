@@ -20,12 +20,12 @@ describe("rpc-schema", () => {
 
   it("has valid params/result fixture for every method and variant", () => {
     for (const [key, f] of Object.entries(fx.methods)) {
-      const method = key.endsWith(".system") ? key.slice(0, -".system".length) : key;
+      const method = key.endsWith(".system") ? key.slice(0, -".system".length) : key === "jobs.run.user" ? "jobs.run" : key;
       assert.ok(METHODS.includes(method), `unknown method for fixture ${key}`);
       assert.deepEqual(validateParams(method, f.params), { ok: true }, `${key} params`);
       assert.deepEqual(validateResult(method, f.result), { ok: true }, `${key} result`);
     }
-    const coveredMethods = new Set(Object.keys(fx.methods).map((k) => (k.endsWith(".system") ? k.slice(0, -".system".length) : k)));
+    const coveredMethods = new Set(Object.keys(fx.methods).map((k) => (k.endsWith(".system") ? k.slice(0, -".system".length) : k === "jobs.run.user" ? "jobs.run" : k)));
     assert.deepEqual([...coveredMethods].sort(), [...METHODS].sort(), "every method has a fixture");
   });
 

@@ -1,5 +1,11 @@
 // Approvals: requests, grants, D109 cards, decision, cancellation, revocation, attestation.
 export const en = {
+  "approvals.os.pending": "OS confirmation pending",
+  "approvals.os.confirmed": "OS confirmation confirmed",
+  "approvals.os.denied": "OS confirmation denied",
+  "approvals.os.failed": "OS confirmation failed; retry on the device",
+  "approvals.os.notRequired": "No OS confirmation required",
+  "approvals.os.deviceHint": "Confirm on the device to continue.",
   "approvals.title": "Approvals & Grants",
   "approvals.intro": "Review pending authorization requests and manage active standing grants.",
   "approvals.tab.pending": "Pending Requests",
@@ -48,9 +54,17 @@ export const en = {
   "approvals.attest.failed": "The confirmation did not succeed. Nothing was approved.",
   "approvals.attest.unavailable": "A confirmation by the operating system is not available here. This connection can approve low-risk requests only.",
   "approvals.attest.inProgress": "Another decision for this request is waiting for its confirmation dialog.",
+  "approvals.scope.alwaysConfigured": "Standing grant (up to {days} days unused)",
+  "approvals.scope.alwaysUnknown": "Standing grant",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "approvals.os.pending": "OS-Bestätigung ausstehend",
+  "approvals.os.confirmed": "OS-Bestätigung erteilt",
+  "approvals.os.denied": "OS-Bestätigung abgelehnt",
+  "approvals.os.failed": "OS-Bestätigung fehlgeschlagen; erneut auf dem Gerät versuchen",
+  "approvals.os.notRequired": "Keine OS-Bestätigung erforderlich",
+  "approvals.os.deviceHint": "Zum Fortfahren auf dem Gerät bestätigen.",
   "approvals.title": "Freigaben & Grants",
   "approvals.intro": "Ausstehende Autorisierungsanfragen prüfen und aktive Dauerberechtigungen verwalten.",
   "approvals.tab.pending": "Ausstehende Anfragen",
@@ -99,4 +113,6 @@ export const de: Record<keyof typeof en, string> = {
   "approvals.attest.failed": "Die Bestätigung ist nicht gelungen. Nichts wurde freigegeben.",
   "approvals.attest.unavailable": "Eine Bestätigung durch das Betriebssystem ist hier nicht verfügbar. Diese Verbindung kann nur risikoarme Anfragen freigeben.",
   "approvals.attest.inProgress": "Eine andere Entscheidung für diese Anfrage wartet auf ihren Bestätigungsdialog.",
+  "approvals.scope.alwaysConfigured": "Dauerberechtigung (max. {days} Tage ungenutzt)",
+  "approvals.scope.alwaysUnknown": "Dauerberechtigung",
 };

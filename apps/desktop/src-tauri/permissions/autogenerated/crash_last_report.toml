@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-crash-last-report"
+description = "Enables the crash_last_report command without any pre-configured scope."
+commands.allow = ["crash_last_report"]
+
+[[permission]]
+identifier = "deny-crash-last-report"
+description = "Denies the crash_last_report command without any pre-configured scope."
+commands.deny = ["crash_last_report"]

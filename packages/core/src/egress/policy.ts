@@ -62,19 +62,24 @@ function compileHost(entry: unknown): HostRule | string {
 export function compileEgressPolicy(cfg: EgressConfig): EgressPolicy {
   const errors: string[] = [];
   const rules: HostRule[] = [];
-  for (const entry of cfg.allowHosts) {
+  // The live configuration is not trusted to be well-typed: a non-array list is a configuration error (deny-all), never a throw.
+  const hosts: readonly unknown[] = Array.isArray(cfg.allowHosts) ? cfg.allowHosts : [];
+  if (!Array.isArray(cfg.allowHosts)) errors.push("egress.allowHosts is not a list");
+  const ports: readonly unknown[] = Array.isArray(cfg.allowPorts) ? cfg.allowPorts : [];
+  if (!Array.isArray(cfg.allowPorts)) errors.push("egress.allowPorts is not a list");
+  for (const entry of hosts) {
     const r = compileHost(entry);
     if (typeof r === "string") errors.push(r);
     else rules.push(r);
   }
-  const badPort = cfg.allowPorts.find((p) => !Number.isInteger(p) || p < 1 || p > 65535);
+  const badPort = ports.find((p) => typeof p !== "number" || !Number.isInteger(p) || p < 1 || p > 65535);
   const portsOk = badPort === undefined;
   if (!portsOk) errors.push(`port ${JSON.stringify(badPort)} is not an integer in 1..65535`);
   // RULING: a configuration error never widens or half-applies the policy: any error empties both lists.
   const failed = errors.length > 0;
   return {
     hostRules: failed ? [] : rules,
-    allowPorts: failed || !portsOk ? [] : [...cfg.allowPorts],
+    allowPorts: failed || !portsOk ? [] : (ports as number[]).slice(),
     allowLoopback: cfg.allowLoopback === true && !failed,
     errors,
     allowHosts: failed ? [] : rules.map((r) => (r.kind === "exact" ? r.host : r.kind === "suffix" ? `*.${r.suffix}` : r.kind === "any-name" ? "*" : r.address)),
@@ -82,7 +87,7 @@ export function compileEgressPolicy(cfg: EgressConfig): EgressPolicy {
 }
 
 /** `host` is a URL hostname (lowercase, brackets on IPv6). */
-export function hostAllowed(p: EgressPolicy, host: string): boolean {
+export function hostAllowed(p: EgressPolicy, host: string, opts: { explicitOnly?: boolean } = {}): boolean {
   let h = host.toLowerCase();
   if (h.endsWith(".")) h = h.slice(0, -1);
   const lit = parseAddress(h);
@@ -90,5 +95,5 @@ export function hostAllowed(p: EgressPolicy, host: string): boolean {
     const addr = formatAddress(canonical(lit));
     return p.hostRules.some((r) => r.kind === "ip" && r.address === addr);
   }
-  return p.hostRules.some((r) => (r.kind === "any-name" ? true : r.kind === "exact" ? r.host === h : r.kind === "suffix" ? h.endsWith(`.${r.suffix}`) : false));
+  return p.hostRules.some((r) => (r.kind === "any-name" ? opts.explicitOnly !== true : r.kind === "exact" ? r.host === h : r.kind === "suffix" ? h.endsWith(`.${r.suffix}`) : false));
 }

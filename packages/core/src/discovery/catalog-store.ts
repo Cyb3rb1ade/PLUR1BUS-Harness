@@ -146,10 +146,10 @@ export function createCatalogStore(o: CatalogStoreOptions): CatalogStore {
     return { file: structuredClone(current), recovered: main.missing && prev.missing ? "none" : "empty", ...(quarantinedTo ? { quarantinedTo } : {}) };
   }
 
-  function persist(next: CatalogFile, previous: CatalogFile): void {
+  function persist(nextText: string, previous: CatalogFile): void {
     const tmp = `${o.path}.tmp-${process.pid}`;
     try {
-      writeFileSynced(tmp, `${JSON.stringify(next, null, 2)}\n`);
+      writeFileSynced(tmp, nextText);
       const secTmp = o.securePath(tmp) as { applied?: boolean } | void;
       if (secTmp && secTmp.applied === false) {
         throw new CatalogWriteError("securePath failed to apply permissions to temp catalog");
@@ -176,7 +176,10 @@ export function createCatalogStore(o: CatalogStoreOptions): CatalogStore {
       const candidate: CatalogFile = { ...next, revision: previous.revision + 1 };
       const v = validateCatalog(candidate);
       if (!v.ok) throw new CatalogWriteError(new Error(`refusing to write an invalid catalog: ${v.errors[0]}`));
-      try { persist(candidate, previous); } catch (e) { throw new CatalogWriteError(e); }
+      // load() refuses (and quarantines) a file over the limit, so a write that large would lose the catalog at the next start.
+      const text = `${JSON.stringify(candidate, null, 2)}\n`;
+      if (Buffer.byteLength(text, "utf8") > MAX_CATALOG_BYTES) throw new CatalogWriteError(new Error("refusing to write a catalog larger than 16 MiB"));
+      try { persist(text, previous); } catch (e) { throw new CatalogWriteError(e); }
       current = candidate;
       return result;
     };

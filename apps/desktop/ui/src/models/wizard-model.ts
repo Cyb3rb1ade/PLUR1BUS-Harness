@@ -16,6 +16,11 @@ export const errors = {
  storage: { message: "wizard.error.storage", retry: "runtime" },
  health: { message: "wizard.error.health", retry: "runtime" },
  pairing: { message: "wizard.error.pairing", retry: "runtime" },
+ "port-in-use": { message: "wizard.error.port-in-use", retry: "runtime" },
+ "runtime-changed": { message: "wizard.error.runtime-changed", retry: "runtime" },
+ "invalid-resources": { message: "wizard.error.invalid-resources", retry: "runtime" },
+ "not-installed": { message: "wizard.error.not-installed", retry: "runtime" },
+ "exec-failed": { message: "wizard.error.exec-failed", retry: "runtime" },
 } as const;
 export type Wizard = { step: Step; agreed: boolean; selected: string | null; runtimes: RuntimeItem[]; operation: number; actions: number; connectionId: string | null; error: keyof typeof errors | null };
 export function initialWizard(): Wizard { return {step:"welcome",agreed:false,selected:null,runtimes:[],operation:0,actions:0,connectionId:null,error:null}; }
@@ -35,6 +40,8 @@ export function retryWizard(s: Wizard): Wizard { return {...s,step:s.error?error
 export function installerFor(platform: "mac" | "linux" | "windows", major: number | null): "apple-pkg" | "guide" | "podman-socket" | "vendor" { return platform==="mac"?(major!==null&&major>=26?"apple-pkg":"guide"):platform==="linux"?"podman-socket":"vendor"; }
 
 export function wizardError(code:unknown):keyof typeof errors {
- const known:Record<string,keyof typeof errors>={"runtime.not-found":"runtime-missing","runtime-unavailable":"runtime-missing","runtime.too-old":"runtime-too-old","runtime.no-access":"runtime-no-access","runtime.wrong-mode":"wrong-mode","digest-mismatch":"digest-mismatch","image-digest":"digest-mismatch","storage":"disk-space","start-timeout":"start-timeout","pairing-needed":"pair-failed","keychain-error":"pair-failed","cancelled":"cancelled"};
+ const known:Record<string,keyof typeof errors>={"runtime.not-found":"runtime-missing","runtime-unavailable":"runtime-missing","runtime.too-old":"runtime-too-old","runtime.no-access":"runtime-no-access","runtime.wrong-mode":"wrong-mode","runtime.stopped":"runtime-missing","digest-mismatch":"digest-mismatch","image-digest":"digest-mismatch","storage":"disk-space","start-timeout":"start-timeout","pairing-needed":"pair-failed","keychain-error":"pair-failed","cancelled":"cancelled",
+  // CtlError::code() in apps/desktop/src-tauri/src/controller/mod.rs
+  "bundle":"image","health":"health","port-in-use":"port-in-use","runtime-changed":"runtime-changed","invalid-resources":"invalid-resources","not-installed":"not-installed","exec-failed":"exec-failed"};
  return typeof code==="string"?(known[code]??"pull-failed"):"pull-failed";
 }

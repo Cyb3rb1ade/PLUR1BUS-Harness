@@ -31,8 +31,16 @@ export async function runHostTool<T = unknown>(name: string, input: unknown, ctx
     return { isError: false, value };
   } catch (e) {
     if (e instanceof HostFailure) return e.toResult();
-    const msg = e instanceof Error ? e.message : "unexpected failure";
-    const code = msg === "aborted" || (e instanceof Error && (e as { code?: string }).code === "aborted") ? "aborted" : "invalid_input";
-    return new HostFailure(code, msg).toResult();
+    return unexpected(e).toResult();
   }
+}
+
+/** Only errors raised by this library with a known code keep their text; anything else may carry paths or secrets. */
+function unexpected(e: unknown): HostFailure {
+  const c = (e as { code?: unknown } | null)?.code;
+  if (c === "aborted") return new HostFailure("aborted", "the call was aborted");
+  if (c === "invalid_input" && e instanceof Error) return new HostFailure("invalid_input", e.message);
+  if (c === "ENOENT" || c === "ENOTDIR") return new HostFailure("not_found", "the target was not found");
+  if (c === "EACCES" || c === "EPERM") return new HostFailure("permission_denied", "permission denied");
+  return new HostFailure("invalid_input", "the operation failed");
 }

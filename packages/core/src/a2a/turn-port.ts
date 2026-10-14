@@ -46,8 +46,10 @@ export function createProviderTurnPort(provider: () => ChatProvider | null): A2a
       const key = `${a.peerId}:${a.agentId}:${a.contextId}`;
       const existing = sessions.get(key);
       if (existing) return { sessionId: existing };
-      sessions.set(key, a.contextId);
-      return { sessionId: a.contextId };
+      // contextId is chosen by the caller: namespace it, or two peers sharing one id would share provider-side session state.
+      const sessionId = `a2a:${key}`;
+      sessions.set(key, sessionId);
+      return { sessionId };
     },
     async *run(req) {
       if (PAUSE_INPUT.test(req.text)) { yield { type: "pause", state: "input-required", message: "More information is required." }; return; }

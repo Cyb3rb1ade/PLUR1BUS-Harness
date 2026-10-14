@@ -7,6 +7,90 @@
   "additionalProperties": false,
   "required": ["schemaVersion"],
   "properties": {
+    "approvals": {
+      "description": "Approval policy limits; transport-enforced writes require owner or admin and audit.",
+      "type": "object",
+      "default": {},
+      "additionalProperties": false,
+      "properties": {
+        "maxGrantDays": {
+          "type": "integer",
+          "default": 90,
+          "x-restart": "core",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner",
+            "admin"
+          ],
+          "x-audit": true,
+          "minimum": 1,
+          "maximum": 365,
+          "description": "Always-grant idle lifetime in days. Explicit shorter expiries still apply."
+        },
+        "requireOsConfirmation": {
+          "type": "boolean",
+          "default": true,
+          "x-restart": "core",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner",
+            "admin"
+          ],
+          "x-audit": true,
+          "description": "Allow the required OS confirmation for an otherwise untrusted local decision. False disables this lift; it never bypasses surface trust."
+        }
+      }
+    },
+    "breakglass": {
+      "description": "Break-glass reason and duration bounds; trigger roles remain unchanged.",
+      "type": "object",
+      "default": {},
+      "additionalProperties": false,
+      "properties": {
+        "reasonMinChars": {
+          "type": "integer",
+          "default": 10,
+          "x-restart": "core",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner",
+            "admin"
+          ],
+          "x-audit": true,
+          "minimum": 1,
+          "maximum": 10000,
+          "description": "Minimum trimmed break-glass reason length."
+        },
+        "reasonMaxChars": {
+          "type": "integer",
+          "default": 500,
+          "x-restart": "core",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner",
+            "admin"
+          ],
+          "x-audit": true,
+          "minimum": 1,
+          "maximum": 10000,
+          "description": "Maximum trimmed break-glass reason length."
+        },
+        "maxWindowMinutes": {
+          "type": "integer",
+          "default": 60,
+          "x-restart": "core",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner",
+            "admin"
+          ],
+          "x-audit": true,
+          "minimum": 1,
+          "maximum": 1440,
+          "description": "Maximum break-glass window in minutes."
+        }
+      }
+    },
     "inbox": {
       "description": "Per-person inbox retention. Both limits are applied when a new entry is written.",
       "type": "object",
@@ -189,6 +273,7 @@
     },
     "remote": { "type": "object", "additionalProperties": false, "default": {}, "x-restart": "core", "x-tier": "advanced", "description": "Remote exposure configuration (listener integration is separate).", "properties": { "publish": { "type": "string", "enum": ["local", "tailnet", "network"], "default": "tailnet", "x-restart": "core", "x-tier": "advanced", "description": "Requested exposure mode; never makes a listener public. Applying the remote-access listener plan is a separate integration." } } },
     "$schema": { "description": "URI identifying the JSON Schema used to validate this configuration.", "type": "string", "x-restart": "live", "x-tier": "advanced" },
+    "activity": { "type": "object", "additionalProperties": false, "default": {}, "description": "In-process agent activity history; cleared at core restart.", "properties": { "maxEntries": { "type": "integer", "minimum": 200, "maximum": 100000, "default": 1000, "x-tier": "advanced", "x-restart": "core", "description": "Maximum retained agent activity transitions." } } },
     "schemaVersion": { "description": "Configuration format version; this schema supports version 1.", "const": 1, "x-restart": "core", "x-tier": "advanced" },
     "tools": {
       "description": "Local tool configuration.",
@@ -715,6 +800,7 @@
             "mediaEmbedding": {"description": "Per-agent override of the media index settings; unset keys inherit the installation values.", "type": "object", "additionalProperties": false, "x-restart": "core", "x-tier": "basic", "properties": {
               "enabled": {"description": "Whether the separate media index (image, video, audio) is used.", "type": "boolean", "x-restart": "core", "x-tier": "basic"},
               "provider": {"description": "Embedding provider id for the media index, or \"off\". Chosen independently of the text embedding provider.", "type": "string", "x-restart": "core", "x-tier": "basic"},
+              "privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}},
               "model": {"description": "Model id used for the media index; the same model may serve text and media, the indexes stay separate.", "type": "string", "x-restart": "core", "x-tier": "basic"},
               "dimensions": {"description": "Vector dimensions of the media index; must be supported by the model (EmbeddingGemma: 768, 512, 256 or 128).", "type": "integer", "minimum": 1, "x-restart": "core", "x-tier": "advanced"},
               "modalities": {"description": "Media kinds that are indexed.", "type": "array", "items": {"type": "string", "enum": ["image", "video", "audio"], "description": "One media kind."}, "uniqueItems": true, "minItems": 1, "x-restart": "core", "x-tier": "basic"},
@@ -730,6 +816,7 @@
               "caption": {"description": "Captions: one text entry per medium in the text index, written by the prompt, the user or an automatic captioner.", "type": "object", "additionalProperties": false, "properties": {
                 "source": {"description": "Caption order: generation prompt, then user caption or alt text, then automatic captioning; user-only skips automatic captions; off disables captions.", "type": "string", "enum": ["prompt-then-user-then-auto", "user-only", "off"], "x-restart": "core", "x-tier": "advanced"},
                 "provider": {"description": "Caption provider id, or \"off\". Unset means local when the media embedding is local; with a cloud embedding setup asks.", "type": "string", "x-restart": "core", "x-tier": "advanced"},
+                "privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}},
                 "maxChars": {"description": "Maximum caption length in characters.", "type": "integer", "minimum": 20, "x-restart": "core", "x-tier": "advanced"},
                 "perSegment": {"description": "Whether video and audio get one caption per segment instead of one per medium.", "type": "boolean", "x-restart": "core", "x-tier": "advanced"}
               }},
@@ -765,9 +852,11 @@
       }
     },
     "memory": {"description": "Memory settings that the harness owns; the media index is separate from the text index.", "type": "object", "additionalProperties": false, "default": {}, "properties": {
+      "embedding": {"description": "Text embedding privacy acknowledgment preparation; text currently remains local-transformers.", "type": "object", "additionalProperties": false, "properties": {"privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}}}},
       "mediaEmbedding": {"description": "Media index (image, video, audio) with its own provider, independent of the text embedding. Captions land in the text index.", "type": "object", "additionalProperties": false, "default": {}, "x-restart": "core", "x-tier": "basic", "properties": {
         "enabled": {"description": "Whether the separate media index (image, video, audio) is used.", "type": "boolean", "default": true, "x-restart": "core", "x-tier": "basic"},
         "provider": {"description": "Embedding provider id for the media index, or \"off\". Chosen independently of the text embedding provider.", "type": "string", "default": "local-transformers", "x-restart": "core", "x-tier": "basic"},
+        "privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}},
         "model": {"description": "Model id used for the media index; the same model may serve text and media, the indexes stay separate.", "type": "string", "default": "google/embeddinggemma-2", "x-restart": "core", "x-tier": "basic"},
         "dimensions": {"description": "Vector dimensions of the media index; must be supported by the model (EmbeddingGemma: 768, 512, 256 or 128).", "type": "integer", "minimum": 1, "default": 768, "x-restart": "core", "x-tier": "advanced"},
         "modalities": {"description": "Media kinds that are indexed.", "type": "array", "items": {"type": "string", "enum": ["image", "video", "audio"], "description": "One media kind."}, "uniqueItems": true, "minItems": 1, "default": ["image", "video", "audio"], "x-restart": "core", "x-tier": "basic"},
@@ -783,6 +872,7 @@
         "caption": {"description": "Captions: one text entry per medium in the text index, written by the prompt, the user or an automatic captioner.", "type": "object", "additionalProperties": false, "default": {}, "properties": {
           "source": {"description": "Caption order: generation prompt, then user caption or alt text, then automatic captioning; user-only skips automatic captions; off disables captions.", "type": "string", "enum": ["prompt-then-user-then-auto", "user-only", "off"], "default": "prompt-then-user-then-auto", "x-restart": "core", "x-tier": "advanced"},
           "provider": {"description": "Caption provider id, or \"off\". Unset means local when the media embedding is local; with a cloud embedding setup asks.", "type": "string", "x-restart": "core", "x-tier": "advanced"},
+          "privacyAck": {"description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.", "type": "object", "additionalProperties": false, "required": ["provider", "acknowledgedAt", "by"], "x-restart": "core", "x-tier": "advanced", "x-write-roles": ["owner", "admin"], "x-audit": true, "properties": {"provider": {"description": "Exactly the provider confirmed for this function.", "type": "string", "minLength": 1, "maxLength": 128}, "acknowledgedAt": {"description": "When this function-specific privacy acknowledgment was recorded.", "type": "string", "format": "date-time"}, "by": {"description": "Person id that recorded this acknowledgment.", "type": "string", "minLength": 1, "maxLength": 256}, "endpoint": {"description": "Exact configured endpoint, when the provider has one.", "type": "string", "format": "uri", "maxLength": 2048}}},
           "maxChars": {"description": "Maximum caption length in characters.", "type": "integer", "minimum": 20, "default": 280, "x-restart": "core", "x-tier": "advanced"},
           "perSegment": {"description": "Whether video and audio get one caption per segment instead of one per medium.", "type": "boolean", "default": false, "x-restart": "core", "x-tier": "advanced"}
         }},

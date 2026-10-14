@@ -200,3 +200,15 @@ describe("break-glass: use and revocation", () => {
     assert.deepEqual(bg.authorize({ userId: "u", role: "viewer" }, "models.read", { kind: "system" }), { effect: "allow", reason: "role" });
   });
 });
+
+it("uses current configured reason and window bounds without changing roles", () => {
+  const limits = {reasonMinChars:3, reasonMaxChars:8, maxWindowMinutes:2};
+  const bg = createBreakGlass({audit:memoryAuditSink(), notify:()=>{},clock:()=>100, limits:()=>limits});
+  assert.equal(bg.request(admin,{targetUserId:"u2",reason:"abc",ttlMs:60_000}).reason,"abc");
+  assert.equal(code(()=>bg.request(admin,{targetUserId:"u2",reason:"ab",ttlMs:60_000})),"reason-required");
+  assert.equal(code(()=>bg.request(admin,{targetUserId:"u2",reason:"abcdefghi",ttlMs:60_000})),"reason-required");
+  assert.equal(code(()=>bg.request(admin,{targetUserId:"u2",reason:"abc",ttlMs:180_000})),"ttl-invalid");
+  assert.equal(code(()=>bg.request({userId:"m",role:"member"},{targetUserId:"u2",reason:"abc",ttlMs:60_000})),"not-permitted");
+  limits.reasonMinChars=4;
+  assert.equal(code(()=>bg.request(admin,{targetUserId:"u2",reason:"abc",ttlMs:60_000})),"reason-required");
+});

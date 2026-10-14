@@ -12,13 +12,14 @@ import { settingsHref } from "../../../settings-sections.ts";
 import type { SectionProps } from "../page.ts";
 import { RULES, stateOf, type Shown } from "../security/rules.ts";
 import "../../../styles/security.css";
+import { securityLimits, type SecurityLimits } from "../security/limits.ts";
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 
-async function load(signal: AbortSignal): Promise<Shown[]> {
+async function load(signal: AbortSignal): Promise<{rows:Shown[]; limits:SecurityLimits}> {
   const res = await getApi().rpc("config.get", undefined, { write: false, signal }) as unknown;
   const config = isObj(res) ? res.value : undefined;
-  return RULES.map((rule) => ({ rule, state: stateOf(rule, config) }));
+  return { rows: RULES.map((rule) => ({ rule, state: stateOf(rule, config) })), limits: securityLimits(config) };
 }
 
 const STATE_TEXT: Record<Shown["state"], Key> = {
@@ -53,7 +54,9 @@ function Loaded(): View {
   const { state, reload } = useLoad(load, []);
   if (state.status === "loading") return h(PageLoading, { label: t("state.loading") });
   if (state.status === "fail") return h(FailureState, { failure: state.failure, unavailable: t("settings.cfg.unavailable"), onRetry: reload });
-  return h("div", { class: "sec" }, h(Rules, { rows: state.data }), h(Links, {}));
+  return h("div", { class: "sec" }, h(Rules, { rows: state.data.rows }), h(Card, { title: t("settings.security.limits"), level: 3 },
+    h("dl", {}, Object.entries(state.data.limits).map(([key,value]) => h("div", { key }, h("dt", {}, h("code", {}, `${key.startsWith("reason") || key === "maxWindowMinutes" ? "breakglass" : "approvals"}.${key}`)), h("dd", {}, String(value))))),
+    h("p", { class: "field-hint" }, t("settings.security.limits.readOnly"))), h(Links, {}));
 }
 
 export function SecuritySection({ section }: SectionProps): View {
