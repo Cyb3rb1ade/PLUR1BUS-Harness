@@ -323,11 +323,11 @@ describe("voice catalog overrides: invalid entries are rejected with a message t
       rejects(swap(), msg);
       rejects(swap({ licence: undefined }), msg); rejects(swap({ licence: "junk" }), msg); rejects(swap({ licence: null }), msg);
       rejects(swap({ licence: clone(RAW.models["kokoro-multi"]!["licence"]) }), msg);
-      const urlOnly = clone(RAW.models["kokoro-multi"]); urlOnly["download"][0].url = "https://example.invalid/other.tar.bz2";
+      const urlOnly = clone(RAW.models["kokoro-multi"])!; urlOnly["download"][0].url = "https://example.invalid/other.tar.bz2";
       rejects({ models: { "kokoro-multi": urlOnly } }, msg);
-      const shaOnly = clone(RAW.models["kokoro-multi"]); shaOnly["download"][0].sha256 = sha;
+      const shaOnly = clone(RAW.models["kokoro-multi"])!; shaOnly["download"][0].sha256 = sha;
       rejects({ models: { "kokoro-multi": shaOnly } }, msg);
-      const lessac = clone(RAW.models["piper-en-lessac-low"]); lessac["download"][0].url = "https://example.invalid/l.tar.bz2";
+      const lessac = clone(RAW.models["piper-en-lessac-low"])!; lessac["download"][0].url = "https://example.invalid/l.tar.bz2";
       rejects({ models: { "piper-en-lessac-low": { ...lessac, licence: { ...lessac.licence, commercial: true, status: "confirmed" } } } }, "model piper-en-lessac-low: licence needs");
     });
 
