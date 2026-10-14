@@ -748,3 +748,46 @@ async fn manual_rollback_is_unavailable_when_the_snapshot_volume_is_missing() {
         assert!(f.runtime.state.lock().unwrap().calls.is_empty());
     }
 }
+
+async fn run_as(
+    f: &Fixture,
+    approved: &str,
+) -> Result<Outcome, plur1bus_desktop::controller::CtlError> {
+    f.ctl
+        .upgrade(
+            &f.target,
+            semver::Version::parse(approved).unwrap(),
+            plur1bus_desktop::updates::Kind::Patch,
+            &f.tokens,
+            &f.conn,
+            |_| {},
+        )
+        .await
+}
+/// The approved version binds the bundle by SemVer precedence: build metadata is not part of it.
+#[tokio::test]
+async fn the_approved_version_matches_the_bundle_ignoring_build_metadata() {
+    let mut f = fixture(RuntimeKind::Docker).await;
+    f.target.version = "0.1.1+bundle".into();
+    let r = run_as(&f, "0.1.1+approved").await;
+    assert!(
+        !matches!(r, Err(plur1bus_desktop::controller::CtlError::Bundle)),
+        "{r:?}"
+    );
+    let mut f = fixture(RuntimeKind::Docker).await;
+    f.target.version = "0.1.2".into();
+    assert!(matches!(
+        run_as(&f, "0.1.1").await,
+        Err(plur1bus_desktop::controller::CtlError::Bundle)
+    ));
+}
+/// A bundle that differs from the installed version only in build metadata is not an upgrade.
+#[tokio::test]
+async fn a_build_metadata_only_difference_is_not_an_upgrade() {
+    let mut f = fixture(RuntimeKind::Docker).await;
+    f.target.version = "0.1.0+rebuilt".into();
+    assert!(matches!(
+        run_as(&f, "0.1.0+rebuilt").await,
+        Err(plur1bus_desktop::controller::CtlError::Bundle)
+    ));
+}
