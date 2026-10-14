@@ -113,7 +113,7 @@ function ApprovalCard({
     "article",
     { class: "approval-card-d109", "aria-labelledby": `approval-title-${approval.id}` },
     confirmation ? h("p", { class: "field-hint", role: "status" },
-      t(`approvals.os.${confirmation.status}` as Key), confirmation.platform ? ` · ${confirmation.platform}` : "",
+      t(`approvals.os.${confirmation.status === "not_required" ? "notRequired" : confirmation.status}` as Key), confirmation.platform ? ` · ${confirmation.platform}` : "",
       confirmation.status === "pending" ? ` ${t("approvals.os.deviceHint")}` : "") : null,
     h(
       "div",

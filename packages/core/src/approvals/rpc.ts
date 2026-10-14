@@ -49,12 +49,13 @@ export function buildApprovalMethods(d: ApprovalMethodDeps): Record<ApprovalMeth
   const mapped = (v: ApprovalView, c: Caller): ApprovalRecord => {
     const record = approvalRecordOf(v);
     const known = confirmations.get(v.id);
-    if (known) record.osConfirmation = { ...known };
+    if (v.status === "pending" && c.surface >= 2) record.osConfirmation = { required: false, status: "not_required" };
+    else if (known) record.osConfirmation = { ...known };
     else if (v.status === "pending") record.osConfirmation = { required: requires(v, c), status: requires(v, c) ? "pending" : "not_required" };
     return record;
   };
   const change = (v: ApprovalView, status: Confirmation["status"], method?: string): void => {
-    confirmations.set(v.id, { required: true, status, ...(method ? { platform: platform(method) } : confirmations.get(v.id)?.platform ? { platform: confirmations.get(v.id)!.platform! } : {}), updatedAt: new Date(d.clock()).toISOString() });
+    confirmations.set(v.id, { required: status !== "not_required", status, ...(method ? { platform: platform(method) } : confirmations.get(v.id)?.platform ? { platform: confirmations.get(v.id)!.platform! } : {}), updatedAt: new Date(d.clock()).toISOString() });
     if (confirmations.size > 1000) confirmations.delete(confirmations.keys().next().value!);
     d.notify?.confirmationChanged?.({ ...approvalRecordOf(v), osConfirmation: confirmations.get(v.id)! });
   };
@@ -124,6 +125,10 @@ export function buildApprovalMethods(d: ApprovalMethodDeps): Record<ApprovalMeth
       if (!res.ok) {
         if (res.reason === "scope-unavailable") throw new RpcError("E_INVALID_PARAMS", "that scope is not available for this request", { reason: "scope-unavailable", detail: "scope" });
         throw new RpcError("E_DENIED", `the decision was refused: ${res.reason}`, { reason: res.reason });
+      }
+      if (p.decision === "approve" && !lift && confirmations.has(p.id)) {
+        const view = h.service.get(p.id, c.person);
+        if (view) change(view, "not_required");
       }
       const approval = record(h, c, p.id);
       const first = res.scope !== undefined && res.scope !== "once" ? res.grantIds[0] : undefined;

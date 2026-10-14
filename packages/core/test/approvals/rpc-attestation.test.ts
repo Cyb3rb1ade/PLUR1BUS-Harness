@@ -231,3 +231,16 @@ it("approval exposes pending OS confirmation and then the confirmed platform", T
   assert.equal((await answer).approved, true);
   r.service.dispose();
 });
+
+it("a trusted connection does not inherit another attempt's pending OS requirement", T, async () => {
+  const a = spy(); const r = await withAttester(a);
+  const { id, answer } = await r.park(SHELL);
+  await refused(r.call("approval.decide", { id, decision: "approve" }));
+  r.attestation = { kind: "desktop-app" };
+  assert.deepEqual((await r.call("approval.get", { id })).osConfirmation, { required: false, status: "not_required" });
+  const decided = await r.call("approval.decide", { id, decision: "approve" });
+  assert.equal(decided.approval.osConfirmation.required, false);
+  assert.equal(decided.approval.osConfirmation.status, "not_required");
+  assert.equal(a.calls.length, 0);
+  await answer; r.service.dispose();
+});
