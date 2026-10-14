@@ -55,6 +55,9 @@ export function resolveConfig(cfg: MatrixConfig): ResolvedConfig {
     throw new RangeError("deviceId has an invalid shape");
   const autoJoin = cfg.autoJoin ?? "allowlist";
   if (autoJoin !== "allowlist" && autoJoin !== "never") throw new RangeError("autoJoin must be allowlist or never");
+  for (const [name, list] of [["allowlist", cfg.allowlist], ["dmAllowlist", cfg.dmAllowlist], ["userAllowlist", cfg.userAllowlist]] as const)
+    if (list !== undefined && !Array.isArray(list)) throw new RangeError(`${name} must be an array`);
+  if (!Array.isArray(cfg.allowlist) || !Array.isArray(cfg.dmAllowlist)) throw new RangeError("allowlist and dmAllowlist are required (they may be empty)");
   for (const r of cfg.allowlist) if (!isRoomId(r)) throw new RangeError("allowlist entries must be room ids");
   for (const u of cfg.dmAllowlist) if (!isUserId(u)) throw new RangeError("dmAllowlist entries must be mxids");
   if (cfg.userAllowlist) for (const u of cfg.userAllowlist) if (!isUserId(u)) throw new RangeError("userAllowlist entries must be mxids");
