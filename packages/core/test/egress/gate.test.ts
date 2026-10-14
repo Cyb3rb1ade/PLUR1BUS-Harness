@@ -75,3 +75,28 @@ describe("gate counters", () => {
     assert.deepEqual(seen, ["ok", "host-not-allowed"]);
   });
 });
+
+describe("gate hardening (audit b05)", () => {
+  it("refuses embedded credentials, like the guarded client does", () => {
+    const p = policy({ allowHosts: ["example.com"] });
+    assert.equal(pre(p, "https://user:pw@example.com/"), "invalid-url");
+    assert.equal(pre(p, "https://@example.com/"), null, "an empty userinfo carries no credentials");
+  });
+  it("refuses a host with an empty label (double trailing dot) instead of normalising it onto the allowlist", () => {
+    const p = policy({ allowHosts: ["example.com"] });
+    assert.equal(pre(p, "https://example.com./"), null);
+    assert.equal(pre(p, "https://example.com../"), "invalid-url");
+  });
+  it("a loopback host needs its own allowlist entry; `*` alone does not list it", () => {
+    const star = policy({ allowHosts: ["*"], allowPorts: [80, 443], allowLoopback: true });
+    assert.equal(pre(star, "http://localhost/"), "host-not-allowed");
+    assert.equal(pre(star, "http://foo.localhost/"), "host-not-allowed");
+    assert.equal(pre(star, "https://localhost/"), "host-not-allowed");
+    const listed = policy({ allowHosts: ["*", "localhost"], allowPorts: [80], allowLoopback: true });
+    assert.equal(pre(listed, "http://localhost/"), null);
+  });
+  it("afterResolve refuses a loopback pin whenever allowLoopback is off", () => {
+    const g = createGate(policy({ allowHosts: ["localhost"], allowLoopback: false }));
+    assert.equal(reason(() => g.afterResolve(new URL("https://localhost/"), { address: "127.0.0.1", family: 4 })), "loopback");
+  });
+});
