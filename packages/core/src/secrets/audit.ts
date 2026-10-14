@@ -22,8 +22,12 @@ export function sanitizeDetail(d: AuditDetail | undefined): AuditDetail {
   return out;
 }
 
+const ID_MAX = 128;
+const idOf = (v: unknown): string | undefined => (typeof v === "string" && v ? v.slice(0, ID_MAX) : undefined);
+
+/** Caller-supplied ids are capped, and a principal that is none of the three known kinds is never filed as `core`. */
 const actorOf = (p: SecretPrincipal) => ({
-  user: p.kind === "owner" ? (p.id ?? userInfo().username) : p.kind === "agent" ? `agent:${p.agentId ?? "unknown"}` : "core",
+  user: p.kind === "owner" ? (idOf(p.id) ?? userInfo().username) : p.kind === "agent" ? `agent:${idOf(p.agentId) ?? "unknown"}` : p.kind === "core" ? "core" : "unknown",
   host: hostname(),
 });
 
