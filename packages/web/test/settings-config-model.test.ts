@@ -75,6 +75,23 @@ describe("integers without an upper bound", () => {
   });
 });
 
+describe("secrets under names the key heuristic does not know", () => {
+  test("redact masks authorization headers, cookies, passphrases and credentials inside URLs", () => {
+    const out = redact({
+      providers: { a: { headers: { Authorization: "Bearer swordfish", Cookie: "sid=swordfish", "X-Api-Passphrase": "swordfish" }, baseUrl: "https://ann:swordfish@llm.example.com/v1", note: "plain" } },
+      list: ["Bearer swordfish", "https://llm.example.com/v1"],
+    });
+    const text = JSON.stringify(out);
+    assert.ok(!text.includes("swordfish"), text);
+    assert.match(text, /"note":"plain"/);
+    assert.match(text, /https:\/\/llm\.example\.com\/v1/);
+  });
+  test("buildFields keeps such keys out of the editable fields", () => {
+    const fields = buildFields({ extensions: { registry: { authorization: "Bearer swordfish", cookie: "x", endpoint: "https://r.example.com" } } }, sectionById("extensions")!);
+    assert.deepEqual(fields.filter((f) => f.key.startsWith("extensions.registry")).map((f) => f.key), ["extensions.registry.endpoint"]);
+  });
+});
+
 describe("helpers", () => {
   test("redact masks sensitive keys at depth", () => {
     assert.deepEqual(redact({ a: { apiKey: "s", b: [{ token: "t", ok: 1 }] } }), { a: { apiKey: "••••", b: [{ token: "••••", ok: 1 }] } });
