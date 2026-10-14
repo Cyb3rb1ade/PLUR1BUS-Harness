@@ -121,7 +121,7 @@ export function createResponsesAdapter(config: ResponsesConfig): ResponsesAdapte
           yield* acc.push(json);
         }
       };
-      for await (const c of chunks(res.body, run)) {
+      for await (const c of chunks(res.body, run, limits.maxBodyBytes)) {
         yield* handle(parser.push(c));
         if (acc.finished) break; // the terminal event is the last one; whatever the server does with the connection afterwards is not our concern
       }

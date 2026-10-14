@@ -137,7 +137,7 @@ export function createGeminiAdapter(config: GeminiConfig): GeminiAdapter {
             yield* acc.push(json);
           }
         };
-        for await (const c of chunks(res.body, run)) yield* handle(parser.push(c));
+        for await (const c of chunks(res.body, run, limits.maxBodyBytes)) yield* handle(parser.push(c));
         yield* handle(parser.end());
         // RULING: Gemini ends a stream by closing it (there is no [DONE]); a stream without a finishReason is truncated, an error.
         if (!acc.finished) throw protocolError("stream ended without a finishReason");

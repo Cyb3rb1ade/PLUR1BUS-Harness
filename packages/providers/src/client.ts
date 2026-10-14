@@ -121,14 +121,21 @@ export class Run {
   }
 }
 
-export async function* chunks(body: ReadableStream<Uint8Array>, run: Run): AsyncGenerator<Uint8Array, void, void> {
+/**
+ * The body's chunks, each read bounded by the idle timer. `maxBytes` caps everything read: a stream is accumulated
+ * (text, reasoning, tool arguments) and a server that never stops must not grow that without bound.
+ */
+export async function* chunks(body: ReadableStream<Uint8Array>, run: Run, maxBytes = Infinity): AsyncGenerator<Uint8Array, void, void> {
   const reader = body.getReader();
+  let total = 0;
   try {
     for (;;) {
       run.armIdle();
       const { done, value } = await reader.read();
       run.idleDone();
       if (done) return;
+      total += value.byteLength;
+      if (total > maxBytes) throw protocolError(`stream exceeds ${maxBytes} bytes`);
       yield value;
     }
   } finally {
@@ -250,7 +257,7 @@ export function createChatCompletionsAdapter(config: ChatCompletionsConfig): Cha
             yield* acc.push(json);
           }
         };
-        for await (const c of chunks(res.body, run)) {
+        for await (const c of chunks(res.body, run, limits.maxBodyBytes)) {
           yield* handle(parser.push(c));
           if (done) break;
         }
@@ -259,6 +266,8 @@ export function createChatCompletionsAdapter(config: ChatCompletionsConfig): Cha
           // RULING: a stream that ends without [DONE] is truncated unless the adapter was told to accept a finished one.
           if (!done && !(config.allowMissingDone && acc.finished)) throw protocolError("stream ended without [DONE]");
         }
+        // RULING: the figure is cumulative and some servers repeat it, so exactly one `usage` follows `finish`, whatever the chunks carried.
+        if (acc.usage !== undefined) yield { type: "usage", usage: acc.usage };
         yield { type: "done", result: await acc.finish(config.repair, req.tools, run.signal) };
       } catch (e) {
         const err = run.normalise(e);

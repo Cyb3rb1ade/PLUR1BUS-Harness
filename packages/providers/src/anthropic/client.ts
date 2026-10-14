@@ -137,7 +137,7 @@ export function createAnthropicAdapter(config: AnthropicConfig): AnthropicAdapte
             yield* acc.push(json);
           }
         };
-        for await (const c of chunks(res.body, run)) {
+        for await (const c of chunks(res.body, run, limits.maxBodyBytes)) {
           yield* handle(parser.push(c));
           if (acc.finished) break; // message_stop is the last event; whatever the server does with the connection afterwards is not our concern
         }
