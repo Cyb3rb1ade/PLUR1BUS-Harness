@@ -97,7 +97,7 @@ export function createSecretStore(o: SecretStoreOptions) {
         keyring: { available: s.keyring.available, ...(s.keyring.reason ? { reason: s.keyring.reason } : {}) },
         file: { enabled: o.fileFallback(), available: s.fileAvailable, ...(s.fileReason ? { reason: s.fileReason } : {}) },
         count, activeLeases: leases.active().length,
-        ...(secrets ? { secrets: secrets.map(({ createdAt, updatedAt, ...meta }) => ({ ...meta, ...(createdAt ? { createdAt } : {}), ...(updatedAt ? { updatedAt } : {}) })) } : {}),
+        ...(secrets ? { secrets: secrets.map(m => ({ name: m.name, backend: m.backend, ...(typeof m.createdAt === "string" && m.createdAt ? { createdAt: m.createdAt } : {}), ...(typeof m.updatedAt === "string" && m.updatedAt ? { updatedAt: m.updatedAt } : {}), ...(typeof m.updatedBy === "string" && m.updatedBy ? { updatedBy: m.updatedBy } : {}) })) } : {}),
         ...(s.kind === "none" ? { remedy: NO_BACKEND } : {}),
       };
     },

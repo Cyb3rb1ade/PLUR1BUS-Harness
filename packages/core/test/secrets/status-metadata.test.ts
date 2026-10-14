@@ -44,3 +44,10 @@ it("unknown legacy timestamps are omitted from status metadata", async () => {
   const store = createSecretStore({ keyring: backend, file: createMemoryBackend({ available: false }), fileFallback: () => false, audit: { record() {} } });
   assert.deepEqual((await store.status({ kind: "owner" })).secrets, [{ name: "legacy", backend: "memory" }]);
 });
+
+it("status projects only known metadata fields from a backend", async () => {
+  const backend = createMemoryBackend();
+  backend.list = async () => [{ name: "example", backend: "memory", createdAt: "", updatedAt: "", updatedBy: "person-alice", value: "unexpected fixture data" }];
+  const store = createSecretStore({ keyring: backend, file: createMemoryBackend({ available: false }), fileFallback: () => false, audit: { record() {} } });
+  assert.deepEqual((await store.status({ kind: "owner" })).secrets, [{ name: "example", backend: "memory", updatedBy: "person-alice" }]);
+});
