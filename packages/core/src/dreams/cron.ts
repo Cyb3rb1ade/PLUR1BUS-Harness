@@ -6,13 +6,16 @@
 export interface ParsedCron {
   minutes: readonly number[]; hours: readonly number[]; doms: readonly number[]; months: readonly number[]; dows: readonly number[];
   domRestricted: boolean; dowRestricted: boolean;
+  /** The hour field starts with `*`: the schedule follows real time through a fall-back overlap. */
+  hourWild: boolean;
 }
 
 const RANGES: [string, number, number][] = [["minute", 0, 59], ["hour", 0, 23], ["day-of-month", 1, 31], ["month", 1, 12], ["day-of-week", 0, 7]];
 
 function parseField(src: string, name: string, lo: number, hi: number): { values: number[]; restricted: boolean } {
   const out = new Set<number>();
-  let restricted = true;
+  // Vixie: a field whose first character is `*` is unrestricted for the day rule, whatever follows (`*/2` included).
+  const restricted = !src.startsWith("*");
   for (const part of src.split(",")) {
     const [rangeSrc, stepSrc, extra] = part.split("/");
     if (rangeSrc === undefined || rangeSrc === "" || extra !== undefined) throw new Error(`invalid cron ${name} field: ${src}`);
@@ -24,7 +27,6 @@ function parseField(src: string, name: string, lo: number, hi: number): { values
     let from: number; let to: number;
     if (rangeSrc === "*") {
       from = lo; to = hi;
-      if (stepSrc === undefined && src === "*") restricted = false;
     } else {
       const m = /^(\d+)(?:-(\d+))?$/.exec(rangeSrc);
       if (!m) throw new Error(`invalid cron ${name} field: ${src}`);
@@ -43,7 +45,7 @@ export function parseCron(expr: string): ParsedCron {
   const dows = [...new Set(parsed[4]!.values.map((d) => d % 7))].sort((a, b) => a - b);
   return {
     minutes: parsed[0]!.values, hours: parsed[1]!.values, doms: parsed[2]!.values, months: parsed[3]!.values, dows,
-    domRestricted: parsed[2]!.restricted, dowRestricted: parsed[4]!.restricted,
+    domRestricted: parsed[2]!.restricted, dowRestricted: parsed[4]!.restricted, hourWild: !parsed[1]!.restricted,
   };
 }
 
@@ -84,6 +86,32 @@ function wallToUtc(w: Wall, tz: string): number | null {
   return best;
 }
 
+/** Vixie's day rule: OR when both day fields are restricted (do not start with `*`), AND otherwise. */
+const dayMatches = (c: ParsedCron, domOk: boolean, dowOk: boolean): boolean => (c.domRestricted && c.dowRestricted ? domOk || dowOk : domOk && dowOk);
+
+/** Does the wall clock `w` satisfy the expression? */
+function matches(c: ParsedCron, w: Wall): boolean {
+  if (!c.months.includes(w.mo) || !c.hours.includes(w.h) || !c.minutes.includes(w.mi)) return false;
+  return dayMatches(c, c.doms.includes(w.d), c.dows.includes(new Date(Date.UTC(w.y, w.mo - 1, w.d)).getUTCDay()));
+}
+
+/** The first matching minute in `(fromMs, before)` that lies inside a fall-back overlap, or null. A fall-back puts the clock
+ *  back by `overlap`, so the wall times of `[transition, transition + overlap)` were already seen once; they are fired again. */
+function repeatedHourFiring(c: ParsedCron, tz: string, fromMs: number, before: number): number | null {
+  const LOOKBACK = 3 * 3_600_000; // longer than any real overlap
+  const lb = fromMs - LOOKBACK;
+  const offBefore = offsetMs(lb, tz), offAfter = offsetMs(before, tz);
+  if (offAfter >= offBefore || before - lb > 3 * 86_400_000) return null;
+  let lo = lb, hi = before; // offsetMs(lo) is the old offset; hi is at or past the change
+  while (hi - lo > 60_000) { const mid = Math.floor((lo + hi) / 2 / 60_000) * 60_000; if (offsetMs(mid, tz) === offBefore) lo = mid; else hi = mid; }
+  const transition = hi; // first instant under the new (smaller) offset
+  const overlap = offBefore - offAfter;
+  for (let t = Math.max(transition, Math.floor(fromMs / 60_000) * 60_000 + 60_000); t < Math.min(before, transition + overlap); t += 60_000) {
+    if (matches(c, wallOf(t, tz))) return t;
+  }
+  return null;
+}
+
 /** The first firing strictly after `fromMs`, or null when the expression can never fire (e.g. 31 February). */
 export function nextAfter(c: ParsedCron, tz: string, fromMs: number): number | null {
   const start = wallOf(fromMs, tz);
@@ -92,11 +120,14 @@ export function nextAfter(c: ParsedCron, tz: string, fromMs: number): number | n
     const y = cursor.getUTCFullYear(), mo = cursor.getUTCMonth() + 1, d = cursor.getUTCDate(), dow = cursor.getUTCDay();
     if (!c.months.includes(mo)) continue;
     const domOk = c.doms.includes(d), dowOk = c.dows.includes(dow);
-    const dayOk = c.domRestricted && c.dowRestricted ? domOk || dowOk : c.domRestricted ? domOk : c.dowRestricted ? dowOk : true;
-    if (!dayOk) continue;
+    if (!dayMatches(c, domOk, dowOk)) continue;
     for (const h of c.hours) for (const mi of c.minutes) {
       const t = wallToUtc({ y, mo, d, h, mi }, tz);
-      if (t !== null && t > fromMs) return t;
+      if (t !== null && t > fromMs) {
+        // Hourly and finer schedules follow real time: a firing in the repeated hour of a fall-back comes before this one.
+        if (c.hourWild) { const rep = repeatedHourFiring(c, tz, fromMs, t); if (rep !== null) return rep; }
+        return t;
+      }
     }
   }
   return null;
