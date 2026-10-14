@@ -44,6 +44,13 @@ export interface FinishedEntry {
   args?: Record<string, unknown>;
 }
 
+const OUTCOMES = new Set(["completed", "skipped", "incomplete", "failed", "abandoned"]);
+
+function isFinishedRow(r: Record<string, unknown>): boolean {
+  const num = (v: unknown) => typeof v === "number" && Number.isFinite(v);
+  return typeof r.job === "string" && OUTCOMES.has(r.outcome as string) && num(r.startedAt) && num(r.finishedAt) && num(r.durationMs);
+}
+
 export class SystemJobsLedger {
   private readonly path: string;
   private readonly securePath: (p: string) => unknown;
@@ -199,16 +206,21 @@ export class SystemJobsLedger {
         try {
           parsed = JSON.parse(trimmed);
         } catch {
-          this.logger.warn("unreadable line in system jobs ledger", { line: trimmed });
+          // Never log the line itself: it can carry run arguments.
+          this.logger.warn("unreadable line in system jobs ledger", { length: trimmed.length });
           continue;
         }
 
         if (!parsed || typeof parsed !== "object" || parsed.v !== 1 || typeof parsed.runId !== "string") {
-          this.logger.warn("corrupt entry in system jobs ledger", { entry: parsed });
+          this.logger.warn("corrupt entry in system jobs ledger", { runIdType: typeof parsed?.runId });
           continue;
         }
 
         if (parsed.phase === "started") {
+          if (typeof parsed.job !== "string" || typeof parsed.startedAt !== "number" || !Number.isFinite(parsed.startedAt)) {
+            this.logger.warn("invalid started entry in system jobs ledger", { runId: parsed.runId });
+            continue;
+          }
           startedMap.set(parsed.runId, {
             runId: parsed.runId,
             job: parsed.job,
@@ -221,6 +233,10 @@ export class SystemJobsLedger {
             order.push(parsed.runId);
           }
         } else if (parsed.phase === "finished") {
+          if (!isFinishedRow(parsed)) {
+            this.logger.warn("invalid finished entry in system jobs ledger", { runId: parsed.runId });
+            continue;
+          }
           const rec: SystemRunRecord = {
             runId: parsed.runId,
             job: parsed.job,
