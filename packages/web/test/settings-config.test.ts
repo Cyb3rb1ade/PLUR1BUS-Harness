@@ -231,6 +231,72 @@ describe("settings config: ?focus", opts, () => {
   });
 });
 
+describe("settings config: races and leaving", opts, () => {
+  test("an edit made while the dry run is in flight drops that review instead of saving the old change list", async () => {
+    await withApp({}, async (app) => {
+      seedConfig(app.server.rpc);
+      await open(app, "#/settings/general");
+      await app.page.locator("#cfg-core-recall-softBudgetMs").fill("500");
+      app.server.rpc.setDelay("config.set", 600);
+      await app.page.getByRole("button", { name: "Review changes" }).click();
+      await app.page.locator("#cfg-core-logLevel").selectOption("debug");
+      await new Promise((r) => setTimeout(r, 1200));
+      assert.equal(await app.page.locator(".cfg-review").count(), 0, "a review of the old edits appeared");
+      assert.equal(sets(app).filter((c) => (c.params as { dryRun?: boolean }).dryRun !== true).length, 0);
+      // reviewing again covers both edits
+      app.server.rpc.setDelay("config.set", 0);
+      await app.page.getByRole("button", { name: "Review changes" }).click();
+      await app.page.locator(".cfg-review").waitFor();
+      assert.equal(await app.page.locator(".cfg-diff li").count(), 2);
+    });
+  });
+  test("unsaved edits ask before the tab is closed; a clean form and a saved form do not", async () => {
+    await withApp({}, async (app) => {
+      seedConfig(app.server.rpc);
+      await open(app, "#/settings/general");
+      await app.page.locator("#cfg-core-recall-softBudgetMs").waitFor();
+      const asks = (): Promise<boolean> => app.page.evaluate(() => { const e = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(e); return e.defaultPrevented; });
+      const until = async (want: boolean): Promise<void> => { for (let i = 0; i < 30 && (await asks()) !== want; i++) await new Promise((r) => setTimeout(r, 50)); assert.equal(await asks(), want); };
+      await until(false);
+      await app.page.locator("#cfg-core-recall-softBudgetMs").fill("500");
+      await until(true);
+      await app.page.getByRole("button", { name: "Discard changes" }).click();
+      await until(false);
+    });
+  });
+  test("switching to another settings section with unsaved edits asks first; declining keeps the edit", async () => {
+    await withApp({}, async (app) => {
+      seedConfig(app.server.rpc);
+      await open(app, "#/settings/general");
+      await app.page.locator("#cfg-core-recall-softBudgetMs").fill("500");
+      await app.page.locator(".cfg-count").getByText(/: 1$/).waitFor();
+      await new Promise((r) => setTimeout(r, 200));
+      const seen: string[] = [];
+      app.page.once("dialog", (d) => { seen.push(d.message()); void d.dismiss(); });
+      await app.page.getByRole("link", { name: "Network" }).click();
+      await new Promise((r) => setTimeout(r, 300));
+      assert.equal(seen.length, 1);
+      assert.equal(await app.page.locator("#cfg-core-recall-softBudgetMs").inputValue(), "500");
+      app.page.once("dialog", (d) => { void d.accept(); });
+      await app.page.getByRole("link", { name: "Network" }).click();
+      await app.page.locator("#cfg-egress-allowHosts").waitFor();
+    });
+  });
+});
+
+describe("settings config: values the metadata does not know", opts, () => {
+  test("an enum value outside the known options is shown as it is, not as the first option", async () => {
+    await withApp({}, async (app) => {
+      seedConfig(app.server.rpc, { core: { logLevel: "trace" } });
+      await open(app, "#/settings/general");
+      await app.page.locator("#cfg-core-logLevel").waitFor();
+      assert.equal(await app.page.locator("#cfg-core-logLevel").inputValue(), "trace");
+      assert.match(await app.page.locator("#cfg-core-logLevel").evaluate((el) => (el as HTMLSelectElement).selectedOptions[0]?.textContent ?? ""), /trace/);
+      assert.match(await app.page.locator(".cfg-count").innerText(), /: 0$|No changes/i);
+    });
+  });
+});
+
 describe("settings config: a11y and layout", opts, () => {
   for (const scheme of ["light", "dark"] as const) {
     test(`axe clean in ${scheme}: form, review and states`, async () => {

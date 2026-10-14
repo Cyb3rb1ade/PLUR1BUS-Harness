@@ -83,11 +83,8 @@ function People({
     const outcome = await setUserRole(target.id, newRole);
     if (!outcome.ok) {
       if (prevRole) setRoleOverrides((prev) => ({ ...prev, [target.id]: prevRole }));
-      if (outcome.error === "last-owner") {
-        setNotice(t("users.role.lastOwner"));
-      } else {
-        setNotice(outcome.message ?? t("users.role.lastOwner"));
-      }
+      // Never the server's text, and only a real last-owner refusal gets the last-owner sentence.
+      setNotice(outcome.error === "last-owner" ? t("users.role.lastOwner") : outcome.error === "forbidden" ? t("users.role.forbidden") : t("users.role.failed"));
     } else {
       setNotice(t("users.role.success"));
     }
@@ -180,7 +177,7 @@ function ActiveGrants(): View | null {
       setNotice(t("users.bg.revoked"));
       void load();
     } catch {
-      // Ignore
+      setNotice(t("users.bg.revokeFailed"));
     }
   };
 

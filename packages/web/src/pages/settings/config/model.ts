@@ -13,6 +13,11 @@ export type Field = {
 };
 export type Draft = Record<string, string | boolean>;
 
+/** Names the shared key heuristic (key, token, secret, password, credential) does not cover but that hold secrets all the same. */
+const MORE_SECRET = /authori[sz]ation|bearer|cookie|passphrase|passwd|pwd|private|signature|jwt|hmac|(^|[._-])auth($|[._-])/i;
+/** Whether a key may hold a secret value: such keys are never shown as fields and are masked in formatted JSON. */
+export const isSecretKey = (key: string): boolean => isSensitiveKey(key) || MORE_SECRET.test(key);
+
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const pathHas = (o: unknown, key: string): unknown => key.split(".").reduce<unknown>((at, seg) => (isObj(at) ? at[seg] : undefined), o);
 
@@ -43,7 +48,7 @@ function extraLeaves(config: Record<string, unknown>, known: ReadonlySet<string>
 /** The fields of a config section, in schema order. Keys that may hold secret values are never included. */
 export function buildFields(config: unknown, section: SectionDef, restart: Readonly<Record<string, string | null>> = {}): Field[] {
   const cfg = isObj(config) ? config : {};
-  const mine = (key: string): boolean => sectionOf(key)?.id === section.id && !isSensitiveKey(key);
+  const mine = (key: string): boolean => sectionOf(key)?.id === section.id && !isSecretKey(key);
   const fields: Field[] = META.filter((m) => mine(m.key)).map((m) => {
     const value = pathHas(cfg, m.key);
     return {
@@ -94,14 +99,15 @@ export function parseDraft(f: Field, raw: string | boolean): Parsed {
     case "string": return { ok: true, value: text };
     case "int": case "number": {
       const s = text.trim();
-      const okFormat = f.kind === "int" ? /^-?\d+$/.test(s) : s !== "" && Number.isFinite(Number(s));
+      // An integer that doubles cannot hold exactly would be sent rounded (or as Infinity, which JSON turns into null).
+      const okFormat = f.kind === "int" ? /^-?\d+$/.test(s) && Number.isSafeInteger(Number(s)) : s !== "" && Number.isFinite(Number(s));
       if (!okFormat) return { ok: false, error: f.kind === "int" ? "settings.err.int" : "settings.err.number" };
       return bounds(Number(s)) ?? { ok: true, value: Number(s) };
     }
     case "strings": return { ok: true, value: text.split("\n").map((l) => l.trim()).filter((l) => l !== "") };
     case "ints": {
       const items = text.split("\n").map((l) => l.trim()).filter((l) => l !== "");
-      if (!items.every((s) => /^-?\d+$/.test(s))) return { ok: false, error: "settings.err.ints" };
+      if (!items.every((s) => /^-?\d+$/.test(s) && Number.isSafeInteger(Number(s)))) return { ok: false, error: "settings.err.ints" };
       const nums = items.map(Number);
       for (const n of nums) { const bad = bounds(n); if (bad) return bad; }
       return { ok: true, value: nums };
@@ -143,7 +149,8 @@ export function show(v: unknown): string {
 /** Replaces the values of keys that may hold secrets by a mask, at any depth, before formatted JSON is shown. */
 export function redact(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(redact);
-  if (isObj(v)) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, isSensitiveKey(k) ? "••••" : redact(x)]));
+  if (isObj(v)) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, isSecretKey(k) ? "••••" : redact(x)]));
+  if (typeof v === "string") return v.replace(/^\s*(bearer|basic)\s+\S+/i, "••••").replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/@\s]+@/i, "$1••••@");
   return v;
 }
 

@@ -58,6 +58,41 @@ describe("drafts", () => {
   });
 });
 
+describe("integers without an upper bound", () => {
+  const g = (config: unknown, id = "general") => buildFields(config, sectionById(id)!);
+  test("a number that is not exactly representable is refused, not rounded", () => {
+    const f = g({}).find((x) => x.key === "logs.maxBytes")!;
+    assert.equal(f.max, undefined);
+    for (const huge of ["99999999999999999999", "9007199254740993", "-9007199254740993", "1".repeat(400)]) {
+      const r = parseDraft(f, huge);
+      assert.equal(r.ok, false, huge);
+    }
+    assert.deepEqual(parseDraft(f, "9007199254740991"), { ok: true, value: 9007199254740991 });
+  });
+  test("the same holds per line of an integer list", () => {
+    const ports = g({}, "network").find((x) => x.key === "egress.allowPorts")!;
+    const { max: _max, ...unbounded } = ports;
+    assert.equal(parseDraft(unbounded, "443\n99999999999999999999").ok, false);
+  });
+});
+
+describe("secrets under names the key heuristic does not know", () => {
+  test("redact masks authorization headers, cookies, passphrases and credentials inside URLs", () => {
+    const out = redact({
+      providers: { a: { headers: { Authorization: "Bearer swordfish", Cookie: "sid=swordfish", "X-Api-Passphrase": "swordfish" }, baseUrl: "https://ann:swordfish@llm.example.com/v1", note: "plain" } },
+      list: ["Bearer swordfish", "https://llm.example.com/v1"],
+    });
+    const text = JSON.stringify(out);
+    assert.ok(!text.includes("swordfish"), text);
+    assert.match(text, /"note":"plain"/);
+    assert.match(text, /https:\/\/llm\.example\.com\/v1/);
+  });
+  test("buildFields keeps such keys out of the editable fields", () => {
+    const fields = buildFields({ extensions: { registry: { authorization: "Bearer swordfish", cookie: "x", endpoint: "https://r.example.com" } } }, sectionById("extensions")!);
+    assert.deepEqual(fields.filter((f) => f.key.startsWith("extensions.registry")).map((f) => f.key), ["extensions.registry.endpoint"]);
+  });
+});
+
 describe("helpers", () => {
   test("redact masks sensitive keys at depth", () => {
     assert.deepEqual(redact({ a: { apiKey: "s", b: [{ token: "t", ok: 1 }] } }), { a: { apiKey: "••••", b: [{ token: "••••", ok: 1 }] } });
