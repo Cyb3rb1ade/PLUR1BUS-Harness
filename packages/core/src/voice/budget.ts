@@ -19,6 +19,8 @@ export function voiceBudget(o: { path: string; budget: CallBudget; clock: () => 
     },
     async record(r) {
       const h = held.get(r.reservation); if (!h || h.person !== r.user || h.agent !== r.agent) return false;
+      // Usage comes from provider events. A negative value would refund the ceiling, NaN/Infinity would reach SQLite raw: fail closed.
+      if (Object.values(r.usage).some(v => typeof v !== 'number' || !Number.isFinite(v) || v < 0)) return false;
       db.prepare('INSERT OR IGNORE INTO voice_usage VALUES (?,?,?,?,?,?)').run(r.reservation + ':' + r.eventId, r.agent, r.user, o.clock(), r.usage.seconds, r.usage.costMicros);
       if (r.usage.inputTokens || r.usage.outputTokens) {
         const decision = o.budget.checkBeforeCall({ principal: r.user, agent: r.agent, project: 'voice', model: h.model, provider: o.billingProvider ?? 'openai-voice', session: r.reservation, estimatedInputTokens: r.usage.inputTokens, maxOutputTokens: r.usage.outputTokens });
