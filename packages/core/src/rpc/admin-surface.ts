@@ -77,7 +77,10 @@ export function buildAdminSurface(d: AdminSurfaceDeps): Record<string, Handler> 
     return { agentId: id, ...d.lifecycle.set(id, patch) };
   });
   const togglePerson = (p: Record<string, any>, a: Principal, disabled: boolean) => {
-    const id = user(text(p, "userId")), target = d.people.person(id);
+    const id = user(text(p, "userId"));
+    // Older/CLI-created humans may have no explicit preset row: persist their existing Member default before status changes.
+    if (!d.people.person(id)) d.people.setRole(id, d.people.role(id), () => {});
+    const target = d.people.person(id);
     if (!target) throw new RpcError("E_NOT_FOUND", "person not found");
     if (a.role !== "owner" && !(a.role === "admin" && (target.role === "member" || target.role === "viewer"))) throw new RpcError("E_DENIED", "person status change denied");
     if (p.reason !== undefined && (typeof p.reason !== "string" || p.reason.length > 200)) throw new RpcError("E_INVALID_PARAMS", "invalid reason");
@@ -113,14 +116,16 @@ export function buildAdminSurface(d: AdminSurfaceDeps): Record<string, Handler> 
     }),
     "user.list": bind("admin.users.read", () => {
       const people = new Map(d.identity.list({}).humans.map(h => [h.id, { id: h.id, displayName: h.displayName, role: d.people.role(h.id), disabled: d.people.person(h.id)?.disabled ?? false }]));
-      for (const u of d.people.users()) people.set(u.id, { ...u, displayName: people.get(u.id)?.displayName ?? u.id });
+      for (const u of d.people.users()) people.set(u.id, { id: u.id, role: u.role, disabled: u.disabled, displayName: people.get(u.id)?.displayName ?? u.id });
       return { users: [...people.values()].sort((a, b) => a.id.localeCompare(b.id)) };
     }),
     "user.disable": bind("admin.users.write", (p, a) => togglePerson(p, a, true)),
     "user.enable": bind("admin.users.write", (p, a) => togglePerson(p, a, false)),
     "admin.api.person.resolve": async (params, ctx) => {
       if (apiPrincipal(ctx) !== null) throw new RpcError("E_DENIED", "API credential required");
-      return { person: d.people.person(text(obj(params), "userId", 256)) };
+      const id = text(obj(params), "userId", 256);
+      if (!d.people.person(id) && d.identity.list({}).humans.some(h => h.id === id)) d.people.setRole(id, d.people.role(id), () => {});
+      return { person: d.people.person(id) };
     },
     "admin.api.invite.validate": async (params, ctx) => {
       if (apiPrincipal(ctx) !== null) throw new RpcError("E_DENIED", "API credential required");

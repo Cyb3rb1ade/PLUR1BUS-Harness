@@ -34,16 +34,19 @@ export type Row = { id: string; name: string; self: boolean; role: RolePreset | 
 export function buildRowsFromUserList(self: { id: string; role: string }, list: UserListResult | null): Row[] {
   if (!list) return [];
   const rows: Row[] = [];
-  const selfUser = list.users.find((u) => u.id === self.id);
+  // Presentation alias for the bootstrap row only; RPC authority still comes from the API session/Core.
+  const selfUser = list.users.find((u) => u.id === self.id) ?? (self.id === "owner" ? list.users.find(u => u.id === "local-owner") : undefined);
+  const selfId = selfUser?.id ?? self.id;
   rows.push({
-    id: self.id,
+    id: selfId,
+    ...(selfUser ? { disabled: selfUser.disabled ?? false } : {}),
     name: selfUser?.displayName ?? self.id,
     self: true,
     role: (selfUser?.role ?? self.role) as RolePreset,
     statusKeys: [{ key: "users.status.signedIn" }],
   });
   for (const u of list.users) {
-    if (u.id === self.id) continue;
+    if (u.id === selfId) continue;
     rows.push({
       id: u.id,
       name: u.displayName || u.id,

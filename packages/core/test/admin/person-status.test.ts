@@ -5,6 +5,8 @@ test("person status is durable authority; last active Owner remains enabled and 
   const store = new AdminStore({ path: ":memory:", ownerId: "owner-one" });
   try {
     assert.equal(store.person("owner-one")?.disabled, false);
+    assert.equal(Object.hasOwn(store.resolvePerson("owner-one")!, "disabled"), false);
+    assert.equal(Object.hasOwn(store.resolvePerson("owner-one")!, "version"), false);
     assert.throws(() => store.setDisabled("owner-one", true, "owner-one", 1, () => {}), { error: "E_CONFLICT" });
     store.setRole("owner-two", "owner", () => {}); store.setRight("main", "owner-one", "manage");
     store.setDisabled("owner-one", true, "owner-two", 2, () => {});
@@ -22,7 +24,7 @@ test("disable/enable role matrix, agents denied, audit principals hashed and rea
   const { buildAdminSurface } = await import("../../src/rpc/admin-surface.ts"); const { guardMethods } = await import("../../src/rbac/guard.ts");
   const roles = ["owner", "admin", "operator", "member", "viewer"] as const; const store = new AdminStore({ path: ":memory:", ownerId: "bootstrap-owner" }); const events: any[] = [];
   let who: any = { kind: "person", userId: "acting-person", role: "owner" };
-  const raw = buildAdminSurface({ people: store, identity: { list: () => ({ humans: [] }) }, clock: () => 123, audit: { append: (e: unknown) => events.push(e) } } as any);
+  const raw = buildAdminSurface({ people: store, identity: { list: () => ({ humans: [{ id: "legacy-person" }] }) }, clock: () => 123, audit: { append: (e: unknown) => events.push(e) } } as any);
   const methods = guardMethods(raw, { resolve: () => who, now: () => 123 });
   const ctx = { connectionId: "test", requestId: "test", signal: new AbortController().signal };
   try {
@@ -33,7 +35,8 @@ test("disable/enable role matrix, agents denied, audit principals hashed and rea
       else await assert.rejects(methods["user.disable"]!(params, ctx), { error: "E_DENIED" });
     }
     who = { kind: "agent", userId: "acting-person", role: "owner" }; await assert.rejects(methods["user.disable"]!({ userId: "target-member" }, ctx), { error: "E_DENIED" });
-    who.kind = "person"; await assert.rejects(methods["user.disable"]!({ userId: "target-member", reason: "x".repeat(201) }, ctx), { error: "E_INVALID_PARAMS" });
+    who.kind = "person"; await methods["user.disable"]!({ userId: "legacy-person" }, ctx); assert.equal(store.resolvePerson("legacy-person"), null); await methods["user.enable"]!({ userId: "legacy-person" }, ctx); assert.equal(store.resolvePerson("legacy-person")?.role, "member");
+    await assert.rejects(methods["user.disable"]!({ userId: "target-member", reason: "x".repeat(201) }, ctx), { error: "E_INVALID_PARAMS" });
     const audit = JSON.stringify(events); assert.equal(audit.includes("acting-person"), false); assert.equal(audit.includes("target-member"), false); assert.equal(audit.includes("\\u202e"), false);
     assert.equal(events[0].action, "user.disabled"); assert.match(events[0].actor.user, /^[a-f0-9]{64}$/);
   } finally { store.close(); }

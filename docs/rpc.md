@@ -10385,7 +10385,7 @@ People and role presets, Owner/Admin only.
 
 ### `user.disable`
 
-**Stability:** experimental · since 1.5.0
+**Stability:** experimental · since 1.6.0
 
 **Served by:** core
 
@@ -10439,7 +10439,7 @@ Change Core person status; preserve rights, protect the last active Owner and au
 
 ### `user.enable`
 
-**Stability:** experimental · since 1.5.0
+**Stability:** experimental · since 1.6.0
 
 **Served by:** core
 
@@ -10489,7 +10489,7 @@ Change Core person status; preserve rights, protect the last active Owner and au
 
 ### `admin.api.person.resolve`
 
-**Stability:** experimental · since 1.5.0
+**Stability:** experimental · since 1.6.0
 
 **Served by:** core
 
@@ -10525,7 +10525,7 @@ API credential only; never exposed to browsers or WebMCP.
 
 ### `admin.api.invite.validate`
 
-**Stability:** experimental · since 1.5.0
+**Stability:** experimental · since 1.6.0
 
 **Served by:** core
 
@@ -13963,7 +13963,7 @@ Delivered on the same connection to clients that called `events.subscribe`.
 
 ### `api.account.changed`
 
-**Stability:** experimental · since 1.5.0
+**Stability:** experimental · since 1.6.0
 
 **Served by:** core
 
@@ -13973,7 +13973,7 @@ Core person authority changed; connection-targeted to authenticated API service 
 {
   "x-server": "core",
   "x-stability": "experimental",
-  "x-since": "1.5.0",
+  "x-since": "1.6.0",
   "type": "object",
   "additionalProperties": false,
   "required": [

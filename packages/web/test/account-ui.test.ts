@@ -30,3 +30,22 @@ test("Users status confirmation locks double clicks, updates disabled badge, and
     await row.getByRole("button", { name: "Enable person" }).click(); await app.page.getByRole("dialog").getByRole("button", { name: "Enable person" }).click(); await row.getByRole("button", { name: "Disable person" }).waitFor(); assert.equal(writes, 2); assert.deepEqual(app.problems, []);
   });
 });
+
+test("password login handles the existing TOTP challenge without storing credentials", { skip: browserSkip }, async () => {
+  const password = randomBytes(24).toString("base64url"), challenge = randomBytes(24).toString("hex"), code = String(randomBytes(4).readUInt32BE() % 1_000_000).padStart(6, "0");
+  await withApp({}, async app => {
+    let attempts = 0;
+    app.server.extensions.push((_req, res, path, raw) => {
+      if (path !== "/api/v1/session" && path !== "/api/v1/session/totp") return false;
+      const body = JSON.parse(raw);
+      if (path === "/api/v1/session" && body.username !== "alice") return false;
+      attempts++;
+      if (path.endsWith("/totp")) { assert.deepEqual(body, { challenge, code }); const cookie = randomBytes(32).toString("hex"); app.server.sessions.set(cookie, { csrf: new Set() }); res.writeHead(200, { "content-type": "application/json", "set-cookie": `plur1bus_session=${cookie}; Path=/; HttpOnly; SameSite=Strict` }); res.end(JSON.stringify({ principal: { kind: "user", id: "alice", role: "member" } })); }
+      else { assert.equal(body.password, password); res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify({ mfa: "totp", challenge })); }
+      return true;
+    });
+    await app.page.getByRole("button", { name: "Use username and password", exact: true }).click(); await app.page.getByLabel("Username", { exact: true }).fill("alice"); await app.page.getByLabel("Password", { exact: true }).fill(password); await app.page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await app.page.getByLabel("TOTP or backup code").fill(code); await app.page.getByRole("button", { name: "Sign in", exact: true }).click(); await app.page.locator(".sidebar").waitFor(); assert.equal(attempts, 2);
+    const storage = await app.page.evaluate(() => JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage }, href: location.href })); for (const marker of [password, challenge, code]) assert.equal(storage.includes(marker), false);
+  });
+});

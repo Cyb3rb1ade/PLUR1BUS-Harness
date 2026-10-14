@@ -41,8 +41,8 @@ export function buildAccountHandlers(d: HandlerDeps, accounts: AccountStore | un
         d.audit.emit("invitation.redeemed", invitation.userId, "invitation", { role: invitation.role });
         return { status: 201, body: { schema: "invitation.redeem/1", created: true } };
       } catch (e) {
-        if (inserted) await accounts.removePending(invitation.userId);
         if (consumed) d.audit.emit("invitation.account.failed", invitation.userId, "invitation", { reason: "activation-failed" });
+        if (inserted) { try { await accounts.removePending(invitation.userId); } catch { d.audit.emit("invitation.account.failed", invitation.userId, "invitation", { reason: "pending-cleanup-failed" }); } }
         throw e;
       } finally { pending.delete(invitation.userId); }
     },

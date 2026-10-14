@@ -1,0 +1,35 @@
+// Browser acceptance of the production credential adapter, real API, Core and Supervisor; no HTTP/RPC mocks.
+import test from "node:test";
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
+import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { chromium } from "playwright";
+import { defaults } from "@plur1bus/config-schema";
+import { buildWeb } from "../build.ts";
+import { AccountStore, type CorePerson } from "../../api/src/account-store.ts";
+import { createApiServer } from "../../api/src/server.ts";
+import { createCoreLink } from "../../api/src/core-link.ts";
+const root = fileURLToPath(new URL("../../../", import.meta.url)), bin = resolve(process.env.PLUR1BUS_BIN ?? join(root, "target/debug/plur1bus")), coreJs = join(root, "packages/core/dist/core.js");
+const executablePath = [process.env.PLUR1BUS_CHROMIUM, chromium.executablePath(), "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/opt/pw-browsers/chromium"].find(p => p && existsSync(p));
+const missing = !executablePath || !existsSync(bin) || !existsSync(coreJs);
+if (missing && process.env.PLUR1BUS_WEB_TRANSPORT_REQUIRED === "1") throw new Error("real accounts acceptance requires built Core/CLI and Chromium");
+test("real browser: invite → Join → password login → disable/enable in Users", { skip: missing ? "requires built Core/CLI and Chromium" : false, timeout: 120000 }, async t => {
+  const scratch = mkdtempSync(join(tmpdir(), "accounts-browser-")), home = join(scratch, "home"), webRoot = join(scratch, "web"); mkdirSync(home);
+  const cfg = defaults(); cfg.agents.main = {}; cfg.engine = { neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false }, merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false }, temporalContext: { enabled: false }, conversationReactivationRecall: { enabled: false }, reranker: { enabled: false } }; writeFileSync(join(home, "config.json"), JSON.stringify(cfg));
+  execFileSync(bin, ["--home", home, "daemon", "start"], { timeout: 30000, stdio: "pipe", env: { ...process.env, PLUR1BUS_NODE: process.execPath, PLUR1BUS_CORE_JS: coreJs, PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_TEST_INTERNALS: "flat-embedder", PLUR1BUS_TEST_CHAT_PROVIDER: "fake" } });
+  const link = createCoreLink(home); const person = async (userId: string) => (await link.serviceCall!<{ person: CorePerson | null }>("admin.api.person.resolve", { userId })).person;
+  const accounts = new AccountStore({ path: join(home, "state", "api", "accounts.db"), resolve: person });
+  await buildWeb(webRoot); const api = createApiServer({ core: link, accounts, users: accounts, tokens: accounts.tokens, totp: accounts.totp, resolveBootstrap: () => person("local-owner"), ownerToken: randomBytes(32).toString("hex"), webRoot }); accounts.onChange = id => { api.rightsChanged(id); }; link.subscribePeople(id => { api.rightsChanged(id); void accounts.findById(id).catch(() => {}); });
+  const { url } = await api.listen(); const browser = await chromium.launch({ executablePath: executablePath!, headless: true });
+  t.after(async () => { await browser.close(); await api.close(); accounts.close(); await link.close(); execFileSync(bin, ["--home", home, "daemon", "stop"], { timeout: 30000, stdio: "pipe" }); rmSync(scratch, { recursive: true, force: true }); });
+  const invited = await link.call<any>("user.invite.create", { displayName: "Alice", role: "admin", channel: "web", origin: url }); const bob = await link.call<any>("user.invite.create", { displayName: "Bob", role: "viewer", channel: "web", origin: url });
+  const page = await browser.newPage({ locale: "en-US" }); page.setDefaultTimeout(15000); const errors: string[] = []; page.on("pageerror", e => errors.push(e.message)); const password = randomBytes(24).toString("base64url");
+  await page.goto(invited.link); await page.getByLabel("Username", { exact: true }).fill("alice"); await page.getByLabel("Password (at least 12 characters)", { exact: true }).fill(password); await page.getByLabel("Repeat password", { exact: true }).fill(password); await page.getByRole("button", { name: "Create account", exact: true }).click();
+  await page.getByRole("link", { name: "Sign in", exact: true }).click(); await page.getByRole("button", { name: "Use username and password", exact: true }).click(); await page.getByLabel("Username", { exact: true }).fill("alice"); await page.getByLabel("Password", { exact: true }).fill(password); await page.getByRole("button", { name: "Sign in", exact: true }).click(); await page.locator(".sidebar").waitFor();
+  await page.evaluate(() => { location.hash = "#/settings/users"; }); const row = page.locator(`[data-user="${bob.userId}"]`); await page.getByRole("heading", { name: "Users & roles", level: 2 }).waitFor(); await row.getByRole("button", { name: "Disable person", exact: true }).click(); await page.getByRole("dialog").getByRole("button", { name: "Disable person", exact: true }).click(); await row.getByText("Disabled", { exact: true }).waitFor(); assert.equal((await person(bob.userId))?.disabled, true);
+  await row.getByRole("button", { name: "Enable person", exact: true }).click(); await page.getByRole("dialog").getByRole("button", { name: "Enable person", exact: true }).click(); await row.getByRole("button", { name: "Disable person", exact: true }).waitFor(); assert.equal((await person(bob.userId))?.disabled, false); assert.deepEqual(errors, []); assert.equal((await page.evaluate(() => document.cookie)).includes("plur1bus_session"), false);
+});

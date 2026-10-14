@@ -30,6 +30,7 @@ test("real Core/API: invite → durable login → SSE → disable → enable wit
   const owner = await login({ token: proof });
   const rpc = async (cookie: string, method: string, params: object) => { const cr = await fetch(url + "/api/v1/csrf", { headers: { cookie } }); const c = await cr.json() as { token: string }; const r = await post("/rpc", { jsonrpc: "2.0", id: 1, method, params }, { cookie, "x-csrf-token": c.token }); return r.json() as Promise<any>; };
   const invite = await local.call<any>("user.invite.create", { displayName: "Invited person", role: "member", channel: "web", origin: url }); const code = invite.link.split("/").at(-1);
+  assert.ok((await local.call<any>("user.list", {})).users.some((u: any) => u.id === invite.userId && u.disabled === false));
   const password = randomBytes(24).toString("base64url");
   let r = await post("/api/v1/invitations/redeem", { code: randomBytes(32).toString("base64url"), username: "owner", password }); assert.equal(r.status, 400); const invalid = await r.json();
   r = await post("/api/v1/invitations/redeem", { code, username: "owner", password }); assert.equal(r.status, 400); assert.equal((await r.json() as any).reason, "username");

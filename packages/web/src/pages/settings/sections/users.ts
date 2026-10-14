@@ -62,7 +62,7 @@ function PersonRow({
             ROLE_PRESETS.map((r) => h("option", { key: r, value: r, selected: r === row.role }, presetName(r))))
         : h(Badge, { tone: row.role === null ? "neutral" : "info" }, row.role === null ? t("users.role.unknown") : presetName(row.role)),
       row.statusKeys.map((s) => h(Badge, { key: s.key, tone: s.key === "users.status.signedIn" ? "ok" : "neutral" }, s.n === undefined ? t(s.key) : t(s.key, { n: s.n })))),
-    canManage ? h("button", { type: "button", class: "btn btn-quiet", onClick: () => onStatus(row) }, t(row.disabled ? "users.enable" : "users.disable")) : null,
+    canManage && row.disabled !== undefined ? h("button", { type: "button", class: "btn btn-quiet", onClick: () => onStatus(row) }, t(row.disabled ? "users.enable" : "users.disable")) : null,
     row.self ? null : h("button", { type: "button", class: "btn btn-quiet", onClick: () => { onBreakGlass(row); } }, t("users.bg.action", { name: row.name })));
 }
 
@@ -115,7 +115,7 @@ function People({
       if (statusLock.current) return { ok: false as const, message: t("shared.confirm.working") };
       statusLock.current = true;
       try { await getApi().rpc(statusTarget.disabled ? "user.enable" : "user.disable", { userId: statusTarget.id }); reload(); return { ok: true as const }; }
-      catch (e) { return { ok: false as const, message: (e as { reason?: string }).reason === "last-owner" ? t("users.role.lastOwner") : t("users.role.failed") }; }
+      catch (e) { return { ok: false as const, message: (e as { reason?: string }).reason === "last-owner" ? t("users.status.lastOwner") : t("users.status.failed") }; }
       finally { statusLock.current = false; }
     } }, t("users.status.confirm", { name: statusTarget.name })) : null);
 }

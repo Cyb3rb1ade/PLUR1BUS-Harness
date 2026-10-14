@@ -32,3 +32,13 @@ test("registration uses Origin/Fetch-Site checks and both global and IP authenti
   for (let i = 0; i < 5; i++) assert.equal((await send()).status, 503);
   const limited = await send(); assert.equal(limited.status, 429); assert.equal(limited.json.reason, "rate-limited");
 });
+
+test("activation failure after consumption is audited and leaves no active or pending credentials", async t => {
+  const accounts = new AccountStore({ path: ":memory:", resolve: async userId => ({ userId, kind: "person", role: "member", disabled: false, version: 1 }) }); const core = fakeCore();
+  Object.assign(core, { serviceCall: async () => ({ userId: "invited", role: "member" }) });
+  const { ApiError } = await import("../src/errors.ts"); accounts.activate = async () => { throw new ApiError(503, "E_STORAGE", "account storage unavailable"); };
+  const h = await start({ accounts, core }); t.after(async () => { await h.close(); accounts.close(); }); const password = randomBytes(24).toString("base64url"), code = randomBytes(32).toString("base64url");
+  const r = await raw(h, { method: "POST", path: "/api/v1/invitations/redeem", headers: jsonHeaders(), body: JSON.stringify({ code, username: "alice", password }) }); assert.equal(r.status, 503);
+  assert.equal(await accounts.findById("invited"), undefined); await accounts.createPending("invited", "alice", "not-a-credential");
+  assert.ok(h.audit.events.some(e => e.action === "invitation.account.failed")); assert.equal(JSON.stringify(h.audit.events).includes(code), false);
+});

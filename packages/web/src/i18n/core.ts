@@ -1,6 +1,7 @@
 // Core catalogue: shell, navigation, sign-in, session, shared page states and components. Owned by the shell; page areas
 // add their own file (see ./index.ts).
 export const en = {
+  "login.account.use": "Use username and password", "login.account.owner": "Use Owner token", "login.account.username": "Username", "login.account.password": "Password", "login.account.code": "TOTP or backup code", "login.account.invalid": "Sign-in failed. Check your credentials.", "login.account.required": "Enter your account credentials.",
   "join.title": "Create your account", "join.code": "Invitation code", "join.username": "Username", "join.password": "Password (at least 12 characters)", "join.repeat": "Repeat password", "join.submit": "Create account", "join.success": "Account created. Sign in to continue.", "join.login": "Sign in", "join.invalid": "Check your invitation and account details.", "join.used": "This invitation is not valid or has already been used.", "join.exists": "This username or person already has an account.", "join.rate": "Too many attempts. Try again later.",
   "app.skip": "Skip to content",
   "app.loading": "Checking your session…",
@@ -86,6 +87,7 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "login.account.use": "Benutzername und Passwort verwenden", "login.account.owner": "Owner-Token verwenden", "login.account.username": "Benutzername", "login.account.password": "Passwort", "login.account.code": "TOTP- oder Backup-Code", "login.account.invalid": "Anmeldung fehlgeschlagen. Prüfe deine Zugangsdaten.", "login.account.required": "Gib deine Zugangsdaten ein.",
   "join.title": "Konto erstellen", "join.code": "Einladungscode", "join.username": "Benutzername", "join.password": "Passwort (mindestens 12 Zeichen)", "join.repeat": "Passwort wiederholen", "join.submit": "Konto erstellen", "join.success": "Konto erstellt. Bitte melde dich an.", "join.login": "Anmelden", "join.invalid": "Prüfe Einladung und Kontodaten.", "join.used": "Diese Einladung ist ungültig oder wurde bereits verwendet.", "join.exists": "Dieser Benutzername oder diese Person hat bereits ein Konto.", "join.rate": "Zu viele Versuche. Bitte versuche es später erneut.",
   "app.skip": "Zum Inhalt springen",
   "app.loading": "Sitzung wird geprüft …",

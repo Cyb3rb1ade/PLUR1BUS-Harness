@@ -45,10 +45,10 @@ export class AdminStore {
     return (this.db.prepare("SELECT user_id AS id, role, disabled, disabled_at AS disabledAt, disabled_by AS disabledBy, version FROM admin_roles ORDER BY user_id").all() as any[]).map(r => ({ ...r, disabled: r.disabled === 1 }));
   }
   person(id: string): (Principal & { disabled: boolean; version: number }) | null {
-    const row = this.users().find(r => r.id === id);
-    return row ? { ...this.resolve({ kind: "person", userId: id, role: row.role }), disabled: row.disabled, version: row.version } : null;
+    const row = this.db.prepare("SELECT role,disabled,version FROM admin_roles WHERE user_id=?").get(id) as { role: Role; disabled: number; version: number } | undefined;
+    return row ? { ...this.resolve({ kind: "person", userId: id, role: row.role }), disabled: row.disabled !== 0, version: row.version } : null;
   }
-  resolvePerson(id: string): Principal | null { const p = this.person(id); return p && !p.disabled ? p : null; }
+  resolvePerson(id: string): Principal | null { const p = this.person(id); return p && !p.disabled ? this.resolve({ kind: "person", userId: id, role: p.role }) : null; }
   setDisabled(id: string, disabled: boolean, by: string, now: number, beforeCommit: () => void): void {
     this.db.exec("BEGIN IMMEDIATE");
     try {

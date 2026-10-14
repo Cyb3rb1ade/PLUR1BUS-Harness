@@ -19,16 +19,17 @@ export class AccountStore implements UserDirectory {
   onChange?: (personId: string) => void;
   constructor(o: AccountStoreOptions) {
     this.#resolve = o.resolve; this.#now = o.now ?? Date.now;
+    let opened: DatabaseSync | undefined;
     try {
       if (o.path !== ":memory:") { mkdirSync(dirname(o.path), { recursive: true, mode: 0o700 }); chmodSync(dirname(o.path), 0o700); closeSync(openSync(o.path, "a", 0o600)); chmodSync(o.path, 0o600); const secure = createSecurePath(); if (!secure(dirname(o.path), { mode: 0o700 }).applied || !secure(o.path, { mode: 0o600 }).applied) throw storage(); }
-      this.#db = new DatabaseSync(o.path);
+      this.#db = opened = new DatabaseSync(o.path);
       if (Number(this.#db.prepare("PRAGMA user_version").get()?.user_version) > 1) throw storage();
       this.#db.exec(`PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;
         CREATE TABLE IF NOT EXISTS accounts (person_id TEXT PRIMARY KEY,username TEXT NOT NULL UNIQUE,password_hash TEXT NOT NULL,pending INTEGER NOT NULL DEFAULT 1,version INTEGER NOT NULL DEFAULT 1,core_version INTEGER,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL) STRICT;
         CREATE TABLE IF NOT EXISTS totp (user_id TEXT PRIMARY KEY,record TEXT NOT NULL) STRICT;
         CREATE TABLE IF NOT EXISTS tokens (id TEXT PRIMARY KEY,user_id TEXT NOT NULL,record TEXT NOT NULL,core_version INTEGER NOT NULL) STRICT;
         PRAGMA user_version=1;`);
-    } catch { throw storage(); }
+    } catch { try { opened?.close(); } catch { /* preserve the redacted storage failure */ } throw storage(); }
     this.totp = {
       get: async id => this.#safe(() => { const r = this.#db.prepare("SELECT record FROM totp WHERE user_id=?").get(id); return r ? JSON.parse(r.record as string) as TotpRecord : undefined; }),
       put: async r => { const previous = await this.totp.get(r.userId); const write = () => { this.#db.prepare("INSERT INTO totp VALUES (?,?) ON CONFLICT(user_id) DO UPDATE SET record=excluded.record").run(r.userId, JSON.stringify(r)); };
@@ -59,7 +60,7 @@ export class AccountStore implements UserDirectory {
     this.#safe(() => { try { this.#db.prepare("INSERT INTO accounts(person_id,username,password_hash,created_at,updated_at) VALUES (?,?,?,?,?)").run(personId, normalizeUsername(username), passwordHash, this.#now(), this.#now()); }
       catch (e) { if ((e as { errcode?: number }).errcode === 2067 || (e as { errcode?: number }).errcode === 1555) throw conflict(); throw e; } });
   }
-  async activate(id: string): Promise<void> { this.#safe(() => this.#db.prepare("UPDATE accounts SET pending=0,updated_at=? WHERE person_id=?").run(this.#now(), id)); }
+  async activate(id: string): Promise<void> { this.#safe(() => { const result = this.#db.prepare("UPDATE accounts SET pending=0,updated_at=? WHERE person_id=? AND pending=1").run(this.#now(), id); if (Number(result.changes) !== 1) throw storage(); }); }
   async removePending(id: string): Promise<void> { this.#safe(() => this.#db.prepare("DELETE FROM accounts WHERE person_id=? AND pending=1").run(id)); }
   async credentialsByUsername(username: string): Promise<UserRecord | undefined> {
     const row = this.#safe(() => this.#db.prepare("SELECT * FROM accounts WHERE username=? AND pending=0").get(normalizeUsername(username)));
