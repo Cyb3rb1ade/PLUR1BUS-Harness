@@ -84,7 +84,7 @@ import { createModelsScanJob } from "./discovery/job.ts";
 import { loadMetadataTable, reenrichCatalog } from "./discovery/metadata.ts";
 import { createScanScheduler, type ScanScheduler } from "./discovery/scheduler.ts";
 import { createDiscoveryService, type DiscoveryService } from "./discovery/service.ts";
-import { createDreams, type Dreams } from "./dreams/index.ts";
+import { createDreams, forgetRemovedAgent, type Dreams } from "./dreams/index.ts";
 import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
 import { createMetrics, createMetricsServer, loadOrCreateMetricsToken, type Metrics, type MetricsServer } from "./metrics/index.ts";
 import { createAuditWriter } from "./identity/audit.ts";
@@ -398,6 +398,8 @@ export function createCore(o: CoreOptions): Core {
       if (next.logs.maxBytes !== prev.logs.maxBytes || next.logs.keep !== prev.logs.keep) log.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
       if (next.supervisor.graceMs !== prev.supervisor.graceMs) watchedOrphans.setGraceMs(next.supervisor.graceMs);
       if (plan.changed.some((k) => k.startsWith("models.scan.") || k === "providers" || k.startsWith("providers."))) scanScheduler?.replan();
+      // An agent that left the configuration loses its dream schedule at once (forgetAgent refuses one the registry still lists).
+      for (const id of Object.keys(prev.agents)) if (!Object.hasOwn(next.agents, id)) forgetRemovedAgent(dreams?.scheduler, id, log);
       discoveryWriter?.updateLevels({ defaultLevel: next.core.logLevel });
       discoveryWriter?.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
       log.info("configuration changed", { revision: cs.revision(), changed: plan.changed, restartPending: cs.restartPending() });
@@ -656,7 +658,7 @@ export function createCore(o: CoreOptions): Core {
           if (result.rejected) throw new RpcError("E_STORAGE", "memory cards were rejected");
         },
       });
-      const adminSurface = buildAdminSurface({ rightsChanged: userId => { server?.notify("api.account.changed", { userId }, { audience: apiIdentity.services().map(connectionId => ({ connectionId })) }); }, people, lifecycle, identity: identityService, sessions: () => sessions?.store ?? null, breakglass, ownership, clock, audit: rbacAudit, sessionUsage: ids => sessionUsage(path.join(l.state, "budget.sqlite"), ids),
+      const adminSurface = buildAdminSurface({ onAgentDeleted: id => forgetRemovedAgent(dreams?.scheduler, id, log), rightsChanged: userId => { server?.notify("api.account.changed", { userId }, { audience: apiIdentity.services().map(connectionId => ({ connectionId })) }); }, people, lifecycle, identity: identityService, sessions: () => sessions?.store ?? null, breakglass, ownership, clock, audit: rbacAudit, sessionUsage: ids => sessionUsage(path.join(l.state, "budget.sqlite"), ids),
         agents: () => cfg().agents,
         export: async (id, who) => {
           const root = l.agentDir(id), workspace = registry.workspaceOf(id);

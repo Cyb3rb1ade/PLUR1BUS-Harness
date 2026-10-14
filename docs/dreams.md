@@ -137,9 +137,11 @@ input. Inner whitespace is **not** collapsed: `"a  b"`, `"a\nb"` and `"a b"` are
   Test: `scheduler-time.test.ts > an agent removed from the registry gets no cron run, no catch-up and no importance trigger; its rows stay`.
   * Its three `dream_schedule` rows stay while the process runs (the agent may come back) and are **deleted at the next
     start**; the ledger keeps its rows. After a restart no catch-up is created for it (`scheduler-time.test.ts > restart after the agent was removed: no catch-up for it`),
-    and a returning agent gets fresh rows without a stale firing. Code that removes an agent can call
-    `DreamScheduler.forgetAgent(agentId)` to drop the rows at once (it refuses a registered agent); wiring that call into the
-    agent-removal path belongs to the composition root and is not done here. Tests: `scheduler-time.test.ts > the schedule rows of a removed agent are deleted at the next start ...`,
+    and a returning agent gets fresh rows without a stale firing. The Core calls `DreamScheduler.forgetAgent(agentId)` (through
+    `forgetRemovedAgent`, `dreams/index.ts`) as soon as an agent is removed: after `agent.delete` has marked the agent deleted
+    (it then drops out of the active registry; `admin-surface.ts` `onAgentDeleted`) and when a configuration change removes the
+    agent from `agents` (`core.ts`, `cs.onChange`). `forgetAgent` refuses a still-registered agent; the wiring then logs a warning
+    and leaves the rows to the next start. A failing call never fails the deletion. Tests: `backend.test.ts > agent.delete drops the agent's dream schedule rows at once ...`, `backend.test.ts > a failing forget hook ...`, `scheduler-time.test.ts > the schedule rows of a removed agent are deleted at the next start ...`,
     `> forgetAgent removes the rows at once ...`; store: `store.test.ts > deleteSchedules removes the three schedule rows ...`.
   * If the agent comes back within the same process, its stale `nextRunAt` fires once with `trigger = catchup` and
     `scheduledFor` equal to the stale value; the schedule is normal afterwards. The scheduler notices the absence at its
@@ -176,13 +178,11 @@ Fixed in the 2026-10-14 consistency wave (test references above):
 3. **Hourly crons and the repeated hour on fall back**: decided, see "Cron dialect" (owner decision 2026-10-14: one run per
    wall-clock hour, the doubled hour runs once; a real-time gap of up to 2 h is accepted). Pinned by tests.
 4. **A returning agent fires its stale window as `catchup`**: fixed.
-5. **Schedule rows of removed agents** are deleted at the next start (and by `forgetAgent`): fixed.
+5. **Schedule rows of removed agents** are deleted at once when the Core removes the agent (`agent.delete`, configuration change) and, as a fallback, at the next start: fixed.
 6. **`finishRun` UNIQUE conflict** is a defined `E_CONFLICT`: fixed.
 7. **Crashed window** is retried once (`RETRY_CAP = 1`): fixed.
 
 Still open (deliberately):
 
-* The in-process removal path does not call `forgetAgent` yet: rows of an agent removed while the daemon runs are cleaned at
-  the next start. Wiring needs the composition root, which this change did not touch.
 * The retry is not distinguishable from a normal catch-up in the ledger's trigger column (it shares `scheduledFor` with the
   crashed run). A dedicated trigger value would need a schema, wire-format and web-string change.

@@ -30,6 +30,8 @@ export interface AdminSurfaceDeps {
   ownership: (who: Principal, params?: unknown) => string[];
   sessionUsage?: (ids: readonly string[]) => Map<string, import("./session-usage.ts").SessionUsage>;
   rightsChanged?: (userId: string) => void;
+  /** Called after an agent was deleted (lifecycle marked, memory erased); a throw is swallowed. The composition root drops the agent's dream schedule here. */
+  onAgentDeleted?: (agentId: string) => void;
   audit: AuditSink; clock: () => number;
 }
 const obj = (p: unknown): Record<string, any> => p && typeof p === "object" && !Array.isArray(p) ? p as Record<string, any> : {};
@@ -109,7 +111,7 @@ export function buildAdminSurface(d: AdminSurfaceDeps): Record<string, Handler> 
       if (!d.erase) { audit(a, "agent.delete.unavailable", id, { reason: "engine-erasure-unavailable" }); throw new RpcError("E_NOT_AVAILABLE", "the pinned engine has no agent erasure API", { reason: "engine-erasure-unavailable" }); }
       audit(a, "agent.delete", id);
       deleting.add(id);
-      try { await d.erase(id); d.lifecycle.set(id, { deleted: true }); audit(a, "agent.deleted", id); }
+      try { await d.erase(id); d.lifecycle.set(id, { deleted: true }); audit(a, "agent.deleted", id); try { d.onAgentDeleted?.(id); } catch { /* best effort: the next start cleans up */ } }
       catch (e) { audit(a, "agent.delete.failed", id, { reason: "engine-erasure-failed" }); throw e; }
       finally { deleting.delete(id); }
       return { agentId: id, deleted: true };
