@@ -4483,6 +4483,106 @@
           ]
         }
       },
+      "doctor.report": {
+  "x-stability": "experimental",
+  "x-since": "1.15.0",
+  "x-server": "core",
+  "description": "Cached authoritative 1staid report, with provisioning categories lacking checks explicitly skipped. Human-only reads for all roles; refresh for Owner/Admin/Operator, at most once per 30 seconds (E_CONFLICT reason refresh-rate-limit). Free-form detail is never forwarded.",
+  "params": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "refresh": {
+        "type": "boolean"
+      }
+    }
+  },
+  "result": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "generatedAt",
+      "groups"
+    ],
+    "properties": {
+      "generatedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "groups": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "title",
+            "checks"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "checks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "status",
+                  "summary"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ok",
+                      "warn",
+                      "fail",
+                      "skipped"
+                    ]
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "detail": {
+                    "type": "string"
+                  },
+                  "repair": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "kind",
+                      "label"
+                    ],
+                    "properties": {
+                      "kind": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "command": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+},
       "agent.activity.list": {
   "x-stability": "experimental",
   "x-since": "1.15.0",

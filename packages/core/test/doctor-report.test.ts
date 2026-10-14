@@ -1,0 +1,22 @@
+import { it } from "node:test";
+import assert from "node:assert/strict";
+import { buildDoctorMethods } from "../src/doctor-report.ts";
+import { guardMethods } from "../src/rbac/guard.ts";
+import type { Principal } from "../src/rbac/types.ts";
+it("projects authoritative checks, removes private paths, shares refresh and rate limits", async () => {
+  let now = 1000; let runs = 0;
+  const methods = buildDoctorMethods({ home: "/private/home/example", clock: () => now, check: async () => { runs++; return { schema: "1staid.check/1", checks: [{ id: "models.cache", status: "ok", summary: "models in /private/home/example/models", detail: "must not escape", hint: "plur1bus setup" }] }; } });
+  let principal: Principal = { kind: "person", role: "viewer", userId: "person-alice" };
+  const guarded = guardMethods(methods, { resolve: () => principal, now: () => now });
+  const ctx = { requestId: "request", connectionId: "connection", signal: new AbortController().signal };
+  const first = await guarded["doctor.report"]!({}, ctx);
+  assert.equal(runs, 1);
+  assert.equal(JSON.stringify(first).includes("/private/home/example"), false);
+  assert.equal(JSON.stringify(first).includes("must not escape"), false);
+  await assert.rejects(guarded["doctor.report"]!({ refresh: true }, ctx), (e:any) => e.error === "E_DENIED");
+  principal = { ...principal, role: "operator" };
+  await assert.rejects(guarded["doctor.report"]!({ refresh: true }, ctx), (e:any) => e.error === "E_CONFLICT");
+  now += 30000;
+  await guarded["doctor.report"]!({ refresh: true }, ctx);
+  assert.equal(runs, 2);
+});

@@ -407,3 +407,7 @@ See [agents.md](agents.md) for CLI formats, compatibility and recovery behavior.
 ### Agent activity history
 
 `agent.activity.list` is human-only, uses the `agent.list` admission gate and filters every returned transition against current agent rights. Owner and Admin see all agents. Operator, Member and Viewer need `use` or `manage` for each agent. Cursor validity includes the visible roster, so a rights change requires a fresh query.
+
+### Doctor snapshots
+
+`doctor.report` is human-only. Its admission gate permits all five human roles to read the cached report. The handler additionally requires Owner, Admin or Operator for `refresh: true`; it rate-limits a fresh check to once per 30 seconds. Agents cannot request or read this report.

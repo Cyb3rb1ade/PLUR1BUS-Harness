@@ -1,3 +1,4 @@
+import { buildDoctorMethods } from "./doctor-report.ts";
 import { createAuthSecretStore } from "./auth/secret-store.ts";
 import { createWriter } from "./logs/writer.ts";
 import { createD111Events } from "./discovery/events-logger.ts";
@@ -705,6 +706,7 @@ export function createCore(o: CoreOptions): Core {
       rawMethods["agent.list"] = async (p, ctx) => { const r = await listAgents!(p,ctx) as { agents: { agentId: string }[] }; return { ...r, agents: r.agents.filter(a => !lifecycle.state(a.agentId).deleted).map(a => ({ ...a, lifecycle: lifecycle.state(a.agentId) })) }; };
       rawMethods["agent.status"] = async (p, ctx) => { if (lifecycle.state(p.agentId).deleted) throw new RpcError("E_NOT_FOUND", "agent not found"); return { ...await agentStatus!(p,ctx) as object, lifecycle: lifecycle.state(p.agentId) }; };
       Object.assign(rawMethods, breakglassMemory({ methods: rawMethods, engine: eng, identity: identityService, breakglass, workspace: id => registry.workspaceOf(id) }));
+      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock }));
       const methods = guardMethods(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.store.getSession(id)?.agentId), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: AGENT_CREATION_RULES });
       server = createRpcServer({
         address, token, personOfConnection: async connectionId => { const p = await resolvePrincipal({ requestId: "audience", connectionId, signal: shutdown.signal }, "events.subscribe", {}); return p?.kind === "person" ? p.userId : null; }, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,

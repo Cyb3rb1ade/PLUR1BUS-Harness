@@ -1,3 +1,4 @@
+import { DoctorReportCard } from "./report.ts";
 // Doctor / status page (`#/doctor`). Live data: GET /api/v1/health and GET /api/v1/agents (real routes), core.status over
 // /rpc (assumed, shown as "not available" until served). Re-checks every REFRESH_MS while the tab is visible; the timer
 // and any request in flight end with the page. A lost session hands over to the shell's sign-in, which returns here.
@@ -90,7 +91,7 @@ export function DoctorPage(): View {
 
   return h(Page, { title: t("nav.doctor"), lead: t("doctor.lead"), width: "full" },
     h("p", null,
-      h("button", { type: "button", class: "btn btn-primary", ...(busy ? { "aria-disabled": "true" } : {}), onClick: () => { if (!busy) recheck(); } }, t("doctor.recheck")),
+      h("button", { type: "button", class: "btn btn-primary", disabled: busy, ...(busy ? { "aria-disabled": "true" } : {}), onClick: recheck }, t("doctor.recheck")),
       " ", h("span", null, busy ? t("doctor.checking") : lastChecked),
       // Read out only after a check the user asked for; the automatic ones stay silent.
       h("span", { class: "sr-only", role: "status" }, announce)),
@@ -102,5 +103,6 @@ export function DoctorPage(): View {
           healthCard(snap.health),
           h(CoreCard, { core: snap.core }),
           h(AgentsCard, { agents: snap.agents })),
+    h(DoctorReportCard, {}),
     h(ProvisioningCard, {}));
 }

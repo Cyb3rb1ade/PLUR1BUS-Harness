@@ -1756,6 +1756,8 @@ table! {
     Result "agent.open" AgentOpenResult,
     Params "agent.close" AgentCloseParams,
     Result "agent.close" AgentCloseResult,
+    Params "doctor.report" DoctorReportParams,
+    Result "doctor.report" DoctorReportResult,
     Params "agent.activity.list" AgentActivityListParams,
     Result "agent.activity.list" AgentActivityListResult,
     Params "agent.status" AgentStatusParams,

@@ -336,6 +336,10 @@
       "stability": "experimental",
       "since": "1.6.0"
     },
+    "doctor.report": {
+      "stability": "experimental",
+      "since": "1.15.0"
+    },
     "agent.activity.list": {
       "stability": "experimental",
       "since": "1.15.0"
@@ -824,7 +828,7 @@
       "deprecated": {
         "since": "1.1.0",
         "removeAfter": "2027-03-26",
-        "replacement": "harness event notifications: recall.completed, recall.degraded, recall.block-clipped, recall.block-dropped, job.run, memory.proposal (ADR-016 \u00a76)"
+        "replacement": "harness event notifications: recall.completed, recall.degraded, recall.block-clipped, recall.block-dropped, job.run, memory.proposal (ADR-016 §6)"
       }
     },
     "recall.completed": {
