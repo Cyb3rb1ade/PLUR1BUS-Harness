@@ -19,7 +19,7 @@ export class VoiceBroker {
   readonly #p: VoicePorts; readonly #sessions = new Map<string, Session>();
   readonly #pending = new Map<string, { request: VoiceRequest; expiresAt: number; secret: EphemeralSecret }>();
   readonly #buffered = new Map<string, VoiceEvent[]>();
-  readonly #flights = new Map<string, Promise<void>>(); #starting = 0;
+  readonly #flights = new Map<string, Promise<void>>(); readonly #closing = new Map<string, Promise<void>>(); #starting = 0;
   constructor(ports: VoicePorts) { if (!Number.isInteger(ports.capacity) || ports.capacity < 1) throw new OpenAIError('invalid-request'); this.#p = ports; }
   async #validate(r: VoiceRequest) {
     if (!r.surface.authenticated || ![2,3].includes(r.surface.trust) || r.surface.kind === 'group') throw new OpenAIError('surface-denied');
@@ -47,7 +47,7 @@ export class VoiceBroker {
     return boundary(async () => {
       const r = structuredClone(input); await this.#validate(r);
       if (this.#sessions.size + this.#pending.size + this.#starting >= this.#p.capacity) throw new OpenAIError('capacity-exceeded');
-      this.#starting++; const reservation = randomUUID(); let sessionId: string | undefined; let sideband: SidebandConnection | undefined;
+      this.#starting++; const reservation = randomUUID(); let sessionId: string | undefined; let sideband: SidebandConnection | undefined; let registered = false;
       try {
         await this.#reserve(r, reservation);
         const authorization = await this.#p.credentials.lease(r.parent), base = endpoint(r.parent.region);
@@ -62,11 +62,16 @@ export class VoiceBroker {
         if (this.#sessions.has(sessionId)) { sessionId = undefined; throw new OpenAIError('endpoint-rejected'); }
         sideband = await this.#attach(sessionId, r, authorization);
         this.#p.audit({ kind: 'session-start', provider: r.provider, agentRef: safetyIdentifier(r.agent), surface: r.surface.kind, sessionRef: safetyIdentifier(sessionId) });
-        this.#sessions.set(sessionId, { request: r, reservation, sideband, expiresAt: this.#p.clock.now() + 3600000, events: new Set(), tools: new Set(), totals: zero(), backend: new Set() });
+        this.#sessions.set(sessionId, { request: r, reservation, sideband, expiresAt: this.#p.clock.now() + 3600000, events: new Set(), tools: new Set(), totals: zero(), backend: new Set() }); registered = true;
         await this.#activate(sessionId);
         if (!this.#sessions.has(sessionId)) throw new OpenAIError('budget-exceeded');
         return { sessionId, ...(answer === undefined ? {} : { sdpAnswer: answer }) };
-      } catch (e) { if (sessionId) this.#buffered.delete(sessionId); if (sessionId) await this.#p.sessions.close(sessionId, r.provider, r.parent).catch(() => {}); await sideband?.close().catch(() => {}); await this.#p.budget.release(reservation); throw e; }
+      } catch (e) {
+        // Once registered, close() owns provider hangup, sideband, release and the map entry (an event may have run it already).
+        if (registered) { if (this.#sessions.has(sessionId!)) await this.close(sessionId!).catch(() => {}); }
+        else { if (sessionId) this.#buffered.delete(sessionId); if (sessionId) await this.#p.sessions.close(sessionId, r.provider, r.parent).catch(() => {}); await sideband?.close().catch(() => {}); await this.#p.budget.release(reservation); }
+        throw e;
+      }
       finally { this.#starting--; }
     });
   }
@@ -100,8 +105,9 @@ export class VoiceBroker {
       if (!pending || pending.expiresAt <= this.#p.clock.now() || this.#sessions.has(callId)) throw new OpenAIError('ephemeral-consumed');
       const id = text(callId), r = pending.request;
       this.#pending.delete(reservation); // claim before any await: one sideband per reservation
+      this.#starting++; // the slot stays counted until the session is registered (capacity)
       let sideband: SidebandConnection;
-      try { sideband = await this.#attach(id, r, await this.#p.credentials.lease(r.parent)); } catch (e) { this.#pending.set(reservation, pending); throw e; }
+      try { sideband = await this.#attach(id, r, await this.#p.credentials.lease(r.parent)); } catch (e) { this.#pending.set(reservation, pending); throw e; } finally { this.#starting--; }
       this.#sessions.set(id, { request: r, reservation, sideband, expiresAt: this.#p.clock.now() + 3600000, events: new Set(), tools: new Set(), totals: zero(), backend: new Set() });
       this.#pending.delete(reservation);
       await this.#activate(id);
@@ -146,7 +152,13 @@ export class VoiceBroker {
     }
     if (e.type === 'session.closed') await this.close(id);
   }
-  async close(id: string, notice?: 'budget' | 'failure') {
+  /** Concurrent callers (sweep, socket close, budget event) share one close: one provider hangup, one notice, one release. */
+  close(id: string, notice?: 'budget' | 'failure'): Promise<void> {
+    const running = this.#closing.get(id); if (running) return running;
+    const work: Promise<void> = this.#close(id, notice).finally(() => { if (this.#closing.get(id) === work) this.#closing.delete(id); });
+    this.#closing.set(id, work); return work;
+  }
+  async #close(id: string, notice?: 'budget' | 'failure') {
     await boundary(async () => {
       const s = this.#sessions.get(id); if (!s) return;
       // First stop provider spend. Retain session for retry if the close fails.
@@ -162,8 +174,21 @@ export class VoiceBroker {
     });
   }
   async revokeEphemeral(reservation: string) { const pending = this.#pending.get(reservation); if (pending) { pending.secret.revoke(); await this.#p.budget.release(reservation); this.#pending.delete(reservation); } for (const [id, s] of this.#sessions) if (s.reservation === reservation) await this.close(id); }
-  async sweep() { for (const [id,s] of this.#sessions) if (s.expiresAt <= this.#p.clock.now()) await this.close(id); for (const [id,p] of this.#pending) if (p.expiresAt <= this.#p.clock.now()) { p.secret.revoke(); await this.#p.budget.release(id); this.#pending.delete(id); } }
-  async dispose() { for (const id of this.#sessions.keys()) await this.close(id); for (const [id, p] of this.#pending) { p.secret.revoke(); await this.#p.budget.release(id); } this.#pending.clear(); }
+  /** Every expired entry is attempted; the first failure is reported afterwards so one stuck session cannot starve the rest. */
+  async sweep() {
+    const errors: unknown[] = [];
+    for (const [id, s] of [...this.#sessions]) if (s.expiresAt <= this.#p.clock.now()) await this.close(id).catch(e => { errors.push(e); });
+    for (const [id, p] of [...this.#pending]) if (p.expiresAt <= this.#p.clock.now()) { p.secret.revoke(); this.#pending.delete(id); await this.#p.budget.release(id).catch(e => { errors.push(e); }); }
+    if (errors.length) throw errors[0];
+  }
+  async dispose() {
+    const errors: unknown[] = [];
+    const pending = [...this.#pending]; this.#pending.clear();
+    for (const [, p] of pending) p.secret.revoke();
+    for (const id of [...this.#sessions.keys()]) await this.close(id).catch(e => { errors.push(e); });
+    for (const [id] of pending) await this.#p.budget.release(id).catch(e => { errors.push(e); });
+    if (errors.length) throw errors[0];
+  }
 }
 function zero(): VoiceUsage { return { seconds: 0, costMicros: 0, inputTokens: 0, outputTokens: 0 }; }
 function usageOf(e: { seconds?: number; costMicros?: number; inputTokens?: number; outputTokens?: number }): VoiceUsage { const v = zero(); for (const k of Object.keys(v) as (keyof VoiceUsage)[]) { const n = e[k] ?? 0; if (!Number.isFinite(n) || n < 0) throw new OpenAIError('invalid-request'); v[k] = n; } return v; }
