@@ -150,7 +150,7 @@ describe("Recurring: personal tasks", opts, () => {
       await app.page.getByRole("dialog").waitFor({ state: "hidden" });
       await app.page.getByRole("button", { name: "Delete recurring task", exact: true }).click();
       await app.page.getByRole("dialog").getByText("Delete task Daily?").waitFor();
-      await app.page.evaluate(() => { const b = [...document.querySelectorAll<HTMLButtonElement>("dialog button.btn-primary")][0]!; b.click(); b.click(); });
+      await app.page.evaluate(() => { const b = Array.from(document.querySelectorAll<HTMLButtonElement>("dialog button.btn-primary"))[0]!; b.click(); b.click(); });
       await app.page.waitForTimeout(150);
       assert.equal(calls(app, "jobs.delete").length, 1);
     });

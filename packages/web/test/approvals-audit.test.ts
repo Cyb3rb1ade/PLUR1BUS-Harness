@@ -31,7 +31,7 @@ async function clickInOneTask(page: Page, names: RegExp[]): Promise<void> {
   await page.evaluate((sources) => {
     for (const src of sources) {
       const re = new RegExp(src);
-      const b = [...document.querySelectorAll("button")].find((x) => re.test((x.textContent ?? "").trim()));
+      const b = Array.from(document.querySelectorAll("button")).find((x) => re.test((x.textContent ?? "").trim()));
       (b as HTMLButtonElement).click();
     }
   }, names.map((r) => r.source));
