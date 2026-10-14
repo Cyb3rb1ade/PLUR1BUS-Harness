@@ -410,4 +410,4 @@ See [agents.md](agents.md) for CLI formats, compatibility and recovery behavior.
 
 ### Doctor snapshots
 
-`doctor.report` is human-only. Its admission gate permits all five human roles to read the cached report. The handler additionally requires Owner, Admin or Operator for `refresh: true`; it rate-limits a fresh check to once per 30 seconds. Agents cannot request or read this report.
+`doctor.report` is human-only. Its admission gate permits all five human roles to read the cached report. The all-human read admission uses `agent.list`; the handler additionally authorizes `doctor.run` (including token scopes) and requires Owner, Admin or Operator for `refresh: true`; it rate-limits a fresh check to once per 30 seconds. Agents cannot request or read this report.

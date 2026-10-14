@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { homedir } from "node:os";
+import { authorize } from "./rbac/authorize.ts";
 import { authenticatedPrincipal } from "./rbac/guard.ts";
 import { RpcError } from "./rpc/errors.ts";
 import type { Handler } from "./rpc/server.ts";
@@ -19,12 +20,12 @@ export function runFirstAid(home: string, binary = process.env.PLUR1BUS_BIN ?? "
     });
   });
 }
-export function buildDoctorMethods(o: { home: string; clock: () => number; check?: () => Promise<unknown> }): Record<string, Handler> {
+export function buildDoctorMethods(o: { home: string; clock: () => number; check?: () => Promise<unknown>; scheduleInitial?: (start: () => Promise<unknown>) => void }): Record<string, Handler> {
   let cached: Report | null = null;
   let lastStarted = -Infinity;
   let inFlight: Promise<Report> | null = null;
   const redactor = createRedactor();
-  const safe = (text: string): string => redactor.text(text.slice(0, 4096)).split(o.home).join("[home]").split(homedir()).join("[user-home]");
+  const safe = (text: string): string => redactor.text(text).split(o.home).join("[home]").split(homedir()).join("[user-home]").slice(0, 4096);
   async function generate(): Promise<Report> {
     lastStarted = o.clock();
     const raw = await (o.check ?? (() => runFirstAid(o.home)))() as { schema?: unknown; checks?: unknown };
@@ -46,11 +47,12 @@ export function buildDoctorMethods(o: { home: string; clock: () => number; check
     return inFlight;
   }
   // Initial snapshot is an internal startup check; reading never requests a refresh.
-  void start().catch(() => {});
+  if (o.scheduleInitial) o.scheduleInitial(start);
+  else void start().catch(() => {});
   return { "doctor.report": async (p: { refresh?: boolean }, ctx) => {
     const principal = authenticatedPrincipal(ctx);
     if (p?.refresh === true) {
-      if (!["owner", "admin", "operator"].includes(principal.role)) throw new RpcError("E_DENIED", "diagnostic refresh requires an operator");
+      if (authorize(principal, "doctor.run", { kind: "system" }, { now: o.clock() }).effect !== "allow") throw new RpcError("E_DENIED", "diagnostic refresh requires an operator");
       if (inFlight || o.clock() - lastStarted < 30000) throw new RpcError("E_CONFLICT", "diagnostics were refreshed recently", { reason: "refresh-rate-limit" });
       return await start();
     }
