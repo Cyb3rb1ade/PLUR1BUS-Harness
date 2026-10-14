@@ -10,13 +10,18 @@ export const GLOBAL_WEB_EVENTS = new Set(["core.state"]);
 export function webEventAllowed(method: string, principal: ApiPrincipal, delivery: { audience: readonly AudienceTarget[] | null; connectionId: string }): boolean {
   if (!WEB_EVENT_NAMES.has(method)) return false;
   if (delivery.audience === null) return GLOBAL_WEB_EVENTS.has(method);
-  return delivery.audience.some(a => typeof a === "string" ? a === delivery.connectionId : "connectionId" in a ? a.connectionId === delivery.connectionId : a.personId === principal.userId);
+  if (!Array.isArray(delivery.audience)) return false;
+  return delivery.audience.some(a => {
+    if (typeof a === "string") return a === delivery.connectionId;
+    if (!a || typeof a !== "object" || Array.isArray(a) || Object.keys(a).length !== 1) return false;
+    return "connectionId" in a ? a.connectionId === delivery.connectionId : "personId" in a && a.personId === principal.userId;
+  });
 }
 interface Event { id: string; wire: string }
 interface Stream { feedKey: string; person: string; session: Session; end(): void }
 interface Feed { person: string; session: Session; events: Event[]; bytes: number; listeners: Set<(event: Event) => void>; off?: () => void; ready: Promise<void>; epoch: string; seq: number; expiry?: NodeJS.Timeout }
 
-/** Buffers only already filtered events, per person. No cookie or delegation credential enters an event/cursor. */
+/** Buffers only already filtered events, per person and cookie session. No cookie or delegation credential enters an event/cursor. */
 export function createEventsRoute(o: { core: CoreRpc; sessions: SessionStore; maxPerPerson?: number; bufferSize?: number; heartbeatMs?: number; initTimeoutMs?: number; now: () => number }) {
   const streams = new Set<Stream>(), feeds = new Map<string, Feed>();
   const endSession = o.sessions.onEnd(s => {

@@ -36,6 +36,8 @@ test("fail-closed audience filtering accepts only self or this connection and au
   assert.equal(webEventAllowed("inbox.changed", person, { connectionId, audience: [{ personId: "alice" }] }), true);
   assert.equal(webEventAllowed("inbox.changed", person, { connectionId, audience: [{ connectionId: "c" }] }), true);
   assert.equal(webEventAllowed("core.state", person, { connectionId, audience: null }), true);
+  for (const malformed of [[null], [{ personId: "alice", connectionId: "c" }], [{ personId: "alice", unexpected: true }], "alice"])
+    assert.equal(webEventAllowed("inbox.changed", person, { connectionId, audience: malformed as any }), false, "malformed or ambiguous audiences fail closed");
 });
 test("HTTP transport requires session, CSRF on reads too, and origin; size uses existing limit", async t => {
   const h = await start({ limits: { maxBodyBytes: 300 } }); t.after(() => h.close());
