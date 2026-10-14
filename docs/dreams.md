@@ -99,14 +99,13 @@ commitment. Test references are `file > test name` relative to `packages/core/te
 * Daylight saving time (the zone is always explicit, never host-local):
   * A wall time that does not exist (spring forward) is skipped for that day (Berlin 2026-03-29, `30 2 * * *` next fires 2026-03-30).
   * An ambiguous wall time (fall back) fires once, at its first occurrence (Berlin 2026-10-25 02:30 CEST).
-  * A schedule whose **hour field starts with `*`** (`0 * * * *`, `*/30 * * * *`, `0 */4 * * *`; hourly and finer) follows
-    real time through the fall-back overlap, as Vixie cron does for wildcard jobs: the repeated wall hour is run once per
-    occurrence, there is no 2 h gap. `0 * * * *` in `Europe/Berlin` fires at 00:00Z, 01:00Z, 02:00Z, 03:00Z on 2026-10-25
-    (02:00 CEST, 02:00 CET, 03:00 CET, 04:00 CET). A schedule with fixed hours (`0 2,3 * * *`, the three defaults'
-    `15 1`, `0 4`) is not repeated. At spring forward no wall time is invented. Tests: `cron-table.test.ts > an hourly cron
-    fires at every real-time hour across fall back ...`, `> a sub-hourly wildcard cron ...`, `> a cron with fixed hours still fires at the first occurrence only ...`,
-    `> an hourly cron does not fire twice at spring forward ...`; with an injected clock in Europe/Berlin:
-    `scheduler-time.test.ts > dreams scheduler: DST in Europe/Berlin on an injected clock`.
+  * Owner decision 2026-10-14: **one run per wall-clock time**; the doubled hour at fall back runs **once**, at its first
+    occurrence (not skipped, not twice). An hourly `0 * * * *` in `Europe/Berlin` fires at 00:00Z (02:00 CEST) and then
+    02:00Z (03:00 CET) on 2026-10-25; the real-time gap of up to 2 h during fall-back is accepted. The same holds for
+    `*/30 * * * *` and for fixed-hour schedules (`0 2,3 * * *`). At spring forward no wall time is invented. Tests:
+    `cron-table.test.ts > owner decision 2026-10-14: an hourly cron runs once per wall-clock hour ...`, `> a sub-hourly wildcard cron ...`,
+    `> a cron with fixed hours fires at the first occurrence only ...`, `> an hourly cron does not fire twice at spring forward ...`;
+    with an injected clock in Europe/Berlin: `scheduler-time.test.ts > dreams scheduler: DST in Europe/Berlin on an injected clock`.
   * A daily `0 4 * * *` follows the local clock across the change (the deep default).
 
 ### Candidate content hash (`candidates.ts`)
@@ -174,9 +173,8 @@ Fixed in the 2026-10-14 consistency wave (test references above):
 1. **`runPhase` checks the registry.** `DreamScheduler.runPhase` throws `unknown agent` for an agent that left the registry
    (`scheduler-time.test.ts > KNOWN GAP: core/dreams DreamScheduler.runPhase ...` is a plain test now).
 2. **`*/n` day fields** follow Vixie cron: fixed, see "Cron dialect".
-3. **Hourly crons keep the repeated hour on fall back**: fixed for hour fields starting with `*`, see "Cron dialect".
-   Note the decision this encodes: *one run per real-time hour slot*, so the repeated wall hour 02:00 runs once per
-   occurrence (two runs in that wall hour), where fixed-hour schedules still run once.
+3. **Hourly crons and the repeated hour on fall back**: decided, see "Cron dialect" (owner decision 2026-10-14: one run per
+   wall-clock hour, the doubled hour runs once; a real-time gap of up to 2 h is accepted). Pinned by tests.
 4. **A returning agent fires its stale window as `catchup`**: fixed.
 5. **Schedule rows of removed agents** are deleted at the next start (and by `forgetAgent`): fixed.
 6. **`finishRun` UNIQUE conflict** is a defined `E_CONFLICT`: fixed.

@@ -444,7 +444,7 @@ describe("dreams scheduler: importance state survives a restart", () => {
 });
 
 describe("dreams scheduler: DST in Europe/Berlin on an injected clock", () => {
-  it("an hourly schedule runs once per real-time hour through the fall-back night 2026-10-25: the repeated 02:00 wall hour is not lost", async () => {
+  it("an hourly schedule runs once per wall-clock hour through the fall-back night 2026-10-25: the doubled 02:00 hour runs once", async () => {
     const start = Date.parse("2026-10-24T22:00:00Z");
     const h = harness(dirs, { start, over: { defaultTimezone: "Europe/Berlin" } });
     h.captures("alpha", 3);
@@ -452,7 +452,7 @@ describe("dreams scheduler: DST in Europe/Berlin on an injected clock", () => {
     h.sched.setSchedule("alpha", "rem", { cron: "0 * * * *" });
     await h.advance(5 * HOUR + MIN, 15 * MIN);
     const fired = rows(h, "rem").map((r) => new Date(r.scheduledFor!).toISOString()).sort();
-    assert.deepEqual(fired, ["2026-10-24T23:00:00.000Z", "2026-10-25T00:00:00.000Z", "2026-10-25T01:00:00.000Z", "2026-10-25T02:00:00.000Z", "2026-10-25T03:00:00.000Z"]);
+    assert.deepEqual(fired, ["2026-10-24T23:00:00.000Z", "2026-10-25T00:00:00.000Z", "2026-10-25T02:00:00.000Z", "2026-10-25T03:00:00.000Z"]);
     assert.ok(rows(h, "rem").every((r) => r.trigger === "cron"));
     await h.sched.stop();
   });

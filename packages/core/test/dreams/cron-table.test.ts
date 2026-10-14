@@ -117,20 +117,20 @@ describe("dreams/cron nextAfter: daylight saving time", () => {
     assert.equal(next("0 4 * * *", "Europe/Berlin", "2026-10-24T12:00:00Z"), "2026-10-25T03:00:00.000Z"); // 04:00 CET (after fall back)
     assert.equal(next("0 4 * * *", "Europe/Berlin", "2026-03-28T12:00:00Z"), "2026-03-29T02:00:00.000Z"); // 04:00 CEST
   });
-  it("an hourly cron fires at every real-time hour across fall back: the repeated 02:00 wall hour runs once per occurrence, no 2 h gap", () => {
+  it("owner decision 2026-10-14: an hourly cron runs once per wall-clock hour; the doubled 02:00 hour runs once, at its first occurrence (2 h real-time gap accepted)", () => {
     const c = parseCron("0 * * * *"); const out: string[] = [];
     let t = iso("2026-10-24T23:30:00Z");
-    for (let i = 0; i < 4; i++) { t = nextAfter(c, "Europe/Berlin", t)!; out.push(at(t)!); }
-    // 02:00 CEST = 00:00Z (first occurrence), 02:00 CET = 01:00Z (second occurrence), then 03:00 CET = 02:00Z
-    assert.deepEqual(out, ["2026-10-25T00:00:00.000Z", "2026-10-25T01:00:00.000Z", "2026-10-25T02:00:00.000Z", "2026-10-25T03:00:00.000Z"]);
+    for (let i = 0; i < 3; i++) { t = nextAfter(c, "Europe/Berlin", t)!; out.push(at(t)!); }
+    // 02:00 CEST = 00:00Z (first occurrence, the only run of wall hour 02), then 03:00 CET = 02:00Z; nothing at 01:00Z
+    assert.deepEqual(out, ["2026-10-25T00:00:00.000Z", "2026-10-25T02:00:00.000Z", "2026-10-25T03:00:00.000Z"]);
   });
-  it("a sub-hourly wildcard cron also keeps its real-time rhythm through the repeated hour", () => {
+  it("a sub-hourly wildcard cron also runs each wall-clock time once: the repeated 02:00-02:59 hour is not run a second time", () => {
     const c = parseCron("*/30 * * * *"); const out: string[] = [];
     let t = iso("2026-10-24T23:45:00Z");
     for (let i = 0; i < 5; i++) { t = nextAfter(c, "Europe/Berlin", t)!; out.push(at(t)!); }
-    assert.deepEqual(out, ["2026-10-25T00:00:00.000Z", "2026-10-25T00:30:00.000Z", "2026-10-25T01:00:00.000Z", "2026-10-25T01:30:00.000Z", "2026-10-25T02:00:00.000Z"]);
+    assert.deepEqual(out, ["2026-10-25T00:00:00.000Z", "2026-10-25T00:30:00.000Z", "2026-10-25T02:00:00.000Z", "2026-10-25T02:30:00.000Z", "2026-10-25T03:00:00.000Z"]);
   });
-  it("a cron with fixed hours still fires at the first occurrence only, even when the hour list is a step ('0 2,3 * * *')", () => {
+  it("a cron with fixed hours fires at the first occurrence only ('0 2,3 * * *')", () => {
     assert.equal(next("0 2,3 * * *", "Europe/Berlin", "2026-10-25T00:00:00Z"), "2026-10-25T02:00:00.000Z", "03:00 CET; the second 02:00 does not fire");
   });
   it("an hourly cron does not fire twice at spring forward (the missing hour has no wall time)", () => {
