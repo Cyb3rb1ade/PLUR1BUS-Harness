@@ -108,6 +108,11 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: AcpCmd,
     },
+    /// [experimental] User recurring tasks: list or create a scheduled turn
+    Jobs {
+        #[command(subcommand)]
+        sub: JobsCmd,
+    },
     /// Dreaming: phase schedules, status, run, log
     Dreams {
         #[command(subcommand)]
@@ -962,7 +967,7 @@ pub enum BackupCmd {
     },
     /// [experimental] Check an archive: manifest, every entry against its SHA-256, nothing extra, nothing missing
     ///
-    /// Exits 1 with a `reason` (archive-corrupt, truncated, manifest-invalid, unsupported-format, unexpected-entry,
+    /// Exits 2 (`E_INVALID_PARAMS`) with a `reason` (archive-corrupt, truncated, manifest-invalid, unsupported-format, unexpected-entry,
     /// checksum-mismatch, missing-entry) for an archive a restore would refuse.
     Verify {
         /// the archive
@@ -1089,6 +1094,32 @@ pub enum AuditCmd {
     /// be gapless across rotated files, and the anchor file must match the newest line. Asks the core
     /// (`audit.verify`, Owner and Admin only); the CLI does not read the files itself.
     Verify,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum JobsCmd {
+    /// [experimental] List scheduled tasks (defaults to user jobs)
+    List {
+        #[arg(long, default_value = "user", value_parser = ["user", "system", "agent", "all"])]
+        kind: String,
+    },
+    /// [experimental] Create a recurring task under the authenticated person's identity
+    Create {
+        #[arg(long)]
+        name: String,
+        #[arg(long)]
+        agent: String,
+        #[arg(long)]
+        prompt: String,
+        /// Five-field cron expression
+        #[arg(long)]
+        cron: String,
+        /// IANA timezone (never implicitly the host timezone)
+        #[arg(long)]
+        timezone: String,
+        #[arg(long)]
+        disabled: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -1676,7 +1707,7 @@ pub enum ExtCmd {
     },
     /// [experimental] Verify a `.p1x` without a home: layout, hashes, signature, manifest and compatibility
     ///
-    /// Trusts only the pinned keys, checks no revocations and no installed names. Exit 1 with the reason when the
+    /// Trusts only the pinned keys, checks no revocations and no installed names. Exit 2 with the reason when the
     /// package is refused.
     Verify { file: PathBuf },
     /// Package worker (internal: the supervisor's child for inspect and stage, X1-R2)

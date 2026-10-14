@@ -105,3 +105,27 @@ describe("repair: callWithRepair (D97 item 1)", () => {
     await assert.rejects(callWithRepair(tool, { url: "x" }, {}), /boom/);
   });
 });
+
+describe("validateArgs: prototype names and unchecked branches", () => {
+  it("a required property is not satisfied by an inherited one, and an own __proto__ key is unknown", () => {
+    const s = { type: "object", additionalProperties: false, required: ["toString"], properties: { toString: { type: "string" } } };
+    assert.equal(validateArgs(s, {}).length, 1);
+    assert.equal(validateArgs(s, { toString: "x" }).length, 0);
+    const polluted = JSON.parse('{"toString":"x","__proto__":{"admin":true}}') as unknown;
+    const issues = validateArgs(s, polluted);
+    assert.deepEqual(issues.map((i) => i.path), ["/__proto__"]);
+  });
+  it("enum is exact (no coercion), integers reject floats and NaN/Infinity, arrays check count and items", () => {
+    const s = { type: "object", properties: { e: { enum: [1, "a", null] }, n: { type: "integer", minimum: -5, maximum: 5 }, a: { type: "array", minItems: 1, maxItems: 2, items: { type: "string" } } } };
+    assert.equal(validateArgs(s, { e: "1" }).length, 1);
+    assert.equal(validateArgs(s, { e: null }).length, 0);
+    for (const bad of [1.5, Number.NaN, Number.POSITIVE_INFINITY, -6, 6, "3"]) assert.equal(validateArgs(s, { n: bad }).length, 1, String(bad));
+    assert.equal(validateArgs(s, { n: -5 }).length, 0);
+    assert.equal(validateArgs(s, { a: [] }).length, 1);
+    assert.equal(validateArgs(s, { a: ["x", "y", "z"] }).length, 1);
+    assert.deepEqual(validateArgs(s, { a: ["x", 2] }).map((i) => i.path), ["/a/1"]);
+  });
+  it("arguments that are not an object are reported once at the root", () => {
+    for (const bad of [null, [], "x", 3, undefined]) assert.deepEqual(validateArgs(schema, bad).map((i) => i.path), [""], String(bad));
+  });
+});

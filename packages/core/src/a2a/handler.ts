@@ -32,6 +32,8 @@ export interface A2aHttpRequest {
   remote: string;
   /** Reads the body, rejecting with `BodyTooLarge` once it passes `limit` bytes. Called only after authentication. */
   readBody(limit: number): Promise<Buffer>;
+  /** Aborts when the client connection goes away; open event streams then end and release their slot. */
+  signal?: AbortSignal;
 }
 export interface A2aHttpResponse {
   status: number;
@@ -174,7 +176,8 @@ export function createA2aHandler(o: A2aHandlerOptions): A2aHandler {
       return http(200, buildAgentCard(agentId, info!, o.advertisedBaseUrl, version, features));
     }
 
-    if (info === undefined || info.optIn !== true || !Object.hasOwn(o.peers.find((p) => p.id === peer.peerId)!.grants, agentId)) {
+    const peerCfg = o.peers.find((p) => p.id === peer.peerId); // verifyBearer may name a peer the table does not know
+    if (info === undefined || info.optIn !== true || peerCfg === undefined || !Object.hasOwn(peerCfg.grants, agentId)) {
       audit("a2a.denied", user, agentId, { action: "rpc", reason: info === undefined ? "unknown-agent" : info.optIn !== true ? "agent-not-exposed" : "peer-not-granted-agent" });
       return httpError(404, "not-found");
     }
@@ -213,11 +216,11 @@ export function createA2aHandler(o: A2aHandlerOptions): A2aHandler {
       if (method === "message/stream") {
         const t = await send(peer, agentId, params);
         if (!isObj(t) || typeof t.id !== "string") return rpcErr(id, RPC.invalidAgentResponse, "invalid agent response");
-        return rpcSse(id, tasks.subscribe(t.id, peer.peerId, agentId));
+        return rpcSse(id, tasks.subscribe(t.id, peer.peerId, agentId, 0, req.signal));
       }
       if (method === "tasks/resubscribe") {
         if (!isObj(params) || !safeId(params.id)) return rpcErr(id, RPC.invalidParams, "params.id is required");
-        return rpcSse(id, tasks.resubscribe(params.id, peer.peerId, agentId));
+        return rpcSse(id, tasks.resubscribe(params.id, peer.peerId, agentId, req.signal));
       }
       if (method.startsWith("tasks/pushNotificationConfig/")) return await pushMethod(peer, agentId, method, id, params);
       if (!isObj(params) || !safeId(params.id)) return rpcErr(id, RPC.invalidParams, "params.id is required");

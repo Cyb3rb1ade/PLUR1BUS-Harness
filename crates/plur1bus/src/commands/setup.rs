@@ -31,7 +31,6 @@ pub fn run(out: &Out, layout: &Layout, args: SetupArgs) -> ! {
             "E_CONFIG_INVALID",
             &violation.message(),
             serde_json::json!({ "reason": "foreign-host-store-path" }),
-            1,
         );
     }
     let opts = SetupOpts {

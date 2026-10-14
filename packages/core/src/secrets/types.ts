@@ -16,7 +16,7 @@ export type SecretPrincipal =
 
 export type BackendKind = "keyring" | "file" | "memory";
 
-export interface SecretMeta { name: string; backend: BackendKind; createdAt: string; updatedAt: string }
+export interface SecretMeta { name: string; backend: BackendKind; createdAt: string; updatedAt: string; updatedBy?: string }
 
 export type SecretErrorCode =
   | "denied" | "not-found" | "invalid-name" | "invalid-value" | "invalid-ttl"
@@ -55,7 +55,7 @@ export interface SecretBackend {
   /** The value, or null when the name is absent. Throws SecretError `corrupt`/`storage`/`backend-unavailable`. */
   get(name: string): Promise<string | null>;
   /** Creates or replaces; keeps `createdAt` of an existing entry. */
-  put(name: string, value: string, now: Date): Promise<SecretMeta>;
+  put(name: string, value: string, now: Date, updatedBy?: string): Promise<SecretMeta>;
   /** True when something was removed. */
   delete(name: string): Promise<boolean>;
   /** Names and metadata; never decrypts. */

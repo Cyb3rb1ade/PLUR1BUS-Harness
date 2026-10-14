@@ -1,3 +1,4 @@
+import { cloudFunctions, privacyChanges } from "./privacy.ts";
 // First-run wizard (`/setup`, hidden route, M3 K2): eight steps (seven with `?mode=bundled`), each writing through existing RPCs
 // (`config.set`, `admin.backup.snapshot`, `models.list`) or showing that the harness has no method (switchboard, import, persona text).
 // Progress and the non-secret answers are kept in localStorage under one key (model.ts); the owner token is never stored.
@@ -61,13 +62,18 @@ export function SetupPage({ item }: PageProps): View {
   const [busy, setBusy] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const moved = useRef(false);
+  // `busy` is state and only disables the buttons after the next draw; this guards a second click in the same tick.
+  const saving = useRef(false);
 
   const summary = st.step === "summary";
   const index = summary ? ids.length : Math.max(0, ids.indexOf(st.step as StepId));
   const def = defs[index];
   const total = ids.length;
   const a = st.answers;
-  const patch = (p: Partial<Answers>): void => { setSt((s) => ({ ...s, answers: { ...s.answers, ...p } })); setErrors({}); setFail(""); };
+  const patch = (p: Partial<Answers>): void => { setSt((s) => {
+    const changed = p.media && (p.media.provider !== s.answers.media.provider || p.media.caption !== s.answers.media.caption);
+    return { ...s, answers: { ...s.answers, ...p, ...(changed ? { privacy: {} } : {}) } };
+  }); setErrors({}); setFail(""); };
 
   useLayoutEffect(() => { save(st); }, [st]);
   useEffect(() => { if (moved.current) heading.current?.focus(); }, [index, summary]);
@@ -81,7 +87,7 @@ export function SetupPage({ item }: PageProps): View {
   };
 
   const next = async (): Promise<void> => {
-    if (!def || busy) return;
+    if (!def || busy || saving.current) return;
     const signedIn = sessionState.value.status === "authenticated";
     // The creation time of the agent is fixed when the persona step is first left, so a second pass writes the same value.
     const answers = def.id === "persona" && a.createdAt === "" ? { ...a, createdAt: new Date().toISOString() } : a;
@@ -93,19 +99,25 @@ export function SetupPage({ item }: PageProps): View {
     }
     const changes = changesFor(def.id, answers);
     if (changes.length > 0) {
-      setBusy(true); setFail("");
+      saving.current = true; setBusy(true); setFail("");
       try {
-        await getApi().rpc("config.set", { changes });
+        const needsPrivacyParent = def.id === "memory" && (changes.some(c => c.key.startsWith("memory.mediaEmbedding.") && c.key.endsWith(".provider")) || cloudFunctions(answers).length > 0);
+        if (needsPrivacyParent) {
+          if (sessionState.value.status !== "authenticated") throw new Error("person required");
+          const previous = await getApi().rpc("config.get", { key: "memory.mediaEmbedding" }, { write: false });
+          const safeChanges = privacyChanges(answers, changes, previous.value, sessionState.value.user.id);
+          await getApi().rpc("config.set", { changes: safeChanges, ifRevision: previous.revision });
+        } else await getApi().rpc("config.set", { changes });
       } catch (e) {
         // A refused media setting names its E_MEDIA_* code; show what the person can do about it.
         const media = mediaErrorOf(e);
-        if (media) { setFail(problemText(media)); setBusy(false); return; }
+        if (media) { setFail(problemText(media)); saving.current = false; setBusy(false); return; }
         const k = failureOf(e).kind;
         setFail(k === "forbidden" ? t("setup.err.forbidden") : k === "unavailable" ? t("setup.err.unavailable") : t("setup.err.failed"));
-        setBusy(false);
+        saving.current = false; setBusy(false);
         return;
       }
-      setBusy(false);
+      saving.current = false; setBusy(false);
     }
     const wantsNc = def.id === "memory" && [answers.embedding, answers.rerank].some((id) => choiceById(id)?.nc === true);
     if (answers !== a) setSt((s) => ({ ...s, answers: { ...s.answers, createdAt: answers.createdAt } }));
@@ -122,7 +134,15 @@ export function SetupPage({ item }: PageProps): View {
     case "model": body = h(ModelStep, props); break;
     case "switchboard": body = h(UnavailableStep, { title: t("setup.switchboard.title"), body: t("setup.switchboard.body") }); break;
     case "memory": body = h("div", {}, h(MemoryStep, props),
-      h(MediaSetupStep, { textProvider: a.embedding, media: a.media, set: (m) => { patch({ media: { ...a.media, ...m } }); }, error: errors.media as MediaProblemCode })); break;
+      h(MediaSetupStep, { textProvider: a.embedding, media: a.media, set: (m) => { patch({ media: { ...a.media, ...m } }); }, error: errors.media as MediaProblemCode }),
+      ...cloudFunctions(a).map(c => h("div", { key: c.function, class: "setup-opt" },
+        h("input", { id: `setup-privacy-${c.function}`, type: "checkbox", required: true,
+          disabled: busy || sessionState.value.status !== "authenticated" || !["owner", "admin"].includes(sessionState.value.user.role),
+          checked: a.privacy?.[c.function]?.provider === c.provider,
+          onChange: (e: Event) => { const privacy = { ...a.privacy }; if ((e.target as HTMLInputElement).checked && sessionState.value.status === "authenticated") privacy[c.function] = { provider: c.provider, acknowledgedAt: new Date().toISOString(), by: sessionState.value.user.id }; else delete privacy[c.function]; patch({ privacy }); } }),
+        h("label", { for: `setup-privacy-${c.function}` }, t(`setup.privacy.${c.function}` as Key, { provider: c.provider })),
+        h("p", { class: "field-hint" }, t("setup.privacy.hint")),
+        h("p", { class: "field-hint", role: "note" }, t("setup.privacy.captionUnwired"))))); break;
     case "voice": body = h(VoiceStep, props); break;
     case "backup": body = h(BackupStep, props); break;
     default: body = h(ImportStep, {});
@@ -160,8 +180,8 @@ export function SetupPage({ item }: PageProps): View {
       body,
       fail ? h("p", { class: "form-error", role: "alert" }, fail) : null,
       h("div", { class: "setup-nav" },
-        h("button", { type: "button", class: "btn", disabled: index === 0, onClick: () => { go(index - 1); } }, t("setup.back")),
-        def!.skippable && !unavailable ? h("button", { type: "button", class: "btn btn-quiet", onClick: () => { go(index + 1, "skipped"); } }, t("setup.skip")) : null,
+        h("button", { type: "button", class: "btn", disabled: index === 0 || busy, onClick: () => { go(index - 1); } }, t("setup.back")),
+        def!.skippable && !unavailable ? h("button", { type: "button", class: "btn btn-quiet", disabled: busy, onClick: () => { go(index + 1, "skipped"); } }, t("setup.skip")) : null,
         unavailable
           ? h("button", { type: "button", class: "btn btn-primary", onClick: () => { go(index + 1, "skipped"); } }, last ? t("setup.skipFinish") : t("setup.skip"))
           : h("button", { type: "button", class: "btn btn-primary", disabled: busy, onClick: () => { void next(); } }, busy ? t("setup.working") : last ? t("setup.finish") : t("setup.next")))));

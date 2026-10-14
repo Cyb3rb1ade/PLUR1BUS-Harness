@@ -23,6 +23,7 @@ pub(crate) mod help_examples;
 pub mod identity;
 pub mod import;
 pub mod inbox;
+pub mod jobs;
 pub mod login;
 pub mod media;
 pub mod media_search;
@@ -58,9 +59,7 @@ pub(crate) fn refuse_in_container(out: &Out, cmd: &str) {
         out.fail(
             "E_NOT_AVAILABLE",
             &format!("`plur1bus {cmd}` is not available in container mode: the image manages the installation"),
-            serde_json::json!({ "reason": "container-managed", "command": cmd }),
-            1,
-        );
+            serde_json::json!({ "reason": "container-managed", "command": cmd }));
     }
 }
 

@@ -67,5 +67,7 @@ export function errorSummary(e: unknown, secrets: readonly string[] = []): strin
   if (e instanceof Error) text = `${e.name}: ${e.message}`;
   else if (typeof e === "string") text = e;
   else return "non-error value thrown";
-  return redactSecrets(text.length > MAX_SUMMARY ? text.slice(0, MAX_SUMMARY) : text, secrets);
+  // Redact first: cutting first can split a secret so that neither half matches, leaking its prefix.
+  const clean = redactSecrets(text, secrets);
+  return clean.length > MAX_SUMMARY ? clean.slice(0, MAX_SUMMARY) : clean;
 }

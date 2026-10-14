@@ -84,6 +84,7 @@ fn main() {
         Cmd::Model { sub } => commands::model::run(&out, &layout, sub),
         Cmd::Audit { sub } => commands::audit::run(&out, &layout, sub),
         Cmd::Voice { sub } => commands::voice::run(&out, &layout, sub),
+        Cmd::Jobs { sub } => commands::jobs::run(&out, &layout, sub),
         Cmd::Budget { sub } => commands::budget::run(&out, &layout, sub),
         Cmd::Secret { sub } => commands::secret::run(&out, &layout, sub),
         Cmd::Device { sub } => commands::device::run(&out, &layout, sub),

@@ -35,6 +35,7 @@ function hold(): { promise: Promise<void>; release: () => void } {
 type SeedOptions = { request?: boolean; revoke?: boolean; holdRequest?: Promise<void>; holdRevoke?: Promise<void>; holdList?: Promise<void> };
 /** Registers the four methods. The request handler checks the params like the schema does (target 1 to 128, reason 10 to 500, window 1 to 60). */
 function seed(app: App, initial: Grant[] = [], o: SeedOptions = {}): Grant[] {
+  app.server.rpc.handle("config.get", () => ({value:{}}), {write:false});
   const store = [...initial];
   const rpc = app.server.rpc;
   rpc.handle("breakglass.list", async () => {

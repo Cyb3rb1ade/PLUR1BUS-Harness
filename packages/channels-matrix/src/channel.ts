@@ -472,6 +472,7 @@ export class MatrixChannel implements Channel {
           this.#host?.fail(new Error("matrix authentication failed"));
           return;
         }
+        this.#healthy = false;
         backoff = Math.min(60_000, backoff === 0 ? 1000 : backoff * 2);
         const wait =
           err.kind === "rate-limited"
@@ -479,6 +480,8 @@ export class MatrixChannel implements Channel {
             : Math.round(backoff * (0.75 + this.#random() * 0.5));
         this.#log("warn", "channel.matrix.sync-failed", { kind: err.kind, waitMs: wait, ...(err.status !== undefined ? { status: err.status } : {}) });
         await this.#sleep(wait, signal);
+        // Retrying: the channel counts as alive again until the next attempt fails.
+        if (!signal.aborted) this.#healthy = true;
       }
     }
   }

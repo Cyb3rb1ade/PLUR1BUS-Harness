@@ -8,7 +8,7 @@ import { contentHash, DEFAULT_GATES, evaluate, type Decision, type GateConfig } 
 import { isValidTimezone, nextAfter, parseCron } from "./cron.ts";
 import type { DreamStore } from "./store.ts";
 import {
-  BREAKER_PHASES, BREAKER_SESSIONS, CANDIDATE_TTL_MS, DAY_MS, LEDGER_RETENTION_MS, LOG_RETENTION_MS, MAX_CONCURRENT_RUNS, PHASE_DEFAULTS, PHASES, REASON, STAGGER_WINDOW_S,
+  BREAKER_PHASES, BREAKER_SESSIONS, CANDIDATE_TTL_MS, DAY_MS, LEDGER_RETENTION_MS, LOG_RETENTION_MS, MAX_CONCURRENT_RUNS, PHASE_DEFAULTS, PHASES, REASON, RETRY_CAP, STAGGER_WINDOW_S,
   type CandidateSource, type Clock, type DreamEngine, type DreamEvent, type DreamJobRun, type DreamLogger, type DreamRun, type Outcome, type Phase,
   type PhaseDefaults, type RunCounts, type ScheduleRow, type Trigger,
 } from "./types.ts";
@@ -73,6 +73,8 @@ export class DreamScheduler {
   readonly #openSessions = new Map<string, { agentId: string; n: number }>(); // runId -> sessions used by that open run
   readonly #stop = new AbortController();
   readonly #counters: Counters = { runs: {}, skips: {}, triggers: {}, breakerTrips: 0, reconciled: 0 };
+  /** Agents whose schedule rows exist but that the registry did not list at the last look (removed, maybe coming back). */
+  readonly #absent = new Set<string>();
   #timer: TimerHandle | null = null;
   #lastPrune = 0;
   #started = false;
@@ -126,14 +128,23 @@ export class DreamScheduler {
   async start(): Promise<void> {
     if (this.#started) return;
     this.#started = true;
-    this.reconcile();
+    const crashed = this.#reconcile();
     this.prune();
+    this.#dropRemovedAgents();
     this.syncAgents();
     const now = this.#o.clock.now();
     const catchups: Promise<unknown>[] = [];
-    for (const s of this.#dueSchedules(now)) {
+    const due = this.#dueSchedules(now);
+    for (const s of due) {
       this.#o.store.updateSchedule(s.agentId, s.phase, { nextRunAt: this.#computeNext(s, now) });
       catchups.push(this.#launch(s.agentId, s.phase, "catchup", s.nextRunAt));
+    }
+    // A crashed window is retried once (RETRY_CAP): same scheduled instant, trigger `catchup`. A phase that is catching up anyway
+    // covers it (same corpus, same window), so it is not run twice.
+    for (const c of crashed) {
+      if (due.some((d) => d.agentId === c.agentId && d.phase === c.phase) || !this.#mayRetry(c)) continue;
+      this.#o.logger.info("dreams retrying a crashed window", { agentId: c.agentId, phase: c.phase, crashedRunId: c.runId, scheduledFor: c.scheduledFor });
+      catchups.push(this.#launch(c.agentId, c.phase, "catchup", c.scheduledFor));
     }
     this.#arm();
     await Promise.allSettled(catchups);
@@ -150,16 +161,45 @@ export class DreamScheduler {
   async idle(): Promise<void> { while (this.#inflight.size > 0) await Promise.allSettled([...this.#inflight]); }
 
   /** Rows that never closed are crashes: closed as `aborted/crashed`, their idempotency keys released. */
-  reconcile(): number {
+  reconcile(): number { return this.#reconcile().length; }
+
+  #reconcile(): { runId: string; agentId: string; phase: Phase; trigger: Trigger; scheduledFor: number | null }[] {
     const now = this.#o.clock.now();
+    const closed: { runId: string; agentId: string; phase: Phase; trigger: Trigger; scheduledFor: number | null }[] = [];
     let n = 0;
     for (const r of this.#o.store.openRuns()) {
       this.#o.store.finishRun(r.runId, { outcome: "aborted", reason: REASON.crashed, finishedAt: now, counts: r.counts, error: { message: "the process stopped before the run finished" } });
       this.#o.store.updateSchedule(r.agentId, r.phase, { lastRunId: r.runId });
       this.#bump("runs", "aborted"); this.#counters.reconciled++; n++;
       this.#emit({ name: "reconciled", agentId: r.agentId, phase: r.phase, runId: r.runId, outcome: "aborted", reason: REASON.crashed });
+      closed.push({ runId: r.runId, agentId: r.agentId, phase: r.phase, trigger: r.trigger, scheduledFor: r.scheduledFor });
     }
-    return n;
+    return closed;
+  }
+
+  /** Retry rule for a crashed run: a scheduled window (cron or catch-up, so it has an instant), an agent still registered, the
+   *  phase still enabled, and no other run for that instant yet: the original and at most one retry (`RETRY_CAP`). */
+  #mayRetry(c: { runId: string; agentId: string; phase: Phase; trigger: Trigger; scheduledFor: number | null }): boolean {
+    if ((c.trigger !== "cron" && c.trigger !== "catchup") || c.scheduledFor === null) return false;
+    if (!this.#o.agents().includes(c.agentId) || !this.#o.store.getSchedule(c.agentId, c.phase)?.enabled) return false;
+    return this.#o.store.windowRuns(c.agentId, c.phase, c.scheduledFor).length <= RETRY_CAP;
+  }
+
+  /** Deletes the schedule rows of agents the registry no longer lists (the ledger keeps its history). */
+  #dropRemovedAgents(): void {
+    const known = new Set(this.#o.agents());
+    for (const id of new Set(this.#o.store.listSchedules().map((s) => s.agentId))) {
+      if (known.has(id)) continue;
+      this.#o.store.deleteSchedules(id); this.#absent.delete(id);
+      this.#o.logger.info("dreams schedule rows of a removed agent deleted", { agentId: id });
+    }
+  }
+
+  /** For the code that removes an agent: drops its schedule rows at once. Refuses an agent the registry still lists. */
+  forgetAgent(agentId: string): number {
+    if (this.#o.agents().includes(agentId)) throw new Error(`agent ${agentId} is still registered`);
+    this.#absent.delete(agentId);
+    return this.#o.store.deleteSchedules(agentId);
   }
 
   /** Retention: logs older than 30 days are removed (their rows stay), rows older than 365 days are deleted. */
@@ -197,10 +237,17 @@ export class DreamScheduler {
     const now = this.#o.clock.now();
     if (now - this.#lastPrune >= DAY_MS) this.prune();
     for (const agentId of this.#o.agents()) this.#refreshBreaker(agentId, now);
+    // An agent that left the registry and is back has a stale window: it fires as `catchup` (once), not as a cron run.
+    const known = new Set(this.#o.agents());
+    const returning = new Set<string>();
+    for (const id of new Set(this.#o.store.listSchedules().map((x) => x.agentId))) {
+      if (!known.has(id)) this.#absent.add(id);
+      else if (this.#absent.delete(id)) returning.add(id);
+    }
     const runs: Promise<unknown>[] = [];
     for (const s of this.#dueSchedules(now)) {
       this.#o.store.updateSchedule(s.agentId, s.phase, { nextRunAt: this.#computeNext(s, now) });
-      runs.push(this.#launch(s.agentId, s.phase, "cron", s.nextRunAt));
+      runs.push(this.#launch(s.agentId, s.phase, returning.has(s.agentId) ? "catchup" : "cron", s.nextRunAt));
     }
     this.#arm();
     await Promise.allSettled(runs);

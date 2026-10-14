@@ -1,3 +1,6 @@
+import { privacyAcknowledgmentError, type PrivacyAcknowledgment } from "./privacy.ts";
+export { privacyAcknowledgmentError } from "./privacy.ts";
+export type { PrivacyAcknowledgment, PrivacyChoice } from "./privacy.ts";
 import Ajv2020, { type ValidateFunction } from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import schemaJson from "../schema/config.schema.json" with { type: "json" };
@@ -6,16 +9,19 @@ export const CONFIG_SCHEMA = schemaJson as Record<string, any>;
 export const SCHEMA_VERSION = 1 as const;
 
 export interface MediaEmbeddingConfig {
-  enabled: boolean; provider: string; model: string; dimensions: number;
+  enabled: boolean; provider: string; privacyAck?: PrivacyAcknowledgment; model: string; dimensions: number;
   modalities: ("image" | "video" | "audio")[];
   video: { segmentSec: number; maxFrames: number; sceneDetect: boolean };
   audio: { segmentSec: number; maxSeconds: number };
-  caption: { source: "prompt-then-user-then-auto" | "user-only" | "off"; provider?: string; maxChars: number; perSegment: boolean };
+  caption: { source: "prompt-then-user-then-auto" | "user-only" | "off"; provider?: string; privacyAck?: PrivacyAcknowledgment; maxChars: number; perSegment: boolean };
   backfill: "auto" | "manual";
 }
 type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 
 export interface HarnessConfig {
+  approvals?: { maxGrantDays: number; requireOsConfirmation: boolean };
+  breakglass?: { reasonMinChars: number; reasonMaxChars: number; maxWindowMinutes: number };
+  activity?: { maxEntries: number };
   inbox: { retention: { days: number; maxEntries: number } };
   containers?: { runtime: "auto" | "apple" | "docker"; image?: string; stateVolume: string; bindAddress: string; apiPort?: number; healthTimeoutMs: number };
   sidecars?: Record<string, { mode: "bundled" | "remote" | "off"; url?: string; caBundle?: string; fingerprint?: string; timeoutMs: number }>;
@@ -28,7 +34,7 @@ export interface HarnessConfig {
   logs: { maxBytes: number; keep: number };
   metrics: { enabled: boolean; port: number };
   agents: Record<string, { createdAt?: string; displayName?: string; persona?: string; model?: string; channels?: string[]; voice?: VoiceV3Override; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> } }>;
-  memory: { mediaEmbedding: MediaEmbeddingConfig };
+  memory: { embedding?: { privacyAck?: PrivacyAcknowledgment }; mediaEmbedding: MediaEmbeddingConfig };
   embedding: { useClass: "general" | "research" | "commercial"; acceptedNcLicence: boolean; acceptedNcLicenceAt?: string };
   engine: Record<string, unknown> & { baseDbPathOverride?: string };
   providers: Record<string, unknown>;
@@ -173,6 +179,22 @@ export function validate(value: unknown): { ok: true; config: HarnessConfig } | 
     const c = (copy as HarnessConfig).session.compaction;
     if (c.softRatio >= c.hardRatio) return { ok: false, errors: ["/session/compaction softRatio must be below hardRatio"] };
     const cfg = copy as HarnessConfig;
+    if (cfg.breakglass && cfg.breakglass.reasonMinChars > cfg.breakglass.reasonMaxChars) return { ok: false, errors: ["/breakglass reasonMinChars must not exceed reasonMaxChars"] };
+    const mediaLayers = [["/memory/mediaEmbedding", cfg.memory.mediaEmbedding], ...Object.entries(cfg.agents).map(([id, agent]) => {
+      const override = agent.memory?.mediaEmbedding;
+      return [`/agents/${id}/memory/mediaEmbedding`, { ...cfg.memory.mediaEmbedding, ...override, caption: { ...cfg.memory.mediaEmbedding.caption, ...override?.caption } }];
+    })] as [string, MediaEmbeddingConfig][];
+    for (const [path, media] of mediaLayers) {
+      if (!media.enabled) continue;
+      for (const [suffix, provider, ack, local] of [
+        ["", media.provider, media.privacyAck, ["local", "local-transformers", "egemma2", "off"].includes(media.provider)],
+        ["/caption", media.caption.provider, media.caption.privacyAck, !media.caption.provider || ["local", "off"].includes(media.caption.provider) || media.caption.source === "off"],
+      ] as const) {
+        if (!provider) continue;
+        const failure = privacyAcknowledgmentError({ function: suffix ? "caption" : "media", provider, local, ack });
+        if (failure) return { ok: false, errors: [`${path}${suffix}/privacyAck ${failure.code}: ${failure.reason}`] };
+      }
+    }
     const base = cfg.voice.v3.realtime.features;
     const layers = [["/voice/v3/realtime", base], ...Object.entries(cfg.agents).map(([id, agent]) => [`/agents/${id}/voice`, Object.fromEntries(VOICE_V3_FEATURES.map(name => [name, { ...base[name], ...agent.voice?.features?.[name] }]))])] as [string, Record<VoiceV3FeatureName, VoiceV3FeatureSetting>][];
     for (const [path, features] of layers) {
@@ -182,8 +204,13 @@ export function validate(value: unknown): { ok: true; config: HarnessConfig } | 
     }
     return { ok: true, config: cfg };
   }
-  return { ok: false, errors: (validateFn.errors ?? []).map((e) => `${e.instancePath || "/"} ${e.message ?? ""}${e.params && "additionalProperty" in e.params ? ` (${(e.params as any).additionalProperty})` : ""}`.trim()) };
+  // allErrors collects every violation: bound the list so a hostile or broken file cannot produce a megabyte message.
+  const all = (validateFn.errors ?? []).map((e) => `${e.instancePath || "/"} ${e.message ?? ""}${e.params && "additionalProperty" in e.params ? ` (${(e.params as any).additionalProperty})` : ""}`.trim());
+  const errors = all.slice(0, MAX_ERRORS);
+  if (all.length > MAX_ERRORS) errors.push(`... and ${all.length - MAX_ERRORS} more`);
+  return { ok: false, errors };
 }
+const MAX_ERRORS = 50;
 
 /** Nearest ancestor declaring `x-restart` wins; `$key` in it is the key segment that matched that
  * node (`modules.fixture.greeting` → `module:fixture`, B13). */

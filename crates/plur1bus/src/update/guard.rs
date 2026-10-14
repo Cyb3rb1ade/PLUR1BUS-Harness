@@ -99,25 +99,31 @@ pub fn save(layout: &Layout, g: &Guard) -> Result<(), String> {
     result.map_err(|e| format!("{}: {e}", p.display()))
 }
 
-/// `major.minor.patch` of a release version (a pre-release or build suffix is ignored, like `is_newer`).
-pub fn triple(v: &str) -> Option<(u64, u64, u64)> {
-    let core = v.split(['-', '+']).next().unwrap_or(v);
-    let mut it = core.split('.');
-    let t = (
-        it.next()?.parse().ok()?,
-        it.next()?.parse().ok()?,
-        it.next()?.parse().ok()?,
+/// SemVer precedence of two versions (§11: a pre-release is lower than its release, identifiers compare one by one,
+/// numeric ones numerically), build metadata ignored (§10). `None` unless both are valid SemVer. This is the order the
+/// desktop updater (`semver::Version`) uses, minus the build-metadata tie-break.
+pub fn precedence(a: &str, b: &str) -> Option<Ordering> {
+    let (mut x, mut y) = (
+        semver::Version::parse(a).ok()?,
+        semver::Version::parse(b).ok()?,
     );
-    it.next().is_none().then_some(t)
+    x.build = semver::BuildMetadata::EMPTY;
+    y.build = semver::BuildMetadata::EMPTY;
+    Some(x.cmp(&y))
+}
+
+/// Whether `v` is valid SemVer with a pre-release part (`1.2.3-rc.1`).
+pub fn is_prerelease(v: &str) -> bool {
+    semver::Version::parse(v).is_ok_and(|v| !v.pre.is_empty())
 }
 
 fn compare(a: &str, b: &str) -> Result<Ordering, UpdateError> {
-    match (triple(a), triple(b)) {
-        (Some(x), Some(y)) => Ok(x.cmp(&y)),
+    match precedence(a, b) {
+        Some(o) => Ok(o),
         _ if a == b => Ok(Ordering::Equal),
         _ => Err(UpdateError::new(
             "release-version-invalid",
-            format!("cannot order the versions {a:?} and {b:?}: both must be major.minor.patch"),
+            format!("cannot order the versions {a:?} and {b:?}: both must be semantic versions (major.minor.patch)"),
         )),
     }
 }

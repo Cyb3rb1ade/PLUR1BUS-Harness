@@ -182,6 +182,10 @@ pub fn run() {
             commands::quit_request,
             commands::quit_offer,
             commands::background_hint,
+            commands::crash_last_report,
+            commands::crash_dismiss,
+            commands::diagnostics_open,
+            commands::crash_restart,
             commands::crash_offers,
             commands::crash_handled,
             host_commands::bridge_settings,
@@ -216,6 +220,7 @@ pub fn run() {
         .run(move |app, event| {
             #[cfg(windows)]
             use tauri::Manager;
+            if matches!(event, tauri::RunEvent::Exit) { diagnostics::end_session(app); }
             if native::guard_exit(app, &event) { return; }
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen { .. } = event { native::focus(app); }

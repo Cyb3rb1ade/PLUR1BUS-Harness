@@ -48,9 +48,18 @@ export interface InstalledCatalogPort {
   report(items: { id: string; version: string; status: "revoked"; reason: string }[]): Promise<void>;
 }
 export interface CatalogOptions { config: CatalogConfig; egress: Egress; store: CatalogStore; now?: () => number; installed?: InstalledCatalogPort }
+/** Non-fatal observation about an accepted catalogue. Not an error code: the view is still usable. */
+export interface CatalogWarning {
+  kind: "revocation_unknown_key" | "revocation_unknown_package";
+  /** The key id or package id the revocation names. */
+  id: string;
+  message: string;
+}
 export interface CatalogView {
   index: CatalogIndex; rootVersion: number; source: "network" | "cache"; stale: boolean; fetchedAt: number;
   refreshError?: CatalogFailure;
+  /** Revocations that name a key the trust root (or its rotation history) never listed, or a package the index does not contain. They stay in force. */
+  warnings: CatalogWarning[];
 }
 export interface CatalogClient {
   refresh(signal?: AbortSignal): Promise<CatalogResult<CatalogView>>;

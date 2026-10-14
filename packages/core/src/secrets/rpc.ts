@@ -23,22 +23,22 @@ export interface SecretMethodDeps {
   store: SecretStore;
   /** Derives who is calling from the connection. A client can never name its own principal. Fail closed: a connection
    *  for which this answers anything but `owner` is refused every `secret.*` method. */
-  principalOf: (ctx: { connectionId: string }) => SecretPrincipal;
+  principalOf: (ctx: Parameters<Handler>[1], method: SecretMethod, params: unknown) => SecretPrincipal | Promise<SecretPrincipal>;
 }
 
 /** `secret.*` (M2, ADR-005): owner only. The store enforces it; the handlers add nothing but the wire mapping. */
 export function buildSecretMethods(d: SecretMethodDeps): Record<SecretMethod, Handler> {
-  const wrap = (fn: (p: SecretPrincipal, params: any) => Promise<unknown>): Handler => async (params, ctx) => {
-    try { return await fn(d.principalOf(ctx), params); } catch (e) { throw toRpcError(e); }
+  const wrap = (method: SecretMethod, fn: (p: SecretPrincipal, params: any) => Promise<unknown>): Handler => async (params, ctx) => {
+    try { return await fn(await d.principalOf(ctx, method, params), params ?? {}); } catch (e) { throw toRpcError(e); }
   };
   return {
-    "secret.status": wrap((p) => d.store.status(p)),
-    "secret.list": wrap(async (p) => ({ secrets: await d.store.list(p) })),
-    "secret.set": wrap((p, a: { name: string; value: string }) => d.store.set(p, a.name, a.value)),
-    "secret.get": wrap(async (p, a: { name: string; reveal?: boolean }) => {
+    "secret.status": wrap("secret.status", (p) => d.store.status(p)),
+    "secret.list": wrap("secret.list", async (p) => ({ secrets: await d.store.list(p) })),
+    "secret.set": wrap("secret.set", (p, a: { name: string; value: string }) => d.store.set(p, a.name, a.value)),
+    "secret.get": wrap("secret.get", async (p, a: { name: string; reveal?: boolean }) => {
       if (a.reveal === true) { const r = await d.store.reveal(p, a.name); return { secret: r.meta, value: r.value }; }
       return { secret: await d.store.meta(p, a.name) };
     }),
-    "secret.delete": wrap((p, a: { name: string }) => d.store.delete(p, a.name)),
+    "secret.delete": wrap("secret.delete", (p, a: { name: string }) => d.store.delete(p, a.name)),
   };
 }

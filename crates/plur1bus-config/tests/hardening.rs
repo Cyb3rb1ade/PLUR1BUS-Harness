@@ -409,7 +409,16 @@ fn integer_and_number_bounds_hold_on_both_sides_of_every_limit() {
         let step = if integer { 1.0 } else { 0.5 };
         let put = |x: f64| {
             let v = if integer { json!(x as i64) } else { json!(x) };
-            validate(&with_value_at(&cfg, &n.path, v))
+            let mut candidate = with_value_at(&cfg, &n.path, v);
+            // Probe each scalar boundary with its sibling satisfying the separate cross-field invariant.
+            match dotted(&n.path).as_str() {
+                "breakglass.reasonMinChars" => {
+                    candidate["breakglass"]["reasonMaxChars"] = json!(10000)
+                }
+                "breakglass.reasonMaxChars" => candidate["breakglass"]["reasonMinChars"] = json!(1),
+                _ => {}
+            }
+            validate(&candidate)
         };
         let name = dotted(&n.path);
         if let Some(min) = n.schema.get("minimum").and_then(Value::as_f64) {
@@ -1113,5 +1122,31 @@ fn a_document_that_is_not_an_object_is_refused_by_every_validating_path() {
         // The unvalidated read promises JSON and nothing more (documented on `read_unvalidated`).
         assert!(read_unvalidated(&p).is_ok(), "{text}");
         assert_eq!(fs::read_to_string(&p).unwrap(), text);
+    }
+}
+
+#[test]
+fn security_limits_reject_invalid_values_when_loading() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.json");
+    for bad in [
+        json!({"reasonMinChars":501,"reasonMaxChars":500}),
+        json!({"maxWindowMinutes":1441}),
+    ] {
+        let mut cfg = defaults();
+        cfg["breakglass"] = bad;
+        fs::write(&path, serialize(&cfg)).unwrap();
+        assert!(matches!(load(&path), Err(ConfigError::Invalid(_))));
+    }
+    let schema = schema();
+    for group in ["approvals", "breakglass"] {
+        for key in schema["properties"][group]["properties"]
+            .as_object()
+            .unwrap()
+            .values()
+        {
+            assert_eq!(key["x-write-roles"], json!(["owner", "admin"]));
+            assert_eq!(key["x-audit"], true);
+        }
     }
 }

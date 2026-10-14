@@ -18,6 +18,8 @@ export type HttpAdapterId = 'openrouter' | 'replicate' | 'fal' | 'together' | 'o
 export interface HttpAdapterConfig { id: HttpAdapterId; model: string; baseUrl?: string; apiKey?: string; timeoutMs?: number; pollMs?: number; downloadHosts?: string[]; allowLan?: boolean; retry?: RetryPolicy; maxConcurrent?: number; modelListTtlMs?: number; video?: VideoProfile; pollWait?: (ms: number, signal: AbortSignal) => Promise<void>; videoProcessor?: VideoProcessor }
 export const defaults: Record<HttpAdapterId, string> = { openrouter: 'https://openrouter.ai/api/v1', replicate: 'https://api.replicate.com/v1', fal: 'https://queue.fal.run', together: 'https://api.together.ai/v1', openai: 'https://api.openai.com/v1', google: 'https://generativelanguage.googleapis.com/v1beta', xai: 'https://api.x.ai/v1', 'draw-things': 'http://127.0.0.1:7860' };
 const dataUrl = (i: ReferenceImage) => `data:image/${i.format};base64,${Buffer.from(i.bytes).toString('base64')}`;
+/** A provider-reported cost is only believed when it is a finite, non-negative number; anything else is treated as unknown so a hostile or broken answer cannot credit the budget. */
+const reportedCost = (usage: unknown): number | undefined => { const cost = (usage as { cost?: unknown } | undefined)?.cost; return typeof cost === 'number' && Number.isFinite(cost) && cost >= 0 ? cost : undefined; };
 const omitUnsupported = (req: ImageRequest, fields: (keyof ImageRequest)[]) => { if (fields.some(f => req[f] !== undefined)) throw new MediaError('unsupported_parameter'); };
 /** Protocol references checked 2026-10-07:
  * OpenRouter chat image modality: https://openrouter.ai/docs/api-reference/chat-completion
@@ -194,7 +196,7 @@ export class HttpImageAdapter implements ImageAdapter {
       if (!values.length || values.length > 10) throw new MediaError('invalid_response');
       await context.onProgress?.({ fraction: 0.9, stage: 'downloading' });
       const files = []; for (const value of values) files.push(verifyOutput(await this.http.image(value, req.format ?? (this.id === 'xai' ? 'jpeg' : 'png'), signal)));
-      return { files, metadata: { adapter: this.id, model: this.model, durationMs: Date.now() - started, ...(typeof json.seed === 'number' ? { seed: json.seed } : req.seed === undefined ? {} : { seed: req.seed }), origin: this.http.base.origin, ...(this.id === 'draw-things' ? { costUsd: 0 } : {}), ...(typeof (json.usage as { cost?: unknown } | undefined)?.cost === 'number' ? { costUsd: (json.usage as { cost: number }).cost } : {}) }, partial: files.length < (req.n ?? 1) };
+      return { files, metadata: { adapter: this.id, model: this.model, durationMs: Date.now() - started, ...(typeof json.seed === 'number' ? { seed: json.seed } : req.seed === undefined ? {} : { seed: req.seed }), origin: this.http.base.origin, ...(this.id === 'draw-things' ? { costUsd: 0 } : {}), ...(reportedCost(json.usage) === undefined ? {} : { costUsd: reportedCost(json.usage)! }) }, partial: files.length < (req.n ?? 1) };
     } catch (error) {
       if (signal.aborted && externalId) {
         // Best effort remote cancellation, independently bounded; never bypass moderation or resubmit.

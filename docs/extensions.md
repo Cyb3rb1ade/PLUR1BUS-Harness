@@ -123,7 +123,7 @@ printf -- '---\nname: demo-skill\ndescription: Say hello.\n---\nRun scripts/hell
 printf '#!/bin/sh\necho hello\n' > demo/demo-skill/scripts/hello.sh && chmod +x demo/demo-skill/scripts/hello.sh
 plur1bus ext pack demo/demo-skill -o demo/demo-skill.p1x
 
-plur1bus ext verify demo/demo-skill.p1x               # offline, no home: exit 1 with the reason when refused
+plur1bus ext verify demo/demo-skill.p1x               # offline, no home: exit 2 with the reason when refused
 plur1bus --home /tmp/p1x-demo ext inspect demo/demo-skill.p1x        # the disclosure; installs nothing
 plur1bus --home /tmp/p1x-demo skill install demo/demo-skill.p1x --dry-run   # the same document
 
@@ -175,7 +175,7 @@ Every file argument accepts `-` for a package on stdin (spooled to `run/inspect/
 
 With a supervisor that answers, every verb is its `ext.*` method; without one, the CLI takes the supervisor's single-instance lock, runs `ext::recover`, and calls the same functions in-process (offline). A lock held by a starting supervisor is `E_NOT_AVAILABLE reason=supervisor-running`, and a supervisor that holds its socket but does not answer is `supervisor-unresponsive` (both exit 2). A supervisor that predates extensions is the CLI-only refusal `E_NOT_AVAILABLE reason=supervisor-lacks-method` (restart it with `plur1bus daemon restart`); it is not an RPC error.
 
-Exit codes of the ext commands: `E_LOCKED` (an importer holds `skills/index.json`, `reason=skills-locked`) exits 3; `E_NOT_AVAILABLE` and `E_APPROVAL_REQUIRED` exit 2 (so **`supervisor-running` exits 2** here); everything else exits 1. `plur1bus module` differs: its `supervisor-running` and `supervisor-not-running` refusals exit 1 (module-guide §9).
+Exit codes of the ext commands: `E_LOCKED` (an importer holds `skills/index.json`, `reason=skills-locked`) exits 3; `E_NOT_AVAILABLE`, `E_APPROVAL_REQUIRED`, `E_INVALID_PARAMS` and `E_CANCELLED` (a declined prompt) exit 2 (so **`supervisor-running` exits 2** here); everything else exits 1. `plur1bus module` now behaves the same: its `supervisor-running` and `supervisor-not-running` refusals exit 2 as well (module-guide §9).
 
 ## 6. RPC (1.4.0)
 

@@ -72,9 +72,13 @@ export interface Registry {
 
 export function createRegistry(): Registry {
   const families = new Map<string, Family>();
+  // Every sample name in use: a histogram `x` also exposes `x_bucket`, `x_sum` and `x_count`, which must not be another metric's name.
+  const taken = new Set<string>();
   function declare(name: string, help: string, type: Family["type"], lines: () => string[]): void {
     if (!METRIC_NAME.test(name)) throw new Error(`invalid metric name ${JSON.stringify(name)}`);
-    if (families.has(name)) throw new Error(`metric ${name} is already registered`);
+    const names = type === "histogram" ? [name, `${name}_bucket`, `${name}_sum`, `${name}_count`] : [name];
+    for (const n of names) if (taken.has(n)) throw new Error(`metric ${name} is already registered (${n} is in use)`);
+    for (const n of names) taken.add(n);
     families.set(name, { name, help, type, lines });
   }
   const key = (v: readonly string[]) => v.join("\u0000");

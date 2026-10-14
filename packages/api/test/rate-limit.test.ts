@@ -57,8 +57,8 @@ test("a nonsensical class is refused at construction", () => {
   assert.throws(() => new RateLimiter(new FakeClock(), { ...classes, read: { capacity: 1, refillPerSec: 0 } }));
 });
 
-test("the five route classes are auth, read, write, stream and totp; a configuration that names only the first three still gets the defaults for the others", () => {
-  assert.deepEqual(Object.keys(DEFAULT_RATE_CLASSES).sort(), ["auth", "read", "stream", "totp", "write"]);
+test("the six route classes include rpc alongside auth, read, write, stream and totp; a configuration that names only the first three still gets the defaults for the others", () => {
+  assert.deepEqual(Object.keys(DEFAULT_RATE_CLASSES).sort(), ["auth", "read", "rpc", "stream", "totp", "write"]);
   const clock = new FakeClock(); const rl = new RateLimiter(clock, classes);
   let ok = 0; while (rl.take("stream", "ip:1").ok) ok++;
   assert.equal(ok, DEFAULT_RATE_CLASSES.stream.capacity);

@@ -36,6 +36,14 @@ export function anthropicBreakpoints(body: Record<string, unknown>): Record<stri
   return body;
 }
 
+/** The adapter's wire body as an object; anything else is refused locally (typed, nothing sent) instead of a raw SyntaxError. */
+function anthropicBody(body: string): Record<string, unknown> {
+  let parsed: unknown;
+  try { parsed = JSON.parse(body); } catch { parsed = undefined; }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new ProviderError('invalid_request', 'provider request body is not a JSON object', { code: 'request_refused_locally' });
+  return parsed as Record<string, unknown>;
+}
+
 /** POST/GET streaming fetch with the existing egress decision, pinned DNS and original TLS name. Redirects never carry credentials. */
 export function providerFetch(egress: Pick<Egress, 'decide'>, format: string, transport?: typeof fetch): typeof fetch {
   return (async (input: string | URL | Request, init?: RequestInit) => {
@@ -43,7 +51,7 @@ export function providerFetch(egress: Pick<Egress, 'decide'>, format: string, tr
     const signal = init?.signal;
     signal?.throwIfAborted();
     let body = init?.body;
-    if (format === 'anthropic_messages' && typeof body === 'string') body = JSON.stringify(anthropicBreakpoints(JSON.parse(body) as Record<string, unknown>));
+    if (format === 'anthropic_messages' && typeof body === 'string') body = JSON.stringify(anthropicBreakpoints(anthropicBody(body)));
     // Injected transports are for recorded fixtures: they perform no DNS or network, but receive the exact final wire body.
     if (transport) return transport(input, { ...init, ...(body === undefined ? {} : { body }), redirect: 'error' });
     const d = await egress.decide(url.toString());

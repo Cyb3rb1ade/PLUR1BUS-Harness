@@ -124,7 +124,8 @@ wait and tool process. A completed turn's capture uses the Core-owned shutdown s
 Budget admission raises `CallBudgetExceededError` (`budget_exceeded`); retry exhaustion
 keeps `retry_budget_exceeded`. Router/provider errors retain their original taxonomy;
 auth never falls back, and no fallback happens after a streamed event. Dispatcher
-failures become typed `TurnToolError` with the original envelope; source error codes
+failures become typed `TurnToolError` with a redacted, bounded copy of the envelope
+(registered secrets removed, see [composition.md](../composition.md)); source error codes
 survive the adapter boundary. A second invalid argument set is `tool-call-invalid`.
 Unknown usage is **not zero usage**, but it never stays pending forever. An attempt
 whose request provably billed nothing (the adapter never ran, the credential lease
@@ -142,7 +143,8 @@ A retry or fallback is charged to the retry budget at its own authorization
 (`attempt > 1`, class of the failure that caused it). A fallback across billing
 classes (plan vs paid, from the provider definition's `billingPath` or its credential
 kind) is refused with `provider.cross_billing_refused` unless
-`providers.modelProfilePolicy.<profile>.allowCrossBilling` is `true`.
+`providers.modelProfilePolicy.<profile>.allowCrossBilling` is `true`. A provider whose
+class cannot be determined is refused at load with `E_CONFIG_INVALID` (fail closed).
 
 Each dispatched call gets the approval service's D109 context (repeat-denied, prompt
 cap per session) and the connection's derived surface. A non-person principal may

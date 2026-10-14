@@ -291,7 +291,32 @@ pub fn set(
     if_revision: Option<&str>,
     dry_run: bool,
 ) -> Result<Value, SetError> {
-    set_inner(shared, layout, changes, if_revision, dry_run, false)
+    set_inner(shared, layout, changes, if_revision, dry_run, false, None)
+}
+
+/// Authenticated web config writes carry the person resolved by the core, never a browser role claim.
+pub fn set_as(
+    shared: &Arc<Shared>,
+    layout: &Layout,
+    changes: Vec<(String, Value)>,
+    if_revision: Option<&str>,
+    dry_run: bool,
+    principal: &Value,
+) -> Result<Value, SetError> {
+    if principal["kind"] != "person"
+        || !matches!(principal["role"].as_str(), Some("owner" | "admin"))
+    {
+        return Err(SetError::Invalid(vec!["config-write-role".into()]));
+    }
+    set_inner(
+        shared,
+        layout,
+        changes,
+        if_revision,
+        dry_run,
+        false,
+        Some(principal),
+    )
 }
 
 /// [`set`] for the ext layer's `SupervisorHost` (`ModuleHost::set_config`): a `null` value removes the key instead of
@@ -302,7 +327,7 @@ pub fn set_removing_nulls(
     changes: Vec<(String, Value)>,
     dry_run: bool,
 ) -> Result<Value, SetError> {
-    set_inner(shared, layout, changes, None, dry_run, true)
+    set_inner(shared, layout, changes, None, dry_run, true, None)
 }
 
 /// The plan of `changes` over `running`, a `null` value removing its key (validated once at the end).
@@ -328,6 +353,7 @@ fn set_inner(
     if_revision: Option<&str>,
     dry_run: bool,
     remove_nulls: bool,
+    principal: Option<&Value>,
 ) -> Result<Value, SetError> {
     let started = Instant::now();
     // Serialised by the config mutex. It is released at the end of this block: a later step that waits for a
@@ -349,6 +375,14 @@ fn set_inner(
                 return Err(SetError::Conflict { current });
             }
         }
+        let person = principal
+            .and_then(|p| p["userId"].as_str())
+            .unwrap_or("local-owner");
+        let role = principal
+            .and_then(|p| p["role"].as_str())
+            .unwrap_or("owner");
+        let changes = super::config_policy::prepare(&running, &changes, remove_nulls, person)
+            .map_err(|e| SetError::Invalid(vec![e.into()]))?;
         let plan = if remove_nulls {
             plan_removing_nulls(&running, &changes)?
         } else {
@@ -357,6 +391,13 @@ fn set_inner(
                 other => SetError::Invalid(vec![other.to_string()]),
             })?
         };
+        let audited = super::config_policy::changes(
+            super::config_policy::schema(),
+            &running,
+            &plan.after,
+            role,
+        )
+        .map_err(|_| SetError::Invalid(vec!["config-write-role".into()]))?;
         // B13: a changed `modules.<name>` must satisfy its manifest's configSchema.
         let module_errors =
             crate::modules::config_errors(&crate::modules::scan(layout), &running, &plan.after);
@@ -389,6 +430,8 @@ fn set_inner(
                     json!({ "path": backup.display().to_string() }),
                 );
             }
+            super::config_policy::audit(layout, person, &audited, &cfg::revision(&plan.after))
+                .map_err(|_| SetError::Io("config audit unavailable".into()))?;
             let meta = cfg::write_atomic(&path, &plan.after)
                 .map_err(|e| SetError::Io(format!("cannot write config.json: {e}")))?;
             st.applied_hash = Some(sha256(cfg::serialize(&plan.after).as_bytes()));

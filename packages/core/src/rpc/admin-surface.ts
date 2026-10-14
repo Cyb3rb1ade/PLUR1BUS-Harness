@@ -180,9 +180,9 @@ export function buildAdminSurface(d: AdminSurfaceDeps): Record<string, Handler> 
       return { agentId: id, userId, right: p.right };
     }),
     "breakglass.request": bind("admin.breakglass.write", (p, a) => {
-      const targetUserId = user(text(p, "targetUserId")), reason = text(p, "reason", 500).trim(), minutes = p.windowMinutes ?? 15;
-      if (reason.length < 10 || !Number.isInteger(minutes) || minutes < 1 || minutes > 60) throw new RpcError("E_INVALID_PARAMS", "reason must be 10-500 characters and window 1-60 minutes");
-      return d.breakglass.request(a, { targetUserId, reason, ttlMs: minutes * 60_000 });
+      const targetUserId = user(text(p, "targetUserId")), reason = text(p, "reason", 10000).trim(), minutes = p.windowMinutes;
+      if (minutes !== undefined && (!Number.isInteger(minutes) || minutes < 1)) throw new RpcError("E_INVALID_PARAMS", "windowMinutes must be a positive integer");
+      return d.breakglass.request(a, { targetUserId, reason, ...(minutes !== undefined ? { ttlMs: minutes * 60_000 } : {}) });
     }),
     "breakglass.list": bind("admin.breakglass.read", (_p, a) => ({ grants: d.breakglass.active(a.userId) })),
     "breakglass.revoke": bind("admin.breakglass.write", (p, a) => { const id = text(p, "grantId"); d.breakglass.revoke(a, id); return { id, revoked: true }; }),

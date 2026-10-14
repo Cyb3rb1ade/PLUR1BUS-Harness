@@ -20,15 +20,15 @@ describe("validateMediaEmbedding", () => {
   it("off / disabled skips every check", async () => {
     const c = ctx({ privacyPinned: true, available: () => { throw new Error("must not be called"); } });
     await validateMediaEmbedding({ provider: "off" }, c);
-    await validateMediaEmbedding({ enabled: false, provider: "cloud", model: "textonly" }, c);
+    await validateMediaEmbedding({ enabled: false, provider: "cloud", privacyAck: { provider: "cloud", acknowledgedAt: "2026-10-14T10:00:00Z", by: "owner" }, model: "textonly" }, c);
   });
   it("capability: configured modality unsupported", async () => {
-    await assert.rejects(validateMediaEmbedding({ provider: "cloud", model: "textonly", modalities: ["image"] }, ctx()), code("E_MEDIA_CAPABILITY"));
-    await assert.rejects(validateMediaEmbedding({ provider: "cloud", model: "textonly" }, ctx()), code("E_MEDIA_CAPABILITY"));
+    await assert.rejects(validateMediaEmbedding({ provider: "cloud", privacyAck: { provider: "cloud", acknowledgedAt: "2026-10-14T10:00:00Z", by: "owner" }, model: "textonly", modalities: ["image"] }, ctx()), code("E_MEDIA_CAPABILITY"));
+    await assert.rejects(validateMediaEmbedding({ provider: "cloud", privacyAck: { provider: "cloud", acknowledgedAt: "2026-10-14T10:00:00Z", by: "owner" }, model: "textonly" }, ctx()), code("E_MEDIA_CAPABILITY"));
   });
   it("capability: only the configured modalities count", async () => {
     models["cloud/imageonly"] = { ...gemma, local: false, capabilities: { text: true, image: true, video: false, audio: false } };
-    await validateMediaEmbedding({ provider: "cloud", model: "imageonly", modalities: ["image"] }, ctx());
+    await validateMediaEmbedding({ provider: "cloud", privacyAck: { provider: "cloud", acknowledgedAt: "2026-10-14T10:00:00Z", by: "owner" }, model: "imageonly", modalities: ["image"] }, ctx());
   });
   it("licence: non-commercial needs acceptance", async () => {
     await assert.rejects(validateMediaEmbedding({ provider: "local", model: "nc" }, ctx()), code("E_MEDIA_LICENSE"));
@@ -36,7 +36,7 @@ describe("validateMediaEmbedding", () => {
   });
   it("privacy: pin + cloud rejects without any availability request", async () => {
     let asked = 0;
-    await assert.rejects(validateMediaEmbedding({ provider: "cloud", model: "full" }, ctx({ privacyPinned: true, available: () => { asked++; return true; } })), code("E_MEDIA_PRIVACY"));
+    await assert.rejects(validateMediaEmbedding({ provider: "cloud", privacyAck: { provider: "cloud", acknowledgedAt: "2026-10-14T10:00:00Z", by: "owner" }, model: "full" }, ctx({ privacyPinned: true, available: () => { asked++; return true; } })), code("E_MEDIA_PRIVACY"));
     assert.equal(asked, 0);
     await validateMediaEmbedding({ provider: "local", model: "gemma" }, ctx({ privacyPinned: true }));
   });
@@ -53,10 +53,10 @@ describe("validateCaptionProvider", () => {
   it("no provider, off, or caption.source off is valid", async () => {
     await validateCaptionProvider({}, ctx());
     await validateCaptionProvider({ caption: { provider: "off" } }, ctx());
-    await validateCaptionProvider({ caption: { provider: "cloud", model: "full", source: "off" } }, ctx({ privacyPinned: true }));
+    await validateCaptionProvider({ caption: { provider: "cloud", privacyAck: { provider: "cloud", acknowledgedAt: "2026-10-14T10:00:00Z", by: "owner" }, model: "full", source: "off" } }, ctx({ privacyPinned: true }));
   });
   it("privacy, availability, licence and unknown provider", async () => {
-    await assert.rejects(validateCaptionProvider({ caption: { provider: "cloud", model: "full" } }, ctx({ privacyPinned: true })), code("E_MEDIA_PRIVACY"));
+    await assert.rejects(validateCaptionProvider({ caption: { provider: "cloud", privacyAck: { provider: "cloud", acknowledgedAt: "2026-10-14T10:00:00Z", by: "owner" }, model: "full" } }, ctx({ privacyPinned: true })), code("E_MEDIA_PRIVACY"));
     await assert.rejects(validateCaptionProvider({ caption: { provider: "local", model: "gemma" } }, ctx({ available: () => false })), code("E_MEDIA_UNAVAILABLE"));
     await assert.rejects(validateCaptionProvider({ caption: { provider: "zzz", model: "x" } }, ctx()), code("E_MEDIA_UNAVAILABLE"));
     await assert.rejects(validateCaptionProvider({ caption: { provider: "local", model: "nc" } }, ctx()), code("E_MEDIA_LICENSE"));

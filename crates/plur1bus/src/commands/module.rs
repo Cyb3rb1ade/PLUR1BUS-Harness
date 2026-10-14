@@ -38,7 +38,7 @@ fn modules_config(layout: &Layout) -> Value {
 /// done, so a supervisor cannot start (and scan `modules/`) half-way through it. A supervisor that holds the lock but
 /// did not answer is starting (or stopping): the command is refused and changes nothing.
 pub(crate) fn offline_lock(out: &Out, layout: &Layout) -> std::fs::File {
-    try_offline_lock(layout).unwrap_or_else(|e| out.fail(e.code, &e.message, e.extra, 1))
+    try_offline_lock(layout).unwrap_or_else(|e| out.fail(e.code, &e.message, e.extra))
 }
 
 /// Why [`try_offline_lock`] could not take the lock: an error name, a message and the `--json` extras.
@@ -104,9 +104,7 @@ fn module_running(out: &Out, name: &str, pid: u32) -> ! {
     out.fail(
         "E_NOT_AVAILABLE",
         &format!("module {name} still runs (pid {pid}) without a supervisor; start the supervisor (`plur1bus daemon start`) or wait for it to exit"),
-        json!({ "reason": "module-running", "ids": { "pid": pid.to_string() } }),
-        1,
-    )
+        json!({ "reason": "module-running", "ids": { "pid": pid.to_string() } }))
 }
 
 fn install_failed(out: &Out, e: &install::InstallError) -> ! {
@@ -115,14 +113,12 @@ fn install_failed(out: &Out, e: &install::InstallError) -> ! {
             "E_INTERNAL",
             &format!("the module could not be copied: {e}"),
             json!({ "detail": e.to_string() }),
-            1,
         )
     }
     out.fail(
         "E_INVALID_PARAMS",
         &format!("the module was not installed: {e}"),
         json!({ "reason": e.reason(), "detail": e.to_string() }),
-        1,
     )
 }
 
@@ -139,18 +135,12 @@ pub(crate) fn confirm(out: &Out, question: &str, yes: bool) {
         if line.trim().eq_ignore_ascii_case("y") {
             return;
         }
-        out.fail(
-            "E_INVALID_PARAMS",
-            "not applied",
-            json!({ "applied": false }),
-            2,
-        );
+        out.fail("E_CANCELLED", "not applied", json!({ "applied": false }));
     }
     out.fail(
         "E_INVALID_PARAMS",
         &format!("{question}\nre-run with --yes to apply"),
         json!({ "applied": false }),
-        2,
     );
 }
 
@@ -341,7 +331,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: ModuleCmd) {
                             "E_MODULE_UNKNOWN",
                             &format!("no module named {name} is installed"),
                             json!({}),
-                            1,
                         );
                     }
                     if let Some(pid) = running_pid(layout, &name) {
@@ -367,9 +356,7 @@ fn control(out: &Out, layout: &Layout, verb: &str, name: &str) {
         out.fail(
             "E_NOT_AVAILABLE",
             &format!("no supervisor runs, so there is nothing to {verb}; start it with `plur1bus daemon start`"),
-            json!({ "reason": "supervisor-not-running" }),
-            1,
-        )
+            json!({ "reason": "supervisor-not-running" }))
     };
     let method = format!("module.{verb}");
     let v = rpc(out, &mut c, &method, json!({ "name": name }));

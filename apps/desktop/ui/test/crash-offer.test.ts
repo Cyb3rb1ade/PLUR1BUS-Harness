@@ -31,3 +31,17 @@ test("failed copy or acknowledgment preserves the crash offer", async () => {
     assert.deepEqual(await page.evaluate(() => (window as any).testShell.crashHandled), []);
   });
 });
+
+test("crash actions open diagnostics and restart only after explicit clicks", async () => {
+  await withShell(async page => {
+    await page.evaluate(() => (window as any).testShell.openCrashActions());
+    const dialog = page.getByRole("dialog", {name:"Previous app crash"});
+    await dialog.waitFor();
+    assert.deepEqual(await page.evaluate(() => (window as any).testShell.crashActions), []);
+    await dialog.getByRole("button", {name:"Open diagnostics"}).click();
+    await dialog.getByRole("button", {name:"Restart", exact:true}).click();
+    assert.deepEqual(await page.evaluate(() => (window as any).testShell.crashActions), ["open", "restart"]);
+    assert.deepEqual(await page.evaluate(() => (window as any).testShell.crashHandled), []);
+    await dialog.getByRole("button", {name:"Dismiss"}).click();
+  });
+});

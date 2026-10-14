@@ -9,7 +9,7 @@ const KEY_BYTES = 32;
 const NONCE_BYTES = 12; // GCM's native 96-bit nonce, fresh random per write of an entry
 const TAG_BYTES = 16;
 
-interface Entry { createdAt: string; updatedAt: string; nonce: string; ct: string; tag: string }
+interface Entry { createdAt: string; updatedAt: string; updatedBy?: string; nonce: string; ct: string; tag: string }
 interface Doc { schema: typeof FILE_SCHEMA; entries: Record<string, Entry> }
 
 export interface FileBackendOptions {
@@ -39,11 +39,16 @@ export function createFileBackend(o: FileBackendOptions): SecretBackend {
   const rand = o.random ?? randomBytes;
   const rename = o.rename ?? renameSync;
   let chain: Promise<unknown> = Promise.resolve();
-  const serial = <T>(fn: () => T): Promise<T> => {
-    const run = chain.then(fn, fn);
+  /** Runs one operation after the previous one. Whatever is not already a SecretError (EACCES, EISDIR, ... with a path in
+   *  its message) is reduced to a code, so no platform text leaves the backend. */
+  const serial = <T>(what: string, fn: () => T): Promise<T> => {
+    const guarded = (): T => { try { return fn(); } catch (err) { throw backendFailure(err, what); } };
+    const run = chain.then(guarded, guarded);
     chain = run.catch(() => undefined);
     return run;
   };
+  /** Own entries only: `constructor`, `toString` ... are valid names and live on Object.prototype. */
+  const has = (doc: Doc, name: string): boolean => Object.hasOwn(doc.entries, name);
 
   const ensureDir = (): void => {
     mkdirSync(o.dir, { recursive: true, mode: 0o700 });
@@ -72,9 +77,17 @@ export function createFileBackend(o: FileBackendOptions): SecretBackend {
 
   /** Reads the key; creates it only when there is nothing yet to orphan. */
   function key(doc: Doc, create: boolean): Buffer {
-    const k = readKey();
+    const empty = Object.keys(doc.entries).length === 0;
+    let k: Buffer | null;
+    try { k = readKey(); } catch (err) {
+      // A crash between creating the key file and writing it leaves an empty or short file. With nothing to orphan it
+      // is safe to start over; with entries it stays corrupt.
+      if (!(create && empty && err instanceof SecretError && err.code === "corrupt")) throw err;
+      rmSync(keyPath, { force: true });
+      k = null;
+    }
     if (k) return k;
-    if (Object.keys(doc.entries).length > 0 || !create) throw corrupt("key-missing");
+    if (!empty || !create) throw corrupt("key-missing");
     ensureDir();
     const fresh = rand(KEY_BYTES);
     let fd: number | null = null;
@@ -122,10 +135,10 @@ export function createFileBackend(o: FileBackendOptions): SecretBackend {
         return { available: false, reason: err instanceof SecretError ? err.code : "dir-not-writable" };
       }
     },
-    get: (name) => serial(() => {
+    get: (name) => serial("reading the encrypted store", () => {
       const doc = readDoc();
-      const e = doc.entries[name];
-      if (!e) return null;
+      if (!has(doc, name)) return null;
+      const e = doc.entries[name]!;
       const k = key(doc, false);
       try {
         const nonce = Buffer.from(e.nonce, "base64"); const tag = Buffer.from(e.tag, "base64");
@@ -135,7 +148,7 @@ export function createFileBackend(o: FileBackendOptions): SecretBackend {
         return Buffer.concat([d.update(Buffer.from(e.ct, "base64")), d.final()]).toString("utf8");
       } catch { throw corrupt("authentication-failed", name); }
     }),
-    put: (name, value, now) => serial(() => {
+    put: (name, value, now, updatedBy) => serial("writing the encrypted store", () => {
       const doc = readDoc();
       const k = key(doc, true);
       const nonce = rand(NONCE_BYTES);
@@ -143,19 +156,19 @@ export function createFileBackend(o: FileBackendOptions): SecretBackend {
       c.setAAD(aad(name));
       const ct = Buffer.concat([c.update(Buffer.from(value, "utf8")), c.final()]);
       const at = now.toISOString();
-      const createdAt = doc.entries[name]?.createdAt ?? at;
-      doc.entries[name] = { createdAt, updatedAt: at, nonce: nonce.toString("base64"), ct: ct.toString("base64"), tag: c.getAuthTag().toString("base64") };
+      const createdAt = (has(doc, name) ? doc.entries[name]?.createdAt : undefined) ?? at;
+      doc.entries[name] = { createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}), nonce: nonce.toString("base64"), ct: ct.toString("base64"), tag: c.getAuthTag().toString("base64") };
       writeDoc(doc);
-      return { name, backend: "file" as const, createdAt, updatedAt: at };
+      return { name, backend: "file" as const, createdAt, updatedAt: at, ...(updatedBy ? { updatedBy } : {}) };
     }),
-    delete: (name) => serial(() => {
+    delete: (name) => serial("deleting from the encrypted store", () => {
       const doc = readDoc();
-      if (!(name in doc.entries)) return false;
+      if (!has(doc, name)) return false;
       delete doc.entries[name];
       writeDoc(doc);
       return true;
     }),
-    list: () => serial((): SecretMeta[] =>
-      Object.entries(readDoc().entries).map(([name, e]) => ({ name, backend: "file" as const, createdAt: e.createdAt, updatedAt: e.updatedAt })).sort((a, b) => a.name.localeCompare(b.name))),
+    list: () => serial("listing the encrypted store", (): SecretMeta[] =>
+      Object.entries(readDoc().entries).map(([name, e]) => ({ name, backend: "file" as const, createdAt: e.createdAt, updatedAt: e.updatedAt, ...(e.updatedBy ? { updatedBy: e.updatedBy } : {}) })).sort((a, b) => a.name.localeCompare(b.name))),
   };
 }

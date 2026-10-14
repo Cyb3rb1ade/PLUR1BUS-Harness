@@ -60,7 +60,8 @@ export class CoreSessionBackend implements AcpBackend {
       const sub = await this.#o.client.call<{ turnId: string }>("session.submit", { caller, sessionId: a.sessionId, text: a.text });
       flight.turnId = sub.turnId;
       // A cancel that arrived before the turn existed is applied now.
-      if (flight.cancelRequested) await this.#cancelCall(a.sessionId);
+      // A failing cancel must not abandon a turn that is running: it is still followed to its end.
+      if (flight.cancelRequested) await this.#cancelCall(a.sessionId).catch(() => {});
       const sleep = this.#o.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
       for (;;) {
         const after = this.#cursor.get(a.sessionId) ?? 0;
