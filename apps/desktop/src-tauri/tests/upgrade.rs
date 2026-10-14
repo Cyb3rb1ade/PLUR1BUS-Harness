@@ -774,6 +774,7 @@ async fn the_approved_version_matches_the_bundle_ignoring_build_metadata() {
         !matches!(r, Err(plur1bus_desktop::controller::CtlError::Bundle)),
         "{r:?}"
     );
+    drop(f);
     let mut f = fixture(RuntimeKind::Docker).await;
     f.target.version = "0.1.2".into();
     assert!(matches!(

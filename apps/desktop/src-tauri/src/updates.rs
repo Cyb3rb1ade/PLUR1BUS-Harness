@@ -235,10 +235,15 @@ pub fn decide(
     hour: u8,
     agent_run_active: bool,
 ) -> Offer {
-    if s.held || r.channel != s.channel || r.version <= *running {
+    if s.held || r.channel != s.channel || precedence(&r.version, running).is_le() {
         return Offer::None;
     }
-    if let Some(skipped) = s.skipped.get(&r.version) {
+    // The skip list is keyed by the exact version; build metadata is no different release.
+    let skipped = s
+        .skipped
+        .iter()
+        .find_map(|(v, at)| same_version(v, &r.version).then_some(at));
+    if let Some(skipped) = skipped {
         if !r.security || now.saturating_sub(*skipped) < 604800 {
             return Offer::None;
         }
@@ -246,7 +251,7 @@ pub fn decide(
     if s.later_until.is_some_and(|until| now < until) {
         return Offer::None;
     }
-    if *running < r.min_from_version {
+    if precedence(running, &r.min_from_version).is_lt() {
         return Offer::NeedsIntermediate(r.min_from_version.clone());
     }
     let (a, b) = s.quiet_hours;
