@@ -47,7 +47,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
                         "E_INVALID_PARAMS",
                         "expected JSON settings object",
                         json!({}),
-                        1,
                     )
                 })
                 .insert("name".into(), json!(id));
@@ -73,7 +72,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
                     "E_CORE_UNAVAILABLE",
                     "agent settings require a running current core",
                     json!({}),
-                    1,
                 );
             }
             // Retain the pre-existing name-only offline bootstrap used by setup/Hermes and older cores.
@@ -152,7 +150,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
                     "E_INVALID_PARAMS",
                     &format!("agent id must match {ID_RE}"),
                     json!({}),
-                    1,
                 );
             }
             if config["agents"].get(&id).is_some() {
@@ -160,7 +157,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
                     "E_INVALID_PARAMS",
                     &format!("agent {id} already exists"),
                     json!({ "reason": "agent-exists" }),
-                    1,
                 );
             }
             let now = rfc3339_now();
@@ -174,7 +170,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
                 false,
             );
             std::fs::create_dir_all(layout.workspace_dir(&id))
-                .unwrap_or_else(|e| out.fail("E_INTERNAL", &e.to_string(), json!({}), 1));
+                .unwrap_or_else(|e| out.fail("E_INTERNAL", &e.to_string(), json!({})));
             let opened = try_core(layout)
                 .and_then(|mut c| c.call("agent.open", json!({ "agentId": id })).ok())
                 .is_some();
@@ -199,7 +195,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
                     "E_AGENT_UNKNOWN",
                     &format!("agent {id} is not registered"),
                     json!({}),
-                    1,
                 );
             }
             // config.set has no delete: the whole map minus the agent, against the revision it was read from
@@ -228,7 +223,6 @@ pub fn run(out: &Out, layout: &Layout, cmd: AgentCmd) {
                     "E_AGENT_UNKNOWN",
                     &format!("agent {id} is not registered"),
                     json!({}),
-                    1,
                 );
             }
             match try_core(layout) {
@@ -285,7 +279,6 @@ fn read_payload(out: &Out, path: &std::path::Path) -> Value {
             "E_INVALID_PARAMS",
             "cannot read agent JSON file",
             json!({"detail":"file"}),
-            1,
         )
     });
     let mut bytes = Vec::new();
@@ -296,7 +289,6 @@ fn read_payload(out: &Out, path: &std::path::Path) -> Value {
                 "E_INVALID_PARAMS",
                 "cannot read agent JSON file",
                 json!({"detail":"file"}),
-                1,
             )
         });
     if bytes.len() > 4 * 1024 * 1024 {
@@ -304,7 +296,6 @@ fn read_payload(out: &Out, path: &std::path::Path) -> Value {
             "E_INVALID_PARAMS",
             "agent JSON file exceeds transfer limit",
             json!({"detail":"file"}),
-            1,
         );
     }
     serde_json::from_slice(&bytes).unwrap_or_else(|_| {
@@ -312,7 +303,6 @@ fn read_payload(out: &Out, path: &std::path::Path) -> Value {
             "E_INVALID_PARAMS",
             "invalid agent JSON file",
             json!({"detail":"file"}),
-            1,
         )
     })
 }

@@ -384,7 +384,7 @@ fn a_bundle_with_a_bad_signature_or_a_tampered_artefact_changes_nothing() {
     ));
     assert_eq!(
         (code, doc["reason"].as_str()),
-        (1, Some("release-signature-invalid")),
+        (2, Some("release-signature-invalid")),
         "{doc}"
     );
     assert_eq!(state_of(&e), before);
@@ -403,7 +403,7 @@ fn a_bundle_with_a_bad_signature_or_a_tampered_artefact_changes_nothing() {
     ));
     assert_eq!(
         (code, doc["reason"].as_str()),
-        (1, Some("digest-mismatch")),
+        (2, Some("digest-mismatch")),
         "{doc}"
     );
     assert_eq!(state_of(&e), before);
@@ -422,7 +422,7 @@ fn a_bundle_with_a_bad_signature_or_a_tampered_artefact_changes_nothing() {
     ));
     assert_eq!(
         (code, doc["reason"].as_str()),
-        (1, Some("bundle-invalid")),
+        (2, Some("bundle-invalid")),
         "{doc}"
     );
     assert_eq!(state_of(&e), before);
@@ -454,7 +454,7 @@ fn a_traversal_archive_is_refused_and_writes_nothing_outside() {
         ));
         assert_eq!(
             (code, doc["reason"].as_str()),
-            (1, Some("archive-unsafe-entry")),
+            (2, Some("archive-unsafe-entry")),
             "{fmt} {name}: {doc}"
         );
         assert_eq!(state_of(&e), before);
@@ -477,7 +477,7 @@ fn a_declared_size_is_enforced_and_a_bundle_cannot_switch_channels() {
         Some(&key.pk()),
         &["update", "--yes", "--from", b.to_str().unwrap()],
     ));
-    assert_eq!(code, 1, "{doc}");
+    assert_eq!(code, 2, "{doc}");
     assert!(
         matches!(
             doc["reason"].as_str(),
@@ -498,7 +498,7 @@ fn a_declared_size_is_enforced_and_a_bundle_cannot_switch_channels() {
     ));
     assert_eq!(
         (code, doc["reason"].as_str()),
-        (1, Some("channel-mismatch")),
+        (2, Some("channel-mismatch")),
         "{doc}"
     );
 }
@@ -515,7 +515,7 @@ fn a_downgrade_is_refused_unless_it_is_allowed() {
     let (code, doc) = run(&mut online(&e, &f, &[]));
     assert_eq!(
         (code, doc["reason"].as_str()),
-        (1, Some("downgrade-refused")),
+        (2, Some("downgrade-refused")),
         "{doc}"
     );
     assert_eq!(state_of(&e), before);
@@ -558,7 +558,7 @@ fn an_older_signed_manifest_is_a_replay_once_a_newer_one_was_accepted() {
     let (code, doc) = run(&mut online(&e, &old, &[]));
     assert_eq!(
         (code, doc["reason"].as_str()),
-        (1, Some("release-replay")),
+        (2, Some("release-replay")),
         "{doc}"
     );
     assert_eq!(state_of(&e), before);
@@ -597,7 +597,7 @@ fn a_replay_is_refused_for_an_offline_bundle_too() {
     ));
     assert_eq!(
         (code, doc["reason"].as_str()),
-        (1, Some("release-replay")),
+        (2, Some("release-replay")),
         "{doc}"
     );
     assert!(!e.home.join("update/bundle").exists());
@@ -682,7 +682,7 @@ fn an_unannounced_key_a_foreign_list_and_an_expired_key_are_refused() {
     let (code, doc) = run(&mut online(&e, &f, &[]));
     assert_eq!(
         (code, doc["reason"].as_str()),
-        (1, Some("release-signature-invalid")),
+        (2, Some("release-signature-invalid")),
         "{doc}"
     );
 
@@ -693,7 +693,7 @@ fn an_unannounced_key_a_foreign_list_and_an_expired_key_are_refused() {
     let (code, doc) = run(&mut online(&e, &f, &[]));
     assert_eq!(
         (code, doc["reason"].as_str()),
-        (1, Some("key-list-invalid")),
+        (2, Some("key-list-invalid")),
         "{doc}"
     );
 
@@ -704,7 +704,7 @@ fn an_unannounced_key_a_foreign_list_and_an_expired_key_are_refused() {
     let (code, doc) = run(&mut online(&e, &f, &[]));
     assert_eq!(
         (code, doc["reason"].as_str()),
-        (1, Some("release-key-expired")),
+        (2, Some("release-key-expired")),
         "{doc}"
     );
     assert_eq!(state_of(&e), before);
@@ -954,7 +954,7 @@ fn a_required_incompatible_addon_aborts_unless_forced() {
     let (code, doc) = run(&mut online(&e, &f, &["--require-addon", "fancy"]));
     assert_eq!(
         (code, doc["reason"].as_str()),
-        (1, Some("addon-incompatible")),
+        (2, Some("addon-incompatible")),
         "{doc}"
     );
     assert!(doc["message"].as_str().unwrap().contains("fancy"));
@@ -1165,7 +1165,7 @@ fn min_from_version_blocks_exactly_the_installs_below_it_with_a_hint_and_cannot_
         let (code, doc) = run(&mut online(&e, &f, &flags));
         assert_eq!(
             (code, doc["reason"].as_str()),
-            (1, Some("min-from-version")),
+            (2, Some("min-from-version")),
             "{flags:?}: {doc}"
         );
         assert!(
@@ -1192,7 +1192,7 @@ fn an_empty_min_from_version_is_a_malformed_release_not_a_free_pass() {
     let (code, doc) = run(&mut online(&e, &f, &[]));
     assert_eq!(
         (code, doc["reason"].as_str()),
-        (1, Some("release-malformed")),
+        (2, Some("release-malformed")),
         "{doc}"
     );
     assert_eq!(state_of(&e), before);
@@ -1305,7 +1305,7 @@ fn every_kind_of_bad_signature_is_refused_and_nothing_is_left_behind() {
         damage(&f, &key);
         let before = state_of(&e);
         let (code, doc) = run(&mut online(&e, &f, &[]));
-        assert_eq!(code, 1, "{what}: {doc}");
+        assert_eq!(code, 2, "{what}: {doc}");
         let reason = doc["reason"].as_str().unwrap_or("");
         assert!(
             [
@@ -1403,7 +1403,7 @@ fn a_signed_release_whose_core_payload_breaks_while_it_is_unpacked_leaves_no_tra
         let f = rel.feed(&e, "feed", &key);
         let before = state_of(&e);
         let (code, doc) = run(&mut online(&e, &f, &[]));
-        assert_eq!(code, 1, "{what}: {doc}");
+        assert_eq!(code, 2, "{what}: {doc}");
         assert_untouched(&e, &before, what);
         assert!(
             !e.root.join("escape.txt").exists(),

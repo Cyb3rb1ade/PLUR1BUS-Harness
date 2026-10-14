@@ -41,7 +41,6 @@ pub(crate) fn require_agent(out: &Out, config: &Value, id: &str) {
             "E_AGENT_UNKNOWN",
             &format!("agent {id} is not registered (plur1bus agent create {id})"),
             json!({}),
-            1,
         );
     }
 }
@@ -57,7 +56,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
             "/core/recall/capChars",
         ],
     )
-    .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({}), 1));
+    .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({})));
     let caller = identity::caller();
     match cmd {
         MemoryCmd::Add {
@@ -68,7 +67,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
             require_agent(out, &config, &agent);
             let content = text.join(" ");
             if content.trim().is_empty() {
-                out.fail("E_INVALID_PARAMS", "text is empty", json!({}), 1);
+                out.fail("E_INVALID_PARAMS", "text is empty", json!({}));
             }
             // Q3 (E4): the journal line this capture falls back to is built first, and the live call carries runId
             // `journal:<its id>`. The core's replay of that line passes the same runId, so a core that stored the turn
@@ -132,7 +131,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
             require_agent(out, &config, &agent);
             let q = query.join(" ");
             if q.trim().is_empty() {
-                out.fail("E_INVALID_PARAMS", "query is empty", json!({}), 1);
+                out.fail("E_INVALID_PARAMS", "query is empty", json!({}));
             }
             let soft = config["core"]["recall"]["softBudgetMs"]
                 .as_u64()
@@ -238,7 +237,6 @@ fn journaled(out: &Out, layout: &Layout, mut line: JournalLine<'_>, detail: &str
             "E_INTERNAL",
             &format!("journal write failed: {e}"),
             json!({}),
-            1,
         )
     });
     eprintln!("! core unavailable ({detail}); journaled for replay");

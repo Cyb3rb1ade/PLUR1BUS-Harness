@@ -399,7 +399,7 @@ fn a_non_utf8_binary_path_is_refused() {
         }
     };
     let (code, v) = parse(out);
-    assert_eq!(code, 1, "{v}");
+    assert_eq!(code, 2, "{v}");
     assert_eq!(v["error"], "E_INVALID_PARAMS");
     assert_eq!(v["reason"], "path-not-utf8");
     assert!(calls(&e).is_empty());

@@ -21,12 +21,11 @@ use std::time::Duration;
 const SNAPSHOT_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 
 fn fail(out: &Out, e: BackupError) -> ! {
-    let (code, exit) = e.code();
+    let (code, _) = e.code();
     out.fail(
         code,
         &e.to_string(),
         json!({ "reason": e.reason, "detail": e.detail }),
-        exit,
     )
 }
 

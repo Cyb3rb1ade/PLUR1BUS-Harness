@@ -281,7 +281,7 @@ fn a_tampered_feed_or_checksum_is_refused_and_nothing_changes() {
     let (code, doc) = run(&mut update(&e, &f, &[]));
     assert_eq!(
         (code, doc["reason"].as_str()),
-        (1, Some("release-signature-invalid")),
+        (2, Some("release-signature-invalid")),
         "{doc}"
     );
     assert_eq!(snapshot_of(&e), before);
@@ -293,7 +293,7 @@ fn a_tampered_feed_or_checksum_is_refused_and_nothing_changes() {
     let (code, doc) = run(&mut update(&e2, &f2, &[]));
     assert_eq!(
         (code, doc["reason"].as_str()),
-        (1, Some("digest-mismatch")),
+        (2, Some("digest-mismatch")),
         "{doc}"
     );
     assert_eq!(snapshot_of(&e2).0, OLD.as_bytes());
@@ -313,7 +313,7 @@ fn a_tampered_feed_or_checksum_is_refused_and_nothing_changes() {
     let (code, doc) = run(&mut c);
     assert_eq!(
         (code, doc["reason"].as_str()),
-        (1, Some("release-unverified")),
+        (2, Some("release-unverified")),
         "{doc}"
     );
     assert_eq!(snapshot_of(&e3).0, OLD.as_bytes());
@@ -351,7 +351,7 @@ fn a_release_that_changes_the_node_runtime_is_refused() {
     let (code, out) = run(&mut update(&e, &f, &[]));
     assert_eq!(
         (code, out["reason"].as_str()),
-        (1, Some("unit-unsupported")),
+        (2, Some("unit-unsupported")),
         "{out}"
     );
     assert_eq!(out["units"], json!(["node"]));

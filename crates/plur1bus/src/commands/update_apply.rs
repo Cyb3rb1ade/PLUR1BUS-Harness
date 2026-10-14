@@ -20,11 +20,11 @@ fn host() -> Result<(SystemHost, std::path::PathBuf), String> {
 }
 
 fn host_or_fail(out: &Out) -> (SystemHost, std::path::PathBuf) {
-    host().unwrap_or_else(|m| out.fail("E_NOT_AVAILABLE", &m, json!({ "reason": "io" }), 1))
+    host().unwrap_or_else(|m| out.fail("E_NOT_AVAILABLE", &m, json!({ "reason": "io" })))
 }
 
 fn refuse(out: &Out, reason: &str, message: &str) -> ! {
-    out.fail("E_NOT_AVAILABLE", message, json!({ "reason": reason }), 1)
+    out.fail("E_NOT_AVAILABLE", message, json!({ "reason": reason }))
 }
 
 /// A refusal before anything was written: `(reason, message, extra fields of the error document)`.
@@ -209,7 +209,7 @@ fn stop(out: &Out, layout: &Layout, r: Refusal) -> ! {
     bundle::cleanup(layout);
     let mut extra = r.2;
     extra["reason"] = json!(r.0);
-    out.fail("E_NOT_AVAILABLE", &r.1, extra, 1)
+    out.fail("E_NOT_AVAILABLE", &r.1, extra)
 }
 
 /// Shows the plan (text mode) and asks, unless `--yes`.
@@ -230,7 +230,6 @@ fn confirm(out: &Out, layout: &Layout, args: &UpdateArgs, p: &Prepared) {
                 p.plan.to
             ),
             json!({ "reason": "confirmation-required" }),
-            2,
         );
     }
     println!("{text}\n");
@@ -244,7 +243,6 @@ fn confirm(out: &Out, layout: &Layout, args: &UpdateArgs, p: &Prepared) {
             "E_CANCELLED",
             "cancelled; nothing was changed",
             json!({ "reason": "declined" }),
-            1,
         );
     }
 }
