@@ -35,6 +35,8 @@ Every opening/mint uses the existing `CallBudget.checkBeforeCall`. Voice seconds
 
 At a ceiling, the broker stops the provider and records a notice. An overbudget opening calls the existing D109 evaluator and records a `money.spend` request with its existing once/T3 requirements, then remains refused. Approval alone neither raises a limit nor authorizes a paid fallback. Spoken/media notice UX and configuring more detailed monthly/install voice ceilings require the follow-up surface/setup integration.
 
+Usage figures from provider events must be finite and not negative in every field; the voice-seconds ledger answers `false` (ceiling reached) for anything else, so a negative value can never refund the daily ceiling. Closing a session is shared: sweep, a socket close and a budget event that arrive together cause one provider hangup, one notice and one release. `sweep` and `dispose` try every session even if one close fails and report the first failure afterwards; a reserved ephemeral secret keeps its capacity slot while its sideband attaches. A session whose provider close keeps failing stays registered (and counted) for retry.
+
 `auth.openai.voiceCapacity` defaults conservatively to one session and must not exceed the vendor tier. SIP is refused as `transport-unavailable`; browser media capture, SIP hooks, monthly/install voice settings, price/capacity discovery and provider-native platform acceptance remain follow-ups.
 
 ## Validation
@@ -75,6 +77,11 @@ are gated even if the model was previously installed. Installing a model never
 selects it. Downloads emit private `voice.download.progress` events with the UI's
 `modelId`, `receivedBytes`, `totalBytes`, `done`, and optional `error` fields.
 Accepted licences used by language selection are saved by model and licence.
+`voice.agent.override.set` has no `acceptLicences` field. When its sparse object
+sets `language` or `profile` and the models of that selection need a confirmation,
+it answers `E_VOICE_LICENCE` unless the confirmation is already stored (given once
+through `voice.language.set`); an override without `language` and `profile` is not
+affected.
 
 Configuration lives under `voice.v3`: language, selected profile per language,
 TTS profile defaults, `budgetMs` (default 1000), and `realtime`. The eight feature
