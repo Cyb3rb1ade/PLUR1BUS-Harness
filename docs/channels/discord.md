@@ -134,7 +134,7 @@ ephemeral acknowledgement and then edits the original response.
 - A single shard, JSON encoding. Session start limits are not read; backoff limits the crash-loop rate.
 - A deliberate stop closes the gateway with code `4000` (resumable). With `FileGatewayStateStore` a restart resumes the
   session while Discord still holds it; after that the bot identifies afresh. Without a state store, the in-process session
-  is kept across `stop()` / `start()` only.
+  is kept across `stop()` / `start()` only. Not yet enforced: a `stop()` issued while `start()` still waits for the first `READY` does not return at once; it blocks until the 30 s `READY_WAIT_MS` has passed.
 - Threads are chats: replies go into the thread the message came from. Creating threads is not implemented.
 - After a restart, the bot can reply in a direct-message channel only after that user has written to the bot again. The
   channel-to-user mapping is in memory; a rebuilt mapping from the Discord REST API is a follow-up.

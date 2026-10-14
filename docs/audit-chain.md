@@ -69,5 +69,5 @@ the anchor aside (keep them as evidence) and start a new chain.
   (`src/journal.rs`), are tested for append-only writes (no earlier byte is rewritten), one physical line per entry whatever the content,
   eight concurrent writers without interleaved lines, private permissions, and a last line left torn by a crash: the next entry now starts
   a line of its own instead of being glued to the fragment.
-- **Known gaps:** the Rust CLI's own audit lines are not in the chain (see above). Neither `audit.log` nor the journal rotates, so "the
+- **Known gaps:** `detail` is written as given: secrets inside it are not redacted by the chain (not yet enforced; redaction belongs to the event producers in rbac and identity). The Rust CLI's own audit lines are not in the chain (see above). Neither `audit.log` nor the journal rotates, so "the
   chain continues across a rotation" can only be tested where the chain is.

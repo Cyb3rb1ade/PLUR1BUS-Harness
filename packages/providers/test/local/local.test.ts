@@ -3,6 +3,10 @@ import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { after, describe, it } from "node:test";
 import { createLocalChatAdapter, discoverLocalEndpoints, isLoopbackHost, isLoopbackUrl, NO_AUTH, probeEndpoint } from "../../src/local/index.ts";
+/** Probes of a live local stub are not about timing: no per-request bound or discovery deadline that a loaded machine
+ *  could overrun (the default 1.5 s / 3 s). Tests of the timeout behaviour itself pass their own small values. */
+const LIVE = { timeoutMs: 600_000 };
+const LIVE_DISCOVERY = { timeoutMs: 600_000, deadlineMs: 600_000 };
 
 type H = (req: IncomingMessage, res: ServerResponse) => void;
 const servers: Server[] = [];
@@ -40,7 +44,7 @@ describe("loopback guard", () => {
 describe("dialects", () => {
   it("ollama /api/tags", async () => {
     const s = await serve(ollama);
-    const r = await probeEndpoint({ origin: s.origin, dialects: ["ollama"] });
+    const r = await probeEndpoint({ origin: s.origin, dialects: ["ollama"] }, LIVE);
     assert.equal(r.state, "ok");
     assert.equal(r.dialect, "ollama");
     assert.deepEqual(r.models.map((m) => m.id), ["llama3:8b", "qwen2.5:7b"]);
@@ -49,7 +53,7 @@ describe("dialects", () => {
 
   it("LM Studio /v1/models", async () => {
     const s = await serve(lmstudio);
-    const r = await probeEndpoint({ origin: s.origin, dialects: ["openai"] });
+    const r = await probeEndpoint({ origin: s.origin, dialects: ["openai"] }, LIVE);
     assert.equal(r.state, "ok");
     assert.equal(r.dialect, "openai");
     assert.deepEqual(r.models, [{ id: "qwen/qwen3-4b" }]);
@@ -57,7 +61,7 @@ describe("dialects", () => {
 
   it("falls back to /v1/models when /api/tags is absent", async () => {
     const s = await serve(lmstudio);
-    const r = await probeEndpoint({ origin: s.origin, dialects: ["ollama", "openai"] });
+    const r = await probeEndpoint({ origin: s.origin, dialects: ["ollama", "openai"] }, LIVE);
     assert.equal(r.state, "ok");
     assert.equal(r.dialect, "openai");
     assert.deepEqual(s.hits.map((h) => h.url), ["/api/tags", "/v1/models"]);
@@ -65,14 +69,14 @@ describe("dialects", () => {
 
   it("sends no credentials", async () => {
     const s = await serve(ollama);
-    await probeEndpoint({ origin: s.origin, dialects: ["ollama"] });
+    await probeEndpoint({ origin: s.origin, dialects: ["ollama"] }, LIVE);
     assert.equal(s.hits[0]?.headers.authorization, undefined);
     assert.equal(s.hits[0]?.headers.cookie, undefined);
   });
 
   it("deduplicates and skips junk entries", async () => {
     const s = await serve((_q, res) => json(res, { data: [{ id: "a" }, { id: "a" }, { id: 5 }, null, { id: "" }] }));
-    const r = await probeEndpoint({ origin: s.origin, dialects: ["openai"] });
+    const r = await probeEndpoint({ origin: s.origin, dialects: ["openai"] }, LIVE);
     assert.deepEqual(r.models, [{ id: "a" }]);
   });
 });
@@ -81,7 +85,7 @@ describe("states and error classes", () => {
   it("empty model list", async () => {
     for (const [h, d] of [[(_q: IncomingMessage, res: ServerResponse) => json(res, { models: [] }), "ollama"], [(_q: IncomingMessage, res: ServerResponse) => json(res, { data: [] }), "openai"]] as const) {
       const s = await serve(h);
-      const r = await probeEndpoint({ origin: s.origin, dialects: [d] });
+      const r = await probeEndpoint({ origin: s.origin, dialects: [d] }, LIVE);
       assert.equal(r.state, "empty");
       assert.deepEqual(r.models, []);
     }
@@ -89,13 +93,13 @@ describe("states and error classes", () => {
 
   it("empty ollama list but populated /v1/models still yields ok", async () => {
     const s = await serve((q, res) => q.url === "/api/tags" ? json(res, { models: [] }) : json(res, { data: [{ id: "m" }] }));
-    const r = await probeEndpoint({ origin: s.origin, dialects: ["ollama", "openai"] });
+    const r = await probeEndpoint({ origin: s.origin, dialects: ["ollama", "openai"] }, LIVE);
     assert.equal(r.state, "ok");
     assert.equal(r.dialect, "openai");
   });
 
   it("unreachable (connection refused)", async () => {
-    const r = await probeEndpoint({ origin: await deadOrigin(), dialects: ["ollama", "openai"] });
+    const r = await probeEndpoint({ origin: await deadOrigin(), dialects: ["ollama", "openai"] }, LIVE);
     assert.equal(r.state, "unreachable");
     assert.deepEqual(r.models, []);
   });
@@ -110,11 +114,18 @@ describe("states and error classes", () => {
 
   it("timeout on a service that accepts and never answers", async () => {
     const s = await serve(() => { /* hold */ });
-    const t0 = Date.now();
+    // The server never answers, so `timeout` can only come from the per-request bound (no wall-clock assertion: under load
+    // the 50 ms timer may fire late, and may even fire before the request reached the server).
     const r = await probeEndpoint({ origin: s.origin, dialects: ["ollama", "openai"] }, { timeoutMs: 50 });
     assert.equal(r.state, "timeout");
-    assert.ok(Date.now() - t0 < 1000);
-    assert.equal(s.hits.length, 1);
+  });
+
+  it("a timeout does not try the second dialect", async () => {
+    let calls = 0;
+    const fetch: typeof globalThis.fetch = (_u, init) => { calls++; return new Promise((_ok, fail) => { init?.signal?.addEventListener("abort", () => fail(init.signal!.reason)); }); };
+    const r = await probeEndpoint({ origin: "http://127.0.0.1:1", dialects: ["ollama", "openai"] }, { timeoutMs: 50, fetch });
+    assert.equal(r.state, "timeout");
+    assert.equal(calls, 1);
   });
 
   it("caller abort propagates instead of reporting a state", async () => {
@@ -137,7 +148,7 @@ describe("states and error classes", () => {
     ];
     for (const [name, h] of cases) {
       const s = await serve(h);
-      const r = await probeEndpoint({ origin: s.origin, dialects: ["openai"] });
+      const r = await probeEndpoint({ origin: s.origin, dialects: ["openai"] }, LIVE);
       assert.equal(r.state, "protocol", name);
       assert.ok(r.detail, name);
       assert.equal(s.hits.length, 1, `${name}: redirect not followed`);
@@ -146,7 +157,7 @@ describe("states and error classes", () => {
 
   it("reports http status", async () => {
     const s = await serve((_q, res) => json(res, {}, 503));
-    const r = await probeEndpoint({ origin: s.origin, dialects: ["openai"] });
+    const r = await probeEndpoint({ origin: s.origin, dialects: ["openai"] }, LIVE);
     assert.equal(r.httpStatus, 503);
   });
 });
@@ -178,7 +189,7 @@ describe("egress and origin rules", () => {
 
   it("loopback never consults the egress policy", async () => {
     const s = await serve(lmstudio);
-    const r = await probeEndpoint({ origin: s.origin, dialects: ["openai"] }, { egress: { allow: () => { throw new Error("asked"); } } });
+    const r = await probeEndpoint({ origin: s.origin, dialects: ["openai"] }, { ...LIVE, egress: { allow: () => { throw new Error("asked"); } } });
     assert.equal(r.state, "ok");
   });
 
@@ -194,7 +205,7 @@ describe("discoverLocalEndpoints", () => {
   it("one dead service does not hide another; order is stable", async () => {
     const a = await serve(ollama);
     const dead = await deadOrigin();
-    const found = await discoverLocalEndpoints({ candidates: [{ origin: dead, dialects: ["openai"], label: "lmstudio" }, { origin: a.origin, dialects: ["ollama", "openai"], label: "ollama" }] });
+    const found = await discoverLocalEndpoints({ ...LIVE_DISCOVERY, candidates: [{ origin: dead, dialects: ["openai"], label: "lmstudio" }, { origin: a.origin, dialects: ["ollama", "openai"], label: "ollama" }] });
     assert.deepEqual(found.map((f) => [f.label, f.state]), [["lmstudio", "unreachable"], ["ollama", "ok"]]);
   });
 
@@ -210,7 +221,7 @@ describe("discoverLocalEndpoints", () => {
 describe("no-auth chat adapter wiring", () => {
   it("hands the factory a /v1 base URL and credentials that yield no Authorization", async () => {
     const s = await serve(lmstudio);
-    const r = await probeEndpoint({ origin: s.origin, dialects: ["openai"] });
+    const r = await probeEndpoint({ origin: s.origin, dialects: ["openai"] }, LIVE);
     let seen: { baseUrl: string; auth: unknown; extra?: unknown } | undefined;
     const adapter = createLocalChatAdapter(r, (c: { baseUrl: string; credentials: typeof NO_AUTH; marker?: number }) => {
       seen = { baseUrl: c.baseUrl, auth: c.credentials.authorization({ signal: new AbortController().signal }), extra: c.marker };

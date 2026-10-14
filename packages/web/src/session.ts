@@ -198,7 +198,9 @@ export async function sessionWrite(method: WriteMethod, path: string, body?: unk
 }
 
 export async function signOut(): Promise<void> {
-  await api.logout();
-  sessionNotice.value = null;
-  sessionState.value = { status: "anonymous" };
+  try { await api.logout(); } catch { /* the interface says it never rejects; a double may */ } finally {
+    // The local state is cleared whatever the transport did: the person asked to be signed out.
+    sessionNotice.value = null;
+    sessionState.value = { status: "anonymous" };
+  }
 }

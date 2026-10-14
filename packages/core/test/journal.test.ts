@@ -281,15 +281,14 @@ describe("journal", () => {
       const { l } = setup();
       // Short (unparseable, still counted) lines, so the line bound is reached well before the byte bound.
       const one = `${JSON.stringify({ ...line("11111111-1111-4111-8111-111111111111", "x"), at: 7 })}\n`;
+      // Deterministic proof of the bound (no wall clock): `anna` holds 60 001 lines, so the 100 000th line is line 39 999 of
+      // `bernd`. Lines beyond it carry a smaller `at`; they are only seen if the scan runs on past the bound.
+      const beyond = `${JSON.stringify({ ...line("99999999-9999-4999-8999-999999999999", "beyond the bound"), at: 1 })}\n`;
       writeFileSync(join(l.journal, "anna.jsonl"), one + "{}\n".repeat(60_000));
-      writeFileSync(join(l.journal, "bernd.jsonl"), one + "{}\n".repeat(60_000));
-      journalBacklog(l.journal); // warm the page cache
-      const t0 = performance.now();
+      writeFileSync(join(l.journal, "bernd.jsonl"), "{}\n".repeat(39_999) + beyond + "{}\n".repeat(20_000) + beyond);
       const b = journalBacklog(l.journal);
-      const ms = performance.now() - t0;
-      assert.equal(b.entries, 100_000);
-      assert.equal(b.oldestAt, 7);
-      assert.ok(ms < 250, `bounded work: ${ms.toFixed(0)} ms`);
+      assert.equal(b.entries, 100_000, "the count stops at the bound, not at the 120 002 lines on disk");
+      assert.equal(b.oldestAt, 7, "no line past the bound was looked at");
     });
 
     it("journalBacklog stops reading at 8 MiB and counts only the complete lines before the cut", () => {

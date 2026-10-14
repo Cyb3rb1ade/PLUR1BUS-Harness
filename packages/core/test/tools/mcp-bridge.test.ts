@@ -6,6 +6,7 @@ import { ToolRegistry } from "../../src/tools/registry.ts";
 import { validateArgs } from "../../src/tools/repair.ts";
 import type { McpCaller, McpToolDescriptor, McpToolResult } from "../../src/mcp/types.ts";
 import { lastNonce, rig, tick } from "../approvals/service-helpers.ts";
+import { cpuMs } from "../helpers/cpu-time.ts";
 
 const T = { timeout: 20_000 };
 const schema = { type: "object", additionalProperties: false, properties: { q: { type: "string" } } };
@@ -110,9 +111,9 @@ describe("MCP tool schemas are third-party input", () => {
     const evil = { type: "object", properties: { q: { type: "string", pattern: "^(a+)+$" }, n: { type: "array", items: { type: "string", pattern: "^(x*)*y$" } } } };
     const { tools } = await build([{ name: "search", inputSchema: evil }]);
     assert.equal(tools.length, 1);
-    const t0 = performance.now();
+    const t0 = cpuMs(); // CPU time, not wall clock: stays put while a loaded machine delays this process
     assert.deepEqual(validateArgs(tools[0]!.inputSchema, { q: `${"a".repeat(40)}!`, n: ["x".repeat(40)] }), []);
-    assert.ok(performance.now() - t0 < 200, `validation took ${Math.round(performance.now() - t0)} ms`);
+    assert.ok(cpuMs() - t0 < 200, `validation took ${Math.round(cpuMs() - t0)} ms of CPU`);
   });
   it("the other constraints of the schema are kept", T, async () => {
     const s = { type: "object", required: ["q"], additionalProperties: false, properties: { q: { type: "string", maxLength: 5, pattern: "^a" } } };

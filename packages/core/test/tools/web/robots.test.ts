@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { parseRobots, robotsAllows, HostPacer } from "../../../src/tools/web/robots.ts";
+import { cpuMs } from "../../helpers/cpu-time.ts";
 
 const UA = "PLUR1BUS";
 
@@ -68,9 +69,9 @@ describe("robots: per-host pacing on a fake clock", () => {
 describe("robots: hostile robots.txt cannot stall the process", () => {
   it("a pattern with many wildcards matches in linear time (no regex backtracking)", () => {
     const r = parseRobots(`User-agent: *\nDisallow: /${"*a".repeat(6)}*b\n`);
-    const t0 = performance.now();
+    const t0 = cpuMs(); // CPU time, not wall clock: stays put while a loaded machine delays this process
     assert.equal(robotsAllows(r, UA, `/${"a".repeat(120)}`), true);
-    assert.ok(performance.now() - t0 < 200, `took ${Math.round(performance.now() - t0)} ms`);
+    assert.ok(cpuMs() - t0 < 200, `took ${Math.round(cpuMs() - t0)} ms of CPU`);
   });
   it("wildcard semantics are kept: inner stars, trailing star, anchored end", () => {
     const r = parseRobots("User-agent: *\nDisallow: /a*b*c\nDisallow: /x*$\nDisallow: /e*d$\n");

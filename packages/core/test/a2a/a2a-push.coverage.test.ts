@@ -224,8 +224,8 @@ describe("PushDispatcher.deliver", () => {
     await sched.flush(d);
     assert.equal(calls.length, 2);
   });
-  it("a 4xx and a 3xx without Location also go through the retry loop", async () => {
-    for (const status of [400, 404, 429, 302, 100, 0]) {
+  it("408, 429 and a 3xx without Location also go through the retry loop (other 4xx do not: audit-b01)", async () => {
+    for (const status of [408, 429, 302, 100, 0]) {
       const { d, calls, sched } = setup({ responses: [{ status }], maxAttempts: 2 });
       d.deliver(cfg(), TASK);
       await sched.flush(d);

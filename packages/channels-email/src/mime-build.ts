@@ -32,9 +32,9 @@ export function assertHeaderValue(name: string, value: string): string {
 }
 
 /** RFC 2047 B-encoding for non-ASCII text, in words of at most 45 UTF-8 bytes (never splitting a code point). */
-export function encodeWords(s: string): string {
+export function encodeWords(s: string, separator = " ", force = false): string {
   assertHeaderValue("encoded", s);
-  if (/^[\x20-\x7e]*$/.test(s)) return s;
+  if (!force && /^[\x20-\x7e]*$/.test(s)) return s;
   const words: string[] = [];
   let chunk = "";
   let bytes = 0;
@@ -49,7 +49,27 @@ export function encodeWords(s: string): string {
     bytes += b;
   }
   if (chunk) words.push(`=?UTF-8?B?${Buffer.from(chunk, "utf8").toString("base64")}?=`);
-  return words.join(" ");
+  return words.join(separator);
+}
+
+const FOLD = `${CRLF} `;
+/** Subject header value, kept to short physical lines (SMTP allows 998 octets, 78 is recommended): short ASCII as is,
+ *  long ASCII folded at spaces, anything else as RFC 2047 words one per line. */
+export function subjectValue(subject: string): string {
+  assertHeaderValue("Subject", subject);
+  if (!/^[\x20-\x7e]*$/.test(subject)) return encodeWords(subject, FOLD);
+  if (subject.length <= 76) return subject;
+  const lines: string[] = [];
+  let cur = "";
+  for (const tok of subject.split(" ")) {
+    if (tok.length > 900) return encodeWords(subject, FOLD, true);
+    if (cur !== "" && cur.length + 1 + tok.length > 76) {
+      lines.push(cur);
+      cur = tok;
+    } else cur = cur === "" ? tok : `${cur} ${tok}`;
+  }
+  lines.push(cur);
+  return lines.join(FOLD);
 }
 
 function formatAddress(a: { name?: string; address: string }): string {
@@ -134,7 +154,7 @@ export function buildMessage(input: BuildInput): Buffer {
   const headers: string[] = [
     `From: ${formatAddress(input.from)}`,
     `To: ${assertHeaderValue("To", input.to)}`,
-    `Subject: ${encodeWords(input.subject)}`,
+    `Subject: ${subjectValue(input.subject)}`,
     `Date: ${new Date(input.date).toUTCString()}`,
     `Message-ID: <${assertHeaderValue("Message-ID", input.messageId)}>`,
     "MIME-Version: 1.0",

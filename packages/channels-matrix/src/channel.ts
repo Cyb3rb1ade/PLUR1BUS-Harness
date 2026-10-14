@@ -23,7 +23,7 @@ import {
   type MatrixEvent,
   type SyncResponse,
 } from "./events.ts";
-import { toMatrixText } from "./markdown.ts";
+import { MAX_EVENT_TEXT_BYTES, toMatrixText } from "./markdown.ts";
 import { message as t, pairingClaimed } from "./messages.ts";
 import { outputAttachment, type OutputPort } from "./outputs.ts";
 import { TokenBucket } from "./rate-limit.ts";
@@ -377,7 +377,8 @@ export class MatrixChannel implements Channel {
     const target = this.#target(ref.chatId);
     if (!isEventId(ref.messageId)) throw new RangeError("invalid message reference");
     if (new TextEncoder().encode(text).length > MATRIX_MAX_BODY_BYTES) throw new RangeError("edit text exceeds one event");
-    const { body, formattedBody } = toMatrixText(text);
+    // An edit carries the text twice (fallback body and m.new_content), so it gets half the budget of a plain send.
+    const { body, formattedBody } = toMatrixText(text, MAX_EVENT_TEXT_BYTES / 2);
     const html = formattedBody ? { format: "org.matrix.custom.html", formatted_body: neutral(formattedBody) } : {};
     await this.#sendEvent(
       target.roomId,
@@ -487,11 +488,16 @@ export class MatrixChannel implements Channel {
   }
 
   async #saveToken(token: string, signal: AbortSignal): Promise<void> {
+    let parked = false;
     while (!signal.aborted) {
       try {
         await this.#deps.syncStore.save(token);
+        if (parked && !signal.aborted) this.#healthy = true;
         return;
       } catch {
+        // The loop is parked here and polls nothing: that is not healthy, whatever the last sync said.
+        parked = true;
+        this.#healthy = false;
         this.#log("error", "channel.matrix.sync-save-failed", {});
         await this.#sleep(1000, signal);
       }

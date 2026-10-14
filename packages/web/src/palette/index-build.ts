@@ -4,7 +4,7 @@
 // values and role are parameters.
 import { catalogues, type Key, type Lang } from "../i18n.ts";
 import { ALL_ITEMS, GROUPS } from "../nav.ts";
-import { isSensitiveKey, type Entry } from "./match.ts";
+import { isSensitiveKey, maskUrlSecrets, type Entry } from "./match.ts";
 import { roleIn, type RolePreset } from "../pages/common/load.ts";
 import { SECTIONS, sectionOf, settingsHref } from "../settings-sections.ts";
 import { SETTINGS, type SettingSpec } from "./settings-index.ts";
@@ -25,7 +25,7 @@ export function humanize(key: string): string {
 }
 
 const scalar = (v: unknown): string | null =>
-  typeof v === "string" || typeof v === "number" || typeof v === "boolean" ? String(v) : null;
+  typeof v === "string" ? maskUrlSecrets(v) : typeof v === "number" || typeof v === "boolean" ? String(v) : null;
 
 /** Text values of the catalogued settings from a `config.get` value (the whole configuration). Objects and null are skipped, a list of
  * scalars is joined, and sensitive keys are never read. Anything that is not an object gives {}. */
@@ -121,7 +121,8 @@ export function buildIndex({ lang, values, settings = SETTINGS, role }: BuildOpt
   }));
   const actions: Entry[] = ACTIONS.map((a) => ({ id: `action:${a.id}`, group: "action", ...both(a.label), key: a.to, to: a.to, ...(a.roles ? { roles: a.roles } : {}) }));
   const set: Entry[] = settings.map((s) => {
-    const value = isSensitiveKey(s.key) ? undefined : values?.[s.key];
+    const raw = isSensitiveKey(s.key) ? undefined : values?.[s.key];
+    const value = raw === undefined ? undefined : maskUrlSecrets(raw);
     const label = humanize(s.key);
     return {
       id: `setting:${s.key}`, group: "setting", label, labels: [label], key: s.key, to: settingsHref(s.key),

@@ -116,7 +116,17 @@ class MemoryClient:
         """(Re)connect: read token and pid, S11 check, ``core.auth``; returns the ``core.auth`` result."""
         deadline = time.monotonic() + (self.connect_timeout if deadline_s is None else deadline_s)
         with self._locked(deadline):
-            return dict(self._connect_locked(deadline))
+            gen = self._close_gen
+            hello = self._connect_locked(deadline)
+            self._refuse_if_closed(gen)
+            return dict(hello)
+
+    def _refuse_if_closed(self, gen: int) -> None:
+        """A ``close()`` that ran while this thread was connecting could not reach the new stream (it was not
+        published yet): drop it now instead of leaving a connection open behind a closed client."""
+        if gen != self._close_gen:
+            self._drop_locked()
+            raise RpcError("E_TRANSPORT", "the client was closed during the call", {"reason": "closed"})
 
     def supports(self, method: str) -> bool:
         """Whether the connected core's ``core.auth`` capabilities list ``method`` (False before a connect)."""
@@ -366,6 +376,9 @@ class MemoryClient:
         self._drop_locked()
         self._check_run_dir()
         expected = self._read_expected_pid()
+        if expected is None and self.platform == "win32":
+            # docs/rpc.md: on Windows a missing pid file is a refusal, not a skipped check (the pipe name can be squatted).
+            raise RpcError("E_SERVER_IDENTITY", "run/core.pid does not exist", {"reason": "server-pid-unknown"})
         if not os.path.exists(core_token_path(self.home)):
             raise RpcError("E_CORE_UNAVAILABLE", "run/core.token does not exist", {"reason": "token-missing"})
         left = deadline - time.monotonic()
@@ -429,6 +442,7 @@ class MemoryClient:
                 if stream is None or (is_stale is not None and is_stale()):
                     # Nothing of this call was sent yet: a fresh connection is not a retry.
                     self._connect_locked(min(deadline, time.monotonic() + self.connect_timeout))
+                    self._refuse_if_closed(gen)
                     stream = self._stream
                 try:
                     stream.send(line, deadline)
