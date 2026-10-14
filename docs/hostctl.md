@@ -42,11 +42,11 @@ The generated [config reference](config.md) is the source for schema defaults. `
 }
 ```
 
-Set shell.default to `pwsh` on Windows or `zsh` on macOS if desired. argv execution never starts a shell implicitly. Explicit shell interpreters must use `proc.shell`; arbitrary approved interpreters/programs can still execute code. Secret/injection environment names remain blocked even if added to the allowlist. Additional deny patterns are case-insensitive literal substrings; built-in dangerous-command checks cannot be removed.
+Set shell.default to `pwsh` on Windows or `zsh` on macOS if desired. argv execution never starts a shell implicitly. Explicit shell interpreters must use `proc.shell`; arbitrary approved interpreters/programs can still execute code. Secret/injection environment names remain blocked even if added to the allowlist (not yet enforced beyond the built-in list of names; see Known gaps below). Additional deny patterns are case-insensitive literal substrings; built-in dangerous-command checks cannot be removed.
 
 ## Files and safety boundaries
 
-Relative paths resolve against the first configured root (the agent workspace by default). Parent traversal, UNC/device paths, Windows reserved names/alternate streams, credential deny paths and symlink/junction escapes are refused. Reads open verified handles and detect binary/invalid UTF-8. `offset` and `length` are byte ranges. Files larger than the output limit require an explicit range; a range starting inside a UTF-8 codepoint is refused as binary.
+Relative paths resolve against the first configured root (the agent workspace by default). Parent traversal, UNC/device paths, Windows reserved names/alternate streams, credential deny paths (not yet enforced for the harness's own `run/*.token` files; see Known gaps below) and symlink/junction escapes are refused. Reads open verified handles and detect binary/invalid UTF-8. `offset` and `length` are byte ranges. Files larger than the output limit require an explicit range; a range starting inside a UTF-8 codepoint is refused as binary.
 
 Writes, appends and exact unique edits publish a sibling temporary file atomically. Append/edit read a bounded snapshot: concurrent edits by another writer are not a merge mechanism; coordinate shared-file changes. Copy handles bounded regular files; move handles regular files on the same filesystem; copy requires a fresh destination, and mkdir creates one level. Recursive listing/search cap depth at 16, entries at 1000 and results at the configured search limit. When installed, ripgrep receives verified bounded text over stdin, never caller paths; otherwise a JS matcher is used. Search treats queries literally and ignores binary/oversize/denied files. Links are never traversed recursively.
 

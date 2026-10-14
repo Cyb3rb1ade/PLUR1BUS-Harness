@@ -26,7 +26,9 @@ depends on the configured model (Replicate reads the model's published input sch
 Async adapters (Replicate, fal) submit a job, report `queued` then `running` progress while polling, write a durable
 checkpoint before the first poll, and cancel the job at the provider when you cancel. Local adapters cost no money; their
 results carry `costUsd: 0` and the run time in the manifest. For the remote adapters cost is whatever the provider reports
-(OpenRouter's `usage.cost`), otherwise unknown (`null`), never a guessed price.
+(OpenRouter's `usage.cost`), otherwise unknown (`null`), never a guessed price. A reported cost is believed only when it is a finite,
+non-negative number; a negative, `NaN`, infinite or non-numeric value is treated as not reported, so a hostile or broken answer cannot credit the budget.
+`estimateCost` multiplies the table price by the image count or video seconds and rounds the result to nine decimals, so `0.4 * 3` is `1.2`, not `1.2000000000000002`.
 
 ## Switching an adapter on
 
@@ -70,7 +72,8 @@ HTTP API server switched on in the app's settings. Defaults are `127.0.0.1:7860`
 carries `reason: drawthings_api_off` (app not reachable) or `drawthings_not_installed` (loopback, macOS, no app found) and a
 hint. `probe()` reports `running`, `api_off` or `not_installed` without generating anything.
 
-A host other than loopback (LAN, Tailscale) needs `allowLan: true`; the traffic is plain http, no key is ever sent, and the
+Loopback means `localhost`, `::1` or a real IPv4 literal in `127.0.0.0/8`; a name that merely starts with `127.` (such as `127.evil.example`) is not loopback.
+A host other than loopback (LAN, Tailscale) needs `allowLan: true` and must be a private address (see `privateHost` below); the traffic is plain http, no key is ever sent, and the
 host shows up as the result's `origin`. **Masks are not supported:** the app's request handler never reads a mask (checked
 in its open source: `mask = .none` on the img2img path), so claiming inpainting would silently draw without the mask. Such
 requests are refused. The API has no endpoint that lists models or samplers, so there is nothing to enumerate.
@@ -88,6 +91,8 @@ swift build && swift test     # 21 tests; the 3 CLI tests run the debug binary a
 With only the Command Line Tools installed (no Xcode), Swift Testing needs its macro plugin path:
 `swift test -Xswiftc -plugin-path -Xswiftc /Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing`.
 Distributing the binary is a release matter (M8); this page covers building it yourself.
+
+`coreml.model` is a plain directory name below `modelsDir`: an empty value, `.`, `..`, or anything containing `/`, `\` or a NUL byte is refused with `unsupported_parameter`.
 
 Point `coreml.binary` at the executable and put compiled model folders into `coreml.modelsDir` (default
 `~/MochiDiffusion/models/`). Mochi Diffusion's folder layout is read, no Mochi code is used (GPL-3.0). Understood layouts:
@@ -113,6 +118,13 @@ and restarts it for the next request after a crash.
   or a local model. So are JPEG thumbnails (JFXX), WebP chunks that are not image data, and anything appended after the
   image's end marker (a second picture, a motion clip). Pixel data is untouched. A JPEG with a rotated orientation keeps a block holding only that one tag, so it
   stays upright. The type is read from the bytes, not from the declared format; unreadable or unknown images are refused.
+- **Image header limits.** Before an image is cleaned (references, masks) or accepted (provider output), the canvas size declared in its header is read
+  without decoding any pixel (PNG IHDR, the first JPEG SOF, WebP VP8X / VP8L / VP8). A canvas with a zero side, a side above **32768** pixels, or more than
+  **2^28** (268,435,456) pixels in total is refused with `too_large`. A header too short to read is left to the format checks.
+- **`privateHost`.** The address test behind `allowLan` and the download-host checks treats these as private: `localhost`, `0.0.0.0/8`, loopback
+  `127.0.0.0/8` and `::1`, RFC 1918 (`10/8`, `172.16/12`, `192.168/16`), link-local `169.254/16` (cloud metadata sits at `169.254.169.254`),
+  carrier-grade NAT `100.64/10`, IPv6 `::`, link-local `fe80::/10` and unique-local `fc00::/7`, plus IPv4-mapped (`::ffff:a.b.c.d`), IPv4-compatible and
+  NAT64 (`64:ff9b::/96`) spellings of any private IPv4 address. Case and a trailing dot are ignored; an IPv6 literal that cannot be parsed counts as private.
 - **Provider output is checked by magic bytes.** A response that is not a PNG, JPEG or WebP is `invalid_response`, whatever
   content type it claims. Downloads are size-bounded, never receive the provider's authorization, and refuse redirects.
 - There is no approval gate for image generation or editing, including photos of real people. Provider-side moderation is

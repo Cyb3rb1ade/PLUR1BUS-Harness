@@ -47,7 +47,7 @@ The family table in `quirks.ts` supplies strict/parallel support, catalogue budg
 name/description rules and known malformed argument forms. The repair driver uses the selected
 family repertoire and includes it in correction hints. `local-small` has a
 smaller catalogue; unknown families conservatively allow four tools and no
-parallel/strict calls. These are conservative library defaults, not live vendor
+parallel/strict calls (not yet enforced for a family name that is also an `Object.prototype` member such as `constructor` or `toString`: the inherited member is returned as the quirks object, so the limits do not apply and `prepareCall` throws a `TypeError`). These are conservative library defaults, not live vendor
 limits or certifications; deployments can maintain explicit model-family rows.
 
 OpenAI strict mode requires closed object schemas and makes every property
@@ -73,7 +73,7 @@ continuation/cursor reads and binary metadata. Exceptions become a structured
 `executeBatch` runs contiguous parallel-safe groups concurrently. Unsafe calls
 are barriers, and results remain in request order. The injected executor must
 apply the existing dispatcher/policy gate to every call. SHA-256 idempotency keys
-include scope, name and recursively canonicalized finite JSON arguments. Set
+include scope, name and recursively canonicalized finite JSON arguments. Not yet enforced: the key joins scope and operation ID with `:` without escaping, so scope `a:b` with operation `c` and scope `a` with operation `b:c` share one key, and a cached, approved result can be served to a call in another scope without a new approval. Use scopes and operation IDs that contain no `:`. Set
 scope to the authenticated agent/session/logical task; `operationId` distinguishes
 intentional repeated actions with identical arguments. Retried logical operations
 must reuse scope and operation ID. The in-memory port coalesces duplicates within
@@ -120,6 +120,7 @@ confidence, chosen class, effort and reasons. It does not split ordinary "and"
 inside a task. This baseline is intentionally limited; `triageWithClassifier`
 accepts an asynchronous LLM decision port and validates its structured result.
 Short yes/no/continue followups in an active task skip classification.
+Not yet enforced (both are `KNOWN GAP` todo tests in `packages/core/test/triage/`): the default classifier's segmentation takes quadratic time on a message with a long run of whitespace (about 1.2 s at 30,000 spaces, 14 s at 100,000, against the 200 ms local budget), and a classifier decision whose `tasks` field is missing or not an array escapes as a `TypeError` instead of the `invalid triage decision` error.
 
 Class selection chooses the smallest class with above-class probability <= .2
 (balanced), .35 (economy) or .1 (quality); confidence below .5 raises it one class.
