@@ -54,8 +54,7 @@ describe("memories: a double click sends one request", opts, () => {
     });
   });
 
-  // components/confirm-dialog.ts guards with state only (outside this module): the same-task double click gets through.
-  test("KNOWN GAP: the typed re-index confirmation sends one request", { todo: "ConfirmDialog guards with state, not a ref (src/components, not b18's module)" }, async () => {
+  test("the typed re-index confirmation sends one request", async () => {
     await withApp({}, async (app) => {
       installMemoryMocks(app.server, defaultFixture());
       seedMedia(app.server.rpc, {});
