@@ -43,6 +43,7 @@ export const en = {
   "devices.pair.scan": "Scan this code with the Plur1bus app to pair this device.",
   "devices.pair.expires": "Valid until {when}",
   "devices.pair.failed": "Could not generate QR code: {detail}",
+  "devices.pair.tooLong": "This link is too long for a QR code. Use the link below instead.",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -89,4 +90,5 @@ export const de: Record<keyof typeof en, string> = {
   "devices.pair.scan": "Scanne diesen Code mit der Plur1bus-App, um dieses Gerät zu koppeln.",
   "devices.pair.expires": "Gültig bis {when}",
   "devices.pair.failed": "QR-Code konnte nicht erzeugt werden: {detail}",
+  "devices.pair.tooLong": "Dieser Link ist für einen QR-Code zu lang. Nutze stattdessen den Link darunter.",
 };
