@@ -2137,3 +2137,34 @@ table! {
     Notification "approval.resolved" ApprovalResolvedNotification,
     Notification "grant.changed" GrantChangedNotification,
 }
+
+/// The Rust shape the generator gives the explicit-value fields and the pinned values, as a typed client sees them.
+#[test]
+fn typed_params_say_missing_null_and_empty_apart_and_consts_are_literals() {
+    let p: types::ProjectCardUpdateParams = serde_json::from_value(
+        json!({ "projectId": "p", "cardId": "c", "dueAt": null, "labels": [] }),
+    )
+    .unwrap();
+    assert_eq!(p.due_at, Some(None));
+    assert_eq!(p.labels.as_deref().map(<[_]>::len), Some(0));
+    assert!(p.links.is_none());
+    assert_eq!(
+        serde_json::to_value(&p).unwrap(),
+        json!({ "projectId": "p", "cardId": "c", "dueAt": null, "labels": [] })
+    );
+    let p: types::ProjectCardUpdateParams =
+        serde_json::from_value(json!({ "projectId": "p", "cardId": "c", "dueAt": 5 })).unwrap();
+    assert_eq!(p.due_at, Some(Some(5)));
+    assert!(p.labels.is_none());
+
+    let r: types::CoreShutdownResult = serde_json::from_value(json!({ "accepted": true })).unwrap();
+    assert_eq!(r.accepted, types::ConstTrue);
+    assert!(
+        serde_json::from_value::<types::CoreShutdownResult>(json!({ "accepted": false })).is_err()
+    );
+    let closed = |open: bool| {
+        serde_json::from_value::<types::AgentCloseResult>(json!({ "agentId": "a1", "open": open }))
+    };
+    assert_eq!(closed(false).unwrap().open, types::ConstFalse);
+    assert!(closed(true).is_err());
+}
