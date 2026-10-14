@@ -15,7 +15,8 @@ Branch: `codex/m6-p0-event-audience`.
 - `rbac/guard.ts`: additive `events.subscribe` rule using `agent.list` on system.
 - `api/events-route.ts`: forward the eight agent event names only with a typed
   agent target and an independent `agent.read` check.
-- Seven audit todos activated; real delegated-socket tests and a real-core HTTP/SSE
+- Seven audit todos activated; an eight-event SSE/RBAC/role/token-scope matrix,
+  real delegated-socket tests and a real-core HTTP/SSE
   regression added. Existing local-owner test remains byte-for-byte unchanged.
 - Event and RBAC documentation updated. No dependency, engine, RPC schema, config
   schema or generated-document changes.
@@ -90,6 +91,8 @@ agent audiences, then passed after the fix.
 
 - Focused event mapping, new socket tests and real-core HTTP/SSE: 39 passed,
   zero failures/skips/todos.
+- Final focused + web transport regression after tightening the SSE filter: 51
+  tests, 50 passed, zero failures/todos, one existing supervisor-fixture skip.
 - Existing core integration, core RBAC, all module-api and API tests: 1,454 tests,
   1,445 passed, zero failures, five existing skips, four existing todos.
 - `pnpm lint`: passed, including generation/build, workspace typecheck, hygiene,

@@ -14,9 +14,10 @@ export function webEventAllowed(method: string, principal: ApiPrincipal, deliver
   if (delivery.audience === null) return GLOBAL_WEB_EVENTS.has(method);
   if (!Array.isArray(delivery.audience)) return false;
   return delivery.audience.some(a => {
-    if (typeof a === "string") return a === delivery.connectionId;
+    if (typeof a === "string") return !AGENT_WEB_EVENTS.has(method) && a === delivery.connectionId;
     if (!a || typeof a !== "object" || Array.isArray(a) || Object.keys(a).length !== 1) return false;
     if ("agentId" in a) return AGENT_WEB_EVENTS.has(method) && typeof a.agentId === "string" && authorize(principal, "agent.read", { kind: "agent", agentId: a.agentId }).effect === "allow";
+    if (AGENT_WEB_EVENTS.has(method)) return false;
     return "connectionId" in a ? a.connectionId === delivery.connectionId : "personId" in a && a.personId === principal.userId;
   });
 }
