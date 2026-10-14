@@ -413,3 +413,22 @@ describe("web.fetch: the metadata around a chunk is bounded too (maxTokens bound
     }
   });
 });
+
+describe("web.fetch: the egress gate applies to every request it makes", () => {
+  it("a gate that refuses a port stops the page and the robots.txt request; nothing reaches the server", async () => {
+    const s = await startStub(send("text/plain", "page"));
+    try {
+      const seen: string[] = [];
+      const gate = {
+        beforeResolve(u: URL) { seen.push(u.pathname); throw new WebFailure("egress-denied", "port not allowed"); },
+        afterResolve() {},
+      };
+      await fails(mk({ gate }).fetch({ url: `http://127.0.0.1:${s.port}/a` }), "egress-denied");
+      await fails(mk({ gate }).fetch({ url: `http://127.0.0.1:${s.port}/a`, crawl: true }), "robots-disallowed");
+      assert.deepEqual(seen, ["/a", "/robots.txt"]);
+      assert.equal(s.hits.length, 0);
+    } finally {
+      await s.close();
+    }
+  });
+});

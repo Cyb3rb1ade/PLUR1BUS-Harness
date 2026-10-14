@@ -4,7 +4,7 @@
 // (`needs-render`).
 import { randomBytes } from "node:crypto";
 import { WebFailure, type WebFailureCode } from "./failure.ts";
-import { guardedRequest, DEFAULT_MAX_BYTES, DEFAULT_TIMEOUT_MS, type HttpResponse } from "./http.ts";
+import { guardedRequest, DEFAULT_MAX_BYTES, DEFAULT_TIMEOUT_MS, type HttpOptions, type HttpResponse } from "./http.ts";
 import { makeAddressPolicy, systemResolver, type Resolver } from "./guard.ts";
 import { decodeBody, estimateTokens, htmlToMarkdown, splitSections, type Section } from "./html.ts";
 import { HostPacer, parseRobots, robotsAllows, type Robots } from "./robots.ts";
@@ -81,6 +81,8 @@ export interface WebFetchConfig {
   now?: () => number;
   trace?: (e: TraceEvent) => void;
   tlsCa?: string;
+  /** The egress gate (B4): consulted on every hop, robots.txt included; a throw refuses the hop. Without it only the address guard applies. */
+  gate?: HttpOptions["gate"];
 }
 
 export interface WebFetchContext {
@@ -216,7 +218,7 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
   const maxExtractedTokens = cfg.maxExtractedTokens ?? 200_000;
   const robotsCache = new Map<string, { robots: Robots; at: number }>();
 
-  const base = (signal?: AbortSignal) => ({ resolver, policy, userAgent, signal, tlsCa: cfg.tlsCa, maxRedirects: cfg.maxRedirects });
+  const base = (signal?: AbortSignal) => ({ resolver, policy, userAgent, signal, tlsCa: cfg.tlsCa, maxRedirects: cfg.maxRedirects, gate: cfg.gate });
 
   async function robotsFor(url: URL, signal?: AbortSignal): Promise<Robots> {
     const hit = robotsCache.get(url.origin);

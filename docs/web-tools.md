@@ -42,8 +42,17 @@ Codes: `invalid-arguments`, `invalid-url`, `private-address`, `egress-denied`, `
 ## robots.txt and User-Agent
 
 A single page asked for does not consult `robots.txt`. `crawl: true` (links beyond the page asked for) fetches and
-caches `robots.txt` per host (404 = allow, 5xx/unreachable = disallow, RFC 9309 matching), honours `Crawl-delay` and paces
-to at most 1 request/s per host. The User-Agent is `PLUR1BUS/<version> (+https://plur1bus.app/bot)`.
+caches `robots.txt` per host (404 = allow, 5xx/unreachable = disallow, RFC 9309 matching), honours `Crawl-delay` (capped at 30 s, so a site cannot park the agent) and paces
+to at most 1 request/s per host; the wait ends when the call is cancelled. Allow/Disallow patterns are matched without a
+regular expression, so a hostile `robots.txt` cannot stall the process. The User-Agent is `PLUR1BUS/<version> (+https://plur1bus.app/bot)`.
+
+## Result size
+
+`maxTokens` bounds the text of a chunk. The metadata that travels with every chunk is bounded as well: `title` 300,
+`lang` 35, `publishedAt` 64 characters, `canonicalUrl` 2048 (longer is dropped), and the table of contents lists at most
+200 sections with titles cut to 120 characters. A section id beyond the list (`s350`) still selects its section.
+
+`createWebFetch({ gate })` takes the egress gate (`docs/egress.md`); it is consulted on every hop, `robots.txt` included.
 
 ## `web.search`
 
