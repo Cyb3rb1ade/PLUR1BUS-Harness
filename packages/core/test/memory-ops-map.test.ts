@@ -238,7 +238,7 @@ describe("memory ops audit c13 (fake engine)", () => {
 
   it("an unknown agent is E_AGENT_UNKNOWN on every method and never reaches the engine", async () => {
     const { calls, methods } = fixture();
-    const params: Record<string, unknown> = {
+    const params: Record<string, Record<string, unknown>> = {
       "memory.list": { since: 0 }, "memory.show": { id: "m1" }, "memory.forget": { id: "m1" }, "memory.correct": { id: "m1", text: "x" },
       "memory.share": { id: "m1", target: "user" }, "memory.state": {}, "memory.propose": { sharedId: "m1", text: "x" },
       "memory.proposals.list": {}, "memory.proposals.accept": { proposalId: "p1" }, "memory.proposals.reject": { proposalId: "p1" },
