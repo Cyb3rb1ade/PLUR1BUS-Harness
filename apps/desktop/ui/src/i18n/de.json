@@ -336,5 +336,10 @@
   "ticket.retry": "Erneut versuchen",
   "ticket.copied": "Log kopiert.",
   "ticket.documentTitle": "PLUR1BUS — Anmeldung fehlgeschlagen",
-  "update.kind.other": "Update"
+  "update.kind.other": "Update",
+  "crash.open": "Diagnose öffnen",
+  "crash.restart": "Neu starten",
+  "crash.openFailed": "Der Diagnoseordner konnte nicht geöffnet werden.",
+  "crash.restartFailed": "Die App konnte nicht neu gestartet werden.",
+  "crash.unclean": "Die vorherige App-Sitzung wurde nicht sauber beendet."
 }

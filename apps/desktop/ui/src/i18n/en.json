@@ -336,5 +336,10 @@
   "ticket.retry": "Retry",
   "ticket.copied": "Log copied.",
   "ticket.documentTitle": "PLUR1BUS — Sign-in failed",
-  "update.kind.other": "Update"
+  "update.kind.other": "Update",
+  "crash.open": "Open diagnostics",
+  "crash.restart": "Restart",
+  "crash.openFailed": "The diagnostics folder could not be opened.",
+  "crash.restartFailed": "The app could not restart.",
+  "crash.unclean": "The previous app session did not exit cleanly."
 }

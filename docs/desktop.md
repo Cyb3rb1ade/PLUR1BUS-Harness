@@ -636,3 +636,7 @@ hardware, signing/notarization, Store credentials and real harness image/store
 migration acceptance remain open. WP12 deep links and WP13 installer/uninstall
 views do not exist in this base and therefore cannot receive an accessibility
 pass. Every §8 row is classified in the [final report](handoff/status/desktop-shell.md).
+
+## Previous unclean exits
+
+Native startup writes a private running marker in the diagnostic directory. Orderly shutdown removes it; a remaining marker on the next start produces a local `crash_last_report` with timestamp, kind, fixed summary and diagnostic availability. `crash_dismiss` acknowledges the previous marker while keeping the current session marker. The crash dialog connects “Open diagnostics” to `diagnostics_open`, which opens only the native-owned diagnostic directory, and “Restart” to the existing native app restart mechanism through `crash_restart`. Each command requires the local shell capability and origin check and uses `try_state`. No upload is performed or exposed.
