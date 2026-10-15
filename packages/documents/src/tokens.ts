@@ -61,7 +61,20 @@ export const LARGE_TEXT_CONTRAST = 3.0;
  * `accent` is used for large headings, links and pull quotes on `paper` (must clear 4.5:1 for links/body use; the contrast
  * test additionally asserts the >=3:1 large-text floor). Every value is a plain hex so it can be re-emitted as CSS variables.
  */
-export const NEUTRAL_KIT = {
+/** The named colour tokens of a kit (the neutral PLUR1BUS kit or a brand overlay). Every value is a hex colour. */
+export interface NeutralKit {
+  paper: string;
+  text: string;
+  muted: string;
+  accent: string;
+  "on-accent": string;
+  "cover-light-text": string;
+  "cover-light-ground": string;
+  "cover-dark-text": string;
+  "cover-dark-ground": string;
+}
+
+export const NEUTRAL_KIT: NeutralKit = {
   /** Body background. */
   paper: "#ffffff",
   /** Primary text on paper. */
@@ -78,9 +91,7 @@ export const NEUTRAL_KIT = {
   /** Dark cover: light text on a near-black ground. */
   "cover-dark-text": "#f5f7fa",
   "cover-dark-ground": "#111827",
-} as const;
-
-export type NeutralKit = typeof NEUTRAL_KIT;
+};
 
 /** A declared contrast requirement between two tokens (or a token and a literal colour). */
 export interface ContrastRequirement {
