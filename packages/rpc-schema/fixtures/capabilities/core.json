@@ -28,6 +28,10 @@
       "stability": "experimental",
       "since": "1.6.0"
     },
+    "voice.session.create": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "voice.realtime.start": {
       "stability": "experimental",
       "since": "1.6.0"
