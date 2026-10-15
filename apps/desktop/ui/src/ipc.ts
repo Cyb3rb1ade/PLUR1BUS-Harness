@@ -15,7 +15,26 @@ export type PairRequest = { name: string; origin: string; code: string; repairId
 export type Paired = { connection: Connection; tokenStore: TokenStoreKind };
 export type HelperStatus={ready:boolean;restarting:boolean;capabilities:string[];grants:string[]};
 export type BridgeSettings={enabled:boolean;memoryOnly:boolean;secretsLocked:boolean;secretsState?:"locked"|"unlocked"|"unknown"};
+export type Vendor="docker"|"podman";
+export type InstallOptions={platform:"mac"|"win"|"linux";appleAvailable:boolean;dockerLicence:string|null;podmanLicence:string|null};
+export type UninstallLevel="app_only"|"app_and_images"|"everything";
+export type UninstallSummary={level:UninstallLevel;containers:string[];images:string[];volumes:{name:string;bytes:number|null}[];removesKeychain:boolean;preservesData:boolean};
+export type IntegrationState={kind:"desktop"|"menu"|"store";enabled:boolean};
 export type DesktopTransport = {
+  desktopIntegrationGet?():Promise<IntegrationState|null>;
+  desktopIntegrationSet?(enabled:boolean):Promise<IntegrationState|null>;
+  installOptions?():Promise<InstallOptions>;
+  runtimeInstallProgress?(step:(step:string)=>void):Promise<()=>void>;
+  runtimeInstallApple?(licenceAccepted:boolean):Promise<void>;
+  runtimeInstallVendor?(vendor:Vendor,licenceAccepted:boolean):Promise<void>;
+  runtimeEnablePodmanSocket?():Promise<void>;
+  cliShimInstall?(addToPath:boolean):Promise<void>;
+  cliShimRemove?():Promise<void>;
+  diagnosticsOpen?():Promise<void>;
+  uninstallSummary?(level:UninstallLevel):Promise<UninstallSummary>;
+  uninstallRun?(level:UninstallLevel,confirmation:string):Promise<void>;
+  uninstallProgress?(step:(step:string)=>void):Promise<()=>void>;
+
   deepLinkNext?(): Promise<LinkEnvelope | null>;
   deepLinkEvents?(ready: () => void): Promise<() => void>;
   deepLinkOpen?(path: string): Promise<void>;
@@ -48,12 +67,26 @@ export type DesktopTransport = {
   pairCode(request: PairRequest): Promise<Paired>;
   pairLocal(name: string): Promise<Paired>;
   openConnection(id: string): Promise<{ selected: boolean; spa_available: boolean }>;
-  appInfo(): Promise<{ platform: Platform; locale: string }>;
+  appInfo(): Promise<{ platform: Platform; locale: string; store_managed?:boolean; sandboxed?:boolean }>;
   settingsGet(): Promise<Settings>;
   settingsSet(value: Settings): Promise<Settings>;
 };
 
 export const nativeTransport: DesktopTransport = {
+  desktopIntegrationGet:()=>invoke("desktop_integration_get"),
+  desktopIntegrationSet:enabled=>invoke("desktop_integration_set",{request:{enabled}}),
+  installOptions:()=>invoke("install_options"),
+  runtimeInstallProgress:step=>listen<string>("desktop-runtime-install-progress",event=>step(event.payload)),
+  runtimeInstallApple:licenceAccepted=>invoke("runtime_install_apple",{request:{licenceAccepted}}),
+  runtimeInstallVendor:(vendor,licenceAccepted)=>invoke("runtime_install_vendor",{request:{vendor,licenceAccepted}}),
+  runtimeEnablePodmanSocket:()=>invoke("runtime_enable_podman_socket"),
+  cliShimInstall:addToPath=>invoke("cli_shim_install",{request:{addToPath}}),
+  cliShimRemove:()=>invoke("cli_shim_remove"),
+  diagnosticsOpen:()=>invoke("diagnostics_open"),
+  uninstallSummary:level=>invoke("uninstall_summary",{request:{level,confirmation:null}}),
+  uninstallRun:(level,confirmation)=>invoke("uninstall_run",{request:{level,confirmation}}),
+  uninstallProgress:step=>listen<string>("desktop-uninstall-progress",event=>step(event.payload)),
+
   deepLinkNext: () => invoke("deep_link_next"),
   deepLinkEvents: ready => listen("desktop-link-pending", ready),
   deepLinkOpen: path => invoke("deep_link_open", {request: {path}}),

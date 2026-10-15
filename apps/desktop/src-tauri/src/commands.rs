@@ -62,6 +62,8 @@ fn store(window: &WebviewWindow) -> Result<SettingsStore, String> {
 
 #[derive(Debug, Serialize)]
 pub struct AppInfo {
+    pub store_managed: bool,
+    pub sandboxed: bool,
     pub platform: &'static str,
     pub locale: String,
 }
@@ -89,6 +91,8 @@ pub fn app_info(window: WebviewWindow) -> Result<AppInfo, String> {
         linux_desktop(&std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default())
     };
     Ok(AppInfo {
+        store_managed: cfg!(feature = "store"),
+        sandboxed: cfg!(target_os = "linux") && std::env::var_os("FLATPAK_ID").is_some(),
         platform,
         locale: sys_locale::get_locale().unwrap_or_else(|| "en".into()),
     })
@@ -569,6 +573,14 @@ pub async fn quit_response(
 #[tauri::command]
 pub fn autostart_get(window: WebviewWindow) -> Result<Option<bool>, String> {
     check(&window, "autostart_get")?;
+    #[cfg(debug_assertions)]
+    if std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR").is_some() {
+        use crate::controller::autostart::AppLauncher;
+        return crate::controller::autostart::NativeLauncher(window.app_handle())
+            .is_enabled()
+            .map(Some)
+            .map_err(|reason| reason.code().to_owned());
+    }
     #[cfg(target_os = "linux")]
     if crate::gnome::is_flatpak() {
         return Ok(*window
@@ -579,26 +591,58 @@ pub fn autostart_get(window: WebviewWindow) -> Result<Option<bool>, String> {
             .lock()
             .unwrap());
     }
-    use crate::controller::autostart::AppLauncher;
-    crate::controller::autostart::NativeLauncher(window.app_handle())
-        .is_enabled()
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("APPIMAGE").is_some() {
+        return crate::desktop_integration::appimage_autostart_get()
+            .map(Some)
+            .map_err(str::to_owned);
+    }
+    #[cfg(all(target_os = "windows", feature = "store"))]
+    return Ok(None);
+    #[cfg(all(target_os = "windows", not(feature = "store")))]
+    return crate::desktop_integration::windows_autostart_get()
         .map(Some)
-        .map_err(|reason| reason.code().to_owned())
+        .map_err(str::to_owned);
+    #[cfg(not(target_os = "windows"))]
+    {
+        use crate::controller::autostart::AppLauncher;
+        crate::controller::autostart::NativeLauncher(window.app_handle())
+            .is_enabled()
+            .map(Some)
+            .map_err(|reason| reason.code().to_owned())
+    }
 }
 #[tauri::command]
 pub async fn autostart_set(window: WebviewWindow, enabled: bool) -> Result<bool, String> {
     check(&window, "autostart_set")?;
+    #[cfg(debug_assertions)]
+    if std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR").is_some() {
+        return crate::controller::autostart::set_enabled(
+            &crate::controller::autostart::NativeLauncher(window.app_handle()),
+            enabled,
+        )
+        .map_err(|reason| reason.code().to_owned());
+    }
     #[cfg(target_os = "linux")]
     if crate::gnome::is_flatpak() {
         return crate::gnome::request_autostart(window.app_handle(), enabled)
             .await
             .map_err(str::to_owned);
     }
-    crate::controller::autostart::set_enabled(
-        &crate::controller::autostart::NativeLauncher(window.app_handle()),
-        enabled,
-    )
-    .map_err(|reason| reason.code().to_owned())
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("APPIMAGE").is_some() {
+        return crate::desktop_integration::appimage_autostart_set(enabled).map_err(str::to_owned);
+    }
+    #[cfg(target_os = "windows")]
+    return crate::desktop_integration::windows_autostart_set(enabled).map_err(str::to_owned);
+    #[cfg(not(target_os = "windows"))]
+    {
+        crate::controller::autostart::set_enabled(
+            &crate::controller::autostart::NativeLauncher(window.app_handle()),
+            enabled,
+        )
+        .map_err(|reason| reason.code().to_owned())
+    }
 }
 
 #[tauri::command]
