@@ -91,3 +91,6 @@ for(const malformed of ["symlink","public-file","oversize"] as const)test(`priva
  if(malformed==="symlink"){renameSync(path,path+".actual");symlinkSync(path+".actual",path);}else if(malformed==="public-file")chmodSync(path,0o644);else writeFileSync(path," ".repeat(256*1024+1),{mode:0o600});
  assert.throws(()=>new RemotePairingController(f.options),/untrusted-file|remote TLS material unavailable/);
 });
+test("switched trust summary cannot disclose foreign device identifiers to a Member",async t=>{
+ const f=fixture(t);f.devices.push({id:"own-device",name:"own",pairedBy:"member",publicKey:f.publicKey},{id:"foreign-device",name:"private foreign title",pairedBy:"another",publicKey:f.publicKey});await f.controller.rotate(f.input({operation:"stage"}));await f.controller.rotate(f.input({operation:"activate"}));f.options.core.callAs=async<T>()=>({devices:f.devices.filter(d=>d.pairedBy==="member")} as T);const summary=await f.controller.getTrust(f.input({}, {rbac:{kind:"person",userId:"member",role:"member"}}));assert.deepEqual((summary as any).repairIds,["own-device"]);assert.ok(!JSON.stringify(summary).includes("foreign-device"));assert.ok(!JSON.stringify(summary).includes("private foreign title"));
+});
