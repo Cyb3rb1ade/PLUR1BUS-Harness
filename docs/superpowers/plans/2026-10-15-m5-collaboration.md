@@ -44,6 +44,6 @@
 
 - [x] Merge dependencies and M3 P1 if open; explicit preview/selection to card/new/existing project with private source immutable.
 - [x] Owner-only promotion tests; DE/EN Web action; update milestone evidence, architecture isolation and docs/demos/m5.md.
-- [ ] Commit and PR with final handoff; list remaining acceptance honestly.
+- [x] Commit and Draft PR with final handoff; remaining Web exposure acceptance explicitly blocked by API ownership decision.
 
 - [ ] Resolve explicit API ownership exception/handoff, append guarded Web methods, and run live transport acceptance. No permission inferred from elapsed time.
