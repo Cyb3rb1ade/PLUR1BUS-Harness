@@ -1,19 +1,19 @@
 // E3: CLI → daemon → core on a fresh home, then backup → verify → restore into a second home. Real binary, real
-// supervisor and core, fake chat provider (test-internals env guard), loopback/temp sockets only, no network.
-// Native five-target CI; flat embeddings and fake chat are functional smoke evidence, not real-model T6 acceptance.
+// supervisor and core, fake chat provider (test-internals env guard). Real-model mode downloads pinned models.
+// Native five-target CI runs both flat functional and real embedding/reranker installed-runtime smoke.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
-import { BIN, REAL, cli, daemonStatus, home, reapHome, startDaemon, stopDaemon } from "../system/helpers.ts";
+import { BIN, REAL, RERANK_FAILURE, waitEngineReady, cli, daemonStatus, home, reapHome, startDaemon, stopDaemon } from "../system/helpers.ts";
 
 const FAKE = { PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_TEST_CHAT_PROVIDER: "fake" };
 const FACT = "Please remember that the e2e smoke test fact is the harbour tour at noon.";
 
-describe("E3 — CLI → daemon → core smoke", { skip: REAL && "flat embedder only" }, () => {
-  it("fresh home: daemon, agent, chat, backup → verify → restore elsewhere, clean stop", { timeout: 240_000 }, async (t) => {
+describe("E3 — CLI → daemon → core smoke", () => {
+  it("fresh home: daemon, agent, chat, backup → verify → restore elsewhere, clean stop", { timeout: REAL ? 600_000 : 240_000 }, async (t) => {
     const h1 = home();
     const h2 = home();
     const archive = join(h1, "smoke.tar.gz");
@@ -25,8 +25,9 @@ describe("E3 — CLI → daemon → core smoke", { skip: REAL && "flat embedder 
     mkdirSync(user);
     const installedBinary = join(installation, process.platform === "win32" ? "plur1bus.exe" : "plur1bus");
     cpSync(BIN, installedBinary);
-    const installedEnv: NodeJS.ProcessEnv = { ...process.env, ...FAKE, PLUR1BUS_TEST_INTERNALS: "flat-embedder", PLUR1BUS_SERVICE_FAKE: service, PLUR1BUS_UPDATE_TARGET_BIN: installedBinary, HOME: user, USERPROFILE: user, LOCALAPPDATA: join(user, "AppData", "Local"), XDG_CONFIG_HOME: join(user, ".config") };
+    const installedEnv: NodeJS.ProcessEnv = { ...process.env, ...FAKE, ...(REAL ? {} : { PLUR1BUS_TEST_INTERNALS: "flat-embedder" }), PLUR1BUS_SERVICE_FAKE: service, PLUR1BUS_UPDATE_TARGET_BIN: installedBinary, HOME: user, USERPROFILE: user, LOCALAPPDATA: join(user, "AppData", "Local"), XDG_CONFIG_HOME: join(user, ".config") };
     for (const key of ["PLUR1BUS_NODE", "PLUR1BUS_CORE_JS", "PLUR1BUS_NODE_MIRROR", "PLUR1BUS_CONTAINER", "PLUR1BUS_HOME"]) delete installedEnv[key];
+    if (REAL) delete installedEnv.PLUR1BUS_TEST_INTERNALS;
     if (process.env.PLUR1BUS_SMOKE_NODE_MIRROR) installedEnv.PLUR1BUS_NODE_MIRROR = process.env.PLUR1BUS_SMOKE_NODE_MIRROR;
     try {
       // Deploy the same production payload shape used by setup; dependencies stay pinned.
@@ -37,6 +38,9 @@ describe("E3 — CLI → daemon → core smoke", { skip: REAL && "flat embedder 
       assert.equal(setup.check.fail, 0);
       assert.equal(setup.manifest.node.version, "24.21.0");
       stopDaemon(h1);
+      if (process.env.PLUR1BUS_CI_RECALL_HARD_MS) {
+        for (const key of ["core.recall.softBudgetMs", "core.recall.hardBudgetMs"]) cli(h1, ["config", "set", key, process.env.PLUR1BUS_CI_RECALL_HARD_MS, "--yes"]);
+      }
       // RULING: no `init` command; a home comes into being with its first write.
       assert.equal(cli(h1, ["agent", "create", "bernd"]).created, true);
       assert.ok(existsSync(join(h1, "config.json")), "the first write materialises the home");
@@ -49,6 +53,8 @@ describe("E3 — CLI → daemon → core smoke", { skip: REAL && "flat embedder 
       assert.equal(status.children[0].process.state, "ready", JSON.stringify(status.children[0]));
       assert.equal(typeof status.children[0].pid, "number");
 
+      await waitEngineReady(h1, REAL ? 60_000 : 30_000);
+
       // ── memory + one chat session (create + submit) and a second turn on it
       assert.equal(cli(h1, ["memory", "add", "--agent", "bernd", "--session", "s1", FACT]).stored, 1);
       const turn = cli(h1, ["chat", "--agent", "bernd", "hello from the smoke test"]);
@@ -60,9 +66,23 @@ describe("E3 — CLI → daemon → core smoke", { skip: REAL && "flat embedder 
       const shown = cli(h1, ["session", "show", turn.sessionId]);
       assert.deepEqual(shown.messages.map((m: any) => m.role), ["user", "assistant", "user", "assistant"]);
       const memoryIds = (h: string) => cli(h, ["memory", "list", "--agent", "bernd"]).items.map((i: any) => i.id as string).sort();
+      if (REAL) assert.equal(cli(h1, ["memory", "add", "--agent", "bernd", "--session", "s1", "Please remember that the quarterly budget draft is due in March."]).stored, 1);
+      const logFile = join(h1, "logs", "core.log");
+      const logMark = existsSync(logFile) ? statSync(logFile).size : 0;
       const recall = cli(h1, ["memory", "recall", "--agent", "bernd", "--session", "s2", "--joined", "harbour tour"]);
       assert.equal(recall.degraded, null, JSON.stringify(recall));
       assert.match(recall.joined.text, /harbour tour/);
+      if (REAL) {
+        assert.ok((recall.timing?.namespacePhases ?? []).some((p: any) => p.phase === "rerank" && p.ms >= 5), "real reranker must run");
+        const logs = existsSync(logFile) ? readFileSync(logFile).subarray(logMark).toString("utf8") : "";
+        assert.equal(logs.split("\n").find(line => RERANK_FAILURE.test(line)), undefined, "no reranker fallback");
+      }
+      stopDaemon(h1);
+      cli(h1, ["daemon", "start"], { env: installedEnv });
+      await waitEngineReady(h1, REAL ? 60_000 : 30_000);
+      const restartedRecall = cli(h1, ["memory", "recall", "--agent", "bernd", "--session", "after-restart", "--joined", "harbour tour"]);
+      assert.equal(restartedRecall.degraded, null);
+      assert.match(restartedRecall.joined.text, /harbour tour/);
       const idsBefore = memoryIds(h1);
       assert.ok(idsBefore.length >= 1, "the fact is stored");
 
