@@ -33,6 +33,9 @@ test("the test validator rejects what a schema forbids (so a green run below mea
   assert.ok(validate({ oneOf: [{ type: "string" }, { type: "string", minLength: 2 }] }, "abc", d).length > 0, "two matching branches are not exactly one");
   assert.deepEqual(validate({ type: "string", format: "date-time" }, "2026-10-12T10:00:00.000Z", d), []);
   assert.ok(validate({ type: "string", format: "date-time" }, "yesterday", d).length > 0);
+  assert.deepEqual(validate({ type: ["integer", "null"], minimum: 0 }, null, d), []);
+  assert.deepEqual(validate({ type: ["integer", "null"], minimum: 0 }, 1, d), []);
+  for(const bad of ["1", -1, 1.5, false])assert.ok(validate({ type: ["integer", "null"], minimum: 0 }, bad, d).length>0);
   assert.throws(() => validate({ type: "string", contentEncoding: "base64" } as never, "x", d), /does not know/);
 });
 
@@ -48,7 +51,7 @@ test("per operation: method, path, id, tag, security, CSRF parameter, stability 
     const declared = Object.keys(op.responses).sort();
     const expected = [String(r.successStatus), ...Object.keys(r.extra ?? {}), "401", "403", "413", "421", "429", ...(r.id === "web.rpc" ? [] : ["504"]), ...(r.requestBody ? ["400", "415"] : [])].filter((s, i, a) => a.indexOf(s) === i).sort();
     if (JSON.stringify(declared) !== JSON.stringify(expected)) problems.push(`${at}: statuses ${declared} != table ${expected}`);
-    if (!/^\/api\/v1\//.test(r.path) && !["/rpc", "/events"].includes(r.path)) problems.push(`${at}: outside /api/v1`);
+    if (!/^\/api\/v1\//.test(r.path) && !["/rpc", "/events", "/ws"].includes(r.path)) problems.push(`${at}: outside /api/v1`);
     const pathParams = [...r.path.matchAll(/\{(\w+)\}/g)].map((m) => m[1]); const docParams = ((op.parameters ?? []) as any[]).filter((p) => p.in === "path").map((p) => p.name);
     if (JSON.stringify(pathParams) !== JSON.stringify(docParams)) problems.push(`${at}: path parameters ${pathParams} != documented ${docParams}`);
     if (r.method === "GET" && op.requestBody) problems.push(`${at}: a GET with a request body`);
@@ -208,6 +211,35 @@ test("every route, driven through its success and failure paths on the real serv
     rec("web.rpc", "malformed Content-Length", await raw(h, { method: "POST", path: "/rpc", headers: { "content-length": "invalid" } }));
     await anon(h, "web.events"); await rt(h, owner, "web.events", "SSE headers and connected comment");
     await rt(h, owner, "web.events", "query refused", { path: "/events?credential=forbidden" });
+
+    // Direct-chat contracts: the generic server rig uses an explicit fake Core result; true Core lifecycle is tested separately.
+    const previousCore = core.impl;
+    core.impl = async (method, params) => method.startsWith("chat.") ? JSON.parse(readFileSync(new URL(`../../rpc-schema/fixtures/methods/${method}.json`, import.meta.url), "utf8")).result : previousCore(method, params);
+    for (const spec of ROUTES.filter(r => r.id.startsWith("chats."))) {
+      const concrete = spec.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat");
+      const body = spec.id === "chats.create" ? { agentId: "main" } : spec.id === "chats.submit" ? { text: "Contract hello" } : spec.requestBody ? {} : undefined;
+      await rt(h, alice, spec.id, "owned contract result", { path: concrete, ...(body !== undefined ? { body } : {}) });
+      await anon(h, spec.id);
+      if (spec.requestBody) await rt(h, alice, spec.id, "unknown fields refused", { path: concrete, body: { unexpected: true } });
+      if (spec.csrf) await noCsrf(h, alice, spec.id);
+      else await rt(h, owner, spec.id, "unknown query refused", { path: concrete + "?unknown=true" });
+    }
+    // Read roles are allowed at the route boundary, but per-agent ownership may still deny them in Core.
+    const chatContract = core.impl;
+    core.impl = async (method, params) => method.startsWith('chat.') ? Promise.reject({error:'E_DENIED'}) : chatContract(method, params);
+    for (const spec of ROUTES.filter(r => r.id.startsWith('chats.') && r.method === 'GET')) await rt(h, alice, spec.id, 'object denied by Core', {path: spec.path.replace('{sessionId}', 'contract-chat')});
+    core.impl = async (method, params) => method.startsWith('channel.history.') || method.startsWith('channel.handoff.') ? JSON.parse(readFileSync(new URL(`../../rpc-schema/fixtures/methods/${method}.json`,import.meta.url),'utf8')).result : chatContract(method,params);
+    for (const spec of ROUTES.filter(r => r.id.startsWith('channel.'))) {
+      const method = spec.id;
+      const fixture = JSON.parse(readFileSync(new URL(`../../rpc-schema/fixtures/methods/${method}.json`,import.meta.url),'utf8'));
+      const concrete = spec.path.replace('{sessionId}','channel-session');
+      await rt(h, alice, spec.id, 'own channel contract result', {path:concrete,...(spec.requestBody?{body:fixture.params}:{})});
+      await anon(h, spec.id);
+      if (spec.csrf) {await noCsrf(h,alice,spec.id);await rt(h,alice,spec.id,'unknown fields refused',{path:concrete,body:{unexpected:true}});}
+      else {await rt(h,alice,spec.id,'query refused',{path:concrete+'?unexpected=true'}); const impl=core.impl;core.impl=async()=>{throw {error:'E_DENIED'};};await rt(h,alice,spec.id,'object denied by Core',{path:concrete});core.impl=impl;}
+    }
+    await rt(h, owner, "ws.ticket", "one-use upgrade ticket"); await anon(h, "ws.ticket"); await noCsrf(h, owner, "ws.ticket");
+    await rt(h, owner, "ws.reserved", "normal request requires upgrade"); await anon(h, "ws.reserved"); await rt(h, alice, "ws.reserved", "member cannot upgrade");
 
     // the shared failures, on every route: a foreign Host (421), a foreign Origin (403), and for routes with a body a wrong
     // content type (415), broken JSON (400) and an oversized body (413), each after authentication and the CSRF check

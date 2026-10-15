@@ -65,7 +65,7 @@ describe("routes: constants and table", () => {
   it("every route has a unique id and a unique method+path under the API prefix", () => {
     assert.equal(new Set(ROUTES.map((r) => r.id)).size, ROUTES.length);
     assert.equal(new Set(ROUTES.map((r) => `${r.method} ${r.path}`)).size, ROUTES.length);
-    for (const r of ROUTES) assert.ok(r.path.startsWith(`${API_PREFIX}/`) || (r.id === "web.rpc" && r.path === "/rpc") || (r.id === "web.events" && r.path === "/events"), r.id);
+    for (const r of ROUTES) assert.ok(r.path.startsWith(`${API_PREFIX}/`) || (r.id === "web.rpc" && r.path === "/rpc") || (r.id === "web.events" && r.path === "/events") || (r.id === "ws.reserved" && r.path === "/ws"), r.id);
   });
 
   it("every route has a handler and every handler a route", () => {
@@ -75,15 +75,16 @@ describe("routes: constants and table", () => {
 
   for (const r of ROUTES) {
     it(`route ${r.id}: auth, authz, csrf and body declarations are coherent`, () => {
-      assert.ok(["GET", "POST", "DELETE"].includes(r.method));
+      assert.ok(["GET", "POST", "PATCH", "DELETE"].includes(r.method));
       if (r.auth === "none") { assert.equal(r.authz, "public"); assert.equal(r.csrf, false); } else assert.notEqual(r.authz, "public");
       if (r.method !== "GET" && r.auth !== "none") assert.equal(r.csrf, true);
       if (r.method === "GET") assert.equal(r.requestBody, undefined);
-      if (r.requestBody) assert.equal(r.method, "POST");
-      assert.ok(r.successStatus >= 200 && r.successStatus < 300);
+      if (r.requestBody) assert.ok(["POST", "PATCH", "DELETE"].includes(r.method), `${r.id} body belongs to a write method`);
+      assert.ok(r.successStatus >= 200 && r.successStatus < 300 || r.id === "ws.reserved" && r.successStatus === 426);
       assert.ok(r.success.description.length > 0);
-      if (typeof r.authz === "object") assert.ok(r.authz.action.includes("."));
-      if (r.auth === "any") assert.equal(r.method, "GET");
+      if (typeof r.authz === "object") assert.ok(r.authz.action.includes(".") || ["chat:read", "chat:write", "chat:delete"].includes(r.authz.action));
+      if (r.auth === "any" && !r.id.startsWith("chats.")) assert.equal(r.method, "GET");
+      if (r.id.startsWith("chats.")) { assert.equal(r.auth, "any"); assert.equal(r.csrf, r.method !== "GET"); }
     });
   }
 

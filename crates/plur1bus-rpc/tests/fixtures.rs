@@ -105,6 +105,42 @@ fn method_fixture(name: &str, f: &Value) {
         "breakglass.revoke" => pair::<BreakglassRevokeParams, BreakglassRevokeResult>(name, f),
         "pairing.qr" => pair::<PairingQrParams, PairingQrResult>(name, f),
         "auth.status" => pair::<AuthStatusParams, AuthStatusResult>(name, f),
+        "channel.crypto" => pair::<ChannelCryptoParams, ChannelCryptoResult>(name, f),
+        "channel.handoff.create" => {
+            pair::<ChannelHandoffCreateParams, ChannelHandoffCreateResult>(name, f)
+        }
+        "channel.handoff.redeem" => {
+            pair::<ChannelHandoffRedeemParams, ChannelHandoffRedeemResult>(name, f)
+        }
+        "channel.history.get" => pair::<ChannelHistoryGetParams, ChannelHistoryGetResult>(name, f),
+        "channel.history.list" => {
+            pair::<ChannelHistoryListParams, ChannelHistoryListResult>(name, f)
+        }
+        "chat.archive" => pair::<ChatArchiveParams, ChatArchiveResult>(name, f),
+        "chat.cancel" => pair::<ChatCancelParams, ChatCancelResult>(name, f),
+        "chat.create" => pair::<ChatCreateParams, ChatCreateResult>(name, f),
+        "chat.delete" => pair::<ChatDeleteParams, ChatDeleteResult>(name, f),
+        "chat.events" => pair::<ChatEventsParams, ChatEventsResult>(name, f),
+        "chat.export" => pair::<ChatExportParams, ChatExportResult>(name, f),
+        "chat.fork" => pair::<ChatForkParams, ChatForkResult>(name, f),
+        "chat.get" => pair::<ChatGetParams, ChatGetResult>(name, f),
+        "chat.list" => pair::<ChatListParams, ChatListResult>(name, f),
+        "chat.restore" => pair::<ChatRestoreParams, ChatRestoreResult>(name, f),
+        "chat.submit" => pair::<ChatSubmitParams, ChatSubmitResult>(name, f),
+        "chat.update" => pair::<ChatUpdateParams, ChatUpdateResult>(name, f),
+        "delivery.target.add" => pair::<DeliveryTargetAddParams, DeliveryTargetAddResult>(name, f),
+        "delivery.target.confirm" => {
+            pair::<DeliveryTargetConfirmParams, DeliveryTargetConfirmResult>(name, f)
+        }
+        "delivery.target.list" => {
+            pair::<DeliveryTargetListParams, DeliveryTargetListResult>(name, f)
+        }
+        "delivery.target.remove" => {
+            pair::<DeliveryTargetRemoveParams, DeliveryTargetRemoveResult>(name, f)
+        }
+        "delivery.target.subscribe" => {
+            pair::<DeliveryTargetSubscribeParams, DeliveryTargetSubscribeResult>(name, f)
+        }
         "channel.list" => pair::<ChannelListParams, ChannelListResult>(name, f),
         "channel.get" => pair::<ChannelGetParams, ChannelGetResult>(name, f),
         "channel.enable" => pair::<ChannelEnableParams, ChannelEnableResult>(name, f),

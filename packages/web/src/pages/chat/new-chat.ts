@@ -7,7 +7,7 @@ import { navigate } from "../../router.ts";
 import type { View } from "../../view.ts";
 import { Composer } from "./composer.ts";
 import type { MemoryMode } from "./rpc-types.ts";
-import { getApi } from "../../api/shared.ts";
+import { getChatApi as getApi } from "./api.ts";
 import { agents, carryDraft, loadAgents, refreshList, submitErrorKey } from "./store.ts";
 
 export function NewChat(): View {
