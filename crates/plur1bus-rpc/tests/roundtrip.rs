@@ -939,6 +939,11 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::IdentityUnlinkParams,
                 types::IdentityUnlinkResult,
             >(name, fixture, &root_schema),
+            "logs.levels" => check_pair::<types::LogsLevelsParams, types::LogsLevelsResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "logs.query" => check_pair::<types::LogsQueryParams, types::LogsQueryResult>(
                 name,
                 fixture,
