@@ -120,6 +120,7 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "channel.enable": rule("channel.write", system),
   "channel.disable": rule("channel.write", system),
   "channel.set": rule("channel.write", system),
+  "channel.crypto": rule("channel.write", system),
   "agent.pause": rule("admin.agent.operate", agent),
   "agent.resume": rule("admin.agent.operate", agent),
   "agent.archive": rule("admin.agent.manage", agent),

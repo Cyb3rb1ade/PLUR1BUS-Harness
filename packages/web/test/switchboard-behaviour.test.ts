@@ -30,3 +30,25 @@ for (const lang of ['en', 'de'] as const) test(`effective profile and channel-on
     assert.ok(calls[0]!.csrf);
   });
 });
+
+test('Matrix memory warning and explicit SAS comparison in the owner UI', { skip: browserSkip }, async () => {
+  await withApp({}, async app => {
+    seedSwitchboard(app.server.rpc, [sampleChannel({ id: 'matrix', displayName: 'Matrix', config: { e2ee: { mode: 'memory' } } })]);
+    app.server.rpc.handle('channel.crypto', () => ({ flowId: 'flow', emoji: [{ symbol: '🐶', description: 'Dog' }], decimals: [1234, 2345, 3456], done: false }));
+    await openRoute(app.page, '#/switchboard');
+    await app.page.getByRole('heading', { name: 'Experimental Matrix encryption' }).waitFor();
+    await app.page.getByText(/Not persistent: restart loses encryption keys/).waitFor();
+    const confirm = app.page.getByRole('button', { name: 'Confirm matching SAS', exact: true });
+    assert.equal(await confirm.isDisabled(), true);
+    await app.page.getByRole('textbox', { name: 'Matrix user ID', exact: true }).fill('@alice:example.org');
+    await app.page.getByRole('textbox', { name: 'Device ID', exact: true }).fill('A');
+    await app.page.getByRole('button', { name: 'Request verification', exact: true }).click();
+    await app.page.getByText('1234 · 2345 · 3456').waitFor();
+    await app.page.getByRole('checkbox', { name: /I compared/ }).check();
+    assert.equal(await confirm.isEnabled(), true);
+    await app.page.getByRole('textbox', { name: 'Verification flow ID', exact: true }).fill('other-flow');
+    assert.equal(await confirm.isDisabled(), true);
+    assert.equal(await app.page.getByText('1234 · 2345 · 3456').count(), 0);
+    await expectAxeClean(app.page, 'matrix memory SAS');
+  });
+});

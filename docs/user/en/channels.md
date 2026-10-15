@@ -77,7 +77,7 @@ own page.
   scope for Socket Mode. Invite the bot to every channel where it should reply. Details:
   [../../channels/slack.md](../../channels/slack.md).
 - **Matrix:** Create a dedicated bot account and get its access token without writing the token into the configuration.
-  Encrypted rooms are not supported yet. Details: [../../channels/matrix.md](../../channels/matrix.md).
+  Persistent E2EE is blocked. Experimental memory mode defaults off, loses keys and verification on restart, and has no recovery backup. Details: [../../channels/matrix.md](../../channels/matrix.md).
 - **Signal:** Install signal-cli, register or link the account, and keep the signal-cli daemon running. Details:
   [../../channels/signal.md](../../channels/signal.md).
 - **E-mail:** Set up a dedicated mailbox. For the sender check you need the `authServId` of your mail server. Details:

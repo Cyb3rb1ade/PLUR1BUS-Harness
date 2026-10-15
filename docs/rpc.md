@@ -11818,6 +11818,111 @@ Every known channel (the config schema's `channels.*` plus any registered with t
 }
 ```
 
+### `channel.crypto`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Experimental owner/admin SAS control for opt-in Matrix memory crypto. Non-persistent; verification is lost after restart. Confirm only after comparing displayed SAS with the peer device. Never returns private keys.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "action"
+  ],
+  "properties": {
+    "id": {
+      "const": "matrix",
+      "type": "string"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "start",
+        "inspect",
+        "accept",
+        "confirm",
+        "cancel"
+      ]
+    },
+    "userId": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "deviceId": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "flowId": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "confirmed": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "flowId": {
+      "type": "string"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "memory"
+      ]
+    },
+    "warning": {
+      "type": "string"
+    },
+    "done": {
+      "type": "boolean"
+    },
+    "cancelled": {
+      "type": "boolean"
+    },
+    "emoji": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "symbol",
+          "description"
+        ],
+        "properties": {
+          "symbol": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "decimals": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      }
+    }
+  }
+}
+```
+
 ### `channel.get`
 
 **Stability:** experimental · since 1.5.0
