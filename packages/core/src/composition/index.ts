@@ -173,6 +173,13 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     const collab = budget ? isolated('collaboration', () => createCollab({ path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock,
       runner: provider ? composedAgentRunner(provider, alsAgentScopePort(), d.home) : { async run() { throw new Error('no-provider'); } }, directory: { get: id => d.agents.has(id) ? { id, state: 'active' } : null },
       emit: { emit: event => d.logger.info(event.type, { projectId: event.projectId, traceId: event.traceId }) },
+      logWarn: (msg, fields) => d.logger.warn(msg, fields),
+      grants: { endTask: (taskId, by) => {
+        const cur = d.permissions.current();
+        if (cur) return cur.grants.endTask(taskId, by);
+        void d.permissions.open().then(p => p.grants.endTask(taskId, by)).catch(err => d.logger.warn('grant task end failed', { err }));
+        return 0;
+      } },
       budget: { check(estimate) {
         const candidate = Object.values(profiles)[0]?.[0]; if (!candidate) return { allowed: false, reason: 'token-budget' };
         const admission = budget.checkBeforeCall({ principal: 'collab-admission', agent: estimate.agentId, project: estimate.projectId, turn: estimate.chainId, model: candidate.model, provider: candidate.provider, estimatedInputTokens: estimate.tokens, maxOutputTokens: 0 });
@@ -181,7 +188,15 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       }, record: usage => d.logger.info('collab.usage', { ...usage }) },
     })) : null;
     if (collab) disposers.push(() => collab.shutdown());
-    sessions = openSessionService({ ...maintenance, dbPath: join(d.home, 'state', 'sessions.sqlite'), clock: d.clock, logger: d.logger, agents: d.agents, isStopping: d.isStopping, memory, provider: () => provider, notify: d.notify, signal: d.signal, onSessionEnd: id => { void hostctl.endSession(id).catch(err => d.logger.warn('hostctl session cleanup failed', { err })); }, ...(d.approver ? { approver: d.approver } : {}) });
+    sessions = openSessionService({ ...maintenance, dbPath: join(d.home, 'state', 'sessions.sqlite'), clock: d.clock, logger: d.logger, agents: d.agents, isStopping: d.isStopping, memory, provider: () => provider, notify: d.notify, signal: d.signal, onSessionEnd: id => {
+      void hostctl.endSession(id).catch(err => d.logger.warn('hostctl session cleanup failed', { err }));
+      const cur = d.permissions.current();
+      if (cur) {
+        try { cur.grants.endSession(id); } catch (err) { d.logger.warn('grant session end failed', { err }); }
+        return;
+      }
+      void d.permissions.open().then(p => p.grants.endSession(id)).catch(err => d.logger.warn('grant session end failed', { err }));
+    }, ...(d.approver ? { approver: d.approver } : {}) });
     let closed = false;
     const opened = sessions;
     return { discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, surfaceMethods: { ...mediaSurface.methods, ...mediaSearchMethods({ home: d.home, config: d.config, agents: d.agents }, mediaSearch) }, async close() {

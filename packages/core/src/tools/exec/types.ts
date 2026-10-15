@@ -2,6 +2,7 @@
 import type { AuditSink } from "../../rbac/audit.ts";
 import type { ApprovalRequest, Context, Deps } from "../../policy/index.ts";
 import type { DenyEntry, PathRoot } from "../../policy/paths.ts";
+import type { ApprovalAsk, ApprovalAnswer as ToolApprovalAnswer } from "../approval.ts";
 
 export type ExecMode = "deny" | "ask" | "allowlist";
 
@@ -55,7 +56,11 @@ export interface TimerPort {
 
 export type ApprovalAnswer = { approved: boolean };
 /** Asks a person. No port configured = nobody to ask = refused (fail closed). */
-export interface ApprovalPort { request(req: ApprovalRequest): Promise<ApprovalAnswer> }
+export interface ApprovalPort {
+  request(req: ApprovalRequest): Promise<ApprovalAnswer>;
+  /** Same optional seam as `tools/approval.ts`; a port without it is trusted as before. */
+  begin?(answer: ToolApprovalAnswer, ask: ApprovalAsk): boolean;
+}
 
 export interface ExecDeps {
   config: ExecConfig;
@@ -70,6 +75,8 @@ export interface ExecDeps {
   /** Who is calling; built by the dispatcher, never from tool arguments. */
   policyContext: Context;
   host?: string;
+  /** Spend a once grant at execution start. Absent, a grant-allowed call is not consumed here. */
+  consumeOnce?(id: string, b: { person: string; agent: string; actionHash: string }): boolean;
 }
 
 export interface ExecRequest {

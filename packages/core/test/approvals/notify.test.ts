@@ -8,7 +8,7 @@ import { askFor, lastNonce, rig, tick, type Rig } from "./service-helpers.ts";
 
 const T = { timeout: 20_000 };
 type Sub = { connectionId: string; names?: string[] };
-const OPT_IN = ["approval.requested", "approval.resolved", "grant.changed"];
+const OPT_IN = ["approval.requested", "approval.resolved", "approval.parked", "grant.changed"];
 
 async function setup(subs: Sub[], who: Record<string, Principal | null | "throw">) {
   const sent: { method: string; params: any; opts: unknown }[] = [];
@@ -84,15 +84,43 @@ describe("permission notifications (D109 §5)", () => {
     assert.deepEqual(sent.map((s) => s.method), ["approval.requested", "approval.resolved"]);
   });
 
-  it("approval.parked is not a wire notification; close() stops delivery", T, async () => {
+  it("approval.parked is a wire notification to the affected person; close() stops later delivery", T, async () => {
     const { r, sent, notifier } = await setup([{ connectionId: "c1", names: OPT_IN }], { c1: PERSON });
     await request(r);
     r.timers.advance(11 * 60_000);
     await notifier.idle();
-    assert.deepEqual(sent.map((s) => s.method), ["approval.requested"]);
+    assert.deepEqual(sent.map((s) => s.method), ["approval.requested", "approval.parked"]);
+    assert.ok(validateNotification("approval.parked", sent[1]!.params).ok, JSON.stringify(validateNotification("approval.parked", sent[1]!.params)));
+    assert.equal(sent[1]!.params.approval.principal, "christian");
     notifier.close();
     r.service.dispose();
     await notifier.idle();
-    assert.equal(sent.length, 1);
+    assert.equal(sent.length, 2);
+  });
+
+  it("grant.changed used, expired and suspended, and approval.parked, reach only the affected person", T, async () => {
+    const grant = {
+      id: "grt_0123456789abcdef01234567", capability: "fs.read", person: "christian", agent: "bernd",
+      scope: "always" as const, match: { kind: "capability" as const }, state: "active" as const,
+      createdBy: "christian", createdAt: new Date(0).toISOString(), delegable: false, surface: 1,
+    };
+    for (const change of ["used", "expired", "suspended"] as const) {
+      const { r, sent, notifier } = await setup([{ connectionId: "c1", names: OPT_IN }], { c1: PERSON });
+      notifier.grantChanged(change, grant);
+      await notifier.idle();
+      assert.equal(sent.length, 1, change);
+      assert.equal(sent[0]!.method, "grant.changed");
+      assert.equal(sent[0]!.params.change, change);
+      assert.ok(validateNotification("grant.changed", sent[0]!.params).ok, `${change}: ${JSON.stringify(validateNotification("grant.changed", sent[0]!.params))}`);
+      r.service.dispose();
+    }
+    const { r, sent, notifier } = await setup(
+      [{ connectionId: "c1", names: OPT_IN }, { connectionId: "c2", names: OPT_IN }],
+      { c1: PERSON, c2: OTHER_PERSON },
+    );
+    notifier.grantChanged("used", grant);
+    await notifier.idle();
+    assert.deepEqual(sent, [], "mixed audience withholds grant.changed used");
+    r.service.dispose();
   });
 });

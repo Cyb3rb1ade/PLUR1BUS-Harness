@@ -191,11 +191,13 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "identity.pair.confirm": { ...rule("users.manage", system), humanOnly: true },
   // D109 grants and approvals (spec 2026-09-28 §4): human-only actions, so an agent principal is refused in every state.
   "grant.list": rule("grant.read", system),
+  "grant.get": rule("grant.read", system),
   "grant.create": rule("grant.write", system),
   "grant.revoke": rule("grant.write", system),
   "approval.list": rule("approval.read", system),
   "approval.get": rule("approval.read", system),
   "approval.verify": rule("approval.read", system),
+  "approval.audit": rule("approval.read", system),
   "approval.decide": rule("approval.decide", system),
   "approval.cancel": rule("approval.decide", system),
 });
