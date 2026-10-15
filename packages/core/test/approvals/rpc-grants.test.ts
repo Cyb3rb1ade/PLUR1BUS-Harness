@@ -203,6 +203,19 @@ describe("grant.list and grant.revoke", () => {
     assert.ok(r.grantChanged.some((c) => c.change === "suspended" && c.grant.id === g2.id));
   });
 
+  it("grant.list announces due grants only for the calling person", T, async () => {
+    const r = await rpcRig();
+    const g = await r.call("grant.create", create({ capability: "fs.read", expiresAt: new Date(r.clock.now() + HOUR).toISOString() }));
+    r.who = OTHER_PERSON;
+    const other = await r.call("grant.create", create({ capability: "fs.read", expiresAt: new Date(r.clock.now() + HOUR).toISOString() }));
+    r.clock.advance(2 * HOUR);
+    r.grantChanged.length = 0;
+    r.who = PERSON;
+    await r.call("grant.list");
+    assert.ok(r.grantChanged.some((c) => c.change === "expired" && c.grant.id === g.id));
+    assert.equal(r.grantChanged.some((c) => c.grant.id === other.id), false);
+  });
+
   it("a consumed once grant is returned unchanged by revoke", T, async () => {
     const r = await rpcRig();
     const { id, nonce, answer } = await r.park();

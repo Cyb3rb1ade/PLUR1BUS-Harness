@@ -139,9 +139,9 @@ export class GrantStore implements GrantSource {
   }
 
   /** Scan for expired (time-derived) and suspended grants and notify once each. Called from grant.list / grant.get. */
-  announceDue(): void {
+  announceDue(person?: string): void {
     const now = this.#clock.now();
-    for (const v of this.inspect()) {
+    for (const v of this.inspect(person !== undefined ? { person } : {})) {
       if (v.state === "suspended") this.#emit("suspended", v.grant, v.state);
       else if (v.state === "active" && now >= grantExpiry(v.grant, this.maxGrantDays())) this.#emit("expired", v.grant, v.state);
     }

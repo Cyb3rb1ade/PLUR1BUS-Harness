@@ -93,6 +93,25 @@ describe("approval decision Ed25519 signatures (D109 §9.7)", () => {
     assert.equal(v.reason, "mac-mismatch");
   });
 
+  it("setSigner invalidates the snapshot cache so a later verify uses the new key", T, async () => {
+    const a = await loadDecisionSigner(secretStoreSigningKeySource(mkStore().store));
+    const b = await loadDecisionSigner(secretStoreSigningKeySource(mkStore().store));
+    assert.notEqual(a.publicKey, b.publicKey);
+    const clock = new FakeClock();
+    const opened = openChain(dbFile(), { clock });
+    opened.chain.setSigner(a);
+    opened.chain.append("approval.requested", "apr_cache", { bound: BINDING, capability: "fs.read", expiresAt: clock.now() + 60_000 }, "nonce1");
+    opened.chain.append("approval.decided", "apr_cache", { decision: "approve", person: "christian", surface: 2, delegable: false, bound: BINDING }, "nonce1");
+    const ok = opened.chain.verify();
+    assert.equal(ok.ok, true);
+    assert.equal(ok.signatures.report, "signed-ok");
+    opened.chain.setSigner(b);
+    const v = opened.chain.verify();
+    assert.equal(v.ok, false);
+    assert.equal(v.reason, "signature-mismatch");
+    assert.equal(v.signatures.report, "signed-bad");
+  });
+
   it("the approval store signs a decide() and verify() reports signed-ok", T, async () => {
     const { store: secrets } = mkStore();
     const signer = await loadDecisionSigner(secretStoreSigningKeySource(secrets));

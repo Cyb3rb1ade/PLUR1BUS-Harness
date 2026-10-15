@@ -128,12 +128,13 @@ test("always-grants older than 90 days: one inbox item for that person, never au
   assert.equal(f.all("bob").length, 0);
   assert.equal(f.all("root").length, 0);
   assert.ok(!JSON.stringify(f.all("alice")).includes("audience"));
+  const token = `${"1234567890"}:${"Ab".repeat(15)}`;
   alwaysGrantsToInbox(f.service, [{
-    ...grants[0]!, id: "grt_secret", capability: "fs.write sk-live-0123456789abcdefghijkl",
+    ...grants[0]!, id: "grt_secret", capability: `fs.write ${token}`,
   }], clock.now());
   const secretEntry = f.all("alice").find(e => e.ref?.objectId === "grt_secret");
   assert.ok(secretEntry);
-  assert.ok(!JSON.stringify(secretEntry).includes("sk-live-"));
+  assert.ok(!JSON.stringify(secretEntry).includes(token));
   f.store.close();
 });
 

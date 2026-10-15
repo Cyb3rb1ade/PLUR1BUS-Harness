@@ -9,7 +9,9 @@ const T = { timeout: 20_000 };
 describe("approval.list and approval.get", () => {
   it("shows the pending queue with everything a person needs to decide, and never the nonce or the raw arguments", T, async () => {
     const r = await rpcRig();
-    const { id, nonce } = await r.park({ args: { path: abs("/outside/dir/a.txt"), token: "sk-live-0123456789abcdefghijkl" }, targets: [abs("/outside/dir/a.txt")] });
+    const secret = ["hunter2", "test", "secret"].join("-");
+    const token = `password=${secret}`;
+    const { id, nonce } = await r.park({ args: { path: abs("/outside/dir/a.txt"), token }, targets: [abs("/outside/dir/a.txt")] });
     const list = await r.call("approval.list", { status: "pending" });
     assert.equal(list.approvals.length, 1);
     const a = list.approvals[0];
@@ -25,7 +27,7 @@ describe("approval.list and approval.get", () => {
     assert.equal(a.delegable, false);
     assert.equal(typeof a.summary, "string");
     assert.ok(!JSON.stringify(list).includes(nonce), "the nonce must not leave the core");
-    assert.ok(!JSON.stringify(list).includes("sk-live-0123456789abcdefghijkl"), "a secret in the arguments must not leave the core");
+    assert.ok(!JSON.stringify(list).includes(secret), "a secret in the arguments must not leave the core");
     assert.ok(!("cancelledAt" in a) && !("flags" in a) && !("effect" in a));
     assert.deepEqual(await r.call("approval.get", { id }), a);
     r.service.dispose();
@@ -33,17 +35,19 @@ describe("approval.list and approval.get", () => {
 
   it("puts the model's reason and diff on the request, masked like the argument summary", T, async () => {
     const r = await rpcRig();
+    const secret = ["hunter2", "test", "secret"].join("-");
+    const token = `password=${secret}`;
     const { id } = await r.park({
       args: { path: abs("/outside/dir/a.txt") },
-      reason: "need to write token sk-live-0123456789abcdefghijkl",
-      diff: "--- a\n+++ b\n+password=supersecret-value-xyz",
+      reason: `need to write token ${token}`,
+      diff: `--- a\n+++ b\n+password=${secret}`,
     });
     const a = await r.call("approval.get", { id });
     assert.equal(typeof a.agentReason, "string");
     assert.equal(typeof a.diff, "string");
-    assert.ok(!String(a.agentReason).includes("sk-live-0123456789abcdefghijkl"));
-    assert.ok(!String(a.diff).includes("supersecret-value-xyz"));
-    assert.ok(!JSON.stringify(a).includes("sk-live-0123456789abcdefghijkl"));
+    assert.ok(!String(a.agentReason).includes(secret));
+    assert.ok(!String(a.diff).includes(secret));
+    assert.ok(!JSON.stringify(a).includes(secret));
     r.service.dispose();
   });
 

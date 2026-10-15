@@ -39,14 +39,14 @@ export function buildGrantMethods(d: ApprovalMethodDeps): Record<"grant.list" | 
   const guard = guarded(d);
   const viewOf = (h: PermissionHandles, person: string, id: string): { grant: StoredGrant; state: GrantState } | undefined =>
     h.grants.inspect({ person }).find((v) => v.grant.id === id);
-  const inspected = (h: PermissionHandles): void => {
-    h.grants.announceDue();
-    d.onGrantsInspected?.(h.grants.inspect().map((v) => v.grant), d.clock());
+  const inspected = (h: PermissionHandles, person: string): void => {
+    h.grants.announceDue(person);
+    d.onGrantsInspected?.(h.grants.inspect({ person }).map((v) => v.grant), d.clock());
   };
 
   return {
     "grant.list": guard("grant.list", async (p: GrantListParams = {}, c: Caller, h) => {
-      inspected(h);
+      inspected(h, c.person);
       const cap = p.capability?.trim().toLowerCase();
       const views = h.grants.inspect({ person: c.person, ...(p.agent !== undefined ? { agent: p.agent } : {}) })
         .filter((v) => (cap === undefined || v.grant.capability === cap) && (p.state === undefined || v.state === p.state));
@@ -57,7 +57,7 @@ export function buildGrantMethods(d: ApprovalMethodDeps): Record<"grant.list" | 
     }),
 
     "grant.get": guard("grant.get", async (p: GrantGetParams, c: Caller, h): Promise<GrantRecord> => {
-      inspected(h);
+      inspected(h, c.person);
       const v = viewOf(h, c.person, p.id);
       if (!v) throw new RpcError("E_NOT_FOUND", `no grant ${p.id}`);
       return grantRecordOf(v.grant, v.state);

@@ -319,7 +319,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           if (req.turnProfile) await waitForVoiceConfirmation(req.turnProfile, signal);
           await o.beforeTools?.();
           signal.throwIfAborted();
-          const output = await stage('tool-dispatch', signal, o.log, () => dispatcher.call({ id: call.id, name: call.name, args }, { ...(req.recurring ? { recurring: req.recurring } : {}), agentId: req.agentId, principal: approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface, signal }));
+          const output = await stage('tool-dispatch', signal, o.log, () => dispatcher.call({ id: call.id, name: call.name, args, ...(typeof done.reasoning === 'string' && done.reasoning ? { reason: done.reasoning } : {}) }, { ...(req.recurring ? { recurring: req.recurring } : {}), agentId: req.agentId, principal: approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface, signal }));
           if (fatal) throw fatal;
           if (output.isError && approvalNeedsPerson) throw new TurnToolError('approval-requires-person', toolErrorDetail(output, o.secrets?.() ?? []));
           if (output.isError) throw new TurnToolError(output.error.sourceCode ?? output.error.code, toolErrorDetail(output, o.secrets?.() ?? []));

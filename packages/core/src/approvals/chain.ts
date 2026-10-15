@@ -86,6 +86,8 @@ export class ApprovalChain {
   /** Tests and late wiring (the store loads the signer after the HMAC key). */
   setSigner(signer: DecisionSigner | undefined): void {
     this.#signer = signer;
+    this.#gen++;
+    this.#cache = null;
   }
 
   #mac(prev: string, e: Pick<ChainEntry, "seq" | "ts" | "kind" | "refId" | "nonce" | "payload">): string {
