@@ -178,7 +178,6 @@ jobs:
     needs: plan
     if: needs.plan.outputs.proceed == 'true'
     runs-on: ubuntu-24.04
-    continue-on-error: true
     timeout-minutes: 40
     env:
       PLUR1BUS_WEB_E2E_REQUIRED: "1"
