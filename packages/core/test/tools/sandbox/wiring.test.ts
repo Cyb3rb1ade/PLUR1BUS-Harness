@@ -67,3 +67,15 @@ test('hostctl notify cannot launch through its private unsandboxed host context'
     assert.equal(ran, false);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+test('even a broad approved root cannot edit sandbox configuration or installation binaries', async () => {
+  const {mkdir,writeFile}=await import('node:fs/promises');
+  const dir=await mkdtemp(join(tmpdir(),'d106-control-')); try {
+    await writeFile(join(dir,'config.json'),'{}'); await mkdir(join(dir,'bin')); await writeFile(join(dir,'bin','launcher'),'fixture');
+    const signal=new AbortController().signal;
+    const registry=await composeTools({home:dir,roots:[{id:'broad',path:dir}],audit:{append(){}} as never,grants:{list:()=>[],get:()=>undefined}},{sessionId:'s',agentId:'a',principal:'p',summaries:[],memory:'',messages:[],signal});
+    for(const path of [join(dir,'config.json'),join(dir,'bin','launcher')]) {
+      assert.equal((await registry.get('file.write')!.classify!({path})).flags?.denyListHit,true);
+      await assert.rejects(registry.get('file.write')!.execute({path,content:'unsafe',overwrite:true},{signal,principal:'p',agentId:'a'}));
+    }
+  } finally {await rm(dir,{recursive:true,force:true});}
+});

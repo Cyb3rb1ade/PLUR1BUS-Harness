@@ -58,7 +58,7 @@ export async function backendArgv(p: PreparedPolicy, d: SandboxDetection, argv: 
   if (p.writeRoots.length) throw new SandboxFailure('bubblewrap writable roots require dynamic credential-name enforcement; backend refused');
   const args = ['/usr/bin/bwrap', '--unshare-all', '--die-with-parent', '--new-session', '--cap-drop', 'ALL', '--proc', '/proc', '--dev', '/dev', '--tmpfs', '/tmp'];
   if (p.network === 'full') args.push('--share-net');
-  for (const r of [...p.runtimeRoots, ...p.readRoots.map(r => r.path)]) args.push('--ro-bind', r, r);
+  for (const r of [...p.runtimePaths, ...p.readRoots.map(r => r.path)]) args.push('--ro-bind', r, r);
   for (const m of await masks(p)) args.push(...(m.directory ? ['--tmpfs', m.path] : ['--ro-bind', '/dev/null', m.path]));
   args.push('--chdir', p.cwd, '--', ...argv);
   return args;
