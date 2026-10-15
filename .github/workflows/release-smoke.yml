@@ -89,10 +89,12 @@ jobs:
         run: node --experimental-strip-types --test --test-timeout=120000 tests/system/install-scripts.test.ts
       - name: setup, service unit and archive contracts
         run: cargo test --release -p plur1bus --test setup --test setup_profile --test service --test install_archive -- --test-threads=1
-      # Existing fixtures use POSIX executables/signals. These are explicitly not Windows rollback/reboot evidence.
+      - name: injected native update rollback
+        run: cargo test --release -p plur1bus --test update_apply -- --test-threads=1
+      # Remaining uninstall/reboot fixtures use POSIX processes/signals.
       - name: injected update rollback, uninstall and simulated reboot (POSIX fixtures)
         if: runner.os != 'Windows'
-        run: cargo test --release -p plur1bus --test update_apply --test uninstall --test reboot -- --test-threads=1
+        run: cargo test --release -p plur1bus --test uninstall --test reboot -- --test-threads=1
       - name: evidence scope
         shell: bash
         run: |
@@ -100,5 +102,5 @@ jobs:
             echo '### Functional smoke scope'
             echo 'Target: ${{ matrix.target }}. Native installed runtime; fake chat and flat embedding seam.'
             echo 'Separate existing real-model acceptance also runs on this target; T6 still requires all native outcomes. OS service reboot remains manual.'
-            echo 'Windows injected-update/uninstall fixture port remains open; do not count empty cfg(unix) suites as passes.'
+            echo 'Native injected-update rollback runs above; Windows standalone uninstall/reboot fixture port remains open; do not count empty cfg(unix) suites as passes.'
           } >> "$GITHUB_STEP_SUMMARY"
