@@ -14,7 +14,7 @@ import type { PageProps } from "../registry.ts";
 import { failureOf } from "../common/load.ts";
 import { choiceById } from "./licences.ts";
 import { changesFor, load, save, stepsFor, validate, type Answers, type Errors, type Saved, type StepId, type Status } from "./model.ts";
-import { AccountStep, BackupStep, ImportStep, MemoryStep, ModelStep, PersonaStep, UnavailableStep, type StepProps } from "./steps.ts";
+import { BackupStep, ImportStep, ModelStep, PersonaStep, UnavailableStep, type StepProps } from "./steps.ts";
 import { lazySection } from "../common/lazy-section.ts";
 import { MediaSetupStep, type MediaSetupProps } from "../media-search/setup.ts";
 import { mediaErrorOf, problemText } from "../media-search/model.ts";
@@ -27,6 +27,8 @@ registerArea("setup", setupArea);
 type MediaProblemCode = MediaSetupProps["error"];
 
 // The voice language step is its own lazy chunk (with the voice catalogue and CSS); the wizard stays small.
+const MemoryStep = lazySection<StepProps>(() => import("./memory-step.ts").then((m) => m.MemoryStep));
+const AccountStep = lazySection<StepProps>(() => import("./account-step.ts").then((m) => m.AccountStep));
 const VoiceStep = lazySection<StepProps>(() => import("./voice-step.ts").then((m) => m.VoiceStep));
 
 const label = (id: StepId): string => t(`setup.step.${id}` as Key);

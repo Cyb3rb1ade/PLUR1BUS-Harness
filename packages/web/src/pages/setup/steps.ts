@@ -3,44 +3,16 @@ import { getApi } from "../../api/shared.ts";
 import { h, type ComponentChildren } from "preact";
 import { useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
-import { ConfirmDialog } from "../../components/confirm-dialog.ts";
 import { PageLoading } from "../../components/page-state.ts";
-import { formatDateTime, t, type Key } from "../../i18n.ts";
-import { sessionState, signInAccount } from "../../session.ts";
+import { t, type Key } from "../../i18n.ts";
 import { Notice } from "../common/states.ts";
 import { Field, bad } from "../common/field.ts";
 import { useLoad } from "../common/load.ts";
-import { DEFAULT_EMBEDDING, choiceById, choicesOf, type ModelChoice, type ModelKind } from "./licences.ts";
-import { USE_CLASSES, type Answers, type Errors, type UseClass } from "./model.ts";
+import { type Answers, type Errors } from "./model.ts";
 
 export type StepProps = { a: Answers; set: (p: Partial<Answers>) => void; errors: Errors; busy: boolean };
-const when = (iso: string): string => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? iso : formatDateTime(d); };
 const errText = (e: string | undefined, map: Record<string, Key>): string | undefined => (e && map[e] ? t(map[e]) : undefined);
 
-export function AccountStep({ errors }: StepProps): View {
-  const s = sessionState.value;
-  const [token, setToken] = useState("");
-  const [failed, setFailed] = useState(false);
-  const [username, setUsername] = useState(""); const [password, setPassword] = useState(""); const [pending, setPending] = useState(false);
-  if (s.status === "authenticated") {
-    return h("div", {}, h("p", { role: "status" }, t("setup.account.signedIn", { user: s.user.id, role: s.user.role })), h("p", { class: "field-hint" }, t("setup.account.hint")));
-  }
-  const submit = async (e: Event): Promise<void> => {
-    e.preventDefault();
-    if (pending) return; setPending(true); setFailed(false);
-    try {
-      const response = await fetch("/api/v1/accounts/bootstrap", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ proof: token.trim(), username, password }) });
-      if (!response.ok) throw new Error("bootstrap failed"); const r = await signInAccount({ username, password }); setFailed(!r.ok);
-    } catch { setFailed(true); } finally { setToken(""); setPassword(""); setPending(false); }
-  };
-  const error = failed ? t("setup.account.failed") : errors.account ? t("setup.account.needSignIn") : undefined;
-  return h("form", { noValidate: true, onSubmit: (e: Event) => { void submit(e); } },
-    h(Field, { id: "setup-token", label: t("setup.account.token"), hint: t("setup.account.hint"), error },
-      h("input", { id: "setup-token", type: "password", autocomplete: "off", spellcheck: false, value: token, ...bad(error, "setup-token"), onInput: (e: Event) => { setToken((e.target as HTMLInputElement).value); } })),
-    h(Field, { id: "setup-username", label: t("login.account.username") }, h("input", { id: "setup-username", value: username, autocomplete: "username", onInput: (e: Event) => setUsername((e.target as HTMLInputElement).value) })),
-    h(Field, { id: "setup-password", label: t("join.password") }, h("input", { id: "setup-password", type: "password", value: password, autocomplete: "new-password", onInput: (e: Event) => setPassword((e.target as HTMLInputElement).value) })),
-    h("button", { type: "submit", class: "btn", disabled: pending }, t("join.submit")));
-}
 
 export function PersonaStep({ a, set, errors }: StepProps): View {
   const idErr = errText(errors.agentId, { required: "setup.persona.err.idRequired", format: "setup.persona.err.idFormat" });
@@ -91,67 +63,6 @@ export function UnavailableStep({ title, body, children }: { title: string; body
   return h("div", {}, h("h3", { class: "card-title" }, title), h(Notice, {}, body), children ?? null);
 }
 
-function NcDialog({ model, who, at, onConfirm, onClose }: { model: ModelChoice; who: string; at: string; onConfirm: () => void; onClose: () => void }): View {
-  return h(ConfirmDialog, { title: t("setup.nc.title"), confirmLabel: t("setup.nc.confirm"), onClose, onConfirm: async () => { onConfirm(); return { ok: true as const }; } },
-    h("p", {}, t("setup.nc.intro", { name: model.name })),
-    h("dl", { class: "facts" },
-      h("div", {}, h("dt", {}, t("setup.nc.who")), h("dd", {}, who)),
-      h("div", {}, h("dt", {}, t("setup.nc.when")), h("dd", {}, when(at))),
-      h("div", {}, h("dt", {}, t("setup.nc.licence")), h("dd", {}, model.licence)),
-      h("div", {}, h("dt", {}, t("setup.nc.model")), h("dd", {}, h("code", {}, model.hf))),
-      h("div", {}, h("dt", {}, t("setup.nc.revision")), h("dd", {}, model.revision ?? t("setup.nc.noRevision")))),
-    h("p", { class: "field-hint" }, t("setup.nc.note")));
-}
-
-export function MemoryStep({ a, set }: StepProps): View {
-  const [ask, setAsk] = useState<{ model: ModelChoice; at: string } | null>(null);
-  const s = sessionState.value;
-  const who = s.status === "authenticated" ? s.user.id : "";
-  const isOwner = s.status === "authenticated" && s.user.role === "owner";
-  const commercial = a.useClass === "commercial";
-  const pick = (kind: ModelKind, id: string): Partial<Answers> => (kind === "embedding" ? { embedding: id } : { rerank: id });
-
-  const group = (kind: ModelKind): View => {
-    const selected = kind === "embedding" ? a.embedding : a.rerank;
-    return h("fieldset", { class: "setup-opts" },
-      h("legend", {}, t(kind === "embedding" ? "setup.memory.embedding" : "setup.memory.rerank")),
-      choicesOf(kind).map((c) => {
-        const id = `setup-${kind}-${c.id}`;
-        const blocked = c.nc && (commercial || !isOwner);
-        const hint = c.nc ? (commercial ? t("setup.memory.ncBlocked") : !isOwner ? t("setup.memory.ncOwner") : a.nc && selected === c.id ? t("setup.memory.confirmed", { who: a.nc.who, when: when(a.nc.at) }) : "") : "";
-        return h("div", { key: c.id, class: "setup-opt" },
-          h("input", {
-            id, type: "radio", name: `setup-${kind}`, checked: selected === c.id, disabled: blocked, ...(hint ? { "aria-describedby": `${id}-d` } : {}),
-            // A non-commercial model is selected only by the confirmation dialog: the click itself is cancelled.
-            onClick: (e: Event) => { if (c.nc && selected !== c.id) { e.preventDefault(); setAsk({ model: c, at: new Date().toISOString() }); } },
-            onChange: () => { if (!c.nc) set(pick(kind, c.id)); },
-          }),
-          h("label", { for: id }, `${c.name} · ${c.licence}`, c.nc ? h("span", { class: "badge", "data-tone": "warn" }, t("setup.memory.nc")) : null),
-          hint ? h("p", { class: "field-hint", id: `${id}-d` }, hint) : null);
-      }));
-  };
-
-  const setUse = (u: UseClass): void => {
-    const nc = (id: string): boolean => choiceById(id)?.nc === true;
-    // Commercial use never keeps a non-commercial model: back to the permissive defaults, acceptance forgotten.
-    set(u === "commercial" ? { useClass: u, nc: null, ...(nc(a.embedding) ? { embedding: DEFAULT_EMBEDDING } : {}), ...(nc(a.rerank) ? { rerank: "bge-m3" } : {}) } : { useClass: u });
-  };
-
-  return h("div", {},
-    h("p", { class: "reading" }, t("setup.memory.lead")),
-    h("fieldset", { class: "setup-opts" },
-      h("legend", {}, t("setup.memory.useClass")),
-      USE_CLASSES.map((u) => h("div", { key: u, class: "setup-opt" },
-        h("input", { id: `setup-use-${u}`, type: "radio", name: "setup-use", checked: a.useClass === u, onChange: () => { setUse(u); } }),
-        h("label", { for: `setup-use-${u}` }, t(`setup.memory.use.${u}` as Key))))),
-    group("embedding"),
-    h("p", { class: "field-hint" }, t("setup.memory.embeddingNote")),
-    group("rerank"),
-    ask ? h(NcDialog, {
-      model: ask.model, who, at: ask.at, onClose: () => { setAsk(null); },
-      onConfirm: () => { set({ ...pick(ask.model.kind, ask.model.id), nc: { at: ask.at, who } }); },
-    }) : null);
-}
 
 export function BackupStep({ a, set, errors, busy }: StepProps): View {
   const [state, setState] = useState<"idle" | "working" | "failed">("idle");
