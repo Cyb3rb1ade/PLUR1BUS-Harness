@@ -161,7 +161,7 @@ test("OK-7: the route table is deny-by-default and its only core calls are core.
         if (r.auth !== "none") assert.equal(res.status, 401, `${r.id} anonymous`); else assert.notEqual(res.status, 200);
       }
     }
-    assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id), ["invitation.redeem", "session.create", "session.totp"]);
+    assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id), ["invitation.redeem", "account.bootstrap", "passkeys.login.options", "passkeys.login", "session.create", "session.totp"]);
     assert.ok(ROUTES.filter((r) => r.method !== "GET" && r.auth !== "none").every((r) => r.csrf), "every authenticated write needs CSRF");
     for (const r of ROUTES) if (r.auth !== "none" && r.method === "GET") await raw(h, { path: r.path, headers: { cookie } });
     const called = new Set(h.core.calls.map((c) => c.method));

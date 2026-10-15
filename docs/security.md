@@ -138,3 +138,16 @@ The durable account database holds credentials only; Core person status and righ
 `breakglass.reasonMinChars` / `reasonMaxChars` default to 10 / 500 trimmed characters; both are 1–10000 and minimum must not exceed maximum. `breakglass.maxWindowMinutes` defaults to 60, accepts 1–1440, and also caps the default 15-minute window. Trigger roles remain unchanged.
 
 All five keys declare `x-write-roles: [owner, admin]` and `x-audit: true`. These annotations are enforced by the web transport in the supervisor: the authenticated transport must supply a trusted person principal on the supervisor's `server.rs` / `config.rs` write path, enforce roles and write `audit.config.set` with old/new values. Settings continues to expose these limits read only; the authenticated transport enforces them for direct RPC writes.
+
+## M3 account bootstrap and passkeys
+
+| Attack | Protection | Evidence |
+|---|---|---|
+| Reuse startup proof after Owner creation | Account insertion and durable proof consumption in one SQLite transaction; startup cannot reset consumed marker; Owner-token login disabled afterward | `webauthn-http.test.ts`, `account-store.test.ts`, real browser `bootstrap-account.test.ts` |
+| Read bootstrap proof as another OS user | Checked private run directory, regular file, owner check and mode 0600 / secure-path ACL; logs contain only a redacted notice | `bootstrap.test.ts` |
+| Replay or substitute WebAuthn ceremony | One-use five-minute bounded challenges, account revision and exact configured/allowlisted origin, RP hash, mandatory UP and UV | `webauthn.test.ts`, `webauthn-http.test.ts` |
+| Clone credential | Verify signature before evaluating counter; repeated/decreasing non-zero counter rejected and audited | `webauthn.test.ts`, HTTP counter rollback |
+| CBOR/COSE denial of service | Maximum 16 KiB, eight nesting levels, 256 items, definite canonical lengths, duplicate-map-key rejection, only ES256/Ed25519 | Deterministic 5,000-input parser corpus and bounded-invalid cases |
+| Credential mutation leaves old authority usable | Registration/rename/revoke transaction bumps account session version; counters use compare-and-swap | `account-store.test.ts`, browser enrollment/session expiry |
+
+No private passkey material or attestation certificate chain is persisted. Credential identifiers, COSE public keys and counters are stored with account/key names. Attestation is `none` or packed self attestation; hardware provenance is not claimed. The accepted same-OS-user boundary is unchanged. OIDC remains deferred until after M3.

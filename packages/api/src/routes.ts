@@ -1,3 +1,4 @@
+import { WEBAUTHN_ROUTES, buildWebAuthnHandlers } from "./webauthn-routes.ts";
 import { ACCOUNT_ROUTES, buildAccountHandlers } from "./account-routes.ts";
 import { TRANSPORT_ROUTES, buildTransportHandlers } from "./transport-routes.ts";
 import { ERROR_CODES } from "@plur1bus/rpc-schema";
@@ -67,7 +68,7 @@ export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
     reason: { type: "string", description: "A short machine-readable cause, e.g. `no-session`, `csrf`, `rate-limited`, `locked`, `role-denied`, `body-too-large`." },
   }, ["schema", "error", "message"]),
   Principal: obj({ kind: { enum: ["owner", "user"] }, id: { type: "string" }, role: { enum: ROLE_NAMES } }),
-  SessionChallenge: obj({ schema: schemaId("session.challenge/1"), mfa: { const: "totp" }, challenge: { type: "string", description: "One-time, valid for 5 minutes, dies after 5 wrong codes." }, expiresAt: iso }),
+  SessionChallenge: obj({ schema: schemaId("session.challenge/1"), mfa: { enum: ["totp", "webauthn"] }, challenge: { type: "string", description: "One-time, valid for 5 minutes, dies after 5 wrong codes." }, expiresAt: iso }),
   BreakGlassGrant: obj({ id: { type: "string" }, targetUserId: { type: "string" }, reason: { type: "string" }, issuedAt: iso, expiresAt: iso }),
   Notice: obj({ kind: { const: "break-glass.granted" }, grantId: { type: "string" }, holderUserId: { type: "string" }, reason: { type: "string" }, at: iso, expiresAt: iso }),
   Token: obj({ id: { type: "string" }, prefix: { type: "string" }, name: { type: "string" }, scopes: { type: "array", items: { type: "string" } }, createdAt: iso, expiresAt: iso, lastUsedAt: iso, revokedAt: iso }, ["id", "prefix", "name", "scopes", "createdAt", "expiresAt"]),
@@ -77,7 +78,7 @@ export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
 const SESSION_TIMES = { createdAt: iso, expiresAt: iso, idleExpiresAt: iso };
 
 export const ROUTES: readonly RouteSpec[] = [
-  ...TRANSPORT_ROUTES, ...ACCOUNT_ROUTES,
+  ...TRANSPORT_ROUTES, ...ACCOUNT_ROUTES, ...WEBAUTHN_ROUTES,
   {
     id: "session.create", method: "POST", path: `${API_PREFIX}/session`, tag: "session", summary: "Log in with the owner token or with a local account; sets the session cookie",
     auth: "none", authz: "public", csrf: false, rate: "auth", stability: "experimental", since: "1.0.0",
@@ -233,6 +234,8 @@ export interface HandlerInput {
   /** The session cookie the request carried, if any, on routes that do not authenticate with it (login): it is ended. */
   presentedSessionId: string | undefined;
   ip: string;
+  /** Origin checked against the listener allowlist before handler dispatch. */
+  origin?: string | undefined;
   /** How the caller authenticated: the session cookie or a personal API token. */
   via: "session" | "token" | undefined;
   /** Set when `via` is `token`: what whoami may show of it (never the hash, never the secret). */
@@ -249,6 +252,7 @@ export interface HandlerDeps {
   resolveBootstrap?: (() => Promise<import("./account-store.ts").CorePerson | null>) | undefined;
   tokens?: TokenService | undefined;
   users?: UserDirectory | undefined;
+  hasPasskeys?: ((id: string) => boolean) | undefined;
   totp?: TotpService | undefined;
   challenges?: LoginChallenges | undefined;
   limiter?: RateLimiter | undefined;
@@ -325,6 +329,7 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
   const clearCookie = { "Set-Cookie": sessionCookie(d.tls, "", 0) };
   return {
     ...buildAccountHandlers(d, undefined, d.core),
+    ...buildWebAuthnHandlers(d, undefined, () => "http://localhost"),
     ...buildTransportHandlers(d.core),
     "session.create": async (i) => {
       const b = loginBody(i.body);
@@ -348,9 +353,9 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
           throw new ApiError(401, "E_UNAUTHORIZED", "authentication failed", { reason: "invalid-credentials" });
         }
         // A second factor turns the right password into a challenge, not a session.
-        if (d.totp && d.challenges && await d.totp.isEnabled(r.user.id)) {
+        if (d.challenges && (await d.totp?.isEnabled(r.user.id) || d.hasPasskeys?.(r.user.id))) {
           const c = d.challenges.create(r.user.id, r.user.version);
-          return { body: { schema: "session.challenge/1", mfa: "totp", challenge: c.id, expiresAt: iso8601(c.expiresAt) } };
+          return { body: { schema: "session.challenge/1", mfa: await d.totp?.isEnabled(r.user.id) ? "totp" : "webauthn", challenge: c.id, expiresAt: iso8601(c.expiresAt) } };
         }
         principal = { kind: "user", id: r.user.id, role: r.user.role }; authVersion = r.user.version;
       }

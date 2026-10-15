@@ -1,3 +1,4 @@
+import { buildWebAuthnHandlers } from "./webauthn-routes.ts";
 import type { AccountStore, CorePerson } from "./account-store.ts";
 import { buildAccountHandlers } from "./account-routes.ts";
 import { requestCore } from "./request-core.ts";
@@ -47,6 +48,8 @@ export interface ApiServerOptions {
   /** Local accounts (password login). Without it only the owner token logs in. */
   users?: UserDirectory;
   accounts?: AccountStore;
+  webauthnOrigin?: string;
+  bootstrapConsumed?: () => void;
   resolveBootstrap?: () => Promise<CorePerson | null>;
   /** Where personal API tokens live. The in-memory default forgets them at a restart; the standalone entry supplies the durable adapter. */
   tokens?: TokenStore;
@@ -123,7 +126,8 @@ interface Resolved { principal: Principal; rbac: RbacPrincipal; version: number 
 
 export function createApiServer(o: ApiServerOptions): ApiServer {
   const bindHost = loopbackBind(o.host ?? "127.0.0.1");
-  const verifyOwner = ownerTokenVerifier(o.ownerToken);
+  const originalOwnerVerifier = ownerTokenVerifier(o.ownerToken);
+  const verifyOwner = (candidate: unknown) => !o.accounts?.hasOwnerAccount() && originalOwnerVerifier(candidate);
   if ((o.tls && !(o.tls.key && o.tls.cert))) throw new Error("tls needs both key and cert");
   const tls = o.tls !== undefined;
   const clock = o.clock ?? systemClock;
@@ -149,8 +153,8 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   const breakGlass = createBreakGlass({ audit: o.breakGlassAudit ?? o.audit ?? noSink, clock: () => clock.now(), host: "api", notify: (n) => { notices.add(n); o.notifyBreakGlass?.(n); } });
   const events = createEventsRoute({ core: o.core, sessions, initTimeoutMs: limits.handlerTimeoutMs, now: () => clock.now() });
   const perRequest = requestCore(o.core);
-  const handlerDeps = { core: { ...perRequest.core, ...(o.core.callAs ? { callAs: o.core.callAs.bind(o.core) } : {}) }, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, breakGlass, notices, audit, resolveBootstrap: o.resolveBootstrap };
-  const handlers = { ...buildHandlers(handlerDeps), ...buildAccountHandlers(handlerDeps, o.accounts, o.core) };
+  const handlerDeps = { core: { ...perRequest.core, ...(o.core.callAs ? { callAs: o.core.callAs.bind(o.core) } : {}) }, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, breakGlass, notices, audit, resolveBootstrap: o.resolveBootstrap, hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length };
+  const handlers = { ...buildHandlers(handlerDeps), ...buildAccountHandlers(handlerDeps, o.accounts, o.core, o.bootstrapConsumed), ...buildWebAuthnHandlers(handlerDeps, o.accounts, (requestOrigin?: string) => o.webauthnOrigin ?? requestOrigin ?? [...allowedOrigins][0]!) };
   if (o.webRoot !== undefined && !statSync(o.webRoot, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`webRoot ${JSON.stringify(o.webRoot)} is not a directory`);
   const staticFiles = o.webRoot !== undefined ? createStaticServer(o.webRoot) : undefined;
   const cookieName = tls ? COOKIE_NAME_TLS : COOKIE_NAME;
@@ -355,7 +359,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
 
       let timer: NodeJS.Timeout | undefined;
       const out = await Promise.race([
-        Promise.resolve(resolved ? perRequest.run(webPrincipal(resolved.rbac, resolved.principal.kind === "owner"), () => handler({ principal: resolved?.principal, session, sessionId, body, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined, ip, via, token: tokenInfo }), session ? webConnection(session) : tokenInfo ? `token:${tokenInfo.id}` : undefined) : handler({ principal: undefined, session, sessionId, body, rbac: undefined, presentedSessionId: presented, ip, via, token: tokenInfo })),
+        Promise.resolve(resolved ? perRequest.run(webPrincipal(resolved.rbac, resolved.principal.kind === "owner"), () => handler({ principal: resolved?.principal, session, sessionId, body, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined, ip, origin: typeof req.headers.origin === "string" ? req.headers.origin : undefined, via, token: tokenInfo }), session ? webConnection(session) : tokenInfo ? `token:${tokenInfo.id}` : undefined) : handler({ principal: undefined, session, sessionId, body, rbac: undefined, presentedSessionId: presented, ip, origin: typeof req.headers.origin === "string" ? req.headers.origin : undefined, via, token: tokenInfo })),
         new Promise<import("./routes.ts").HandlerOutput>((resolveTimeout, rej) => {
           timer = setTimeout(() => spec.id === "web.rpc"
             ? resolveTimeout({ body: rpcFailure((body as { id?: unknown })?.id ?? null, { error: "E_NOT_AVAILABLE", reason: "handler-timeout" }) })

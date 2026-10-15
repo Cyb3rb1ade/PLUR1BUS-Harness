@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureBootstrap } from "./bootstrap.ts";
 // Standalone entry of the Harness API (`dist/api.js`): loopback only, a peer client of the core. Wiring it under the
 // supervisor (a module manifest, `daemon start`) and the config keys for host/port are later slices.
 import { AccountStore, type CorePerson } from "./account-store.ts";
@@ -29,7 +30,9 @@ async function main(): Promise<void> {
   const audit = createBufferedSink(chain, { log: logger });
   const resolve = async (userId: string) => (await core.serviceCall!<{ person: CorePerson | null }>("admin.api.person.resolve", { userId })).person;
   const accounts = new AccountStore({ path: join(home, "state", "api", "accounts.db"), resolve });
-  const api = createApiServer({ core, accounts, users: accounts, tokens: accounts.tokens, totp: accounts.totp, resolveBootstrap: () => resolve("local-owner"), ownerToken: ensureOwnerToken(home), logger, audit, breakGlassAudit: chain, port, ...(arg("--host") ? { host: arg("--host")! } : {}), ...(arg("--web-root") ? { webRoot: arg("--web-root")! } : {}) });
+  const cleanBootstrap = ensureBootstrap(home, accounts, process.env.PLUR1BUS_OWNER_INSTALLED === "1");
+  if (!accounts.bootstrapState()?.consumed) logger.info("Owner bootstrap proof: [REDACTED]; read the private run/api-bootstrap.token file locally");
+  const api = createApiServer({ core, accounts, bootstrapConsumed: cleanBootstrap, users: accounts, tokens: accounts.tokens, totp: accounts.totp, resolveBootstrap: () => resolve("local-owner"), ownerToken: ensureOwnerToken(home), logger, audit, breakGlassAudit: chain, port, ...(arg("--host") ? { host: arg("--host")! } : {}), ...(arg("--web-root") ? { webRoot: arg("--web-root")! } : {}) });
   accounts.onChange = id => { api.rightsChanged(id); };
   core.subscribePeople(id => { api.rightsChanged(id); void accounts.findById(id).catch(() => {}); });
   accounts.startPolling();
