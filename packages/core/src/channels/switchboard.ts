@@ -15,6 +15,8 @@
 //  - Images a turn produced (media store) go back to the chat they were asked in.
 //
 // Nothing here is a second session model: every rule that matters is in the router, the stores and the approval service.
+import { BehaviourRateGate } from "./behaviour-context.ts";
+import { resolveBehaviour, type BehaviourContext, type ResolvedBehaviour } from "./behaviour.ts";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { HarnessConfig } from "@plur1bus/config-schema";
@@ -182,6 +184,7 @@ class Host implements Switchboard {
   readonly #chain = new Map<string, Promise<void>>();
   readonly #secretValues = new Set<string>();
   readonly #kinds = new Map<string, ChatKind>();
+  readonly #outboundRates = new BehaviourRateGate();
   /** Outputs a chat may be sent: only what a turn of that very chat produced. */
   readonly #allowed = new Map<string, Set<string>>();
   readonly #pendingMedia = new Map<string, string[]>();
@@ -195,7 +198,7 @@ class Host implements Switchboard {
 
   constructor(o: SwitchboardOptions) {
     this.#o = o;
-    const router = new ChannelRouter({ identity: this.#identityPort(), sessions: this.#sessionPort(), clock: o.clock, log: o.log });
+    const router = new ChannelRouter({ identity: this.#identityPort(), sessions: this.#sessionPort(), clock: o.clock, log: o.log, behaviour: (msg) => this.behaviour(msg) });
     this.#registry = new ChannelRegistry({ clock: o.clock, router, log: o.log, redact: (t) => this.#redact(t), ...o.registry });
     for (const b of o.bindings) this.#bindings.set(b.id, b);
     const r = this.#registry;
@@ -375,6 +378,23 @@ class Host implements Switchboard {
   scrubError(e: unknown): Error {
     const text = this.#redact(errText(e));
     return text === errText(e) && e instanceof Error ? e : new Error(text);
+  }
+
+  behaviour(context: BehaviourContext): ResolvedBehaviour {
+    if (context.chatId !== undefined) this.noteInbound({ channel: context.channel, chatId: context.chatId, chatKind: context.chatKind === "direct" || context.chatKind === "dm" ? "direct" : "group" } as InboundMessage);
+    const cfg = this.#o.config.current();
+    const agentId = this.#o.turns()?.agentId() ?? (Object.keys(cfg.agents).length === 1 ? Object.keys(cfg.agents)[0] : "main");
+    return resolveBehaviour(agentId ? cfg.agents[agentId]?.behaviour ?? {} : {}, { ...context, connection: context.channel });
+  }
+
+  output(input: { channel: string; chatId: string; kind: "reply" | "edit"; text: string }): string | null {
+    const chatKind = this.#kinds.get(chatKeyOf(input.channel, input.chatId)) ?? "direct";
+    const { profile } = this.behaviour({ channel: input.channel, chatKind });
+    const limit = input.kind === "edit" ? profile.rateLimits.editsPerMinute : profile.rateLimits.repliesPerHour;
+    if (profile.reply.policy === "never" || !this.#outboundRates.take(`${input.channel}\0${input.chatId}\0${input.kind}`, limit, this.#o.clock.now(), input.kind === "edit" ? 60_000 : 3_600_000)) return null;
+    let end = Math.min(input.text.length, profile.rateLimits.maxReplyChars);
+    if (end > 0 && /[\uD800-\uDBFF]/.test(input.text[end - 1]!) && end < input.text.length) end--;
+    return input.text.slice(0, end);
   }
 
   noteInbound(msg: InboundMessage): void {
@@ -603,6 +623,8 @@ class Guarded implements HostedChannel {
     const sb = this.#sb;
     const wrapped: ChannelHost = {
       log: host.log,
+      behaviour: (context) => sb.behaviour(context),
+      output: (input) => sb.output(input),
       fail: (err) => host.fail(sb.scrubError(err)),
       receive: (msg) => { sb.noteInbound(msg); return host.receive(msg); },
     };

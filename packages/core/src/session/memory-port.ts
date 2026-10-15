@@ -1,3 +1,4 @@
+import { channelBehaviour, channelOrigin, permitsEngineMemory } from '../channels/behaviour-context.ts';
 import { deriveUserPrincipal } from '../identity/principals.ts';
 // The turn loop's one door to the engine (acceptance 4: no second memory loop). The loop calls `recall` once before a
 // turn and `capture` once after it; the engine-backed port below makes exactly the engine calls `memory.recall` and
@@ -40,6 +41,7 @@ export function engineTurnMemory(d: EnginePortDeps): TurnMemory {
   };
   return {
     async recall({ agentId, caller, authenticatedPerson, query, signal, turnProfile }) {
+      if (!permitsEngineMemory()) return { text: "", degraded: { reason: "behaviour-scope-unavailable", capability: "recall" } };
       const { principal, degraded } = identity(caller, agentId, authenticatedPerson);
       const r = d.config().core.recall;
       const hard = AbortSignal.timeout(r.hardBudgetMs);
@@ -57,6 +59,15 @@ export function engineTurnMemory(d: EnginePortDeps): TurnMemory {
       return { text, degraded: g ?? degraded };
     },
     async capture({ agentId, caller, authenticatedPerson, sessionId, turnId, messages, incognito }) {
+      const policy = channelBehaviour.getStore();
+      if (policy?.memory.capture === "none") return;
+      if (policy?.memory.capture === "provenance-only") {
+        d.logger.info("channel.capture.provenance", { agentId, sessionId, turnId, channel: channelOrigin.getStore()?.channel ?? caller.channel });
+        return; // no third-party message text reaches the engine
+      }
+      if (!permitsEngineMemory()) {
+        d.logger.warn("channel.capture.refused", { agentId, sessionId, turnId, reason: "behaviour-scope-unavailable" }); return;
+      }
       if (d.isStopping()) return; // the turn is already stored; a stopping core takes no new capture (the next start does not replay it: RULING, a lost capture is logged)
       const { principal } = identity(caller, agentId, authenticatedPerson);
       if (principal.user?.startsWith('user:v2:') && d.scope) principal.user = d.scope.capturePrincipal(principal.user) as NonNullable<typeof principal.user>;

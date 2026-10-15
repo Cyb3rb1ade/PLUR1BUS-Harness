@@ -1,3 +1,5 @@
+import { resolveBehaviour, permitsMessage, type ResolvedBehaviour } from "./behaviour.ts";
+import { BehaviourRateGate, channelBehaviour, channelOrigin } from "./behaviour-context.ts";
 import type { Clock } from "./clock.ts";
 import type { ChannelLogger, IdentityPort, InboundMessage, OutboundMessage, SenderRef, SessionPort } from "./types.ts";
 
@@ -26,6 +28,7 @@ export interface RouterDeps {
   identity: IdentityPort; sessions: SessionPort; clock: Clock; log: ChannelLogger;
   /** Applied to every error text before it is logged (the host masks secret values here). */
   redact?: (text: string) => string;
+  behaviour?: (msg: InboundMessage) => ResolvedBehaviour;
 }
 export type Send = (msg: OutboundMessage) => Promise<void>;
 
@@ -39,6 +42,7 @@ export class ChannelRouter {
   readonly #lastReject = new Map<string, number>();
   readonly #pending = new Map<string, number>();
   readonly #seen = new Map<string, number>();
+  readonly #rates = new BehaviourRateGate();
 
   constructor(deps: RouterDeps) { this.#d = deps; }
 
@@ -98,6 +102,13 @@ export class ChannelRouter {
       return;
     }
 
+    const { profile } = this.#d.behaviour?.(msg) ?? resolveBehaviour({}, msg);
+    if (!permitsMessage(profile, { ...msg, addressed: msg.chatKind === "direct" || msg.addressed === true })) {
+      this.#d.log.warn("channel.inbound.dropped", { channel: msg.channel, reason: "behaviour" }); return;
+    }
+    if (!this.#rates.take(`${msg.channel}\0${userId}`, profile.rateLimits.repliesPerHour, this.#d.clock.now())) {
+      this.#d.log.warn("channel.inbound.dropped", { channel: msg.channel, reason: "behaviour-rate" }); return;
+    }
     const chat = { channel: msg.channel, chatId: msg.chatId };
     try {
       if (msg.text.trim() === "/new") {
@@ -107,8 +118,8 @@ export class ChannelRouter {
         return;
       }
       const sessionId = (await this.#d.sessions.findActive(chat)) ?? (await this.#d.sessions.create(chat, { userId }));
-      const out = await this.#d.sessions.submit(sessionId, { userId, text: msg.text });
-      await this.#reply(send, msg, out.text);
+      const out = await channelOrigin.run(chat, () => channelBehaviour.run(profile, () => this.#d.sessions.submit(sessionId, { userId, text: msg.text })));
+      await this.#reply(send, msg, clipReply(out.text, profile.rateLimits.maxReplyChars));
     } catch (e) {
       this.#d.log.error("channel.session.failed", { channel: msg.channel, error: this.#err(e) });
       await this.#reply(send, msg, FAILED_TEXT);
@@ -156,3 +167,9 @@ function valid(m: InboundMessage): boolean {
 }
 
 function errText(e: unknown): string { return e instanceof Error ? e.message : String(e); }
+
+function clipReply(text: string, limit: number): string {
+  let end = Math.min(text.length, limit);
+  if (end > 0 && /[\uD800-\uDBFF]/.test(text[end - 1]!) && end < text.length) end--;
+  return text.slice(0, end);
+}

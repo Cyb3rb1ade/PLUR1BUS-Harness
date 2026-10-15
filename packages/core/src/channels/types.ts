@@ -10,6 +10,8 @@ export interface InboundMessage {
   /** The channel's own id for the sender (Telegram user id, Matrix mxid, …). Never a harness user id. */
   senderId: string;
   accountId?: string;
+  /** Transport-decoded addressing evidence; never an authorization claim. */
+  addressed?: boolean;
   text: string;
   messageId?: string;
 }
@@ -32,6 +34,8 @@ export interface ChannelLogger {
 export interface ChannelHost {
   /** Hand an inbound message to the harness. Never rejects; failures are handled (and logged) on the harness side. */
   receive(msg: InboundMessage): Promise<void>;
+  output?(input: { channel: string; chatId: string; kind: "reply" | "edit"; text: string }): string | null;
+  behaviour?(input: import("./behaviour.ts").BehaviourContext): import("./behaviour.ts").ResolvedBehaviour;
   /** Report a fatal channel-side failure (connection lost for good, auth revoked). The registry stops and restarts it with backoff. */
   fail(err: unknown): void;
   readonly log: ChannelLogger;
