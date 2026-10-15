@@ -132,7 +132,11 @@ export function createWriter(o: WriterOptions) {
         pending.push(`${line}\n`); flush(level !== "info" && level !== "debug");
       } catch { emit("log.redaction.failed", { attempted_event: "log.unregistered" }, {}, true); }
     },
-    registerSecret(value: string) { secrets.add(value); redactor = createRedactor({ pii: o.redactPii ?? false, secrets }); },
+    registerSecret(value: string) {
+      secrets.delete(value); secrets.add(value);
+      if (secrets.size > 256) secrets.delete(secrets.values().next().value!);
+      redactor = createRedactor({ pii: o.redactPii ?? false, secrets });
+    },
     currentLevels(): LevelSettings {
       return { defaultLevel: levelSettings.defaultLevel ?? "info", levels: { ...levelSettings.levels }, ...(levelSettings.traceUntil !== undefined ? { traceUntil: levelSettings.traceUntil } : {}) };
     },

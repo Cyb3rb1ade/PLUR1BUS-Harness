@@ -1,6 +1,14 @@
 import { StringDecoder } from "node:string_decoder";
 import { LIMITS, type Level } from "@plur1bus/log-schema";
+import { createRedactor } from "./redact.ts";
 import type { LogWriter } from "./writer.ts";
+/** UTF-8 byte cap, never cuts a code point. Truncation happens before writer-side redaction. */
+function cutUtf8(text: string, bytes: number): string {
+  if (Buffer.byteLength(text) <= bytes) return text;
+  let result = ""; let size = 0;
+  for (const char of text) { const n = Buffer.byteLength(char); if (size + n > bytes) break; result += char; size += n; }
+  return result;
+}
 /** Foreign text is never parsed for levels, events or trace metadata. */
 export function sanitise(text: string): string {
   return text.replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\|$)/g, "").replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "").replace(/[\x00-\x08\x0a-\x1f\x7f-\x9f]/g, "");
@@ -15,8 +23,10 @@ export class OutputLines {
   private writer: LogWriter; private stream: "stdout" | "stderr"; private now: () => number;
   private decoder = new StringDecoder("utf8"); private line = ""; private bytes = 0; private last = 0;
   private tokens = LIMITS.rateBurst; private at: number; private start: number; private dropped = 0; private closed = false;
-  constructor(writer: LogWriter, stream: "stdout" | "stderr", o: { now?: () => number } = {}) {
+  private redact: { text(s: string): string } | null;
+  constructor(writer: LogWriter, stream: "stdout" | "stderr", o: { now?: () => number; secrets?: Iterable<string> } = {}) {
     this.writer = writer; this.stream = stream; this.now = o.now ?? Date.now; this.at = this.now(); this.start = this.at;
+    this.redact = o.secrets ? createRedactor({ secrets: new Set(o.secrets) }) : null;
   }
   push(chunk: Buffer): void { if (this.closed) throw new Error("output wrapper closed"); this.consume(this.decoder.write(chunk)); }
   private consume(text: string): void {
@@ -31,8 +41,12 @@ export class OutputLines {
     if (this.tokens < 1) this.dropped++;
     else {
       this.tokens--;
-      this.writer.write("process.output.line", { text: this.bytes > 65536 ? "[TRUNCATED:oversized-line]" : sanitise(this.line), untrusted: true,
-        ...(this.bytes > 4096 ? { truncated: true, bytes: this.bytes } : {}) }, { stream: this.stream, bypassRate: true });
+      const framed = this.bytes > 65536;
+      let text = framed ? "[TRUNCATED:oversized-line]" : sanitise(this.line);
+      if (!framed && Buffer.byteLength(text) > LIMITS.lineBytes) text = cutUtf8(text, LIMITS.lineBytes);
+      if (this.redact) text = this.redact.text(text);
+      this.writer.write("process.output.line", { text, untrusted: true,
+        ...(this.bytes > LIMITS.lineBytes ? { truncated: true, bytes: this.bytes } : {}) }, { stream: this.stream, bypassRate: true });
     }
     this.line = ""; this.bytes = 0;
   }

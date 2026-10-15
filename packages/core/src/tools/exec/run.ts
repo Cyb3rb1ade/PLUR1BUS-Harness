@@ -4,7 +4,7 @@ import { stat } from "node:fs/promises";
 import { decide, type Call } from "../../policy/index.ts";
 import { canonicalisePath } from "../../policy/paths.ts";
 import { argsMatchPattern, findAllowed, validateArgs, validateProgram } from "./args.ts";
-import { buildEnv, DEFAULT_ENV_ALLOW } from "./env.ts";
+import { buildEnv, DEFAULT_ENV_ALLOW, isSecretishName } from "./env.ts";
 import { OutputLines } from "../../logs/output.ts";
 import { ExecFailure, type ExecDeps, type ExecRequest, type ExecResult } from "./types.ts";
 
@@ -16,6 +16,19 @@ export const EXEC_MAX_MAX_OUTPUT_BYTES = 4 * 1024 * 1024;
 // RULING: these decide which executable a bare name or a script resolves to. An allowlist entry names a program, not a
 // search path, so in the unattended `allowlist` tier a request may not set them (`env: { PATH }` would swap `git`).
 const LOOKUP_VARS: ReadonlySet<string> = new Set(["PATH", "PATHEXT", "COMSPEC", "SYSTEMROOT"]);
+/** Inherited / requested lookup and locale names are not registered as log secrets. */
+const BANAL_ENV: ReadonlySet<string> = new Set([...LOOKUP_VARS, "LANG", "LC_ALL", "LC_CTYPE", "TZ", "TERM", "TEMP", "TMP", "HOME"]);
+
+function wrapSecrets(env: Record<string, string>, requested: Readonly<Record<string, string>> | undefined, windows: boolean): string[] {
+  const asked = new Set(Object.keys(requested ?? {}).map((n) => (windows ? n.toUpperCase() : n)));
+  const fold = (n: string) => (windows ? n.toUpperCase() : n);
+  const out: string[] = [];
+  for (const [name, value] of Object.entries(env)) {
+    if (value.length < 8) continue;
+    if (isSecretishName(name) || (asked.has(fold(name)) && !BANAL_ENV.has(name.toUpperCase()))) out.push(value);
+  }
+  return out;
+}
 
 function clampInt(v: unknown, def: number, max: number, what: string): number {
   if (v === undefined) return def;
@@ -137,11 +150,10 @@ export async function execRun(req: ExecRequest, deps: ExecDeps, signal?: AbortSi
   const started = deps.timers.now();
   const out = new Capture(maxOut);
   const err = new Capture(maxOut);
-  if (deps.output) {
-    for (const v of Object.values(env)) if (v.length >= 8) deps.output.registerSecret(v);
-  }
-  const stdoutWrap = deps.output ? new OutputLines(deps.output, "stdout", { now: () => deps.timers.now() }) : null;
-  const stderrWrap = deps.output ? new OutputLines(deps.output, "stderr", { now: () => deps.timers.now() }) : null;
+  const localSecrets = wrapSecrets(env, req.env, windows);
+  const wrapOpts = { now: () => deps.timers.now(), ...(localSecrets.length ? { secrets: localSecrets } : {}) };
+  const stdoutWrap = deps.output ? new OutputLines(deps.output, "stdout", wrapOpts) : null;
+  const stderrWrap = deps.output ? new OutputLines(deps.output, "stderr", wrapOpts) : null;
   let handle;
   try {
     handle = deps.process.spawn({ program, args, cwd: cwd.canonical, env });
@@ -152,6 +164,15 @@ export async function execRun(req: ExecRequest, deps: ExecDeps, signal?: AbortSi
   }
   handle.onStdout((c) => { out.push(c); stdoutWrap?.push(Buffer.from(c)); });
   handle.onStderr((c) => { err.push(c); stderrWrap?.push(Buffer.from(c)); });
+  let tickHandle: unknown;
+  const armTick = (): void => {
+    tickHandle = deps.timers.setTimeout(() => {
+      stdoutWrap?.tick(); stderrWrap?.tick();
+      try { deps.output?.flush(); } catch { /* queued lines retry on the next tick or close */ }
+      armTick();
+    }, 1000);
+  };
+  if (stdoutWrap || stderrWrap) armTick();
 
   let timedOut = false; let aborted = false;
   const kill = (): void => { void handle.killTree(); };
@@ -173,7 +194,9 @@ export async function execRun(req: ExecRequest, deps: ExecDeps, signal?: AbortSi
     try { audit("exec.result", program, { actionHash, outcome: "spawn-failed" }); } catch { /* the failure below is the report */ }
     throw new ExecFailure("spawn-failed", e instanceof Error ? e.message : "spawn failed");
   } finally {
+    if (tickHandle !== undefined) deps.timers.clearTimeout(tickHandle);
     stdoutWrap?.close(); stderrWrap?.close();
+    deps.output?.flush();
     deps.timers.clearTimeout(timer);
     signal?.removeEventListener("abort", onAbort);
   }
