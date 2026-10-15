@@ -122,3 +122,10 @@ test("real HTTP SSE submit requires both chat read and write authorization befor
  for(const scope of ["chat:read","chat:write"]){const minted=await h.call(cookie,"/api/v1/tokens","POST",{name:scope,scopes:[scope]});assert.equal(minted.status,201);const token=(await minted.json() as any).token;const denied=await fetch(h.url+`/api/v1/chats/${id}/messages`,{method:"POST",headers:{authorization:`Bearer ${token}`,accept:"text/event-stream","content-type":"application/json","idempotency-key":scope},body:JSON.stringify({text:"must not start"})});assert.equal(denied.status,403,await denied.clone().text());await denied.text();}
  const read=await h.call(cookie,`/api/v1/chats/${id}`);assert.equal((await read.json() as any).session.turnCount,0);
 });
+test("real HTTP message history opens latest bounded page and pages backward; chat.get preserves forward order",{timeout:30000},async t=>{
+ const h=await setup(t),cookie=await h.login("alice"),created=await h.call(cookie,"/api/v1/chats","POST",{agentId:"bernd"}),id=(await created.json() as any).session.id;
+ for(let n=0;n<3;n++){const r=await h.call(cookie,`/api/v1/chats/${id}/messages`,"POST",{text:`history turn ${n}`,wait:true});assert.equal(r.status,200);await r.text();}
+ const page=async(query:string)=>{const r=await h.call(cookie,`/api/v1/chats/${id}/messages?limit=2${query}`);assert.equal(r.status,200);return(await r.json() as any).messages.map((m:any)=>m.seq);};
+ assert.deepEqual(await page(""),[5,6]);assert.deepEqual(await page("&before=5"),[3,4]);assert.deepEqual(await page("&before=3"),[1,2]);assert.deepEqual(await page("&before=1"),[]);
+ const legacy=await h.call(cookie,`/api/v1/chats/${id}?limit=2`);assert.deepEqual((await legacy.json() as any).messages.map((m:any)=>m.seq),[1,2]);
+});

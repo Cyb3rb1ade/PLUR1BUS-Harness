@@ -51,6 +51,8 @@ export function buildChatHandlers(core: CoreRpc, audit: AuditEmitter): Record<st
     const method=rpcMethod(name);
     if(i.body!==undefined){const allowed=bodySchema(name).properties;if(!i.body||typeof i.body!=="object"||Array.isArray(i.body)||Object.keys(i.body).some(key=>!Object.hasOwn(allowed,key)))throw errors.badRequest("chat-body","unknown chat body field");}
     const params={...query(i,name==="list"?["agent","q","state","limit","cursor"]:name==="events"?["afterSeq","limit"]:name==="get"||name==="messages"?["limit","before","beforeSeq"]:["limit"]),...(i.body as object ?? {}),...i.pathParams};
+    // History opens on its newest bounded window; chat.get retains its legacy forward order.
+    if(name==="messages"&&!Object.hasOwn(params,"beforeSeq"))(params as Record<string,unknown>).beforeSeq=Number.MAX_SAFE_INTEGER;
     const key=i.headers?.["idempotency-key"];
     if(key !== undefined) {if(typeof key!=="string"||key.length<1||key.length>128||/[\u0000-\u001f\u007f]/.test(key))throw errors.badRequest("idempotency-key","invalid idempotency key");(params as Record<string,unknown>).idempotencyKey=key;}
     const stream=name==="submit"&&typeof i.headers?.accept==="string"&&i.headers.accept.includes("text/event-stream");
