@@ -9,7 +9,13 @@ Every route is **deny by default**: a route that is not `public` answers 401 wit
 | `POST` | `/rpc` | `web.rpc` | session | `delegated` | yes | rpc | experimental · 1.0.0 |
 | `GET` | `/events` | `web.events` | session | `delegated` | no | stream | experimental · 1.0.0 |
 | `POST` | `/api/v1/invitations/redeem` | `invitation.redeem` | public | `public` | no | auth | experimental · 1.0.0 |
-| `POST` | `/api/v1/accounts/bootstrap` | `account.bootstrap` | session | `authenticated` | yes | auth | experimental · 1.0.0 |
+| `POST` | `/api/v1/accounts/bootstrap` | `account.bootstrap` | public | `public` | no | auth | experimental · 1.0.0 |
+| `GET` | `/api/v1/me/passkeys` | `passkeys.list` | session | `my.read` | no | read | experimental · 1.0.0 |
+| `POST` | `/api/v1/me/passkeys/options` | `passkeys.options` | session | `my.write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/me/passkeys/register` | `passkeys.register` | session | `my.write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/me/passkeys/change` | `passkeys.change` | session | `my.write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/session/passkey/options` | `passkeys.login.options` | public | `public` | no | auth | experimental · 1.0.0 |
+| `POST` | `/api/v1/session/passkey` | `passkeys.login` | public | `public` | no | auth | experimental · 1.0.0 |
 | `GET` | `/api/v1/chats` | `chats.list` | session or token | `chat:read` | no | read | experimental · 1.0.0 |
 | `POST` | `/api/v1/chats` | `chats.create` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
 | `POST` | `/api/v1/agents/{agentId}/chats` | `chats.create-agent` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |

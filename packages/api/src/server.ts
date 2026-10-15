@@ -1,3 +1,4 @@
+import { buildWebAuthnHandlers, type PendingWebAuthn } from "./webauthn-routes.ts";
 import {TLSSocket} from "node:tls";
 import {certPin} from "../../remote-access/src/fingerprint.ts";
 import {buildRemotePairingHandlers} from "./remote-pairing-routes.ts";
@@ -56,6 +57,9 @@ export interface ApiServerOptions {
   /** Local accounts (password login). Without it only the owner token logs in. */
   users?: UserDirectory;
   accounts?: AccountStore;
+  webauthnOrigin?: string;
+  sharedLoginChallenges?: LoginChallenges; sharedWebauthnChallenges?: Map<string, PendingWebAuthn>;
+  bootstrapConsumed?: () => void;
   resolveBootstrap?: () => Promise<CorePerson | null>;
   /** Where personal API tokens live. The in-memory default forgets them at a restart; the standalone entry supplies the durable adapter. */
   tokens?: TokenStore;
@@ -135,7 +139,8 @@ interface Resolved { principal: Principal; rbac: RbacPrincipal; version: number 
 export function createApiServer(o: ApiServerOptions): ApiServer {
   const transport=remoteListenerPolicy(o.host??"127.0.0.1",!!o.tls,o.remote);
   const bindHost = transport.host;
-  const verifyOwner = ownerTokenVerifier(o.ownerToken);
+  const originalOwnerVerifier = ownerTokenVerifier(o.ownerToken);
+  const verifyOwner = (candidate: unknown) => !o.accounts?.hasOwnerAccount() && originalOwnerVerifier(candidate);
   if ((o.tls && !(o.tls.key && o.tls.cert))) throw new Error("tls needs both key and cert");
   const tls = transport.secure;
   const clock = o.clock ?? systemClock;
@@ -155,14 +160,14 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   const login = o.users ? new PasswordLogin({ users: o.users, clock, ...(o.lockout ? { policy: o.lockout } : {}) }) : undefined;
   const tokens = new TokenService({ store: o.tokens ?? new MemoryTokenStore(), clock });
   const totp = new TotpService({ store: o.totp ?? new MemoryTotpStore(), clock, issuer: o.totpIssuer ?? "PLUR1BUS Harness" });
-  const challenges = new LoginChallenges(clock);
+  const challenges = o.sharedLoginChallenges ?? new LoginChallenges(clock);
   const notices = new NoticeInbox(clock);
   const noSink: AuditSink = { append() { throw new Error("no audit sink configured"); } };
   const breakGlass = createBreakGlass({ audit: o.breakGlassAudit ?? o.audit ?? noSink, clock: () => clock.now(), host: "api", notify: (n) => { notices.add(n); o.notifyBreakGlass?.(n); } });
   const events = createEventsRoute({ core: o.core, sessions, initTimeoutMs: limits.handlerTimeoutMs, now: () => clock.now() });
   const perRequest = requestCore(o.core);
-  const handlerDeps = { core: { ...perRequest.core, ...(o.core.callAs ? { callAs: o.core.callAs.bind(o.core) } : {}) }, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, breakGlass, notices, audit, resolveBootstrap: o.resolveBootstrap,requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor) };
-  const handlers = { ...buildHandlers(handlerDeps), ...buildAccountHandlers(handlerDeps, o.accounts, o.core),...buildRemoteHandlers({core:o.core,home:o.home,audit:o.breakGlassAudit??o.audit,now:()=>clock.now(),certificates:o.remoteCertificates}),...buildRemotePairingHandlers(o.remotePairing) };
+  const handlerDeps = { core: { ...perRequest.core, ...(o.core.callAs ? { callAs: o.core.callAs.bind(o.core) } : {}) }, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, breakGlass, notices, audit, resolveBootstrap: o.resolveBootstrap, requireSecondFactor:(role:string)=>secondFactorRequired(role,!!o.remote,o.requireSecondFactor), hasPasskeys: (id: string) => !!o.accounts?.passkeysFor(id).length };
+  const handlers = { ...buildHandlers(handlerDeps), ...buildAccountHandlers(handlerDeps, o.accounts, o.core, o.bootstrapConsumed),...buildWebAuthnHandlers(handlerDeps, o.accounts, (requestOrigin?: string) => o.remote?.publicOrigin ?? o.webauthnOrigin ?? requestOrigin ?? [...allowedOrigins][0]!, o.sharedWebauthnChallenges),...buildRemoteHandlers({core:o.core,home:o.home,audit:o.breakGlassAudit??o.audit,now:()=>clock.now(),certificates:o.remoteCertificates}),...buildRemotePairingHandlers(o.remotePairing) };
   if (o.webRoot !== undefined && !statSync(o.webRoot, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`webRoot ${JSON.stringify(o.webRoot)} is not a directory`);
   const staticFiles = o.webRoot !== undefined ? createStaticServer(o.webRoot) : undefined;
   const cookieName = tls ? COOKIE_NAME_TLS : COOKIE_NAME;
@@ -384,7 +389,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       const leaf=Buffer.isBuffer(candidate)?candidate:undefined;
       const remoteTransport={tls:!!leaf,origin:o.remote?.publicOrigin??"",...(leaf?{servedFingerprint:certPin(leaf)}:{}),...(o.remote?.publish==="tailnet"?{trustedGateway:true}:{})};
       const out = await Promise.race([
-        Promise.resolve(resolved ? perRequest.run(webPrincipal(resolved.rbac, resolved.principal.kind === "owner"), () => handler({ remoteTransport,pathParams, query:new URL(target,"http://localhost").searchParams,headers:req.headers, principal: resolved?.principal, session, sessionId, body, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined, ip, via, token: tokenInfo }), session ? webConnection(session) : tokenInfo ? `token:${tokenInfo.id}` : undefined) : handler({ remoteTransport,pathParams,query:new URL(target,"http://localhost").searchParams,headers:req.headers, principal: undefined, session, sessionId, body, rbac: undefined, presentedSessionId: presented, ip, via, token: tokenInfo })),
+        Promise.resolve(resolved ? perRequest.run(webPrincipal(resolved.rbac, resolved.principal.kind === "owner"), () => handler({ remoteTransport,pathParams, query:new URL(target,"http://localhost").searchParams,headers:req.headers, principal: resolved?.principal, session, sessionId, body, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined, ip, origin: typeof req.headers.origin === "string" ? req.headers.origin : undefined, via, token: tokenInfo }), session ? webConnection(session) : tokenInfo ? `token:${tokenInfo.id}` : undefined) : handler({ remoteTransport,pathParams,query:new URL(target,"http://localhost").searchParams,headers:req.headers, principal: undefined, session, sessionId, body, rbac: undefined, presentedSessionId: presented, ip, origin: typeof req.headers.origin === "string" ? req.headers.origin : undefined, via, token: tokenInfo })),
         new Promise<import("./routes.ts").HandlerOutput>((resolveTimeout, rej) => {
           timer = setTimeout(() => spec.id === "web.rpc"
             ? resolveTimeout({ body: rpcFailure((body as { id?: unknown })?.id ?? null, { error: "E_NOT_AVAILABLE", reason: "handler-timeout" }) })

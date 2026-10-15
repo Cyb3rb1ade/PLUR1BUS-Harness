@@ -53,6 +53,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Betriebshandbuch"
   },
   {
+    "slug": "passkeys",
+    "title": "Dein Konto und Passkeys"
+  },
+  {
     "slug": "posteingang",
     "title": "Posteingang"
   },
@@ -97,6 +101,7 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "media": return import("./de/media.ts").then(m => m.doc);
     case "mediensuche": return import("./de/mediensuche.ts").then(m => m.doc);
     case "operations": return import("./de/operations.ts").then(m => m.doc);
+    case "passkeys": return import("./de/passkeys.ts").then(m => m.doc);
     case "posteingang": return import("./de/posteingang.ts").then(m => m.doc);
     case "projekte": return import("./de/projekte.ts").then(m => m.doc);
     case "providers": return import("./de/providers.ts").then(m => m.doc);

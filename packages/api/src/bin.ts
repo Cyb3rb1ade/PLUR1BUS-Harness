@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import { LoginChallenges } from "./challenge.ts";
+import type { PendingWebAuthn } from "./webauthn-routes.ts";
+import { ensureBootstrap } from "./bootstrap.ts";
 // Standalone entry of the Harness API (`dist/api.js`): loopback only, a peer client of the core. Wiring it under the
 // supervisor (a module manifest, `daemon start`) and the config keys for host/port are later slices.
 import { AccountStore, type CorePerson } from "./account-store.ts";
@@ -40,7 +43,9 @@ async function main(): Promise<void> {
   const audit = createBufferedSink(chain, { log: logger });
   const resolve = async (userId: string) => (await core.serviceCall!<{ person: CorePerson | null }>("admin.api.person.resolve", { userId })).person;
   const accounts = new AccountStore({ path: join(home, "state", "api", "accounts.db"), resolve });
-  const startup = loadRemoteStartup(home), sharedSessions = new SessionStore(systemClock);
+  const cleanBootstrap = ensureBootstrap(home, accounts, process.env.PLUR1BUS_OWNER_INSTALLED === "1");
+  if (!accounts.bootstrapState()?.consumed) logger.info("Owner bootstrap proof: [REDACTED]; read the private run/api-bootstrap.token file locally");
+  const startup = loadRemoteStartup(home), sharedSessions = new SessionStore(systemClock), sharedLoginChallenges = new LoginChallenges(systemClock), sharedWebauthnChallenges = new Map<string, PendingWebAuthn>();
   const name = startup.publicOrigin ? new URL(startup.publicOrigin).hostname.replace(/^\[|\]$/g, "") : hostname();
   const certificates = new RemoteCertificates({ home, names: isIP(name) ? { hostnames: [], ips: [name] } : { hostnames: [name] } });
   let remote: RemoteRuntime | undefined;
@@ -52,7 +57,7 @@ async function main(): Promise<void> {
     stage: async () => { if (startup.config.publish !== "network") throw new Error("Tailscale owns its certificate; local TLS rollover is network-only"); const staged = certificates.staged(); if (!staged && startup.config.tls === "company-ca") throw new Error("Upload the next company certificate before staging rollover"); const next = staged ?? await certificates.stageSelfSigned(); return { certPin: next.certPin, ...(next.caPin ? { caPin: next.caPin } : {}) }; },
     activate: async () => { if (!remote) throw new Error("remote runtime unavailable"); await remote.activateStaged(); }, cancelStage: async () => { certificates.cancelStaged(); },
   });
-  const common = { core, home, remotePairing, accounts, users: accounts, tokens: accounts.tokens, totp: accounts.totp, resolveBootstrap: () => resolve("local-owner"), ownerToken: ensureOwnerToken(home), logger, audit, breakGlassAudit: chain, sharedSessions, requireSecondFactor: startup.requireSecondFactor,
+  const common = { core, home, bootstrapConsumed: cleanBootstrap, remotePairing, accounts, users: accounts, tokens: accounts.tokens, totp: accounts.totp, resolveBootstrap: () => resolve("local-owner"), ownerToken: ensureOwnerToken(home), logger, audit, breakGlassAudit: chain, sharedSessions, sharedLoginChallenges, sharedWebauthnChallenges, requireSecondFactor: startup.requireSecondFactor,
     remoteCertificates: { importCompany: async (certPem: string, keyPem: string) => { const current = certificates.hasCurrent(), staged = await certificates.stageCompany({ certChainPem: certPem, keyPem }); if (!current) certificates.activateStaged(); return { certPin: staged.certPin, staged: current }; } },
     ...(arg("--web-root") ? { webRoot: arg("--web-root")! } : {}) };
   const api = createApiServer({ ...common, port, ...(arg("--host") ? { host: arg("--host")! } : {}) }), apis = new Set([api]);
