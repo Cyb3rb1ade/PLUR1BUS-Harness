@@ -22,7 +22,7 @@ function depsFor(d: AdapterDeps, wants: readonly HostDep[], extra: Record<string
 // at this file: the packages' option types are not importable from the core's types.
 export const DEFAULT_BINDINGS: readonly ChannelBinding[] = [
   { id: "buzz", manifest: manifest("buzz", "Buzz / Nostr", ["direct"]), async load() {
-    const m = await import("../../../channels-buzz/src/index.ts");
+    const m = await import("@plur1bus/channels-buzz");
     return ((c, d) => m.createBuzzChannel(c as never, depsFor(d, ["secrets", "pairing", "logger", "now"], { seen: new m.FileSeenStore(d.stateDir) }) as never)) as Create;
   } },
   {
@@ -42,7 +42,7 @@ export const DEFAULT_BINDINGS: readonly ChannelBinding[] = [
   {
     id: "matrix", manifest: manifest("matrix", "Matrix", ["direct", "group"]),
     async load() {
-      const m = await import("../../../channels-matrix/src/index.ts");
+      const m = await import("@plur1bus/channels-matrix");
       return ((c, d) => m.createMatrixChannel(c as never, depsFor(d, ["secrets", "pairing", "outputs", "logger", "now"], { syncStore: new m.FileSyncTokenStore(d.stateDir) }) as never)) as Create;
     },
   },
