@@ -1,6 +1,6 @@
 //! `plur1bus logs query|tail`: Owner/Admin views over `logs.query` / `logs.tail`.
-//! `--json` prints the RPC page. `--trace` is matched via the existing `text` filter (the
-//! redacted record carries `trace_id`). Invalid params are `E_INVALID_PARAMS` (exit 2);
+//! `--json` prints the RPC page. `--trace` is sent as `traceId` (exact match on
+//! `record.trace_id`). Invalid params are `E_INVALID_PARAMS` (exit 2);
 //! a signal while following is exit 130.
 use super::surfaces::{call, emit};
 use crate::output::{Out, EXIT_INTERRUPTED};
@@ -24,7 +24,7 @@ pub enum LogsCmd {
         /// File role, source.id or source.kind
         #[arg(long)]
         component: Option<String>,
-        /// 32-hex trace id (matched as text against the redacted record)
+        /// 32-hex trace id (exact match on the record's trace_id)
         #[arg(long)]
         trace: Option<String>,
         /// Inclusive lower bound
@@ -46,7 +46,7 @@ pub enum LogsCmd {
         /// File role, source.id or source.kind
         #[arg(long)]
         component: Option<String>,
-        /// 32-hex trace id (matched as text against the redacted record)
+        /// 32-hex trace id (exact match on the record's trace_id)
         #[arg(long)]
         trace: Option<String>,
         /// Keep polling until interrupted
@@ -107,31 +107,67 @@ fn filters(cmd: &LogsCmd) -> Filters {
     }
 }
 
+/// Same rules as TS `bound()`: `YYYY-MM-DDTHH:MM:SS[.d{1,3}]Z` and a real calendar time.
 fn is_rfc3339(s: &str) -> bool {
     let b = s.as_bytes();
-    if b.len() != 20 && b.len() != 24 {
+    if !b.ends_with(b"Z") || b.len() < 20 {
         return false;
     }
-    let (date, rest) = b.split_at(10);
-    date.len() == 10
-        && date[4] == b'-'
-        && date[7] == b'-'
-        && date.iter().enumerate().all(|(i, c)| {
-            if i == 4 || i == 7 {
-                true
-            } else {
-                c.is_ascii_digit()
-            }
-        })
-        && rest[0] == b'T'
-        && rest[3] == b':'
-        && rest[6] == b':'
-        && rest.ends_with(b"Z")
-        && rest[1..3].iter().all(u8::is_ascii_digit)
-        && rest[4..6].iter().all(u8::is_ascii_digit)
-        && rest[7..9].iter().all(u8::is_ascii_digit)
-        && (rest.len() == 10
-            || (rest.len() == 14 && rest[9] == b'.' && rest[10..13].iter().all(u8::is_ascii_digit)))
+    let body = &b[..b.len() - 1];
+    if body.len() < 19 || body[10] != b'T' {
+        return false;
+    }
+    let date = &body[..10];
+    let time = &body[11..];
+    if date[4] != b'-' || date[7] != b'-' || time.len() < 8 || time[2] != b':' || time[5] != b':' {
+        return false;
+    }
+    if !date[..4].iter().all(u8::is_ascii_digit)
+        || !date[5..7].iter().all(u8::is_ascii_digit)
+        || !date[8..].iter().all(u8::is_ascii_digit)
+        || !time[..2].iter().all(u8::is_ascii_digit)
+        || !time[3..5].iter().all(u8::is_ascii_digit)
+        || !time[6..8].iter().all(u8::is_ascii_digit)
+    {
+        return false;
+    }
+    if time.len() > 8 {
+        if time[8] != b'.' {
+            return false;
+        }
+        let frac = &time[9..];
+        if frac.is_empty() || frac.len() > 3 || !frac.iter().all(u8::is_ascii_digit) {
+            return false;
+        }
+    }
+    let year = atoi(&date[..4]);
+    let month = atoi(&date[5..7]);
+    let day = atoi(&date[8..]);
+    let hour = atoi(&time[..2]);
+    let minute = atoi(&time[3..5]);
+    let second = atoi(&time[6..8]);
+    hour <= 23
+        && minute <= 59
+        && second <= 59
+        && (1..=12).contains(&month)
+        && day >= 1
+        && day <= days_in_month(year, month)
+}
+
+fn atoi(digits: &[u8]) -> u32 {
+    digits.iter().fold(0, |n, c| n * 10 + u32::from(c - b'0'))
+}
+
+fn days_in_month(year: u32, month: u32) -> u32 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400)) => {
+            29
+        }
+        2 => 28,
+        _ => 0,
+    }
 }
 
 fn is_trace_id(s: &str) -> bool {
@@ -172,7 +208,7 @@ pub fn request(cmd: &LogsCmd) -> Result<(&'static str, Value), String> {
         p["component"] = json!(c);
     }
     if let Some(t) = f.trace {
-        p["text"] = json!(t);
+        p["traceId"] = json!(t);
     }
     if let Some(s) = f.from {
         p["from"] = json!(s);
@@ -312,7 +348,7 @@ mod tests {
                     "limit": 7,
                     "minLevel": "warn",
                     "component": "core",
-                    "text": "4bf92f3577b34da6a3ce929d0e0e4736",
+                    "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
                     "from": "2026-10-07T09:00:00.000Z",
                     "to": "2026-10-07T10:00:00Z",
                     "stream": "diagnostic"
@@ -339,6 +375,21 @@ mod tests {
         assert!(request(&parse(&["logs", "query", "--trace", "zzzz"])).is_err());
         assert!(request(&parse(&["logs", "query", "--trace", &"0".repeat(32)])).is_err());
         assert!(request(&parse(&["logs", "query", "--from", "yesterday"])).is_err());
+        assert!(request(&parse(&["logs", "query", "--from", "2026-02-30T00:00:00Z"])).is_err());
+        assert!(request(&parse(&[
+            "logs",
+            "query",
+            "--from",
+            "2026-10-07T09:00:00.0Z"
+        ]))
+        .is_ok());
+        assert!(request(&parse(&[
+            "logs",
+            "query",
+            "--from",
+            "2026-10-07T09:00:00.00Z"
+        ]))
+        .is_ok());
         assert_eq!(exit_code_for("E_INVALID_PARAMS"), 2);
     }
 

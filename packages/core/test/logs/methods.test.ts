@@ -47,6 +47,13 @@ describe("logs.query handler", () => {
     const r: any = await createLogsMethods({ dir: d })["logs.query"]!({ from: "2026-10-07T09:00:00Z", to: "2026-10-07T09:00:01Z" }, ctx());
     assert.deepEqual(msgs(r), ["in"]);
   });
+  it("traceId matches only that trace", async () => {
+    const d = logsDir();
+    const tid = "4bf92f3577b34da6a3ce929d0e0e4736";
+    put(d, "core.log", rec(0, "info", "hit", { trace_id: tid }) + rec(10, "info", `mentions ${tid}`));
+    const r: any = await createLogsMethods({ dir: d })["logs.query"]!({ traceId: tid }, ctx());
+    assert.deepEqual(msgs(r), ["hit"]);
+  });
 });
 
 describe("logs.tail handler", () => {
@@ -176,6 +183,11 @@ describe("logs.levels handler", () => {
     const models = rows(dir).filter((r) => r.event === "provider.request.completed").map((r) => r.attrs.model);
     assert.deepEqual(models, ["kept"]);
     w.close();
+  });
+
+  it("without a writer, live level writes fail closed", async () => {
+    const h = createLogsMethods({ dir: logsDir() });
+    assert.deepEqual(await code(h["logs.levels"]!({ defaultLevel: "debug" }, ctx())), { error: "E_NOT_AVAILABLE" });
   });
 
   it("refuses an invalid source key, a trace without expiry, and a malformed traceUntil", async () => {

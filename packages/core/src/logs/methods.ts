@@ -45,7 +45,7 @@ function bound(name: string, v: unknown): string | undefined {
   return iso;
 }
 
-interface Params { stream?: "diagnostic" | "audit"; from?: string; to?: string; minLevel?: LogFilter["minLevel"]; component?: string; text?: string; limit?: number; cursor?: string; order?: Order; waitMs?: number }
+interface Params { stream?: "diagnostic" | "audit"; from?: string; to?: string; minLevel?: LogFilter["minLevel"]; component?: string; text?: string; traceId?: string; limit?: number; cursor?: string; order?: Order; waitMs?: number }
 interface LevelsParams { defaultLevel?: Level; levels?: Record<string, Level>; unset?: string[]; traceUntil?: string | null }
 
 function publicLevels(s: LevelSettings): { defaultLevel: Level; levels: Record<string, Level>; traceUntil: string | null } {
@@ -58,7 +58,7 @@ function filterOf(p: Params): LogFilter {
   if (from !== undefined && to !== undefined && from > to) throw new RpcError("E_INVALID_PARAMS", "from is after to", { reason: "empty-range" });
   // RULING: the audit stream has no level; a level filter on it is refused rather than silently ignored.
   if (stream === "audit" && p.minLevel !== undefined) throw new RpcError("E_INVALID_PARAMS", "the audit stream has no level", { reason: "level-not-applicable" });
-  return { stream, ...(from !== undefined ? { from } : {}), ...(to !== undefined ? { to } : {}), ...(p.minLevel ? { minLevel: p.minLevel } : {}), ...(p.component ? { component: p.component } : {}), ...(p.text ? { text: p.text } : {}) };
+  return { stream, ...(from !== undefined ? { from } : {}), ...(to !== undefined ? { to } : {}), ...(p.minLevel ? { minLevel: p.minLevel } : {}), ...(p.component ? { component: p.component } : {}), ...(p.text ? { text: p.text } : {}), ...(p.traceId ? { traceId: p.traceId } : {}) };
 }
 
 export function createLogsMethods(d: LogsDeps): Record<string, Handler> {
