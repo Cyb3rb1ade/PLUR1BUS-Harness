@@ -56,3 +56,21 @@ request path/query/header data and validated WebAuthn Origin. Regenerated API do
 RPC generated sources; merged API suite: 734 total, 724 passed, zero failed, six skipped,
 four existing todos. Root TypeScript check passed. Logs: `/tmp/m3-p3-p1-api-final.log`,
 `/tmp/m3-p3-p1-tsc-final.log`. Phase 2 predecessor merge remains pending.
+
+Phase 2 prerequisite normal merge retains the real network/Tailscale listener policy,
+shared sessions, per-request MFA and audited certificate/device trust workflows.
+Bootstrap initialization runs once before both listeners; consumed Owner-token login
+remains disabled. Login and passkey ceremony stores are shared, but an assertion must
+consume a challenge from the same configured Origin realm. Remote WebAuthn always
+uses the configured HTTPS publicOrigin. Oversized private bootstrap files fail before
+reading (128-byte limit).
+
+Merged validation: root lint/build/typecheck and 99 tooling checks passed; whole API
+782 tests, 771 passed, zero failed, six skipped and five known todos. A subsequent
+additional actual HTTPS passkey test passed: consumed bootstrap token refusal,
+local-origin challenge refusal at the remote listener, mandatory UV assertion satisfying
+Owner remote MFA, secure cookie and single-use replay refusal. Chrome virtual-authenticator
+bootstrap/enrollment/login plus login hardening: ten passed, zero failed, one physical
+hardware acceptance todo. Fresh TypeScript check passed. Logs:
+`/tmp/m3-p3-p2-lint.log`, `/tmp/m3-p3-p2-api.log`, `/tmp/m3-p3-p2-passkey-tls.log`,
+`/tmp/m3-p3-p2-browser.log`, `/tmp/m3-p3-p2-tsc-final.log`.

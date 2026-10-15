@@ -56,7 +56,7 @@ export function createCoreLink(home: string, o: CoreLinkOptions = {}): CoreRpc &
   return {
     subscribePeople(listener: (id: string) => void) { peopleListeners.add(listener); void getService().catch(() => {}); return () => { peopleListeners.delete(listener); }; },
     async serviceCall<T>(method: string, params: object = {}) {
-      if (!new Set(["admin.api.person.resolve", "admin.api.invite.validate", "user.invite.redeem"]).has(method)) throw new Error("API service operation refused");
+      if (!new Set(["admin.api.person.resolve", "admin.api.invite.validate", "user.invite.redeem", "admin.api.device.pair", "admin.api.device.challenge", "admin.api.device.prove", "admin.api.device.announce"]).has(method)) throw new Error("API service operation refused");
       return (await getService()).call<T>(method, params);
     },
     callAs: delegated.callAs, subscribeAs: delegated.subscribeAs,

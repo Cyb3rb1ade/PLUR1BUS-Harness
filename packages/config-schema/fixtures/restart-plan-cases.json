@@ -20,7 +20,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -125,6 +130,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -457,7 +463,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -562,6 +573,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -907,7 +919,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -1012,6 +1029,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -1344,7 +1362,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -1451,6 +1474,7 @@
       },
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -1796,7 +1820,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -1901,6 +1930,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -2233,7 +2263,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -2342,6 +2377,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -2689,7 +2725,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -2798,6 +2839,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -3130,7 +3172,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -3235,6 +3282,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -3582,7 +3630,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -3691,6 +3744,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -4023,7 +4077,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -4132,6 +4191,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -4481,7 +4541,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -4586,6 +4651,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -4918,7 +4984,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -5027,6 +5098,7 @@
         }
       },
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -5374,7 +5446,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -5479,6 +5556,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -5811,7 +5889,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -5916,6 +5999,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -6264,7 +6348,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -6369,6 +6458,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -6706,7 +6796,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -6811,6 +6906,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -7163,7 +7259,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -7268,6 +7369,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,
@@ -7600,7 +7702,12 @@
         }
       },
       "remote": {
-        "publish": "tailnet"
+        "publish": "tailnet",
+        "tls": "self-signed",
+        "bind": {
+          "allowPublicInterface": false
+        },
+        "allowSubnets": []
       },
       "activity": {
         "maxEntries": 1000
@@ -7705,6 +7812,7 @@
       "engine": {},
       "providers": {},
       "auth": {
+        "requireSecondFactor": "remote",
         "openai": {
           "loopbackTimeoutMs": 600000,
           "httpTimeoutMs": 30000,

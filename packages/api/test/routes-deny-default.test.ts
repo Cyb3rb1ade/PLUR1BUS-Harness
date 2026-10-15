@@ -5,7 +5,7 @@ import { RPC_RULES } from "../../core/src/rbac/guard.ts";
 import { authorize, policyFor } from "../src/rbac-bridge.ts";
 import { start, fakeCore, addUser, raw, jsonHeaders, loginAs, write } from "./helpers.ts";
 const wide = { auth: { capacity: 10000, refillPerSec: 1000 }, read: { capacity: 10000, refillPerSec: 1000 }, write: { capacity: 10000, refillPerSec: 1000 }, stream: { capacity: 10000, refillPerSec: 1000 } };
-const publicIds = new Set(["invitation.redeem", "session.create", "session.totp", "account.bootstrap", "passkeys.login.options", "passkeys.login"]);
+const publicIds = new Set(["invitation.redeem", "session.create", "session.totp", "account.bootstrap", "passkeys.login.options", "passkeys.login", "remote.pair-proof", "remote.device.pair"]);
 const selfIds = new Set(["csrf.issue", "session.delete", "sessions.revoke-all", "whoami"]);
 const path = (value: string) => value.replace("{agentId}", "main").replace("{sessionId}", "deny-contract");
 const body = (id: string) => id === "chats.create" ? { agentId: "main" } : id === "chats.submit" ? { text: "Deny contract" } : {};
@@ -48,6 +48,19 @@ test("chat:read personal token cannot write; a full-scope token cannot exceed a 
   h.users.change("token-deny", { role: "viewer" });
   for (const r of ROUTES.filter(r => r.id.startsWith("chats.") && ["chat:write", "chat:delete"].includes(typeof r.authz === "object" ? r.authz.action : ""))) {
     const response = await raw(h, { method: r.method, path: path(r.path), headers: { authorization: `Bearer ${full}`, ...jsonHeaders() }, body: JSON.stringify(body(r.id)) }); assert.equal(response.status, 403, `${r.id} token cannot exceed live Viewer role`);
+  }
+  assert.equal(h.core.calls.length, 0);
+});
+
+test("remote pairing authority and trust acknowledgement cannot be exercised with personal tokens", async t => {
+  const h = await start({ rateClasses: wide }); t.after(() => h.close());
+  await addUser(h, { id: "remote-token", username: "remotetoken", role: "admin" });
+  const { cookie } = await loginAs(h, "remotetoken");
+  const issued = await write(h, cookie, { path: "/api/v1/tokens", body: { name: "Remote probe", scopes: ["device.*", "remote.*", "admin.*", "settings.*"] } });
+  assert.equal(issued.status, 201);
+  for (const r of ROUTES.filter(r => r.id.startsWith("remote.") && r.auth !== "none")) {
+    const response = await raw(h, { method: r.method, path: r.path, headers: { authorization: `Bearer ${issued.json.token}`, ...(r.requestBody ? jsonHeaders() : {}) }, ...(r.requestBody ? { body: JSON.stringify(body(r.id)) } : {}) });
+    assert.ok([401, 403].includes(response.status), `${r.id}: personal token reached remote controller (${response.status})`);
   }
   assert.equal(h.core.calls.length, 0);
 });

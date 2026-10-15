@@ -1,3 +1,4 @@
+import { REMOTE_PAIRING_BOOTSTRAP_IDS } from "../src/remote-pairing-routes.ts";
 // Red-team regression tests for docs/security/http-api-review-2026-10.md. Every test names the finding (F<n>) or the
 // non-finding (OK-<n>) it pins. In-process server, fake core, fake clock; real timers only where Node's own socket
 // timeouts are the thing under test (short limits, event-driven waits, no sleeps).
@@ -161,11 +162,11 @@ test("OK-7: the route table is deny-by-default and only explicit status, agent a
         if (r.auth !== "none") assert.equal(res.status, 401, `${r.id} anonymous`); else assert.notEqual(res.status, 200);
       }
     }
-    assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id), ["invitation.redeem", "account.bootstrap", "passkeys.login.options", "passkeys.login", "session.create", "session.totp"]);
+    assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id).sort(), [...REMOTE_PAIRING_BOOTSTRAP_IDS, "invitation.redeem", "account.bootstrap", "passkeys.login.options", "passkeys.login", "session.create", "session.totp"].sort());
     assert.ok(ROUTES.filter((r) => r.method !== "GET" && r.auth !== "none").every((r) => r.csrf), "every authenticated write needs CSRF");
     for (const r of ROUTES) if (r.auth !== "none" && r.method === "GET") await raw(h, { path: r.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), headers: { cookie } });
     const called = new Set(h.core.calls.map((c) => c.method));
-    assert.deepEqual([...called].sort(), ["agent.list", "chat.events", "chat.get", "chat.list", "core.status"]);
+    assert.deepEqual([...called].sort(), ["agent.list", "chat.events", "chat.get", "chat.list", "config.get", "core.status"]);
     for (const p of ["/api/v1/admin/migrate", "/api/v1/admin.migrate", "/api/v1/rpc", "/api/v1/admin/reembed/run", "/api/v1/users", "/api/v1/identity", "/api/v1/secrets"]) {
       const t = await csrfToken(h, cookie);
       for (const method of ["GET", "POST", "DELETE", "PUT", "PATCH"]) assert.equal((await raw(h, { method, path: p, headers: { cookie, "x-csrf-token": t, ...jsonHeaders() } })).status, 404, `${method} ${p}`);

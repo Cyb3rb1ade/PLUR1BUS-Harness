@@ -1,6 +1,6 @@
 import test, { type TestContext } from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AccountStore } from "../src/account-store.ts";
@@ -27,4 +27,11 @@ test("expired unconsumed startup proof rotates on local restart, never validates
 test("bootstrap refuses a symlink or group-readable proof", { skip: process.platform === "win32" }, t => {
   const r = rig(t); ensureBootstrap(r.home, r.accounts); chmodSync(r.file, 0o644); assert.throws(() => ensureBootstrap(r.home, r.accounts), /untrusted bootstrap file/);
   rmSync(r.file); symlinkSync(join(r.home, "state", "accounts.db"), r.file); assert.throws(() => ensureBootstrap(r.home, r.accounts), /untrusted bootstrap file/);
+});
+
+test("oversized private bootstrap state fails closed before reading or replacing the proof", t => {
+  const r = rig(t); ensureBootstrap(r.home, r.accounts);
+  writeFileSync(r.file, "x".repeat(1024));
+  assert.throws(() => ensureBootstrap(r.home, r.accounts), /untrusted bootstrap file/);
+  assert.equal(statSync(r.file).size, 1024); assert.equal(r.accounts.bootstrapState()?.consumed, false);
 });

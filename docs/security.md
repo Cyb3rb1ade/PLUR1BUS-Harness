@@ -151,3 +151,15 @@ All five keys declare `x-write-roles: [owner, admin]` and `x-audit: true`. These
 | Credential mutation leaves old authority usable | Registration/rename/revoke transaction bumps account session version; counters use compare-and-swap | `account-store.test.ts`, browser enrollment/session expiry |
 
 No private passkey material or attestation certificate chain is persisted. Credential identifiers, COSE public keys and counters are stored with account/key names. Attestation is `none` or packed self attestation; hardware provenance is not claimed. The accepted same-OS-user boundary is unchanged. OIDC remains deferred until after M3.
+## M3 remote listener enforcement
+
+| Attack | Enforcement | Named verification |
+|---|---|---|
+| Expose HTTP on a non-loopback address | Network requires TLS plus current notice acknowledgement; tailnet backend binds loopback only | `remote-policy.test.ts` |
+| Reuse a local password-only Owner/Admin cookie remotely | Remote factor gate checks each request; tokens carry no factor proof | `remote-policy.test.ts` |
+| Enable network without reviewing the notice or forge its actor | Closed REST body, authenticated actor/time, audit and supervisor revision CAS | `remote-config.test.ts` |
+| Spoof a proxy client address/Host/Origin | No forwarded-header trust; exact configured remote origin; socket CIDR gate | Remote policy/runtime tests |
+| Steal a typed pairing code with a changed certificate | Nonce-only proof before disclosure; client compares MAC with actual leaf/origin; one-use receipt and code | Remote pairing HTTP/TLS tests |
+| Switch certificate before devices learn the new trust | Durable staged announcement, registered-key acknowledgements, missed-device repair | Remote pairing rollover tests |
+
+Pair-proof and code redemption are reviewed bootstrap exceptions to cookie authentication: a device cannot already have a paired identity. They are closed without an Owner-opened ephemeral code, bounded and rate limited, and never mint a password session. The MAC is not an authority to accept arbitrary TLS: the client must compare its own certificate and configured origin. No remote change strengthens the accepted same-OS-user boundary.

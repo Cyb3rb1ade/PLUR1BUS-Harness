@@ -12,7 +12,7 @@ export function ensureBootstrap(home: string, accounts: AccountStore, installed 
   if (accounts.bootstrapState()?.consumed || accounts.hasOwnerAccount() || installed) { accounts.initializeBootstrap(null, true); clean(); return clean; }
   let value: string;
   try {
-    const st = lstatSync(file); if (!st.isFile() || process.platform !== "win32" && (st.mode & 0o077 || typeof process.geteuid === "function" && st.uid !== process.geteuid())) throw new Error("untrusted bootstrap file");
+    const st = lstatSync(file); if (!st.isFile() || st.size > 128 || process.platform !== "win32" && (st.mode & 0o077 || typeof process.geteuid === "function" && st.uid !== process.geteuid())) throw new Error("untrusted bootstrap file");
     value = readFileSync(file, "utf8").trim(); if (!/^[A-Za-z0-9_-]{43}$/.test(value)) throw new Error("invalid bootstrap file");
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;

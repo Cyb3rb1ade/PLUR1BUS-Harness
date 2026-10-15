@@ -13,9 +13,8 @@ const specs = [
   ["passkeys.login.options", "POST", "/session/passkey/options", false], ["passkeys.login", "POST", "/session/passkey", false],
 ] as const;
 export const WEBAUTHN_ROUTES: readonly RouteSpec[] = specs.map(([id, method, path, write]) => ({ id, method, path: "/api/v1" + path, summary: id, tag: "passkeys", auth: id.includes("login") ? "none" : "session", authz: id.includes("login") ? "public" : { action: write ? "my.write" : "my.read", resource: "self" }, csrf: write, rate: id.includes("login") ? "auth" : write ? "write" : "read", stability: "experimental", since: "1.0.0", ...(method === "POST" ? { requestBody: { type: "object", additionalProperties: false, properties: Object.fromEntries(fields[id]!.map(k => [k, { type: "string", maxLength: 24000 }])) } } : {}), successStatus: 200, success: { description: id, schema: { type: "object", additionalProperties: true } } }));
-export function buildWebAuthnHandlers(d: HandlerDeps, accounts: AccountStore | undefined, origin: (requestOrigin?: string) => string): Record<string, Handler> {
-  type Pending = WebAuthnContext & { userId: string; version: number; expires: number; registration: boolean };
-  const pending = new Map<string, Pending>();
+export type PendingWebAuthn = WebAuthnContext & { userId: string; version: number; expires: number; registration: boolean };
+export function buildWebAuthnHandlers(d: HandlerDeps, accounts: AccountStore | undefined, origin: (requestOrigin?: string) => string, pending = new Map<string, PendingWebAuthn>()): Record<string, Handler> {
   const needStore = () => { if (!accounts || !d.users) throw new ApiError(503, "E_NOT_AVAILABLE", "passkeys unavailable"); return accounts; };
   const issue = (userId: string, version: number, registration: boolean, requestOrigin?: string) => {
     for (const [key, value] of pending) if (value.expires <= d.clock.now()) pending.delete(key);
@@ -25,10 +24,10 @@ export function buildWebAuthnHandlers(d: HandlerDeps, accounts: AccountStore | u
     const entry = { challenge, origin: configured.origin, rpId: configured.hostname, userId, version, expires: d.clock.now() + 300000, registration }; pending.set(challenge, entry); return entry;
   };
   const body = (input: unknown): Record<string, unknown> => { if (!input || typeof input !== "object" || Array.isArray(input)) throw errors.badRequest("body", "invalid passkey request"); return input as Record<string, unknown>; };
-  const take = (b: Record<string, unknown>, registration: boolean): Pending => {
+  const take = (b: Record<string, unknown>, registration: boolean, requestOrigin?: string): PendingWebAuthn => {
     const p = typeof b.challenge === "string" ? pending.get(b.challenge) : undefined;
     if (typeof b.challenge === "string") pending.delete(b.challenge);
-    if (!p || p.registration !== registration || p.expires <= d.clock.now()) throw errors.unauthenticated("webauthn-challenge"); return p;
+    if (!p || p.registration !== registration || p.expires <= d.clock.now() || p.origin !== new URL(origin(requestOrigin)).origin) throw errors.unauthenticated("webauthn-challenge"); return p;
   };
   const user = async (id: string) => { const u = await d.users?.findById(id); if (!u || u.disabled) throw errors.unauthenticated("invalid-credentials"); return u; };
   const handlers: Record<string, Handler> = {
@@ -38,7 +37,7 @@ export function buildWebAuthnHandlers(d: HandlerDeps, accounts: AccountStore | u
       return { body: { challenge: p.challenge, rp: { id: p.rpId, name: "PLUR1BUS" }, user: { id: Buffer.from(u.id).toString("base64url"), name: u.username, displayName: u.username }, pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -8 }], timeout: 300000, attestation: "none", authenticatorSelection: { residentKey: "required", requireResidentKey: true, userVerification: "required" }, excludeCredentials: store.passkeysFor(u.id).map(k => ({ type: "public-key", id: k.id })) } };
     },
     "passkeys.register": async i => {
-      const store = needStore(), b = body(i.body), p = take(b, true), u = await user(p.userId);
+      const store = needStore(), b = body(i.body), p = take(b, true, i.origin), u = await user(p.userId);
       if (u.id !== i.principal!.id || u.version !== p.version || typeof b.name !== "string" || !b.name.trim() || b.name.length > 80) throw errors.forbidden("webauthn-binding");
       const key = registerCredential(b as unknown as CredentialResponse, p); store.putPasskey(u.id, { ...key, name: b.name.trim() });
       d.audit.emit("auth.passkey.registered", u.id, "account", {}); return { body: { registered: true } };
@@ -56,7 +55,7 @@ export function buildWebAuthnHandlers(d: HandlerDeps, accounts: AccountStore | u
       return { body: { challenge: p.challenge, rpId: p.rpId, timeout: 300000, userVerification: "required" } };
     },
     "passkeys.login": async i => {
-      const b = body(i.body), p = take(b, false), store = needStore(), u = await user(p.userId);
+      const b = body(i.body), p = take(b, false, i.origin), store = needStore(), u = await user(p.userId);
       const key = store.passkeysFor(u.id).find(k => k.id === b.id); if (!key || u.version !== p.version) throw errors.unauthenticated("invalid-credentials");
       const count = assertCredential(b as unknown as CredentialResponse, p, key);
       if (!store.advancePasskey(u.id, key.id, key.signCount, count)) throw errors.unauthenticated("webauthn-race");

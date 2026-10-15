@@ -112,6 +112,7 @@ export const POLICY: readonly ActionSpec[] = Object.freeze([
   humanOnly(spec("admin.sessions.write", "system", { owner: A, admin: A, operator: A, member: A })),
   humanOnly(spec("admin.sessions.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A })),
   humanOnly(spec("admin.pairing.read", "system", OA)),
+  humanOnly(spec("remote.device.write", "system", { owner: A, admin: A, operator: A, member: A })),
   // F44: person/token gate; device-surface reads stored ownership for filtering/revoke/rename.
   ...["device.list", "device.revoke", "device.rename"].map(a => humanOnly(spec(a, "system", { owner: A, admin: A, operator: A, member: A, viewer: A }))),
 
