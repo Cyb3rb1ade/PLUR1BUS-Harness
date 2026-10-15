@@ -449,6 +449,8 @@ pub async fn harness_logs_tail(
 }
 
 fn write_target(window: &WebviewWindow, c: &Controller) -> Result<(), String> {
+    #[cfg(not(debug_assertions))]
+    let _ = window;
     let installed = c
         .installed()
         .map_err(|e| e.code())?

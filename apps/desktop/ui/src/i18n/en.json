@@ -346,5 +346,11 @@
   "crash.restart": "Restart",
   "crash.openFailed": "The diagnostics folder could not be opened.",
   "crash.restartFailed": "The app could not restart.",
-  "crash.unclean": "The previous app session did not exit cleanly."
+  "crash.unclean": "The previous app session did not exit cleanly.",
+  "link.title": "Open link",
+  "link.explanation": "Review this external request before continuing.",
+  "link.origin": "Pairing origin",
+  "link.pin": "Certificate fingerprint from the pairing link",
+  "link.unavailable": "Not available in this version",
+  "link.noConnection": "Open the active connection first."
 }

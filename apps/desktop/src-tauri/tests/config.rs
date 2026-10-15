@@ -91,7 +91,9 @@ fn shell_capability_is_local_only() {
             "allow-update-later",
             "allow-update-store-open",
             "allow-harness-upgrade-status",
-            "allow-harness-rollback"
+            "allow-harness-rollback",
+            "allow-deep-link-next",
+            "allow-deep-link-open"
         ])
     );
     assert_eq!(c["webviews"], serde_json::json!(["shell"]));
@@ -138,6 +140,8 @@ fn every_wp4_command_is_registered_guarded_and_no_pin_or_runtime_path_is_an_ipc_
             "update_install",
             "update_skip",
             "update_later",
+            "deep_link_next",
+            "deep_link_open",
             "app_info",
             "settings_get",
             "settings_set",
@@ -172,6 +176,7 @@ fn every_wp4_command_is_registered_guarded_and_no_pin_or_runtime_path_is_an_ipc_
         assert!(
             registration.contains(&format!("commands::{command}"))
                 || registration.contains(&format!("host_commands::{command}"))
+                || registration.contains(&format!("deeplink::{command}"))
         );
         assert!(allowed_command("shell", command));
         assert!(!allowed_command("spa", command));

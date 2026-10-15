@@ -346,5 +346,11 @@
   "crash.restart": "Neu starten",
   "crash.openFailed": "Der Diagnoseordner konnte nicht geöffnet werden.",
   "crash.restartFailed": "Die App konnte nicht neu gestartet werden.",
-  "crash.unclean": "Die vorherige App-Sitzung wurde nicht sauber beendet."
+  "crash.unclean": "Die vorherige App-Sitzung wurde nicht sauber beendet.",
+  "link.title": "Link öffnen",
+  "link.explanation": "Prüfe diese externe Anfrage, bevor du fortfährst.",
+  "link.origin": "Ursprung der Kopplung",
+  "link.pin": "Zertifikats-Fingerabdruck aus dem Kopplungslink",
+  "link.unavailable": "In dieser Version nicht verfügbar",
+  "link.noConnection": "Öffne zuerst die aktive Verbindung."
 }

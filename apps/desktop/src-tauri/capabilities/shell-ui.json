@@ -49,6 +49,8 @@
     "allow-update-later",
     "allow-update-store-open",
     "allow-harness-upgrade-status",
-    "allow-harness-rollback"
+    "allow-harness-rollback",
+    "allow-deep-link-next",
+    "allow-deep-link-open"
   ]
 }

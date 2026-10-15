@@ -52,6 +52,16 @@
     },
     "externalBin": [
       "binaries/plur1bus-host"
+    ],
+    "fileAssociations": [
+      {
+        "ext": [
+          "p1x"
+        ],
+        "name": "PLUR1BUS extension",
+        "role": "Viewer",
+        "mimeType": "application/x-plur1bus-extension"
+      }
     ]
   },
   "plugins": {
@@ -60,6 +70,13 @@
         "installMode": "passive"
       },
       "pubkey": "PLACEHOLDER: selected channel updater key is supplied from Rust"
+    },
+    "deep-link": {
+      "desktop": {
+        "schemes": [
+          "plur1bus"
+        ]
+      }
     }
   }
 }
