@@ -942,6 +942,13 @@ fn step_config(
     let answers = answer_config(o, profile, config["embedding"]["useClass"].as_str(), ask)?;
     let now = crate::commands::agent::rfc3339_now();
     let mut changes = config_changes(&config, &answers, &now);
+    // Unattended setup cannot obtain model/revision-specific human consent. Use the permissive E5 fallback.
+    if o.non_interactive {
+        changes.push((
+            "engine.embedding.local".to_string(),
+            json!({ "model": "intfloat/multilingual-e5-small", "dimensions": 384 }),
+        ));
+    }
     let media = if profile == PROFILE_HOST {
         None
     } else {

@@ -33,3 +33,5 @@ test("HTTP owner creates once through durable saga and persists model-specific l
  const spoof=await rpc("model.licence.confirm",{model,accepted:true,who:"other"});assert.equal(spoof.error.data.error,"E_INVALID_PARAMS");
  const unauth=await fetch(url+"/rpc",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"agent.create",params:payload})});assert.equal(unauth.status,401);await unauth.text();
 });
+
+test.todo("KNOWN GAP: EmbeddingGemma 2 selection and validated Jina migration over HTTP require pinned-engine target/validation support; existing test proves explicit refusal, no silent wizard success");

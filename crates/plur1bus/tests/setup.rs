@@ -70,6 +70,10 @@ fn setup_non_interactive_installs_everything_but_the_service() {
         e.json(&["config", "get", "embedding.acceptedNcLicence"])["value"],
         false
     );
+    assert_eq!(
+        e.json(&["config", "get", "engine.embedding.local.model"])["value"],
+        "intfloat/multilingual-e5-small"
+    );
     assert!(e.json(&["config", "get", "agents"])["value"]
         .get("main")
         .is_some());

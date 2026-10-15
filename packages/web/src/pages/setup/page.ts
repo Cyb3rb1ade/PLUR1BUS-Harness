@@ -101,8 +101,24 @@ export function SetupPage({ item }: PageProps): View {
     if (changes.length > 0) {
       saving.current = true; setBusy(true); setFail("");
       try {
+        if (def.id === "memory") for (const id of [answers.embedding,answers.rerank]) {
+          const model = choiceById(id);
+          if (model?.nc && answers.nc) await getApi().rpc("model.licence.confirm", { model: model.hf, accepted: true });
+        }
+        if (def.id === "memory") { const selected = choiceById(answers.embedding); if (selected) await getApi().rpc("model.embedding.select", {model:selected.hf}); }
+        if (def.id === "persona") {
+          // Persist the attempt timestamp before I/O, so a lost response keeps the same server key.
+          setSt(previous => ({ ...previous, answers: { ...previous.answers, createdAt: answers.createdAt } }));
+          save({ ...st, answers });
+          let existing = false;
+          try { const current = await getApi().rpc("config.get", { key: `agents.${answers.agentId}` }, { write: false }); existing = !!current.value && typeof current.value === "object"; }
+          catch (e) { if ((e as {errorCode?:string}).errorCode !== "E_NOT_FOUND") throw e; }
+          if (!existing) await getApi().rpc("agent.create", { name:answers.agentId, displayName:answers.displayName.trim(), idempotencyKey:`setup-${answers.agentId}-${answers.createdAt.replace(/[^0-9]/g,"")}` });
+          else await getApi().rpc("config.set", { changes });
+        }
         const needsPrivacyParent = def.id === "memory" && (changes.some(c => c.key.startsWith("memory.mediaEmbedding.") && c.key.endsWith(".provider")) || cloudFunctions(answers).length > 0);
-        if (needsPrivacyParent) {
+        if (def.id === "persona") { /* handled by the create saga or existing-agent update above */ }
+        else if (needsPrivacyParent) {
           if (sessionState.value.status !== "authenticated") throw new Error("person required");
           const previous = await getApi().rpc("config.get", { key: "memory.mediaEmbedding" }, { write: false });
           const safeChanges = privacyChanges(answers, changes, previous.value, sessionState.value.user.id);
@@ -110,6 +126,10 @@ export function SetupPage({ item }: PageProps): View {
         } else await getApi().rpc("config.set", { changes });
       } catch (e) {
         // A refused media setting names its E_MEDIA_* code; show what the person can do about it.
+        const selectionReason = (e as {reason?:string}).reason;
+        if (selectionReason === "embedding-model-unavailable" || selectionReason === "embedding-migration-unavailable") {
+          setFail(t(selectionReason === "embedding-model-unavailable" ? "setup.err.embeddingUnavailable" : "setup.err.embeddingMigration"));saving.current=false;setBusy(false);return;
+        }
         const media = mediaErrorOf(e);
         if (media) { setFail(problemText(media)); saving.current = false; setBusy(false); return; }
         const k = failureOf(e).kind;
