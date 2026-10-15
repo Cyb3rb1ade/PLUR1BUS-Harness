@@ -9,7 +9,7 @@ import { ToolRegistry, type ToolClassification, type ToolDef } from '../tools/re
 import { createFsTools } from '../tools/fs/tools.ts';
 import { canonicalisePath, type PathRoot, type DenyEntry } from '../policy/paths-index.ts';
 import { CAPABILITIES } from '../policy/index.ts';
-import { HOST_TOOLS, createNodeHostContext, denyEntriesFor, isHostPlatform, type HostContext } from '../host-tools/index.ts';
+import { HOST_TOOLS, createNodeHostContext, denyEntriesFor, redactText, isHostPlatform, type HostContext } from '../host-tools/index.ts';
 import { createExecTool } from '../tools/exec/tool.ts';
 import { buildEnv, DEFAULT_ENV_ALLOW, envFingerprint } from '../tools/exec/env.ts';
 import { systemTimers } from '../tools/exec/node-process.ts';
@@ -59,7 +59,7 @@ export class ToolAdapterError extends Error {
 export async function composeTools(o: ToolCompositionOptions, req: ChatRequest): Promise<ToolRegistry> {
   const registry = new ToolRegistry();
   const platform = isHostPlatform(process.platform) ? process.platform : 'linux';
-  const deny = [...denyEntriesFor(homedir(), process.env, platform), { path: join(o.home, 'run') }, { path: join(o.home, 'state') }, ...(o.deny ?? [])];
+  const deny = [...denyEntriesFor(homedir(), process.env, platform), { path: join(o.home, 'run') }, { path: join(o.home, 'state') }, { path: join(o.home, 'config.json') }, { path: join(o.home, 'bin') }, { path: join(o.home, 'runtime') }, { path: join(o.home, 'secrets') }, ...(o.deny ?? [])];
   const fs = o.roots.length ? createFsTools({ roots: o.roots, deny }) : { tools: [] };
   for (const tool of fs.tools) {
     const run = tool.execute;
@@ -88,7 +88,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
     }
     const invocationRoots = ctx.classified?.flags?.outsideRoots && ctx.classified.targets?.[0] ? [...o.roots, { id: 'invocation-only', path: ctx.classified.targets[0] }] : o.roots;
     const tool = createExecTool({ config: { ...o.exec, mode: o.exec?.mode ?? 'deny', roots: invocationRoots, deny }, process: createSandboxProcessPort({ ...sandboxOptions, roots: invocationRoots }), timers: systemTimers, audit: o.audit, policy: { grants: o.grants, clock: { now: Date.now } }, policyContext: { principal: { person: ctx.principal }, subject: { kind: 'agent', agentId: ctx.agentId }, surface: ctx.surface ?? 0, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), overrides: { 'shell.exec': 'allowed' } } });
-    const run = tool.execute; const value = unwrap(await run(args, ctx)); return { ...(value as object), sandboxed: o.sandbox?.required !== false };
+    const run = tool.execute; const value = unwrap(await run(args, ctx)); const result = value as { stdout: string; stderr: string }; return { ...(value as object), stdout: redactText(result.stdout), stderr: redactText(result.stderr), sandboxed: o.sandbox?.required !== false };
   } });
   if (o.media) for (const name of ['image.generate', 'image.edit', 'media.generate', 'media.edit'] as const) {
     if (name.startsWith('media.') && !CAPABILITIES.has(name)) continue;
