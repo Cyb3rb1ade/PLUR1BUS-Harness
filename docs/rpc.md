@@ -164,6 +164,11 @@ Authenticated own direct-chat list. Identity is derived from the current princip
       "type": "integer",
       "minimum": 1,
       "maximum": 200
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
     }
   },
   "required": []
@@ -185,11 +190,19 @@ Authenticated own direct-chat list. Identity is derived from the current princip
     },
     "truncated": {
       "type": "boolean"
+    },
+    "nextCursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2048
     }
   },
   "required": [
     "sessions",
-    "truncated"
+    "truncated",
+    "nextCursor"
   ]
 }
 ```
@@ -218,6 +231,11 @@ Authenticated own direct-chat get. Identity is derived from the current principa
       "type": "integer",
       "minimum": 1,
       "maximum": 500
+    },
+    "beforeSeq": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
     }
   },
   "required": [
@@ -363,6 +381,12 @@ Authenticated own direct-chat submit. Identity is derived from the current princ
       "type": "string",
       "minLength": 1,
       "maxLength": 128
+    },
+    "resumeAfterSeq": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991,
+      "description": "Resume an existing turn only with its retained original idempotency key; never starts a new turn."
     }
   },
   "required": [

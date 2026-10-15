@@ -1,7 +1,7 @@
 // Direct-chat identity is always the authenticated harness person, never CallerIdentity supplied by a browser.
 import type { AgentRegistry } from "../agents.ts";
 import { requireAgent } from "../memory-ops.ts";
-import { randomUUID } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual, randomUUID } from "node:crypto";
 import { authenticatedPrincipal } from "../rbac/guard.ts";
 import { authorize } from "../rbac/authorize.ts";
 import type { Principal } from "../rbac/types.ts";
@@ -9,13 +9,16 @@ import type { AuditSink } from "../rbac/audit.ts";
 import { deriveUserPrincipal } from "../identity/principals.ts";
 import { mapSessionError, toWireEvent, toWireSession } from "../session/methods.ts";
 import type { SessionService } from "../session/service.ts";
-import { SessionError, type SessionRecord } from "../session/types.ts";
+import { SessionError } from "../session/types.ts";
 import type { Handler } from "./server.ts";
 import { RpcError } from "./errors.ts";
+
+function canonical(value:unknown):unknown { return Array.isArray(value)?value.map(canonical):value&&typeof value==="object"?Object.fromEntries(Object.entries(value).filter(([,v])=>v!==undefined).sort(([a],[b])=>a<b?-1:a>b?1:0).map(([k,v])=>[k,canonical(v)])):value; }
 
 export function buildChatSurface(d: { sessions: () => SessionService | null; agents: AgentRegistry; audit: AuditSink; now: () => number; approver: (ctx: Parameters<Handler>[1], params: unknown) => Promise<import("../session/provider.ts").TurnApprover> }): Record<string, Handler> {
   const writes = new Set(["create", "submit", "cancel", "update", "archive", "restore", "fork", "delete"]);
   const idempotent = new Map<string, { fingerprint: string; result: Promise<unknown> }>();
+  const cursorKey = randomBytes(32);
   const confirmations = new Map<string, { sessionId: string; person: string; expires: number }>();
   const runtime = () => { const s = d.sessions(); if (!s) throw new RpcError("E_NOT_AVAILABLE", "chat unavailable"); return s; };
   const rights = (a: Principal, agentId: string, write: boolean) => {
@@ -37,16 +40,31 @@ export function buildChatSurface(d: { sessions: () => SessionService | null; age
       return { session: toWireSession(service.store.createSession({ kind: "direct", agentId: p.agentId, owner: deriveUserPrincipal(a.userId), ...(p.title !== undefined ? { title: p.title } : {}), memoryMode: p.memoryMode ?? "remember" })) };
     },
     list(p, a) {
-      const owners = [deriveUserPrincipal(a.userId)];
-      const sessions: SessionRecord[] = [];
-      for (const service of [runtime(), runtime().ephemeral()]) for (const owner of owners) sessions.push(...service.store.listSessions({ owner, kind: "direct", ...(p.agentId ? { agentId: p.agentId } : {}), archived: p.archived ?? "exclude", ...(p.search ? { search: p.search } : {}), limit: p.limit ?? 200 }).sessions);
-      const { tokenScopes: _scopes, ...role } = a;
-      const visible = sessions.filter(s => authorize(role, "agent.read", { kind: "agent", agentId: s.agentId }).effect === "allow").sort((x,y) => Number(y.pinned) - Number(x.pinned) || y.updatedAt - x.updatedAt || x.id.localeCompare(y.id));
-      return { sessions: visible.slice(0,p.limit ?? 200).map(toWireSession), truncated: visible.length > (p.limit ?? 200) };
+      const owner = deriveUserPrincipal(a.userId), limit = p.limit ?? 200;
+      const binding = createHash("sha256").update(JSON.stringify({ owner, agentId:p.agentId ?? null, archived:p.archived ?? "exclude", search:p.search ?? null })).digest("base64url");
+      let after: { pinned:boolean; updatedAt:number; id:string } | undefined;
+      if (p.cursor !== undefined) {
+        try {
+          if (typeof p.cursor!=="string" || p.cursor.length>2048 || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/.test(p.cursor)) throw Error();
+          const [payload,mac]=p.cursor.split("."),expected=createHmac("sha256",cursorKey).update(payload).digest();
+          const given=Buffer.from(mac,"base64url");if(given.length!==expected.length||given.toString("base64url")!==mac||!timingSafeEqual(given,expected))throw Error();
+          const decoded=JSON.parse(Buffer.from(payload,"base64url").toString("utf8"));
+          if(decoded.v!==1||decoded.binding!==binding||typeof decoded.after?.pinned!=="boolean"||!Number.isSafeInteger(decoded.after.updatedAt)||decoded.after.updatedAt<0||typeof decoded.after.id!=="string"||decoded.after.id.length>128)throw Error();
+          after=decoded.after;
+        } catch { throw new RpcError("E_INVALID_PARAMS","invalid or differently bound chat cursor"); }
+      }
+      const {tokenScopes:_scopes,...role}=a;
+      const allowedAgents=d.agents.list().filter(agentId=>authorize(role,"agent.read",{kind:"agent",agentId}).effect==="allow");
+      const pages=[runtime(),runtime().ephemeral()].map(service=>service.store.listChatSessions({owner,allowedAgents,...(p.agentId?{agentId:p.agentId}:{}),archived:p.archived??"exclude",...(p.search!==undefined?{search:p.search}:{}),limit:limit+1,...(after?{after}:{})}));
+      const visible=pages.flatMap(page=>page.sessions).sort((x,y)=>Number(y.pinned)-Number(x.pinned)||y.updatedAt-x.updatedAt||(x.id<y.id?-1:x.id>y.id?1:0));
+      const sessions=visible.slice(0,limit),truncated=visible.length>limit||pages.some(page=>page.truncated);
+      const last=sessions.at(-1);let nextCursor:string|null=null;
+      if(truncated&&last){const payload=Buffer.from(JSON.stringify({v:1,binding,after:{pinned:last.pinned,updatedAt:last.updatedAt,id:last.id}})).toString("base64url");nextCursor=`${payload}.${createHmac("sha256",cursorKey).update(payload).digest("base64url")}`;}
+      return {sessions:sessions.map(toWireSession),truncated,nextCursor};
     },
     get(p,a) {
       const { service,session } = owned(p.sessionId,a,false);
-      return { session: toWireSession(session), messages: service.store.listMessages(session.id,{limit:p.limit ?? 200}).map(({id,seq,turnId,role,text,createdAt})=>({id,seq,turnId,role,text,createdAt})), runningTurnId:service.store.runningTurn(session.id)?.id ?? null, lastEventSeq:service.store.lastEventSeq(session.id) ?? 0 };
+      return { session: toWireSession(session), messages: service.store.listMessages(session.id,{limit:p.limit ?? 200,...(p.beforeSeq!==undefined?{beforeSeq:p.beforeSeq}:{})}).map(({id,seq,turnId,role,text,createdAt})=>({id,seq,turnId,role,text,createdAt})), runningTurnId:service.store.runningTurn(session.id)?.id ?? null, lastEventSeq:service.store.lastEventSeq(session.id) ?? 0 };
     },
     update(p,a) { const {service}=owned(p.sessionId,a,true); if (service.store.runningTurn(p.sessionId)) throw new SessionError("conflict","turn running","turn-running"); record("update",a,p.sessionId); return {session:toWireSession(service.store.updateSession(p.sessionId,{...(p.title !== undefined ? {title:p.title}:{}),...(p.pinned !== undefined ? {pinned:p.pinned}:{})}))}; },
     archive(p,a) { const {service}=owned(p.sessionId,a,true); record("archive",a,p.sessionId);return {session:toWireSession(service.store.archiveSession(p.sessionId))}; },
@@ -82,10 +100,16 @@ export function buildChatSurface(d: { sessions: () => SessionService | null; age
     try {
     const a=authenticatedPrincipal(ctx);
     const key=p.idempotencyKey?`${a.userId}:${name}:${p.idempotencyKey}`:undefined;
-    const fingerprint=JSON.stringify({...p,idempotencyKey:undefined});
+    const fingerprint=JSON.stringify(canonical({...p,idempotencyKey:undefined,resumeAfterSeq:undefined}));
     if (p.sessionId) owned(p.sessionId,a,writes.has(name));
     if (name === "create") { requireAgent(d.agents,p.agentId); rights(a,p.agentId,true); }
-    if(key && idempotent.has(key)){const previous=idempotent.get(key)!;if(previous.fingerprint!==fingerprint)throw new RpcError("E_CONFLICT","idempotency key changed");return previous.result;}
+    if(p.resumeAfterSeq!==undefined && (name!=="submit"||!key||!idempotent.has(key)))throw new RpcError("E_CONFLICT","resume requires the original retained idempotency key");
+    if(key && idempotent.has(key)){
+      const previous=idempotent.get(key)!;if(previous.fingerprint!==fingerprint)throw new RpcError("E_CONFLICT","idempotency key changed");
+      const result=await previous.result;
+      if(p.resumeAfterSeq!==undefined){const {service}=owned(p.sessionId,a,false);const event=service.store.listEvents(p.sessionId,p.resumeAfterSeq-1,1)[0];if(!event||event.seq!==p.resumeAfterSeq||event.turnId!==(result as {turnId:string}).turnId)throw new RpcError("E_INVALID_PARAMS","resume event does not belong to the original turn");}
+      return result;
+    }
     if(key && idempotent.size>=2048)throw new RpcError("E_NOT_AVAILABLE","idempotency capacity reached");
     const result=Promise.resolve().then(()=>run(p,a,ctx)).catch(e=>{if(key)idempotent.delete(key);return mapSessionError(e);});
     if(key && writes.has(name))idempotent.set(key,{fingerprint,result});
