@@ -196,6 +196,7 @@ export function alive(pid: number): boolean {
   if (process.platform === "linux") {
     try { return readFileSync(`/proc/${pid}/stat`, "utf8").replace(/^.*\) /s, "")[0] !== "Z"; } catch { return false; }
   }
+  if (process.platform === "win32") return true;
   try { return !execFileSync("ps", ["-o", "stat=", "-p", String(pid)], { encoding: "utf8" }).trim().startsWith("Z"); } catch { return false; }
 }
 
@@ -220,17 +221,30 @@ export async function restartSupervisor(h: string, extra: NodeJS.ProcessEnv = {}
   }
 }
 
+/** Pure matching half of Windows cleanup, also tested on POSIX runners. */
+export function windowsHomePids(processes: Array<{ ProcessId: number; CommandLine: string | null }>, h: string): number[] {
+  const escaped = h.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const argument = new RegExp(`(?:^|\\s)--home\\s+(?:"${escaped}"|${escaped})(?=\\s|$)`);
+  return processes.filter(p => p.ProcessId !== process.pid && p.CommandLine && argument.test(p.CommandLine)).map(p => p.ProcessId);
+}
+
 /** Every process whose command line names `--home <h>` (supervisor, cores, stray CLI calls). */
 export function homePids(h: string): number[] {
+  if (process.platform === "win32") {
+    // Read command lines, then match the complete home argument. Never interpolate
+    // a filesystem path into PowerShell or kill every Node process on the machine.
+    const raw = execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", "@(Get-CimInstance Win32_Process | Select-Object ProcessId,CommandLine) | ConvertTo-Json -Compress"], { encoding: "utf8" });
+    const processes = JSON.parse(raw) as Array<{ ProcessId: number; CommandLine: string | null }>;
+    return windowsHomePids(processes, h);
+  }
   try {
     return execFileSync("pgrep", ["-f", "--", `--home ${h}`], { encoding: "utf8" }).trim().split("\n").filter(Boolean).map(Number);
   } catch { return []; } // pgrep exits 1 when nothing matches
 }
 
 /** Cleanup for a test's `finally`: SIGKILLs whatever still runs against `h`, so a failed test never leaves a
- *  supervisor or core behind (POSIX; a no-op on Windows, where the system tests do not run). */
+ *  supervisor or core behind. Windows uses exact home arguments from the process inventory. */
 export async function reapHome(h: string): Promise<void> {
-  if (process.platform === "win32") return;
   const left = homePids(h);
   for (const pid of left) { try { process.kill(pid, "SIGKILL"); } catch { /* gone */ } }
   for (const pid of left) { try { await waitFor(`pid ${pid} to exit`, () => !alive(pid), 5000, 20); } catch { /* reported by the test itself */ } }

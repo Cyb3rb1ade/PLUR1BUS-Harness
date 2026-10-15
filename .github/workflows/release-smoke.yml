@@ -1,0 +1,77 @@
+name: release-smoke
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release-smoke-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  smoke:
+    name: functional smoke (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-15, target: darwin-arm64 }
+          - { os: windows-2025, target: win-x64 }
+          - { os: windows-11-arm, target: win-arm64 }
+          - { os: ubuntu-24.04, target: linux-x64 }
+          - { os: ubuntu-24.04-arm, target: linux-arm64 }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
+        with: { toolchain: '1.95' }
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+      - name: install pinned dependencies
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          if [ -n "$GH_ENGINE_READ_TOKEN" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; else base="https://github.com/"; fi
+          n=0
+          for from in $([ -n "$GH_ENGINE_READ_TOKEN" ] && echo 'https://github.com/') 'git@github.com:' 'ssh://git@github.com/'; do
+            export "GIT_CONFIG_KEY_$n=url.${base}.insteadOf" "GIT_CONFIG_VALUE_$n=$from"
+            n=$((n + 1))
+          done
+          export GIT_CONFIG_COUNT=$n
+          unset GH_ENGINE_READ_TOKEN base
+          pnpm install --frozen-lockfile
+      - run: pnpm gen
+      - run: pnpm build
+      - run: cargo build --release -p plur1bus
+      - name: fresh-home functional smoke with installed runtime
+        shell: bash
+        run: |
+          exe=''; [ "$RUNNER_OS" != 'Windows' ] || exe='.exe'
+          export PLUR1BUS_BIN="$GITHUB_WORKSPACE/target/release/plur1bus$exe"
+          node --experimental-strip-types --test --test-timeout=360000 tests/e2e/smoke.test.ts
+        env:
+          PLUR1BUS_CI_RECALL_HARD_MS: '3000'
+      - run: node --experimental-strip-types --test tests/system/helpers.test.ts
+      - name: installer launcher contract (no administrator operation)
+        run: node --experimental-strip-types --test --test-timeout=120000 tests/system/install-scripts.test.ts
+      - name: setup, service unit and archive contracts
+        run: cargo test --release -p plur1bus --test setup --test setup_profile --test service --test install_archive -- --test-threads=1
+      # Existing fixtures use POSIX executables/signals. These are explicitly not Windows rollback/reboot evidence.
+      - name: injected update rollback, uninstall and simulated reboot (POSIX fixtures)
+        if: runner.os != 'Windows'
+        run: cargo test --release -p plur1bus --test update_apply --test uninstall --test reboot -- --test-threads=1
+      - name: evidence scope
+        shell: bash
+        run: |
+          {
+            echo '### Functional smoke scope'
+            echo 'Target: ${{ matrix.target }}. Native installed runtime; fake chat and flat embedding seam.'
+            echo 'This is not the real embedding/reranker T6 proof. OS service reboot remains manual.'
+            echo 'Windows injected-update/uninstall fixture port remains open; do not count empty cfg(unix) suites as passes.'
+          } >> "$GITHUB_STEP_SUMMARY"

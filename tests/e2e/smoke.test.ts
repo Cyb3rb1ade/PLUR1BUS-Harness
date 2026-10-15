@@ -1,28 +1,48 @@
 // E3: CLI → daemon → core on a fresh home, then backup → verify → restore into a second home. Real binary, real
 // supervisor and core, fake chat provider (test-internals env guard), loopback/temp sockets only, no network.
-// Linux and macOS; Windows is skipped (the shared reaper is POSIX-only).
+// Native five-target CI; flat embeddings and fake chat are functional smoke evidence, not real-model T6 acceptance.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { REAL, cli, daemonStatus, home, reapHome, startDaemon, stopDaemon } from "../system/helpers.ts";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { execFileSync } from "node:child_process";
+import { BIN, REAL, cli, daemonStatus, home, reapHome, startDaemon, stopDaemon } from "../system/helpers.ts";
 
 const FAKE = { PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_TEST_CHAT_PROVIDER: "fake" };
 const FACT = "Please remember that the e2e smoke test fact is the harbour tour at noon.";
 
-describe("E3 — CLI → daemon → core smoke", { skip: (process.platform === "win32" && "POSIX reaper") || (REAL && "flat embedder only") }, () => {
+describe("E3 — CLI → daemon → core smoke", { skip: REAL && "flat embedder only" }, () => {
   it("fresh home: daemon, agent, chat, backup → verify → restore elsewhere, clean stop", { timeout: 240_000 }, async (t) => {
     const h1 = home();
     const h2 = home();
     const archive = join(h1, "smoke.tar.gz");
+    const installation = mkdtempSync(join(tmpdir(), "p1b-smoke-install-"));
+    const payload = join(installation, "core");
+    const service = join(installation, "service");
+    mkdirSync(service);
+    const user = join(installation, "user");
+    mkdirSync(user);
+    const installedBinary = join(installation, process.platform === "win32" ? "plur1bus.exe" : "plur1bus");
+    cpSync(BIN, installedBinary);
+    const installedEnv: NodeJS.ProcessEnv = { ...process.env, ...FAKE, PLUR1BUS_TEST_INTERNALS: "flat-embedder", PLUR1BUS_SERVICE_FAKE: service, PLUR1BUS_UPDATE_TARGET_BIN: installedBinary, HOME: user, USERPROFILE: user, LOCALAPPDATA: join(user, "AppData", "Local"), XDG_CONFIG_HOME: join(user, ".config") };
+    for (const key of ["PLUR1BUS_NODE", "PLUR1BUS_CORE_JS", "PLUR1BUS_NODE_MIRROR", "PLUR1BUS_CONTAINER", "PLUR1BUS_HOME"]) delete installedEnv[key];
+    if (process.env.PLUR1BUS_SMOKE_NODE_MIRROR) installedEnv.PLUR1BUS_NODE_MIRROR = process.env.PLUR1BUS_SMOKE_NODE_MIRROR;
     try {
+      // Deploy the same production payload shape used by setup; dependencies stay pinned.
+      execFileSync("pnpm", ["--filter", "@plur1bus/core", "deploy", "--legacy", "--prod", payload], { stdio: "pipe", shell: process.platform === "win32" });
+      cpSync(resolve("packages/core/dist"), payload, { recursive: true });
+      assert.deepEqual(readdirSync(h1), [], "the home starts empty before installation");
+      const setup = JSON.parse(execFileSync(installedBinary, ["--json", "--home", h1, "setup", "--non-interactive", "--no-service", "--core-from", payload], { encoding: "utf8", env: installedEnv, timeout: 300_000 }));
+      assert.equal(setup.check.fail, 0);
+      assert.equal(setup.manifest.node.version, "24.21.0");
+      stopDaemon(h1);
       // RULING: no `init` command; a home comes into being with its first write.
-      assert.deepEqual(readdirSync(h1), [], "the home starts empty");
       assert.equal(cli(h1, ["agent", "create", "bernd"]).created, true);
       assert.ok(existsSync(join(h1, "config.json")), "the first write materialises the home");
 
       // ── daemon
-      startDaemon(h1, FAKE);
+      cli(h1, ["daemon", "start"], { env: installedEnv });
       const status = daemonStatus(h1);
       assert.equal(typeof status.supervisor.pid, "number");
       assert.equal(status.children[0].role, "core");
@@ -40,6 +60,9 @@ describe("E3 — CLI → daemon → core smoke", { skip: (process.platform === "
       const shown = cli(h1, ["session", "show", turn.sessionId]);
       assert.deepEqual(shown.messages.map((m: any) => m.role), ["user", "assistant", "user", "assistant"]);
       const memoryIds = (h: string) => cli(h, ["memory", "list", "--agent", "bernd"]).items.map((i: any) => i.id as string).sort();
+      const recall = cli(h1, ["memory", "recall", "--agent", "bernd", "--session", "s2", "--joined", "harbour tour"]);
+      assert.equal(recall.degraded, null, JSON.stringify(recall));
+      assert.match(recall.joined.text, /harbour tour/);
       const idsBefore = memoryIds(h1);
       assert.ok(idsBefore.length >= 1, "the fact is stored");
 
@@ -69,12 +92,18 @@ describe("E3 — CLI → daemon → core smoke", { skip: (process.platform === "
       }
       stopDaemon(h2);
       assert.equal(daemonStatus(h2).supervisor.process.state, "stopped", "no supervisor answers after daemon stop (h2)");
+      const uninstalled = cli(h1, ["uninstall", "--yes"], { env: installedEnv });
+      assert.deepEqual(uninstalled.result.failures, []);
+      assert.equal(cli(h1, ["service", "status"], { env: installedEnv }).registered, false);
+      assert.equal(existsSync(join(h1, "runtime")), false);
+      assert.equal(daemonStatus(h1).supervisor.process.state, "stopped");
     } finally {
       for (const h of [h1, h2]) {
         try { cli(h, ["daemon", "stop"], { allowFail: true }); } catch { /* best effort */ }
         await reapHome(h);
         rmSync(h, { recursive: true, force: true });
       }
+      rmSync(installation, { recursive: true, force: true });
     }
   });
 });
