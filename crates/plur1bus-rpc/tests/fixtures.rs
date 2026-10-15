@@ -40,6 +40,38 @@ fn pair<P: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize>(name: 
 fn method_fixture(name: &str, f: &Value) {
     use types::*;
     match name {
+        "model.embedding.select" => {
+            pair::<ModelEmbeddingSelectParams, ModelEmbeddingSelectResult>(name, f)
+        }
+        "model.licence.confirm" => {
+            pair::<ModelLicenceConfirmParams, ModelLicenceConfirmResult>(name, f)
+        }
+        "model.licence.list" => pair::<ModelLicenceListParams, ModelLicenceListResult>(name, f),
+        "model.licence.check" => pair::<ModelLicenceCheckParams, ModelLicenceCheckResult>(name, f),
+        "admin.api.device.announce" => {
+            pair::<AdminApiDeviceAnnounceParams, AdminApiDeviceAnnounceResult>(name, f)
+        }
+        "admin.api.device.challenge" => {
+            pair::<AdminApiDeviceChallengeParams, AdminApiDeviceChallengeResult>(name, f)
+        }
+        "admin.api.device.pair" => {
+            pair::<AdminApiDevicePairParams, AdminApiDevicePairResult>(name, f)
+        }
+        "admin.api.device.prove" => {
+            pair::<AdminApiDeviceProveParams, AdminApiDeviceProveResult>(name, f)
+        }
+        "chat.archive" => pair::<ChatArchiveParams, ChatArchiveResult>(name, f),
+        "chat.cancel" => pair::<ChatCancelParams, ChatCancelResult>(name, f),
+        "chat.create" => pair::<ChatCreateParams, ChatCreateResult>(name, f),
+        "chat.delete" => pair::<ChatDeleteParams, ChatDeleteResult>(name, f),
+        "chat.events" => pair::<ChatEventsParams, ChatEventsResult>(name, f),
+        "chat.export" => pair::<ChatExportParams, ChatExportResult>(name, f),
+        "chat.fork" => pair::<ChatForkParams, ChatForkResult>(name, f),
+        "chat.get" => pair::<ChatGetParams, ChatGetResult>(name, f),
+        "chat.list" => pair::<ChatListParams, ChatListResult>(name, f),
+        "chat.restore" => pair::<ChatRestoreParams, ChatRestoreResult>(name, f),
+        "chat.submit" => pair::<ChatSubmitParams, ChatSubmitResult>(name, f),
+        "chat.update" => pair::<ChatUpdateParams, ChatUpdateResult>(name, f),
         "project.column.list" => pair::<ProjectColumnListParams, ProjectColumnListResult>(name, f),
         "project.column.create" => pair::<ProjectColumnCreateParams, BoardColumn>(name, f),
         "project.column.update" => pair::<ProjectColumnUpdateParams, BoardColumn>(name, f),
@@ -424,6 +456,26 @@ fn every_method_fixture_round_trips() {
     assert!(!files.is_empty());
     let names: BTreeSet<&str> = files.iter().map(|(n, _)| n.as_str()).collect();
     for m in [
+        "chat.create",
+        "chat.list",
+        "chat.get",
+        "chat.events",
+        "chat.submit",
+        "chat.update",
+        "chat.archive",
+        "chat.restore",
+        "chat.cancel",
+        "chat.fork",
+        "chat.delete",
+        "chat.export",
+        "admin.api.device.pair",
+        "admin.api.device.challenge",
+        "admin.api.device.prove",
+        "admin.api.device.announce",
+        "model.embedding.select",
+        "model.licence.confirm",
+        "model.licence.list",
+        "model.licence.check",
         "supervisor.auth",
         "daemon.status",
         "daemon.start",
@@ -501,6 +553,7 @@ fn every_notification_fixture_round_trips() {
     assert!(!files.is_empty());
     for (name, v) in &files {
         match name.as_str() {
+            "devices.trust.next" => round_trip::<types::DevicesTrustNextNotification>(v, name),
             "inbox.changed" => round_trip::<types::InboxChangedNotification>(v, name),
             "project.card.changed" => round_trip::<types::ProjectCardChangedNotification>(v, name),
             "project.column.changed" => {

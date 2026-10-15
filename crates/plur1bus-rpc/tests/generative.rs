@@ -112,6 +112,7 @@ struct Item {
     atom: Atom,
     min: usize,
     max: usize,
+    unbounded: bool,
 }
 struct Pattern {
     items: Vec<Item>,
@@ -184,6 +185,7 @@ fn parse_seq(c: &[char], mut i: usize, p: &str) -> (Vec<Item>, usize) {
                 Atom::Lit(lit)
             }
         };
+        let unbounded = matches!(c.get(i), Some('*' | '+'));
         let (min, max) = match c.get(i) {
             Some('{') => {
                 let close = c[i..].iter().position(|&x| x == '}').unwrap() + i;
@@ -208,7 +210,12 @@ fn parse_seq(c: &[char], mut i: usize, p: &str) -> (Vec<Item>, usize) {
             }
             _ => (1, 1),
         };
-        items.push(Item { atom, min, max });
+        items.push(Item {
+            atom,
+            min,
+            max,
+            unbounded,
+        });
     }
     (items, i)
 }
@@ -243,16 +250,78 @@ fn emit(items: &[Item], size: Size, rng: &mut Rng, out: &mut String) {
     }
 }
 
-fn from_pattern(pattern: &str, size: Size, rng: &mut Rng) -> String {
-    let p = parse_pattern(pattern);
-    let mut s = String::new();
-    emit(&p.items, size, rng, &mut s);
-    if !p.anchored_end {
-        for _ in 0..rng.range(0, 4) {
-            s.push((b'a' + rng.below(26) as u8) as char);
+/// Generate inside the intersection of the regex language and JSON Schema length bounds.
+/// Unbounded regex quantifiers use the schema's finite test budget, rather than an
+/// unrelated four-character ceiling. Finite quantifiers remain unchanged.
+fn from_pattern(
+    pattern: &str,
+    size: Size,
+    min: usize,
+    max: Option<usize>,
+    rng: &mut Rng,
+) -> String {
+    let mut p = parse_pattern(pattern);
+    let cap = max.unwrap_or(min.saturating_add(40));
+    fn bound(items: &mut [Item], cap: usize) {
+        for item in items {
+            if item.unbounded {
+                item.max = cap.max(item.min);
+            }
+            if let Atom::Group(inner) = &mut item.atom {
+                bound(inner, cap);
+            }
         }
     }
-    s
+    bound(&mut p.items, cap);
+    // Try requested and opposite boundaries first, then deterministic interior values.
+    // A bounded failure is explicit: an invalid string is never called a valid instance.
+    for attempt in 0..512 {
+        let mode = match attempt {
+            0 => size,
+            1 => {
+                if size == Size::Max {
+                    Size::Min
+                } else {
+                    Size::Max
+                }
+            }
+            _ => Size::Random,
+        };
+        let mut s = String::new();
+        emit(&p.items, mode, rng, &mut s);
+        if !p.anchored_end {
+            let count = s.chars().count();
+            let padding = min.saturating_sub(count).max(rng.range(0, 4));
+            for _ in 0..padding {
+                s.push((b'a' + rng.below(26) as u8) as char);
+            }
+        }
+        let len = s.chars().count();
+        if len >= min && max.is_none_or(|m| len <= m) {
+            return s;
+        }
+    }
+    panic!("pattern {pattern}: no generated instance within minLength={min}, maxLength={max:?}");
+}
+
+#[test]
+fn pattern_generation_intersects_length_bounds_without_truncating_regex() {
+    for (pattern, min, max) in [
+        ("^[A-Za-z0-9_-]+$", 16, 128),
+        ("^[A-Za-z0-9_-]+$", 43, 43),
+        ("^[A-Za-z0-9_-]+$", 86, 86),
+        ("^prefix-[a-z]{1,30}$", 17, 17),
+        ("^/", 20, 24),
+    ] {
+        for size in [Size::Min, Size::Max, Size::Random] {
+            let mut rng = Rng::for_case(&["pattern intersection", pattern]);
+            for _ in 0..INSTANCES {
+                let value = from_pattern(pattern, size, min, Some(max), &mut rng);
+                assert!((min..=max).contains(&value.chars().count()));
+                assert!(regress::Regex::new(pattern).unwrap().find(&value).is_some());
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -466,14 +535,13 @@ impl Gen<'_> {
             .and_then(Value::as_u64)
             .map(|m| m as usize);
         if let Some(pattern) = node.get("pattern").and_then(Value::as_str) {
-            let mut s = from_pattern(pattern, self.optionals.size(), self.rng);
-            if max.is_some_and(|m| s.chars().count() > m) {
-                s = from_pattern(pattern, Size::Min, self.rng);
-            }
-            if s.chars().count() < min {
-                s = from_pattern(pattern, Size::Max, self.rng);
-            }
-            return Value::String(s);
+            return Value::String(from_pattern(
+                pattern,
+                self.optionals.size(),
+                min,
+                max,
+                self.rng,
+            ));
         }
         match node.get("format").and_then(Value::as_str) {
             Some("date") => return json!("2026-10-12"),
@@ -1667,6 +1735,47 @@ fn get_at_opt<'a>(root: &'a Value, path: &[Seg]) -> Option<&'a Value> {
 // ---------------------------------------------------------------------------------------------------------------------
 
 table! {
+    Params "chat.create" ChatCreateParams,
+    Result "chat.create" ChatCreateResult,
+    Params "chat.list" ChatListParams,
+    Result "chat.list" ChatListResult,
+    Params "chat.get" ChatGetParams,
+    Result "chat.get" ChatGetResult,
+    Params "chat.events" ChatEventsParams,
+    Result "chat.events" ChatEventsResult,
+    Params "chat.submit" ChatSubmitParams,
+    Result "chat.submit" ChatSubmitResult,
+    Params "chat.update" ChatUpdateParams,
+    Result "chat.update" ChatUpdateResult,
+    Params "chat.archive" ChatArchiveParams,
+    Result "chat.archive" ChatArchiveResult,
+    Params "chat.restore" ChatRestoreParams,
+    Result "chat.restore" ChatRestoreResult,
+    Params "chat.cancel" ChatCancelParams,
+    Result "chat.cancel" ChatCancelResult,
+    Params "chat.fork" ChatForkParams,
+    Result "chat.fork" ChatForkResult,
+    Params "chat.delete" ChatDeleteParams,
+    Result "chat.delete" ChatDeleteResult,
+    Params "chat.export" ChatExportParams,
+    Result "chat.export" ChatExportResult,
+    Params "admin.api.device.pair" AdminApiDevicePairParams,
+    Result "admin.api.device.pair" AdminApiDevicePairResult,
+    Params "admin.api.device.challenge" AdminApiDeviceChallengeParams,
+    Result "admin.api.device.challenge" AdminApiDeviceChallengeResult,
+    Params "admin.api.device.prove" AdminApiDeviceProveParams,
+    Result "admin.api.device.prove" AdminApiDeviceProveResult,
+    Params "admin.api.device.announce" AdminApiDeviceAnnounceParams,
+    Result "admin.api.device.announce" AdminApiDeviceAnnounceResult,
+    Params "model.embedding.select" ModelEmbeddingSelectParams,
+    Result "model.embedding.select" ModelEmbeddingSelectResult,
+    Params "model.licence.confirm" ModelLicenceConfirmParams,
+    Result "model.licence.confirm" ModelLicenceConfirmResult,
+    Params "model.licence.list" ModelLicenceListParams,
+    Result "model.licence.list" ModelLicenceListResult,
+    Params "model.licence.check" ModelLicenceCheckParams,
+    Result "model.licence.check" ModelLicenceCheckResult,
+    Notification "devices.trust.next" DevicesTrustNextNotification,
     Params "voice.status" VoiceStatusParams,
     Result "voice.status" VoiceStatusResult,
     Params "voice.agent.override.get" VoiceAgentOverrideGetParams,
