@@ -8,5 +8,7 @@ export * from "./sanitize.ts";
 export * from "./templates.ts";
 export * from "./fonts.ts";
 export * from "./render.ts";
+export * from "./checks.ts";
+export * from "./review.ts";
 export * from "./schema.ts";
 export * from "./chromium.ts";
