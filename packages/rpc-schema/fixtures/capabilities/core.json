@@ -652,6 +652,10 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "channel.crypto": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "channel.get": {
       "stability": "experimental",
       "since": "1.5.0"
