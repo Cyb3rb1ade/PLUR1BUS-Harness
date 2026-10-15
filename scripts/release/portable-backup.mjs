@@ -70,7 +70,7 @@ export async function decryptBackup(source, archive, password) {
     derived.fill(0); decipher.setAAD(header); decipher.setAuthTag(tag);
     output = openSync(archive, 'wx', 0o600);
     let prefix = Buffer.alloc(0), length, vault;
-    const inputStream = createReadStream(source, { start: HEADER, end: size - 17 });
+    const inputStream = createReadStream(source, { fd: input, autoClose: false, start: HEADER, end: size - 17 });
     inputStream.on('error', error => decipher.destroy(error));
     const stream = inputStream.pipe(decipher);
     for await (let chunk of stream) {
@@ -93,7 +93,7 @@ export async function decryptBackup(source, archive, password) {
   finally { if (input !== undefined) closeSync(input); if (output !== undefined) { closeSync(output); if (failed) rmSync(archive, { force: true }); } }
 }
 function command(bin, home, args, input) {
-  const r = spawnSync(bin, ['--json', '--home', home, ...args], { encoding: 'utf8', input, maxBuffer: 32 * 1024 * 1024, timeout: 30 * 60 * 1000 });
+  const r = spawnSync(bin, ['--json', '--home', home, ...args], { encoding: 'utf8', input, maxBuffer: 32 * 1024 * 1024, timeout: args[0] === 'backup' && args[1] === 'create' ? 30 * 60 * 1000 : 30000 });
   if (r.error || r.status !== 0) throw fail();
   try { return JSON.parse(r.stdout); } catch { throw fail(); }
 }

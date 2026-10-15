@@ -72,7 +72,7 @@ test('failed vault import rolls the state and old vault back and keeps an encryp
       if (a[1] === 'get') return { value: secrets.get(a[2]) };
       if (a[1] === 'rm') { secrets.delete(a[2]); return {}; }
       if (a[1] === 'set') {
-        if (a[2] === 'new' && failOnce) { failOnce = false; throw new Error(marker); }
+        if (a[2] === 'new' && failOnce) { secrets.set(a[2], input.slice(0, -1)); failOnce = false; throw new Error(marker); }
         secrets.set(a[2], input.slice(0, -1)); return {};
       }
       throw new Error('unexpected command');
