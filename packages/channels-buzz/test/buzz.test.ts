@@ -10,14 +10,14 @@ import { join } from 'node:path';
 const wire = <T>(x: T): T => JSON.parse(JSON.stringify(x));
 const tick = async () => { for(let i=0;i<10;i++) await new Promise(r => setImmediate(r)); };
 const relay = 'wss://relay.example/';
-async function rig(denied = false, seen = new MemorySeenStore()) {
+async function rig(denied = false, seen = new MemorySeenStore(), rejectArchive = false) {
   const bot = generateSecretKey(), peer = generateSecretKey(), botPub = getPublicKey(bot), peerPub = getPublicKey(peer);
   const received: any[] = [], sent: any[] = [], logs: any[] = [], connections: any[] = [];
   const channel = new BuzzChannel({ relays: [relay], senderAllowlist: [npubEncode(peerPub)] }, {
     secrets: { reveal: async () => Buffer.from(bot).toString('hex') }, seen,
     egress: { decide: async () => denied ? { allowed: false, reason: 'host', message: '' } as never : { allowed: true, host: 'relay.example', port:443, address:'192.0.2.1', family:4 } },
     logger: { log: (...args) => { logs.push(args); } },
-    connect: async r => { connections.push(r); return { send: async v => { sent.push(v); const a = v as any; if (a[0] === "EVENT") await r.onMessage(["OK",a[1].id,true,""]); }, close: async () => r.onClose() }; }
+    connect: async r => { connections.push(r); return { send: async v => { sent.push(v); const a = v as any; if (a[0] === "EVENT") await r.onMessage(["OK",a[1].id,!(rejectArchive && a[1].kind === 1059 && a[1].tags.some((t:string[])=>t[0] === "p" && t[1] === botPub)),""]); }, close: async () => r.onClose() }; }
   });
   await channel.start({ receive: async m => { received.push(m); }, fail: () => {}, log: {info(){},warn(){},error(){}} }); await tick();
   const event = (key=peer, text='hello') => wire(wrapEvent({kind:14,content:text,created_at:Math.floor(Date.now()/1000),tags:[['p',botPub]]},key,botPub));
@@ -66,3 +66,6 @@ test('channel contract: manifest, missing secret and group exclusion',async()=>{
  await assert.rejects(c.start({receive:async()=>{},fail(){},log:{info(){},warn(){},error(){}}}),/unavailable/);await c.stop();
  const r=await rig();try{await r.deliver(wire(wrapEvent({kind:14,content:'group',created_at:Math.floor(Date.now()/1000),tags:[['p',r.botPub],['p',getPublicKey(generateSecretKey())]]},r.peer,r.botPub)));assert.equal(r.received.length,0);}finally{await r.channel.stop();}
 });
+test('channel lifecycle start is idempotent and shares one connection',async()=>{const r=await rig();try{await r.channel.start({receive:async()=>{},fail(){},log:{info(){},warn(){},error(){}}});assert.equal(r.connections.length,1);}finally{await r.channel.stop();await r.channel.stop();}});
+
+test('recipient acceptance succeeds even when a relay refuses the optional own archive copy; byte ceilings apply to Unicode',async()=>{const r=await rig(false,new MemorySeenStore(),true);try{await r.metadata();await r.channel.send({chatId:r.peerPub,text:'reply'});assert.ok(JSON.stringify(r.logs).includes('buzz.archive.unavailable'));await assert.rejects(r.channel.send({chatId:r.peerPub,text:'🧡'.repeat(5000)}),/too large/);}finally{await r.channel.stop();}});
