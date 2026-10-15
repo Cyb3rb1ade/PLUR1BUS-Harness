@@ -22,6 +22,8 @@ export interface ToolRunContext {
   sessionId?: string;
   /** Trust of the surface the call originates from (D109 §5), as the dispatcher received it. */
   surface?: 0 | 1 | 2 | 3;
+  /** Classification used to gate this call; tools re-check live args against it before spawn (D109 follow-up). */
+  classified?: ToolClassification;
 }
 
 /** What the tool knows about a call that the policy needs (D109 §2). Flags are computed by the harness path layer, not the model. */
@@ -29,6 +31,8 @@ export interface ToolClassification {
   flags?: Partial<CallFlags>;
   targets?: readonly string[];
   access?: "read" | "write";
+  /** Bound into actionHash without becoming a grant target (e.g. env fingerprint for exec.run). */
+  hashExtra?: string;
 }
 
 export interface ToolDef {

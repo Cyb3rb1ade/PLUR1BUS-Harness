@@ -6,7 +6,7 @@ import type { PolicyAudit, PolicyAuditFields } from "../policy/audit.ts";
 import { headlessGate } from "../policy/headless.ts";
 import type { ApprovalAnswer, ApprovalAsk, ApprovalPort } from "./approval.ts";
 import { repairMessage, validateArgs, type RepairHook, type ValidationIssue } from "./repair.ts";
-import type { RegisteredTool, ToolRegistry, ToolTrust } from "./registry.ts";
+import type { RegisteredTool, ToolClassification, ToolRegistry, ToolTrust } from "./registry.ts";
 
 /** Arguments are bounded before they are validated or hashed. */
 export const MAX_ARGS_BYTES = 256 * 1024;
@@ -122,8 +122,12 @@ export class ToolDispatcher {
 
       // 2. policy gate.
       let call: Call;
-      try { call = await this.#buildCall(tool, args); }
-      catch (e) { // RULING: a tool whose classify() throws is refused, never allowed
+      let classified: ToolClassification | undefined;
+      try {
+        const built = await this.#buildCall(tool, args);
+        call = built.call;
+        classified = built.classified;
+      } catch (e) { // RULING: a tool whose classify() throws is refused, never allowed
         this.#auditSoft("policy.decision", { ...this.#who(ctx, undefined), tool: tool.name, capability: tool.capability, outcome: "never", rule: "classify-failed" });
         return fail("tool-denied", `the call could not be classified: ${errMsg(e)}`, "deny");
       }
@@ -162,7 +166,7 @@ export class ToolDispatcher {
       if (ctx.signal.aborted) return out(fail("aborted", "the call was aborted before it ran", via));
 
       // 3. execute under the tool's own hard limits and the caller's abort.
-      const ran = await this.#run(tool, args, ctx);
+      const ran = await this.#run(tool, args, ctx, classified);
       if (ran.kind === "timeout") return out(fail("tool-timeout", `${tool.name} exceeded its ${tool.limits.timeoutMs} ms limit`, via, {}, true));
       if (ran.kind === "aborted") return out(fail("aborted", `${tool.name} was aborted`, via, {}, true));
       if (ran.kind === "failed") return out(fail("tool-failed", `${tool.name} failed: ${ran.message}`, via, ran.sourceCode ? { sourceCode: ran.sourceCode } : {}, true));
@@ -182,13 +186,23 @@ export class ToolDispatcher {
     }
   }
 
-  async #buildCall(tool: RegisteredTool, args: unknown): Promise<Call> {
+  async #buildCall(tool: RegisteredTool, args: unknown): Promise<{ call: Call; classified?: ToolClassification }> {
     const c = await tool.classify?.(args);
     // RULING: absent an explicit classification the call counts as outside the roots (fail closed: approval for anything above a read).
     const flags: CallFlags = { outsideRoots: true, denyListHit: false, ...(c?.flags ?? {}) };
     const targets = c?.targets ? [...c.targets] : undefined;
-    const hash = createHash("sha256").update(canonicalJson({ capability: tool.capability, tool: tool.name, args, targets: targets ?? [] })).digest("hex");
-    return { capability: tool.capability, tool: tool.name, effect: tool.effect, flags, ...(targets ? { targets } : {}), ...(c?.access ? { access: c.access } : {}), actionHash: hash };
+    const hash = createHash("sha256").update(canonicalJson({
+      capability: tool.capability, tool: tool.name, args, targets: targets ?? [],
+      ...(c?.hashExtra ? { hashExtra: c.hashExtra } : {}),
+    })).digest("hex");
+    return {
+      call: {
+        capability: tool.capability, tool: tool.name, effect: tool.effect, flags,
+        ...(targets ? { targets } : {}), ...(c?.access ? { access: c.access } : {}),
+        actionHash: hash,
+      },
+      ...(c ? { classified: c } : {}),
+    };
   }
 
   /** The decision and the exact context it was made under (the approval request is bound to the same context). */
@@ -265,7 +279,7 @@ export class ToolDispatcher {
     return r;
   }
 
-  #run(tool: RegisteredTool, args: unknown, ctx: DispatchContext): Promise<{ kind: "ok"; value: unknown } | { kind: "timeout" } | { kind: "aborted" } | { kind: "failed"; message: string; sourceCode?: string }> {
+  #run(tool: RegisteredTool, args: unknown, ctx: DispatchContext, classified?: ToolClassification): Promise<{ kind: "ok"; value: unknown } | { kind: "timeout" } | { kind: "aborted" } | { kind: "failed"; message: string; sourceCode?: string }> {
     const timers = this.#d.timers ?? realTimers;
     const ac = new AbortController();
     return new Promise((resolve) => {
@@ -274,7 +288,7 @@ export class ToolDispatcher {
       const onAbort = (): void => { finish({ kind: "aborted" }); ac.abort(ctx.signal.reason); };
       const cancel = timers.set(() => { finish({ kind: "timeout" }); ac.abort(new Error("timeout")); }, tool.limits.timeoutMs);
       ctx.signal.addEventListener("abort", onAbort, { once: true });
-      Promise.resolve().then(() => tool.execute(args, { signal: ac.signal, agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}) }))
+      Promise.resolve().then(() => tool.execute(args, { signal: ac.signal, agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), ...(classified ? { classified } : {}) }))
         .then((value) => finish({ kind: "ok", value }), (e: unknown) => { const sourceCode = e && typeof e === "object" && "code" in e && typeof e.code === "string" && /^[a-z0-9_.-]{1,64}$/.test(e.code) ? e.code : undefined; finish({ kind: "failed", message: errMsg(e), ...(sourceCode ? { sourceCode } : {}) }); });
     });
   }

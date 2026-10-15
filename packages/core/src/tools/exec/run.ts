@@ -5,7 +5,8 @@ import { decide, type Call } from "../../policy/index.ts";
 import { canonicalisePath } from "../../policy/paths.ts";
 import type { ApprovalAsk } from "../approval.ts";
 import { argsMatchPattern, findAllowed, validateArgs, validateProgram } from "./args.ts";
-import { buildEnv, DEFAULT_ENV_ALLOW } from "./env.ts";
+import { buildEnv, DEFAULT_ENV_ALLOW, envFingerprint } from "./env.ts";
+import type { ToolClassification } from "../registry.ts";
 import { ExecFailure, type ExecDeps, type ExecRequest, type ExecResult } from "./types.ts";
 
 export const EXEC_TIMEOUT_MS = 30_000;
@@ -42,7 +43,7 @@ class Capture {
   text(): string { return Buffer.concat(this.chunks).toString("utf8"); }
 }
 
-export async function execRun(req: ExecRequest, deps: ExecDeps, signal?: AbortSignal): Promise<ExecResult> {
+export async function execRun(req: ExecRequest, deps: ExecDeps, signal?: AbortSignal, classified?: ToolClassification): Promise<ExecResult> {
   const { config } = deps;
   const platform = deps.platform ?? process.platform;
   const windows = platform === "win32";
@@ -159,8 +160,18 @@ export async function execRun(req: ExecRequest, deps: ExecDeps, signal?: AbortSi
     }
   }
 
+  if (classified) {
+    const liveFp = envFingerprint(env);
+    if (classified.targets?.[0] !== undefined && classified.targets[0] !== cwd.canonical) {
+      return refuse("cwd-refused", "cwd no longer matches the classified call");
+    }
+    if (classified.hashExtra !== undefined && classified.hashExtra !== liveFp) {
+      return refuse("env-refused", "environment no longer matches the classified call");
+    }
+  }
+
   if (signal?.aborted) return notStarted(); // nothing is started for a call that was cancelled while it waited
-  audit("exec.run", program, { ...base, decision: "allow", via });
+  audit("exec.run", program, via === "override" ? { ...base } : { ...base, decision: "allow", via });
 
   const started = deps.timers.now();
   const out = new Capture(maxOut);
