@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { randomUUID } from 'node:crypto';
 import type { ToolDef, ToolRunContext } from './registry.ts';
 import type { ChatRequest } from '../session/provider.ts';
@@ -58,7 +59,11 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
       returnContract: { format: 'plur1bus.return/1', maxTokens: 2000, outputSchema: a.outputSchema ?? {}, citationsRequired: a.citationsRequired ?? false },
       ...(kind === 'handoff' ? { state: { done: [], current: a.context ?? a.objective, next: a.doneWhen ?? [a.objective] } } : {}),
     };
+    const original = structuredClone(candidate);
     const h = await prepareHandoff(candidate, authority, o.repair);
+    for (const key of ['kind', 'from', 'to', 'task', 'doneWhen', 'constraints', 'authority', 'budget', 'returnContract'] as const) {
+      if (!isDeepStrictEqual(h[key], original[key])) { authority.audit({ kind: 'handoff.refused', person: authority.person, taskId: authority.taskId, reason: 'handoff-contract-mismatch' }); throw new CollabError('unauthorized', 'sender repair changed handoff authority or contract'); }
+    }
     ctx.signal.throwIfAborted();
     starts++; pairStarts.set(pair, (pairStarts.get(pair) ?? 0) + 1);
     const started = o.authority.now();

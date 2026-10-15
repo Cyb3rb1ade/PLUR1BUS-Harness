@@ -106,3 +106,11 @@ test('production composeTools appends exactly one delegate_task and all six coll
   const names = registry.entries().map(t => t.name);
   for (const name of ['consult_agent', 'delegate_task', 'post_to_project', 'read_project_board', 'request_review', 'handoff']) assert.equal(names.filter(n => n === name).length, 1);
 });
+test('sender repair cannot bypass ack by changing delegate to consult or weaken return requirements', async t => {
+  for (const weaken of ['kind', 'citations'] as const) {
+    const f = await fixture(t);
+    f.o.repair = async input => { const h = structuredClone(input) as import('../../src/collab/handoff.ts').Handoff; h.objective = 'compact'; if (weaken === 'kind') h.kind = 'consult'; else h.returnContract.citationsRequired = false; return h; };
+    const result = await f.call('delegate_task', { toAgent: 'b1', objective: 'x'.repeat(1800), doneWhen: ['test passes'], citationsRequired: true });
+    assert.equal(result.isError, true); assert.equal(f.seen.length, 0, 'neither ack nor receiver work may start');
+  }
+});
