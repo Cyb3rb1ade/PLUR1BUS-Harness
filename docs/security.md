@@ -138,3 +138,16 @@ The durable account database holds credentials only; Core person status and righ
 `breakglass.reasonMinChars` / `reasonMaxChars` default to 10 / 500 trimmed characters; both are 1–10000 and minimum must not exceed maximum. `breakglass.maxWindowMinutes` defaults to 60, accepts 1–1440, and also caps the default 15-minute window. Trigger roles remain unchanged.
 
 All five keys declare `x-write-roles: [owner, admin]` and `x-audit: true`. These annotations are enforced by the web transport in the supervisor: the authenticated transport must supply a trusted person principal on the supervisor's `server.rs` / `config.rs` write path, enforce roles and write `audit.config.set` with old/new values. Settings continues to expose these limits read only; the authenticated transport enforces them for direct RPC writes.
+
+## M3 remote listener enforcement
+
+| Attack | Enforcement | Named verification |
+|---|---|---|
+| Expose HTTP on a non-loopback address | Network requires TLS plus current notice acknowledgement; tailnet backend binds loopback only | `remote-policy.test.ts` |
+| Reuse a local password-only Owner/Admin cookie remotely | Remote factor gate checks each request; tokens carry no factor proof | `remote-policy.test.ts` |
+| Enable network without reviewing the notice or forge its actor | Closed REST body, authenticated actor/time, audit and supervisor revision CAS | `remote-config.test.ts` |
+| Spoof a proxy client address/Host/Origin | No forwarded-header trust; exact configured remote origin; socket CIDR gate | Remote policy/runtime tests |
+| Steal a typed pairing code with a changed certificate | Nonce-only proof before disclosure; client compares MAC with actual leaf/origin; one-use receipt and code | Remote pairing HTTP/TLS tests |
+| Switch certificate before devices learn the new trust | Durable staged announcement, registered-key acknowledgements, missed-device repair | Remote pairing rollover tests |
+
+Pair-proof and code redemption are reviewed bootstrap exceptions to cookie authentication: a device cannot already have a paired identity. They are closed without an Owner-opened ephemeral code, bounded and rate limited, and never mint a password session. The MAC is not an authority to accept arbitrary TLS: the client must compare its own certificate and configured origin. No remote change strengthens the accepted same-OS-user boundary.

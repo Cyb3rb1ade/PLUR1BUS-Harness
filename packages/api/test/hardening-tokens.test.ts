@@ -29,11 +29,13 @@ const MIN_ROLE: Record<string, string> = {
   "chats.list": "viewer", "chats.create": "member", "chats.create-agent": "member", "chats.get": "viewer", "chats.update": "member",
   "chats.messages": "viewer", "chats.submit": "member", "chats.events": "viewer", "chats.cancel": "member", "chats.archive": "member",
   "chats.restore": "member", "chats.fork": "member", "chats.export": "viewer", "chats.delete": "member", "ws.ticket": "admin", "ws.reserved": "admin",
+  "remote.get": "admin", "remote.set": "admin", "remote.confirm": "admin", "remote.certificate": "admin",
+  "remote.pairing.status": "admin", "remote.pairing.offer": "admin", "remote.trust.get": "viewer", "remote.trust.challenge": "member", "remote.trust.ack": "member", "remote.trust.rotate": "admin",
   "health": "operator", "agents.list": "viewer", "tokens.list": "viewer", "tokens.create": "member", "tokens.revoke": "member",
   "totp.status": "viewer", "totp.setup": "member", "totp.confirm": "member", "totp.disable": "member",
   "breakglass.request": "admin", "breakglass.list": "admin", "breakglass.revoke": "admin", "notices.list": "viewer",
 };
-const PUBLIC = ["invitation.redeem", "session.create", "session.totp"];
+const PUBLIC = ["invitation.redeem", "session.create", "session.totp", "remote.pair-proof", "remote.device.pair"];
 const SELF_SERVICE = ["account.bootstrap", "csrf.issue", "session.delete", "sessions.revoke-all", "whoami"];
 
 function minRoleOf(action: string): string | undefined {

@@ -69,6 +69,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Schnellstart"
   },
   {
+    "slug": "remote-access",
+    "title": "Remote-Zugriff"
+  },
+  {
     "slug": "sprachfunktionen",
     "title": "Sprachfunktionen"
   },
@@ -97,6 +101,7 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "projekte": return import("./de/projekte.ts").then(m => m.doc);
     case "providers": return import("./de/providers.ts").then(m => m.doc);
     case "quickstart": return import("./de/quickstart.ts").then(m => m.doc);
+    case "remote-access": return import("./de/remote-access.ts").then(m => m.doc);
     case "sprachfunktionen": return import("./de/sprachfunktionen.ts").then(m => m.doc);
     case "wiederkehrende-aufgaben": return import("./de/wiederkehrende-aufgaben.ts").then(m => m.doc);
     default: return null;

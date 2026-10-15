@@ -3,6 +3,7 @@
 // its failure paths and each answer is checked against the response schema the document names for its status.
 // Already pinned elsewhere (not repeated): route <-> operation in both directions, handler <-> route, $refs resolve and
 // docs/openapi.json equals the generator's output in-process (openapi.test.ts).
+import type { RemotePairingController } from "../src/remote-pairing-controller.ts";
 import { AccountStore } from "../src/account-store.ts";
 import { randomBytes } from "node:crypto";
 import assert from "node:assert/strict";
@@ -111,7 +112,11 @@ test("every route, driven through its success and failure paths on the real serv
   const accounts = new AccountStore({ path: ":memory:", resolve: async userId => ({ userId, kind: "person", role: "member", disabled: false, version: 1 }) });
   const core = fakeCore(); const inviteCode = randomBytes(32).toString("base64url"); let consumed = false;
   Object.assign(core, { serviceCall: async (method: string, p: { token?: string }) => { if (p.token !== inviteCode || consumed) throw new Error("invalid invitation"); if (method === "user.invite.redeem") consumed = true; return { userId: "invited-person", role: "member" }; } });
-  const h = await start({ rateClasses: wide, accounts, core });
+  // Here the controller is an explicit response-contract fixture; real TLS/bootstrap/core ownership
+  // and durable rollover are covered by remote-pairing(-tls).test.ts.
+  const fixtureMethods = ["status", "offer", "proof", "pair", "getTrust", "challenge", "ack", "rotate"];
+  const remotePairing = Object.fromEntries(fixtureMethods.map(method => [method, async () => ({ contract: method })])) as unknown as RemotePairingController;
+  const h = await start({ rateClasses: wide, accounts, core, remotePairing, remoteCertificates: { importCompany: async (cert) => { if (cert !== "fixture-cert") throw new Error("invalid fixture certificate"); return { certPin: "sha256:" + "a".repeat(43), staged: true }; } } });
   try {
     for (const [id, role] of [["u-alice", "member"], ["u-vera", "viewer"], ["u-ada", "admin"], ["u-dana", "member"], ["u-carol", "member"]] as const) await addUser(h, { id, username: id.slice(2), role });
     const owner = (await login(h)).cookie; const alice = (await loginAs(h, "alice")).cookie; const vera = (await loginAs(h, "vera")).cookie; const ada = (await loginAs(h, "ada")).cookie;
@@ -224,6 +229,20 @@ test("every route, driven through its success and failure paths on the real serv
     await rt(h, owner, "ws.ticket", "one-use upgrade ticket"); await anon(h, "ws.ticket"); await noCsrf(h, owner, "ws.ticket");
     await rt(h, owner, "ws.reserved", "normal request requires upgrade"); await anon(h, "ws.reserved"); await rt(h, alice, "ws.reserved", "member cannot upgrade");
 
+    core.impl = async (method, params) => method === "config.get" ? { value: { publish: "tailnet", tls: "self-signed", bind: {}, allowSubnets: [] }, revision: "fixture-revision" } : method === "config.set" ? { revision: "next-revision" } : previousCore(method, params);
+    const remoteBodies: Record<string, unknown> = { "remote.set": { publish: "local" }, "remote.confirm": { confirmed: true, version: 1 }, "remote.certificate": { certPem: "fixture-cert", keyPem: "fixture-key" } };
+    for (const spec of ROUTES.filter(r => r.id.startsWith("remote."))) {
+      const body = remoteBodies[spec.id] ?? (spec.requestBody ? {} : undefined);
+      if (spec.auth === "none") {
+        rec(spec.id, "reviewed pairing bootstrap success fixture", await raw(h, { method: spec.method, path: spec.path, headers: jsonHeaders(), body: JSON.stringify(body) }));
+        rec(spec.id, "malformed bootstrap JSON", await raw(h, { method: spec.method, path: spec.path, headers: jsonHeaders(), body: "{" }));
+      } else {
+        await rt(h, owner, spec.id, "remote result contract", { ...(body !== undefined ? { body } : {}) });
+        await anon(h, spec.id);
+        if (spec.csrf) await noCsrf(h, owner, spec.id);
+      }
+    }
+
     // the shared failures, on every route: a foreign Host (421), a foreign Origin (403), and for routes with a body a wrong
     // content type (415), broken JSON (400) and an oversized body (413), each after authentication and the CSRF check
     for (const spec of ROUTES) {
@@ -278,7 +297,7 @@ test("every route was exercised on its success status and on each failure status
   const missing: string[] = [];
   for (const r of ROUTES) {
     const got = byRoute(r.id);
-    const want = [r.successStatus, ...Object.keys(r.extra ?? {}).map(Number), ...(r.id === "invitation.redeem" ? [] : [401]), ...(r.requestBody ? [400] : []), ...(r.csrf || typeof r.authz === "object" ? [403] : [])];
+    const want = [r.successStatus, ...Object.keys(r.extra ?? {}).map(Number), ...(["invitation.redeem", "remote.pair-proof", "remote.device.pair"].includes(r.id) ? [] : [401]), ...(r.requestBody ? [400] : []), ...(r.csrf || typeof r.authz === "object" ? [403] : [])];
     for (const s of want) if (!got.has(s)) missing.push(`${r.id}: ${s} was never observed (saw ${[...got].sort().join(",") || "nothing"})`);
   }
   for (const s of [413, 415, 421, 429, 504]) if (!seen.some((x) => x.status === s)) missing.push(`no route answered ${s} in this run`);
