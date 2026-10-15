@@ -1,3 +1,4 @@
+import { BoundedCapture } from './capture.ts';
 import { execFile } from 'node:child_process';
 import { createNodeProcessPort } from '../exec/node-process.ts';
 import { isSecretishName } from '../exec/env.ts';
@@ -23,11 +24,7 @@ export async function sandboxSpawn(argv: readonly string[], policy: SandboxPolic
     if (value !== undefined) env[name] = value;
   }
   const started = Date.now();
-  const capture = () => {
-    const chunks: Uint8Array[] = []; let bytes = 0, truncated = false;
-    return { push(c: Uint8Array) { const take = c.subarray(0, Math.max(0, p.limits.maxOutputBytes - bytes)); bytes += take.length; if (take.length < c.length) truncated = true; chunks.push(take); }, text: () => Buffer.concat(chunks).toString('utf8'), truncated: () => truncated };
-  };
-  const out = capture(), err = capture();
+  const out = new BoundedCapture(p.limits.maxOutputBytes), err = new BoundedCapture(p.limits.maxOutputBytes);
   let timedOut = false, aborted = false;
   const resources = () => ({ durationMs: Date.now() - started, cpuSeconds: p.limits.cpuSeconds, memoryBytes: p.limits.memoryBytes, maxProcesses: p.limits.maxProcesses, measured: false as const });
   const sandbox = { ...detection, network: p.network === 'egress' ? 'none' as const : p.network, warnings: p.network === 'egress' ? ['Egress proxy enforcement unavailable; network forced to none.'] : [] };
@@ -51,6 +48,6 @@ export async function sandboxSpawn(argv: readonly string[], policy: SandboxPolic
   if (options.signal?.aborted) onAbort();
   try {
     const exit = await child.wait();
-    return { exitCode: exit.code, signal: exit.signal, stdout: out.text(), stderr: err.text(), stdoutTruncated: out.truncated(), stderrTruncated: err.truncated(), timedOut, aborted, resources: resources(), sandbox };
+    return { exitCode: exit.code, signal: exit.signal, stdout: out.text(), stderr: err.text(), stdoutTruncated: out.truncated, stderrTruncated: err.truncated, timedOut, aborted, resources: resources(), sandbox };
   } finally { clearTimeout(timer); if (memoryTimer) clearInterval(memoryTimer); options.signal?.removeEventListener('abort', onAbort); await child.killTree(); }
 }
