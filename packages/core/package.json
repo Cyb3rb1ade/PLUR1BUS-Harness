@@ -3,9 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24.16.0 <25 || >=26.1.0" },
-  "bin": { "plur1bus-core": "./dist/core.js" },
-  "exports": { ".": "./dist/index.js" },
+  "engines": {
+    "node": ">=24.16.0 <25 || >=26.1.0"
+  },
+  "bin": {
+    "plur1bus-core": "./dist/core.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "scripts": {
     "build": "esbuild src/index.ts src/bin.ts src/import-bin.ts src/acp-bin.ts --bundle --platform=node --target=node24 --format=esm --packages=external --outdir=dist --entry-names=[name] && node -e \"const f=require('fs');f.renameSync('dist/bin.js','dist/core.js');f.renameSync('dist/import-bin.js','dist/import.js');f.renameSync('dist/acp-bin.js','dist/acp.js')\" && node ../../scripts/copy-dir.mjs src/agent-templates dist/agent-templates",
     "test": "node ../../scripts/test-package.mjs"
@@ -16,7 +22,9 @@
     "@plur1bus/config-schema": "workspace:*",
     "@plur1bus/log-schema": "workspace:*",
     "@plur1bus/module-api": "workspace:*",
-    "@plur1bus/rpc-schema": "workspace:*"
+    "@plur1bus/rpc-schema": "workspace:*",
+    "@plur1bus/channels-buzz": "workspace:*",
+    "@plur1bus/channels-matrix": "workspace:*"
   },
   "optionalDependencies": {
     "@napi-rs/keyring": "2.1.0"
