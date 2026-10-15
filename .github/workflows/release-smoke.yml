@@ -57,6 +57,16 @@ jobs:
           node --experimental-strip-types --test --test-timeout=360000 tests/e2e/smoke.test.ts
         env:
           PLUR1BUS_CI_RECALL_HARD_MS: '3000'
+      - name: real embedding, reranker and restart (existing acceptance)
+        shell: bash
+        run: |
+          exe=''; [ "$RUNNER_OS" != 'Windows' ] || exe='.exe'
+          export PLUR1BUS_BIN="$GITHUB_WORKSPACE/target/release/plur1bus$exe"
+          node --experimental-strip-types --test --test-timeout=300000 tests/system/two-session-recall.test.ts
+        env:
+          PLUR1BUS_REAL_MODELS: '1'
+          PLUR1BUS_MODELS_CACHE: ${{ runner.temp }}/release-real-models
+          PLUR1BUS_CI_RECALL_HARD_MS: '3000'
       - run: node --experimental-strip-types --test tests/system/helpers.test.ts
       - name: installer launcher contract (no administrator operation)
         run: node --experimental-strip-types --test --test-timeout=120000 tests/system/install-scripts.test.ts
@@ -72,6 +82,6 @@ jobs:
           {
             echo '### Functional smoke scope'
             echo 'Target: ${{ matrix.target }}. Native installed runtime; fake chat and flat embedding seam.'
-            echo 'This is not the real embedding/reranker T6 proof. OS service reboot remains manual.'
+            echo 'Separate existing real-model acceptance also runs on this target; T6 still requires all native outcomes. OS service reboot remains manual.'
             echo 'Windows injected-update/uninstall fixture port remains open; do not count empty cfg(unix) suites as passes.'
           } >> "$GITHUB_STEP_SUMMARY"

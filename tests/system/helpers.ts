@@ -25,7 +25,7 @@ export function sharedMemorySupported(h: string): boolean {
 export function home(): string {
   const h = mkdtempSync(join(tmpdir(), "p1b-sys-"));
   const cache = process.env.PLUR1BUS_MODELS_CACHE;
-  if (REAL && cache) { mkdirSync(cache, { recursive: true }); symlinkSync(resolve(cache), join(h, "models"), "dir"); }
+  if (REAL && cache) { mkdirSync(cache, { recursive: true }); symlinkSync(resolve(cache), join(h, "models"), process.platform === "win32" ? "junction" : "dir"); }
   return h;
 }
 
