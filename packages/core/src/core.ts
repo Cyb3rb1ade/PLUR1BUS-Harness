@@ -84,7 +84,7 @@ import { createModelsScanJob } from "./discovery/job.ts";
 import { loadMetadataTable, reenrichCatalog } from "./discovery/metadata.ts";
 import { createScanScheduler, type ScanScheduler } from "./discovery/scheduler.ts";
 import { createDiscoveryService, type DiscoveryService } from "./discovery/service.ts";
-import { createDreams, type Dreams } from "./dreams/index.ts";
+import { createDreams, itemsFromEngineList, type Dreams } from "./dreams/index.ts";
 import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
 import { createMetrics, createMetricsServer, loadOrCreateMetricsToken, type Metrics, type MetricsServer } from "./metrics/index.ts";
 import { createAuditWriter } from "./identity/audit.ts";
@@ -794,18 +794,15 @@ export function createCore(o: CoreOptions): Core {
       try {
         dreams = createDreams({
           engine: eng, layout: l, clock: o.dreams?.clock ?? discClock, logger, agents: executionRegistry, securePath: platform.securePath,
-          // Content-only producer: Engine.memory.list yields text (+ optional score), never recall/query stats.
+          // Content-only producer: Engine.memory.list yields text (+ optional score on a topic query, not on `since`).
+          // Agent-private cards only (ADR-009 Q5). A truncated page throws; the scheduler maps that to engineError.
           // Gates keep a content-only card from promoting; a deep run then skip/no_candidates (fail closed).
           candidateMemory: {
             async list(agentId) {
               const ws = executionRegistry.workspaceOf(agentId);
               if (!ws) return [];
               const { principal } = callerToPrincipal(cliCaller(), agentId, ws);
-              const r = await eng.memory.list({ since: 0, limit: 100 }, principal, AGENT_CONTEXT_CLI);
-              return r.items.map((c) => ({
-                content: c.text,
-                ...(typeof c.score === "number" && Number.isFinite(c.score) ? { score: c.score } : {}),
-              }));
+              return itemsFromEngineList(await eng.memory.list({ since: 0, limit: 100 }, principal, AGENT_CONTEXT_CLI));
             },
           },
           ...(o.dreams?.defaultTimezone ? { scheduler: { defaultTimezone: o.dreams.defaultTimezone } } : {}),

@@ -10,7 +10,7 @@ import { DIARY_FILE, type CandidateSource, type Clock, type DreamEngine, type Dr
 export { DreamScheduler } from "./scheduler.ts";
 export { DreamStore, SCHEMA_VERSION } from "./store.ts";
 export { buildDreamsMethods } from "./methods.ts";
-export { createCandidateSource, type CandidateMemory, type CandidateMemoryItem } from "./producer.ts";
+export { createCandidateSource, itemsFromEngineList, type CandidateMemory, type CandidateMemoryItem } from "./producer.ts";
 export * from "./types.ts";
 
 export interface DreamsOptions {

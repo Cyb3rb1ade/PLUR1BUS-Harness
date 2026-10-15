@@ -58,6 +58,14 @@ const AGENT_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/; // rpc.schema.json $defs/AgentId
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 const utcDayStart = (ms: number) => Math.floor(ms / DAY_MS) * DAY_MS;
 
+/** Decode at most `maxBytes` of `buf` without splitting a UTF-8 codepoint (no U+FFFD at the cap). */
+function utf8Prefix(buf: Buffer, maxBytes: number): string {
+  if (buf.length <= maxBytes) return buf.toString("utf8");
+  let end = maxBytes;
+  while (end > 0 && (buf[end]! & 0xc0) === 0x80) end--;
+  return buf.subarray(0, end).toString("utf8");
+}
+
 /** The scheduling window of a run: the local date for rem/deep, a 4-hour bucket of it for light (ADR-009 Idempotency). */
 function windowId(phase: Phase, ms: number, tz: string): string {
   const f = new Intl.DateTimeFormat("en-CA", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit" });
@@ -564,8 +572,7 @@ export class DreamScheduler {
       const bytes = statSync(dp).size;
       const raw = readFileSync(dp);
       const truncated = raw.length > 262_144;
-      const slice = truncated ? raw.subarray(0, 262_144) : raw;
-      return { path: dp, exists: bytes > 0, bytes, text: slice.toString("utf8"), truncated };
+      return { path: dp, exists: bytes > 0, bytes, text: utf8Prefix(raw, 262_144), truncated };
     } catch {
       return { path: dp, exists: false, bytes: 0, text: "", truncated: false };
     }

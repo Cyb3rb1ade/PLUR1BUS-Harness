@@ -2,7 +2,7 @@
 // recall/query stats API, so tests drive a fake; production never invents those fields.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { createCandidateSource, type CandidateMemoryItem } from "../../src/dreams/producer.ts";
+import { createCandidateSource, itemsFromEngineList, type CandidateMemoryItem } from "../../src/dreams/producer.ts";
 
 describe("dreams candidate producer", () => {
   it("Producer yields candidates against a fake engine.", async () => {
@@ -38,5 +38,32 @@ describe("dreams candidate producer", () => {
   it("an empty list from the memory port is an empty shortlist, not a fabricated candidate", async () => {
     const source = createCandidateSource({ list: async () => [] });
     assert.deepEqual(await source.pull("alpha"), []);
+  });
+
+  it("a workspace/user card is not ingested as agent-private", async () => {
+    const mapped = itemsFromEngineList({
+      truncated: false,
+      items: [
+        { text: "same text", scope: "workspace" },
+        { text: "same text", scope: "user" },
+        { text: "same text", scope: "agent-private" },
+      ],
+    });
+    assert.deepEqual(mapped, [{ content: "same text", partition: "agent-private" }]);
+    const source = createCandidateSource({
+      list: () => [
+        { content: "workspace fact", partition: "workspace" },
+        { content: "user fact", partition: "user" },
+        { content: "private fact", partition: "agent-private" },
+      ],
+    });
+    assert.deepEqual(await source.pull("alpha"), [{ content: "private fact", partition: "agent-private" }]);
+  });
+
+  it("a truncated engine listing throws instead of dropping the rest of the private corpus", () => {
+    assert.throws(
+      () => itemsFromEngineList({ truncated: true, items: [{ text: "kept", scope: "agent-private" }] }),
+      (e: unknown) => e instanceof Error && /truncated/.test(e.message),
+    );
   });
 });

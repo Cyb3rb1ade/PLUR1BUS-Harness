@@ -85,8 +85,8 @@ export interface DreamJobRun {
 }
 
 /** The producer of the candidate shortlist (ADR-009 C1). The pinned engine (1.12.0) has no recall/query stats
- *  API, so a fake engine in tests drives this port; production wiring maps Engine.memory.list content (and an
- *  optional score) without inventing recalls or uniqueQueries. Absent: the candidate guards stay inert. */
+ *  API, so a fake engine in tests drives this port; production wiring maps Engine.memory.list agent-private
+ *  content (and an optional score) without inventing recalls or uniqueQueries. Absent: the candidate guards stay inert. */
 export interface CandidateSource { pull(agentId: string): Promise<CandidateInput[]> | CandidateInput[] }
 
 export interface DreamEvent {

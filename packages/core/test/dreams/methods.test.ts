@@ -239,4 +239,16 @@ describe("dreams.diary", () => {
     assert.equal(r.text, "");
     assert.equal(r.truncated, false);
   });
+
+  it("a diary cap that would split a UTF-8 codepoint yields a clean prefix", async () => {
+    const h = harness(dirs, { agents: ["alpha"] });
+    const diary = path.join(h.dir, "dreaming.md");
+    writeFileSync(diary, Buffer.concat([Buffer.alloc(262_143, 0x61), Buffer.from("é")]));
+    const sched = h.make({ diaryPath: () => diary });
+    const r = sched.readDiary("alpha");
+    assert.equal(r.truncated, true);
+    assert.equal(r.bytes, 262_145);
+    assert.equal(r.text.includes("\uFFFD"), false);
+    assert.equal(r.text, "a".repeat(262_143));
+  });
 });
