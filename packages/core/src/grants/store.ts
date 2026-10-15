@@ -65,6 +65,9 @@ const MAX_FIELD_CHARS = 256;
 
 const ATTESTED_VIA = /^attested:[a-z0-9][a-z0-9-]{0,31}$/;
 
+export type GrantLifecycleChange = "used" | "expired" | "suspended";
+export type GrantLifecycleNotify = (change: GrantLifecycleChange, grant: StoredGrant, state: GrantState) => void;
+
 export interface GrantStoreOptions {
   maxGrantDays?: () => number;
   db: DatabaseSync;
@@ -76,6 +79,8 @@ export interface GrantStoreOptions {
    * narrows, so a failing audit never blocks it.
    */
   audit?: PolicyAudit;
+  /** used / expired / suspended only; created and revoked stay with the RPC handlers so they are not double-notified. */
+  notify?: GrantLifecycleNotify;
 }
 
 interface GrantRow {
@@ -107,6 +112,8 @@ export class GrantStore implements GrantSource {
   readonly #chain: ApprovalChain;
   readonly #clock: Clock;
   readonly #audit: PolicyAudit | undefined;
+  #notify: GrantLifecycleNotify | undefined;
+  readonly #emitted = new Set<string>();
 
   constructor(o: GrantStoreOptions) {
     this.maxGrantDays = o.maxGrantDays ?? (() => 90);
@@ -114,6 +121,30 @@ export class GrantStore implements GrantSource {
     this.#db = o.db;
     this.#chain = o.chain;
     this.#clock = o.clock;
+    this.#notify = o.notify;
+  }
+
+  /** Wire used/expired/suspended notifications after construction (the RPC rig and the core). */
+  setNotify(fn: GrantLifecycleNotify | undefined): void {
+    this.#notify = fn;
+  }
+
+  #emit(change: GrantLifecycleChange, grant: StoredGrant, state: GrantState): void {
+    if (change === "expired" || change === "suspended") {
+      const k = `${change}:${grant.id}`;
+      if (this.#emitted.has(k)) return;
+      this.#emitted.add(k);
+    }
+    try { this.#notify?.(change, grant, state); } catch { /* a listener never blocks a grant operation */ }
+  }
+
+  /** Scan for expired (time-derived) and suspended grants and notify once each. Called from grant.list / grant.get. */
+  announceDue(): void {
+    const now = this.#clock.now();
+    for (const v of this.inspect()) {
+      if (v.state === "suspended") this.#emit("suspended", v.grant, v.state);
+      else if (v.state === "active" && now >= grantExpiry(v.grant, this.maxGrantDays())) this.#emit("expired", v.grant, v.state);
+    }
   }
 
   // ---- GrantSource (read side; verified on every call) ----
@@ -131,6 +162,11 @@ export class GrantStore implements GrantSource {
     if (!row) return undefined;
     const v = this.#views([row])[0]!;
     return v.state === "suspended" ? undefined : v.grant;
+  }
+
+  /** HMAC-chain entries this store shares with approvals: the redacted `approval.audit` view. */
+  chainEntries(): readonly ChainEntry[] {
+    return this.#chain.snapshot().entries;
   }
 
   /** Everything the chain vouches for or not, with its state, for `grant list` and the integrity check. */
@@ -312,17 +348,20 @@ export class GrantStore implements GrantSource {
 
   /** Records a use of a standing grant (resets the 90-day clock). Chained at most once per `USE_RECORD_GRANULARITY_MS`. */
   markUsed(id: string): void {
+    let used: View | undefined;
     transaction(this.#db, () => {
       const v = this.#viewOf(id);
       if (!v || v.state !== "active" || v.grant.scope === "once") return;
       const now = this.#clock.now();
       // A use can only keep a live grant alive: recording one on a grant whose lifetime already lapsed would restart the clock and revive it.
-      if (v.grant.createdAt > now || now >= grantExpiry(v.grant)) return;
+      if (v.grant.createdAt > now || now >= grantExpiry(v.grant, this.maxGrantDays())) return;
       if (v.grant.lastUsedAt !== undefined && now - v.grant.lastUsedAt < USE_RECORD_GRANULARITY_MS) return;
       this.#chain.append("grant.used", id, {});
       this.#db.prepare("UPDATE grants SET last_used_at = ? WHERE id = ?").run(now, id);
       this.#note("grant.used", v.grant);
+      used = this.#viewOf(id);
     });
+    if (used) this.#emit("used", used.grant, used.state);
   }
 
   /**

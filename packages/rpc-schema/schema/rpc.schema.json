@@ -8151,6 +8151,12 @@
           "grants": { "type": "array", "items": { "$ref": "#/$defs/GrantRecord" } },
           "nextCursor": { "type": "string" } } }
       },
+      "grant.get": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "D109 §4: one grant of the calling person. Owner/Admin only (RBAC action grant.read); refused for every agent principal. E_NOT_FOUND for an unknown id or another person's grant. A broken approval chain returns the grant as suspended.",
+        "params": { "type": "object", "additionalProperties": false, "required": ["id"], "properties": { "id": { "$ref": "#/$defs/GrantId" } } },
+        "result": { "$ref": "#/$defs/GrantRecord" }
+      },
       "grant.create": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
         "description": "D109 §4: a person gives an agent a standing permission (scope task, session or always; once grants are made only by approval.decide). The grant belongs to the calling person; the surface level is derived by the core from the connection and never accepted as a parameter. Owner/Admin only (RBAC action grant.write), refused for every agent principal. Audited. E_DENIED reason=policy-never (the capability is never grantable: credential.entry, harness.admin, policy.bypass ...) | surface-untrusted (the connection's surface is below what the capability and scope need). E_INVALID_PARAMS reason=ceiling-exceeded (the scope is wider than the capability allows) | invalid-grant | duplicate-id. E_AGENT_UNKNOWN.",
@@ -8228,6 +8234,23 @@
             "signedBad": { "type": "integer", "minimum": 0 },
             "report": { "enum": ["unsigned (legacy)", "signed-ok", "signed-bad"] }
           }, "description": "Additive Ed25519 status. Unsigned legacy entries remain valid." } } }
+      },
+      "approval.audit": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
+        "description": "D109 §9.10: approval-related HMAC-chain entries of the calling person, newest first, redacted (no nonce, no raw payload). Owner/Admin/Operator (RBAC action approval.read); refused for every agent principal. limit defaults to 100. This is a view of the existing approval chain, not a second audit log.",
+        "params": { "type": "object", "additionalProperties": false, "properties": {
+          "limit": { "type": "integer", "minimum": 1, "maximum": 500 },
+          "cursor": { "type": "string", "minLength": 1, "maxLength": 512 } } },
+        "result": { "type": "object", "additionalProperties": false, "required": ["entries"], "properties": {
+          "entries": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["seq", "ts", "kind", "refId"], "properties": {
+            "seq": { "type": "integer", "minimum": 1 },
+            "ts": { "type": "string" },
+            "kind": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "refId": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "capability": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "person": { "type": "string", "minLength": 1, "maxLength": 128 }
+          } } },
+          "nextCursor": { "type": "string" } } }
       }
     },
     "BudgetLimit": {
@@ -8761,6 +8784,7 @@
         "targets": { "type": "array", "maxItems": 200, "items": { "type": "string" }, "description": "The exact, redacted targets (paths, URLs, package list) the call touches." },
         "summary": { "type": "string", "maxLength": 8192, "description": "The exact, redacted command line or diff summary; shown before anything the model wrote." },
         "agentReason": { "type": "string", "maxLength": 2048, "description": "The model's own `why`. Unverified; clients label it so." },
+        "diff": { "type": "string", "maxLength": 8192, "description": "A redacted unified-diff or patch the model supplied with the request. Unverified; clients label it so." },
         "createdAt": { "type": "string" },
         "expiresAt": { "type": "string" },
         "decidedAt": { "type": "string" },
@@ -9233,9 +9257,15 @@
         "required": ["approval"],
         "properties": { "approval": { "$ref": "#/$defs/ApprovalRecord" } }
       },
+      "approval.parked": {
+        "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core", "type": "object", "additionalProperties": false,
+        "description": "D109 §5: the foreground wait ended and the request stays open until TTL. Opt-in (a subscription must name approval.parked in names) and delivered only to subscriptions of person principals with approval.read; never to an agent. The record carries no nonce.",
+        "required": ["approval"],
+        "properties": { "approval": { "$ref": "#/$defs/ApprovalRecord" } }
+      },
       "grant.changed": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core", "type": "object", "additionalProperties": false,
-        "description": "D109 §4: a grant was created or revoked (use, expiry and suspension are not notified in this version). Opt-in (a subscription must name grant.changed in names) and delivered only to subscriptions of person principals with grant.read; never to an agent.",
+        "description": "D109 §4: a grant was created, used, revoked, expired or suspended. Opt-in (a subscription must name grant.changed in names) and delivered only to subscriptions of person principals with grant.read; never to an agent.",
         "required": ["change", "grant"],
         "properties": { "change": { "enum": ["created", "used", "revoked", "expired", "suspended"] }, "grant": { "$ref": "#/$defs/GrantRecord" } }
       }

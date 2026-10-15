@@ -13,7 +13,7 @@ const WRITE = { content: "x" };
 
 // ---- agent principals vs the eight methods ----
 
-const METHODS = ["grant.list", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.verify", "approval.decide", "approval.cancel"] as const;
+const METHODS = ["grant.list", "grant.get", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.verify", "approval.audit", "approval.decide", "approval.cancel"] as const;
 type Method = (typeof METHODS)[number];
 const RPC_CTX: CallContext = { requestId: "1", connectionId: "c1", signal: new AbortController().signal };
 
@@ -28,8 +28,8 @@ async function rpcWorld(): Promise<RpcWorld> {
   opened.n = 0; // setup went around the handlers
   const guarded = guardMethods(rr.methods, { resolve: () => rr.who, now: () => rr.clock.now() });
   const params: Record<Method, unknown> = {
-    "grant.list": {}, "grant.create": { capability: "fs.write", agent: "bernd", scope: "always" }, "grant.revoke": { id: g.id },
-    "approval.list": {}, "approval.get": { id: parked.id }, "approval.verify": {}, "approval.decide": { id: parked.id, decision: "approve" }, "approval.cancel": { id: parked.id },
+    "grant.list": {}, "grant.get": { id: g.id }, "grant.create": { capability: "fs.write", agent: "bernd", scope: "always" }, "grant.revoke": { id: g.id },
+    "approval.list": {}, "approval.get": { id: parked.id }, "approval.verify": {}, "approval.audit": {}, "approval.decide": { id: parked.id, decision: "approve" }, "approval.cancel": { id: parked.id },
   };
   const snapshot = (): string => JSON.stringify([rr.stores.chain.verify(), rr.stores.grants.inspect().map((v) => [v.grant.id, v.state]), rr.stores.approvals.list().map((a) => [a.id, a.status])]);
   return { rr, opened, guarded, params, pendingId: parked.id, snapshot };

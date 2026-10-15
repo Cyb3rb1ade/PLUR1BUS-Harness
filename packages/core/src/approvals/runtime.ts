@@ -17,6 +17,7 @@ export interface PermissionRuntimeOptions {
   events?: ApprovalEvents;
   securePath?: (p: string, o?: { mode?: number }) => void;
   signing?: SigningKeySource;
+  onOpen?: (p: OpenPermissions) => void;
 }
 
 export interface OpenPermissions { service: ApprovalService; grants: PermissionStores["grants"]; stores: PermissionStores }
@@ -40,7 +41,9 @@ export function createPermissionRuntime(o: PermissionRuntimeOptions): Permission
     const stores = await openPermissionStores({ path: o.dbPath, ...(o.maxGrantDays ? { maxGrantDays: o.maxGrantDays } : {}), keys: o.keys, clock: o.clock, audit: o.audit, ...(o.securePath ? { securePath: o.securePath } : {}), ...(o.signing ? { signing: o.signing } : {}) });
     if (closed) { stores.close(); throw stopping(); } // a close() during a slow open wins
     const service = createApprovalService({ stores, clock: o.clock, audit: o.audit, ...(o.events ? { events: o.events } : {}) });
-    return { service, grants: stores.grants, stores };
+    const opened: OpenPermissions = { service, grants: stores.grants, stores };
+    try { o.onOpen?.(opened); } catch { /* a listener never blocks the first use */ }
+    return opened;
   }
 
   return {

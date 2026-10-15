@@ -992,6 +992,9 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "grant.get" => {
+                check_pair::<types::GrantGetParams, types::GrantRecord>(name, fixture, &root_schema)
+            }
             "grant.create" => check_pair::<types::GrantCreateParams, types::GrantRecord>(
                 name,
                 fixture,
@@ -1025,6 +1028,13 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::ApprovalVerifyParams,
                 types::ApprovalVerifyResult,
             >(name, fixture, &root_schema),
+            "approval.audit" => {
+                check_pair::<types::ApprovalAuditParams, types::ApprovalAuditResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
             "project.column.list" => check_pair::<
                 types::ProjectColumnListParams,
                 types::ProjectColumnListResult,

@@ -1,4 +1,4 @@
-//! `plur1bus approval list|pending|approve|deny|verify`: the CLI's path to the core's experimental `approval.*` RPC
+//! `plur1bus approval list|pending|show|approve|deny|verify|audit`: the CLI's path to the core's experimental `approval.*` RPC
 //! (D109, D8).
 //!
 //! `approve` is the one command here that grants authority, so it never acts silently: it fetches the request,
@@ -189,6 +189,10 @@ pub(crate) fn render_request(r: &Value) -> String {
     if let Some(x) = r["agentReason"].as_str() {
         l.push(format!("  agent says (unverified): {}", clean(x)));
     }
+    if let Some(x) = r["diff"].as_str() {
+        l.push("  diff (unverified):".into());
+        l.extend(x.lines().map(|ln| format!("    {}", clean(ln))));
+    }
     l.push(format!(
         "  asked {}, expires {}",
         s(r, "createdAt"),
@@ -309,6 +313,15 @@ pub fn run(out: &Out, layout: &Layout, cmd: ApprovalCmd) {
                 }
             });
         }
+        ApprovalCmd::Show { id } => {
+            let v = call(
+                out,
+                &mut connect(out, layout),
+                "approval.get",
+                json!({ "id": id }),
+            );
+            out.ok("approval.get/1", &v, || render_request(&v));
+        }
         ApprovalCmd::Approve {
             id,
             scope,
@@ -401,7 +414,34 @@ pub fn run(out: &Out, layout: &Layout, cmd: ApprovalCmd) {
                 std::process::exit(1);
             }
         }
+        ApprovalCmd::Audit { limit } => {
+            let mut p = json!({});
+            if let Some(l) = limit {
+                p["limit"] = json!(l);
+            }
+            let v = call(out, &mut connect(out, layout), "approval.audit", p);
+            out.ok("approval.audit/1", &v, || render_audit(&v));
+        }
     }
+}
+
+fn render_audit(v: &Value) -> String {
+    let rows = v["entries"].as_array().cloned().unwrap_or_default();
+    if rows.is_empty() {
+        return "no approval audit entries".into();
+    }
+    rows.iter()
+        .map(|e| {
+            format!(
+                "{}  {}  {}  {}",
+                e["seq"],
+                clean(e["ts"].as_str().unwrap_or("?")),
+                clean(e["kind"].as_str().unwrap_or("?")),
+                clean(e["refId"].as_str().unwrap_or("?"))
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 #[cfg(test)]
@@ -433,6 +473,14 @@ mod tests {
     fn parses_the_commands_and_their_flags() {
         assert!(matches!(parse(&["pending"]).unwrap(), ApprovalCmd::Pending));
         assert!(matches!(parse(&["verify"]).unwrap(), ApprovalCmd::Verify));
+        match parse(&["show", "apr_1"]).unwrap() {
+            ApprovalCmd::Show { id } => assert_eq!(id, "apr_1"),
+            o => panic!("{o:?}"),
+        }
+        match parse(&["audit", "--limit", "20"]).unwrap() {
+            ApprovalCmd::Audit { limit } => assert_eq!(limit, Some(20)),
+            o => panic!("{o:?}"),
+        }
         match parse(&["list", "--status", "denied", "--agent", "a", "--limit", "7"]).unwrap() {
             ApprovalCmd::List {
                 status,
@@ -479,6 +527,8 @@ mod tests {
         assert!(parse(&["approve"]).is_err());
         assert!(parse(&["approve", "apr_1", "--scope", "forever"]).is_err());
         assert!(parse(&["deny"]).is_err());
+        assert!(parse(&["show"]).is_err());
+        assert!(parse(&["audit", "--limit", "0"]).is_err());
         // no nonce and no password on the command line, ever
         assert!(parse(&["approve", "apr_1", "--nonce", "x"]).is_err());
         assert!(parse(&["approve", "apr_1", "--password", "x"]).is_err());

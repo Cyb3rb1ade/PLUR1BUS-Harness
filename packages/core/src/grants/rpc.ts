@@ -1,7 +1,7 @@
-// D109 §4: grant.list | grant.create | grant.revoke. A grant belongs to the calling person: the person, `createdBy` and the surface level
+// D109 §4: grant.list | grant.get | grant.create | grant.revoke. A grant belongs to the calling person: the person, `createdBy` and the surface level
 // come from the authenticated connection (see `callerOf`), never from params. The store enforces the ceiling and the minimum surface of
 // the capability; this file adds the wire mapping, the "never" classes, the agent check and the surface a grant of that scope needs.
-import type { GrantCreateParams, GrantListParams, GrantMatch, GrantRecord, GrantRevokeParams } from "@plur1bus/rpc-schema";
+import type { GrantCreateParams, GrantGetParams, GrantListParams, GrantMatch, GrantRecord, GrantRevokeParams } from "@plur1bus/rpc-schema";
 import { guarded, type ApprovalMethodDeps, type Caller, type PermissionHandles } from "../approvals/rpc-common.ts";
 import { grantRecordOf, page, parseIso } from "../approvals/wire.ts";
 import { CAPABILITIES, requiredSurface, scopeRank, type GrantScope } from "../policy/index.ts";
@@ -35,13 +35,18 @@ function mapGrantError(e: unknown): unknown {
   }
 }
 
-export function buildGrantMethods(d: ApprovalMethodDeps): Record<"grant.list" | "grant.create" | "grant.revoke", Handler> {
+export function buildGrantMethods(d: ApprovalMethodDeps): Record<"grant.list" | "grant.get" | "grant.create" | "grant.revoke", Handler> {
   const guard = guarded(d);
   const viewOf = (h: PermissionHandles, person: string, id: string): { grant: StoredGrant; state: GrantState } | undefined =>
     h.grants.inspect({ person }).find((v) => v.grant.id === id);
+  const inspected = (h: PermissionHandles): void => {
+    h.grants.announceDue();
+    d.onGrantsInspected?.(h.grants.inspect().map((v) => v.grant), d.clock());
+  };
 
   return {
     "grant.list": guard("grant.list", async (p: GrantListParams = {}, c: Caller, h) => {
+      inspected(h);
       const cap = p.capability?.trim().toLowerCase();
       const views = h.grants.inspect({ person: c.person, ...(p.agent !== undefined ? { agent: p.agent } : {}) })
         .filter((v) => (cap === undefined || v.grant.capability === cap) && (p.state === undefined || v.state === p.state));
@@ -49,6 +54,13 @@ export function buildGrantMethods(d: ApprovalMethodDeps): Record<"grant.list" | 
         filter: { agent: p.agent, capability: cap, state: p.state }, ...(p.limit !== undefined ? { limit: p.limit } : {}), ...(p.cursor !== undefined ? { cursor: p.cursor } : {}),
       });
       return { grants: out.items.map((v) => grantRecordOf(v.grant, v.state)), ...(out.nextCursor ? { nextCursor: out.nextCursor } : {}) };
+    }),
+
+    "grant.get": guard("grant.get", async (p: GrantGetParams, c: Caller, h): Promise<GrantRecord> => {
+      inspected(h);
+      const v = viewOf(h, c.person, p.id);
+      if (!v) throw new RpcError("E_NOT_FOUND", `no grant ${p.id}`);
+      return grantRecordOf(v.grant, v.state);
     }),
 
     "grant.create": guard("grant.create", async (p: GrantCreateParams, c: Caller, h): Promise<GrantRecord> => {

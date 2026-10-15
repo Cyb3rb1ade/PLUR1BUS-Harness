@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import { InboxStore, createInboxService, approvalToInbox, jobFailedToInbox, mediaToInbox, pairingToInbox, channelToInbox, breakglassToInbox, type InboxChange } from "../../src/inbox/index.ts";
+import { InboxStore, createInboxService, approvalToInbox, jobFailedToInbox, mediaToInbox, pairingToInbox, channelToInbox, breakglassToInbox, alwaysGrantsToInbox, type InboxChange } from "../../src/inbox/index.ts";
 import { createSystemJobs } from "../../src/system-jobs/index.ts";
 import { createPlatformCapabilities } from "../../src/platform.ts";
 import { FakeClock } from "../../src/discovery/testing.ts";
@@ -109,6 +109,31 @@ test("break-glass: the affected person gets one critical entry per grant, withou
   assert.equal(f.all("alice")[0]!.severity, "critical");
   assert.ok(!JSON.stringify(f.all("alice")).includes("forensic"));
   assert.equal(f.all("root").length, 0);
+  f.store.close();
+});
+
+test("always-grants older than 90 days: one inbox item for that person, never audience all; a second run is deduped", () => {
+  const f = fixture();
+  const DAY = 86_400_000;
+  const clock = new FakeClock(0);
+  const grants = [{
+    id: "grt_always1", person: "alice", agent: "bernd", capability: "fs.write",
+    scope: "always" as const, createdAt: 0, match: { kind: "capability" as const },
+  }];
+  clock.advance(91 * DAY);
+  alwaysGrantsToInbox(f.service, grants, clock.now());
+  alwaysGrantsToInbox(f.service, grants, clock.now());
+  assert.equal(f.all("alice").length, 1);
+  assert.equal(f.all("alice")[0]!.kind, "system");
+  assert.equal(f.all("bob").length, 0);
+  assert.equal(f.all("root").length, 0);
+  assert.ok(!JSON.stringify(f.all("alice")).includes("audience"));
+  alwaysGrantsToInbox(f.service, [{
+    ...grants[0]!, id: "grt_secret", capability: "fs.write sk-live-0123456789abcdefghijkl",
+  }], clock.now());
+  const secretEntry = f.all("alice").find(e => e.ref?.objectId === "grt_secret");
+  assert.ok(secretEntry);
+  assert.ok(!JSON.stringify(secretEntry).includes("sk-live-"));
   f.store.close();
 });
 

@@ -39,8 +39,8 @@ function withMemoryKeyring(): () => void {
 const err = (e: any) => ({ error: e.error, reason: e.reason });
 const AGENT: Principal = { userId: "local-owner", kind: "agent", role: "owner" };
 const PARAMS: Record<string, object> = {
-  "grant.list": {}, "grant.create": { capability: "fs.write", agent: "bernd", scope: "always" }, "grant.revoke": { id: "grt_x" },
-  "approval.list": {}, "approval.get": { id: "apr_x" }, "approval.verify": {}, "approval.decide": { id: "apr_x", decision: "approve" }, "approval.cancel": { id: "apr_x" },
+  "grant.list": {}, "grant.get": { id: "grt_x" }, "grant.create": { capability: "fs.write", agent: "bernd", scope: "always" }, "grant.revoke": { id: "grt_x" },
+  "approval.list": {}, "approval.get": { id: "apr_x" }, "approval.verify": {}, "approval.audit": {}, "approval.decide": { id: "apr_x", decision: "approve" }, "approval.cancel": { id: "apr_x" },
 };
 
 describe("grant.* and approval.* in a running core: who may call them", () => {
@@ -85,7 +85,7 @@ describe("grant.* and approval.* in a running core: who may call them", () => {
     who = { userId: "u-op", kind: "person", role: "operator" };
     assert.deepEqual((await c.call<any>("approval.list", {})).approvals, []);
     assert.equal((await c.call<any>("approval.verify", {})).ok, true);
-    for (const m of ["grant.list", "grant.create", "grant.revoke", "approval.decide", "approval.cancel"]) {
+    for (const m of ["grant.list", "grant.get", "grant.create", "grant.revoke", "approval.decide", "approval.cancel"]) {
       await assert.rejects(c.call(m, PARAMS[m]!), (e: any) => { assert.deepEqual(err(e), { error: "E_DENIED", reason: "role-denied" }, m); return true; });
     }
   });

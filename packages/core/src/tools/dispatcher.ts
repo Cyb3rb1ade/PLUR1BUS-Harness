@@ -12,7 +12,7 @@ import type { RegisteredTool, ToolRegistry, ToolTrust } from "./registry.ts";
 export const MAX_ARGS_BYTES = 256 * 1024;
 const MAX_MESSAGE = 500;
 
-export interface ToolCallRequest { id: string; name: string; args: unknown }
+export interface ToolCallRequest { id: string; name: string; args: unknown; reason?: string; diff?: string }
 
 export interface DispatchContext {
   agentId: string;
@@ -215,6 +215,7 @@ export class ToolDispatcher {
       subjectKind: context.subject.kind, turnId: ctx.turnId ?? req.id,
       ...(context.taskId ?? ctx.taskId ? { taskId: (context.taskId ?? ctx.taskId)! } : {}), ...(context.projectId ? { projectId: context.projectId } : {}),
       ...(call.targets ? { targets: call.targets } : {}), ...(call.access ? { access: call.access } : {}),
+      ...(typeof req.reason === "string" ? { reason: req.reason } : {}), ...(typeof req.diff === "string" ? { diff: req.diff } : {}),
     };
     const pending = this.#d.approvals.request(ask).then((a) => a, (e: unknown) => ({ approved: false, reason: `approval failed: ${errMsg(e)}` } as ApprovalAnswer));
     const r = await raceAbort(pending, ctx.signal);

@@ -31,6 +31,39 @@ describe("approval.list and approval.get", () => {
     r.service.dispose();
   });
 
+  it("puts the model's reason and diff on the request, masked like the argument summary", T, async () => {
+    const r = await rpcRig();
+    const { id } = await r.park({
+      args: { path: abs("/outside/dir/a.txt") },
+      reason: "need to write token sk-live-0123456789abcdefghijkl",
+      diff: "--- a\n+++ b\n+password=supersecret-value-xyz",
+    });
+    const a = await r.call("approval.get", { id });
+    assert.equal(typeof a.agentReason, "string");
+    assert.equal(typeof a.diff, "string");
+    assert.ok(!String(a.agentReason).includes("sk-live-0123456789abcdefghijkl"));
+    assert.ok(!String(a.diff).includes("supersecret-value-xyz"));
+    assert.ok(!JSON.stringify(a).includes("sk-live-0123456789abcdefghijkl"));
+    r.service.dispose();
+  });
+
+  it("approval.audit lists redacted approval-related chain entries; another person's grant of the same store is invisible", T, async () => {
+    const r = await rpcRig();
+    const { id, nonce } = await r.park();
+    await r.call("approval.decide", { id, decision: "approve", nonce });
+    const page = await r.call("approval.audit", {});
+    assert.ok(Array.isArray(page.entries));
+    assert.ok(page.entries.some((e: { kind: string }) => e.kind === "approval.requested" || e.kind === "approval.decided"));
+    assert.ok(!JSON.stringify(page).includes("nonce"));
+    r.who = OTHER_PERSON;
+    const other = await r.call("approval.audit", {});
+    assert.ok(Array.isArray(other.entries));
+    assert.ok(!JSON.stringify(other).includes(id));
+    r.who = AGENT_PRINCIPAL;
+    assert.deepEqual(await refused(r.call("approval.audit", {})), { error: "E_DENIED", reason: "agent-principal" });
+    r.service.dispose();
+  });
+
   it("filters by status and agent, newest first, pages with a bound cursor", T, async () => {
     const r = await rpcRig();
     const mk = async (agentId: string, h: string) => { const p = await r.park({ agentId, actionHash: h.padEnd(64, "0") }); r.clock.advance(MIN); return p.id; };
@@ -213,7 +246,7 @@ describe("approval.cancel and approval.verify", () => {
 
 describe("the approval handlers refuse every non-person", () => {
   for (const [name, params] of [
-    ["approval.list", {}], ["approval.get", { id: "apr_x" }], ["approval.verify", {}],
+    ["approval.list", {}], ["approval.get", { id: "apr_x" }], ["approval.verify", {}], ["approval.audit", {}],
     ["approval.decide", { id: "apr_x", decision: "approve" }], ["approval.cancel", { id: "apr_x" }],
   ] as const) {
     it(`${name}: an agent principal, one without a kind, and no principal`, T, async () => {
