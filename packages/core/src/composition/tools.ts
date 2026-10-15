@@ -10,6 +10,7 @@ import { canonicalisePath, type PathRoot, type DenyEntry } from '../policy/paths
 import { CAPABILITIES } from '../policy/index.ts';
 import { HOST_TOOLS, createNodeHostContext, denyEntriesFor, isHostPlatform, type HostContext } from '../host-tools/index.ts';
 import { createExecTool } from '../tools/exec/tool.ts';
+import { buildEnv, DEFAULT_ENV_ALLOW, envFingerprint } from '../tools/exec/env.ts';
 import { createNodeProcessPort, systemTimers } from '../tools/exec/node-process.ts';
 import { scopedMcpPort } from '../mcp/index.ts';
 import type { ExecConfig } from '../tools/exec/types.ts';
@@ -66,7 +67,14 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
   }
   // Only ToolDispatcher invokes this closure after a recorded D109 authorization. The inner exec gate is narrowed
   // to that already-authorized invocation; it still enforces config.mode, roots, deny paths, arguments and env.
-  registry.register({ name: 'exec.run', description: 'Run an enabled, allowlisted program inside a granted root without a shell.', inputSchema: (await import('../tools/exec/tool.ts')).EXEC_RUN_SCHEMA, capability: 'shell.exec', effect: 'local-write', risk: 'medium', trust: 'first-party', execute: async (args, ctx) => {
+  registry.register({ name: 'exec.run', description: 'Run an enabled, allowlisted program inside a granted root without a shell.', inputSchema: (await import('../tools/exec/tool.ts')).EXEC_RUN_SCHEMA, capability: 'shell.exec', effect: 'local-write', risk: 'medium', trust: 'first-party', classify: async (args) => {
+    const raw = args && typeof args === 'object' && !Array.isArray(args) ? (args as { cwd?: unknown; env?: unknown }) : undefined;
+    if (typeof raw?.cwd !== 'string') throw new Error('cwd must be a string');
+    const resolved = await canonicalisePath(raw.cwd, { roots: o.roots, deny, access: 'read', requireRoot: true, platform: process.platform });
+    if (!resolved.ok) throw new Error(`cwd refused: ${resolved.reason}`);
+    const env = buildEnv({ allow: o.exec?.envAllow ?? DEFAULT_ENV_ALLOW, base: process.env, requested: raw.env === undefined ? undefined : raw.env as Record<string, string>, windows: process.platform === 'win32' });
+    return { flags: { outsideRoots: false, denyListHit: false }, targets: [resolved.canonical, envFingerprint(env)], access: 'write' as const };
+  }, execute: async (args, ctx) => {
     const tool = createExecTool({ config: { ...o.exec, mode: o.exec?.mode ?? 'deny', roots: o.roots, deny }, process: createNodeProcessPort(), timers: systemTimers, audit: o.audit, policy: { grants: o.grants, clock: { now: Date.now } }, policyContext: { principal: { person: ctx.principal }, subject: { kind: 'agent', agentId: ctx.agentId }, surface: ctx.surface ?? 0, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), overrides: { 'shell.exec': 'allowed' } } });
     const run = tool.execute; return unwrap(await run(args, ctx));
   } });
