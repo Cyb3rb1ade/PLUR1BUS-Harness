@@ -1,3 +1,4 @@
+import { collaborationTools, type CollaborationTools } from '../tools/collaboration.ts';
 import type { createHostctlPool } from '../../../hostctl/src/pool.ts';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
@@ -23,6 +24,7 @@ import type { WebSearch } from '../tools/web/search.ts';
 import { WEB_SEARCH_DESCRIPTION, WEB_SEARCH_SCHEMA } from '../tools/web/tools.ts';
 
 export interface ToolCompositionOptions {
+  collaboration?: CollaborationTools;
   home: string; budget?: CallBudget; degraded?: (service: string, error: unknown) => void; roots: readonly PathRoot[]; deny?: readonly DenyEntry[];
   host?: HostContext; exec?: Partial<ExecConfig>; audit: AuditSink; grants: GrantSource;
   mcp?: { port: McpToolPort; servers: readonly string[] };
@@ -46,6 +48,7 @@ export class ToolAdapterError extends Error {
 /** Registration is per turn for scoped MCP visibility. No executable tool escapes the dispatcher. */
 export async function composeTools(o: ToolCompositionOptions, req: ChatRequest): Promise<ToolRegistry> {
   const registry = new ToolRegistry();
+  if (o.collaboration) for (const tool of collaborationTools(o.collaboration, req)) registry.register(tool);
   const platform = isHostPlatform(process.platform) ? process.platform : 'linux';
   const deny = [...denyEntriesFor(homedir(), process.env, platform), { path: join(o.home, 'run') }, { path: join(o.home, 'state') }, ...(o.deny ?? [])];
   const fs = o.roots.length ? createFsTools({ roots: o.roots, deny }) : { tools: [] };

@@ -179,3 +179,35 @@ DE/EN cards with an untrusted-data label; all peer strings are escaped text.
 
 Phase 1 exposes these ports; phase 2 must bind them to the sole `delegate_task`
 and normal dispatcher. No existing runner is silently opted into delegation.
+
+## M5 agent tools (phase 2)
+
+`composition/tools.ts` appends the six tools through `collaborationTools`, each
+registered with the existing `agent.delegate` capability and dispatched by D109.
+Live authenticated people and current stored project/agent membership are
+required. `collaboration.fanoutEnabled` defaults to **false** (`live`, advanced);
+explicit owner enablement is required after reviewing the phase-4 evaluation.
+Board reads/posts remain usable independently of fan-out.
+
+`delegate_task` is unique. M6 adapters implement `collab/target.ts`'s
+`DelegationTarget` (`kind`, `accepts`, `ack`, `run`) and enter through
+`CompositionOptions.delegationTargets`; targets do not own engine stores. The
+local adapter and external adapters use the same contract/ticket and library
+guardrails. M6 P2 had no PR at phase-2 start, so there was no PR on which to post
+the port comment. No second worktree implementation is introduced here.
+
+One tool composition is created per turn and retains the library trace, so
+three total calls and two per pair are enforced across successive model calls.
+Nested local targets have no tool view and cannot create a new root delegation.
+The project M2 ledger is checked before each fan-out; provider calls separately
+reserve/settle their actual usage. Local target memory and summaries are empty,
+with no engine recall/capture path. Peer contracts and returns are explicit
+untrusted `tool_result` envelopes. A successful `handoff` stops the sender loop.
+
+Contract-driven calls race abort against the target and retain streamed progress.
+Timeout/abort produces a `plur1bus.return/1` partial body; a supplied card receives
+that body as a comment and the trace span has status `partial`. On a user abort
+the ordinary dispatcher still returns its abort indication promptly; the durable
+card/trace records retain the partial result. Legacy direct library calls retain
+their existing error/abort behavior. Completed delegate reports remain explicitly
+unverified until the phase-4 external gate.

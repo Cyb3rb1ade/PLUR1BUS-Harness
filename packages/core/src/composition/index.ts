@@ -40,6 +40,7 @@ import { composeMediaSearch, mediaSearchMethods } from './media-search.ts';
 import { mediaToInbox } from '../inbox/producers.ts';
 
 export interface CompositionOptions {
+  delegationTargets?: readonly import("../collab/target.ts").DelegationTarget[];
   /** Trusted in-process surfaces register here; no auth RPC is added. */
   voiceAudio?: import("../voice/v3.ts").VoiceV3Deps["audio"];
   onOpenAI?: (auth: import('../openai-auth/service.ts').AuthService) => void;
@@ -52,6 +53,7 @@ export interface CompositionOptions {
   tools?: Partial<Pick<ToolCompositionOptions, 'roots' | 'deny' | 'exec' | 'host' | 'extra' | 'mcp' | 'media'>>;
 }
 export interface CompositionDeps {
+  resolveCollaborationPerson?: (id: string) => import("../rbac/types.ts").Principal | null;
   voiceConfigSource?: import("../voice/v3.ts").VoiceV3Deps["set"];
   resolvePrincipal?: import("../rbac/guard.ts").PrincipalResolver;
   home: string; config: () => HarnessConfig; engine: Engine; agents: AgentRegistry; logger: HarnessLogger;
@@ -161,7 +163,18 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     // Reserved `providers` namespace: `providers.modelProfilePolicy.<profile>.allowCrossBilling: true` opts one profile into
     // plan<->paid fallback; absent, a fallback across billing classes is refused.
     const profilePolicy = (cfg.providers as { modelProfilePolicy?: Record<string, { allowCrossBilling?: unknown }> }).modelProfilePolicy ?? {};
-    const toolsForTurn = (req: ChatRequest) => composeTools({ home: d.home, roots: options.tools?.roots ?? [{ id: req.agentId, path: d.agents.workspaceOf(req.agentId) ?? join(d.home, 'agents', req.agentId, 'workspace') }], grants, audit: d.audit, hostctl, ...(d.webSearch ? { webSearch: d.webSearch } : {}), ...(budget ? { budget } : {}), degraded: (service, error) => d.logger.warn('turn tool service degraded', { service, err: error }), ...options.tools, ...(media ? { media: { adapter: media.adapter, store: mediaSurface.storeFor(req.agentId, principal(req)) } } : {}), ...(options.tools?.mcp ? {} : mcp ? { mcp: { port: mcp, servers } } : {}) }, { ...req, principal: principal(req) });
+    let collab: Collab | null = null;
+    const toolsForTurn = (req: ChatRequest) => composeTools({ home: d.home, roots: options.tools?.roots ?? [{ id: req.agentId, path: d.agents.workspaceOf(req.agentId) ?? join(d.home, 'agents', req.agentId, 'workspace') }], grants, audit: d.audit, hostctl, ...(collab ? { collaboration: {
+      collab, enabled: () => d.config().collaboration.fanoutEnabled,
+      repair: async (input: unknown, issues: readonly string[]) => {
+        if (!provider) throw new Error('no-provider');
+        let text = '';
+        for await (const chunk of provider.stream({ ...req, role: 'summarize', toolView: [], summaries: [], memory: '', peerResults: [{ id: randomUUID(), name: 'handoff_repair', text: JSON.stringify({ kind: 'tool_result', trust: 'untrusted', input, issues }) }], messages: [{ role: 'user', text: 'Repair the supplied handoff JSON once to match the reported schema/size issues. Preserve authority bindings. Return only JSON.' }] })) if (chunk.type === 'delta') text += chunk.text;
+        return JSON.parse(text);
+      },
+      principal: (request: ChatRequest) => { const id = request.approver?.person ?? request.authenticatedPerson; return id ? d.resolveCollaborationPerson?.(id) ?? null : null; },
+      authority: { approvals: { get: (id: string) => d.permissions.current()?.stores.approvals.get(id) }, grants: { get: (id: string) => d.permissions.current()?.grants.get(id) }, now: d.clock, audit: (event: { reason: string; person: string; taskId: string }) => { d.audit.append({ at: d.clock(), actor: { user: event.person, host: 'core' }, action: 'collab.handoff.refused', target: event.taskId, detail: { reason: event.reason } }); } }
+    } } : {}), ...(d.webSearch ? { webSearch: d.webSearch } : {}), ...(budget ? { budget } : {}), degraded: (service, error) => d.logger.warn('turn tool service degraded', { service, err: error }), ...options.tools, ...(media ? { media: { adapter: media.adapter, store: mediaSurface.storeFor(req.agentId, principal(req)) } } : {}), ...(options.tools?.mcp ? {} : mcp ? { mcp: { port: mcp, servers } } : {}) }, { ...req, principal: principal(req) });
     // M2: isolated additive Session wiring; the existing turn/tool composition below is unchanged.
     const create = sessionRoleFactory(options.createTurnProvider ?? createTurnProvider, cfg);
     const maintenance = sessionMaintenance(d.home, cfg);
@@ -170,12 +183,12 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       const id = randomUUID(); await writeFile(join(dir, `${id}.json`), JSON.stringify(value), { flag: 'wx', mode: 0o600 }); return `tool-result:${id}`;
     } } }) : null;
     voice.setDelegate(provider);
-    const collab = budget ? isolated('collaboration', () => createCollab({ path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock,
-      runner: provider ? composedAgentRunner(provider, alsAgentScopePort(), d.home) : { async run() { throw new Error('no-provider'); } }, directory: { get: id => d.agents.has(id) ? { id, state: 'active' } : null },
+    collab = budget ? isolated('collaboration', () => createCollab({ path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock,
+      runner: provider ? composedAgentRunner(provider, alsAgentScopePort(), d.home, options.delegationTargets) : { async run() { throw new Error('no-provider'); } }, directory: { get: id => d.agents.has(id) || options.delegationTargets?.some(t => t.accepts(id)) ? { id, state: 'active' } : null },
       emit: { emit: event => d.logger.info(event.type, { projectId: event.projectId, traceId: event.traceId }) },
       budget: { check(estimate) {
         const candidate = Object.values(profiles)[0]?.[0]; if (!candidate) return { allowed: false, reason: 'token-budget' };
-        const admission = budget.checkBeforeCall({ principal: 'collab-admission', agent: estimate.agentId, project: estimate.projectId, turn: estimate.chainId, model: candidate.model, provider: candidate.provider, estimatedInputTokens: estimate.tokens, maxOutputTokens: 0 });
+        const admission = budget.checkBeforeCall({ principal: 'collab-admission', agent: estimate.agentId, project: estimate.projectId, turn: estimate.chainId, model: candidate.model, provider: candidate.provider, estimatedInputTokens: estimate.tokens, maxOutputTokens: 2000 });
         if (admission.kind === 'refuse') return { allowed: false, reason: admission.metric === 'cost' ? 'cost-budget' : 'token-budget' };
         budget.releaseUnused(admission.reservationId); return { allowed: true };
       }, record: usage => d.logger.info('collab.usage', { ...usage }) },
