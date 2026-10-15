@@ -1,7 +1,8 @@
+import { setupDefault } from '../../../../../config/shipped-models.ts';
 // Bodies of the seven wizard steps. They only show and edit the answers; the page owns validation, saving and navigation.
 import { getApi } from "../../api/shared.ts";
 import { h, type ComponentChildren } from "preact";
-import { useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { ConfirmDialog } from "../../components/confirm-dialog.ts";
 import { PageLoading } from "../../components/page-state.ts";
@@ -49,7 +50,7 @@ export function PersonaStep({ a, set, errors }: StepProps): View {
     h(Notice, {}, t("setup.persona.unavailable")));
 }
 
-type Entry = { provider: string; id: string; name: string };
+type Entry = { provider: string; id: string; name: string; limited: boolean };
 function chatModels(raw: unknown): Entry[] {
   const list = (raw as { models?: unknown } | null)?.models;
   const out: Entry[] = [];
@@ -57,13 +58,22 @@ function chatModels(raw: unknown): Entry[] {
     const o = (m ?? {}) as Record<string, unknown>;
     if (typeof o.provider !== "string" || typeof o.id !== "string") continue;
     if (o.status === "unavailable" || (typeof o.kind === "string" && o.kind !== "chat" && o.kind !== "unknown")) continue;
-    out.push({ provider: o.provider, id: o.id, name: typeof o.displayName === "string" && o.displayName ? o.displayName : o.id });
+    out.push({ provider: o.provider, id: o.id, limited: o.toolUse === 'limited tool use', name: typeof o.displayName === "string" && o.displayName ? o.displayName : o.id });
   }
   return out;
 }
 
 export function ModelStep({ a, set, errors }: StepProps): View {
   const { state, reload } = useLoad(async (signal) => chatModels(await getApi().rpc("models.list", undefined, { write: false, signal })), []);
+  const [provider, chooseProvider] = useState(a.chatModel.split('/')[0] ?? '');
+  const initialized = useRef(false);
+  useEffect(() => {
+    if (!('data' in state) || initialized.current) return;
+    initialized.current = true;
+    if (a.chatModel || provider) return;
+    const first = state.data.find(m => setupDefault(m.provider, state.data));
+    if (first) { chooseProvider(first.provider); set({ chatModel: setupDefault(first.provider, state.data) }); }
+  }, [state, a.chatModel, provider]);
   const error = errors.chatModel ? t("setup.model.err.required") : undefined;
   let body: View;
   if (state.status === "loading") body = h(PageLoading, { label: t("setup.model.loading") });
@@ -74,10 +84,17 @@ export function ModelStep({ a, set, errors }: StepProps): View {
   else {
     const groups = new Map<string, Entry[]>();
     for (const m of state.data) { const g = groups.get(m.provider); if (g) g.push(m); else groups.set(m.provider, [m]); }
-    body = h(Field, { id: "setup-model", label: t("setup.model.label"), error },
+    body = h("div", {},
+      h(Field, { id: "setup-model-provider", label: t("models.filter.provider") },
+        h("select", { id: "setup-model-provider", value: provider, onChange: (e: Event) => {
+          const next = (e.target as HTMLSelectElement).value;
+          chooseProvider(next); set({ chatModel: setupDefault(next, state.data) });
+        } }, h("option", { value: "" }, t("setup.model.choose")),
+        [...groups.keys()].map(p => h("option", { key: p, value: p }, p)))),
+      h(Field, { id: "setup-model", label: t("setup.model.label"), error },
       h("select", { id: "setup-model", value: a.chatModel, ...bad(error, "setup-model"), onChange: (e: Event) => { set({ chatModel: (e.target as HTMLSelectElement).value }); } },
         h("option", { value: "" }, t("setup.model.choose")),
-        [...groups].map(([p, list]) => h("optgroup", { key: p, label: p }, list.map((m) => h("option", { key: m.id, value: `${m.provider}/${m.id}` }, m.name))))));
+        [...groups].filter(([p]) => !provider || p === provider).map(([p, list]) => h("optgroup", { key: p, label: p }, list.map((m) => h("option", { key: m.id, value: `${m.provider}/${m.id}` }, m.limited ? `${m.name} (${t("models.toolUse.limited")})` : m.name)))))));
   }
   return h("div", {}, h("p", { class: "reading" }, t("setup.model.lead")), body, h(Notice, {}, t("setup.model.noLogin")));
 }

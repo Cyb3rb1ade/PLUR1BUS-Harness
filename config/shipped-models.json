@@ -1,0 +1,47 @@
+{
+  "schema": "plur1bus.shipped-models/1",
+  "definition": "The setup wizard preselection per provider. Pending candidates remain required release coverage but are not preselected until owner confirmation. No model weights are bundled.",
+  "models": [
+    {
+      "provider": "anthropic",
+      "model": "claude-sonnet-5-5",
+      "wireFormat": "anthropic_messages",
+      "auth": "api_key",
+      "checkedAt": "2026-10-15",
+      "approval": "owner_confirmed",
+      "discovery": "owner_supplied"
+    },
+    {
+      "provider": "openai",
+      "model": "gpt-6-astra",
+      "wireFormat": "codex_responses",
+      "auth": "api_key",
+      "checkedAt": "2026-10-15",
+      "approval": "pending_owner",
+      "discovery": "documentation_only",
+      "source": "https://developers.openai.com/api/docs/models"
+    },
+    {
+      "provider": "google",
+      "model": "gemini-3.8-flash",
+      "wireFormat": "gemini",
+      "auth": "api_key",
+      "checkedAt": "2026-10-15",
+      "approval": "pending_owner",
+      "discovery": "documentation_only",
+      "source": "https://ai.google.dev/gemini-api/docs/models"
+    },
+    {
+      "provider": "ollama",
+      "model": "qwen3:8b",
+      "wireFormat": "chat_completions",
+      "auth": "none",
+      "checkedAt": "2026-10-15",
+      "approval": "pending_owner",
+      "discovery": "documentation_only",
+      "license": "Apache-2.0",
+      "parameters": "8.19B",
+      "source": "https://ollama.com/library/qwen3:8b"
+    }
+  ]
+}

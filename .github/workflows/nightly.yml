@@ -102,6 +102,8 @@ jobs:
         env:
           PLUR1BUS_HOST_EVAL_MODELS: ${{ vars.PLUR1BUS_HOST_EVAL_MODELS }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           PLUR1BUS_HOST_EVAL_OUT: artifacts/tool-eval
         run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/tool-eval-host.ts --live
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0

@@ -1,5 +1,0 @@
-{
-  "schema": "plur1bus.host-eval-defaults/1",
-  "models": [],
-  "note": "No authoritative shipped chat-default inventory was found on this base (modelProfiles defaults to {}). Release qualification is blocked until the owner reviews a nonempty release inventory. The evaluated-model environment must never define required coverage."
-}

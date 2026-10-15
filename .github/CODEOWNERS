@@ -1,0 +1,5 @@
+# Require owner review for shipped defaults and the ownership rule itself.
+/config/shipped-models.json @Cyb3rb1ade
+/config/shipped-models.ts @Cyb3rb1ade
+/.github/CODEOWNERS @Cyb3rb1ade
+/packages/core/catalog/host-eval-recordings.json @Cyb3rb1ade
