@@ -59,3 +59,11 @@ test('audit failure prevents explicit bypass execution', async () => {
     assert.throws(() => port.spawn({ program: process.execPath, args: ['-e', 'process.exit(0)'], cwd: dir, env: {} }), /audit offline/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+test('hostctl notify cannot launch through its private unsandboxed host context', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'd106-notify-')); try {
+    const signal = new AbortController().signal; let ran = false;
+    const registry = await composeTools({ home: dir, roots: [{ id: 'r', path: dir }], audit: { append() {} } as never, grants: { list: () => [], get: () => undefined }, hostctl: { forRoots: () => ({ definitions: () => [{ name: 'hostctl.notify', description: 'notify', inputSchema: { type: 'object' }, capability: 'sys.read', effect: 'read', risk: 'low', execute: async () => { ran = true; } }] }) } as never }, { sessionId: 's', agentId: 'a', principal: 'p', summaries: [], memory: '', messages: [], signal });
+    await assert.rejects(registry.get('hostctl.notify')!.execute({}, { signal, principal: 'p', agentId: 'a' }), /sandbox/);
+    assert.equal(ran, false);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
