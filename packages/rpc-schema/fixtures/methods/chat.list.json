@@ -18,6 +18,7 @@
         "turnCount": 1
       }
     ],
-    "truncated": false
+    "truncated": false,
+    "nextCursor": null
   }
 }

@@ -950,7 +950,8 @@ fn step_config(
         || embedding
             .as_object()
             .is_some_and(|selection| selection.is_empty());
-    if o.non_interactive && no_embedding_selection {
+    // A host-only installation leaves model provisioning to its operator (HM2-R9).
+    if o.non_interactive && profile != PROFILE_HOST && no_embedding_selection {
         changes.push((
             "engine.embedding.local".to_string(),
             json!({ "model": "intfloat/multilingual-e5-small", "dimensions": 384 }),
