@@ -454,3 +454,44 @@ jobs:
         run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
       - name: lint workflows locally
         run: '"$(go env GOPATH)/bin/actionlint" -shellcheck= -config-file scripts/release/actionlint.yaml .github/workflows/*.yml'
+
+  # D100 golden set (separate, append-only job): render one document per template and compare against the committed
+  # references (visual diff). Fonts are embedded, so the render is deterministic; the threshold is byte-identical PNGs
+  # (sha256-exact, the strictest). References live in packages/documents/golden/.
+  documents-golden:
+    needs: plan
+    if: needs.plan.outputs.proceed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+      - name: engine git access over https
+        shell: bash
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then
+            base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"
+            git config --global --add "url.${base}.insteadOf" "https://github.com/"
+          else
+            base="https://github.com/"
+          fi
+          git config --global --add "url.${base}.insteadOf" "git@github.com:"
+          git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm gen && pnpm --filter @plur1bus/documents build
+      - name: golden set visual diff (threshold: sha256-exact)
+        shell: bash
+        env:
+          PLUR1BUS_CHROMIUM_BIN: ${{ steps.chrome.outputs.chrome-path }}
+        run: |
+          export PLUR1BUS_CHROMIUM_BIN="${PLUR1BUS_CHROMIUM_BIN:-$(command -v chrome || command -v google-chrome || command -v chromium || true)}"
+          node --experimental-strip-types --conditions=source packages/documents/scripts/golden.ts check
