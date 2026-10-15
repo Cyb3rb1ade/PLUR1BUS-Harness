@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { randomUUID } from 'node:crypto';
 import type { ToolDef, ToolRunContext } from './registry.ts';
 import type { ChatRequest } from '../session/provider.ts';
@@ -62,7 +63,11 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
     if (review) { candidate.returnContract.outputSchema = { type: 'object', additionalProperties: false, properties: { verdict: { enum: ['pass', 'changes_requested'] }, findings: { type: 'array', items: { type: 'string' } } }, required: ['verdict', 'findings'] }; candidate.returnContract.citationsRequired = true; }
     const reviewTicket = review && a.cardId ? o.review?.start(a.projectId, a.cardId, ctx.agentId) : undefined;
     if (reviewTicket && o.review) { authority.readOnlyWorktree = o.review.root(reviewTicket); candidate.constraints.scope = { paths: ['**'], tools: ['file.read', 'file.list', 'file.stat'] }; }
+    const original = structuredClone(candidate);
     const h = await prepareHandoff(candidate, authority, o.repair);
+    for (const key of ['kind', 'from', 'to', 'task', 'doneWhen', 'constraints', 'authority', 'budget', 'returnContract'] as const) {
+      if (!isDeepStrictEqual(h[key], original[key])) { authority.audit({ kind: 'handoff.refused', person: authority.person, taskId: authority.taskId, reason: 'handoff-contract-mismatch' }); throw new CollabError('unauthorized', 'sender repair changed handoff authority or contract'); }
+    }
     ctx.signal.throwIfAborted();
     starts++; pairStarts.set(pair, (pairStarts.get(pair) ?? 0) + 1);
     const started = o.authority.now();
