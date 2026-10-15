@@ -750,7 +750,7 @@ export function createCore(o: CoreOptions): Core {
         ...buildProjectBoardSurface(() => turnComposition?.collab ?? null, event => { void deliverBoardChange(event, () => turnComposition?.collab ?? null, { subscriptions: () => server?.subscriptions() ?? [], resolve: async connectionId => resolvePrincipal({ requestId: "board-event", connectionId, signal: shutdown.signal }, "project.card.list", {}), notify: (m, p, opts) => { if (!shutdown.signal.aborted) server?.notify(m, p, opts); } }).catch(() => { log.debug("project board event withheld"); }); }),
         ...buildCollabSurface(() => turnComposition?.collab ?? null, id => registry.has(id)),
         ...buildIdentitySurface(() => identity),
-        ...(await import("./rpc/device-surface.ts")).createDeviceSurface({ state: l.state, clock, audit: rbacAudit, securePath: p => platform.securePath(p) }),
+        ...(await import("./rpc/device-surface.ts")).createDeviceSurface({ state: l.state, clock, audit: rbacAudit, securePath: p => platform.securePath(p), notifyTrust: (event,owners) => server?.notify("devices.trust.next",event,{audience:owners.map(personId=>({personId}))}) }),
         ...adminSurface,
         ...sessionTranscriptSurface({ sessions: () => sessions?.store ?? null, breakglass, ownership, personOf }),
         ...buildAuthSurface(() => turnComposition?.openai.auth ?? null),
