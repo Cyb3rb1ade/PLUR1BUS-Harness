@@ -41,7 +41,7 @@ export function IdentitiesPanel(): View {
       state.data.links.length
         ? h("ul", { class: "plain-list" }, state.data.links.map((link) =>
           h("li", { key: link.id }, `${link.channel} · ${link.accountId} · ${link.userId}`,
-            write ? h("button", { type: "button", class: "btn btn-danger", "aria-label": t("identity.removeFor", { channel: link.channel, account: link.accountId }), onClick: () => { setRemove(link.id); } }, t("surfaces.remove")) : null)))
+            write ? h("button", { type: "button", class: "btn btn-danger", "aria-label": t("identity.removeFor", { channel: link.channel, account: link.accountId, user: link.userId }), onClick: () => { setRemove(link.id); } }, t("surfaces.remove")) : null)))
         : h(PageState, { state: "empty", title: t("surfaces.empty") }),
       write
         ? h("form", {

@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { findChromium } from "./browser-runtime.ts";
 import { defaults } from "@plur1bus/config-schema";
 import { buildWeb } from "../build.ts";
 import { createApiServer } from "../../api/src/server.ts";
@@ -16,7 +17,7 @@ import { createCoreLink } from "../../api/src/core-link.ts";
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const bin = resolve(process.env.PLUR1BUS_BIN ?? join(root, "target/debug/plur1bus"));
 const coreJs = join(root, "packages/core/dist/core.js");
-const executablePath = [process.env.PLUR1BUS_CHROMIUM, chromium.executablePath(), "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/opt/pw-browsers/chromium"].find(p => p && existsSync(p));
+const executablePath = findChromium();
 const unavailable = !executablePath || !existsSync(bin) || !existsSync(coreJs);
 if (unavailable && process.env.PLUR1BUS_WEB_TRANSPORT_REQUIRED === "1") throw new Error("real transport smoke requires a built CLI/core and Chromium");
 

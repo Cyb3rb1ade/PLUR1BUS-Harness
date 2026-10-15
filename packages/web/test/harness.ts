@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,14 +5,7 @@ import { chromium, type Browser, type BrowserContext, type Page } from "playwrig
 import { buildWeb } from "../build.ts";
 import { MockHarnessServer, OWNER_TOKEN, type MockOptions } from "./mock-server.ts";
 
-/** Chromium: PLUR1BUS_CHROMIUM, else Playwright's own install, else the container's /opt/pw-browsers/chromium. No download. */
-function findChromium(): string | undefined {
-  // CI must exercise the browser revision shipped by the lockfile's Playwright, never a system fallback.
-  const candidates = process.env.PLUR1BUS_WEB_E2E_REQUIRED === "1"
-    ? [chromium.executablePath()]
-    : [process.env.PLUR1BUS_CHROMIUM, chromium.executablePath(), "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/opt/pw-browsers/chromium"];
-  return candidates.find((p): p is string => !!p && existsSync(p));
-}
+import { findChromium } from "./browser-runtime.ts";
 
 const executablePath = findChromium();
 /** `skip` option for node:test; the browser tests need a Chromium that CI's plain `pnpm test` job may not have. */
