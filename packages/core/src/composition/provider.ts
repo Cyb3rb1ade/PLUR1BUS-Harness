@@ -334,7 +334,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
             if (assistant?.role === 'assistant') { const executed = assistant.toolCalls?.find(c => c.id === call.id); if (executed) executed.arguments = JSON.stringify(repairs.get(call.name)); }
             repairs.delete(call.name);
           }
-          const capped = await stage('result-cap', signal, o.log, () => capResult(output.value, o.resultStore));
+          const capped = await stage('result-cap', signal, o.log, () => capResult(output.value, req.incognito ? { async put() { throw new Error("incognito-tool-result-too-large"); } } : o.resultStore));
           const text = JSON.stringify(capped);
           yield { type: 'tool.result', id: call.id, output: text };
           messages.push({ role: 'tool', toolCallId: call.id, content: text });

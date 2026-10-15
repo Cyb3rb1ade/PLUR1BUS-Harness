@@ -74,7 +74,7 @@ export interface Res { status: number; headers: IncomingHttpHeaders; text: strin
 /** One request over a plain socket; the `Host` header is the server's own unless a test overrides it. */
 export function raw(h: Harness, o: { method?: string; path: string; headers?: Record<string, string>; body?: string | Buffer }): Promise<Res> {
   return new Promise((resolve, reject) => {
-    const req = request({ host: "127.0.0.1", port: h.port, method: o.method ?? "GET", path: o.path, headers: o.headers ?? {}, agent: false, timeout: 5000 }, (res) => {
+    const req = request({ host: "127.0.0.1", port: h.port, method: o.method ?? "GET", path: o.path, headers: { ...(o.body !== undefined && !Object.keys(o.headers ?? {}).some(k => ["content-length", "transfer-encoding"].includes(k.toLowerCase())) ? { "content-length": String(Buffer.byteLength(o.body)) } : {}), ...o.headers }, agent: false, timeout: 5000 }, (res) => {
       if (String(res.headers["content-type"]).startsWith("text/event-stream")) {
         res.once("data", (chunk: Buffer) => { resolve({ status: res.statusCode ?? 0, headers: res.headers, text: chunk.toString("utf8"), json: undefined }); res.destroy(); req.destroy(); });
         return;
