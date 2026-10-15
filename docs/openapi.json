@@ -756,40 +756,7 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "properties": {
-                  "username": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "challenge": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "name": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "id": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "clientDataJSON": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "authenticatorData": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "signature": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "attestationObject": {
-                    "type": "string",
-                    "maxLength": 24000
-                  }
-                }
+                "properties": {}
               }
             }
           }
@@ -925,10 +892,6 @@
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
-                  "username": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
                   "challenge": {
                     "type": "string",
                     "maxLength": 24000
@@ -942,14 +905,6 @@
                     "maxLength": 24000
                   },
                   "clientDataJSON": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "authenticatorData": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "signature": {
                     "type": "string",
                     "maxLength": 24000
                   },
@@ -1093,35 +1048,11 @@
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
-                  "username": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "challenge": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "name": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
                   "id": {
                     "type": "string",
                     "maxLength": 24000
                   },
-                  "clientDataJSON": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "authenticatorData": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "signature": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "attestationObject": {
+                  "name": {
                     "type": "string",
                     "maxLength": 24000
                   }
@@ -1253,30 +1184,6 @@
                   "challenge": {
                     "type": "string",
                     "maxLength": 24000
-                  },
-                  "name": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "id": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "clientDataJSON": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "authenticatorData": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "signature": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "attestationObject": {
-                    "type": "string",
-                    "maxLength": 24000
                   }
                 }
               }
@@ -1399,15 +1306,7 @@
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
-                  "username": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
                   "challenge": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "name": {
                     "type": "string",
                     "maxLength": 24000
                   },
@@ -1424,10 +1323,6 @@
                     "maxLength": 24000
                   },
                   "signature": {
-                    "type": "string",
-                    "maxLength": 24000
-                  },
-                  "attestationObject": {
                     "type": "string",
                     "maxLength": 24000
                   }

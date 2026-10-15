@@ -3,11 +3,16 @@ import type { AccountStore } from "./account-store.ts";
 import { ApiError, errors } from "./errors.ts";
 import { assertCredential, registerCredential, WebAuthnError, type CredentialResponse, type WebAuthnContext } from "./webauthn.ts";
 import type { Handler, HandlerDeps, RouteSpec } from "./routes.ts";
+const fields: Record<string, readonly string[]> = {
+  "passkeys.options": [], "passkeys.register": ["challenge", "name", "id", "clientDataJSON", "attestationObject"],
+  "passkeys.change": ["id", "name"], "passkeys.login.options": ["username", "challenge"],
+  "passkeys.login": ["challenge", "id", "clientDataJSON", "authenticatorData", "signature"],
+};
 const specs = [
   ["passkeys.list", "GET", "/me/passkeys", false], ["passkeys.options", "POST", "/me/passkeys/options", true], ["passkeys.register", "POST", "/me/passkeys/register", true], ["passkeys.change", "POST", "/me/passkeys/change", true],
   ["passkeys.login.options", "POST", "/session/passkey/options", false], ["passkeys.login", "POST", "/session/passkey", false],
 ] as const;
-export const WEBAUTHN_ROUTES: readonly RouteSpec[] = specs.map(([id, method, path, write]) => ({ id, method, path: "/api/v1" + path, summary: id, tag: "passkeys", auth: id.includes("login") ? "none" : "session", authz: id.includes("login") ? "public" : { action: write ? "my.write" : "my.read", resource: "self" }, csrf: write, rate: id.includes("login") ? "auth" : write ? "write" : "read", stability: "experimental", since: "1.0.0", ...(method === "POST" ? { requestBody: { type: "object", additionalProperties: false, properties: Object.fromEntries(["username", "challenge", "name", "id", "clientDataJSON", "authenticatorData", "signature", "attestationObject"].map(k => [k, { type: "string", maxLength: 24000 }])) } } : {}), successStatus: 200, success: { description: id, schema: { type: "object", additionalProperties: true } } }));
+export const WEBAUTHN_ROUTES: readonly RouteSpec[] = specs.map(([id, method, path, write]) => ({ id, method, path: "/api/v1" + path, summary: id, tag: "passkeys", auth: id.includes("login") ? "none" : "session", authz: id.includes("login") ? "public" : { action: write ? "my.write" : "my.read", resource: "self" }, csrf: write, rate: id.includes("login") ? "auth" : write ? "write" : "read", stability: "experimental", since: "1.0.0", ...(method === "POST" ? { requestBody: { type: "object", additionalProperties: false, properties: Object.fromEntries(fields[id]!.map(k => [k, { type: "string", maxLength: 24000 }])) } } : {}), successStatus: 200, success: { description: id, schema: { type: "object", additionalProperties: true } } }));
 export function buildWebAuthnHandlers(d: HandlerDeps, accounts: AccountStore | undefined, origin: (requestOrigin?: string) => string): Record<string, Handler> {
   type Pending = WebAuthnContext & { userId: string; version: number; expires: number; registration: boolean };
   const pending = new Map<string, Pending>();
@@ -60,5 +65,5 @@ export function buildWebAuthnHandlers(d: HandlerDeps, accounts: AccountStore | u
       d.audit.emit("auth.login.success", u.id, "account", { via: "passkey" }); return { body: { schema: "session.create/1", principal: session.principal, createdAt: new Date(session.createdAt).toISOString(), expiresAt: new Date(session.absoluteExpiresAt).toISOString(), idleExpiresAt: new Date(session.idleExpiresAt).toISOString() }, headers: { "Set-Cookie": `${d.tls ? "__Host-plur1bus_session" : "plur1bus_session"}=${id}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${Math.floor((session.absoluteExpiresAt - session.createdAt) / 1000)}${d.tls ? "; Secure" : ""}` } };
     },
   };
-  return Object.fromEntries(Object.entries(handlers).map(([id, handler]) => [id, async (i: Parameters<Handler>[0]) => { try { if (id !== "passkeys.list") body(i.body); return await handler(i); } catch (e) { if (e instanceof WebAuthnError) { d.audit.emit(e.reason === "credential-clone" ? "auth.passkey.clone-warning" : "auth.passkey.failure", i.principal?.id ?? "anonymous", "account", { reason: e.reason }); throw errors.unauthenticated(e.reason); } throw e; } }]));
+  return Object.fromEntries(Object.entries(handlers).map(([id, handler]) => [id, async (i: Parameters<Handler>[0]) => { try { if (id !== "passkeys.list") { const input = body(i.body); if (Object.keys(input).some(k => !fields[id]!.includes(k))) throw errors.badRequest("body", "unknown passkey fields"); } return await handler(i); } catch (e) { if (e instanceof WebAuthnError) { d.audit.emit(e.reason === "credential-clone" ? "auth.passkey.clone-warning" : "auth.passkey.failure", i.principal?.id ?? "anonymous", "account", { reason: e.reason }); throw errors.unauthenticated(e.reason); } throw e; } }]));
 }

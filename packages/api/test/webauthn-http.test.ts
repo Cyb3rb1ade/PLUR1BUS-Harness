@@ -21,6 +21,7 @@ test("HTTP passkey assertion creates a session, spends challenge and denies forg
   const api = createApiServer({ core: fakeCore(), ownerToken: randomBytes(32).toString("hex"), accounts: store, users: store, rateClasses: { auth: { capacity: 100, refillPerSec: 100 }, read: { capacity: 100, refillPerSec: 100 }, write: { capacity: 100, refillPerSec: 100 } }, webauthnOrigin: "https://harness.example" }); t.after(() => api.close()); const { url } = await api.listen();
   const send = (path: string, body: unknown) => fetch(url + "/api/v1" + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   assert.equal((await send("/me/passkeys/options", {})).status, 401);
+  assert.equal((await send("/session/passkey/options", { username: "alice", role: "owner" })).status, 400);
   const v = vector();
   const { registerCredential } = await import("../src/webauthn.ts"); const stored = registerCredential(v.registration, v.context); store.putPasskey("alice", { ...stored, name: "Test" });
   const options = await (await send("/session/passkey/options", { username: "alice" })).json() as { challenge: string };
