@@ -67,6 +67,15 @@ jobs:
           PLUR1BUS_REAL_MODELS: '1'
           PLUR1BUS_MODELS_CACHE: ${{ runner.temp }}/release-real-models
           PLUR1BUS_CI_RECALL_HARD_MS: '3000'
+      - name: installed-runtime T6 smoke with real models
+        shell: bash
+        run: |
+          exe=''; [ "$RUNNER_OS" != 'Windows' ] || exe='.exe'
+          export PLUR1BUS_BIN="$GITHUB_WORKSPACE/target/release/plur1bus$exe"
+          node --experimental-strip-types --test --test-timeout=600000 tests/e2e/smoke.test.ts
+        env:
+          PLUR1BUS_REAL_MODELS: '1'
+          PLUR1BUS_CI_RECALL_HARD_MS: '3000'
       - run: node --experimental-strip-types --test tests/system/helpers.test.ts
       - name: encrypted full-state and vault round trip
         shell: bash
