@@ -51,6 +51,7 @@ export interface HarnessConfig {
   channels: {
     discord: ChannelCommonConfig & { tokenSecret: string; applicationId?: string; intents: string[] };
     slack: ChannelCommonConfig & { botTokenSecret: string; appTokenSecret: string; teamId?: string };
+    buzz: { enabled: boolean; relays: string[]; privateKeySecret: string; senderAllowlist: string[]; locale: "de" | "en" };
     matrix: ChannelCommonConfig & { homeserverUrl?: string; userId?: string; accessTokenSecret: string; deviceId?: string; autoJoin: "allowlist" | "never"; e2ee?: { mode: "off" | "memory"; unverifiedDevices: "reject" | "allow" } };
     signal: ChannelCommonConfig & { account?: string; endpoint: { socketPath?: string; host?: string; port?: number }; allowRemoteEndpoint: boolean };
     email: {

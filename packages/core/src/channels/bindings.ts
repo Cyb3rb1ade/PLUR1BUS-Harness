@@ -21,6 +21,10 @@ function depsFor(d: AdapterDeps, wants: readonly HostDep[], extra: Record<string
 // The adapters validate their own configuration (closed world) and take the schema's `channels.<id>` object as it is. The casts stop
 // at this file: the packages' option types are not importable from the core's types.
 export const DEFAULT_BINDINGS: readonly ChannelBinding[] = [
+  { id: "buzz", manifest: manifest("buzz", "Buzz / Nostr", ["direct"]), async load() {
+    const m = await import("../../../channels-buzz/src/index.ts");
+    return ((c, d) => m.createBuzzChannel(c as never, depsFor(d, ["secrets", "pairing", "logger", "now"], { seen: new m.FileSeenStore(d.stateDir) }) as never)) as Create;
+  } },
   {
     id: "discord", manifest: manifest("discord", "Discord", ["direct", "group"]),
     async load() {

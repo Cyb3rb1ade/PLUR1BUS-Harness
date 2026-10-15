@@ -1,3 +1,4 @@
+import { createEgress } from "../egress/service.ts";
 // The switchboard host: the one place that starts, stops and watches the channel adapters inside the core process.
 //
 // How channels run (R3 step 0): the adapters are libraries behind the core `Channel` contract. The core process hosts them with
@@ -365,6 +366,7 @@ class Host implements Switchboard {
       logger,
       now: () => o.clock.now(),
       stateDir: this.#stateDirOf(id),
+      ...(id === "buzz" ? { egress: createEgress({ config: () => o.config.current().egress }) } : {}),
       ...(o.adapterDeps?.[id] ?? {}),
     };
   }
