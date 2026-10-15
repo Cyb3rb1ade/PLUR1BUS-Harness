@@ -288,3 +288,32 @@ describe("exec.run: an aborted call never starts the program", () => {
     assert.equal(m.port.spawned.length, 0);
   });
 });
+
+describe("exec.run: foreign output wrapping", () => {
+  it("foreign output is bounded and redacted", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { createWriter } = await import("../../../src/logs/writer.ts");
+    const { logsDir } = await import("../../logs/helpers.ts");
+    const dir = logsDir();
+    const w = createWriter({ dir, role: "core.out", source: { kind: "harness", id: "exec", version: null }, timers: false });
+    w.registerSecret("fixture-exec-canary");
+    const { root, sub } = tmpRoot();
+    const m = mk({ root }, { output: w });
+    await run(m, { program: "git", cwd: sub }, (p) => {
+      p.stdout("leaked fixture-exec-canary on stdout\n");
+      p.stdout(`${"x".repeat(5000)}\n`);
+      p.stderr('ERROR: {"level":"fatal","event":"supervisor.child.given_up"}\n');
+      p.exit(0);
+    });
+    w.close();
+    const rs = readFileSync(join(dir, "core.out.log"), "utf8").trim().split("\n").filter(Boolean).map((s) => JSON.parse(s));
+    const text = JSON.stringify(rs);
+    assert.ok(!text.includes("fixture-exec-canary"), text);
+    const lines = rs.filter((r: { event: string }) => r.event === "process.output.line");
+    assert.ok(lines.length >= 3);
+    assert.ok(lines.every((r: { level: string; attrs: { untrusted?: boolean } }) => r.level === "info" && r.attrs.untrusted === true));
+    assert.ok(lines.some((r: { attrs: { truncated?: boolean; bytes?: number } }) => r.attrs.truncated === true && (r.attrs.bytes ?? 0) > 4096));
+    assert.ok(rs.every((r: { level: string; event: string }) => r.level !== "fatal" && r.event !== "supervisor.child.given_up"));
+  });
+});

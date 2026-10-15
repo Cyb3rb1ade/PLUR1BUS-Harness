@@ -43,11 +43,20 @@ export class OutputLines {
   private summary(): void { if (this.dropped) this.writer.write("process.output.suppressed", { dropped: this.dropped, window_ms: this.now() - this.start }, { stream: this.stream, bypassRate: true }); this.dropped = 0; this.start = this.now(); }
   close(): void { if (this.closed) return; this.consume(this.decoder.end()); if (this.bytes) this.emitLine(); this.summary(); this.closed = true; }
 }
-/** Wrap an existing child's streams; stdout can be omitted for MCP protocol streams. Does not spawn or alter env. */
-export async function wrapOutput(writer: LogWriter, streams: { stdout?: AsyncIterable<Buffer>; stderr?: AsyncIterable<Buffer> }): Promise<void> {
+/** Wrap an existing child's streams; stdout can be omitted for MCP protocol streams. Does not spawn or alter env.
+ *  MCP stdio spawn lives in `packages/core/src/mcp/` (out of this remainder's allowed paths): KNOWN GAP — wrap there
+ *  or at the composition that holds the child streams; owner: should MCP-stdio stderr be wrapped without touching mcp/? */
+export async function wrapOutput(
+  writer: LogWriter,
+  streams: { stdout?: AsyncIterable<Buffer>; stderr?: AsyncIterable<Buffer> },
+  o: { now?: () => number; setInterval?: typeof setInterval; clearInterval?: typeof clearInterval } = {},
+): Promise<void> {
+  const start = o.setInterval ?? setInterval;
+  const stop = o.clearInterval ?? clearInterval;
   await Promise.all(Object.entries(streams).map(async ([stream, input]) => {
-    if (!input) return; const lines = new OutputLines(writer, stream as "stdout" | "stderr");
-    const timer = setInterval(() => lines.tick(), 1000); timer.unref();
-    try { for await (const chunk of input) lines.push(chunk); } finally { clearInterval(timer); lines.close(); }
+    if (!input) return; const lines = new OutputLines(writer, stream as "stdout" | "stderr", { now: o.now });
+    const timer = start(() => lines.tick(), 1000);
+    if (typeof (timer as { unref?: () => void }).unref === "function") (timer as { unref: () => void }).unref();
+    try { for await (const chunk of input) lines.push(chunk); } finally { stop(timer); lines.close(); }
   }));
 }

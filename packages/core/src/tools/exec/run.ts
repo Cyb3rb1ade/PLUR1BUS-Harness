@@ -5,6 +5,7 @@ import { decide, type Call } from "../../policy/index.ts";
 import { canonicalisePath } from "../../policy/paths.ts";
 import { argsMatchPattern, findAllowed, validateArgs, validateProgram } from "./args.ts";
 import { buildEnv, DEFAULT_ENV_ALLOW } from "./env.ts";
+import { OutputLines } from "../../logs/output.ts";
 import { ExecFailure, type ExecDeps, type ExecRequest, type ExecResult } from "./types.ts";
 
 export const EXEC_TIMEOUT_MS = 30_000;
@@ -136,15 +137,21 @@ export async function execRun(req: ExecRequest, deps: ExecDeps, signal?: AbortSi
   const started = deps.timers.now();
   const out = new Capture(maxOut);
   const err = new Capture(maxOut);
+  if (deps.output) {
+    for (const v of Object.values(env)) if (v.length >= 8) deps.output.registerSecret(v);
+  }
+  const stdoutWrap = deps.output ? new OutputLines(deps.output, "stdout", { now: () => deps.timers.now() }) : null;
+  const stderrWrap = deps.output ? new OutputLines(deps.output, "stderr", { now: () => deps.timers.now() }) : null;
   let handle;
   try {
     handle = deps.process.spawn({ program, args, cwd: cwd.canonical, env });
   } catch (e) {
+    stdoutWrap?.close(); stderrWrap?.close();
     audit("exec.result", program, { actionHash, outcome: "spawn-failed" });
     throw new ExecFailure("spawn-failed", e instanceof Error ? e.message : "spawn failed");
   }
-  handle.onStdout((c) => out.push(c));
-  handle.onStderr((c) => err.push(c));
+  handle.onStdout((c) => { out.push(c); stdoutWrap?.push(Buffer.from(c)); });
+  handle.onStderr((c) => { err.push(c); stderrWrap?.push(Buffer.from(c)); });
 
   let timedOut = false; let aborted = false;
   const kill = (): void => { void handle.killTree(); };
@@ -166,6 +173,7 @@ export async function execRun(req: ExecRequest, deps: ExecDeps, signal?: AbortSi
     try { audit("exec.result", program, { actionHash, outcome: "spawn-failed" }); } catch { /* the failure below is the report */ }
     throw new ExecFailure("spawn-failed", e instanceof Error ? e.message : "spawn failed");
   } finally {
+    stdoutWrap?.close(); stderrWrap?.close();
     deps.timers.clearTimeout(timer);
     signal?.removeEventListener("abort", onAbort);
   }
