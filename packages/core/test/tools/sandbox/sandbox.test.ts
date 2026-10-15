@@ -10,7 +10,7 @@ async function fixture() {
   const dir = await mkdtemp(join(tmpdir(), 'd106-'));
   const home = join(dir, 'h'), root = join(dir, 'workspace'), userHome = join(dir, 'u');
   for (const p of [home, root, userHome, join(home, 'run'), join(home, 'state')]) await mkdir(p, { recursive: true });
-  const policy: SandboxPolicy = { home, userHome, cwd: root, readRoots: [{ id: 'w', path: root }], writeRoots: [{ id: 'w', path: root }], network: 'none', envAllow: ['PATH', 'PLUR1BUS_HOME', 'NODE_OPTIONS', 'AUTH', 'LANG'], env: { PATH: '/usr/bin:/bin', LANG: 'C', PLUR1BUS_HOME: home, NODE_OPTIONS: '--inspect', AUTH: 'private-value' }, limits: { timeoutMs: 1500, cpuSeconds: 1, memoryBytes: 2 * 1024 ** 3, maxProcesses: 32, maxOutputBytes: 512 }, limitsHelper: fileURLToPath(new URL('../../../../../target/debug/plur1bus-sandbox-limits', import.meta.url)) };
+  const policy: SandboxPolicy = { home, userHome, cwd: root, readRoots: [{ id: 'w', path: root }], writeRoots: [{ id: 'w', path: root }], network: 'none', envAllow: ['PATH', 'PLUR1BUS_HOME', 'NODE_OPTIONS', 'AUTH', 'LANG'], env: { PATH: '/usr/bin:/bin', LANG: 'C', PLUR1BUS_HOME: home, NODE_OPTIONS: '--inspect', AUTH: 'private-value' }, limits: { timeoutMs: 1500, cpuSeconds: 1, memoryBytes: 2 * 1024 ** 3, maxProcesses: 32, maxOutputBytes: 512 }, limitsHelper: fileURLToPath(new URL('../../../../../target/debug/plur1bus-sandbox-limits' + (process.platform === 'win32' ? '.exe' : ''), import.meta.url)) };
   return { dir, home, root, policy, close: () => rm(dir, { recursive: true, force: true }) };
 }
 test('detection fails closed for missing helper and unavailable Windows isolation', async () => {
@@ -22,7 +22,7 @@ test('policy refuses traversal, changed roots and protected cwd; profile denies 
     await assert.rejects(preparePolicy({ ...f.policy, cwd: f.root + '/../workspace' }));
     await assert.rejects(preparePolicy({ ...f.policy, readRoots: [{ id: 'w', path: f.root, identity: { dev: '0', ino: '0' } }] }));
     await assert.rejects(preparePolicy({ ...f.policy, cwd: join(f.home, 'run') }));
-    const profile = seatbeltProfile(await preparePolicy(f.policy));
+    const profile = seatbeltProfile(await preparePolicy({...f.policy,limitsHelper:process.execPath}));
     assert.match(profile, /deny default/); assert.match(profile, /run/); assert.match(profile, /regex/); assert.doesNotMatch(profile, /allow process-fork/);
     await assert.rejects(sandboxSpawn(['/bin/echo', 'x'], { ...f.policy, limits: { ...f.policy.limits, timeoutMs: NaN } }));
   } finally { await f.close(); }
@@ -60,4 +60,24 @@ test('real backend: filesystem, network, environment, output and abort adversari
     const cancelled = await sandboxSpawn(['/bin/sleep', '10'], f.policy, { signal: ac.signal }); assert.equal(cancelled.aborted, true);
     const egress = await sandboxSpawn(['/bin/echo', 'ok'], { ...f.policy, network: 'egress' }); assert.equal(egress.sandbox.network, 'none'); assert.equal(egress.sandbox.warnings.length, 1);
   } finally { await f.close(); }
+});
+test('hard-link credential aliases and writable launcher locations refuse the whole policy', async () => {
+  const {link}=await import('node:fs/promises');
+  const f=await fixture(); try {
+    await writeFile(join(f.home,'run','core.token'),'private-fixture');
+    await link(join(f.home,'run','core.token'),join(f.root,'alias'));
+    await assert.rejects(preparePolicy({...f.policy,limitsHelper:process.execPath}),/hard-linked/);
+    await rm(join(f.root,'alias'));
+    const helper=join(f.root,'launcher'); await writeFile(helper,'fixture');
+    await assert.rejects(preparePolicy({...f.policy,limitsHelper:helper}),/outside writable roots/);
+  } finally {await f.close();}
+});
+test('bubblewrap preserves original /bin and loader mount spellings on merged-usr hosts', {skip:process.platform==='win32'?'POSIX mount layout only':false}, async () => {
+  const {backendArgv}=await import('../../../src/tools/sandbox/backends.ts');
+  const f=await fixture();try{
+    const p=await preparePolicy({...f.policy,writeRoots:[],limitsHelper:process.execPath});
+    const argv=await backendArgv(p,{backend:'bubblewrap',strength:'partial',available:true,reason:'fixture'},['/bin/echo','x']);
+    for(const source of p.runtimePaths) assert.ok(argv.some((arg,i)=>arg==='--ro-bind' && argv[i+1]===source && argv[i+2]===source));
+    assert.ok(p.runtimePaths.includes('/bin'));
+  }finally{await f.close();}
 });
