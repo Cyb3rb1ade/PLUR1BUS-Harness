@@ -4175,6 +4175,39 @@
           "additionalProperties": true
         }
       },
+      "task.complete": {
+        "description": "Complete an assigned coding card after sandboxed verifiers and exact-tree review. Human project leads may override with an audited note.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.5.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "cardId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "overrideNote": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          },
+          "required": [
+            "projectId",
+            "cardId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
       "collab.session.replay": {
         "description": "Replay a redacted delegation session; current project membership is required.",
         "x-server": "core",

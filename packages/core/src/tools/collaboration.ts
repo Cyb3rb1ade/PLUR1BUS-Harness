@@ -14,6 +14,7 @@ export interface CollaborationTools {
   principal(request: ChatRequest): Principal | null;
   authority: Pick<HandoffContext, 'approvals' | 'grants' | 'audit' | 'now'>;
   repair?: HandoffRepair;
+  review?: { start(project: string, card: string, from: string): unknown; root(ticket: unknown): string; finish(ticket: unknown, to: string, result: ReturnEnvelope): void };
 }
 const str = { type: 'string', minLength: 1, maxLength: 8000 };
 const strings = { type: 'array', items: str, maxItems: 32 };
@@ -58,6 +59,9 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
       returnContract: { format: 'plur1bus.return/1', maxTokens: 2000, outputSchema: a.outputSchema ?? {}, citationsRequired: a.citationsRequired ?? false },
       ...(kind === 'handoff' ? { state: { done: [], current: a.context ?? a.objective, next: a.doneWhen ?? [a.objective] } } : {}),
     };
+    if (review) { candidate.returnContract.outputSchema = { type: 'object', additionalProperties: false, properties: { verdict: { enum: ['pass', 'changes_requested'] }, findings: { type: 'array', items: { type: 'string' } } }, required: ['verdict', 'findings'] }; candidate.returnContract.citationsRequired = true; }
+    const reviewTicket = review && a.cardId ? o.review?.start(a.projectId, a.cardId, ctx.agentId) : undefined;
+    if (reviewTicket && o.review) { authority.readOnlyWorktree = o.review.root(reviewTicket); candidate.constraints.scope = { paths: ['**'], tools: ['file.read', 'file.list', 'file.stat'] }; }
     const h = await prepareHandoff(candidate, authority, o.repair);
     ctx.signal.throwIfAborted();
     starts++; pairStarts.set(pair, (pairStarts.get(pair) ?? 0) + 1);
@@ -87,6 +91,7 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
     try { const parsed = JSON.parse(text); if (parsed?.schema === 'plur1bus.return/1') result = validateReturn(parsed, h); else result = validateReturn(returned, h); }
     catch (e) { if (e instanceof SyntaxError) result = validateReturn(returned, h); else throw e; }
     if (a.cardId) { admitted(ctx, a.projectId); o.collab.boardStore.comment(a.projectId, a.cardId, JSON.stringify(result), { kind: 'agent', id: ctx.agentId }); }
+    if (review && reviewTicket && !partial) o.review?.finish(reviewTicket, a.toAgent, result);
     if (kind === 'handoff' && !partial) transferred = true;
     return { kind: 'tool_result', trust: 'untrusted', provenance, result, ownershipTransferred: transferred };
   };

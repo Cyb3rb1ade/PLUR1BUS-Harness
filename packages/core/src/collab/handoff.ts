@@ -30,6 +30,8 @@ export interface HandoffContext {
   now(): number;
   audit(event: { kind: 'handoff.refused'; reason: string; person: string; taskId: string }): void;
   hasHistory?: boolean;
+  /** Supervisor-bound review checkout; never accepted from model arguments. */
+  readOnlyWorktree?: string;
 }
 export type HandoffRepair = (input: unknown, issues: readonly string[]) => Promise<unknown>;
 export interface HandoffAck { schema: 'plur1bus.ack/1'; inReplyTo: string; objective: string; status: 'ok' | 'blocked'; blockingQuestions: string[] }
