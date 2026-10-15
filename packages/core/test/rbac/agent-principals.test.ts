@@ -207,3 +207,21 @@ describe("absent from every catalogue an agent or an outside client can see", ()
     for (const m of METHODS) assert.equal(isForbiddenMethod(m), true, m);
   });
 });
+
+describe("budget.set human-only RPC boundary",()=>{
+  it("keeps the exact explicit human-only method inventory, including budget mutation",()=>{
+    assert.deepEqual(Object.entries(RPC_RULES).filter(([,r])=>r.humanOnly).map(([m])=>m).sort(),[
+      "agent.activity.list","budget.set","doctor.report","identity.human.create","identity.link","identity.list","identity.pair.claim","identity.pair.confirm","identity.pair.start","identity.unlink","jobs.create","jobs.delete","jobs.update","model.embedding.select","model.licence.check","model.licence.confirm","model.licence.list","user.disable","user.enable",
+    ].sort());
+    assert.equal(RPC_RULES["budget.set"]!.action,"settings.write");
+  });
+  it("refuses every agent role before mutation, audits denial, and intersects human roles and token scopes",async()=>{
+    let principal:Principal=LOCAL_OWNER,ran=0;const audit=memoryAuditSink();const methods=guardMethods({"budget.set":async()=>{ran++;return{changed:true};}},{resolve:()=>principal,audit,now:()=>NOW});
+    const call=()=>methods["budget.set"]!({timeZone:"UTC"},ctx);
+    for(const role of ROLES){principal={kind:"agent",userId:"agent-fixture",role,tokenScopes:["settings.write"]};await assert.rejects(async()=>call(),(e:unknown)=>e instanceof RpcError&&e.error==="E_DENIED"&&e.reason==="agent-principal");}
+    assert.equal(ran,0);assert.equal(audit.events.length,ROLES.length);assert.ok(audit.events.every(e=>e.action==="rbac.denied"&&e.target==="budget.set"));
+    for(const role of ["viewer","member","operator"] as const){principal={kind:"person",userId:"person",role,tokenScopes:["settings.write"]};await assert.rejects(async()=>call(),(e:unknown)=>e instanceof RpcError&&e.error==="E_DENIED");}
+    principal={kind:"person",userId:"person",role:"owner",tokenScopes:["settings.read"]};await assert.rejects(async()=>call(),(e:unknown)=>e instanceof RpcError&&e.reason==="token-scope");assert.equal(ran,0);
+    for(const role of ["owner","admin"] as const){principal={kind:"person",userId:"person",role,tokenScopes:["settings.write"]};assert.deepEqual(await call(),{changed:true});}assert.equal(ran,2);
+  });
+});
