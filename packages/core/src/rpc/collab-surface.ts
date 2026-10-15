@@ -46,6 +46,7 @@ export function buildCollabSurface(
     return t;
   };
   return {
+    "collab.session.replay": bind((s, p, a) => { trace(s, a, p.traceId); return s.replay(a, p.traceId, p.spanId); }),
     "project.create": bind((s, p, a) => s.createProject(a, { name: p.name })),
     "project.get": bind((s, p, a) => read(s, a, p.projectId)),
     "project.list": bind((s, _p, a) => ({
