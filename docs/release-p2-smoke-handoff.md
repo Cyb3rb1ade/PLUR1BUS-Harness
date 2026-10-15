@@ -26,3 +26,9 @@ Conflict hotspots: shared system-test process helpers, Fresh-Home smoke, setup i
 ## Real-model matrix extension
 
 Reuse the existing `two-session-recall.test.ts` with `PLUR1BUS_REAL_MODELS=1` on all five native legs; it requires real reranker timing with no fallback and recall after restart. No timeout or assertion in that acceptance test is relaxed. The model cache uses a Windows junction (no symlink privilege) and a normal POSIX directory symlink. This is a separate acceptance test after the installed-runtime functional smoke, not a claim that one end-to-end installed home with real models is already accepted. Local/native model execution still needs its actual outcomes. First own functional smoke run 38764711674 passed Linux x64 and ARM before this additional real-model step; other legs were still running/queued at the single read.
+
+## Native rollback fixture and final local evidence
+
+Replace the Unix shell stand-ins in `update_apply.rs` with native fixture programs compiled once by the required Rust toolchain. All seven existing assertions now compile/run without `cfg(unix)`, including injected health failure, byte-identical rollback, interrupted-swap recovery and manual rollback. Correct target IDs/executable suffixes and user-directory isolation for Windows; the five-target workflow invokes the suite unconditionally. Existing uninstall/reboot fixture suites remain POSIX-only, while installed-home smoke now waits for the copied binary's removal (including deferred Windows removal). No production updater change or added dependency.
+
+Local macOS ARM: native update suite 7/7 passes; existing real-model/reranker/restart test 1/1 passes; installed-home real-model smoke 1/1 (~57 s) and flat smoke 1/1 pass with recall after restart. Native Windows outcomes remain pending.

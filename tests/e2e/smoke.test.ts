@@ -7,7 +7,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
-import { BIN, REAL, RERANK_FAILURE, waitEngineReady, cli, daemonStatus, home, reapHome, startDaemon, stopDaemon } from "../system/helpers.ts";
+import { BIN, REAL, RERANK_FAILURE, waitEngineReady, waitFor, cli, daemonStatus, home, reapHome, startDaemon, stopDaemon } from "../system/helpers.ts";
 
 const FAKE = { PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_TEST_CHAT_PROVIDER: "fake" };
 const FACT = "Please remember that the e2e smoke test fact is the harbour tour at noon.";
@@ -115,6 +115,7 @@ describe("E3 — CLI → daemon → core smoke", () => {
       const uninstalled = cli(h1, ["uninstall", "--yes"], { env: installedEnv });
       assert.deepEqual(uninstalled.result.failures, []);
       assert.equal(cli(h1, ["service", "status"], { env: installedEnv }).registered, false);
+      await waitFor("installed binary removed (deferred on Windows)", () => !existsSync(installedBinary), 10_000);
       assert.equal(existsSync(join(h1, "runtime")), false);
       assert.equal(daemonStatus(h1).supervisor.process.state, "stopped");
     } finally {
