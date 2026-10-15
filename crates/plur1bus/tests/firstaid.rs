@@ -328,6 +328,7 @@ fn check_json_validates_the_document_shape() {
         "extensions.consistency",
         "extensions.revoked",
         "models.roles",
+        "remote.exposure",
     ];
     let ids: Vec<String> = v["checks"]
         .as_array()
@@ -360,7 +361,7 @@ fn check_json_lists_the_installer_ids_after_the_first_seventeen() {
         .iter()
         .map(|c| c["id"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(ids.len(), 24, "{v}");
+    assert_eq!(ids.len(), 25, "{v}");
     assert_eq!(
         &ids[17..20],
         &["runtime.node", "runtime.core", "models.cache"],
@@ -896,7 +897,7 @@ fn ext_check(h: &Home, revocations: Option<&Path>) -> BTreeMap<String, Value> {
 }
 
 #[test]
-fn check_ids_are_append_only_and_end_with_the_three_extension_rows() {
+fn check_ids_keep_existing_extension_rows_and_append_remote_exposure() {
     let h = Home::new();
     let out = check_cmd(&h).output().unwrap();
     let v = json_stdout(&out);
@@ -906,13 +907,14 @@ fn check_ids_are_append_only_and_end_with_the_three_extension_rows() {
         .iter()
         .map(|c| c["id"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(ids.len(), 24, "{v}");
+    assert_eq!(ids.len(), 25, "{v}");
     assert_eq!(
         &ids[17..20],
         &["runtime.node", "runtime.core", "models.cache"]
     );
     assert_eq!(&ids[20..23], &EXT_IDS, "{v}");
     assert_eq!(&ids[23], "models.roles", "{v}");
+    assert_eq!(&ids[24], "remote.exposure", "{v}");
 }
 
 #[test]
@@ -1070,4 +1072,36 @@ fn an_unreadable_skills_index_warns_on_consistency() {
         c["extensions.consistency"]
     );
     assert_eq!(c["extensions.integrity"]["status"], "ok");
+}
+
+#[test]
+fn remote_exposure_warns_over_real_cli_for_network_and_failed_tailnet() {
+    let h = Home::new();
+    let mut config = plur1bus_config::defaults();
+    config["remote"]["publish"] = json!("network");
+    fs::write(
+        h.home.join("config.json"),
+        serde_json::to_vec(&config).unwrap(),
+    )
+    .unwrap();
+    let output = check_cmd(&h).output().unwrap();
+    let checks = checks_by_id(&json_stdout(&output));
+    assert_eq!(checks["remote.exposure"]["status"], "warn");
+    config["remote"]["publish"] = json!("tailnet");
+    fs::write(
+        h.home.join("config.json"),
+        serde_json::to_vec(&config).unwrap(),
+    )
+    .unwrap();
+    fs::create_dir_all(h.home.join("state")).unwrap();
+    fs::write(
+        h.home.join("state/remote-status.json"),
+        r#"{"publish":"tailnet","phase":"failed"}"#,
+    )
+    .unwrap();
+    let output = check_cmd(&h).output().unwrap();
+    assert_eq!(
+        checks_by_id(&json_stdout(&output))["remote.exposure"]["status"],
+        "warn"
+    );
 }
