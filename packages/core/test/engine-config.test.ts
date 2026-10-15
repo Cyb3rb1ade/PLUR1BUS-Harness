@@ -26,11 +26,25 @@ describe("engine-config", () => {
     const cfg = defaults(); cfg.engine.baseDbPathOverride = "/tmp/db";
     assert.equal((buildEngineConfig(cfg, l) as any).baseDbPath, "/tmp/db");
   });
-  it("a user cannot override reranker.enabled/provider through engine.reranker", () => {
-    const cfg = defaults(); cfg.engine.reranker = { enabled: false, provider: "cohere" };
+  it("a user cannot disable the mandatory local reranker", () => {
+    const cfg = defaults(); cfg.engine.reranker = { enabled: false, provider: "local-transformers" };
     const e = buildEngineConfig(cfg, l) as any;
     assert.equal(e.reranker.enabled, true); assert.equal(e.reranker.provider, "local-transformers");
   });
+  for (const role of ["embedding", "reranker"] as const) {
+    for (const provider of ["openai", "google", "cohere", "jina", "voyage", "openrouter", "openai-compatible", "unknown", "", null, 3]) {
+      it(`refuses unapproved ${role} provider ${String(provider)} before engine construction`, () => {
+        const cfg = defaults(); cfg.engine[role] = { provider, baseURL: "https://example.com" };
+        assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.reason === "embedding-provider-not-approved");
+      });
+    }
+    for (const provider of ["ollama", "tei", "vllm", "llamacpp", "omlx", "mtplx"]) {
+      it(`refuses unsupported ${role} ${provider} without silently substituting another model`, () => {
+        const cfg = defaults(); cfg.engine[role] = { provider, model: "other-space", dimensions: 32 };
+        assert.throws(() => buildEngineConfig(cfg, l), (e: any) => e.reason === "engine-adapter-factory-unavailable");
+      });
+    }
+  }
   it("passes the 7.18.5–7.18.20 engine keys through (contract 1.12.0)", () => {
     const cfg = defaults();
     cfg.engine.captureChunkingMode = "automatisch";
