@@ -10,5 +10,7 @@ export * from "./fonts.ts";
 export * from "./render.ts";
 export * from "./checks.ts";
 export * from "./review.ts";
+export * from "./brand.ts";
+export * from "./charts.ts";
 export * from "./schema.ts";
 export * from "./chromium.ts";
