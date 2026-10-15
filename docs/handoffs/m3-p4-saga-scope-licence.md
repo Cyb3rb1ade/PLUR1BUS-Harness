@@ -5,7 +5,7 @@
 - Core: durable `agents/saga.ts`; existing create/recovery/rights/config lifecycle extended; shared ALS scope and memory-port enforcement; private model licence ledger; licence and validated embedding-selection RPCs; existing voice confirmation paths share the ledger.
 - API: authenticated licence/select allowlist and NC configuration preflight; real HTTP/core integration coverage.
 - Web: agent-create and first-run persona provisioning use `agent.create` with stable idempotency keys; Memory confirmation calls authenticated licence/select RPCs; DE/EN isolation table and Help documents.
-- Rust: noninteractive setup explicitly persists E5-small. RPC schema, generated bindings, fixtures and RPC documentation updated.
+- Rust: fresh noninteractive full-profile setup explicitly persists E5-small; host-only setup keeps operator-owned model provisioning. RPC schema, generated bindings, fixtures and RPC documentation updated.
 - Existing archive-first delete/export/identity confirmation remain; engine erasure is unavailable and hard delete remains fail-closed.
 
 ## Decisions
