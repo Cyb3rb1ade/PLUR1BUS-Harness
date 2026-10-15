@@ -82,6 +82,7 @@ Every admin.* method is Owner/Admin per docs/rbac.md ("the whole admin.* family"
 
 | Methode | Rolle / Recht | Kurzbeschreibung | Quelle |
 |---|---|---|---|
+| logs.levels | logs.query: Owner, Admin | Read or set the live per-source log-level snapshot (not persisted) | rpc.schema.json |
 | logs.query | logs.query: Owner, Admin | Reads protected log files after redaction, with filters and cursor | rpc.schema.json:784 |
 | logs.tail | logs.query: Owner, Admin | Follows the log as a pull call, optional long poll | rpc.schema.json:802 |
 

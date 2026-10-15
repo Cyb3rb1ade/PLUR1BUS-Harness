@@ -1,8 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { RpcError } from "../../src/rpc/errors.ts";
 import type { CallContext } from "../../src/rpc/server.ts";
 import { createLogsMethods } from "../../src/logs/methods.ts";
+import { createWriter } from "../../src/logs/writer.ts";
+import { memoryAuditSink } from "../../src/rbac/audit.ts";
 import { add, iso, logsDir, put, rec, rotate } from "./helpers.ts";
 
 const ctx = (signal = new AbortController().signal): CallContext => ({ requestId: "r", connectionId: "c", signal });
@@ -109,5 +113,79 @@ describe("logs.tail handler", () => {
     const h = createLogsMethods({ dir: d, ...fakeTime() });
     const a: any = await h["logs.tail"]!({}, ctx());
     assert.ok(!JSON.stringify(a).includes("abcdefghijklmnop") && !JSON.stringify(a).includes('"abc"'));
+  });
+});
+
+describe("logs.levels handler", () => {
+  const source = { kind: "harness" as const, id: "core", version: null };
+  const provider = (id: string) => ({ kind: "provider" as const, id, version: null });
+  const rows = (dir: string) => {
+    try { return readFileSync(path.join(dir, "core.log"), "utf8").trim().split("\n").filter(Boolean).map((s) => JSON.parse(s)); }
+    catch { return []; }
+  };
+  const debugWrite = (w: ReturnType<typeof createWriter>, id: string, model: string) =>
+    w.write("provider.request.completed", { model, capability: "chat" }, { source: provider(id) });
+
+  it("level change takes effect immediately and only for that component", async () => {
+    const dir = logsDir();
+    const w = createWriter({ dir, role: "core", source, timers: false, levels: { defaultLevel: "info" } });
+    const audit = memoryAuditSink();
+    const h = createLogsMethods({ dir, writer: w, audit, now: () => Date.UTC(2026, 9, 7), actor: () => ({ user: "owner", host: "rpc" }) });
+    debugWrite(w, "fake", "before-fake");
+    debugWrite(w, "other", "before-other");
+    w.flush();
+    assert.equal(rows(dir).filter((r) => r.event === "provider.request.completed").length, 0);
+
+    const snap: any = await h["logs.levels"]!({ levels: { "provider:fake": "debug" } }, ctx());
+    assert.equal(snap.defaultLevel, "info");
+    assert.equal(snap.levels["provider:fake"], "debug");
+    assert.equal(snap.levels["provider:other"], undefined);
+
+    debugWrite(w, "fake", "after-fake");
+    debugWrite(w, "other", "after-other");
+    w.flush();
+    const models = rows(dir).filter((r) => r.event === "provider.request.completed").map((r) => r.attrs.model);
+    assert.deepEqual(models, ["after-fake"]);
+    assert.ok(audit.events.some((e) => e.action === "logs.levels" && e.target === "provider:fake"));
+    w.close();
+  });
+
+  it("empty params read the live snapshot without auditing or changing it", async () => {
+    const dir = logsDir();
+    const w = createWriter({ dir, role: "core", source, timers: false, levels: { defaultLevel: "warn", levels: { "provider:fake": "debug" } } });
+    const audit = memoryAuditSink();
+    const h = createLogsMethods({ dir, writer: w, audit, now: () => Date.UTC(2026, 9, 7), actor: () => ({ user: "owner", host: "rpc" }) });
+    const snap: any = await h["logs.levels"]!({}, ctx());
+    assert.equal(snap.defaultLevel, "warn");
+    assert.equal(snap.levels["provider:fake"], "debug");
+    assert.equal(snap.traceUntil, null);
+    assert.equal(audit.events.length, 0);
+    w.close();
+  });
+
+  it("unset restores inheritance for that component only", async () => {
+    const dir = logsDir();
+    const w = createWriter({ dir, role: "core", source, timers: false, levels: { defaultLevel: "info", levels: { "provider:fake": "debug", "provider:other": "debug" } } });
+    const h = createLogsMethods({ dir, writer: w, now: () => Date.UTC(2026, 9, 7), actor: () => ({ user: "owner", host: "rpc" }) });
+    const snap: any = await h["logs.levels"]!({ unset: ["provider:fake"] }, ctx());
+    assert.equal(snap.levels["provider:fake"], undefined);
+    assert.equal(snap.levels["provider:other"], "debug");
+    debugWrite(w, "fake", "after-unset");
+    debugWrite(w, "other", "kept");
+    w.flush();
+    const models = rows(dir).filter((r) => r.event === "provider.request.completed").map((r) => r.attrs.model);
+    assert.deepEqual(models, ["kept"]);
+    w.close();
+  });
+
+  it("refuses an invalid source key, a trace without expiry, and a malformed traceUntil", async () => {
+    const dir = logsDir();
+    const w = createWriter({ dir, role: "core", source, timers: false });
+    const h = createLogsMethods({ dir, writer: w, now: () => Date.UTC(2026, 9, 7) });
+    const call = (p: object) => code(h["logs.levels"]!(p, ctx()));
+    assert.deepEqual(await call({ levels: { "not a key": "debug" } }), { error: "E_INVALID_PARAMS", reason: "invalid-level" });
+    assert.deepEqual(await call({ defaultLevel: "trace" }), { error: "E_INVALID_PARAMS", reason: "invalid-level" });
+    assert.deepEqual(await call({ traceUntil: "yesterday" }), { error: "E_INVALID_PARAMS", reason: "bad-timestamp" });
+    w.close();
   });
 });
