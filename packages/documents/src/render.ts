@@ -6,7 +6,7 @@
 import { writeFile, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openPage, printToPdf, removeDir } from "./chromium.ts";
+import { captureFullPagePng, evaluate, openPage, printToPdf, removeDir, type CdpClient } from "./chromium.ts";
 import { fontFaces } from "./fonts.ts";
 import { markdownToHtml } from "./markdown.ts";
 import { sanitizeHtml } from "./sanitize.ts";
@@ -70,24 +70,28 @@ export interface ChromiumBrowserOptions {
   readonly bin: string;
 }
 
-/** A browser port that renders via a real Chromium binary (CDP `Page.printToPDF`). */
+/** A browser port that renders via a real Chromium binary (CDP `Page.printToPDF`, plus evaluate and full-page capture). */
 export function createChromiumBrowser(opts: ChromiumBrowserOptions): BrowserPort {
-  return {
-    async printToPdf(html, { signal }) {
-      const dir = await mkdtemp(join(tmpdir(), "plur1bus-doc-"));
+  async function withPage<T>(html: string, signal: AbortSignal, run: (cdp: CdpClient) => Promise<T>): Promise<T> {
+    const dir = await mkdtemp(join(tmpdir(), "plur1bus-doc-"));
+    try {
+      const htmlPath = join(dir, "document.html");
+      await writeFile(htmlPath, html, "utf8");
+      const { cdp, launch } = await openPage(opts.bin, `file://${htmlPath}`, signal);
       try {
-        const htmlPath = join(dir, "document.html");
-        await writeFile(htmlPath, html, "utf8");
-        const { cdp, launch } = await openPage(opts.bin, `file://${htmlPath}`, signal);
-        try {
-          return await printToPdf(cdp, signal);
-        } finally {
-          cdp.close();
-          await launch.close();
-        }
+        return await run(cdp);
       } finally {
-        await removeDir(dir);
+        cdp.close();
+        await launch.close();
       }
-    },
+    } finally {
+      await removeDir(dir);
+    }
+  }
+  const browser: BrowserPort & { evaluate: (html: string, expression: string, signal: AbortSignal) => Promise<unknown>; captureFullPage: (html: string, signal: AbortSignal) => Promise<Uint8Array> } = {
+    printToPdf: (html, { signal }) => withPage(html, signal, (cdp) => printToPdf(cdp, signal)),
+    evaluate: (html, expression, signal) => withPage(html, signal, (cdp) => evaluate(cdp, expression)),
+    captureFullPage: (html, signal) => withPage(html, signal, (cdp) => captureFullPagePng(cdp)),
   };
+  return browser;
 }

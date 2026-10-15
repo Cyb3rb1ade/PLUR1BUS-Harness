@@ -21,7 +21,7 @@ import type { ChatRequest } from '../session/provider.ts';
 import { WebFailure } from '../tools/web/failure.ts';
 import type { WebSearch } from '../tools/web/search.ts';
 import { WEB_SEARCH_DESCRIPTION, WEB_SEARCH_SCHEMA } from '../tools/web/tools.ts';
-import { DOCUMENT_RENDER_DESCRIPTION, DOCUMENT_RENDER_SCHEMA, renderDocument, type BrowserPort, type DocumentRenderArgs, type TemplateId } from '../../../documents/src/index.ts';
+import { DOCUMENT_RENDER_DESCRIPTION, DOCUMENT_RENDER_SCHEMA, reviewDocument, type DocumentRenderArgs, type ReviewBrowser, type TemplateId } from '../../../documents/src/index.ts';
 
 export interface ToolCompositionOptions {
   home: string; budget?: CallBudget; degraded?: (service: string, error: unknown) => void; roots: readonly PathRoot[]; deny?: readonly DenyEntry[];
@@ -33,7 +33,7 @@ export interface ToolCompositionOptions {
   /** web.search over the configured SearXNG sidecar. Absent, the tool is not offered. */
   webSearch?: WebSearch;
   /** document.render (D100) over a headless Chromium. Absent, the tool is not offered. */
-  documents?: { browser: BrowserPort };
+  documents?: { browser: ReviewBrowser };
 }
 function unwrap(value: unknown): unknown {
   if (value && typeof value === 'object' && 'isError' in value) {
@@ -144,10 +144,10 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
         const a = args as DocumentRenderArgs;
         const hit = await resolveOutput(a.outputPath); // re-check, fail closed, independent of the gate
         if ('refusal' in hit) throw new Error(`output path refused: ${hit.refusal}`);
-        const { pdf } = await renderDocument({ template: a.template as TemplateId, content: a.content, title: a.title, ...(a.subtitle ? { subtitle: a.subtitle } : {}), ...(a.meta ? { meta: a.meta } : {}) }, browser, ctx.signal);
+        const { pdf, report } = await reviewDocument({ template: a.template as TemplateId, content: a.content, title: a.title, ...(a.subtitle ? { subtitle: a.subtitle } : {}), ...(a.meta ? { meta: a.meta } : {}) }, browser, {}, ctx.signal);
         await mkdir(dirname(hit.canonical), { recursive: true });
         await writeFile(hit.canonical, pdf);
-        return { path: hit.canonical, bytes: pdf.byteLength };
+        return { path: hit.canonical, bytes: pdf.byteLength, review: { checked: report.checked, findings: report.findings.map((f) => `${f.severity}:${f.check}:${f.message}`), vision: report.vision } };
       },
     });
   }

@@ -281,6 +281,18 @@ export async function captureScreenshot(cdp: CdpClient): Promise<Uint8Array> {
   return Buffer.from(res.data, "base64");
 }
 
+/** Render the full scrollable page to one PNG (beyond the viewport). */
+export async function captureFullPagePng(cdp: CdpClient): Promise<Uint8Array> {
+  const res = await cdp.call<{ data: string }>("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+  return Buffer.from(res.data, "base64");
+}
+
+/** Evaluate a JS expression against the page and return the JSON value. */
+export async function evaluate(cdp: CdpClient, expression: string): Promise<unknown> {
+  const res = await cdp.call<{ result?: { value?: unknown } }>("Runtime.evaluate", { expression, returnByValue: true });
+  return res.result?.value;
+}
+
 export async function tempDir(): Promise<string> {
   return await mkdtemp(join(tmpdir(), "plur1bus-doc-"));
 }

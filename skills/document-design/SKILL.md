@@ -96,6 +96,21 @@ Nine templates in `packages/documents/src/templates.ts`, each HTML/CSS over the 
 - **Limits.** Content ≤ 200 000 chars, title ≤ 300, a render time budget; the tool is a normal capability-gated tool
   (`fs.write`), so it goes through policy and the dispatcher like every other tool.
 
+## 5a. Visual review before delivery (mandatory)
+
+Every document is checked before it goes out (D100 §3):
+
+- **Static checks** (no browser): broken links (`javascript:`/`file:`/missing `#fragment`), images below 150 dpi at print
+  size, a font family that is used but neither embedded nor a system fallback, and inline colour pairs below 4.5:1.
+- **Layout checks** (in the renderer): text overflow / clipped boxes, single-word last lines (widows), and forced empty
+  pages.
+- **Vision review** (only when a vision-capable model is configured): the page is checked against the checklist —
+  hierarchy, alignment, whitespace, consistency — with at most three fix rounds.
+
+The delivery carries a short report: what was checked, what was found, what was fixed, and whether the vision review ran.
+Without a vision model only the automatic checks run, and the report says so explicitly. A document with an `error` finding
+is not agency-grade; fix the seed (content or template) and re-render rather than shipping it.
+
 ## 6. Using it
 
 Prefer the `document.render` tool: give it a `template`, Markdown `content`, a `title`, and an `outputPath` inside the
