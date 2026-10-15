@@ -2,7 +2,7 @@
 
 The Agents wizard sends one creation key per attempt. Retry after a connection failure: the server returns the same agent rather than creating another one. An incomplete creation is rolled back on restart; unavailable recovery is reported before agents can run.
 
-The Memory wizard records your model licence confirmation with your account, server time, model, licence and pinned revision. Confirm again when choosing another NC model or revision. Administrators can query the acceptance history with `model.licence.list`. Non-interactive installation uses multilingual E5-small.
+The Memory wizard records your model licence confirmation with your account, server time, model, licence and pinned revision. Confirm again when choosing another NC model or revision. Administrators can query the acceptance history with `model.licence.list`. Non-interactive installation uses multilingual E5-small when no embedding selection exists. Rerunning setup preserves an existing embedding configuration; changing its model or dimensions requires the migration workflow.
 
 Agents → Agent isolation shows what belongs to each agent and what shares the daemon process. Agent runtime storage refuses a missing or mismatched context. The operating-system account remains the trusted boundary.
 

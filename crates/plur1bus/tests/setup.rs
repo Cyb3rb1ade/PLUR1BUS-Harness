@@ -289,6 +289,45 @@ fn accept_nc_licence_sets_both_fields_and_writes_one_audit_line() {
 
 #[cfg(unix)]
 #[test]
+fn non_interactive_rerun_preserves_explicit_embedding_model_and_dimensions() {
+    for (model, dimensions) in [
+        ("jinaai/jina-embeddings-v3", 1024),
+        ("Qwen/Qwen3-Embedding-0.6B", 768),
+    ] {
+        let e = Env::new();
+        std::fs::create_dir_all(&e.home).unwrap();
+        let selection = serde_json::json!({
+            "provider": "local",
+            "local": {"model": model, "dimensions": dimensions},
+        });
+        let mut config = plur1bus_config::defaults();
+        config["engine"] = serde_json::json!({"embedding": selection});
+        std::fs::write(
+            e.home.join("config.json"),
+            serde_json::to_vec(&config).unwrap(),
+        )
+        .unwrap();
+        for _ in 0..2 {
+            let (code, result) = e.setup(&["--non-interactive", "--no-service"]);
+            assert_success(code, &result);
+            let saved: Value =
+                serde_json::from_slice(&std::fs::read(e.home.join("config.json")).unwrap())
+                    .unwrap();
+            assert_eq!(
+                saved["engine"]["embedding"], selection,
+                "{model}: {result:#}"
+            );
+            assert!(!step(&result, "config")["detail"]["changed"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|key| key == "engine.embedding.local"));
+        }
+    }
+}
+
+#[cfg(unix)]
+#[test]
 fn non_interactive_never_accepts_the_nc_licence_silently() {
     let e = Env::new();
     let (code, v) = e.setup(&[
