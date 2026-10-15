@@ -341,7 +341,7 @@ describe("models: detail states", opts, () => {
 });
 
 describe("models: optional fields are shown only when the backend sends them", opts, () => {
-  const FIELDS_ROW = ["Provider", "Model id", "Kind", "Context window", "Capabilities", "Aliases", "Status", "Source", "First seen", "Last seen", "Overrides"];
+  const FIELDS_ROW = ["Host tool use", "Provider", "Model id", "Kind", "Context window", "Capabilities", "Aliases", "Status", "Source", "First seen", "Last seen", "Overrides"];
 
   test("an entry with every optional field shows each of them", async () => {
     await withApp({}, async (app) => {
@@ -370,6 +370,7 @@ describe("models: optional fields are shown only when the backend sends them", o
       await detailOf(app.page).getByRole("heading", { name: "Plain", level: 2 }).waitFor();
       const f = await facts(app.page);
       assert.deepEqual(Object.keys(f), FIELDS_ROW, "no 'Further fields' row without further fields");
+      assert.equal(f["Host tool use"], "Host tool use not evaluated");
       assert.equal(f["Kind"], "unknown");
       assert.equal(f["Context window"], "unknown");
       assert.equal(f["Capabilities"], "none");
@@ -684,5 +685,15 @@ describe("models: axe", opts, () => {
       await app.page.getByRole("region", { name: "Modelldetails" }).getByRole("heading", { name: "Alpha Three", level: 2 }).waitFor();
       await expectAxeClean(app.page, "German list and detail");
     });
+  });
+});
+
+test('host tool-eval status shows limited badge and explicit missing evidence in both languages', opts, async () => {
+  for (const [id, lang] of [['limited','en'], ['unknown','en'], ['limited','de']] as const) await withApp({locale:lang === 'de' ? 'de-DE' : 'en-US'}, async app => {
+    installCatalog(app.server.rpc, { models: [model({id:'limited',toolUse:'limited tool use'}),model({id:'unknown',toolUse:'unknown'})],newIds:new Set() });
+    await open(app,hrefOf('alpha',id),lang);
+    if (lang === 'de') await app.page.getByText('Eingeschränkte Tool-Nutzung',{exact:true}).first().waitFor();
+    else if (id === 'limited') { await app.page.locator('.model-list').getByText('limited tool use',{exact:true}).waitFor(); assert.equal((await facts(app.page))['Host tool use'],'limited tool use'); }
+    else await detailOf(app.page).getByText('Host tool use not evaluated',{exact:true}).waitFor();
   });
 });

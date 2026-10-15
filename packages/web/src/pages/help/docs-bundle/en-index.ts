@@ -25,6 +25,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Skills and plugins"
   },
   {
+    "slug": "host-tools",
+    "title": "Local host tools and sandbox status"
+  },
+  {
     "slug": "inbox",
     "title": "Inbox"
   },
@@ -82,6 +86,7 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "channels": return import("./en/channels.ts").then(m => m.doc);
     case "containers": return import("./en/containers.ts").then(m => m.doc);
     case "extensions": return import("./en/extensions.ts").then(m => m.doc);
+    case "host-tools": return import("./en/host-tools.ts").then(m => m.doc);
     case "inbox": return import("./en/inbox.ts").then(m => m.doc);
     case "invitations": return import("./en/invitations.ts").then(m => m.doc);
     case "long-conversations": return import("./en/long-conversations.ts").then(m => m.doc);

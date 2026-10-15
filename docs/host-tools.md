@@ -33,14 +33,21 @@ Capability ids are taken from `packages/core/src/policy/capabilities.ts`. Risk c
 | `pkg.install` | dry-run plan only (D106 batch / D109 `pkg.change`) | plan `brew install <name>` | plan `winget install <name>` | plan `apt-get install` / `dnf install` / `pacman -S` | `pkg.change` | high |
 | `pkg.remove` | dry-run plan only | plan `brew uninstall` | plan `winget uninstall` | plan `apt-get remove` / `dnf uninstall` / `pacman -R` | `pkg.change` | high |
 | `apps.list` | installed applications | `/Applications` + `mdls` | Uninstall registry keys + Start Menu `.lnk` | `.desktop` files | `sys.read` | low |
-| `apps.open` | open app / file / URL; URL schemes `http` `https` `mailto` | `open` / `open -a` | `explorer.exe` | `xdg-open` | `sys.read` | low |
+| `apps.open` | open app / file / URL; URL schemes `http` `https` `mailto` | `open` / `open -a` | `explorer.exe` | `xdg-open` | `apps.launch` | medium |
 | `apps.running` | running GUI apps where the OS exposes them | `osascript` System Events | `tasklist /V` console / titled windows | `wmctrl -l` when present | `sys.read` | low |
 | `clipboard.read` | read clipboard; never log the content | `pbpaste` | PowerShell `Get-Clipboard` | `wl-paste` / `xclip` / `xsel` (first found) | `clipboard.read` | low |
 | `clipboard.write` | write via stdin, never argv; 64 KiB cap | `pbcopy` | PowerShell `Set-Clipboard` from stdin | `wl-copy` / `xclip` / `xsel` | `clipboard.read` | low |
 | `notify` | desktop notification; text escaped | `osascript` `display notification` | PowerShell BurntToast, else WinRT toast | `notify-send` argv | `sys.read` | low |
 
-D106 also names `fs.*` and `shell.*` (already shipped) and later surfaces (`sys.memory/startupItems/services/updates`,
-`apps.focus/quit`, `pkg.upgrade`, privilege). Those are not in this library.
+| `sys.memory` | physical memory bytes | `node:os` | same | same | `sys.read` | low |
+| `sys.startupItems` | standard startup-entry names, bounded | LaunchAgents/Daemons dirs | Startup folder only | autostart dirs | `sys.read` | low |
+| `sys.services` | read service status | launchctl list | sc query | systemctl --user | `sys.read` | low |
+| `sys.updates` | list updates, never install | softwareupdate --list | winget upgrade list | apt list --upgradable only | `sys.read` | low |
+| `apps.focus` | activate validated app id | osascript activate | AppActivate by process name | wmctrl -xa | `apps.launch` | medium |
+| `apps.quit` | graceful close, no force | osascript quit | CloseMainWindow | wmctrl -xc | `proc.signal` | medium |
+| `pkg.upgrade` | exact dry-run plan only | brew upgrade | winget upgrade | apt --only-upgrade / dnf / pacman plan | `pkg.change` | high |
+
+The table describes typed platform routes, not proof that the current sandbox permits every OS service. See the Draft backend/coverage section below. `fs.*` and shell operations have equivalent file/hostctl surfaces, with PTY and delete gaps explicitly listed there.
 
 ## Shape
 
@@ -123,8 +130,7 @@ No network. System access in production code is `node:child_process` (fixed argv
 - Spawn failures and unexpected exceptions are reported without paths or OS text (`not_found`,
   `permission_denied`, otherwise `invalid_input` "the operation failed"). A non-zero exit of the clipboard and
   notification backends is `not_supported_on_platform`.
-- `apps.open` and `notify` run under `sys.read` (policy `allowed`, no approval). `apps.open` can launch an
-  executable or script, so this is an approval gap until it gets an approval-class capability.
+- `apps.open` and `apps.focus` now require `apps.launch` (local-write, medium, approval, once); `apps.quit` requires `proc.signal`. `notify` retains its declared capability, but its subprocess is sandboxed or explicitly refused.
 - `notify` passes `--` before title and body to `notify-send`, and escapes PowerShell typographic double quotes.
 
 ## Follow-ups (not this PR)
@@ -136,3 +142,30 @@ No network. System access in production code is `node:child_process` (fixed argv
 4. `tool-eval` host scenarios (free disk space, install-with-approval, restart a hung app).
 5. Remaining D106 names: `sys.memory` / `startupItems` / `services` / `updates`, `apps.focus` /
    `apps.quit`, `pkg.upgrade`.
+
+
+## D106 Draft stack, 2026-10-15
+
+The earlier inventory/follow-ups above describe the original library. Current additions: `sys.memory`, `sys.startupItems`, `sys.services`, `sys.updates`, `apps.focus`, `apps.quit`, `pkg.upgrade`. `remaining.test.ts` pins their three-OS argv/validation shapes. `sys.startupItems` is an explicit registry-name exception required by D106. `classifyHostTool` handles roots, deny paths, cwd and hostile environment names; absent classification remains outside roots. Upgrade is plan-only like install/remove. PTY shell.session.*, fs.delete and full startup/update coverage remain open.
+
+### Sandbox and fail-closed behaviour
+
+`sandboxSpawn(argv, policy)` is reusable by M5/M6; those modules are unchanged. Policy holds canonical read/write roots, immutable credential/runtime denies, network none/egress/full, environment allowlist and resource/output bounds. Egress currently becomes none with a reported warning. Missing backend/launcher refuses execution. Only owner configuration tools.sandbox.required=false enables audited unsandboxed execution, visibly marked by Doctor. No automatic fallback exists.
+
+| Target | Backend | Current strength/evidence |
+|---|---|---|
+| macOS arm64 | deprecated sandbox-exec/Seatbelt | partial; real adversarial probes; fork denied, sampled RSS watchdog |
+| Linux x64/arm64 | /usr/bin/bwrap + existing-libc limits helper | partial; write roots refused pending dynamic credential protection; not locally executed |
+| Windows x64/arm64 | restricted token + Job Object still missing | none, refuse; pure detection tests; no real Windows isolation claim |
+
+The five-target CI probe job skips unavailable backends with a reason. CI execution and the owner's Windows VM remain unverified. The helper is not yet delivered by installers. See phase handoffs for attack → protection → test tables and open resource/race gaps.
+
+### Taint and host evaluation
+
+The central result path marks untrusted web, MCP/peer tool and outside-root file content as tainted. Existing external/taint-sensitive standing grants then suspend for that turn; valid once approvals remain possible. Peer paths outside the dispatcher still need integration.
+
+`catalog/host-eval-scenarios.json` contains 20 scratch/policy scenarios. `scripts/eval/tool-eval-host.ts` runs deterministic fake model replay, or `--live` for configured Chat Completions-compatible models using safe fake OS ports. PR CI gates fixture correctness. Nightly records missing credentials as skipped and fails completed runs below 95% or with escapes. Reports are per model, bounded, freshness/corpus checked and have explicit fake/recorded/live evidence. Models/Doctor use `state/tool-eval/host-reports.json` and label unknown/limited; synthetic-only evidence never qualifies a model.
+
+Release qualification additionally uses the **independent** `catalog/host-eval-defaults.json` inventory and `--require-release`. That inventory is empty pending owner review, so release acceptance is blocked. Evaluated-model environment entries cannot narrow required release coverage. A real model is supported only with matching recorded/live evidence at ≥95% and zero policy escapes. No live paid run was performed locally.
+
+User documentation: [English](user/en/host-tools.md), [Deutsch](user/de/host-tools.md). Full inventory, decisions, threats, validation and KNOWN-GAP todos: docs/handoffs/2026-10-15-d106-p{1,2,3,4}.md.

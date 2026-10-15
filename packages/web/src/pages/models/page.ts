@@ -59,6 +59,7 @@ function ModelDetail({ model, isNew, canWrite, onEdit, onRemove }: { model: Mode
       isNew ? [" ", h(Badge, { key: "n", tone: "info" }, t("models.new"))] : null),
   },
     h("dl", { class: "facts" },
+      h(Row, { label: t("models.field.toolUse") }, t(model.toolUse === "supported" ? "models.toolUse.supported" : model.toolUse === "limited tool use" ? "models.toolUse.limited" : "models.toolUse.unknown")),
       h(Row, { label: t("models.field.provider") }, model.provider),
       h(Row, { label: t("models.field.id") }, h("code", {}, model.id)),
       h(Row, { label: t("models.field.kind") }, model.kind === "unknown" ? unknownText() : kindText(model.kind)),
@@ -97,6 +98,7 @@ function ModelList({ data, isNew, filters: chosen, setFilters, selected }: { dat
         return h("li", { key: modelKey(m) },
           h("a", { class: "nav-link", href: `#/models/${routeFor(m.provider, m.id)}`, ...(isSel ? { "aria-current": "true" } : {}) },
             h("span", {}, m.displayName),
+            m.toolUse === "limited tool use" ? h(Badge, { tone: "warn" }, t("models.toolUse.limited")) : null,
             m.status !== "available" ? h(Badge, { tone: m.status === "unavailable" ? "warn" : "neutral" }, t(`models.status.${m.status}` as Key)) : null,
             isNew.has(modelKey(m)) ? h(Badge, { tone: "info" }, t("models.new")) : null));
       })))));

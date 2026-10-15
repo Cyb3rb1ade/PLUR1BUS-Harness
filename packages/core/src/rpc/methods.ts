@@ -1,3 +1,5 @@
+import { readHostEvalReports } from '../toolcall/host-eval-store.ts';
+import { hostEvalGate } from '../toolcall/host-eval.ts';
 import type { CheckpointResult, Deferral, Degraded, Engine, JobName, JobRun, Principal, RecallResult } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import type { HarnessConfig } from "@plur1bus/config-schema";
 import type {
@@ -50,6 +52,7 @@ function mapDiscoveryError(err: unknown): never {
 }
 
 export interface MethodDeps {
+  hostEvalHome?: string;
   /** The running configuration, read per use: `core.recall.*` and `core.capture.waitMs` are live keys. */
   engine: Engine; config: () => HarnessConfig; agents: AgentRegistry; activity: ActivityTracker; logger: HarnessLogger;
   status: () => CoreStatusResult; shutdown: (budgetMs?: number) => void; journalBacklog: () => number; clock: () => number;
@@ -283,7 +286,9 @@ export function buildMethods(d: MethodDeps): Record<string, Handler> {
 
     "models.list": async (p: ModelsListParams) => {
       if (!d.discovery) throw new RpcError("E_INTERNAL", "model discovery service unavailable");
-      return await d.discovery.list(p ?? {});
+      const result = await d.discovery.list(p ?? {});
+      const reports = d.hostEvalHome ? await readHostEvalReports(d.hostEvalHome) : [];
+      return { ...result, models: result.models.map(m => ({ ...m, toolUse: hostEvalGate([{ provider: m.provider, model: m.id }], reports).models[0]!.label })) };
     },
     "models.scan": async (p: ModelsScanParams, ctx) => {
       if (!d.systemJobs) throw new RpcError("E_INTERNAL", "system jobs unavailable");

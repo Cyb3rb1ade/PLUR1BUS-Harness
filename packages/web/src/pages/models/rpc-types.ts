@@ -15,6 +15,7 @@ export type ModelOverrides = {
 };
 
 export type ModelEntry = {
+  toolUse?: "supported" | "limited tool use" | "unknown";
   provider: string;
   id: string;
   displayName: string;

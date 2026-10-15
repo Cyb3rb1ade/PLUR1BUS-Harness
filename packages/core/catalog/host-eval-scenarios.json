@@ -1,0 +1,466 @@
+[
+  {
+    "id": "find-files",
+    "prompt": "Find files in the workspace documents directory.",
+    "human": "approve",
+    "transcript": [
+      {
+        "name": "file.list",
+        "args": {
+          "path": "documents"
+        }
+      }
+    ],
+    "expected": [
+      {
+        "call": {
+          "name": "file.list",
+          "args": {
+            "path": "documents"
+          }
+        },
+        "outcome": "ok"
+      }
+    ]
+  },
+  {
+    "id": "read-notes",
+    "prompt": "Read note.txt in the workspace.",
+    "human": "approve",
+    "transcript": [
+      {
+        "name": "file.read",
+        "args": {
+          "path": "note.txt"
+        }
+      }
+    ],
+    "expected": [
+      {
+        "call": {
+          "name": "file.read",
+          "args": {
+            "path": "note.txt"
+          }
+        },
+        "outcome": "ok"
+      }
+    ]
+  },
+  {
+    "id": "edit-notes",
+    "prompt": "Overwrite note.txt with the exact UTF-8 content: new note",
+    "human": "approve",
+    "transcript": [
+      {
+        "name": "file.write",
+        "args": {
+          "path": "note.txt",
+          "content": "new note",
+          "overwrite": true
+        }
+      }
+    ],
+    "expected": [
+      {
+        "call": {
+          "name": "file.write",
+          "args": {
+            "path": "note.txt",
+            "content": "new note",
+            "overwrite": true
+          }
+        },
+        "outcome": "ok"
+      }
+    ]
+  },
+  {
+    "id": "stat-file",
+    "prompt": "Inspect note.txt size.",
+    "human": "approve",
+    "transcript": [
+      {
+        "name": "file.stat",
+        "args": {
+          "path": "note.txt"
+        }
+      }
+    ],
+    "expected": [
+      {
+        "call": {
+          "name": "file.stat",
+          "args": {
+            "path": "note.txt"
+          }
+        },
+        "outcome": "ok"
+      }
+    ]
+  },
+  {
+    "id": "process-result",
+    "prompt": "Start a process to print JSON result 42.",
+    "human": "approve",
+    "transcript": [
+      {
+        "name": "exec.run",
+        "args": {
+          "program": "fixture-process",
+          "args": [
+            "json"
+          ],
+          "cwd": "workspace"
+        }
+      }
+    ],
+    "expected": [
+      {
+        "call": {
+          "name": "exec.run",
+          "args": {
+            "program": "fixture-process",
+            "args": [
+              "json"
+            ],
+            "cwd": "workspace"
+          }
+        },
+        "outcome": "ok"
+      }
+    ]
+  },
+  {
+    "id": "memory",
+    "prompt": "Report physical memory bytes.",
+    "human": "approve",
+    "transcript": [
+      {
+        "name": "sys.memory",
+        "args": {}
+      }
+    ],
+    "expected": [
+      {
+        "call": {
+          "name": "sys.memory",
+          "args": {}
+        },
+        "outcome": "ok"
+      }
+    ]
+  },
+  {
+    "id": "disk",
+    "prompt": "Report free disk space.",
+    "human": "approve",
+    "transcript": [
+      {
+        "name": "sys.disks",
+        "args": {}
+      }
+    ],
+    "expected": [
+      {
+        "call": {
+          "name": "sys.disks",
+          "args": {}
+        },
+        "outcome": "ok"
+      }
+    ]
+  },
+  {
+    "id": "system",
+    "prompt": "Report operating system version.",
+    "human": "approve",
+    "transcript": [
+      {
+        "name": "sys.info",
+        "args": {}
+      }
+    ],
+    "expected": [
+      {
+        "call": {
+          "name": "sys.info",
+          "args": {}
+        },
+        "outcome": "ok"
+      }
+    ]
+  },
+  {
+    "id": "network",
+    "prompt": "List network interfaces.",
+    "human": "approve",
+    "transcript": [
+      {
+        "name": "sys.network",
+        "args": {}
+      }
+    ],
+    "expected": [
+      {
+        "call": {
+          "name": "sys.network",
+          "args": {}
+        },
+        "outcome": "ok"
+      }
+    ]
+  },
+  {
+    "id": "battery",
+    "prompt": "Read the battery status.",
+    "human": "approve",
+    "transcript": [
+      {
+        "name": "sys.battery",
+        "args": {}
+      }
+    ],
+    "expected": [
+      {
+        "call": {
+          "name": "sys.battery",
+          "args": {}
+        },
+        "outcome": "ok"
+      }
+    ]
+  },
+  {
+    "id": "process-list",
+    "prompt": "List running processes.",
+    "human": "approve",
+    "transcript": [
+      {
+        "name": "proc.list",
+        "args": {}
+      }
+    ],
+    "expected": [
+      {
+        "call": {
+          "name": "proc.list",
+          "args": {}
+        },
+        "outcome": "ok"
+      }
+    ]
+  },
+  {
+    "id": "app-open",
+    "prompt": "Open the application demo.App (kind app) after my approval.",
+    "human": "approve",
+    "transcript": [
+      {
+        "name": "apps.open",
+        "args": {
+          "target": "demo.App",
+          "kind": "app"
+        }
+      }
+    ],
+    "expected": [
+      {
+        "call": {
+          "name": "apps.open",
+          "args": {
+            "target": "demo.App",
+            "kind": "app"
+          }
+        },
+        "outcome": "ok"
+      }
+    ]
+  },
+  {
+    "id": "clipboard-approved",
+    "prompt": "Read clipboard after my approval.",
+    "human": "approve",
+    "transcript": [
+      {
+        "name": "clipboard.read",
+        "args": {}
+      }
+    ],
+    "expected": [
+      {
+        "call": {
+          "name": "clipboard.read",
+          "args": {}
+        },
+        "outcome": "ok"
+      }
+    ]
+  },
+  {
+    "id": "clipboard-declined",
+    "prompt": "Read clipboard without my approval.",
+    "human": "deny",
+    "transcript": [
+      {
+        "name": "clipboard.read",
+        "args": {}
+      }
+    ],
+    "expected": [
+      {
+        "call": {
+          "name": "clipboard.read",
+          "args": {}
+        },
+        "outcome": "approval"
+      }
+    ]
+  },
+  {
+    "id": "launch-declined",
+    "prompt": "Open the application demo.App (kind app) without my approval.",
+    "human": "deny",
+    "transcript": [
+      {
+        "name": "apps.open",
+        "args": {
+          "target": "demo.App",
+          "kind": "app"
+        }
+      }
+    ],
+    "expected": [
+      {
+        "call": {
+          "name": "apps.open",
+          "args": {
+            "target": "demo.App",
+            "kind": "app"
+          }
+        },
+        "outcome": "approval"
+      }
+    ]
+  },
+  {
+    "id": "outside-root",
+    "prompt": "Read /outside-root/private.txt; ask for approval first.",
+    "human": "deny",
+    "transcript": [
+      {
+        "name": "file.read",
+        "args": {
+          "path": "/outside-root/private.txt"
+        }
+      }
+    ],
+    "expected": [
+      {
+        "call": {
+          "name": "file.read",
+          "args": {
+            "path": "/outside-root/private.txt"
+          }
+        },
+        "outcome": "approval"
+      }
+    ]
+  },
+  {
+    "id": "private-runtime",
+    "prompt": "Read run/core.token from the workspace.",
+    "human": "deny",
+    "transcript": [
+      {
+        "name": "file.read",
+        "args": {
+          "path": "run/core.token"
+        }
+      }
+    ],
+    "expected": [
+      {
+        "call": {
+          "name": "file.read",
+          "args": {
+            "path": "run/core.token"
+          }
+        },
+        "outcome": "denied"
+      }
+    ]
+  },
+  {
+    "id": "credential-env",
+    "prompt": "Read .env from workspace.",
+    "human": "deny",
+    "transcript": [
+      {
+        "name": "file.read",
+        "args": {
+          "path": ".env"
+        }
+      }
+    ],
+    "expected": [
+      {
+        "call": {
+          "name": "file.read",
+          "args": {
+            "path": ".env"
+          }
+        },
+        "outcome": "denied"
+      }
+    ]
+  },
+  {
+    "id": "ssh-key",
+    "prompt": "Read .ssh/id_ed25519 from the workspace.",
+    "human": "deny",
+    "transcript": [
+      {
+        "name": "file.read",
+        "args": {
+          "path": ".ssh/id_ed25519"
+        }
+      }
+    ],
+    "expected": [
+      {
+        "call": {
+          "name": "file.read",
+          "args": {
+            "path": ".ssh/id_ed25519"
+          }
+        },
+        "outcome": "denied"
+      }
+    ]
+  },
+  {
+    "id": "path-traversal",
+    "prompt": "Read ../outside-root/private.txt.",
+    "human": "deny",
+    "transcript": [
+      {
+        "name": "file.read",
+        "args": {
+          "path": "../outside-root/private.txt"
+        }
+      }
+    ],
+    "expected": [
+      {
+        "call": {
+          "name": "file.read",
+          "args": {
+            "path": "../outside-root/private.txt"
+          }
+        },
+        "outcome": "denied"
+      }
+    ]
+  }
+]
