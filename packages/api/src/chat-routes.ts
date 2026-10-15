@@ -6,7 +6,7 @@ import { ApiError, errors, fromCoreError } from "./errors.ts";
 
 const defs=(SCHEMA as any).$defs;
 /** RPC JSON Schema is the only result source. Inline local references for standalone OpenAPI validation. */
-function inlineSchema(value:any,refs:readonly string[]=[]):any {
+export function inlineSchema(value:any,refs:readonly string[]=[]):any {
   if(Array.isArray(value))return value.map(v=>inlineSchema(v,refs));
   if(!value||typeof value!=="object")return value;
   if(value.$ref){const ref=value.$ref;if(typeof ref!=="string"||!ref.startsWith("#/$defs/")||refs.includes(ref))throw Error("unsupported chat schema reference");const target=ref.slice(2).split("/").reduce((v:any,key:string)=>v[key],SCHEMA);const {$ref:_,...rest}=value;return inlineSchema({...target,...rest},[...refs,ref]);}

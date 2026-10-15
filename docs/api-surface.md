@@ -26,6 +26,10 @@ Every route is **deny by default**: a route that is not `public` answers 401 wit
 | `DELETE` | `/api/v1/chats/{sessionId}` | `chats.delete` | session or token | `chat:delete` | yes | write | experimental · 1.0.0 |
 | `POST` | `/api/v1/ws-ticket` | `ws.ticket` | session | `settings.write` | yes | stream | experimental · 1.0.0 |
 | `GET` | `/ws` | `ws.reserved` | session | `settings.write` | no | stream | experimental · 1.0.0 |
+| `GET` | `/api/v1/channel-dms` | `channel.history.list` | session | `chat:read` | no | read | experimental · 1.0.0 |
+| `GET` | `/api/v1/channel-dms/{sessionId}` | `channel.history.get` | session | `chat:read` | no | read | experimental · 1.0.0 |
+| `POST` | `/api/v1/channel-handoffs` | `channel.handoff.create` | session | `chat:write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/channel-handoffs/redeem` | `channel.handoff.redeem` | session | `chat:write` | yes | write | experimental · 1.0.0 |
 | `POST` | `/api/v1/session` | `session.create` | public | `public` | no | auth | experimental · 1.0.0 |
 | `DELETE` | `/api/v1/session` | `session.delete` | session | `authenticated` | yes | write | experimental · 1.0.0 |
 | `DELETE` | `/api/v1/sessions` | `sessions.revoke-all` | session | `authenticated` | yes | write | experimental · 1.0.0 |

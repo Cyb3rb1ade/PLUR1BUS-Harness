@@ -1,3 +1,4 @@
+import { CHANNEL_HANDOFF_ROUTES, channelHandoffHandlers } from "./channel-handoff-routes.ts";
 import { WS_ROUTES } from "./ws-routes.ts";
 import { CHAT_ROUTES, buildChatHandlers } from "./chat-routes.ts";
 import { ACCOUNT_ROUTES, buildAccountHandlers } from "./account-routes.ts";
@@ -79,7 +80,7 @@ export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
 const SESSION_TIMES = { createdAt: iso, expiresAt: iso, idleExpiresAt: iso };
 
 export const ROUTES: readonly RouteSpec[] = [
-  ...TRANSPORT_ROUTES, ...ACCOUNT_ROUTES, ...CHAT_ROUTES, ...WS_ROUTES,
+  ...TRANSPORT_ROUTES, ...ACCOUNT_ROUTES, ...CHAT_ROUTES, ...WS_ROUTES, ...CHANNEL_HANDOFF_ROUTES,
   {
     id: "session.create", method: "POST", path: `${API_PREFIX}/session`, tag: "session", summary: "Log in with the owner token or with a local account; sets the session cookie",
     auth: "none", authz: "public", csrf: false, rate: "auth", stability: "experimental", since: "1.0.0",
@@ -330,6 +331,7 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
     ...buildAccountHandlers(d, undefined, d.core),
     ...buildTransportHandlers(d.core),
     ...buildChatHandlers(d.core,d.audit),
+    ...channelHandoffHandlers(d.core),
     "ws.ticket": () => ({body:{}}), "ws.reserved": () => ({body:{}}),
     "session.create": async (i) => {
       const b = loginBody(i.body);

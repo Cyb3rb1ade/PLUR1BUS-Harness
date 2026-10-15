@@ -58,6 +58,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -506,6 +507,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 250,
@@ -967,6 +969,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -1415,6 +1418,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -1878,6 +1882,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -2326,6 +2331,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -2793,6 +2799,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -3245,6 +3252,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -3708,6 +3716,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -4160,6 +4169,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -4629,6 +4639,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -5077,6 +5088,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -5544,6 +5556,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -5992,6 +6005,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "debug",
         "recall": {
           "softBudgetMs": 400,
@@ -6456,6 +6470,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -6909,6 +6924,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -7377,6 +7393,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,
@@ -7825,6 +7842,7 @@
         }
       },
       "core": {
+        "webHandoffBaseUrl": "",
         "logLevel": "info",
         "recall": {
           "softBudgetMs": 400,

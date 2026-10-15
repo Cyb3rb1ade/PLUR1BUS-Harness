@@ -143,6 +143,16 @@ export class SessionStore {
     return result;
   }
 
+  /** Host-only continuation: immutable new direct chat plus quoted user-context preamble in one transaction. */
+  createContinuation(i: { agentId: string; owner: string; title: string; context: string }): SessionRecord {
+    if (typeof i.context !== 'string' || i.context.length > 8000) throw new SessionError('invalid', 'invalid continuation', 'context');
+    return this.#tx(() => {
+      const session = this.createSession({ kind: 'direct', agentId: i.agentId, owner: i.owner, title: i.title });
+      this.#insertMessage(session.id, null, 'user', i.context, Math.ceil(i.context.length / 4));
+      return session;
+    });
+  }
+
   getSession(id: string): SessionRecord | null {
     const r = this.#get("SELECT * FROM sessions WHERE id = ?", id);
     return r ? toSession(r) : null;

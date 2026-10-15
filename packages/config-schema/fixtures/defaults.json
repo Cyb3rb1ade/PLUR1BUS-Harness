@@ -55,6 +55,7 @@
     }
   },
   "core": {
+    "webHandoffBaseUrl": "",
     "logLevel": "info",
     "recall": {
       "softBudgetMs": 400,

@@ -3206,6 +3206,20 @@
           "additionalProperties": false,
           "default": {},
           "properties": {
+            "webHandoffBaseUrl": {
+              "type": "string",
+              "default": "",
+              "maxLength": 2048,
+              "description": "Explicit Web UI address for external channel continuation links. Empty disables /web links; HTTPS except loopback HTTP. No credentials, query or fragment.",
+              "x-restart": "live",
+              "x-tier": "advanced",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true,
+              "pattern": "^(?:$|https://[^/?#@]+(?:/[^?#]*)?|http://(?:127\\.0\\.0\\.1|\\[::1\\]|localhost)(?::[0-9]{1,5})?(?:/[^?#]*)?)$"
+            },
             "logLevel": {
               "description": "Minimum severity written to the core log.",
               "enum": [
@@ -4313,7 +4327,7 @@
                 "privateKeySecret": {
                   "type": "string",
                   "default": "channels.buzz.private-key",
-                  "description": "Secret-store reference; never the private key.",
+                  "description": "Name of the secret holding the Buzz private key; never the key itself.",
                   "x-restart": "module:buzz",
                   "x-tier": "advanced",
                   "x-write-roles": [

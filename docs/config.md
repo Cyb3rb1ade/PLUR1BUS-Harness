@@ -39,6 +39,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `tools.hostctl.env.allow` | array | `["PATH","LANG","LC_ALL","TZ","TERM","SystemRoot","PATHEXT","TEMP","TMP"]` | core | Environment names eligible for inheritance; secrets and injection variables remain blocked. |
 | `tools.hostctl.denyPatterns` | array | `[]` | core | Additional case-insensitive literal command substrings to refuse. |
 | `tools.hostctl.search.maxResults` | integer | `100` | core | Maximum matches per search. |
+| `core.webHandoffBaseUrl` | string | `""` | live | Explicit Web UI address for external channel continuation links. Empty disables /web links; HTTPS except loopback HTTP. No credentials, query or fragment. |
 | `core.logLevel` | enum | `"info"` | live | Minimum severity written to the core log. |
 | `core.recall.softBudgetMs` | integer | `400` | core | Soft target duration for a recall, in milliseconds. |
 | `core.recall.hardBudgetMs` | integer | `600` | live | Maximum duration allowed for a recall before it is aborted, in milliseconds. |

@@ -20,6 +20,7 @@ export interface BuzzDeps {
 /** Text-only, one-to-one NIP-17 / NIP-59. Network metadata never grants a Principal. */
 export class BuzzChannel implements Channel {
   readonly name = 'buzz'; readonly #c; readonly #d: BuzzDeps;
+  #starting: Promise<void> | undefined;
   #host: ChannelHost | undefined; #key: Uint8Array | undefined; #pub = ''; #abort: AbortController | undefined;
   #sockets = new Map<string, JsonSocket>(); #loops: Promise<void>[] = []; #seen = new Set<string>(); #work = Promise.resolve(); #pending = 0;
   #relayWaiters = new Map<string, Set<() => void>>();
@@ -29,7 +30,13 @@ export class BuzzChannel implements Channel {
   #now() { return Math.floor((this.#d.now?.() ?? Date.now()) / 1000); }
   #log(event: string) { this.#d.logger?.log('warn', event, {}); }
   async start(host: ChannelHost): Promise<void> {
-    if (this.#abort) throw new Error('Buzz already started');
+    if (this.#starting) return this.#starting;
+    if (this.#abort) return;
+    const task = this.#start(host); this.#starting = task;
+    try { await task; } finally { if (this.#starting === task) this.#starting = undefined; }
+  }
+  async #start(host: ChannelHost): Promise<void> {
+    const abort = new AbortController(); this.#abort = abort;
     let raw: string | null;
     try {
       raw = await this.#d.secrets.reveal(this.#c.secret);
@@ -38,8 +45,9 @@ export class BuzzChannel implements Channel {
       else { const v = decode(raw); if (v.type !== 'nsec') throw new Error(); this.#key = v.data; }
       this.#pub = getPublicKey(this.#key);
       this.#seen = new Set(await this.#d.seen.load());
-    } catch { this.#key?.fill(0); this.#key = undefined; throw new Error('Buzz key or replay store unavailable'); }
-    this.#host = host; this.#abort = new AbortController();
+      if (abort.signal.aborted) throw new Error('Buzz stopped');
+    } catch { this.#key?.fill(0); this.#key = undefined; if (this.#abort === abort) this.#abort = undefined; throw new Error('Buzz key or replay store unavailable'); }
+    this.#host = host;
     // Start every relay independently; a denied or failing relay cannot prevent another from connecting.
     this.#loops = this.#c.relays.map(url => this.#loop(url));
   }
@@ -93,7 +101,7 @@ export class BuzzChannel implements Channel {
     }
     if (value[1] !== 'buzz-inbox' || this.#seen.has(e.id) || e.created_at > this.#now() + 300 || e.created_at < this.#now() - 172800 || e.tags.filter(t => t[0] === 'p').length !== 1 || !e.tags.some(t => t[0] === 'p' && t[1] === this.#pub)) return;
     let rumor; try { rumor = unwrapEvent(e, this.#key!); } catch { return; }
-    if (rumor.kind !== 14 || !this.#c.allow.has(rumor.pubkey) || rumor.pubkey === this.#pub || rumor.id !== getEventHash(rumor) || this.#seen.has(rumor.id) || rumor.content.length > 16384 || rumor.created_at > this.#now() + 300 || rumor.created_at < this.#now() - 172800 || rumor.tags.filter(t => t[0] === 'p').length !== 1 || !rumor.tags.some(t => t[0] === 'p' && t[1] === this.#pub)) return;
+    if (rumor.kind !== 14 || !this.#c.allow.has(rumor.pubkey) || rumor.pubkey === this.#pub || rumor.id !== getEventHash(rumor) || this.#seen.has(rumor.id) || Buffer.byteLength(rumor.content, 'utf8') > 16384 || rumor.created_at > this.#now() + 300 || rumor.created_at < this.#now() - 172800 || rumor.tags.filter(t => t[0] === 'p').length !== 1 || !rumor.tags.some(t => t[0] === 'p' && t[1] === this.#pub)) return;
     const next = new Set(this.#seen); next.add(e.id); next.add(rumor.id);
     while (next.size > MAX_SEEN) next.delete(next.values().next().value!);
     await this.#d.seen.save([...next]); this.#seen = next;
@@ -131,16 +139,16 @@ export class BuzzChannel implements Channel {
     if (!this.#key || !this.#host) throw new Error('Buzz unavailable');
     const peer = publicKey(message.chatId); if (!this.#c.allow.has(peer)) throw new Error('Buzz destination denied');
     const text = channelOutputText(this.#host, this.name, peer, 'reply', message.text);
-    if (text.length > 16384) throw new Error('Buzz message too large');
+    if (Buffer.byteLength(text, 'utf8') > 16384) throw new Error('Buzz message too large');
     await this.#waitMetadata(peer);
     if (!this.#key || !this.#abort || this.#abort.signal.aborted) throw new Error("Buzz unavailable");
     const destinations = this.#metadata.get(peer)?.relays.filter(r => this.#sockets.has(r)) ?? [];
     if (!destinations.length) throw new Error('Buzz recipient has no permitted DM relay');
     const events = wrapManyEvents({ kind: 14, content: text, created_at: this.#now(), tags: [['p', peer]] }, this.#key, [peer]);
-    for (const event of events) {
+    for (const event of events.sort((a, b) => Number(b.tags.some(t => t[0] === 'p' && t[1] === peer)) - Number(a.tags.some(t => t[0] === 'p' && t[1] === peer)))) {
       const target = event.tags.find(t => t[0] === 'p')?.[1]; const relays = target === peer ? destinations : [...this.#sockets.keys()];
       const results = await Promise.all(relays.map(r => this.#publish(r, event)));
-      if (!results.some(Boolean)) throw new Error('Buzz publish failed');
+      if (!results.some(Boolean)) { if (target === peer) throw new Error('Buzz publish failed'); this.#log('buzz.archive.unavailable'); }
     }
   }
   async stop() {
