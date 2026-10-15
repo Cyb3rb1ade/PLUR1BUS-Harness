@@ -1,7 +1,7 @@
 // D109 §9.7: start + daily HMAC/Ed25519 integrity check of the approval chain.
 import type { Clock } from "../policy/decide.ts";
 import { RpcError } from "../rpc/errors.ts";
-import type { SystemJobHandler, SystemJobOutcome, SystemJobSpec } from "../system-jobs/index.ts";
+import type { SystemJobHandler, SystemJobOutcome, SystemJobSpec, SystemJobs } from "../system-jobs/index.ts";
 import type { VerifyResult } from "./chain.ts";
 
 export const APPROVALS_INTEGRITY_JOB_SPEC: SystemJobSpec = {
@@ -16,16 +16,24 @@ export interface ApprovalsIntegrityJobDeps {
   /** When false, nothing to check (the store has never been opened). */
   present?: () => boolean | Promise<boolean>;
   clock: Clock;
+  /** [0, 1); used to jitter `nextRunAt` the same way discovery jitters regular scans. */
+  rng?: () => number;
+  /** After a successful verify: announce due grants / always-grant inbox sweep. Never fails the job. */
+  onOk?: () => void;
 }
 
 export function createApprovalsIntegrityJob(deps: ApprovalsIntegrityJobDeps): SystemJobHandler {
   let lastRunAt: number | null = null;
+  const rng = deps.rng ?? Math.random;
   return {
     get spec(): SystemJobSpec {
       return APPROVALS_INTEGRITY_JOB_SPEC;
     },
     nextRunAt(): number | null {
-      return lastRunAt === null ? deps.clock.now() : lastRunAt + APPROVALS_INTEGRITY_JOB_SPEC.schedule.every;
+      if (lastRunAt === null) return deps.clock.now();
+      const every = APPROVALS_INTEGRITY_JOB_SPEC.schedule.every;
+      const jitter = APPROVALS_INTEGRITY_JOB_SPEC.schedule.jitter;
+      return lastRunAt + every * (1 + (rng() * 2 - 1) * jitter);
     },
     validateArgs(args: unknown): Record<string, unknown> {
       if (args === undefined || args === null) return {};
@@ -45,7 +53,33 @@ export function createApprovalsIntegrityJob(deps: ApprovalsIntegrityJobDeps): Sy
       }
       const v = await deps.verify();
       if (!v.ok) return { outcome: "failed", reason: v.reason, detail: v };
+      try { deps.onOk?.(); } catch { /* a sweep never fails the integrity job */ }
       return { outcome: "completed", detail: v };
     },
   };
+}
+
+export interface IntegrityArmTimers {
+  now(): number;
+  setTimer(fn: () => void | Promise<void>, ms: number): unknown;
+}
+
+/** Arms a timer for the job's nextRunAt, runs it as cron, then re-arms. Tests drive this with FakeClock.setTimer. */
+export function armApprovalsIntegrity(
+  jobs: Pick<SystemJobs, "run" | "list">,
+  timers: IntegrityArmTimers,
+): { cancel: () => void } {
+  let cancelled = false;
+  const schedule = (): void => {
+    if (cancelled) return;
+    const next = jobs.list().find((j) => j.name === "approvals.integrity")?.nextRunAt;
+    const delay = Math.max(0, (next ?? timers.now()) - timers.now());
+    timers.setTimer(async () => {
+      if (cancelled) return;
+      try { await jobs.run("approvals.integrity", {}, { trigger: "cron" }); } catch { /* re-arm anyway */ }
+      schedule();
+    }, delay);
+  };
+  schedule();
+  return { cancel: () => { cancelled = true; } };
 }

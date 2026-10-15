@@ -68,6 +68,53 @@ describe("D109 §9.9 core ends task and session grants (not the 24h bound)", () 
     }
   });
 
+  it("archiving a session ends its grant even when the permission runtime was not yet open", T, async () => {
+    const clock = new FakeClock();
+    const home = tmp.make();
+    mkdirSync(join(home, "state"), { recursive: true });
+    const cfg = defaults(); cfg.agents.bernd = {};
+    const logger = { debug() {}, info() {}, warn() {}, error() {}, child() { return logger; }, async close() {} } as never;
+    const identity = createIdentityService({ dbPath: join(home, "identity.sqlite"), clock: () => clock.now(), audit: () => {} });
+    const agents = createAgentRegistry({ config: () => cfg }, layout(home), logger);
+    const dbPath = join(home, "state", "approvals.sqlite");
+    const audit = createPolicyAudit({ sink: memoryAuditSink(), clock, host: "h" });
+    const seed = createPermissionRuntime({ dbPath, keys: staticKeySource(KEY), clock, audit });
+    const openedSeed = await seed.open();
+    const compositionA = await openTurnComposition({
+      home, config: () => cfg, engine: {} as never, agents, logger, secrets: {} as never,
+      egress: { decide: async () => ({ allowed: false }) } as never,
+      permissions: seed, audit: memoryAuditSink(), identity, clock: () => clock.now(),
+      signal: new AbortController().signal, isStopping: () => false, notify: () => {},
+      options: { providers: { profiles: { default: [{ provider: "fixture", model: "gpt-4.1", adapter: { async *stream() { /* unused */ } } }] } } },
+    });
+    const session = compositionA.sessions.store.createSession({ kind: "direct", agentId: "bernd", owner: "christian" });
+    openedSeed.grants.create(alwaysCap({ scope: "session", sessionId: session.id, match: pathMatch, id: "s-grant-late" }));
+    await compositionA.close();
+    await seed.close();
+
+    const permissions = createPermissionRuntime({ dbPath, keys: staticKeySource(KEY), clock, audit });
+    const composition = await openTurnComposition({
+      home, config: () => cfg, engine: {} as never, agents, logger, secrets: {} as never,
+      egress: { decide: async () => ({ allowed: false }) } as never,
+      permissions, audit: memoryAuditSink(), identity, clock: () => clock.now(),
+      signal: new AbortController().signal, isStopping: () => false, notify: () => {},
+      options: { providers: { profiles: { default: [{ provider: "fixture", model: "gpt-4.1", adapter: { async *stream() { /* unused */ } } }] } } },
+    });
+    try {
+      assert.equal(permissions.current(), null);
+      composition.sessions.store.archiveSession(session.id);
+      const opened = await permissions.open();
+      clock.advance(HOUR);
+      assert.equal(evalGrant(opened.grants, clock, ctx({ sessionId: session.id })).kind, "ask");
+      assert.equal(opened.grants.get("s-grant-late")!.revoked, true);
+      assert.equal((opened.grants.get("s-grant-late") as { endReason?: string }).endReason, "session-ended");
+    } finally {
+      await composition.close();
+      await permissions.close();
+      identity.close();
+    }
+  });
+
   it("a task-scoped grant ends when the collab task ends, not after 24h", T, async () => {
     const stores = await openStores();
     let release!: () => void;

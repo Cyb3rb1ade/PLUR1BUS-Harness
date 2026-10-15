@@ -92,7 +92,7 @@ import { createAuditChain, teeAuditSinks, type AuditChain } from "./audit/chain.
 import { createIdentityService, type IdentityService } from "./identity/service.ts";
 import { approvalsDbPath } from "./approvals/db.ts";
 import { secretStoreKeySource, secretStoreSigningKeySource } from "./approvals/keys.ts";
-import { createApprovalsIntegrityJob } from "./approvals/integrity-job.ts";
+import { armApprovalsIntegrity, createApprovalsIntegrityJob } from "./approvals/integrity-job.ts";
 import { createPermissionNotifier, type PermissionNotifier } from "./approvals/notify.ts";
 import { grantRecordOf } from "./approvals/wire.ts";
 import { openChannelSwitchboard } from "./channels/core-host.ts";
@@ -599,8 +599,22 @@ export function createCore(o: CoreOptions): Core {
         clock: { now: clock },
         present: () => existsSync(approvalsDbPath(l.home)),
         verify: async () => (await perms.open()).service.verify(),
+        onOk: () => {
+          const p = perms.current();
+          if (!p) return;
+          p.grants.announceDue();
+          alwaysGrantsToInbox(inboxPort, p.grants.inspect().map(v => v.grant), clock());
+        },
       }));
       void systemJobs.run("approvals.integrity", {}, { trigger: "harness" }).catch(err => log.warn("approvals.integrity at start failed", { err }));
+      armApprovalsIntegrity(systemJobs, {
+        now: clock,
+        setTimer: (fn, ms) => {
+          const t = setTimeout(() => { void fn(); }, ms);
+          t.unref?.();
+          return t;
+        },
+      });
       try { turnComposition = await openTurnComposition({ home: l.home, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
         voiceConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal, secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
         // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or

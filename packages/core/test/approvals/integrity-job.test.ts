@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { createApprovalsIntegrityJob, APPROVALS_INTEGRITY_JOB_SPEC } from "../../src/approvals/integrity-job.ts";
+import { createApprovalsIntegrityJob, armApprovalsIntegrity, APPROVALS_INTEGRITY_JOB_SPEC } from "../../src/approvals/integrity-job.ts";
 import type { VerifyResult } from "../../src/approvals/chain.ts";
 import { setup, useTempDirs } from "../system-jobs/helpers.ts";
 import { FakeClock } from "./helpers.ts";
@@ -60,12 +60,48 @@ describe("approvals.integrity system job (D109 §9.7)", () => {
   it("schedules the next run a day later (FakeClock, no sleep)", T, async () => {
     const s = setup(dirs);
     const { chain } = openChain(dbFile(), { clock: new FakeClock() });
-    const job = createApprovalsIntegrityJob({ verify: () => chain.verify(), clock: s.clock });
+    const job = createApprovalsIntegrityJob({ verify: () => chain.verify(), clock: s.clock, rng: () => 0.5 });
     s.jobs.register(job);
     assert.equal(s.jobs.list()[0]!.nextRunAt, s.clock.now());
     await s.jobs.run("approvals.integrity", {}, { trigger: "harness" });
     assert.equal(s.jobs.list()[0]!.nextRunAt, s.clock.now() + DAY);
     s.clock.advance(DAY);
     assert.equal(s.jobs.list()[0]!.nextRunAt, s.clock.now());
+  });
+
+  it("nextRunAt jitters like discovery nextRegularAt", T, async () => {
+    const { chain } = openChain(dbFile(), { clock: new FakeClock() });
+    const s0 = setup(dirs);
+    s0.jobs.register(createApprovalsIntegrityJob({ verify: () => chain.verify(), clock: s0.clock, rng: () => 0 }));
+    await s0.jobs.run("approvals.integrity", {}, { trigger: "harness" });
+    assert.equal(s0.jobs.list()[0]!.nextRunAt, s0.clock.now() + DAY * 0.9);
+    const s1 = setup(dirs);
+    s1.jobs.register(createApprovalsIntegrityJob({ verify: () => chain.verify(), clock: s1.clock, rng: () => 1 }));
+    await s1.jobs.run("approvals.integrity", {}, { trigger: "harness" });
+    assert.equal(s1.jobs.list()[0]!.nextRunAt, s1.clock.now() + DAY * 1.1);
+  });
+
+  it("a daily ticker fires the job again after a day (FakeClock, no sleep)", T, async () => {
+    const s = setup(dirs);
+    const { chain } = openChain(dbFile(), { clock: new FakeClock() });
+    const job = createApprovalsIntegrityJob({ verify: () => chain.verify(), clock: s.clock, rng: () => 0.5 });
+    s.jobs.register(job);
+    await s.jobs.run("approvals.integrity", {}, { trigger: "harness" });
+    const arm = armApprovalsIntegrity(s.jobs, s.clock);
+    await s.clock.advance(DAY);
+    const hist = s.jobs.history({ job: "approvals.integrity" });
+    assert.equal(hist.length, 2);
+    assert.equal(hist.map((h) => h.trigger).sort().join(","), "cron,harness");
+    arm.cancel();
+  });
+
+  it("onOk runs after a successful verify", T, async () => {
+    const s = setup(dirs);
+    const { chain } = openChain(dbFile(), { clock: new FakeClock() });
+    let n = 0;
+    const job = createApprovalsIntegrityJob({ verify: () => chain.verify(), clock: s.clock, onOk: () => { n++; } });
+    s.jobs.register(job);
+    await s.jobs.run("approvals.integrity", {}, { trigger: "harness" });
+    assert.equal(n, 1);
   });
 });
