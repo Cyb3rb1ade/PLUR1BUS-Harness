@@ -153,18 +153,19 @@ test("the routes that need no role are exactly the session self-service routes, 
 
 test("every route: unauthenticated is 401; a Viewer is refused on every route that needs a role (reads and writes)", async () => {
   const h = await setup();
+  const previous=h.core.impl; h.core.impl=async(method,params)=>method==="chat.list"?{sessions:[],truncated:false}:method==="chat.get"||method==="chat.events"||method==="chat.export"?Promise.reject({error:"E_NOT_FOUND",reason:"not-found"}):previous(method,params);
   try {
     const { cookie } = await loginAs(h, "vera");
     for (const r of ROUTES.filter((x) => x.auth !== "none")) {
-      const anon = await raw(h, { method: r.method, path: r.path, headers: jsonHeaders() });
+      const anon = await raw(h, { method: r.method, path: r.path.replace("{sessionId}","deny-contract").replace("{agentId}","main"), headers: jsonHeaders() });
       assert.equal(anon.status, 401, `anon ${r.id}`);
       if (typeof r.authz !== "object") continue;
       const t = r.csrf ? await csrfToken(h, cookie) : undefined;
-      const res = await raw(h, { method: r.method, path: r.path, headers: { cookie, ...(t ? { "x-csrf-token": t } : {}) } });
-      const viewerMayRead = r.method === "GET" && ["agents.list", "tokens.list", "totp.status", "notices.list", "passkeys.list"].includes(r.id); // agent.list is open to all roles; my.read is "own" for all
-      assert.equal(res.status, viewerMayRead ? 200 : 403, `viewer ${r.id}`);
+      const res = await raw(h, { method: r.method, path: r.path.replace("{sessionId}","deny-contract").replace("{agentId}","main"), headers: { cookie, ...(t ? { "x-csrf-token": t } : {}), ...(r.requestBody?jsonHeaders():{}) }, ...(r.requestBody?{body:JSON.stringify({})}:{}) });
+      const viewerMayRead = r.method === "GET" && ["agents.list", "tokens.list", "totp.status", "notices.list", "chats.list", "passkeys.list"].includes(r.id); // agent.list is open to all roles; my.read is "own" for all
+      assert.equal(res.status, typeof r.authz==="object" && r.authz.action==="chat:read" && !viewerMayRead ? 404 : viewerMayRead ? 200 : 403, `viewer ${r.id}`);
     }
-    assert.equal(h.core.calls.filter((c) => c.method !== "agent.list").length, 0, "a refused request never reaches the core");
+    assert.equal(h.core.calls.filter((c) => c.method !== "agent.list" && !c.method.startsWith("chat.")).length, 0, "a refused request never reaches the core");
   } finally { await h.close(); }
 });
 

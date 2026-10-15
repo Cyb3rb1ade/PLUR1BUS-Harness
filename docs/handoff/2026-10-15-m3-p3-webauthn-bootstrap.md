@@ -50,3 +50,9 @@ Frozen lockfile installation succeeded. Node 24.21.0 toolchain check passed. Roo
 Genuine browser bootstrap and navigator.credentials.create/get with a Chrome CTAP2 virtual authenticator passed over real HTTP; it also proves credential-change session expiry, passkey login and counter advancement. Related login, security and wizard regressions ran 44 tests: 43 passed, and an introduced link target-size violation failed the login axe test. The link was corrected with the existing button class; the affected login-hardening suite and real API browser test then passed all ten tests on Node 24.21.0. The final resident-key-required browser flow and final typecheck passed. Physical authenticator interoperability remains an explicit KNOWN GAP todo.
 
 The cached Playwright browser was incomplete; local validation used installed Google Chrome through PLUR1BUS_CHROMIUM. No CI polling. Bundled installer account creation is not claimed by virtual-authenticator tests and belongs to Host-Addons. Existing error-code HTTP mapping todos remain outside this phase. Logs: `/tmp/m3-p3-api-node24.log`, `/tmp/m3-p3-node24-lint.log`, `/tmp/m3-p3-node24-browser.log`, `/tmp/m3-p3-final-targeted.log`, `/tmp/m3-p3-last-browser.log`.
+
+Phase 1 prerequisite normal merge retained both chat/WS and passkey route classification,
+request path/query/header data and validated WebAuthn Origin. Regenerated API docs and
+RPC generated sources; merged API suite: 734 total, 724 passed, zero failed, six skipped,
+four existing todos. Root TypeScript check passed. Logs: `/tmp/m3-p3-p1-api-final.log`,
+`/tmp/m3-p3-p1-tsc-final.log`. Phase 2 predecessor merge remains pending.

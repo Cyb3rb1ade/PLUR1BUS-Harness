@@ -1661,6 +1661,588 @@
       }
     },
     "methods": {
+      "chat.create": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Authenticated own direct-chat create. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "memoryMode": {
+              "enum": [
+                "remember",
+                "incognito"
+              ]
+            },
+            "title": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "idempotencyKey": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "agentId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "session": {
+              "$ref": "#/$defs/SessionRecord"
+            }
+          },
+          "required": [
+            "session"
+          ]
+        }
+      },
+      "chat.list": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Authenticated own direct-chat list. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "archived": {
+              "enum": [
+                "exclude",
+                "only",
+                "any"
+              ]
+            },
+            "search": {
+              "type": "string",
+              "maxLength": 512
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          "required": []
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sessions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SessionRecord"
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "sessions",
+            "truncated"
+          ]
+        }
+      },
+      "chat.get": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Authenticated own direct-chat get. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          "required": [
+            "sessionId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "session",
+            "runningTurnId",
+            "messages",
+            "lastEventSeq"
+          ],
+          "properties": {
+            "session": {
+              "$ref": "#/$defs/SessionRecord"
+            },
+            "runningTurnId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "messages": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SessionMessage"
+              }
+            },
+            "lastEventSeq": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      },
+      "chat.events": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Authenticated own direct-chat events. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "afterSeq": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          "required": [
+            "sessionId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId",
+            "events",
+            "lastSeq",
+            "running"
+          ],
+          "properties": {
+            "sessionId": {
+              "$ref": "#/$defs/SessionId"
+            },
+            "events": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SessionEvent"
+              }
+            },
+            "lastSeq": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "running": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "chat.submit": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Authenticated own direct-chat submit. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64000
+            },
+            "wait": {
+              "type": "boolean"
+            },
+            "idempotencyKey": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "sessionId",
+            "text"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId",
+            "turnId",
+            "messageId",
+            "state"
+          ],
+          "properties": {
+            "sessionId": {
+              "$ref": "#/$defs/SessionId"
+            },
+            "turnId": {
+              "type": "string"
+            },
+            "messageId": {
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "running",
+                "completed",
+                "failed"
+              ]
+            },
+            "reply": {
+              "type": "string"
+            },
+            "error": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "chat.update": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Authenticated own direct-chat update. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "title": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "pinned": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "sessionId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "session": {
+              "$ref": "#/$defs/SessionRecord"
+            }
+          },
+          "required": [
+            "session"
+          ]
+        }
+      },
+      "chat.archive": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Authenticated own direct-chat archive. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "sessionId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "session": {
+              "$ref": "#/$defs/SessionRecord"
+            }
+          },
+          "required": [
+            "session"
+          ]
+        }
+      },
+      "chat.restore": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Authenticated own direct-chat restore. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "sessionId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "session": {
+              "$ref": "#/$defs/SessionRecord"
+            }
+          },
+          "required": [
+            "session"
+          ]
+        }
+      },
+      "chat.cancel": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Authenticated own direct-chat cancel. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "sessionId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId",
+            "turnId",
+            "cancelled"
+          ],
+          "properties": {
+            "sessionId": {
+              "$ref": "#/$defs/SessionId"
+            },
+            "turnId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "cancelled": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "chat.fork": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Authenticated own direct-chat fork. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "title": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "beforeSeq": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "idempotencyKey": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "sessionId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "session": {
+              "$ref": "#/$defs/SessionRecord"
+            }
+          },
+          "required": [
+            "session"
+          ]
+        }
+      },
+      "chat.delete": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Authenticated own direct-chat delete. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "nonce": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "sessionId"
+          ]
+        },
+        "result": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "confirmation": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "nonce": {
+                      "type": "string"
+                    },
+                    "expiresAt": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "nonce",
+                    "expiresAt"
+                  ]
+                }
+              },
+              "required": [
+                "confirmation"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "purged": {
+                  "const": true
+                },
+                "tombstoneId": {
+                  "type": "string"
+                },
+                "messages": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "purged",
+                "tombstoneId",
+                "messages"
+              ]
+            }
+          ]
+        }
+      },
+      "chat.export": {
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "x-server": "core",
+        "description": "Authenticated own direct-chat export. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sessionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "sessionId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "session": {
+              "$ref": "#/$defs/SessionRecord"
+            },
+            "messages": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SessionMessage"
+              }
+            }
+          },
+          "required": [
+            "session",
+            "messages"
+          ]
+        }
+      },
       "jobs.create": {
         "x-stability": "experimental",
         "x-since": "1.6.0",

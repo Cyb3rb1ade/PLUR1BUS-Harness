@@ -51,7 +51,7 @@
             "name": "X-CSRF-Token",
             "in": "header",
             "required": true,
-            "description": "A one-time token from `GET /api/v1/csrf`.",
+            "description": "A one-time token from GET /api/v1/csrf.",
             "schema": {
               "type": "string"
             }
@@ -743,7 +743,7 @@
             "name": "X-CSRF-Token",
             "in": "header",
             "required": true,
-            "description": "A one-time token from `GET /api/v1/csrf`.",
+            "description": "A one-time token from GET /api/v1/csrf.",
             "schema": {
               "type": "string"
             }
@@ -878,7 +878,7 @@
             "name": "X-CSRF-Token",
             "in": "header",
             "required": true,
-            "description": "A one-time token from `GET /api/v1/csrf`.",
+            "description": "A one-time token from GET /api/v1/csrf.",
             "schema": {
               "type": "string"
             }
@@ -1034,7 +1034,7 @@
             "name": "X-CSRF-Token",
             "in": "header",
             "required": true,
-            "description": "A one-time token from `GET /api/v1/csrf`.",
+            "description": "A one-time token from GET /api/v1/csrf.",
             "schema": {
               "type": "string"
             }
@@ -1431,6 +1431,2151 @@
         "x-authz": "public"
       }
     },
+    "/api/v1/chats": {
+      "get": {
+        "operationId": "chats.list",
+        "tags": [
+          "chats"
+        ],
+        "summary": "Own direct chat list",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Principal-bound direct-chat result; incognito transcripts are volatile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown, duplicate or invalid chat query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A foreign `Origin` or a cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "read",
+        "x-csrf": false,
+        "x-authz": "chat:read"
+      },
+      "post": {
+        "operationId": "chats.create",
+        "tags": [
+          "chats"
+        ],
+        "summary": "Own direct chat create",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "A one-time token from GET /api/v1/csrf.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "agentId": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                  },
+                  "memoryMode": {
+                    "enum": [
+                      "remember",
+                      "incognito"
+                    ]
+                  },
+                  "title": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "agentId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Principal-bound direct-chat result; incognito transcripts are volatile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The one-time CSRF token is missing, wrong, spent or expired (`reason`: `csrf`); or a foreign `Origin` / cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not `application/json`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "write",
+        "x-csrf": true,
+        "x-authz": "chat:write"
+      }
+    },
+    "/api/v1/agents/{agentId}/chats": {
+      "post": {
+        "operationId": "chats.create-agent",
+        "tags": [
+          "chats"
+        ],
+        "summary": "Own direct chat create-agent",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "A one-time token from GET /api/v1/csrf.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "memoryMode": {
+                    "enum": [
+                      "remember",
+                      "incognito"
+                    ]
+                  },
+                  "title": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Principal-bound direct-chat result; incognito transcripts are volatile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The one-time CSRF token is missing, wrong, spent or expired (`reason`: `csrf`); or a foreign `Origin` / cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not `application/json`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "write",
+        "x-csrf": true,
+        "x-authz": "chat:write"
+      }
+    },
+    "/api/v1/chats/{sessionId}": {
+      "get": {
+        "operationId": "chats.get",
+        "tags": [
+          "chats"
+        ],
+        "summary": "Own direct chat get",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Principal-bound direct-chat result; incognito transcripts are volatile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown, duplicate or invalid chat query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A foreign `Origin` or a cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "read",
+        "x-csrf": false,
+        "x-authz": "chat:read"
+      },
+      "patch": {
+        "operationId": "chats.update",
+        "tags": [
+          "chats"
+        ],
+        "summary": "Own direct chat update",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "A one-time token from GET /api/v1/csrf.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "pinned": {
+                    "type": "boolean"
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Principal-bound direct-chat result; incognito transcripts are volatile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The one-time CSRF token is missing, wrong, spent or expired (`reason`: `csrf`); or a foreign `Origin` / cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not `application/json`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "write",
+        "x-csrf": true,
+        "x-authz": "chat:write"
+      },
+      "delete": {
+        "operationId": "chats.delete",
+        "tags": [
+          "chats"
+        ],
+        "summary": "Own direct chat delete",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "A one-time token from GET /api/v1/csrf.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "nonce": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Principal-bound direct-chat result; incognito transcripts are volatile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The one-time CSRF token is missing, wrong, spent or expired (`reason`: `csrf`); or a foreign `Origin` / cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not `application/json`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "write",
+        "x-csrf": true,
+        "x-authz": "chat:delete"
+      }
+    },
+    "/api/v1/chats/{sessionId}/messages": {
+      "get": {
+        "operationId": "chats.messages",
+        "tags": [
+          "chats"
+        ],
+        "summary": "Own direct chat messages",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Principal-bound direct-chat result; incognito transcripts are volatile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown, duplicate or invalid chat query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A foreign `Origin` or a cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "read",
+        "x-csrf": false,
+        "x-authz": "chat:read"
+      },
+      "post": {
+        "operationId": "chats.submit",
+        "tags": [
+          "chats"
+        ],
+        "summary": "Own direct chat submit",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "A one-time token from GET /api/v1/csrf.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64000
+                  },
+                  "wait": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "text"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Principal-bound direct-chat result; incognito transcripts are volatile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The one-time CSRF token is missing, wrong, spent or expired (`reason`: `csrf`); or a foreign `Origin` / cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not `application/json`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "write",
+        "x-csrf": true,
+        "x-authz": "chat:write"
+      }
+    },
+    "/api/v1/chats/{sessionId}/events": {
+      "get": {
+        "operationId": "chats.events",
+        "tags": [
+          "chats"
+        ],
+        "summary": "Own direct chat events",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Principal-bound direct-chat result; incognito transcripts are volatile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown, duplicate or invalid chat query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A foreign `Origin` or a cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "read",
+        "x-csrf": false,
+        "x-authz": "chat:read"
+      }
+    },
+    "/api/v1/chats/{sessionId}/cancel": {
+      "post": {
+        "operationId": "chats.cancel",
+        "tags": [
+          "chats"
+        ],
+        "summary": "Own direct chat cancel",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "A one-time token from GET /api/v1/csrf.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Principal-bound direct-chat result; incognito transcripts are volatile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The one-time CSRF token is missing, wrong, spent or expired (`reason`: `csrf`); or a foreign `Origin` / cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not `application/json`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "write",
+        "x-csrf": true,
+        "x-authz": "chat:write"
+      }
+    },
+    "/api/v1/chats/{sessionId}/archive": {
+      "post": {
+        "operationId": "chats.archive",
+        "tags": [
+          "chats"
+        ],
+        "summary": "Own direct chat archive",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "A one-time token from GET /api/v1/csrf.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Principal-bound direct-chat result; incognito transcripts are volatile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The one-time CSRF token is missing, wrong, spent or expired (`reason`: `csrf`); or a foreign `Origin` / cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not `application/json`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "write",
+        "x-csrf": true,
+        "x-authz": "chat:write"
+      }
+    },
+    "/api/v1/chats/{sessionId}/restore": {
+      "post": {
+        "operationId": "chats.restore",
+        "tags": [
+          "chats"
+        ],
+        "summary": "Own direct chat restore",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "A one-time token from GET /api/v1/csrf.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Principal-bound direct-chat result; incognito transcripts are volatile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The one-time CSRF token is missing, wrong, spent or expired (`reason`: `csrf`); or a foreign `Origin` / cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not `application/json`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "write",
+        "x-csrf": true,
+        "x-authz": "chat:write"
+      }
+    },
+    "/api/v1/chats/{sessionId}/fork": {
+      "post": {
+        "operationId": "chats.fork",
+        "tags": [
+          "chats"
+        ],
+        "summary": "Own direct chat fork",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "A one-time token from GET /api/v1/csrf.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "beforeSeq": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Principal-bound direct-chat result; incognito transcripts are volatile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The one-time CSRF token is missing, wrong, spent or expired (`reason`: `csrf`); or a foreign `Origin` / cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not `application/json`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "write",
+        "x-csrf": true,
+        "x-authz": "chat:write"
+      }
+    },
+    "/api/v1/chats/{sessionId}/export": {
+      "post": {
+        "operationId": "chats.export",
+        "tags": [
+          "chats"
+        ],
+        "summary": "Own direct chat export",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "A one-time token from GET /api/v1/csrf.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Principal-bound direct-chat result; incognito transcripts are volatile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The one-time CSRF token is missing, wrong, spent or expired (`reason`: `csrf`); or a foreign `Origin` / cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not `application/json`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "write",
+        "x-csrf": true,
+        "x-authz": "chat:read"
+      }
+    },
+    "/api/v1/ws-ticket": {
+      "post": {
+        "operationId": "ws.ticket",
+        "tags": [
+          "transport"
+        ],
+        "summary": "Issue one-use reserved WebSocket ticket",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "description": "A one-time token from GET /api/v1/csrf.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session-bound upgrade proof; use only in WebSocket subprotocol",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No live session (`reason`: `no-session`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The one-time CSRF token is missing, wrong, spent or expired (`reason`: `csrf`); or a foreign `Origin` / cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "stream",
+        "x-csrf": true,
+        "x-authz": "settings.write"
+      }
+    },
+    "/ws": {
+      "get": {
+        "operationId": "ws.reserved",
+        "tags": [
+          "transport"
+        ],
+        "summary": "Reserved WebSocket upgrade; no PTY application protocol",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "No live session (`reason`: `no-session`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A foreign `Origin` or a cross-site fetch (`reason`: `origin`, `cross-site`). The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body exceeds the size limit (`reason`: `body-too-large`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The `Host` header is not the API's own loopback name (`reason`: `host`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "WebSocket upgrade required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The handler did not answer in time (`reason`: `handler-timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-stability": "experimental",
+        "x-since": "1.0.0",
+        "x-rate-class": "stream",
+        "x-csrf": false,
+        "x-authz": "settings.write"
+      }
+    },
     "/api/v1/session": {
       "post": {
         "operationId": "session.create",
@@ -1634,7 +3779,7 @@
             "name": "X-CSRF-Token",
             "in": "header",
             "required": true,
-            "description": "A one-time token from `GET /api/v1/csrf`.",
+            "description": "A one-time token from GET /api/v1/csrf.",
             "schema": {
               "type": "string"
             }
@@ -1749,7 +3894,7 @@
             "name": "X-CSRF-Token",
             "in": "header",
             "required": true,
-            "description": "A one-time token from `GET /api/v1/csrf`.",
+            "description": "A one-time token from GET /api/v1/csrf.",
             "schema": {
               "type": "string"
             }
@@ -2572,7 +4717,7 @@
             "name": "X-CSRF-Token",
             "in": "header",
             "required": true,
-            "description": "A one-time token from `GET /api/v1/csrf`.",
+            "description": "A one-time token from GET /api/v1/csrf.",
             "schema": {
               "type": "string"
             }
@@ -2758,7 +4903,7 @@
             "name": "X-CSRF-Token",
             "in": "header",
             "required": true,
-            "description": "A one-time token from `GET /api/v1/csrf`.",
+            "description": "A one-time token from GET /api/v1/csrf.",
             "schema": {
               "type": "string"
             }
@@ -3192,7 +5337,7 @@
             "name": "X-CSRF-Token",
             "in": "header",
             "required": true,
-            "description": "A one-time token from `GET /api/v1/csrf`.",
+            "description": "A one-time token from GET /api/v1/csrf.",
             "schema": {
               "type": "string"
             }
@@ -3321,7 +5466,7 @@
             "name": "X-CSRF-Token",
             "in": "header",
             "required": true,
-            "description": "A one-time token from `GET /api/v1/csrf`.",
+            "description": "A one-time token from GET /api/v1/csrf.",
             "schema": {
               "type": "string"
             }
@@ -3493,7 +5638,7 @@
             "name": "X-CSRF-Token",
             "in": "header",
             "required": true,
-            "description": "A one-time token from `GET /api/v1/csrf`.",
+            "description": "A one-time token from GET /api/v1/csrf.",
             "schema": {
               "type": "string"
             }
@@ -3658,7 +5803,7 @@
             "name": "X-CSRF-Token",
             "in": "header",
             "required": true,
-            "description": "A one-time token from `GET /api/v1/csrf`.",
+            "description": "A one-time token from GET /api/v1/csrf.",
             "schema": {
               "type": "string"
             }
@@ -3950,7 +6095,7 @@
             "name": "X-CSRF-Token",
             "in": "header",
             "required": true,
-            "description": "A one-time token from `GET /api/v1/csrf`.",
+            "description": "A one-time token from GET /api/v1/csrf.",
             "schema": {
               "type": "string"
             }

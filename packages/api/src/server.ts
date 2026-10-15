@@ -1,5 +1,8 @@
 import { buildWebAuthnHandlers } from "./webauthn-routes.ts";
+import { WS_ROUTES } from "./ws-routes.ts";
+import { createWsRoute } from "./ws.ts";
 import type { AccountStore, CorePerson } from "./account-store.ts";
+import { streamChat } from "./chat-stream.ts";
 import { buildAccountHandlers } from "./account-routes.ts";
 import { requestCore } from "./request-core.ts";
 import { createEventsRoute } from "./events-route.ts";
@@ -169,6 +172,9 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
 
   let sweeper: NodeJS.Timeout | undefined;
   let allowedHosts = new Set<string>(); let allowedOrigins = new Set<string>();
+  const ws=createWsRoute({sessions,cookieName,clock,limiter,audit,resolve,allowedHost:host=>allowedHosts.has(host),allowedOrigin:origin=>allowedOrigins.has(origin)});
+  add(WS_ROUTES[0]!,async i=>{const ticket=ws.issue(i.sessionId!);if(!ticket)throw errors.unauthenticated();return {body:ticket};});
+  add(WS_ROUTES[1]!,async()=>({status:426,body:{error:"E_NOT_AVAILABLE",reason:"upgrade-required"}}));
 
   /** The Referer's origin must be one the API issued; an unparseable, scheme-relative or opaque (`null`) value is not. */
   const refererAllowed = (value: string): boolean => {
@@ -236,7 +242,15 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       if (referer !== undefined && req.method !== "GET" && req.method !== "HEAD" && req.method !== "OPTIONS" && !refererAllowed(referer)) throw errors.forbidden("referer");
       const site = req.headers["sec-fetch-site"];
       if (site !== undefined && site !== "same-origin" && site !== "none") throw errors.forbidden("cross-site");
-      const methods = byPath.get(path); const route = methods?.get(req.method ?? "");
+      let methods = byPath.get(path); let pathParams: Record<string,string> = {};
+      if(!methods) for(const [pattern,candidate] of byPath) {
+        if(!pattern.includes("{"))continue;
+        const names:string[]=[];
+        const regex=new RegExp("^"+pattern.replace(/\{([a-zA-Z]+)\}/g,(_m,name)=>{names.push(name);return "([^/]+)";})+"$");
+        const matched=regex.exec(path);if(!matched)continue;
+        pathParams=Object.fromEntries(names.map((name,index)=>[name,decodeURIComponent(matched[index+1]!)]));methods=candidate;break;
+      }
+      const route = methods?.get(req.method ?? "");
       const cls = route?.spec.rate ?? "read";
       if (route?.spec.id === "invitation.redeem") { const global = limiter.take("auth", "invitation:global"); if (!global.ok) rateLimited("invitation:global", "auth", global.retryAfterSec); }
       const ipVerdict = limiter.take(cls, `ip:${ip}`);
@@ -359,7 +373,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
 
       let timer: NodeJS.Timeout | undefined;
       const out = await Promise.race([
-        Promise.resolve(resolved ? perRequest.run(webPrincipal(resolved.rbac, resolved.principal.kind === "owner"), () => handler({ principal: resolved?.principal, session, sessionId, body, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined, ip, origin: typeof req.headers.origin === "string" ? req.headers.origin : undefined, via, token: tokenInfo }), session ? webConnection(session) : tokenInfo ? `token:${tokenInfo.id}` : undefined) : handler({ principal: undefined, session, sessionId, body, rbac: undefined, presentedSessionId: presented, ip, origin: typeof req.headers.origin === "string" ? req.headers.origin : undefined, via, token: tokenInfo })),
+        Promise.resolve(resolved ? perRequest.run(webPrincipal(resolved.rbac, resolved.principal.kind === "owner"), () => handler({ pathParams, query:new URL(target,"http://localhost").searchParams,headers:req.headers, principal: resolved?.principal, session, sessionId, body, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined, ip, origin: typeof req.headers.origin === "string" ? req.headers.origin : undefined, via, token: tokenInfo }), session ? webConnection(session) : tokenInfo ? `token:${tokenInfo.id}` : undefined) : handler({ pathParams,query:new URL(target,"http://localhost").searchParams,headers:req.headers, principal: undefined, session, sessionId, body, rbac: undefined, presentedSessionId: presented, ip, origin: typeof req.headers.origin === "string" ? req.headers.origin : undefined, via, token: tokenInfo })),
         new Promise<import("./routes.ts").HandlerOutput>((resolveTimeout, rej) => {
           timer = setTimeout(() => spec.id === "web.rpc"
             ? resolveTimeout({ body: rpcFailure((body as { id?: unknown })?.id ?? null, { error: "E_NOT_AVAILABLE", reason: "handler-timeout" }) })
@@ -369,6 +383,13 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       if (o.accounts && spec.id === "web.rpc" && !out.body.error) {
         const request = body as { method?: string; params?: { userId?: string } };
         if (["user.disable", "user.enable", "user.role.set", "agent.rights.set"].includes(request.method ?? "") && request.params?.userId) await o.accounts.findById(request.params.userId);
+      }
+      if(out.chatStream) {
+        status=200;
+        await streamChat({res,core:o.core,principal:webPrincipal(resolved!.rbac,resolved!.principal.kind==="owner"),...out.chatStream,headers:secHeaders,current:async()=>{
+          if(via==="token")return !!bearer && (await tokens.authenticate(bearer)).ok && !!await resolveSubject(resolved!.principal.kind,resolved!.principal.id);
+          const fresh=await resolve(session!); return sessions.peek(sessionId)===session && fresh!==undefined && fresh.version===resolved!.version;
+        }});return;
       }
       status = out.status ?? spec.successStatus;
       send(res, status, out.body, { ...(rotated ? { "Set-Cookie": rotated } : {}), ...out.headers });
@@ -391,6 +412,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
 
   // Requests Node rejects before a handler runs (malformed, header overflow, request timeout) still get the headers and
   // the error/1 body; without a listener Node would write its own bare response.
+  server.on("upgrade",(req,socket,head)=>{void ws.upgrade(req,socket,head);});
   server.on("clientError", (err: NodeJS.ErrnoException, socket: Socket) => {
     if (!socket.writable || socket.destroyed) { socket.destroy(); return; }
     const status = err.code === "ERR_HTTP_REQUEST_TIMEOUT" ? 408 : err.code === "HPE_HEADER_OVERFLOW" ? 431 : 400;
@@ -403,7 +425,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
 
   return {
     server,
-    rightsChanged: (userId) => { events.revoke(userId); if (userId === "owner") events.revoke("local-owner"); return o.accounts ? sessions.destroyAllFor(userId) + (userId === "local-owner" ? sessions.destroyAllFor("owner") : 0) : sessions.markRotate(userId); },
+    rightsChanged: (userId) => { ws.revoke(userId); if(userId==="local-owner")ws.revoke("owner"); events.revoke(userId); if (userId === "owner") events.revoke("local-owner"); return o.accounts ? sessions.destroyAllFor(userId) + (userId === "local-owner" ? sessions.destroyAllFor("owner") : 0) : sessions.markRotate(userId); },
     listen() {
       return new Promise((resolveListen, reject) => {
         server.once("error", reject);
@@ -423,7 +445,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       });
     },
     close() {
-      forgetConnection(); events.close();
+      forgetConnection(); ws.close(); events.close();
       if (sweeper) clearInterval(sweeper);
       return new Promise((resolveClose) => { server.close(() => resolveClose()); server.closeAllConnections(); });
     },

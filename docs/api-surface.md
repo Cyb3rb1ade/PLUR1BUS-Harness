@@ -16,6 +16,22 @@ Every route is **deny by default**: a route that is not `public` answers 401 wit
 | `POST` | `/api/v1/me/passkeys/change` | `passkeys.change` | session | `my.write` | yes | write | experimental · 1.0.0 |
 | `POST` | `/api/v1/session/passkey/options` | `passkeys.login.options` | public | `public` | no | auth | experimental · 1.0.0 |
 | `POST` | `/api/v1/session/passkey` | `passkeys.login` | public | `public` | no | auth | experimental · 1.0.0 |
+| `GET` | `/api/v1/chats` | `chats.list` | session or token | `chat:read` | no | read | experimental · 1.0.0 |
+| `POST` | `/api/v1/chats` | `chats.create` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/agents/{agentId}/chats` | `chats.create-agent` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
+| `GET` | `/api/v1/chats/{sessionId}` | `chats.get` | session or token | `chat:read` | no | read | experimental · 1.0.0 |
+| `PATCH` | `/api/v1/chats/{sessionId}` | `chats.update` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
+| `GET` | `/api/v1/chats/{sessionId}/messages` | `chats.messages` | session or token | `chat:read` | no | read | experimental · 1.0.0 |
+| `POST` | `/api/v1/chats/{sessionId}/messages` | `chats.submit` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
+| `GET` | `/api/v1/chats/{sessionId}/events` | `chats.events` | session or token | `chat:read` | no | read | experimental · 1.0.0 |
+| `POST` | `/api/v1/chats/{sessionId}/cancel` | `chats.cancel` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/chats/{sessionId}/archive` | `chats.archive` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/chats/{sessionId}/restore` | `chats.restore` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/chats/{sessionId}/fork` | `chats.fork` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/chats/{sessionId}/export` | `chats.export` | session or token | `chat:read` | yes | write | experimental · 1.0.0 |
+| `DELETE` | `/api/v1/chats/{sessionId}` | `chats.delete` | session or token | `chat:delete` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/ws-ticket` | `ws.ticket` | session | `settings.write` | yes | stream | experimental · 1.0.0 |
+| `GET` | `/ws` | `ws.reserved` | session | `settings.write` | no | stream | experimental · 1.0.0 |
 | `POST` | `/api/v1/session` | `session.create` | public | `public` | no | auth | experimental · 1.0.0 |
 | `DELETE` | `/api/v1/session` | `session.delete` | session | `authenticated` | yes | write | experimental · 1.0.0 |
 | `DELETE` | `/api/v1/sessions` | `sessions.revoke-all` | session | `authenticated` | yes | write | experimental · 1.0.0 |

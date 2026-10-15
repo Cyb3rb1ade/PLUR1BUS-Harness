@@ -1,4 +1,6 @@
 import { WEBAUTHN_ROUTES, buildWebAuthnHandlers } from "./webauthn-routes.ts";
+import { WS_ROUTES } from "./ws-routes.ts";
+import { CHAT_ROUTES, buildChatHandlers } from "./chat-routes.ts";
 import { ACCOUNT_ROUTES, buildAccountHandlers } from "./account-routes.ts";
 import { TRANSPORT_ROUTES, buildTransportHandlers } from "./transport-routes.ts";
 import { ERROR_CODES } from "@plur1bus/rpc-schema";
@@ -26,7 +28,7 @@ export const COOKIE_NAME_TLS = "__Host-plur1bus_session";
 export const CSRF_HEADER = "x-csrf-token";
 
 export type JsonSchema = Record<string, unknown>;
-export type Method = "GET" | "POST" | "DELETE";
+export type Method = "GET" | "POST" | "PATCH" | "DELETE";
 
 /** What a route needs from `authorize(principal, action, resource)` (ADR-007 *Enforcement*): every route declares one of
  *  these, and a route that does not is refused with 403 whoever calls it.
@@ -78,7 +80,7 @@ export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
 const SESSION_TIMES = { createdAt: iso, expiresAt: iso, idleExpiresAt: iso };
 
 export const ROUTES: readonly RouteSpec[] = [
-  ...TRANSPORT_ROUTES, ...ACCOUNT_ROUTES, ...WEBAUTHN_ROUTES,
+  ...TRANSPORT_ROUTES, ...ACCOUNT_ROUTES, ...WEBAUTHN_ROUTES, ...CHAT_ROUTES, ...WS_ROUTES,
   {
     id: "session.create", method: "POST", path: `${API_PREFIX}/session`, tag: "session", summary: "Log in with the owner token or with a local account; sets the session cookie",
     auth: "none", authz: "public", csrf: false, rate: "auth", stability: "experimental", since: "1.0.0",
@@ -228,6 +230,7 @@ export const ROUTES: readonly RouteSpec[] = [
 COMPONENT_SCHEMAS.Health = ROUTES.find((r) => r.id === "health")!.success.schema;
 
 export interface HandlerInput {
+  pathParams?: Record<string,string>; query?: URLSearchParams; headers?: import("node:http").IncomingHttpHeaders;
   principal: Principal | undefined; session: Session | undefined; sessionId: string | undefined; body: unknown;
   /** The RBAC principal built from the user directory for this request (never from the session's stored role). */
   rbac: RbacPrincipal | undefined;
@@ -241,7 +244,7 @@ export interface HandlerInput {
   /** Set when `via` is `token`: what whoami may show of it (never the hash, never the secret). */
   token: { id: string; prefix: string; scopes: readonly string[]; expiresAt: number } | undefined;
 }
-export interface HandlerOutput { status?: number; body: Record<string, unknown>; headers?: Record<string, string> }
+export interface HandlerOutput { chatStream?: {sessionId:string;turnId:string;afterSeq:number}; status?: number; body: Record<string, unknown>; headers?: Record<string, string> }
 export type Handler = (i: HandlerInput) => Promise<HandlerOutput> | HandlerOutput;
 
 export interface HandlerDeps {
@@ -331,6 +334,8 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
     ...buildAccountHandlers(d, undefined, d.core),
     ...buildWebAuthnHandlers(d, undefined, () => "http://localhost"),
     ...buildTransportHandlers(d.core),
+    ...buildChatHandlers(d.core,d.audit),
+    "ws.ticket": () => ({body:{}}), "ws.reserved": () => ({body:{}}),
     "session.create": async (i) => {
       const b = loginBody(i.body);
       if (!b) throw errors.badRequest("body", "body must be {\"token\": string} or {\"username\": string, \"password\": string}");
