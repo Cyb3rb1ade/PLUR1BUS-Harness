@@ -218,3 +218,8 @@ The first collection (#423) found the inconsistencies below. All of them are fix
 
 Still open: other commands end with `exit(1)` after their result without an `error` object (`approval verify`,
 `admin embedding probe`, `channel test`, `chat`); their exit code is right, only the `--json` failure object is missing.
+
+
+### D106 sandbox adapter diagnostics (2026-10-15 Draft)
+
+Sandbox failure uses the existing tool error envelope (`tool-failed`); the host adapter may supply `sourceCode: sandbox-unavailable`, and exec retains its existing `spawn-failed` diagnostic inside the adapter failure. These are tool-local diagnostics, not new RPC error codes. Missing isolation never changes into a successful unsandboxed result. The trusted Rust limits launcher exits 125 on setup failure; the CLI exit-code checker already documents that code.

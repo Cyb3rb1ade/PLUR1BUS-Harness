@@ -33,6 +33,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Freigaben und Berechtigungen"
   },
   {
+    "slug": "host-tools",
+    "title": "Lokale Host-Tools und Sandbox-Status"
+  },
+  {
     "slug": "lange-gespraeche",
     "title": "Lange Gespräche (Kompaktierung)"
   },
@@ -84,6 +88,7 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "einladungen": return import("./de/einladungen.ts").then(m => m.doc);
     case "extensions": return import("./de/extensions.ts").then(m => m.doc);
     case "freigaben": return import("./de/freigaben.ts").then(m => m.doc);
+    case "host-tools": return import("./de/host-tools.ts").then(m => m.doc);
     case "lange-gespraeche": return import("./de/lange-gespraeche.ts").then(m => m.doc);
     case "media": return import("./de/media.ts").then(m => m.doc);
     case "mediensuche": return import("./de/mediensuche.ts").then(m => m.doc);

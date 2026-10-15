@@ -473,3 +473,18 @@ jobs:
       - run: cargo build -p plur1bus --bin plur1bus-sandbox-limits
       - name: kernel sandbox adversarial probes (explicit skip when unavailable)
         run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 packages/core/test/tools/sandbox/sandbox.test.ts
+
+  host-tool-eval:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 24.21.0 }
+      - name: deterministic host tool/policy scenarios (safe fake OS ports)
+        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/tool-eval-host.ts
+      - name: shipped-model release gate (reviewed recordings only; no live credentials)
+        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/tool-eval-host.ts --recorded --require-release
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: always()
+        with: { name: host-tool-eval-fixture, path: artifacts/tool-eval/ }

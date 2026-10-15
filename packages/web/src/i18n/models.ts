@@ -1,5 +1,9 @@
 // models area catalogue: add keys as `"models.<topic>": "..."` in en and the same keys in de (see ./index.ts).
 export const en = {
+  "models.field.toolUse": "Host tool use",
+  "models.toolUse.supported": "Host tool eval ≥ 95%",
+  "models.toolUse.limited": "limited tool use",
+  "models.toolUse.unknown": "Host tool use not evaluated",
   "models.lead": "The models your providers offer. A new model can be used right away.",
   "models.refresh": "Refresh",
   "models.scan": "Scan providers",
@@ -104,6 +108,10 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "models.field.toolUse": "Host-Tool-Nutzung",
+  "models.toolUse.supported": "Host-Tool-Eval ≥ 95 %",
+  "models.toolUse.limited": "Eingeschränkte Tool-Nutzung",
+  "models.toolUse.unknown": "Host-Tool-Nutzung nicht geprüft",
   "models.lead": "Die Modelle, die deine Anbieter bereitstellen. Ein neues Modell ist sofort nutzbar.",
   "models.refresh": "Aktualisieren",
   "models.scan": "Anbieter scannen",

@@ -1,3 +1,5 @@
+import { readHostEvalReports } from './toolcall/host-eval-store.ts';
+import { hostEvalGate, type ModelRef } from './toolcall/host-eval.ts';
 import { join } from "node:path";
 import { detectSandbox } from "./tools/sandbox/index.ts";
 import { execFile } from "node:child_process";
@@ -22,7 +24,7 @@ export function runFirstAid(home: string, binary = process.env.PLUR1BUS_BIN ?? "
     });
   });
 }
-export function buildDoctorMethods(o: { home: string; clock: () => number; sandboxRequired?: () => boolean; check?: () => Promise<unknown>; scheduleInitial?: (start: () => Promise<unknown>) => void }): Record<string, Handler> {
+export function buildDoctorMethods(o: { home: string; clock: () => number; sandboxRequired?: () => boolean; toolEvalDefaults?: () => readonly ModelRef[]; check?: () => Promise<unknown>; scheduleInitial?: (start: () => Promise<unknown>) => void }): Record<string, Handler> {
   let cached: Report | null = null;
   let lastStarted = -Infinity;
   let inFlight: Promise<Report> | null = null;
@@ -49,6 +51,8 @@ export function buildDoctorMethods(o: { home: string; clock: () => number; sandb
     if (o.sandboxRequired?.() === false) checks.push({ id: "tools.sandbox.bypass", status: "warn", summary: "NOT SANDBOXED: owner disabled tools.sandbox.required; each process launch is audited." });
     const sandbox = await detectSandbox(join(o.home, "bin", "plur1bus-sandbox-limits"));
     checks.push({ id: "tools.sandbox", status: sandbox.available ? "warn" : "fail", summary: safe(`${sandbox.backend} (${sandbox.strength}): ${sandbox.reason}`), ...(sandbox.hint ? { repair: { kind: "hint", label: safe(sandbox.hint) } } : {}) });
+    const toolGate = hostEvalGate(o.toolEvalDefaults?.() ?? [], await readHostEvalReports(o.home, o.clock()));
+    checks.push({ id: "tools.tool-eval", status: toolGate.passed ? "ok" : toolGate.models.some(m => m.label === "limited tool use") ? "fail" : "warn", summary: safe(toolGate.models.length ? toolGate.models.map(m => `${m.provider}/${m.model}: ${m.label}`).join("; ") : "Host tool use unknown: no default model inventory/evidence available.") });
     // These categories have no authoritative 1staid check in this revision. Report that explicitly; do not invent probes.
     for (const id of ["containers", "secrets", "certificates", "ports", "disks"]) if (!checks.some(c => c.id === id || c.id.startsWith(`${id}.`))) checks.push({ id, status: "skipped", summary: "No authoritative provisioning check is available in this installation." });
     cached = { generatedAt: new Date(o.clock()).toISOString(), groups: [{ id: "provisioning", title: "Provisioning", checks }] };
