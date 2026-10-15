@@ -31,8 +31,10 @@ not a whole-suite pass. No test was skipped/retried or timeout increased to hide
 ## Gates / owner questions / KNOWN-GAP
 
 No existing gating promotions, branch-protection changes, GitHub merges, tags or releases. All release criteria
-remain open/manual at overall level. Owner questions: agree the proposed high audit threshold, runner bwrap/tool
-installation, native ARM runner availability; real reboot/keyring/ACL records and final release approval.
+remain open/manual at overall level. Audit policy is implemented and covered by eight regressions: production
+High/Critical block, development/lower severities warn, owner-only exceptions expire within 90 days. The live
+audit remains red with 11 blocker rows and no collection errors; see the phase-3 handoff/evidence. Owner questions:
+required checks/code-owner branch protection, runner bwrap/tool installation, native ARM runner availability; real reboot/keyring/ACL records and final release approval.
 
 Conflict hotspots: M8 status paragraph, README/release entry links, release-quality workflow. Desktop (#504),
 Web-a11y (#497), sandbox and other package implementations untouched. The checklist points to their evidence needs

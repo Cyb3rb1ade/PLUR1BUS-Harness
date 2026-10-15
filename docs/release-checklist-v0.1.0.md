@@ -16,7 +16,7 @@ Die historischen Kriterien werden nicht stillschweigend geändert: Die Token-Her
 | 6 | offen | Backup/Restore inkl. Vault, Users, Sessions und Dream-Ledger | [tests/system/portable-backup.test.ts](../tests/system/portable-backup.test.ts), [scripts/release/portable-backup.mjs](../scripts/release/portable-backup.mjs), [docs/portable-backup.md](../docs/portable-backup.md) — Lokaler Fallback-Round-Trip und Dry-Run belegt; echte Keyrings/native fünf Targets und Unterbrechungsrecovery offen. |
 | 7 | offen | Auth-Policy höchstens 90 Tage alt; prohibited-Profile nicht ladbar | [docs/auth-engine.md](../docs/auth-engine.md), [packages/providers](../packages/providers) — Vollständiger datierter Policy-/CI-Abgleich nicht Teil dieses Nachweises. |
 | 8 | offen | Lizenz-/NC-Modell-Nachweise nach geltendem ADR-004 | [THIRD_PARTY.md](../THIRD_PARTY.md), [THIRD_PARTY-LICENSES.txt](../THIRD_PARTY-LICENSES.txt), [docs/adr](../docs/adr) — Generierte Attribution vorhanden; native Artefakte und unabhängige Vollständigkeitsprüfung offen. Die alte Token-Attributionsforderung ist durch ADR-004 vom 01.10. ersetzt. |
-| 9 | offen | CSP, deny-by-default, Audit, Redaction, Red-Team | [docs/security.md](../docs/security.md), [docs/audit-chain.md](../docs/audit-chain.md), [docs/dependency-policy.md](../docs/dependency-policy.md), [docs/release-p3-backup-quality-handoff.md](../docs/release-p3-backup-quality-handoff.md) — Audit rot: 6 moderate, 8 high, 1 critical. Vollständige Security-Abnahme/Containment offen. |
+| 9 | offen | CSP, deny-by-default, Audit, Redaction, Red-Team | [docs/security.md](../docs/security.md), [docs/audit-chain.md](../docs/audit-chain.md), [docs/dependency-policy.md](../docs/dependency-policy.md), [docs/release-p3-backup-quality-handoff.md](../docs/release-p3-backup-quality-handoff.md) — Audit rot: 8 npm High, 1 Rust High und 2 unbewertete Rust-Unsoundness-Befunde; Dev-Critical warnt. Vollständige Security-Abnahme/Containment offen. |
 | 10 | offen | Doku vollständig, ADRs Accepted, Known Issues | [docs/release-documentation-audit.md](../docs/release-documentation-audit.md), [README.md](../README.md), [docs/user](../docs/user), [docs/adr](../docs/adr) — Bestandsprüfung und Lückenliste vorhanden; Vollständigkeit/Freigabe offen. |
 | 11 | offen | Kompatibilitätsmatrix veröffentlicht; Harness-Spalte gefüllt | [docs/compatibility-openclaw.md](../docs/compatibility-openclaw.md) — Aktuelle Versionskombinationen und Veröffentlichung nicht neu abgenommen. |
 | 12 | offen | Engine-Publikation PR-14 und Plugin-Parität | [docs/engine-extraction.md](../docs/engine-extraction.md), [packages/core/package.json](../packages/core/package.json) — Engine-Repository/Paketpublikation und Plugin-Parität außerhalb dieses Pakets nicht geprüft. |
@@ -132,7 +132,7 @@ The validator checks evidence integrity and runs only a fixed registry of local 
         "docs/dependency-policy.md",
         "docs/release-p3-backup-quality-handoff.md"
       ],
-      "gap": "Audit rot: 6 moderate, 8 high, 1 critical. Vollständige Security-Abnahme/Containment offen."
+      "gap": "Audit rot: 8 npm High, 1 Rust High und 2 unbewertete Rust-Unsoundness-Befunde; Dev-Critical warnt. Vollständige Security-Abnahme/Containment offen."
     },
     {
       "id": 10,

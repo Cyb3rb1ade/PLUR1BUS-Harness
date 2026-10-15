@@ -9,9 +9,10 @@ This list supplements existing package KNOWN-GAP tests and milestone status; it 
 - Windows Python client/named-pipe checks passed the first own #522 run, then three Hermes provider test fixtures
   failed. A test-only follow-up fixes native executable/path assumptions; its next native result remains pending.
 - Real services/reboots and Windows ACL parity remain open. Update/rollback now uses native fixtures on all five targets; their Windows outcomes remain pending. Standalone POSIX uninstall/reboot fixtures are not Windows evidence. See [reboot record](reboot-survival.md).
-- Dependency audit fails at proposed high severity: 15 findings (6 moderate, 8 high, 1 critical). Critical Vitest
-  belongs to hostctl; high adm-zip/sharp findings are transitive from the pinned engine. Those owners must fix
-  their dependency graphs; this package does not override or suppress them.
+- Dependency audit fails under the owner-selected production High/Critical policy: 8 npm High, 1 Rust High,
+  plus 2 unscored Rust unsoundness blockers. Critical Vitest is development-only and warns. Lower severities
+  and maintenance notices warn. No exceptions are allowlisted. See [audit evidence](release-audit-evidence-2026-10-15.md).
+  Dependency remediation remains with the owning packages; this package does not override or suppress them.
 - Portable encrypted backup passed locally with file-fallback secrets. Real keyrings, native Windows/Linux and
   interrupted-process recovery are not accepted. Windows passphrase/scratch ACLs need review; portable restore
   is not crash-atomic across all app databases/keyrings. Keep its encrypted recovery artifact. See [backup](portable-backup.md).
@@ -26,6 +27,6 @@ This list supplements existing package KNOWN-GAP tests and milestone status; it 
   Each native payload regenerates it for its optional dependencies. Independent legal completeness and future
   Buzz/Nostr/A2A SDK Apache notices still require review when those SDKs are shipped.
 
-Owner decisions: audit threshold (proposed high); bwrap/runner tool installation; allocation/availability of
+Audit policy is decided. Owner decisions: required checks/code-owner branch protection; bwrap/runner tool installation; allocation/availability of
 native ARM runners. [Documentation gaps](release-documentation-audit.md) and [§6.2 checklist](release-checklist-v0.1.0.md)
 record the remaining work. Local proofs alone do not satisfy release acceptance.
