@@ -22,3 +22,7 @@ No existing job promoted; no three-success evidence. New functional workflow fai
 Open: real-model T6 matrix, native Windows injected-update/reboot fixture port, Windows ACL parity, real reboot records and native five-target outcomes. Desktop jobs (#504), web a11y (#497), engine and unrelated package code untouched.
 
 Conflict hotspots: shared system-test process helpers, Fresh-Home smoke, setup integration tests; new workflow is independent of desktop.yml. Installer binary is a copied candidate; production core dependencies and pinned Node runtime are real. The smoke does not prove signed-feed distribution or OS-admin-free installation on all targets until those runners actually execute it.
+
+## Real-model matrix extension
+
+Reuse the existing `two-session-recall.test.ts` with `PLUR1BUS_REAL_MODELS=1` on all five native legs; it requires real reranker timing with no fallback and recall after restart. No timeout or assertion in that acceptance test is relaxed. The model cache uses a Windows junction (no symlink privilege) and a normal POSIX directory symlink. This is a separate acceptance test after the installed-runtime functional smoke, not a claim that one end-to-end installed home with real models is already accepted. Local/native model execution still needs its actual outcomes. First own functional smoke run 38764711674 passed Linux x64 and ARM before this additional real-model step; other legs were still running/queued at the single read.
