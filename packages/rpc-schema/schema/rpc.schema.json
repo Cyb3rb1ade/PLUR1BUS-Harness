@@ -101,6 +101,11 @@
             "skipped_no_rights",
             "skipped_agent_missing"
           ]
+        },
+        "deliveryTarget": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Own validated delivery target; empty disables delivery."
         }
       }
     },
@@ -1557,6 +1562,7 @@
       "required": ["methods", "notifications", "extensionPoints", "features"],
       "properties": {
         "methods": {
+
  "type": "object", "additionalProperties": { "$ref": "#/$defs/CapabilityEntry" } },
         "notifications": { "type": "object", "additionalProperties": { "$ref": "#/$defs/CapabilityEntry" } },
         "extensionPoints": { "type": "object", "additionalProperties": { "$ref": "#/$defs/CapabilityEntry" } },
@@ -1661,6 +1667,11 @@
       }
     },
     "methods": {
+      "delivery.target.list": {"x-server": "core", "x-stability": "experimental", "x-since": "1.6.0", "description": "Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.", "params": {"type": "object", "additionalProperties": false, "properties": {}, "required": []}, "result": {"type": "object", "additionalProperties": true}},
+      "delivery.target.add": {"x-server": "core", "x-stability": "experimental", "x-since": "1.6.0", "description": "Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.", "params": {"type": "object", "additionalProperties": false, "properties": {"identity": {"type": "object", "additionalProperties": false, "required": ["channel", "accountId", "userId"], "properties": {"channel": {"type": "string", "minLength": 1, "maxLength": 128}, "accountId": {"type": "string", "minLength": 1, "maxLength": 128}, "userId": {"type": "string", "minLength": 1, "maxLength": 128}}}}, "required": ["identity"]}, "result": {"type": "object", "additionalProperties": true}},
+      "delivery.target.confirm": {"x-server": "core", "x-stability": "experimental", "x-since": "1.6.0", "description": "Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.", "params": {"type": "object", "additionalProperties": false, "properties": {"id": {"type": "string", "maxLength": 64}}, "required": ["id"]}, "result": {"type": "object", "additionalProperties": true}},
+      "delivery.target.remove": {"x-server": "core", "x-stability": "experimental", "x-since": "1.6.0", "description": "Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.", "params": {"type": "object", "additionalProperties": false, "properties": {"id": {"type": "string", "maxLength": 64}}, "required": ["id"]}, "result": {"type": "object", "additionalProperties": true}},
+      "delivery.target.subscribe": {"x-server": "core", "x-stability": "experimental", "x-since": "1.6.0", "description": "Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.", "params": {"type": "object", "additionalProperties": false, "properties": {"id": {"type": "string", "maxLength": 64}, "source": {"type": "string", "enum": ["system", "dreams"]}, "job": {"type": "string", "maxLength": 64}, "agentId": {"$ref": "#/$defs/AgentId"}}, "required": ["id", "source", "job", "agentId"]}, "result": {"type": "object", "additionalProperties": true}},
       "jobs.create": {
         "x-stability": "experimental",
         "x-since": "1.6.0",
@@ -1705,6 +1716,11 @@
             },
             "enabled": {
               "type": "boolean"
+            },
+            "deliveryTarget": {
+              "type": "string",
+              "maxLength": 64,
+              "description": "Own validated delivery target; empty disables delivery."
             }
           },
           "required": [
@@ -1777,6 +1793,11 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 128
+            },
+            "deliveryTarget": {
+              "type": "string",
+              "maxLength": 64,
+              "description": "Own validated delivery target; empty disables delivery."
             }
           },
           "required": [

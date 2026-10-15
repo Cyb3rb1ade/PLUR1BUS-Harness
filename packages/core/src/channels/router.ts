@@ -28,6 +28,8 @@ export interface RouterDeps {
   identity: IdentityPort; sessions: SessionPort; clock: Clock; log: ChannelLogger;
   /** Applied to every error text before it is logged (the host masks secret values here). */
   redact?: (text: string) => string;
+  command?: (msg: InboundMessage, person: string, send: Send) => Promise<boolean>;
+  personActive?: (person: string) => boolean;
   behaviour?: (msg: InboundMessage) => ResolvedBehaviour;
 }
 export type Send = (msg: OutboundMessage) => Promise<void>;
@@ -102,6 +104,7 @@ export class ChannelRouter {
       return;
     }
 
+    if (this.#d.personActive && !this.#d.personActive(userId)) return;
     const { profile } = this.#d.behaviour?.(msg) ?? resolveBehaviour({}, msg);
     if (!permitsMessage(profile, { ...msg, addressed: msg.chatKind === "direct" || msg.addressed === true })) {
       this.#d.log.warn("channel.inbound.dropped", { channel: msg.channel, reason: "behaviour" }); return;
@@ -111,6 +114,7 @@ export class ChannelRouter {
     }
     const chat = { channel: msg.channel, chatId: msg.chatId };
     try {
+      if (await this.#d.command?.(msg, userId, send)) return;
       if (msg.text.trim() === "/new") {
         const active = await this.#d.sessions.findActive(chat);
         if (active) await this.#d.sessions.archive(active);
@@ -118,7 +122,7 @@ export class ChannelRouter {
         return;
       }
       const sessionId = (await this.#d.sessions.findActive(chat)) ?? (await this.#d.sessions.create(chat, { userId }));
-      const out = await channelOrigin.run(chat, () => channelBehaviour.run(profile, () => this.#d.sessions.submit(sessionId, { userId, text: msg.text })));
+      const out = await channelOrigin.run({ ...chat, ...(msg.accountId ? { accountId: msg.accountId } : {}), senderId: msg.senderId, humanId: userId, chatKind: msg.chatKind }, () => channelBehaviour.run(profile, () => this.#d.sessions.submit(sessionId, { userId, text: msg.text })));
       await this.#reply(send, msg, clipReply(out.text, profile.rateLimits.maxReplyChars));
     } catch (e) {
       this.#d.log.error("channel.session.failed", { channel: msg.channel, error: this.#err(e) });

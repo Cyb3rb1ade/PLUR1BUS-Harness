@@ -566,6 +566,7 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
     }
     if (!text && attachments.length === 0) return;
     const message: InboundMessage = {
+      accountId: String(this.#botId),
       channel: this.name,
       chatId,
       chatKind: m.chat.type === "private" ? "direct" : "group",

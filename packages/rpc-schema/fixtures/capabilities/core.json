@@ -1,5 +1,25 @@
 {
   "methods": {
+    "delivery.target.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "delivery.target.add": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "delivery.target.confirm": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "delivery.target.remove": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "delivery.target.subscribe": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "jobs.create": {
       "stability": "experimental",
       "since": "1.6.0"

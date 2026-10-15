@@ -1,3 +1,4 @@
+import { DeliveryPanel } from "./delivery.ts";
 // Recurring Tasks Page: jobs.list, jobs.history, jobs.run with confirmation dialog.
 // Notes gap in docs/web-ui.md: creating/editing jobs is not supported by backend schema.
 import { h } from "preact";
@@ -157,6 +158,7 @@ function JobsListTab(): View {
   return h(
     "div",
     null,
+    h(DeliveryPanel, {}),
     h(UserJobsPanel, { jobs: allJobs.filter(j => j.kind === "user") as UserJob[], targets: state.data.manageableAgents ?? [], reload }),
     jobs.length === 0
       ? h(PageState, { state: "empty", title: t("recurring.empty.jobs") })

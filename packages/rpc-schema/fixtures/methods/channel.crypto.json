@@ -1,0 +1,12 @@
+{
+  "params": {
+    "id": "matrix",
+    "action": "inspect",
+    "flowId": "verification-fixture"
+  },
+  "result": {
+    "mode": "memory",
+    "warning": "Not persistent",
+    "done": false
+  }
+}
