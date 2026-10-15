@@ -4,7 +4,7 @@ Preparation base: `origin/main` at `4557176c`, branch `codex/m3-p5-browser-ci`. 
 
 ## Inventory and decisions
 
-- Ubuntu `web-browser` job installs Chromium using the exact Playwright CLI from the frozen lockfile (1.63.0). Required mode fails if that browser is missing; it never silently uses system Chrome. The whole web suite runs.
+- Ubuntu `web-browser` job builds Core/current-branch CLI with the pinned Rust toolchain and requires the real transport/account tests (`PLUR1BUS_WEB_TRANSPORT_REQUIRED=1`, absolute binary path). It installs Chromium using the exact Playwright CLI from the frozen lockfile (1.63.0). Required mode fails if that browser is missing; it never silently uses system Chrome. The whole web suite runs.
 - First commit `175969ea` adds the job as informational. Gate activation belongs to its own subsequent commit after the repaired local baseline passes.
 - The shipped-page matrix derives all 22 roots from `PAGES`: both themes, four widths, 200% browser reflow, and 200% CSS-zoom enlarged text (264 cases). New registry pages inherit the matrix automatically.
 - `main[data-page]` identifies a committed route; the fixture waits for that route and for all loading states to finish. Doctor can render two independent loading regions, so the wait checks their count instead of using a strict single-element locator.
@@ -14,6 +14,8 @@ Preparation base: `origin/main` at `4557176c`, branch `codex/m3-p5-browser-ci`. 
 - Recurring initializes the agent-loading promise in `useLayoutEffect`, so a confirmation in the first interactive frame waits for discovery rather than being discarded. The original native-double-click and keyboard tests reproduce the failure. Shared fixtures now implement `agent.list` and correctly separate system/agent history.
 - Skills/Plugins list buttons reset the browser's light default button background. This fixes serious dark-theme contrast failures on loaded titles and badges; the existing German axe test now runs in both themes.
 - Models' malformed-percent-escape test now requires the router's existing fail-closed 404 and absence of the model surface/actions. Incomplete model segment counts retain their no-selection assertions. No timeout was increased.
+- Three former Identity todos are active regression tests: the channel starts empty with suggestions from linked channels, successful requests clear an old error, and removal buttons identify their row. The existing Owner flow explicitly chooses its channel.
+- The Voice event-before-response regression waits for the one completion refresh and the late RPC response. Its previous fixed pause compared the count before the scheduled initial refresh ran; now it asserts exactly two total loads and no further application. No product deduplication was weakened.
 - The macOS unit lint step gets a 4096MiB V8 heap. There was no explicit 2048MiB or informational lint configuration in this preparation base; the local Mac can validate the check, not the hosted runner's memory behavior.
 - Demo and milestones record fixture evidence separately from served-stack evidence. OIDC remains after M3; engine erasure remains outside this package.
 
@@ -34,8 +36,9 @@ Preparation base: `origin/main` at `4557176c`, branch `codex/m3-p5-browser-ci`. 
 - Node 24.21.0, pnpm 10.28.0; frozen offline install succeeded, matching Playwright Chromium installed locally.
 - Initial a11y/contrast/responsive/patterns baseline: 52 passed, 0 failed, 0 skipped.
 - Before-fix repro: Home/Inbox/Help compact targets failed; approval first-commit observer failed; malformed model encoding test timed out against the old expectation.
-- After-fix focused Home and Help runs each passed 10 cases without skips. Complete matrix and full repaired-suite reports are recorded below after their runs finish.
-- `actionlint` passed for the modified workflow; hygiene passed. TypeScript check with the 4096MiB heap passed on the local Mac after fixing the new test's DOM NodeList iteration.
+- After-fix focused Home and Help runs each passed 10 cases without skips. The original matrix plus Models/Approvals regression runs passed 263 tests; all 44 shipped-page CSS-zoom cases passed separately. The required-browser guard passed, and the Skills/Approvals/Jobs file passed all 15 cases after the loaded-button contrast fix. Complete repaired-suite results are recorded below after that run finishes.
+- `node scripts/check-toolchain.mjs` passed. `actionlint` passed for the modified workflow; hygiene passed. TypeScript check with the 4096MiB heap passed on the local Mac after fixing the new test's DOM NodeList iteration.
+- Served-stack browser acceptance: all three tests passed with the current-branch CLI and built Core (real accounts/invite/password/disable, real transport, and CLI/media/collab surface integration), zero skips.
 - Hosted Ubuntu/macOS CI results and native accessibility are unverified; CI was not polled.
 
 ## Owner questions, hotspots and known gaps
@@ -44,4 +47,4 @@ The inline-prose exception follows WCAG itself. If the owner intends a stricter 
 
 Hotspots: `.github/workflows/ci.yml`, web `app.ts` (only a route-state attribute), browser `harness.ts`, Approvals page, and page-specific Home/Inbox/Help/Extensions styles plus Recurring initialization and fixtures. Predecessor merges may touch the harness and UI pages; merge normally and rerun the full browser suite.
 
-Existing `settings-known-gaps.test.ts` todos remain explicit (unsaved navigation, long QR payloads, rights panel and schema sensitivity metadata). They are not page accessibility suppressions. No newly failing a11y or responsive case is allowlisted or marked todo. The demo's served bootstrap, TLS/pairing, saga/licence and real HTTP authorization evidence is completed by the corresponding phase handoffs; browser mocks do not establish those claims.
+Three Identity todos in `surfaces-hardening.test.ts` are now active and passing. Existing `settings-known-gaps.test.ts` todos remain explicit (unsaved navigation, long QR payloads, rights panel and schema sensitivity metadata). They are not page accessibility suppressions. The pre-existing `budget.set` server-policy todo also remains; this UI/CI phase does not change the core security policy. No newly failing a11y or responsive case is allowlisted or marked todo. The demo's served bootstrap, TLS/pairing, saga/licence and real HTTP authorization evidence is completed by the corresponding phase handoffs; browser mocks do not establish those claims.

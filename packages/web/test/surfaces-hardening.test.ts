@@ -61,8 +61,8 @@ describe("surfaces use names the backend gave, never ones the page made up", opt
   });
 
   // `#/identities` was moved into Settings > Users & roles (router.ts MOVED, #387): the form below is src/pages/settings/users/identities.ts,
-  // not src/pages/surfaces/identities.ts (dead since then). It belongs to the settings package, so these three are KNOWN GAPs here.
-  test("KNOWN GAP: the identity channel starts empty and is required; the suggestions are the channels this person already has", { skip: browserSkip, todo: "KNOWN GAP: settings/users/identities.ts pre-fills the channel with \"telegram\"; see SICHERHEIT in the PR" }, async () => {
+  // not src/pages/surfaces/identities.ts (dead since then). These regressions now cover that live Settings panel.
+  test("the identity channel starts empty and is required; the suggestions are the channels this person already has", { skip: browserSkip }, async () => {
     await withApp({}, async ({ page, server }) => {
       identities(server); server.rpc.handle("identity.link.request", () => ({ code: "ABCD-EFGH", expiresAt: Date.now() + 600_000 })); await openRoute(page, "#/identities");
       await page.locator("#identity-channel").waitFor(); assert.equal(await page.locator("#identity-channel").inputValue(), "", "no channel is pre-filled");
@@ -78,7 +78,7 @@ describe("surfaces use names the backend gave, never ones the page made up", opt
 // ---- messages, names, styles ---------------------------------------------------------------------------------------------
 
 describe("surfaces tell the truth and stay readable", opts, () => {
-  test("KNOWN GAP: an error that was followed by a success is gone, not left on the page", { skip: browserSkip, todo: "KNOWN GAP: settings/users/identities.ts keeps a stale error after a success; see SICHERHEIT in the PR" }, async () => {
+  test("an error that was followed by a success is gone, not left on the page", { skip: browserSkip }, async () => {
     await withApp({}, async ({ page, server }) => {
       identities(server); let n = 0; server.rpc.handle("identity.link.request", () => { if (++n === 1) throw rpcError("E_INTERNAL", "boom"); return { code: "ABCD-EFGH", expiresAt: Date.now() + 600_000 }; });
       await openRoute(page, "#/identities"); await page.locator("#identity-channel").fill("signal-xyz");
@@ -88,7 +88,7 @@ describe("surfaces tell the truth and stay readable", opts, () => {
     });
   });
 
-  test("KNOWN GAP: the buttons of a list say which row they belong to, so a screen reader user can tell them apart", { skip: browserSkip, todo: "KNOWN GAP: settings/users/identities.ts has identical Remove buttons; see SICHERHEIT in the PR" }, async () => {
+  test("the buttons of a list say which row they belong to, so a screen reader user can tell them apart", { skip: browserSkip }, async () => {
     await withApp({}, async ({ page, server }) => {
       identities(server); await openRoute(page, "#/identities"); await page.getByText("signal-xyz", { exact: false }).first().waitFor();
       const names = await page.locator("main").getByRole("button", { name: /remove/i }).evaluateAll((els) => els.map((e) => (e.getAttribute("aria-label") ?? e.textContent ?? "").trim()));

@@ -182,6 +182,8 @@ jobs:
     timeout-minutes: 40
     env:
       PLUR1BUS_WEB_E2E_REQUIRED: "1"
+      PLUR1BUS_WEB_TRANSPORT_REQUIRED: "1"
+      PLUR1BUS_BIN: ${{ github.workspace }}/target/debug/plur1bus
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
@@ -202,6 +204,11 @@ jobs:
           export GIT_CONFIG_COUNT=$n
           unset GH_ENGINE_READ_TOKEN base
           pnpm install --frozen-lockfile
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
+        with: { toolchain: "1.95" }
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+      - name: build Core and CLI for served-stack browser acceptance
+        run: pnpm gen && pnpm build && cargo build -p plur1bus
       - name: install lockfile-matched Chromium and Linux libraries
         run: pnpm --filter @plur1bus/web exec playwright install --with-deps chromium
       - name: web browser suites (axe, keyboard, contrast, responsive and zoom)
