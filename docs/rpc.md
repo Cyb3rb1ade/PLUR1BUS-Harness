@@ -6581,7 +6581,7 @@ Reads or updates the live per-source log-level snapshot (D111). Takes effect imm
 
 **Served by:** core
 
-Reads the protected log files under <home>/logs (rotated copies included) and returns matching records after redaction (D4, D111). Owner/Admin only (RBAC action logs.query). Files are streamed, never read whole; an unterminated last line is ignored and corrupt lines are counted in `corrupt`. Order defaults to newest first. from/to are inclusive RFC 3339 UTC bounds (E_INVALID_PARAMS reason=bad-timestamp | empty-range).
+Reads the protected log files under <home>/logs (rotated copies included) and returns matching records after redaction (D4, D111). Owner/Admin only (RBAC action logs.query). Files are streamed, never read whole; an unterminated last line is ignored and corrupt lines are counted in `corrupt`. Order defaults to newest first. from/to are inclusive RFC 3339 UTC bounds (E_INVALID_PARAMS reason=bad-timestamp | empty-range). traceId matches record.trace_id exactly; text remains a redacted-record substring.
 
 **params**
 
@@ -6608,6 +6608,11 @@ Reads the protected log files under <home>/logs (rotated copies included) and re
       "minLength": 1,
       "maxLength": 256,
       "description": "Case-insensitive substring, matched against the redacted record (so a search cannot confirm a secret)."
+    },
+    "traceId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "description": "Exact match on the record's trace_id."
     },
     "limit": {
       "type": "integer",
@@ -6652,7 +6657,7 @@ Reads the protected log files under <home>/logs (rotated copies included) and re
 
 **Served by:** core
 
-Follows the log: without a cursor the newest `limit` matches (oldest first) and a cursor anchored at the newest line; with a cursor the matches after it, in order. waitMs (default 0) makes the call wait for the first new match (a long poll, ended early by the connection closing or the core stopping). The cursor survives log rotation. Owner/Admin only (RBAC action logs.query). A push stream needs per-connection notifications the shared RPC server does not have yet; this call is the pull half.
+Follows the log: without a cursor the newest `limit` matches (oldest first) and a cursor anchored at the newest line; with a cursor the matches after it, in order. waitMs (default 0) makes the call wait for the first new match (a long poll, ended early by the connection closing or the core stopping). The cursor survives log rotation. Owner/Admin only (RBAC action logs.query). traceId matches record.trace_id exactly. A push stream needs per-connection notifications the shared RPC server does not have yet; this call is the pull half.
 
 **params**
 
@@ -6679,6 +6684,11 @@ Follows the log: without a cursor the newest `limit` matches (oldest first) and 
       "minLength": 1,
       "maxLength": 256,
       "description": "Case-insensitive substring, matched against the redacted record (so a search cannot confirm a secret)."
+    },
+    "traceId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "description": "Exact match on the record's trace_id."
     },
     "limit": {
       "type": "integer",

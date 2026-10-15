@@ -2558,7 +2558,7 @@ Every line of the chained audit file must carry the SHA-256 of the line before i
   Possible values: `trace`, `debug`, `info`, `warn`, `error`, `fatal`
 
 * `--component <COMPONENT>` — File role, source.id or source.kind
-* `--trace <TRACE>` — 32-hex trace id (matched as text against the redacted record)
+* `--trace <TRACE>` — 32-hex trace id (exact match on the record's trace_id)
 * `--from <TS>` — Inclusive lower bound
 * `--to <TS>` — Inclusive upper bound
 * `--limit <LIMIT>`
@@ -2584,7 +2584,7 @@ Every line of the chained audit file must carry the SHA-256 of the line before i
   Possible values: `trace`, `debug`, `info`, `warn`, `error`, `fatal`
 
 * `--component <COMPONENT>` — File role, source.id or source.kind
-* `--trace <TRACE>` — 32-hex trace id (matched as text against the redacted record)
+* `--trace <TRACE>` — 32-hex trace id (exact match on the record's trace_id)
 * `--follow` — Keep polling until interrupted
 * `--limit <LIMIT>`
 

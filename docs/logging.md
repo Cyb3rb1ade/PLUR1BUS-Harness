@@ -61,8 +61,8 @@ the adapter. Fatal records bypass rate limiting and dedup. This module does not 
 Writer-side redaction reuses `logs/redact.ts` and the shared data, before truncation. It covers
 sensitive keys/headers, vendor tokens, JWT/PEM, environment values, URL credentials/query/fragment,
 credential paths and optional PII (`redactPii`, false by default). `registerSecret(value)` adds known
-values of at least eight characters plus base64 and URL encodings to an in-memory registry.
-The secret store is not newly wired here. Pure hexadecimal hashes remain readable.
+values of at least eight characters plus base64 and URL encodings to an in-memory registry
+capped at the 256 newest values (LRU). The secret store is not newly wired here. Pure hexadecimal hashes remain readable.
 Path matching uses the existing reader's lexical canonicalisation; filesystem/symlink-aware D109
 canonicalisation remains a follow-up. A redactor failure drops the original and writes only
 `log.redaction.failed` and its registered attempted event. No exception text is written.
@@ -93,16 +93,19 @@ payload, and other roles' files are excluded. No descriptors remain open across 
 `wrapOutput(writer, { stdout?, stderr? })` consumes existing child streams; omit stdout when it
 carries MCP protocol. It neither spawns a process nor changes its environment. `OutputLines` also
 accepts chunks directly, making fake-clock and split-boundary tests deterministic. `exec.run` pipes
-stdout and stderr through `OutputLines` into a writer with role `core.out` (`core.out.log`); secrets
-from the child environment of eight or more characters are registered before spawn. MCP-stdio spawn
-lives in `packages/core/src/mcp/` (out of this remainder's allowed paths): KNOWN GAP — wrap there
-or at the composition that holds the child streams.
+stdout and stderr through `OutputLines` into a writer with role `core.out` (`core.out.log`). Only
+secretish names or explicitly requested non-locale values of eight or more characters are redacted,
+via a per-exec snapshot so one child's env cannot rewrite later children; PATH, TERM, LANG, TZ,
+TEMP, TMP, HOME and lookup variables are not registered. The exec writer flushes on its 1s timer
+and again after each run. MCP-stdio spawn lives in `packages/core/src/mcp/` (out of this
+remainder's allowed paths): KNOWN GAP — wrap there or at the composition that holds the child streams.
 
 Each stream assembles UTF-8 lines across reads, strips ANSI/OSC and C0/C1 controls (tabs survive),
-redacts and truncates. A partial line flushes after one second idle. Memory per line is bounded at
-64 KiB; larger lines are replaced wholesale by `[TRUNCATED:oversized-line]` with their original
-byte count, rather than exposing a credential prefix from discarded bytes. This conservative
-choice differs from the spec's literal 4 KiB raw spool but preserves its 4 KiB written-record bound.
+redacts and truncates. A partial line is emitted after one second idle (`tick` from the exec timer,
+then `flush`). Memory per line is bounded at 64 KiB; larger lines are replaced wholesale by
+`[TRUNCATED:oversized-line]` with their original byte count, rather than exposing a credential
+prefix from discarded bytes. Framed text is then cut to 4096 bytes (`LIMITS.lineBytes`) before
+writer-side redaction.
 Each stream has its own 100/s, burst-500 bucket and emits `process.output.suppressed` with the count.
 
 `process.output.line` always has level info, `stream`, `attrs.text`, `attrs.untrusted: true`.
@@ -127,9 +130,10 @@ vendor.
 levels/expiry, writer redaction, UTF-8/byte limits, dedup, source/stream rate limiting, retention,
 independent concurrent processes, wrapper hard signals, ALS, reader integration and idle behavior.
 The existing #180 query/tail/redaction/RPC tests remain unchanged. Remainder tests: "level change
-takes effect immediately and only for that component"; "foreign output is bounded and redacted";
-"trace-id from RPC to log record"; "invalid trace-id is replaced, not adopted"; CLI filter mapping,
-`E_INVALID_PARAMS` exit 2 and signal exit 130.
+takes effect immediately and only for that component"; "without a writer, live level writes fail closed";
+"foreign output is bounded and redacted"; "a partial line is emitted after one idle second and flushed without close";
+"trace-id from RPC to log record"; "invalid trace-id is replaced, not adopted"; "traceId matches the record's trace_id exactly";
+CLI filter mapping (`--trace` → `traceId`), `E_INVALID_PARAMS` exit 2 and signal exit 130.
 
 | Spec §8 | Coverage here | Follow-up outside this remainder's allowed scope |
 |---|---|---|
@@ -150,6 +154,9 @@ takes effect immediately and only for that component"; "foreign output is bounde
 
 The D111 remainder on this branch adds the `logs.levels` live snapshot RPC, wraps `exec.run` child
 output, adopts `_meta.traceparent` on authenticated RPC, and adds `plur1bus logs query|tail`.
+`logs.query` / `logs.tail` accept optional `traceId` (exact `record.trace_id`); `text` stays a
+redacted-record substring. `plur1bus logs query|tail --trace` maps onto `traceId`. Live level
+writes are omitted when the core uses an injected logger (`E_NOT_AVAILABLE`).
 MCP-stdio wrapping, persist-to-config `logs.levels.*` keys, supervisor/module writers, OTLP and
 the five-target §8 suite remain follow-ups. Remaining sources: engine operations, RPC failures,
 configuration watch/fallback, models/discovery, providers/auth, tool/MCP/ACP lifecycles, channels,
