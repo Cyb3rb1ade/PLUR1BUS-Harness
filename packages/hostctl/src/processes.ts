@@ -60,7 +60,10 @@ export function processes(config: HostctlConfig, canon: (p: string, access: 'rea
       const j = get(a, ctx);
       if (op === 'read_output') return result(j);
       if (op === 'kill') { await terminate(j); return result(j); }
-      if (op === 'write_stdin') { if (j.done) fail('DENIED', 'The process has exited.'); const text = string(a, 'text'); if (Buffer.byteLength(text) > config.output.maxBytes) fail('TOO_LARGE', 'Send less stdin per call.'); j.child.stdin?.write(text); if (a.eof === true) j.child.stdin?.end(); return { written: Buffer.byteLength(text) }; }
+      if (op === 'write_stdin') { if (j.done) fail('DENIED', 'The process has exited.'); const text = string(a, 'text'); if (Buffer.byteLength(text) > config.output.maxBytes) fail('TOO_LARGE', 'Send less stdin per call.');
+        // A child that does not read leaves what was sent in this process's memory: past one output limit of waiting input, stop taking more.
+        if ((j.child.stdin?.writableLength ?? 0) + Buffer.byteLength(text) > config.output.maxBytes) fail('TOO_LARGE', 'The process is not reading its input; wait for it to consume what was already sent.');
+        j.child.stdin?.write(text); if (a.eof === true) j.child.stdin?.end(); return { written: Buffer.byteLength(text) }; }
       return fail('INVALID_ARGUMENT', 'Unknown process operation.');
     },
     async endSession(sessionId: string) { for (const [id, j] of jobs) if (j.session === sessionId) { await terminate(j); clearTimeout(j.timer); j.signal.removeEventListener('abort', j.abort); jobs.delete(id); } },

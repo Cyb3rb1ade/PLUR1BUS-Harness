@@ -30,6 +30,7 @@ export class BreakGlassError extends Error {
 
 export interface BreakGlassOptions {
   audit: AuditSink;
+  limits?: () => { reasonMinChars: number; reasonMaxChars: number; maxWindowMinutes: number };
   /** Tells the affected user at once (ADR-007 Q3, recommended default). Required: a grant nobody hears of is not allowed. */
   notify: (notice: BreakGlassNotice) => void;
   requireNotification?: boolean;
@@ -91,12 +92,14 @@ export function createBreakGlass(o: BreakGlassOptions): BreakGlass {
       }
       if (targetUserId === holder.userId) throw new BreakGlassError("self-target", "break-glass on one's own cards is meaningless");
       const reason = typeof req.reason === "string" ? req.reason.trim() : "";
-      if (reason.length < MIN_REASON_CHARS || reason.length > MAX_REASON_CHARS) {
-        throw new BreakGlassError("reason-required", `a reason of ${MIN_REASON_CHARS}-${MAX_REASON_CHARS} characters is required`);
+      const limits = o.limits?.() ?? { reasonMinChars: MIN_REASON_CHARS, reasonMaxChars: MAX_REASON_CHARS, maxWindowMinutes: MAX_TTL_MS / 60_000 };
+      if (reason.length < limits.reasonMinChars || reason.length > limits.reasonMaxChars) {
+        throw new BreakGlassError("reason-required", `a reason of ${limits.reasonMinChars}-${limits.reasonMaxChars} characters is required`);
       }
-      const ttlMs = req.ttlMs ?? DEFAULT_TTL_MS;
-      if (!Number.isInteger(ttlMs) || ttlMs < MIN_TTL_MS || ttlMs > MAX_TTL_MS) {
-        throw new BreakGlassError("ttl-invalid", `ttlMs must be an integer between ${MIN_TTL_MS} and ${MAX_TTL_MS}`);
+      const maxTtlMs = limits.maxWindowMinutes * 60_000;
+      const ttlMs = req.ttlMs ?? Math.min(DEFAULT_TTL_MS, maxTtlMs);
+      if (!Number.isInteger(ttlMs) || ttlMs < MIN_TTL_MS || ttlMs > maxTtlMs) {
+        throw new BreakGlassError("ttl-invalid", `ttlMs must be an integer between ${MIN_TTL_MS} and ${maxTtlMs}`);
       }
       sweep();
       const issuedAt = o.clock();

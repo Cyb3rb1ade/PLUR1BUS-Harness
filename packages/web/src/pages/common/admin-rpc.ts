@@ -54,6 +54,8 @@ declare module "../../api/index.ts" {
     "agent.delete": { params: AgentDeleteParams; result: AgentDeleteResult };
     "agent.rights.get": { params: AgentRightsGetParams; result: AgentRightsGetResult };
     "agent.rights.set": { params: AgentRightsSetParams; result: AgentRightsSetResult };
+    "user.disable": { params: { userId: string; reason?: string }; result: { userId: string; disabled: boolean } };
+    "user.enable": { params: { userId: string }; result: { userId: string; disabled: boolean } };
     "user.list": { params: UserListParams; result: UserListResult };
     "user.role.set": { params: UserRoleSetParams; result: UserRoleSetResult };
     "user.invite.create": { params: UserInviteCreateParams; result: UserInviteCreateResult };

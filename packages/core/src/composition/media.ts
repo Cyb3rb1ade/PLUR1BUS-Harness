@@ -6,7 +6,7 @@ import { join } from 'node:path';
 
 export type MediaDefinition = AdapterConfig & { secretRef?: string };
 /** Credentials are leased at operation time; config contains references only. Native media transport retains its host/redirect checks. */
-export async function composeMedia(home: string, configs: readonly MediaDefinition[], secrets: SecretStore, egress: Egress) {
+export async function composeMedia(home: string, configs: readonly MediaDefinition[], secrets: SecretStore, egress: Egress, registerSecret?: (value: string) => void) {
   if (!configs.length) return null;
   const definition = configs[0]!;
   if ('apiKey' in definition) throw new MediaError('unsupported_parameter');
@@ -18,10 +18,13 @@ export async function composeMedia(home: string, configs: readonly MediaDefiniti
     const urls = config.id === 'coreml-local' ? [] : [config.baseUrl ?? defaults[config.id], ...(config.downloadHosts ?? []).map(host => `https://${host}/`)];
     for (const url of urls) {
       const allowed = await egress.decide(url);
+      // A cancel that lands while egress decides stops here: no further host is asked and no secret is leased.
+      context?.signal?.throwIfAborted();
       if (!allowed.allowed) throw new MediaError('backend_unavailable');
     }
     const key = secretRef ? await secretPort.get(secretRef) : undefined;
     if (secretRef && key === undefined) throw new MediaError('backend_unavailable');
+    if (key !== undefined) registerSecret?.(key);
     context?.signal?.throwIfAborted();
     const adapter = createAdapter({ ...config, ...(key === undefined ? {} : { apiKey: key }) } as AdapterConfig);
     return adapter[operation](request, context);

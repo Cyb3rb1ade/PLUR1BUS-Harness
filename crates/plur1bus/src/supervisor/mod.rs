@@ -9,8 +9,10 @@
 //! SIGTERM/SIGINT (the modules in reverse start order, then the core, inside one budget).
 #![allow(dead_code)]
 pub mod adopt;
+pub mod api_transport;
 pub mod child;
 pub mod config;
+pub mod config_policy;
 pub mod ext;
 pub mod logfile;
 pub mod modules;
@@ -634,9 +636,18 @@ fn fail(layout: &Layout, code: i32, msg: &str) -> ! {
     std::process::exit(mapped)
 }
 
-/// `plur1bus supervise`. Never returns: exits 0 after a stop, 2 on a usage error, 3 when another supervisor owns
-/// the home (a supervisor answered), 1 when the endpoint cannot be set up or the lock stays held with no supervisor
-/// answering, 70 after a panic.
+/// The home is held by another process and no supervisor answered (an offline module change, a supervisor that is
+/// still starting or stopping). Same exit as "a supervisor already runs": 3 (`E_LOCKED`). Only under launchd the
+/// difference stays, because there it is the transient case: 3 would be mapped to 0 (never restarted), so the
+/// retry that `KeepAlive{SuccessfulExit:false}` gives a supervisor started during an offline `module install` needs 1.
+fn fail_home_held(layout: &Layout, msg: &str) -> ! {
+    let launchd = std::env::var("PLUR1BUS_SERVICE_MANAGER").as_deref() == Ok("launchd");
+    fail(layout, if launchd { 1 } else { 3 }, msg)
+}
+
+/// `plur1bus supervise`. Never returns: exits 0 after a stop, 2 on a usage error, 3 when another process holds the
+/// home (a supervisor answered, or the lock stays held with no supervisor answering; under launchd the latter is 1 so
+/// that it is retried), 1 when the endpoint cannot be set up, 70 after a panic.
 pub fn run(layout: &Layout, opts: SuperviseOpts) -> ! {
     match catch_unwind(AssertUnwindSafe(|| run_inner(layout, opts))) {
         Ok(code) => std::process::exit(code),
@@ -1291,9 +1302,8 @@ fn already_running(layout: &Layout, address: &str, lock: &fs::File) {
     }
     match lock.try_lock() {
         Ok(()) => {}
-        Err(fs::TryLockError::WouldBlock) => fail(
+        Err(fs::TryLockError::WouldBlock) => fail_home_held(
             layout,
-            1,
             &format!(
                 "{} is held but no supervisor answered (an offline module change, or a supervisor still \
                  starting or stopping); try again",

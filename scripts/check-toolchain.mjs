@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const FLOORS = { node: [24, 16, 0], pnpm: [10, 0, 0], cargo: [1, 95, 0] };
 
@@ -32,7 +34,7 @@ function version(cmd, args) {
   try { return execFileSync(cmd, args, { encoding: "utf8" }).trim(); } catch { return "missing"; }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const result = checkToolchain({
     node: process.version,
     pnpm: version("pnpm", ["--version"]),

@@ -7,7 +7,10 @@ const TOKEN_SHAPE = /\b(?:syt|mat|mct|mar|mcr)_[A-Za-z0-9_-]{8,}/g;
 
 export function redactString(s: string, token?: string): string {
   let out = s;
-  if (token) out = out.split(token).join("[redacted]");
+  if (token) {
+    // The exact token, also as it would appear inside a URL or a JSON string.
+    for (const form of new Set([token, encodeURIComponent(token), JSON.stringify(token).slice(1, -1)])) out = out.split(form).join("[redacted]");
+  }
   return out.replace(BEARER, "Bearer [redacted]").replace(QUERY_TOKEN, "$1[redacted]").replace(TOKEN_SHAPE, "[redacted]");
 }
 

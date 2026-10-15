@@ -1,22 +1,37 @@
+import { AUDIO_LIMITS } from "./constants.ts";
 import { VoiceProviderError, abortedError } from "./errors.ts";
+
+export interface AsyncQueueOptions {
+  /** Most items held for a consumer that is not reading. Past it the queue fails with `overloaded`. Unbounded when absent. */
+  maxItems?: number;
+}
 
 /** Push-in, pull-out async queue with end and fail. One consumer. */
 export class AsyncQueue<T> implements AsyncIterable<T> {
   private items: T[] = [];
+  private readonly maxItems: number;
+  constructor(o: AsyncQueueOptions = {}) {
+    this.maxItems = o.maxItems ?? Number.POSITIVE_INFINITY;
+  }
   private waiter: ((r: IteratorResult<T>) => void) | undefined;
   private rejecter: ((e: unknown) => void) | undefined;
   private done = false;
   private failure: unknown;
   private hasFailure = false;
 
-  push(item: T): void {
-    if (this.done) return;
+  /** False when the item was not taken: the queue is already finished, or it just overflowed and failed with `overloaded`. */
+  push(item: T): boolean {
+    if (this.done) return false;
     if (this.waiter) {
       const w = this.waiter;
       this.waiter = undefined;
       this.rejecter = undefined;
       w({ value: item, done: false });
+    } else if (this.items.length >= this.maxItems) {
+      this.fail(new VoiceProviderError("overloaded", "event queue is full: the consumer is not keeping up"));
+      return false;
     } else this.items.push(item);
+    return true;
   }
   end(): void {
     if (this.done) return;
@@ -84,8 +99,28 @@ export function concatBytes(parts: readonly Uint8Array[]): Uint8Array {
   return out;
 }
 
+/** Duration of pcm16 mono audio. An invalid rate or length is 0 seconds, never NaN, Infinity or a negative number. */
 export function pcm16Seconds(byteLength: number, sampleRate: number): number {
+  if (!isSampleRate(sampleRate) || !Number.isFinite(byteLength) || byteLength <= 0) return 0;
   return byteLength / 2 / sampleRate;
+}
+
+/** A sample rate a voice vendor can take: an integer within AUDIO_LIMITS. */
+export function isSampleRate(rate: unknown): rate is number {
+  return typeof rate === "number" && Number.isInteger(rate) && rate >= AUDIO_LIMITS.minSampleRate && rate <= AUDIO_LIMITS.maxSampleRate;
+}
+export function assertSampleRate(rate: unknown, provider: string): number {
+  if (!isSampleRate(rate)) throw new VoiceProviderError("invalid_request", `${provider}: sample rate must be a whole number between ${AUDIO_LIMITS.minSampleRate} and ${AUDIO_LIMITS.maxSampleRate} Hz`, { provider });
+  return rate;
+}
+/** A token or character count from a vendor frame: a non-negative safe integer, else undefined (never reported). */
+export function countOf(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isSafeInteger(v) && v >= 0 ? v : undefined;
+}
+
+/** Own-property lookup: a key like "constructor" or "__proto__" is not an entry. */
+export function ownValue<T>(rec: Readonly<Record<string, T>>, key: string | undefined): T | undefined {
+  return key !== undefined && Object.hasOwn(rec, key) ? rec[key] : undefined;
 }
 
 /** Wrap mono pcm16 little-endian in a RIFF/WAVE container (for multipart batch ASR uploads). */
@@ -132,6 +167,8 @@ export function assertSecureTransport(url: string, provider: string): URL {
   } catch {
     throw new VoiceProviderError("config", `${provider}: invalid URL`, { provider });
   }
+  // A credential in the URL would end up in config dumps and logs, and Node's fetch refuses it with a raw error anyway.
+  if (u.username !== "" || u.password !== "") throw new VoiceProviderError("config", `${provider}: URLs must not carry credentials (user:password@)`, { provider });
   const secure = u.protocol === "https:" || u.protocol === "wss:";
   const plain = u.protocol === "http:" || u.protocol === "ws:";
   if (!secure && !(plain && isLoopbackHost(u.hostname))) throw new VoiceProviderError("config", `${provider}: only https/wss URLs are allowed (plain http/ws only to loopback)`, { provider });

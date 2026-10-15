@@ -15,6 +15,7 @@ budget.recordUsage({ agent, model, provider, inputTokens, outputTokens, cacheRea
 - `check` returns `{ allowed, breaches, warnings }` and never throws on a breach; `enforce` is `check` plus the throw. The error message names the limit, the use, the call's estimate and when the period resets.
 - A **hard** limit refuses a call whose `used + estimate` would exceed it (landing exactly on the limit is allowed). A **soft** limit allows the call and warns, once per limit and period (persisted, so a restart does not warn again); the warning goes to the `events` sink (`budget.soft`, `budget.hard`), which the core wires to its logger.
 - Limits are per agent or global, per `day` or `month`, on `cost` (micro-USD) or `tokens` (input + output; cache tokens are priced but not counted).
+- Events (`budget.soft`, `budget.hard`) are delivered after the transaction commits, without the write lock, so a sink may call back into the service. Once a period has passed its hard limit, its soft notice is consumed silently (the hard event is the announcement). A model id is looked up as an own key of the price table only: a name such as `constructor` is an unpriced model, never a price. A usage event whose `ts` lies beyond the `Date` range, or whose cost exceeds the safe-integer range, is refused with `BudgetInputError`.
 - `check` is advisory: there is no reservation, so concurrent in-flight calls can overshoot by their own estimates.
 
 ## Periods

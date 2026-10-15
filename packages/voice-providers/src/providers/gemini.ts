@@ -2,9 +2,9 @@
 // discovery (models whose supportedGenerationMethods include bidiGenerateContent); config defaultModel wins over
 // discovery and the constant is only the last fallback. The API key goes in the server-side handshake only.
 import { randomBytes } from "node:crypto";
-import { GEMINI } from "../constants.ts";
+import { AUDIO_LIMITS, GEMINI } from "../constants.ts";
 import type { AudioChunk, RealtimeConnectOptions, RealtimeEvent, RealtimeProvider, RealtimeSession, UsageReport } from "../types.ts";
-import { fromBase64, toBase64 } from "../util.ts";
+import { countOf, fromBase64, isSampleRate, toBase64 } from "../util.ts";
 import { openSocket } from "../ws.ts";
 import { KeyHolder, frameError, makeHttp, trimBase, type CloudDeps } from "./common.ts";
 import { startRealtimeSession, type RealtimeCodec } from "./realtime-base.ts";
@@ -125,8 +125,8 @@ function geminiCodec(model: string, opt: RealtimeConnectOptions, secrets: readon
       if (u !== undefined && u !== null) {
         if (typeof u !== "object" || Array.isArray(u)) throw new TypeError("usageMetadata is not an object");
         const tokens = {
-          ...(Number.isFinite(u["promptTokenCount"]) ? { inputTokens: Number(u["promptTokenCount"]) } : {}),
-          ...(Number.isFinite(u["responseTokenCount"]) ? { outputTokens: Number(u["responseTokenCount"]) } : {}),
+          ...(countOf(u["promptTokenCount"]) !== undefined ? { inputTokens: countOf(u["promptTokenCount"])! } : {}),
+          ...(countOf(u["responseTokenCount"]) !== undefined ? { outputTokens: countOf(u["responseTokenCount"])! } : {}),
         };
         if (lateTurn !== undefined) { out.push(usageEvent(tokens, lateTurn)); lateTurn = undefined; }
         else pendingUsage = tokens;
@@ -143,12 +143,15 @@ function geminiCodec(model: string, opt: RealtimeConnectOptions, secrets: readon
           const d = p?.inlineData;
           if (d && typeof d.data === "string" && !muted) {
             const m = /rate=(\d+)/.exec(String(d.mimeType ?? ""));
-            const chunk: AudioChunk = { data: fromBase64(d.data), format: "pcm16", sampleRate: m ? Number(m[1]) : GEMINI.outputSampleRate };
+            const sampleRate = m ? Number(m[1]) : GEMINI.outputSampleRate;
+            // A rate of 0 or 10^9 would reach a player or a duration calculation as is.
+            if (!isSampleRate(sampleRate)) throw new RangeError("audio sample rate out of range");
+            const chunk: AudioChunk = { data: fromBase64(d.data), format: "pcm16", sampleRate };
             out.push({ type: "audio", chunk });
           }
         }
-        if (typeof sc["inputTranscription"]?.text === "string") { userText += sc["inputTranscription"].text; out.push({ type: "transcript", role: "user", text: userText, final: false }); }
-        if (typeof sc["outputTranscription"]?.text === "string") { modelText += sc["outputTranscription"].text; out.push({ type: "transcript", role: "assistant", text: modelText, final: false }); }
+        if (typeof sc["inputTranscription"]?.text === "string") { userText += sc["inputTranscription"].text; if (userText.length > AUDIO_LIMITS.maxTranscriptChars) throw new RangeError("transcript too long"); out.push({ type: "transcript", role: "user", text: userText, final: false }); }
+        if (typeof sc["outputTranscription"]?.text === "string") { modelText += sc["outputTranscription"].text; if (modelText.length > AUDIO_LIMITS.maxTranscriptChars) throw new RangeError("transcript too long"); out.push({ type: "transcript", role: "assistant", text: modelText, final: false }); }
         if (sc["interrupted"] === true) { muted = false; out.push({ type: "interrupted" }); }
         if (sc["turnComplete"] === true) {
           muted = false;

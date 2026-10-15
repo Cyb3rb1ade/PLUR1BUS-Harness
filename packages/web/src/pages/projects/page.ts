@@ -12,7 +12,8 @@ import { t } from "../../i18n.ts";
 import { registerArea } from "../../i18n/index.ts";
 import * as projectsArea from "../../i18n/projects.ts";
 import { FailureState } from "../common/states.ts";
-import { currentRole, getApi } from "../common/load.ts";
+import { currentRole, failureOf, getApi } from "../common/load.ts";
+import { sessionState } from "../../session.ts";
 import { navigate } from "../../router.ts";
 import { calculateProjectStats } from "./model.ts";
 import type {
@@ -25,6 +26,30 @@ import { BoardView } from "./board-view.ts";
 import "../../styles/projects.css";
 
 registerArea("projects", projectsArea);
+
+const PAGE_LIMIT = 100;
+const MAX_PAGES = 100;
+
+/** All cards of a project: project.card.list is paged (limit 100), a board must not silently stop after the first page. */
+async function listAllCards(projectId: string): Promise<BoardCard[]> {
+  const api = getApi();
+  const all: BoardCard[] = [];
+  let cursor: string | undefined;
+  for (let i = 0; i < MAX_PAGES; i++) {
+    const res = await api.rpc(
+      "project.card.list",
+      { projectId, limit: PAGE_LIMIT, ...(cursor !== undefined ? { cursor } : {}) },
+      { write: false },
+    );
+    all.push(...(res.cards ?? []));
+    if (!res.nextCursor) break;
+    cursor = res.nextCursor;
+  }
+  return all;
+}
+
+/** A backend without the method (-32601) is tolerated as "nothing there"; every other failure is a failure. */
+const isMissingMethod = (e: unknown): boolean => failureOf(e).kind === "unavailable";
 
 export function ProjectsPage({ sub }: PageProps): View {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -62,12 +87,7 @@ export function ProjectsPage({ sub }: PageProps): View {
       await Promise.all(
         projs.map(async (p) => {
           try {
-            const cardRes = await api.rpc(
-              "project.card.list",
-              { projectId: p.id },
-              { write: false },
-            );
-            statsMap.set(p.id, calculateProjectStats(cardRes.cards ?? []));
+            statsMap.set(p.id, calculateProjectStats(await listAllCards(p.id)));
           } catch {
             // Stats optional
           }
@@ -82,9 +102,15 @@ export function ProjectsPage({ sub }: PageProps): View {
   };
 
   // Load board data for selected project
-  const loadBoard = async (projId: string) => {
+  // `background` refreshes (after a card move etc.) keep the mounted board in
+  // place; swapping it for the loading state would unmount BoardView and wipe
+  // its aria-live region (and focus) before assistive tech can announce it.
+  const boardGen = useRef(0);
+  const loadBoard = async (projId: string, background = false) => {
+    // Only the newest request may apply its answer (switching projects, live updates arriving while one is in flight).
+    const gen = ++boardGen.current;
     try {
-      setLoadingBoard(true);
+      if (!background) setLoadingBoard(true);
       setBoardFailure(null);
       const api = getApi();
 
@@ -98,21 +124,18 @@ export function ProjectsPage({ sub }: PageProps): View {
           { write: false },
         );
         cols = colsRes.columns ?? [];
-      } catch {
-        // Tolerant to environments/mocks without column list
+      } catch (e) {
+        // Tolerant to environments/mocks that do not serve the method; anything else is a real failure.
+        if (!isMissingMethod(e)) throw e;
       }
 
       try {
-        const cardsRes = await api.rpc(
-          "project.card.list",
-          { projectId: projId },
-          { write: false },
-        );
-        crds = cardsRes.cards ?? [];
-      } catch {
-        // Tolerant to environments/mocks without card list
+        crds = await listAllCards(projId);
+      } catch (e) {
+        if (!isMissingMethod(e)) throw e;
       }
 
+      if (gen !== boardGen.current) return;
       setColumns(cols);
       setCards(crds);
 
@@ -123,9 +146,11 @@ export function ProjectsPage({ sub }: PageProps): View {
         return next;
       });
     } catch (err) {
-      setBoardFailure(err);
+      if (gen !== boardGen.current) return;
+      // A failed background refresh keeps the board that is shown; a failed first load is an error state.
+      if (!background) setBoardFailure(err);
     } finally {
-      setLoadingBoard(false);
+      if (gen === boardGen.current) setLoadingBoard(false);
     }
   };
 
@@ -159,15 +184,14 @@ export function ProjectsPage({ sub }: PageProps): View {
           }
           if (data?.projectId) {
             if (data.projectId === selectedProjectId) {
-              void loadBoard(data.projectId);
+              void loadBoard(data.projectId, true);
             }
             // Refresh stats
-            void api
-              .rpc("project.card.list", { projectId: data.projectId }, { write: false })
-              .then((res) => {
+            void listAllCards(data.projectId)
+              .then((all) => {
                 setProjectStats((prev) => {
                   const next = new Map(prev);
-                  next.set(data.projectId, calculateProjectStats(res.cards ?? []));
+                  next.set(data.projectId, calculateProjectStats(all));
                   return next;
                 });
               })
@@ -182,9 +206,11 @@ export function ProjectsPage({ sub }: PageProps): View {
     };
   }, [selectedProjectId]);
 
+  const creating = useRef(false);
   const handleCreateProject = async (e: Event) => {
     e.preventDefault();
-    if (!newProjectName.trim()) return;
+    if (!newProjectName.trim() || creating.current) return;
+    creating.current = true;
     try {
       setCreateProjectError(null);
       const api = getApi();
@@ -203,10 +229,14 @@ export function ProjectsPage({ sub }: PageProps): View {
       setCreateProjectError(
         err instanceof Error ? err.message : t("projects.error.generic"),
       );
+    } finally {
+      creating.current = false;
     }
   };
 
   const role = currentRole();
+  const sessionNow = sessionState.value;
+  const userId = sessionNow.status === "authenticated" ? sessionNow.user.id : undefined;
   const canCreateProj = role === "owner" || role === "admin";
   const selectedProj = projects.find((p) => p.id === selectedProjectId);
 
@@ -367,9 +397,10 @@ export function ProjectsPage({ sub }: PageProps): View {
       columns,
       cards,
       globalRole: role ?? null,
+      userId: userId ?? null,
       agentId: null,
       isAgent: false,
-      onRefresh: () => void loadBoard(selectedProjectId),
+      onRefresh: () => void loadBoard(selectedProjectId, true),
     });
   } else {
     detailContent = h(PageState, {

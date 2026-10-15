@@ -84,7 +84,11 @@ export interface ApprovalStoreOptions {
   requestTtlMs?: number;
 }
 
-const sameStr = (a: string, b: string): boolean => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+/** Compared as bytes: equal length in characters is not equal length in bytes, and timingSafeEqual throws on the latter. */
+const sameStr = (a: string, b: string): boolean => {
+  const x = Buffer.from(a); const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+};
 const boundOf = (b: ApprovalBinding): Omit<ApprovalBinding, "requestId"> => ({
   actionHash: b.actionHash, principal: b.principal, subject: { kind: b.subject.kind, id: b.subject.id }, turnId: b.turnId, taskId: b.taskId, sessionId: b.sessionId,
 });
@@ -144,7 +148,7 @@ export async function createApprovalStore(o: ApprovalStoreOptions): Promise<Appr
     },
 
     decide(d) {
-      if (d.surface === 0) return { ok: false, reason: "surface-untrusted" };
+      if (d.surface !== 1 && d.surface !== 2 && d.surface !== 3) return { ok: false, reason: "surface-untrusted" }; // T0, or not a surface level at all
       return transaction(o.db, () => {
         const list = trusted().byRef.get(d.requestId);
         const req = find(list, "approval.requested");

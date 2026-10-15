@@ -256,3 +256,42 @@ fn concurrent_crash_offer_requests_keep_the_offer_and_one_startup_receipt() {
         1
     );
 }
+
+#[test]
+fn unclean_session_marker_survives_restart_and_clean_exit_clears_it() {
+    let fixture = tempfile::tempdir().unwrap();
+    let root = fixture.path().canonicalize().unwrap();
+    let first = plur1bus_desktop::diagnostics::Diagnostics::open(
+        &root.join("logs"),
+        "/synthetic/home",
+        "fixture-target",
+    )
+    .unwrap();
+    first.crash.begin_session().unwrap();
+    assert!(first.crash.last_report().unwrap().is_none());
+    drop(first);
+    let next = plur1bus_desktop::diagnostics::Diagnostics::open(
+        &root.join("logs"),
+        "/synthetic/home",
+        "fixture-target",
+    )
+    .unwrap();
+    next.crash.begin_session().unwrap();
+    assert_eq!(
+        next.crash.last_report().unwrap().unwrap().kind,
+        "unclean_exit"
+    );
+    next.crash.dismiss_last().unwrap();
+    assert!(next.crash.last_report().unwrap().is_none());
+    next.crash.end_session().unwrap();
+    drop(next);
+    let clean = plur1bus_desktop::diagnostics::Diagnostics::open(
+        &root.join("logs"),
+        "/synthetic/home",
+        "fixture-target",
+    )
+    .unwrap();
+    clean.crash.begin_session().unwrap();
+    assert!(clean.crash.last_report().unwrap().is_none());
+    clean.crash.end_session().unwrap();
+}

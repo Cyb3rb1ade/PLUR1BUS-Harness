@@ -125,8 +125,47 @@ describe("secrets: create, rotate, delete", opts, () => {
       assert.equal(await dlg.getByLabel("Name", { exact: true }).count(), 0);
       await dlg.getByLabel("New value").fill("new-val");
       await dlg.getByRole("button", { name: "Save" }).click();
-      await app.page.getByText("Saved anthropic.apiKey.").waitFor();
+      // Rotating asks once more; nothing has been sent yet and the value sits in a read-only masked field.
+      await dlg.getByText(/Replace the value of anthropic\.apiKey\?/).waitFor();
+      assert.equal(calls(app, "secret.set").length, 0);
+      assert.equal(await dlg.getByLabel("New value").getAttribute("readonly"), "");
+      assert.equal(await dlg.getByLabel("New value").getAttribute("type"), "password");
+      await dlg.getByRole("button", { name: "Rotate now" }).click();
+      await app.page.getByText(/^anthropic\.apiKey: updated on /).waitFor();
       assert.deepEqual(calls(app, "secret.set").map((c) => c.params), [{ name: "anthropic.apiKey", value: "new-val" }]);
+      // After the rotation the only thing the page says is the update time; the value is nowhere.
+      assert.ok(!(await app.page.content()).includes("new-val"));
+    });
+  });
+  test("rotate: Back from the question keeps the dialog and the typed value, Cancel sends nothing", async () => {
+    await withApp({}, async (app) => {
+      seedSecrets(app.server.rpc); await open(app);
+      await app.page.getByRole("button", { name: "Rotate anthropic.apiKey" }).click();
+      const dlg = app.page.getByRole("dialog");
+      await dlg.getByLabel("New value").fill("keep-me");
+      await dlg.getByRole("button", { name: "Save" }).click();
+      await dlg.getByRole("button", { name: "Back" }).click();
+      assert.equal(await dlg.getByLabel("New value").inputValue(), "keep-me");
+      assert.equal(await dlg.getByLabel("New value").getAttribute("readonly"), null);
+      await dlg.getByRole("button", { name: "Save" }).click();
+      await dlg.getByRole("button", { name: "Cancel" }).click();
+      await dlg.waitFor({ state: "detached" });
+      assert.equal(calls(app, "secret.set").length, 0);
+    });
+  });
+  test("rotate: the masked field is never prefilled and the empty value is refused before the question", async () => {
+    await withApp({}, async (app) => {
+      seedSecrets(app.server.rpc); await open(app);
+      await app.page.getByRole("button", { name: "Rotate anthropic.apiKey" }).click();
+      const dlg = app.page.getByRole("dialog");
+      const input = dlg.getByLabel("New value");
+      assert.equal(await input.inputValue(), "");
+      assert.equal(await input.getAttribute("type"), "password");
+      assert.equal(await input.getAttribute("autocomplete"), "off");
+      assert.equal(await input.getAttribute("value"), null);
+      await dlg.getByRole("button", { name: "Save" }).click();
+      await dlg.getByText("Enter a value.").waitFor();
+      assert.equal(await dlg.getByRole("button", { name: "Rotate now" }).count(), 0);
     });
   });
   test("a failed save keeps the dialog open, asks to retype, and the value is gone", async () => {
@@ -138,6 +177,7 @@ describe("secrets: create, rotate, delete", opts, () => {
       const dlg = app.page.getByRole("dialog");
       await dlg.getByLabel("New value").fill("will-fail");
       await dlg.getByRole("button", { name: "Save" }).click();
+      await dlg.getByRole("button", { name: "Rotate now" }).click();
       await dlg.getByRole("alert").getByText(/Enter the value again/).waitFor();
       assert.equal(await dlg.getByLabel("New value").inputValue(), "");
     });
@@ -217,6 +257,12 @@ describe("secrets: keyboard, a11y, layout, German", opts, () => {
       await app.page.getByRole("dialog").waitFor();
       await expectAxeClean(app.page, "create dialog");
       await app.page.keyboard.press("Escape");
+      await app.page.getByRole("button", { name: "Rotate anthropic.apiKey" }).click();
+      await app.page.getByRole("dialog").getByLabel("New value").fill("v");
+      await app.page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+      await app.page.getByText(/Replace the value of/).waitFor();
+      await expectAxeClean(app.page, "rotate confirmation");
+      await app.page.keyboard.press("Escape");
       await app.page.getByRole("button", { name: "Delete anthropic.apiKey" }).click();
       await app.page.getByRole("dialog").waitFor();
       await expectAxeClean(app.page, "delete dialog");
@@ -249,6 +295,24 @@ describe("secrets: keyboard, a11y, layout, German", opts, () => {
       seedSecrets(app.server.rpc); await open(app, "de");
       await app.page.getByRole("button", { name: "Geheimnis hinzufügen" }).waitFor();
       await app.page.getByRole("button", { name: "anthropic.apiKey rotieren" }).waitFor();
+      await app.page.getByRole("button", { name: "anthropic.apiKey rotieren" }).click();
+      const dlg = app.page.getByRole("dialog");
+      await dlg.getByLabel("Neuer Wert").fill("x");
+      await dlg.getByRole("button", { name: "Speichern" }).click();
+      await dlg.getByRole("button", { name: "Jetzt rotieren" }).click();
+      await app.page.getByText(/^anthropic\.apiKey: aktualisiert am /).waitFor();
     });
+  });
+});
+
+test("Admin keeps the existing page gate but never sees Owner-only status timestamps", opts, async () => {
+  await withApp({ server: { role: "admin" } }, async app => {
+    seedSecrets(app.server.rpc);
+    await open(app);
+    const row = app.page.getByRole("row", { name: /anthropic\.apiKey/ });
+    await row.waitFor();
+    assert.equal(await row.getByRole("cell", { name: "Unknown", exact: true }).count(), 2);
+    assert.equal(await row.getByText(/2026/).count(), 0);
+    await expectAxeClean(app.page, "Admin metadata boundary");
   });
 });

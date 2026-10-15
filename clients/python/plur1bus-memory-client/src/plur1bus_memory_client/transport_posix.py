@@ -46,6 +46,13 @@ class PosixStream:
         os.set_blocking(self._wake_w, False)
         sock.setblocking(False)
 
+    def __del__(self) -> None:
+        # A stream dropped without close() must not leak its wake pipe (the socket closes with its object).
+        try:
+            self.close()
+        except Exception:  # noqa: BLE001
+            pass
+
     def _closed_error(self) -> RpcError:
         return RpcError("E_TRANSPORT", "the connection is closed", {"reason": "closed"})
 
@@ -143,10 +150,14 @@ class PosixStream:
         if self._buf:
             return True
         try:
-            readable, _, _ = select.select([sock], [], [], 0)
+            if _HAS_POLL:  # select() cannot take a descriptor >= FD_SETSIZE (1024)
+                p = select.poll()
+                p.register(sock.fileno(), select.POLLIN)
+                return bool(p.poll(0))
+            readable, _, _ = select.select([sock], [], [], 0)  # pragma: no cover
         except (OSError, ValueError):
             return True
-        return bool(readable)
+        return bool(readable)  # pragma: no cover
 
     def peer_pid(self) -> int | None:
         sock = self._sock

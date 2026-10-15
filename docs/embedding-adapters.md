@@ -48,7 +48,7 @@ smoke (below) is how a row becomes "live-verified".
 | --- | --- | --- | --- | --- | --- |
 | `openai` | `POST /embeddings` (`https://api.openai.com/v1`) | none (symmetric) | 256 / 8192 | `dimensions` sent (matryoshka) | documented |
 | `openai-compatible`, `vllm`, `llamacpp`, `omlx` | `POST {baseURL}/embeddings` | none | 64 / 512 | `baseURL` required, no `dimensions`, secret optional | documented (OpenAI shape) |
-| `openrouter` | `POST /embeddings` (`https://openrouter.ai/api/v1`) | none | 128 / 8192 | `pinnedUpstream` **required**; sent as `provider: {order:[upstream], allow_fallbacks:false}`; identity revision `upstream:<name>` | documented |
+| `openrouter` | `POST /embeddings` (`https://openrouter.ai/api/v1`) | none | 128 / 8192 | `pinnedUpstream` **required**; sent as `provider: {order:[upstream], allow_fallbacks:false}`; identity revision `<revision>+upstream:<name>` (just `upstream:<name>` when no `revision` is set) | documented |
 | `google` | `POST /models/{model}:batchEmbedContents` (`:embedContent` for one text) | `taskType` RETRIEVAL_QUERY / RETRIEVAL_DOCUMENT | 100 / 2048 | key in `x-goog-api-key` header, never the URL; `outputDimensionality` | documented; ADR notes `task_type` only applies to `-001` models, `gemini-embedding-2` is untested |
 | `cohere` | `POST /v2/embed` | `input_type` search_query / search_document | 96 / 512 | `embedding_types:["float"]` | **unverified** (ADR-006: primary doc 404'd) |
 | `jina` | `POST /embeddings` (`https://api.jina.ai/v1`) | `task` retrieval.query / retrieval.passage | 128 / 8192 | OpenAI-shaped response | **unverified** |
@@ -108,7 +108,9 @@ merged. **Rerank scores are never comparable across rerankers** (ADR-006).
 
 Validation is strict and aggregated: unknown option keys, credentials or query strings in `baseURL`, a missing `baseURL` /
 `secretName` / `pinnedUpstream` where the provider needs one, and bad numbers all fail at construction with a `ConfigError`
-listing every issue with its path (`embedding.baseURL: required for provider "tei"`). Defaults: embed timeout 15 s, 3 attempts;
+listing every issue with its path (`embedding.baseURL: required for provider "tei"`). A `secretName` together with an `http:` `baseURL` on a
+non-loopback host (anything but `localhost`, `127.x.x.x`, `::1`) is a `ConfigError` on `secretName` (the credential would travel in clear text); use `https` or a
+loopback address, or drop the secret. This applies to embedding and rerank settings alike. Defaults: embed timeout 15 s, 3 attempts;
 rerank timeout 5 s, 2 attempts (ADR-006). `dimensions` is always required: it is part of the identity and is checked against every response.
 
 ## Behaviour that holds for every adapter
@@ -116,13 +118,14 @@ rerank timeout 5 s, 2 attempts (ADR-006). `dimensions` is always required: it is
 - **Retry** only for `rate_limit`, `overloaded`, `network`, `timeout`: equal-jitter exponential backoff. `Retry-After` is honoured up to
   `retry.maxRetryAfterMs`; a longer one is returned to the caller as `rate_limit` with `retryAfterMs` instead of sleeping.
 - **Response validation:** count equals inputs, every vector has the configured dimension, every component finite (checked after float32
-  conversion, so `1e39` is caught), zero vectors rejected when normalising, index permutation complete. Messages carry counts and indexes, never values.
+  conversion, so `1e39` is caught), zero vectors always rejected as `bad_response` (with `normalize` on or off, because a zero vector has cosine 0 against everything and would silently poison an index), index permutation complete. Messages carry counts and indexes, never values.
 - **Normalisation:** `normalize` (default true) L2-normalises the returned vectors client-side.
 - **Redirects:** never followed. Any 3xx is `bad_response`; the credential is never replayed to another host.
 - **Size:** the response body is capped (`maxResponseBytes`, 32 MiB embed / 8 MiB rerank) by content-length and while streaming.
 - **Deadline** per attempt covers the body read; a caller abort is `aborted`, never `network`.
 - **Redaction:** the resolved secret (plain, URL-encoded, JSON-escaped) and common key shapes are scrubbed from every error message and `toJSON`;
-  adapters never keep a raw `cause`.
+  adapters never keep a raw `cause`. Redaction runs before any truncation (a cut could split a secret so that neither half matches), and control
+  characters are dropped from the server's error snippet.
 
 ## Error classes
 
@@ -131,7 +134,7 @@ rerank timeout 5 s, 2 attempts (ADR-006). `dimensions` is always required: it is
 | `auth` | 401/403, or the secret could not be resolved (no request is sent) | no |
 | `rate_limit` | 429; `retryAfterMs` set when the server said so | yes |
 | `overloaded` | 5xx / 529 | yes |
-| `invalid_request` | bad arguments or a 4xx the server rejected | no |
+| `invalid_request` | bad arguments (including `null` or non-object call options, and sparse `texts` / `docs` arrays with holes, rejected before any request) or a 4xx the server rejected | no |
 | `too_large` | input over the token limit, 413, context-length 400, or too many documents for a listwise rerank | no |
 | `network` | connection failure | yes |
 | `timeout` | per-attempt deadline | yes |
@@ -141,7 +144,8 @@ rerank timeout 5 s, 2 attempts (ADR-006). `dimensions` is always required: it is
 ## Identity
 
 `identity()` is deterministic and frozen. `identityHash(identity)` (`adapter-identity:v1:sha256:<hex>`) covers provider, model, revision / pinned upstream,
-dimensions, normalisation, `maxInputTokens`, and both prefixes. It deliberately **excludes** `maxBatch`, timeouts, `baseURL` and `secretName`, so two
+dimensions, normalisation, `maxInputTokens`, and both prefixes. For `openrouter` the revision field is `<revision>+upstream:<name>` when both a `revision` and
+`pinnedUpstream` are configured (the upstream is never dropped in favour of the revision), otherwise whichever one is set. It deliberately **excludes** `maxBatch`, timeouts, `baseURL` and `secretName`, so two
 endpoints serving the same model share an identity. This hash is the adapter's own; it is **not** the engine's `embedding:v1:sha256:` fingerprint id.
 `toFingerprint(identity, endpoint?)` produces the subset of core's `EmbeddingFingerprint` an adapter can state.
 
@@ -180,3 +184,31 @@ Out of scope here. Concrete hook points:
 4. **Re-embedding:** `ReembedEngine.batchSize` (`port.ts`) should come from `identity().maxBatch`; a driver that embeds itself would call `embed(..., {inputType: "document"})`.
 5. **Recall:** query embedding uses `inputType: "query"`; rerank is the recall-path optional step with its 5 s budget and a fallback to unranked order on any `AdapterError`.
 6. **Secrets:** back `getSecret` with the host secret store; the config files only ever carry secret *names*.
+
+## HTTP error mapping per embedding adapter (test matrix)
+
+`packages/embedding-adapters/test/error-table.test.ts` runs the same simulated responses through all 13 adapters in `EMBEDDING_PROVIDERS`
+(`src/config.ts`). The rows are identical, because every adapter uses the shared `src/http.ts`. Cells read
+`code / retryable / documented`; `class` means the status falls under a documented class without its own row, `no` means the
+mapping is not documented and the table pins the current behaviour.
+
+| Response | Code / retryable / documented |
+|---|---|
+| 401 | `auth` / no / yes |
+| 403 | `auth` / no / yes |
+| 404 (unknown model) | `invalid_request` / no / class |
+| 408 | `timeout` / yes / no (not documented; the table pins the current behaviour) |
+| client deadline (adapter timer) | `timeout` / yes / yes |
+| 413 (input too large) | `too_large` / no / yes |
+| 429 with `Retry-After: 2` | `rate_limit` / yes / yes (waits 2000 ms through the injected sleep) |
+| 429 without `Retry-After` | `rate_limit` / yes / yes |
+| 500 | `overloaded` / yes / yes |
+| 503 | `overloaded` / yes / yes |
+| truncated JSON (HTTP 200) | `bad_response` / no / yes |
+| invalid JSON (HTTP 200) | `bad_response` / no / yes |
+| vector count short (1 vector for 2 texts) | `bad_response` / no / yes |
+| vector count long (3 vectors for 2 texts) | `bad_response` / no / yes |
+| vector dimension mismatch | `bad_response` / no / yes |
+
+The stream cut does not apply: embeddings are not streamed. A cut in the middle of the body is not simulated; the truncated-JSON cell
+is a complete HTTP response whose JSON is cut off. The API key never appears in an error message or cause.

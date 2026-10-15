@@ -1,4 +1,4 @@
-import { SecretError, checkName, checkValue, type BackendKind, type SecretBackend, type SecretMeta, type SecretPrincipal } from "./types.ts";
+import { SecretError, checkName, checkValue, isSecretName, type BackendKind, type SecretBackend, type SecretMeta, type SecretPrincipal } from "./types.ts";
 import { createLeaseTable, type Lease, type LeaseInfo } from "./leases.ts";
 import type { AuditAction, AuditDetail, AuditSink } from "./audit.ts";
 
@@ -25,6 +25,7 @@ export interface SecretStatus {
   /** Names held in the selected backend, null when it cannot be listed. */
   count: number | null;
   activeLeases: number;
+  secrets?: (Pick<SecretMeta, "name" | "backend"> & Partial<Omit<SecretMeta, "name" | "backend">>)[];
   remedy?: string;
 }
 
@@ -41,7 +42,10 @@ export function createSecretStore(o: SecretStoreOptions) {
   /** Fail closed: anything not named in `kinds` is refused, and the attempt is audited (best effort: a refusal needs no audit to hold). */
   function gate(p: SecretPrincipal, action: string, name: string | null, kinds: readonly string[]): void {
     if (allowed(p, kinds)) return;
-    try { o.audit.record({ action: "secret.denied", target: name, principal: p?.kind ? p : { kind: "agent" }, detail: { method: action } }); } catch { /* the refusal stands */ }
+    // The target is only ever a well-formed name (a refused caller's free text, which may itself be a pasted secret, is not
+    // written), and the principal is only ever one of the known kinds.
+    const known = p && typeof p === "object" && (p.kind === "owner" || p.kind === "core" || p.kind === "agent");
+    try { o.audit.record({ action: "secret.denied", target: isSecretName(name) ? name : null, principal: known ? p : { kind: "agent" }, detail: { method: action } }); } catch { /* the refusal stands */ }
     o.logger?.warn("secret access denied", { method: action, kind: String((p as { kind?: unknown })?.kind ?? "unknown") });
     throw new SecretError("denied", "secret operations are available to the owner only", { method: action });
   }
@@ -50,6 +54,9 @@ export function createSecretStore(o: SecretStoreOptions) {
     o.audit.record({ action, target, principal: p, ...(detail ? { detail } : {}) });
 
   interface Selection { kind: BackendKind | "none"; backend: SecretBackend | null; other: SecretBackend | null; keyring: { available: boolean; reason?: string }; fileAvailable: boolean | null; fileReason?: string }
+  /** Bumped before and after every write or delete, so a lease read that overlapped one is detected and redone. */
+  let epoch = 0;
+  let writing = 0;
   let lastKind: string | null = null;
   async function select(): Promise<Selection> {
     const kp = await o.keyring.probe();
@@ -82,12 +89,22 @@ export function createSecretStore(o: SecretStoreOptions) {
       gate(p, "status", null, ["owner", "core"]);
       const s = await select();
       let count: number | null = null;
-      if (s.backend) { try { count = (await s.backend.list()).length; } catch { count = null; } }
+      let secrets: SecretMeta[] | undefined;
+      if (s.backend) {
+        try {
+          const primary = await s.backend.list();
+          count = primary.length;
+          const names = new Map(primary.map(meta => [meta.name, meta]));
+          if (s.other) for (const meta of await s.other.list()) if (!names.has(meta.name)) names.set(meta.name, meta);
+          secrets = [...names.values()].sort((a, b) => a.name.localeCompare(b.name));
+        } catch { secrets = undefined; }
+      }
       return {
         backend: s.kind, degraded: s.kind !== "keyring",
         keyring: { available: s.keyring.available, ...(s.keyring.reason ? { reason: s.keyring.reason } : {}) },
         file: { enabled: o.fileFallback(), available: s.fileAvailable, ...(s.fileReason ? { reason: s.fileReason } : {}) },
         count, activeLeases: leases.active().length,
+        ...(secrets ? { secrets: secrets.map(m => ({ name: m.name, backend: m.backend, ...(typeof m.createdAt === "string" && m.createdAt ? { createdAt: m.createdAt } : {}), ...(typeof m.updatedAt === "string" && m.updatedAt ? { updatedAt: m.updatedAt } : {}), ...(typeof m.updatedBy === "string" && m.updatedBy ? { updatedBy: m.updatedBy } : {}) })) } : {}),
         ...(s.kind === "none" ? { remedy: NO_BACKEND } : {}),
       };
     },
@@ -98,9 +115,18 @@ export function createSecretStore(o: SecretStoreOptions) {
       const s = await select();
       const backend = need(s);
       audited(p, "secret.set", name, { backend: backend.kind });
-      const meta = await backend.put(name, value, now());
-      leases.revokeName(name); // a rotated secret invalidates what was leased from the old value
-      return meta;
+      epoch++; writing++;
+      try {
+        const meta = await backend.put(name, value, now(), p.kind === "owner" ? p.id : undefined);
+        // A copy of the old value in the other backend would come back when this one goes away: rotation removes it.
+        if (s.other) {
+          try { await s.other.delete(name); } catch { o.logger?.warn("stale secret copy could not be removed", { name }); }
+        }
+        return meta;
+      } finally {
+        epoch++; writing--;
+        leases.revokeName(name); // a rotated secret invalidates what was leased from the old value
+      }
     },
 
     /** Metadata only: no value is read. */
@@ -132,8 +158,18 @@ export function createSecretStore(o: SecretStoreOptions) {
       need(s);
       audited(p, "secret.delete", name);
       let removed = false;
-      for (const b of [s.backend, s.other]) if (b && (await b.delete(name))) removed = true;
-      leases.revokeName(name);
+      epoch++; writing++;
+      try {
+        for (const b of [s.backend, s.other]) if (b && (await b.delete(name))) removed = true;
+        // An entry in the file backend stays on disk when the fallback is switched off or the file is not the backend in use:
+        // a delete must not leave it to reappear when the flag is turned back on.
+        if (s.backend !== o.file && s.other !== o.file) {
+          try { if (await o.file.delete(name)) removed = true; } catch { o.logger?.warn("file backend copy could not be checked", { name }); }
+        }
+      } finally {
+        epoch++; writing--;
+        leases.revokeName(name);
+      }
       if (!removed) throw new SecretError("not-found", `no secret named ${name}`, { name });
       return { removed: true };
     },
@@ -153,11 +189,16 @@ export function createSecretStore(o: SecretStoreOptions) {
     async lease(p: SecretPrincipal, name: string, o2: { purpose: string; profileId: string; ttlMs?: number }): Promise<Lease> {
       gate(p, "lease", typeof name === "string" ? name : null, ["owner", "core"]);
       checkName(name);
-      if (!LABEL.test(o2?.purpose ?? "") || !LABEL.test(o2?.profileId ?? "")) throw new SecretError("invalid-value", "lease purpose and profileId must be short identifiers");
+      if (typeof o2?.purpose !== "string" || typeof o2.profileId !== "string" || !LABEL.test(o2.purpose) || !LABEL.test(o2.profileId)) throw new SecretError("invalid-value", "lease purpose and profileId must be short identifiers");
       audited(p, "secret.lease", name, { purpose: o2.purpose, profileId: o2.profileId, ...(o2.ttlMs !== undefined ? { ttlMs: o2.ttlMs } : {}) });
-      const hit = await find(name);
-      if (hit === null) throw new SecretError("not-found", `no secret named ${name}`, { name });
-      return leases.issue(name, hit.value, o2);
+      // A write that overlaps the read makes its value suspect: read again, and give up rather than lease a stale value.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const before = epoch;
+        const hit = await find(name);
+        if (hit === null) throw new SecretError("not-found", `no secret named ${name}`, { name });
+        if (epoch === before && writing === 0) return leases.issue(name, hit.value, o2);
+      }
+      throw new SecretError("lease-invalid", "the secret changed while the lease was being issued; try again");
     },
     /** Re-reads a live lease. */
     readLease(p: SecretPrincipal, leaseId: string): Lease {

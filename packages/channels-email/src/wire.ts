@@ -45,6 +45,9 @@ export const defaultConnect: ConnectFn = (host, port) =>
 
 export const defaultUpgradeTls: UpgradeTlsFn = (socket, servername) =>
   new Promise<Socket>((resolve, reject) => {
+    // All traffic now flows through the TLS socket, which carries its own inactivity timer. The raw socket's timer must
+    // go, or it would destroy a quietly idling session underneath the TLS layer.
+    socket.setTimeout(0);
     const t = tlsConnect({ socket, servername, minVersion: "TLSv1.2" });
     t.setTimeout(IO_TIMEOUT_MS, () => t.destroy());
     t.once("error", () => reject(new EmailError("tls", "TLS handshake failed")));

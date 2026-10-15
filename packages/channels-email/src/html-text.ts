@@ -25,7 +25,16 @@ const BLOCK = "address|article|aside|blockquote|body|dd|details|div|dl|dt|fields
 export function htmlToText(input: string): string {
   let s = input.length > MAX_HTML ? input.slice(0, MAX_HTML) : input;
   s = s.replace(/<!--[\s\S]*?(?:-->|$)/g, "");
+  // Every tag pattern below needs a closing ">". A "<" after the last ">" can never start a tag, but each attempt would
+  // still scan to the end of the input: a flood of them is quadratic. Neutralise them as literal text first.
+  const lastGt = s.lastIndexOf(">");
+  s = s.slice(0, lastGt + 1) + s.slice(lastGt + 1).replaceAll("<", "&lt;");
   s = s.replace(/<(script|style|head|title|template|noscript)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, "");
+  // An <a> without a later </a> cannot match, yet would rescan to the end each time: only look at the part up to the last </a>.
+  let lastClose = -1;
+  for (const m of s.matchAll(/<\/a\s*>/gi)) lastClose = m.index + m[0].length;
+  const anchorTail = s.slice(lastClose < 0 ? 0 : lastClose);
+  s = lastClose < 0 ? "" : s.slice(0, lastClose);
   s = s.replace(/<a\b([^>]*)>([\s\S]*?)<\/a\s*>/gi, (_m, attrs: string, inner: string) => {
     const href = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs);
     const url = decodeEntities(href?.[1] ?? href?.[2] ?? href?.[3] ?? "").trim();
@@ -35,6 +44,7 @@ export function htmlToText(input: string): string {
     if (!label || label === url || label === bare) return bare === url || /^mailto:/i.test(url) ? bare : url;
     return `${label} (${url})`;
   });
+  s += anchorTail;
   s = s.replace(/<br\s*\/?>/gi, "\n");
   s = s.replace(/<li\b[^>]*>/gi, "\n- ");
   s = s.replace(new RegExp(`</?(?:${BLOCK})\\b[^>]*>`, "gi"), "\n");

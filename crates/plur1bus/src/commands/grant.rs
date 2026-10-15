@@ -24,7 +24,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: GrantCmd) {
                 limit,
             );
             if let Err(why) = &params {
-                out.fail("E_INVALID_PARAMS", why, json!({}), 2);
+                out.fail("E_INVALID_PARAMS", why, json!({}));
             }
             let v = call(out, layout, "grant.list", params.unwrap_or_default());
             out.ok("grant.list/1", &v, || render_list(&v));
@@ -32,7 +32,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: GrantCmd) {
         GrantCmd::Add(args) => {
             let params = match add_params(&args, now_secs()) {
                 Ok(p) => p,
-                Err(why) => out.fail("E_INVALID_PARAMS", &why, json!({}), 2),
+                Err(why) => out.fail("E_INVALID_PARAMS", &why, json!({})),
             };
             let v = call(out, layout, "grant.create", params);
             out.ok("grant.add/1", &v, || {

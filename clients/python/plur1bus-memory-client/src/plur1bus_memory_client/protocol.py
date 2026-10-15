@@ -62,6 +62,17 @@ class RpcError(Exception):
     def __repr__(self) -> str:
         return f"RpcError({self.code!r}, {self.message!r})"
 
+    def __reduce__(self) -> tuple:
+        # Subclasses (UntrustedEndpoint) have their own __init__ signature, so rebuild without calling it:
+        # pickle, copy and multiprocessing keep code, message and data.
+        return (_rebuild_rpc_error, (type(self), self.code, self.message, self.data))
+
+
+def _rebuild_rpc_error(cls: type, code: str, message: str, data: dict) -> RpcError:
+    err = Exception.__new__(cls)
+    RpcError.__init__(err, code, message, data)
+    return err  # type: ignore[return-value]
+
 
 class Stream(Protocol):
     """The transport contract (``transport_posix.open_stream``, ``transport_win.open_stream``).
@@ -145,7 +156,7 @@ def decode_line(line: bytes) -> dict:
         raise RpcError("E_PROTOCOL", "response line exceeds the limit", {"reason": "line-too-long"})
     try:
         value = json.loads(line.decode("utf-8"))
-    except (UnicodeDecodeError, ValueError) as e:
+    except (UnicodeDecodeError, ValueError, RecursionError) as e:  # RecursionError: a 4 MiB line of "[" nesting
         raise RpcError("E_PROTOCOL", f"invalid JSON line: {type(e).__name__}", {"reason": "invalid-json"}) from None
     if not isinstance(value, dict):
         raise RpcError("E_PROTOCOL", "a line is not a JSON object", {"reason": "not-an-object"})

@@ -7,7 +7,7 @@ import { postJson } from "../http.ts";
 import { withRetry } from "../retry.ts";
 import { resolveSecret } from "../secret.ts";
 import type { RerankAdapter, RerankOptions, RerankResult, ResolvedDeps } from "../types.ts";
-import { joinUrl, bearer } from "../embedding/base.ts";
+import { joinUrl, bearer, isStringArray } from "../embedding/base.ts";
 import { buildRerankBody, parseRerankResponse, RERANK_SHAPES } from "./shapes.ts";
 
 export function makeRerankAdapter(settings: RerankSettings, deps: ResolvedDeps): RerankAdapter {
@@ -17,7 +17,8 @@ export function makeRerankAdapter(settings: RerankSettings, deps: ResolvedDeps):
 
   async function run(query: string, docs: readonly string[], opts: RerankOptions): Promise<RerankResult[]> {
     if (typeof query !== "string" || query === "") throw new AdapterError("invalid_request", "query must be a non-empty string", { provider });
-    if (!Array.isArray(docs) || docs.some((d) => typeof d !== "string")) throw new AdapterError("invalid_request", "docs must be an array of strings", { provider });
+    if (!isStringArray(docs)) throw new AdapterError("invalid_request", "docs must be an array of strings", { provider });
+    if (opts === null || typeof opts !== "object") throw new AdapterError("invalid_request", "options must be an object", { provider });
     const topN = opts.topN;
     if (topN !== undefined && (!Number.isInteger(topN) || topN < 1)) throw new AdapterError("invalid_request", "topN must be a positive integer", { provider });
     if (opts.signal?.aborted) throw new AdapterError("aborted", "aborted before the request was sent", { provider });

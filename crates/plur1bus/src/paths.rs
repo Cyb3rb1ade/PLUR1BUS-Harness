@@ -30,7 +30,10 @@ fn is_absolute(platform: &str, s: &str) -> bool {
     }
     if platform == "windows" {
         let b = s.as_bytes();
-        b[0] == b'\\' || b[0] == b'/' || (s.len() >= 2 && b[1] == b':')
+        // A drive is an ASCII letter and a colon (Node: `1:\x` and `:\x` are relative paths).
+        b[0] == b'\\'
+            || b[0] == b'/'
+            || (s.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':')
     } else {
         s.starts_with('/')
     }
@@ -42,7 +45,36 @@ fn is_absolute(platform: &str, s: &str) -> bool {
 fn split_root(platform: &str, s: &str) -> (String, String) {
     let chars: Vec<char> = s.chars().collect();
     if platform == "windows" {
-        if chars.len() >= 2 && chars[1] == ':' {
+        // UNC and device paths (`\\server\share\…`, `\\?\C:\…`, `\\.\pipe\…`): exactly two separators, then a host, then a share.
+        // The root is `\\host\share\` (the names keep their case); with fewer parts, or with three or more separators in a row,
+        // it is not a UNC root but a root-relative path, like Node's `path.win32.resolve`.
+        if chars.len() >= 3
+            && is_sep(platform, chars[0])
+            && is_sep(platform, chars[1])
+            && !is_sep(platform, chars[2])
+        {
+            let mut i = 2;
+            let host_start = i;
+            while i < chars.len() && !is_sep(platform, chars[i]) {
+                i += 1;
+            }
+            let host: String = chars[host_start..i].iter().collect();
+            while i < chars.len() && is_sep(platform, chars[i]) {
+                i += 1;
+            }
+            let share_start = i;
+            while i < chars.len() && !is_sep(platform, chars[i]) {
+                i += 1;
+            }
+            let share: String = chars[share_start..i].iter().collect();
+            if !host.is_empty() && !share.is_empty() {
+                return (
+                    format!("\\\\{host}\\{share}\\"),
+                    chars[i..].iter().collect(),
+                );
+            }
+        }
+        if chars.len() >= 2 && chars[0].is_ascii_alphabetic() && chars[1] == ':' {
             let drive = format!("{}:", chars[0]);
             let mut i = 2;
             if i < chars.len() && is_sep(platform, chars[i]) {
@@ -87,12 +119,28 @@ fn normalize_absolute(platform: &str, root: &str, sep: char, rest: &str) -> Stri
     }
 }
 
+/// A Windows path that starts with a separator but is neither a UNC root nor a drive path (`\foo`, `/foo`, `\\\server`).
+fn is_rooted_without_drive(input: &str) -> bool {
+    let first = input.chars().next();
+    first.is_some_and(|c| is_sep("windows", c)) && split_root("windows", input).0 == "\\"
+}
+
 /// Absolutizes `input` against `cwd` (if it is not already absolute for
 /// `platform`) and normalizes it lexically — the Rust equivalent of Node's
 /// `path.resolve(input)` (POSIX or Windows variant, chosen by `platform`).
 fn resolve_and_normalize(platform: &str, cwd: &Path, input: &str) -> PathBuf {
     let sep = if platform == "windows" { '\\' } else { '/' };
-    let raw = if is_absolute(platform, input) {
+    let raw = if platform == "windows" && is_rooted_without_drive(input) {
+        // `\foo` and `/foo` name a place on the working directory's drive (or share): its root, then the rest.
+        let (root, _) = split_root(platform, &cwd.to_string_lossy());
+        let root = if root.is_empty() || root == "\\" {
+            "\\".to_string()
+        } else {
+            root
+        };
+        let (_, rest) = split_root(platform, input);
+        format!("{root}{rest}")
+    } else if is_absolute(platform, input) {
         input.to_string()
     } else {
         join_with(sep, &cwd.to_string_lossy(), &[input])
@@ -689,5 +737,276 @@ mod tests {
         assert_eq!(layout.recorded_pid(Endpoint::Supervisor), Some(77));
         std::fs::write(layout.core_pid(), "not-a-pid\n").unwrap();
         assert_eq!(layout.recorded_pid(Endpoint::Core), None);
+    }
+
+    // ---- Step 13: home resolution against Node's `path.win32.resolve` and `path.posix.resolve` ---------------------------
+
+    fn home_for(platform: &str, cwd: &str, input: &str) -> String {
+        resolve_home(
+            Some(Path::new(input)),
+            &HashMap::new(),
+            platform,
+            Path::new("/unused"),
+            None,
+            Path::new(cwd),
+        )
+        .to_string_lossy()
+        .into_owned()
+    }
+
+    /// Node's answers (`path.win32.resolve("C:\\work\\cwd", input)`, run on the date of this change): the home the core resolves.
+    /// The CLI must name the same directory, byte for byte, because the core's address and the home directory's identity are
+    /// derived from the string.
+    const WIN32_RESOLVE: &[(&str, &str)] = &[
+        (r"D:\a\b", r"D:\a\b"),
+        ("D:/a/b", r"D:\a\b"),
+        (r"d:\a\..\b", r"d:\b"),
+        (r"D:\", r"D:\"),
+        (r"C:\a\\b\.\c\", r"C:\a\b\c"),
+        (r"C:\a b\ü", r"C:\a b\ü"),
+        (r"rel\x", r"C:\work\cwd\rel\x"),
+        (r".\x", r"C:\work\cwd\x"),
+        (r"..\x", r"C:\work\x"),
+        (r"..\..\..\..\x", r"C:\x"),
+        ("a b/ö ü", r"C:\work\cwd\a b\ö ü"),
+    ];
+
+    /// UNC paths, a path that starts with one separator (the current drive) and "drives" whose first character is not a letter:
+    /// Node's answers for `cwd = C:\work\cwd`, `(input, resolved)`.
+    const WIN32_RESOLVE_ODD: &[(&str, &str)] = &[
+        (r"\\server\share\x", r"\\server\share\x"),
+        ("//server/share/x", r"\\server\share\x"),
+        (r"\\server\share", r"\\server\share\"),
+        (r"\\server\share\..\..\x", r"\\server\share\x"),
+        (r"\\server\share\a\..\b", r"\\server\share\b"),
+        (r"\\Server\Share\X", r"\\Server\Share\X"),
+        ("//SERVER/share/ä ö", r"\\SERVER\share\ä ö"),
+        (r"\\?\C:\x\y", r"\\?\C:\x\y"),
+        (r"\\?\UNC\server\share\x", r"\\?\UNC\server\share\x"),
+        (r"\\.\C:\x", r"\\.\C:\x"),
+        (r"\\server", r"C:\server"),
+        (r"\\\server\share\x", r"C:\server\share\x"),
+        (r"\", r"C:\"),
+        ("/", r"C:\"),
+        (r"\foo\bar", r"C:\foo\bar"),
+        ("/foo/bar", r"C:\foo\bar"),
+        (r"\..\..\x", r"C:\x"),
+        ("/a/../../b", r"C:\b"),
+        (r"C:\..\..\x", r"C:\x"),
+        (r":\foo", r"C:\work\cwd\:\foo"),
+        (":foo", r"C:\work\cwd\:foo"),
+        (r"1:\x", r"C:\work\cwd\1:\x"),
+        (r"ä:\x", r"C:\work\cwd\ä:\x"),
+    ];
+
+    /// `(cwd, input, resolved)` with a UNC or another drive as the working directory.
+    const WIN32_RESOLVE_OTHER_CWD: &[(&str, &str, &str)] = &[
+        (r"\\nas\data\work", r"\foo", r"\\nas\data\foo"),
+        (r"\\nas\data\work", "rel", r"\\nas\data\work\rel"),
+        (r"D:\work", r"\foo", r"D:\foo"),
+        (r"D:\work", "/foo", r"D:\foo"),
+        (r"D:\work", "rel", r"D:\work\rel"),
+    ];
+
+    #[test]
+    fn windows_homes_resolve_like_node_for_ordinary_paths_spaces_and_umlauts() {
+        for (input, want) in WIN32_RESOLVE {
+            assert_eq!(
+                home_for("windows", r"C:\work\cwd", input),
+                *want,
+                "{input:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn posix_homes_resolve_like_node_including_spaces_umlauts_and_no_tilde_expansion() {
+        for (input, want) in [
+            ("/a/b", "/a/b"),
+            ("/a/../b", "/b"),
+            ("a b/ü", "/work/cwd/a b/ü"),
+            ("//a//b", "/a/b"),
+            ("~/x", "/work/cwd/~/x"),
+            ("..", "/work"),
+            ("../..", "/"),
+            ("../../../../x", "/x"),
+            ("/", "/"),
+            ("/a/b/", "/a/b"),
+            ("/a/./b", "/a/b"),
+            ("日本語/ö", "/work/cwd/日本語/ö"),
+        ] {
+            assert_eq!(home_for("posix", "/work/cwd", input), want, "{input:?}");
+        }
+    }
+
+    /// The defaults ignore the XDG variables (docs: "default: ~/.plur1bus, %LOCALAPPDATA%\\PLUR1BUS, or $PLUR1BUS_HOME").
+    #[test]
+    fn the_default_home_ignores_xdg_variables_and_an_empty_plur1bus_home() {
+        let mut env: HashMap<String, String> = HashMap::new();
+        for k in [
+            "XDG_CONFIG_HOME",
+            "XDG_DATA_HOME",
+            "XDG_STATE_HOME",
+            "XDG_CACHE_HOME",
+            "XDG_RUNTIME_DIR",
+        ] {
+            env.insert(k.into(), "/somewhere/else".into());
+        }
+        env.insert("PLUR1BUS_HOME".into(), String::new());
+        for home_dir in [
+            "/home/anna",
+            "/home/anna bü",
+            "/Users/Jürgen Müller",
+            "/home/日本語",
+            "/h",
+        ] {
+            let got = resolve_home(
+                None,
+                &env,
+                "posix",
+                Path::new(home_dir),
+                None,
+                Path::new("/cwd"),
+            );
+            assert_eq!(
+                got,
+                PathBuf::from(format!("{home_dir}/.plur1bus")),
+                "{home_dir}"
+            );
+        }
+        // A home directory with a trailing separator does not double it.
+        assert_eq!(
+            resolve_home(
+                None,
+                &env,
+                "posix",
+                Path::new("/home/anna/"),
+                None,
+                Path::new("/cwd")
+            ),
+            PathBuf::from("/home/anna/.plur1bus")
+        );
+        // On Windows: LOCALAPPDATA from the argument, else the variable, else <home>\AppData\Local; an empty value counts as unset.
+        let win = |env: &HashMap<String, String>, lad: Option<&str>| {
+            resolve_home(
+                None,
+                env,
+                "windows",
+                Path::new(r"C:\Users\Jürgen"),
+                lad.map(Path::new),
+                Path::new(r"C:\cwd"),
+            )
+            .to_string_lossy()
+            .into_owned()
+        };
+        assert_eq!(
+            win(&HashMap::new(), None),
+            r"C:\Users\Jürgen\AppData\Local\PLUR1BUS"
+        );
+        assert_eq!(
+            win(
+                &HashMap::from([("LOCALAPPDATA".to_string(), r"D:\Daten & Mehr".to_string())]),
+                None
+            ),
+            r"D:\Daten & Mehr\PLUR1BUS"
+        );
+        assert_eq!(
+            win(
+                &HashMap::from([("LOCALAPPDATA".to_string(), String::new())]),
+                None
+            ),
+            r"C:\Users\Jürgen\AppData\Local\PLUR1BUS"
+        );
+        assert_eq!(
+            win(
+                &HashMap::from([("LOCALAPPDATA".to_string(), r"D:\env".to_string())]),
+                Some(r"E:\arg")
+            ),
+            r"E:\arg\PLUR1BUS"
+        );
+        assert_eq!(
+            win(&HashMap::new(), Some("")),
+            r"C:\Users\Jürgen\AppData\Local\PLUR1BUS"
+        );
+    }
+
+    #[test]
+    fn very_long_homes_resolve_without_panicking_and_keep_every_segment() {
+        let segment = "ä".repeat(60);
+        for platform in ["posix", "windows"] {
+            let sep = if platform == "windows" { '\\' } else { '/' };
+            let root = if platform == "windows" { r"C:\" } else { "/" };
+            for depth in [1usize, 5, 40, 300] {
+                let input = format!(
+                    "{root}{}",
+                    vec![segment.as_str(); depth].join(&sep.to_string())
+                );
+                let got = home_for(
+                    platform,
+                    if platform == "windows" {
+                        r"C:\cwd"
+                    } else {
+                        "/cwd"
+                    },
+                    &input,
+                );
+                assert_eq!(
+                    got,
+                    input,
+                    "{platform} depth {depth} ({} chars)",
+                    input.len()
+                );
+                // And as a relative path under a long cwd.
+                let cwd = if platform == "windows" {
+                    format!(r"C:\{}", segment.repeat(5))
+                } else {
+                    format!("/{}", segment.repeat(5))
+                };
+                let rel = home_for(
+                    platform,
+                    &cwd,
+                    &vec![segment.as_str(); depth].join(&sep.to_string()),
+                );
+                assert!(
+                    rel.starts_with(&cwd) && rel.ends_with(&segment),
+                    "{platform}: {}",
+                    rel.len()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn an_empty_or_dot_only_home_is_the_working_directory_like_node() {
+        assert_eq!(home_for("posix", "/work/cwd", ""), "/work/cwd");
+        assert_eq!(home_for("posix", "/work/cwd", "."), "/work/cwd");
+        assert_eq!(home_for("posix", "/work/cwd", "./"), "/work/cwd");
+        assert_eq!(home_for("windows", r"C:\work\cwd", ""), r"C:\work\cwd");
+        assert_eq!(home_for("windows", r"C:\work\cwd", "."), r"C:\work\cwd");
+    }
+
+    #[test]
+    fn windows_homes_that_start_with_a_separator_or_a_non_letter_drive_resolve_like_node() {
+        let mut wrong = Vec::new();
+        for (input, want) in WIN32_RESOLVE_ODD {
+            let got = home_for("windows", r"C:\work\cwd", input);
+            if got != *want {
+                wrong.push(format!(
+                    "{input:?}: Node resolves it to {want:?}, this resolver to {got:?}"
+                ));
+            }
+        }
+        for (cwd, input, want) in WIN32_RESOLVE_OTHER_CWD {
+            let got = home_for("windows", cwd, input);
+            if got != *want {
+                wrong.push(format!("{input:?} under {cwd:?}: Node resolves it to {want:?}, this resolver to {got:?}"));
+            }
+        }
+        assert!(
+            wrong.is_empty(),
+            "{} difference(s) from Node:\n{}",
+            wrong.len(),
+            wrong.join("\n")
+        );
     }
 }

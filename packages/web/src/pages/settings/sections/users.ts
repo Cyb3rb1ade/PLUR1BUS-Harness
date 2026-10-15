@@ -4,7 +4,7 @@
 // Two tabs, `?tab=identities` selects the second: Identities (the former `/identities` route, #387) keeps its own rules, so
 // every role that could open that route can open the tab.
 import { h } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useState, useRef } from "preact/hooks";
 import type { View } from "../../../view.ts";
 import { BreakGlassDialog } from "../../../components/break-glass.ts";
 import { Badge, Card } from "../../../components/card.ts";
@@ -14,7 +14,7 @@ import { Tabs } from "../../../components/tabs.ts";
 import { formatDateTime, t, type Key } from "../../../i18n.ts";
 import { navigate, query } from "../../../router.ts";
 import { sessionState } from "../../../session.ts";
-import { currentRole, ROLE_PRESETS, roleIn, useLoad, type RolePreset } from "../../common/load.ts";
+import { getApi, currentRole, ROLE_PRESETS, roleIn, useLoad, type RolePreset } from "../../common/load.ts";
 import { FailureState } from "../../common/states.ts";
 import { IdentitiesPanel } from "../users/identities.ts";
 import { InviteDialog } from "../users/invite.ts";
@@ -36,10 +36,11 @@ const NOT = ["not1", "not2"] as const;
 const key = (r: string, part: string): Key => `users.preset.${r}.${part}` as Key;
 
 function PersonRow({
-  row, canManage, onRoleChange, onBreakGlass,
+  row, canManage, onRoleChange, onBreakGlass, onStatus,
 }: {
   row: Row;
   canManage: boolean;
+  onStatus: (r: Row) => void;
   onRoleChange: (r: Row, newRole: RolePreset) => void;
   onBreakGlass: (r: Row) => void;
 }): View {
@@ -61,6 +62,7 @@ function PersonRow({
             ROLE_PRESETS.map((r) => h("option", { key: r, value: r, selected: r === row.role }, presetName(r))))
         : h(Badge, { tone: row.role === null ? "neutral" : "info" }, row.role === null ? t("users.role.unknown") : presetName(row.role)),
       row.statusKeys.map((s) => h(Badge, { key: s.key, tone: s.key === "users.status.signedIn" ? "ok" : "neutral" }, s.n === undefined ? t(s.key) : t(s.key, { n: s.n })))),
+    canManage && row.disabled !== undefined ? h("button", { type: "button", class: "btn btn-quiet", onClick: () => onStatus(row) }, t(row.disabled ? "users.enable" : "users.disable")) : null,
     row.self ? null : h("button", { type: "button", class: "btn btn-quiet", onClick: () => { onBreakGlass(row); } }, t("users.bg.action", { name: row.name })));
 }
 
@@ -73,6 +75,8 @@ function People({
   onBreakGlass: (r: Row) => void;
 }): View {
   const { state, reload } = useLoad((signal) => fetchUsers(self, signal), [self.id]);
+  const [statusTarget, setStatusTarget] = useState<Row | null>(null);
+  const statusLock = useRef(false);
   const [roleOverrides, setRoleOverrides] = useState<Record<string, RolePreset>>({});
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -83,11 +87,8 @@ function People({
     const outcome = await setUserRole(target.id, newRole);
     if (!outcome.ok) {
       if (prevRole) setRoleOverrides((prev) => ({ ...prev, [target.id]: prevRole }));
-      if (outcome.error === "last-owner") {
-        setNotice(t("users.role.lastOwner"));
-      } else {
-        setNotice(outcome.message ?? t("users.role.lastOwner"));
-      }
+      // Never the server's text, and only a real last-owner refusal gets the last-owner sentence.
+      setNotice(outcome.error === "last-owner" ? t("users.role.lastOwner") : outcome.error === "forbidden" ? t("users.role.forbidden") : t("users.role.failed"));
     } else {
       setNotice(t("users.role.success"));
     }
@@ -105,11 +106,18 @@ function People({
     body = h("div", null,
       notice ? h("p", { class: "form-notice", role: "alert" }, notice) : null,
       h("ul", { class: "plain-list users-list", "aria-label": t("users.list.label") },
-        rows.map((r) => h(PersonRow, { key: r.id, row: r, canManage, onRoleChange: handleRoleChange, onBreakGlass }))),
+        rows.map((r) => h(PersonRow, { key: r.id, row: r, canManage, onRoleChange: handleRoleChange, onBreakGlass, onStatus: setStatusTarget }))),
       rows.length === 1 ? h("p", { class: "users-empty" }, t("users.empty")) : null);
   }
 
-  return h("section", { class: "card users-block", "aria-labelledby": "users-people-h" }, head, body);
+  return h("section", { class: "card users-block", "aria-labelledby": "users-people-h" }, head, body,
+    statusTarget ? h(ConfirmDialog, { title: t(statusTarget.disabled ? "users.enable" : "users.disable"), confirmLabel: t(statusTarget.disabled ? "users.enable" : "users.disable"), danger: !statusTarget.disabled, onClose: () => { if (!statusLock.current) setStatusTarget(null); }, onConfirm: async () => {
+      if (statusLock.current) return { ok: false as const, message: t("shared.confirm.working") };
+      statusLock.current = true;
+      try { await getApi().rpc(statusTarget.disabled ? "user.enable" : "user.disable", { userId: statusTarget.id }); reload(); return { ok: true as const }; }
+      catch (e) { return { ok: false as const, message: (e as { reason?: string }).reason === "last-owner" ? t("users.status.lastOwner") : t("users.status.failed") }; }
+      finally { statusLock.current = false; }
+    } }, t("users.status.confirm", { name: statusTarget.name })) : null);
 }
 
 function OpenInvites({ reloadKey }: { reloadKey: number }): View | null {
@@ -180,7 +188,7 @@ function ActiveGrants(): View | null {
       setNotice(t("users.bg.revoked"));
       void load();
     } catch {
-      // Ignore
+      setNotice(t("users.bg.revokeFailed"));
     }
   };
 

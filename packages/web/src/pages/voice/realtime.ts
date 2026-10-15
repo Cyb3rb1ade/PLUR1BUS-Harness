@@ -15,7 +15,7 @@ import { VOICE_FEATURES } from "../../api/voice.types.ts";
 import { UnavailableError } from "../../api/errors.ts";
 import { FailureState, Notice } from "../common/states.ts";
 import { useLoad } from "../common/load.ts";
-import { voiceFailure } from "./language.ts";
+import { voiceErrorText, voiceFailure } from "./language.ts";
 import { BUDGET_MS, ENDPOINTING, clampInt, draftOf, modesOf, msText, parseBudget, setParams, type Draft, type FieldId, voiceErrorOf } from "./model.ts";
 
 registerArea("voice", voiceArea);
@@ -139,7 +139,7 @@ function RealtimeLoaded({ data, canEdit }: { data: RealtimeData; canEdit: boolea
     try {
       const next = await getApi().rpc("voice.realtime.profile.set", setParams(draft));
       setSaved(next); setDraft(draftOf(next)); setMsg({ tone: "ok", text: t("voice.rt.saved") });
-    } catch { setMsg({ tone: "err", text: t("voice.rt.saveFailed") }); }
+    } catch (e) { setMsg({ tone: "err", text: voiceErrorText(e, "voice.rt.saveFailed") }); }
     setBusy(false);
   };
   const effective: Partial<Record<VoiceFeatureName, VoiceFeatureEffective>> = {};
@@ -147,7 +147,7 @@ function RealtimeLoaded({ data, canEdit }: { data: RealtimeData; canEdit: boolea
   return h("div", { class: "voice-rt-page" },
     h(Card, { title: t("voice.rt.title"), level: 3 },
       h("p", { class: "reading" }, t("voice.rt.lead")),
-      h(RealtimeForm, { idp: "voice-rt", draft, onChange: (d) => { setDraft(d); setMsg(null); }, canEdit, effective, metrics: data.metrics }),
+      h(RealtimeForm, { idp: "voice-rt", draft, onChange: (d) => { setDraft(d); setMsg(null); }, canEdit: canEdit && !busy, effective, metrics: data.metrics }),
       h("div", { class: "setup-nav" }, h("button", { type: "button", class: "btn btn-primary", id: "voice-rt-save", disabled: !canEdit || busy, onClick: () => { void save(); } }, t("voice.rt.save"))),
       msg ? h("p", { role: msg.tone === "err" ? "alert" : "status", class: msg.tone === "err" ? "form-error" : "field-hint" }, msg.text) : null,
       !canEdit ? h(Notice, {}, t("voice.readonly")) : null),

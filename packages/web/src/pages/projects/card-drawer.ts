@@ -1,5 +1,5 @@
 import { h, type ComponentChildren } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Badge } from "../../components/card.ts";
 import { icon } from "../../icons.ts";
@@ -91,6 +91,14 @@ export function CardDrawer({
     void loadActivity();
   }, [card.id]);
 
+  // A modal drawer takes the focus when it opens and gives it back to the card that opened it.
+  const drawerEl = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    drawerEl.current?.focus();
+    return () => { if (opener?.isConnected) opener.focus(); };
+  }, []);
+
   // Handle ESC key to close drawer
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -129,6 +137,22 @@ export function CardDrawer({
       setError(err instanceof Error ? err.message : t("projects.error.generic"));
     } finally {
       setSubmittingComment(false);
+    }
+  };
+
+  const handlePriorityChange = async (priority: BoardCard["priority"]) => {
+    if (priority === card.priority) return;
+    try {
+      setError(null);
+      await getApi().rpc(
+        "project.card.update",
+        { projectId: card.projectId, cardId: card.id, priority },
+        { write: true },
+      );
+      onAnnounce(t("projects.activity.updated"));
+      onUpdate();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("projects.error.generic"));
     }
   };
 
@@ -209,6 +233,8 @@ export function CardDrawer({
       "aside",
       {
         class: "card-drawer",
+        ref: drawerEl,
+        tabIndex: -1,
         role: "dialog",
         "aria-modal": "true",
         "aria-label": card.title,
@@ -501,6 +527,29 @@ export function CardDrawer({
           ? h(
               "footer",
               { class: "drawer-footer" },
+              h(
+                "label",
+                { class: "drawer-priority", for: `priority-${card.id}` },
+                t("projects.card.priorityChange"),
+                h(
+                  "select",
+                  {
+                    id: `priority-${card.id}`,
+                    value: card.priority,
+                    onChange: (e: Event) =>
+                      void handlePriorityChange(
+                        (e.currentTarget as HTMLSelectElement).value as BoardCard["priority"],
+                      ),
+                  },
+                  (["none", "low", "normal", "high", "urgent"] as const).map((p) =>
+                    h(
+                      "option",
+                      { key: p, value: p },
+                      t(`projects.card.priority${p.charAt(0).toUpperCase() + p.slice(1)}` as any),
+                    ),
+                  ),
+                ),
+              ),
               h(
                 "button",
                 {

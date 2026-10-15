@@ -127,8 +127,25 @@ export async function writeTarGz(source, out) {
       cb(null, chunk);
     },
   });
+  // zlib records its build platform in byte 9 of the gzip header (OS: 3 Unix, 19 macOS, 10 Windows). Pin it to 255
+  // ("unknown"), as scripts/build-hermes-provider.mjs does, so the archive does not depend on the runner.
+  let head = Buffer.alloc(0);
+  const pinOs = new Transform({
+    transform(chunk, _enc, cb) {
+      if (head === null) return cb(null, chunk);
+      head = Buffer.concat([head, chunk]);
+      if (head.length < 10) return cb();
+      head[9] = 0xff;
+      const out = head;
+      head = null;
+      cb(null, out);
+    },
+    flush(cb) {
+      cb(null, head && head.length ? head : undefined);
+    },
+  });
   try {
-    await pipeline(Readable.from(tarStream(list, mtime)), createGzip({ level: 9 }), tee, createWriteStream(tmp));
+    await pipeline(Readable.from(tarStream(list, mtime)), createGzip({ level: 9 }), pinOs, tee, createWriteStream(tmp));
     const fd = openSync(tmp, "r+");
     try {
       fsyncSync(fd);

@@ -16,13 +16,24 @@ export type InlineNode =
   | { kind: "em"; text: string }
   | { kind: "link"; text: string; href: string };
 
+const SPECIAL = /[`[*]/g;
+
 function parseInlines(text: string): InlineNode[] {
   const nodes: InlineNode[] = [];
+  // A closer that is absent after position i is absent after every later position: remember it, so a line of unclosed
+  // openers is scanned once, not once per opener (quadratic on a long line of "[" or "`").
+  const gone = new Set<string>();
+  const find = (needle: string, from: number): number => {
+    if (gone.has(needle)) return -1;
+    const at = text.indexOf(needle, from);
+    if (at < 0) gone.add(needle);
+    return at;
+  };
   let i = 0;
   while (i < text.length) {
     // Inline code `...`
     if (text[i] === "`") {
-      const end = text.indexOf("`", i + 1);
+      const end = find("`", i + 1);
       if (end > i) {
         nodes.push({ kind: "code", text: text.slice(i + 1, end) });
         i = end + 1;
@@ -32,9 +43,9 @@ function parseInlines(text: string): InlineNode[] {
 
     // Markdown link [text](url)
     if (text[i] === "[") {
-      const closeB = text.indexOf("]", i + 1);
+      const closeB = find("]", i + 1);
       if (closeB > i && text[closeB + 1] === "(") {
-        const closeP = text.indexOf(")", closeB + 2);
+        const closeP = find(")", closeB + 2);
         if (closeP > closeB) {
           const linkText = text.slice(i + 1, closeB);
           const href = text.slice(closeB + 2, closeP).trim();
@@ -47,7 +58,7 @@ function parseInlines(text: string): InlineNode[] {
 
     // Strong **text**
     if (text.startsWith("**", i)) {
-      const end = text.indexOf("**", i + 2);
+      const end = find("**", i + 2);
       if (end > i) {
         nodes.push({ kind: "strong", text: text.slice(i + 2, end) });
         i = end + 2;
@@ -57,7 +68,7 @@ function parseInlines(text: string): InlineNode[] {
 
     // Em *text*
     if (text[i] === "*" && text[i + 1] !== "*") {
-      const end = text.indexOf("*", i + 1);
+      const end = find("*", i + 1);
       if (end > i) {
         nodes.push({ kind: "em", text: text.slice(i + 1, end) });
         i = end + 1;
@@ -66,18 +77,15 @@ function parseInlines(text: string): InlineNode[] {
     }
 
     // Plain text up to next special char
-    let nextSpecial = text.length;
-    for (const spec of ["`", "[", "*"]) {
-      const pos = text.indexOf(spec, i);
-      if (pos >= 0 && pos < nextSpecial) {
-        nextSpecial = pos;
-      }
-    }
-    const plain = text.slice(i, nextSpecial);
-    if (plain) {
-      nodes.push({ kind: "text", text: plain });
-    }
-    i = nextSpecial === i ? i + 1 : nextSpecial;
+    SPECIAL.lastIndex = i;
+    const nextSpecial = SPECIAL.exec(text)?.index ?? text.length;
+    // A special character that opened no construct (lone `*`, unclosed backtick, `[` without `](`) is literal text.
+    const stop = nextSpecial === i ? i + 1 : nextSpecial;
+    const plain = text.slice(i, stop);
+    const last = nodes[nodes.length - 1];
+    if (last?.kind === "text") last.text += plain;
+    else nodes.push({ kind: "text", text: plain });
+    i = stop;
   }
   return nodes;
 }
@@ -90,9 +98,19 @@ function slugify(text: string): string {
     .replace(/\s+/g, "-");
 }
 
+/** Heading ids are unique within a document (a repeated heading gets -1, -2, ...) and never empty ("!!!" -> "section"). */
+function uniqueId(text: string, used: Set<string>): string {
+  const base = slugify(text) || "section";
+  let id = base;
+  for (let n = 1; used.has(id); n++) id = `${base}-${n}`;
+  used.add(id);
+  return id;
+}
+
 export function parseMarkdown(markdown: string): MarkdownNode[] {
   const lines = markdown.split(/\r?\n/);
   const nodes: MarkdownNode[] = [];
+  const usedIds = new Set<string>();
   let i = 0;
 
   while (i < lines.length) {
@@ -127,7 +145,7 @@ export function parseMarkdown(markdown: string): MarkdownNode[] {
     if (hMatch && hMatch[1] && hMatch[2]) {
       const level = hMatch[1].length;
       const text = hMatch[2].trim();
-      nodes.push({ kind: "h", level, text, id: slugify(text) });
+      nodes.push({ kind: "h", level, text, id: uniqueId(text, usedIds) });
       i++;
       continue;
     }
@@ -137,7 +155,7 @@ export function parseMarkdown(markdown: string): MarkdownNode[] {
     if (i + 1 < lines.length && /^\s*(=+|-+)\s*$/.test(nextLine) && line.trim()) {
       const level = nextLine.trim().startsWith("=") ? 1 : 2;
       const text = line.trim();
-      nodes.push({ kind: "h", level, text, id: slugify(text) });
+      nodes.push({ kind: "h", level, text, id: uniqueId(text, usedIds) });
       i += 2;
       continue;
     }
@@ -209,7 +227,33 @@ export function parseMarkdown(markdown: string): MarkdownNode[] {
   return nodes;
 }
 
-function renderInline(node: InlineNode, key: number | string): View {
+export type RenderOptions = {
+  /** Slug of the document being rendered: a bare `#anchor` link becomes `#/help/<slug>#anchor`, because a bare hash would be taken for a route. */
+  slug?: string;
+  /** Whether a handbook page with this slug exists; a `.md` link to anything else (docs outside the handbook) is shown as text, not as a dead link. */
+  hasDoc?: (slug: string) => boolean;
+};
+
+const DOC_LINK = /(?:^|\/)([\p{L}\p{N}_-]+)\.md(?:#([^\s#]*))?$/u;
+
+/** Where a markdown link may point. Only http(s) and mailto leave the app, in a new tab without opener; handbook pages and
+ *  anchors stay inside the hash router. Everything else (javascript:, data:, vbscript:, protocol-relative, unknown relative
+ *  paths) yields null: the link text is rendered, the target is dropped. */
+export function resolveHref(raw: string, opts: RenderOptions = {}): { href: string; external: boolean } | null {
+  // Browsers ignore tabs, newlines and other control characters inside a URL scheme ("java\tscript:"), so judge the cleaned form.
+  const href = raw.replace(/[\u0000-\u0020\u007f-\u009f]+/g, "");
+  if (href === "") return null;
+  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(href)?.[1]?.toLowerCase();
+  if (scheme !== undefined) return scheme === "http" || scheme === "https" || scheme === "mailto" ? { href, external: true } : null;
+  if (href.startsWith("//") || href.startsWith("\\")) return null;
+  if (href.startsWith("#/")) return { href, external: false };
+  if (href.startsWith("#")) return { href: opts.slug ? `#/help/${opts.slug}${href}` : href, external: false };
+  const md = DOC_LINK.exec(href);
+  if (md?.[1] && (!opts.hasDoc || opts.hasDoc(md[1]))) return { href: `#/help/${md[1]}${md[2] ? `#${md[2]}` : ""}`, external: false };
+  return null;
+}
+
+function renderInline(node: InlineNode, key: number | string, opts: RenderOptions): View {
   switch (node.kind) {
     case "text":
       return h("span", { key }, node.text);
@@ -220,27 +264,14 @@ function renderInline(node: InlineNode, key: number | string): View {
     case "em":
       return h("em", { key }, node.text);
     case "link": {
-      // Safe link handling: sanitize href
-      let href = node.href;
-      // Transform relative doc links like quickstart.md or ../en/operations.md to #/help/<slug>
-      const mdMatch = href.match(/(?:^|\/)([a-zA-Z0-9_-]+)\.md(?:#([a-zA-Z0-9_-]+))?$/);
-      if (mdMatch) {
-        const slug = mdMatch[1];
-        const hash = mdMatch[2] ? `#${mdMatch[2]}` : "";
-        href = `#/help/${slug}${hash}`;
-        return h("a", { key, href }, node.text);
-      }
-      // If external link, open in system browser with rel="noopener noreferrer"
-      if (/^https?:\/\//i.test(href)) {
-        return h("a", { key, href, target: "_blank", rel: "noopener noreferrer" }, node.text);
-      }
-      // Internal or hash
-      return h("a", { key, href }, node.text);
+      const target = resolveHref(node.href, opts);
+      if (target === null) return h("span", { key }, node.text);
+      return h("a", { key, href: target.href, ...(target.external ? { target: "_blank", rel: "noopener noreferrer" } : {}) }, node.text);
     }
   }
 }
 
-export function renderMarkdown(nodes: MarkdownNode[]): View {
+export function renderMarkdown(nodes: MarkdownNode[], opts: RenderOptions = {}): View {
   return h(
     "div",
     { class: "markdown-body" },
@@ -251,13 +282,13 @@ export function renderMarkdown(nodes: MarkdownNode[]): View {
           return h(tag, { key: idx, id: node.id }, node.text);
         }
         case "p":
-          return h("p", { key: idx }, node.children.map((c, i) => renderInline(c, i)));
+          return h("p", { key: idx }, node.children.map((c, i) => renderInline(c, i, opts)));
         case "codeblock":
-          return h("pre", { key: idx }, h("code", { class: node.lang ? `language-${node.lang}` : undefined }, node.code));
+          return h("pre", { key: idx, tabIndex: 0 }, h("code", { class: node.lang ? `language-${node.lang}` : undefined }, node.code));
         case "ul":
-          return h("ul", { key: idx }, node.items.map((item, i) => h("li", { key: i }, item.map((c, ci) => renderInline(c, ci)))));
+          return h("ul", { key: idx }, node.items.map((item, i) => h("li", { key: i }, item.map((c, ci) => renderInline(c, ci, opts)))));
         case "ol":
-          return h("ol", { key: idx }, node.items.map((item, i) => h("li", { key: i }, item.map((c, ci) => renderInline(c, ci)))));
+          return h("ol", { key: idx }, node.items.map((item, i) => h("li", { key: i }, item.map((c, ci) => renderInline(c, ci, opts)))));
         case "table":
           return h(
             "div",
@@ -265,12 +296,12 @@ export function renderMarkdown(nodes: MarkdownNode[]): View {
             h(
               "table",
               {},
-              h("thead", {}, h("tr", {}, node.headers.map((hdr, hi) => h("th", { key: hi }, hdr.map((c, ci) => renderInline(c, ci)))))),
+              h("thead", {}, h("tr", {}, node.headers.map((hdr, hi) => h("th", { key: hi }, hdr.map((c, ci) => renderInline(c, ci, opts)))))),
               h(
                 "tbody",
                 {},
                 node.rows.map((row, ri) =>
-                  h("tr", { key: ri }, row.map((cell, ci) => h("td", { key: ci }, cell.map((c, cii) => renderInline(c, cii))))),
+                  h("tr", { key: ri }, row.map((cell, ci) => h("td", { key: ci }, cell.map((c, cii) => renderInline(c, cii, opts))))),
                 ),
               ),
             ),

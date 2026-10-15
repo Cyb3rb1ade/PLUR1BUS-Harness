@@ -76,6 +76,15 @@ describe("dist/core.js", () => {
     const exit = await new Promise<number | null>((r) => child.once("exit", r));
     assert.equal(exit, 0);
   });
+  it("SIGINT stops the core cleanly and exits 130 (interrupted-process convention); run files removed", { skip: process.platform === "win32" && "POSIX signal semantics" }, async () => {
+    const home = tempDir("p1b-bin-"); const l = layout(home);
+    const cfg = defaults(); cfg.agents.bernd = {}; cfg.engine = { reranker: { enabled: false }, dreaming: { enabled: false }, neo: { enabled: false } };
+    writeFileSync(l.configPath, JSON.stringify(cfg));
+    const { child, ready } = startCore(home); await ready;
+    child.kill("SIGINT");
+    assert.equal(await new Promise<number | null>((r) => child.once("exit", r)), 130);
+    assert.equal(existsSync(l.coreToken), false, "run files removed");
+  });
   it("--lifeline other than stdin exits 2", async () => {
     const child = spawn(process.execPath, [dist, "--home", tempDir("p1b-bin-"), "--lifeline", "fd3"], { stdio: "ignore" });
     assert.equal(await new Promise((r) => child.once("exit", r)), 2);

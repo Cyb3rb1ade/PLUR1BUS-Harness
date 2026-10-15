@@ -21,14 +21,16 @@ a plain `pnpm test` stays green; `PLUR1BUS_WEB_E2E_REQUIRED=1` turns a missing b
 that installs one). `UPDATE_SNAPSHOTS=1` rewrites `test/fixtures/responsive.json`; `PLUR1BUS_WEB_SHOTS_DIR=<dir>` also
 writes pixel screenshots there (not committed: they vary with fonts and OS).
 
-All tests run against `test/mock-server.ts`: the built files under the strict CSP of ADR-004 plus a mock of the
+Page-state tests run against `test/mock-server.ts`: the built files under the strict CSP of ADR-004 plus a mock of the
 provisional session routes, on `127.0.0.1` with an ephemeral port. No test reaches a real harness or the network.
 
 ## Layout and routes
 
 Sidebar groups as in `src/nav.ts`, which the canvas follows since 2026-10-11 (desktop spec §13.9): **Workspace** (Chat,
 Projects, Agents, Inbox, Memories & Dreams), **Build** (Library, Skills, Plugins, Models, Switchboard, Recurring Tasks),
-**Control** (Approvals, Usage & Quota, Doctor, Logs); **Settings** and **Help** are pinned at the bottom. Routes are hash
+**Control** (Approvals, Break-Glass, Usage & Quota, Doctor, Logs); **Settings** and **Help** are pinned at the bottom.
+The Settings page's section nav starts with a *My identities* link (`nav.identities`, `#/settings/users?tab=identities`;
+canvas `V2People`, desktop spec §13.10). Routes are hash
 routes (`#/chat`, …, `#/login`) so a static host needs no history fallback. The landing route is Chat (owner call O2).
 A signed-out visit goes to `#/login` and returns to the requested page after sign-in; a signed-in visit to `#/login` goes
 to Chat. Navigation moves focus to the page heading.
@@ -87,3 +89,5 @@ CSRF tokens are never kept. The session cookie is the server's `HttpOnly` cookie
 - The production CSP adds a per-response nonce; nothing here uses one, so the static build already satisfies it.
 - Wordmark morph (`V2LogoMorph`), Projects list in the sidebar, badges, the "More" menu for primary header actions
   of real pages, and dark variants of every board are page-level work.
+
+The additional `test/real-transport.test.ts` opens Inbox, Chat list and Settings against the actual API, Core and supervisor. Build CLI/Core and install Chromium first; `PLUR1BUS_WEB_TRANSPORT_REQUIRED=1` makes missing prerequisites an error. The API package also tests invitations, RBAC, event isolation and config enforcement over actual local sockets.

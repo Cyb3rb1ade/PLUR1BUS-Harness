@@ -54,7 +54,8 @@ export class CollabStore {
     if (o.path !== ":memory:" && process.platform !== "win32") { try { chmodSync(o.path, 0o600); } catch { /* best effort */ } }
   }
 
-  close(): void { this.#db.close(); }
+  #closed = false;
+  close(): void { if (this.#closed) return; this.#closed = true; this.#db.close(); }
   now(): number { return this.#clock(); }
   id(prefix: string): string { return this.#newId(prefix); }
 
@@ -70,8 +71,10 @@ export class CollabStore {
   // ---- projects --------------------------------------------------------------------------------
 
   createProject(i: { name: string; owner: string; settings?: Partial<CollabSettings>; id?: string }): Project {
+    if (typeof i.name !== "string") throw new CollabError("invalid", "project name is required", { reason: "name" });
     const name = i.name.trim();
     if (!name) throw new CollabError("invalid", "project name is required", { reason: "name" });
+    if (name.length > 256) throw new CollabError("invalid", "project name is too long", { reason: "name" });
     if (!i.owner) throw new CollabError("invalid", "owner is required", { reason: "owner" });
     const now = this.#clock();
     const id = i.id ?? this.#newId("prj");
@@ -87,11 +90,11 @@ export class CollabStore {
   }
 
   updateProject(id: string, name: string): Project {
-    if (!name.trim() || name.length > 256) throw new CollabError("invalid", "invalid project name");
+    if (typeof name !== "string" || !name.trim() || name.trim().length > 256) throw new CollabError("invalid", "invalid project name", { reason: "name" });
     return this.#tx(() => {
       const p = this.#project(id);
       if (!p) throw new CollabError("not-found", "project not found");
-      if (p.archivedAt !== null) throw new CollabError("invalid", "project archived");
+      if (p.archivedAt !== null) throw new CollabError("archived", `project ${id} is archived`, { reason: "archived" });
       this.#run("UPDATE projects SET name = ?, updated_at = ? WHERE id = ?", name.trim(), this.#clock(), id);
       return this.#project(id)!;
     });
@@ -120,6 +123,7 @@ export class CollabStore {
     const now = this.#clock();
     return this.#tx(() => {
       const p = this.#live(projectId);
+      if (userId === p.owner && role !== "lead") throw new CollabError("conflict", "the project owner must remain lead", { reason: "owner" });
       this.#run(
         "INSERT INTO project_members (project_id, user_id, role, added_at) VALUES (?,?,?,?) ON CONFLICT(project_id, user_id) DO UPDATE SET role = excluded.role",
         projectId, userId, role, now,
@@ -135,6 +139,7 @@ export class CollabStore {
       const p = this.#live(projectId);
       if (userId === p.owner) throw new CollabError("conflict", "the project owner cannot be removed", { reason: "owner" });
       this.#run("DELETE FROM project_members WHERE project_id = ? AND user_id = ?", projectId, userId);
+      this.board.releaseAssignee(projectId, { kind: "person", id: userId });
       this.#touch(projectId, now);
       return this.#project(projectId)!;
     });
@@ -156,6 +161,7 @@ export class CollabStore {
     return this.#tx(() => {
       this.#live(projectId);
       this.#run("DELETE FROM project_agents WHERE project_id = ? AND agent_id = ?", projectId, agentId);
+      this.board.releaseAssignee(projectId, { kind: "agent", id: agentId });
       this.#touch(projectId, now);
       return this.#project(projectId)!;
     });

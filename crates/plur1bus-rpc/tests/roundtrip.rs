@@ -49,7 +49,10 @@ where
     P: DeserializeOwned + Serialize,
     R: DeserializeOwned + Serialize,
 {
-    let method = name.strip_suffix(".system").unwrap_or(name);
+    let method = name
+        .strip_suffix(".system")
+        .or_else(|| name.strip_suffix(".user"))
+        .unwrap_or(name);
     let method_schema = &root_schema["$defs"]["methods"][method];
     let params_schema = &method_schema["params"];
     let result_schema = &method_schema["result"];
@@ -94,7 +97,7 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
     fixtures.sort_by(|a, b| a.0.cmp(&b.0));
     assert_eq!(
         fixtures.len(),
-        root_schema["$defs"]["methods"].as_object().unwrap().len() + 1,
+        root_schema["$defs"]["methods"].as_object().unwrap().len() + 2,
         "update type dispatch for new RPC methods"
     );
 
@@ -130,6 +133,23 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::AgentUnarchiveParams,
                 types::AgentUnarchiveResult,
             >(name, fixture, &root_schema),
+            "agent.create" => check_pair::<types::AgentCreateParams, types::AgentCreateResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "agent.validate" => {
+                check_pair::<types::AgentValidateParams, types::AgentValidateResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "agent.import" => check_pair::<types::AgentImportParams, types::AgentImportResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "agent.export" => check_pair::<types::AgentExportParams, types::AgentExportResult>(
                 name,
                 fixture,
@@ -147,6 +167,24 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
             "agent.rights.set" => check_pair::<
                 types::AgentRightsSetParams,
                 types::AgentRightsSetResult,
+            >(name, fixture, &root_schema),
+            "user.disable" => check_pair::<types::UserDisableParams, types::UserDisableResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "user.enable" => check_pair::<types::UserEnableParams, types::UserEnableResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "admin.api.person.resolve" => check_pair::<
+                types::AdminApiPersonResolveParams,
+                types::AdminApiPersonResolveResult,
+            >(name, fixture, &root_schema),
+            "admin.api.invite.validate" => check_pair::<
+                types::AdminApiInviteValidateParams,
+                types::AdminApiInviteValidateResult,
             >(name, fixture, &root_schema),
             "user.list" => check_pair::<types::UserListParams, types::UserListResult>(
                 name,
@@ -662,7 +700,31 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "doctor.report" => check_pair::<types::DoctorReportParams, types::DoctorReportResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "agent.activity.list" => check_pair::<
+                types::AgentActivityListParams,
+                types::AgentActivityListResult,
+            >(name, fixture, &root_schema),
             "agent.status" => check_pair::<types::AgentStatusParams, types::AgentStatusResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "jobs.create" => check_pair::<types::JobsCreateParams, types::JobsCreateResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "jobs.update" => check_pair::<types::JobsUpdateParams, types::JobsUpdateResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "jobs.delete" => check_pair::<types::JobsDeleteParams, types::JobsDeleteResult>(
                 name,
                 fixture,
                 &root_schema,
@@ -672,10 +734,12 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
-            "jobs.run" | "jobs.run.system" => check_pair::<
+            "jobs.run" | "jobs.run.system" | "jobs.run.user" => check_pair::<
                 types::JobsRunParams,
                 types::JobsRunResult,
-            >(name, fixture, &root_schema),
+            >(
+                name, fixture, &root_schema
+            ),
             "jobs.history" => check_pair::<types::JobsHistoryParams, types::JobsHistoryResult>(
                 name,
                 fixture,

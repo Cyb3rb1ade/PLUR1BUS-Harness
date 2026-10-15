@@ -56,7 +56,6 @@ pub fn run(out: &Out, layout: &Layout, args: RepairArgs) -> ! {
             "E_INVALID_PARAMS",
             &format!("--only {unknown}: no such repair step"),
             json!({ "step": unknown, "steps": STEP_ORDER }),
-            2,
         );
     }
     let runner = super::service::runner(out);
@@ -81,9 +80,7 @@ pub fn run(out: &Out, layout: &Layout, args: RepairArgs) -> ! {
         out.fail(
             "E_INVALID_PARAMS",
             "the repair plan needs a confirmation: re-run with --yes to apply it (nothing was changed)",
-            json!({ "applied": false, "dryRun": false, "steps": plan.steps }),
-            2,
-        );
+            json!({ "applied": false, "dryRun": false, "steps": plan.steps }));
     }
     if interactive && plan.needs_confirmation() {
         crate::output::say(&describe(&plan));

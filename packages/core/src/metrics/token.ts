@@ -10,7 +10,12 @@ export function loadOrCreateMetricsToken(file: string, secure?: (p: string) => u
   try {
     if (existsSync(file)) {
       const t = readFileSync(file, "utf8").trim();
-      if (VALID.test(t)) return t;
+      if (VALID.test(t)) {
+        // A token copied or restored with a wider mode must not stay readable by other users.
+        if (process.platform !== "win32") { try { chmodSync(file, 0o600); } catch { /* not ours to change: the token is still usable */ } }
+        secure?.(file);
+        return t;
+      }
     }
   } catch { /* unreadable: replaced below */ }
   mkdirSync(dirname(file), { recursive: true, mode: 0o700 });

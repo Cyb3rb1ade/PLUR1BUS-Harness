@@ -1,3 +1,4 @@
+import { privacyAcknowledgmentError } from "@plur1bus/config-schema";
 import { mediaError } from "../errors.ts";
 import type { CaptionConfig, CaptionProvider, CaptionRequest, CaptionResult } from "./types.ts";
 
@@ -22,6 +23,8 @@ export interface CaptionServiceOptions {
   config: () => CaptionConfig;
   /** The provider for auto captions; undefined when none is configured or allowed. */
   provider: () => CaptionProvider | undefined;
+  /** Runtime privacy pin, read on every call: a provider that is not local is refused while it is set, even if it was chosen earlier. */
+  pinned?: () => boolean;
 }
 
 export function createCaptionService(o: CaptionServiceOptions): CaptionService {
@@ -41,6 +44,7 @@ export function createCaptionService(o: CaptionServiceOptions): CaptionService {
       if (u || cfg.source === "user-only") return u;
       const provider = o.provider();
       if (!provider) return null;
+      if (!provider.local && o.pinned?.()) throw mediaError("E_MEDIA_PRIVACY", "privacy pin is set: cloud captioning is not allowed", { reason: "privacy-pin" });
       req.signal?.throwIfAborted();
       return pick(await provider.caption({ kind: req.kind, mime: req.mime, source: req.source, ...(req.signal ? { signal: req.signal } : {}) }), "auto");
     },
@@ -61,12 +65,16 @@ export interface CaptionProviders {
  * Choose the caption provider. With the privacy pin set, a configured cloud provider is refused here, before anything
  * could be sent; an unset provider falls back to local.
  */
-export function resolveCaptionProvider(o: { config: Pick<CaptionConfig, "provider">; pinned: boolean; providers: CaptionProviders; embeddingLocal?: boolean }): CaptionProvider | undefined {
+export function resolveCaptionProvider(o: { config: Pick<CaptionConfig, "provider" | "privacyAck">; pinned: boolean; providers: CaptionProviders; embeddingLocal?: boolean }): CaptionProvider | undefined {
   const id = o.config.provider;
   if (id === "off") return undefined;
   const cloud = id !== undefined && id !== "local";
   if (cloud && o.pinned) throw mediaError("E_MEDIA_PRIVACY", "privacy pin is set: cloud captioning is not allowed");
-  if (cloud) return o.providers.cloud?.(id);
+  if (cloud) {
+    const failure = privacyAcknowledgmentError({ function: "caption", provider: id, local: false, ack: o.config.privacyAck });
+    if (failure) throw mediaError("E_MEDIA_PRIVACY", "Captioning privacy acknowledgment required", { reason: failure.reason });
+    return o.providers.cloud?.(id);
+  }
   if (id === "local" || o.pinned) return o.providers.local;
   return defaultCaptionProvider(o.embeddingLocal ?? false) ? o.providers.local : undefined;
 }

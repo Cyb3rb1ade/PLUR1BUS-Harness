@@ -417,6 +417,34 @@
                 "required": [],
                 "description": "Sparse per-agent voice override; unset keys inherit voice.v3, like memory.embedding overrides."
               },
+              "persona": {
+                "description": "Inline persona text for a new agent (also scaffolded into SOUL.md).",
+                "type": "string",
+                "maxLength": 4000,
+                "x-restart": "live",
+                "x-tier": "basic"
+              },
+              "model": {
+                "description": "Named model profile selected for this agent.",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "x-restart": "live",
+                "x-tier": "basic"
+              },
+              "channels": {
+                "description": "Channel names selected for this agent. Does not enable installation channels.",
+                "type": "array",
+                "uniqueItems": true,
+                "maxItems": 32,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32
+                },
+                "x-restart": "live",
+                "x-tier": "basic"
+              },
               "createdAt": {
                 "description": "Timestamp when the agent was created, in date-time format.",
                 "type": "string",
@@ -483,6 +511,48 @@
                         "type": "string",
                         "x-restart": "core",
                         "x-tier": "basic"
+                      },
+                      "privacyAck": {
+                        "description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "provider",
+                          "acknowledgedAt",
+                          "by"
+                        ],
+                        "x-restart": "core",
+                        "x-tier": "advanced",
+                        "x-write-roles": [
+                          "owner",
+                          "admin"
+                        ],
+                        "x-audit": true,
+                        "properties": {
+                          "provider": {
+                            "description": "Exactly the provider confirmed for this function.",
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "acknowledgedAt": {
+                            "description": "When this function-specific privacy acknowledgment was recorded.",
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "by": {
+                            "description": "Person id that recorded this acknowledgment.",
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "endpoint": {
+                            "description": "Exact configured endpoint, when the provider has one.",
+                            "type": "string",
+                            "format": "uri",
+                            "maxLength": 2048
+                          }
+                        }
                       },
                       "model": {
                         "description": "Model id used for the media index; the same model may serve text and media, the indexes stay separate.",
@@ -584,6 +654,48 @@
                             "x-restart": "core",
                             "x-tier": "advanced"
                           },
+                          "privacyAck": {
+                            "description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.",
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "provider",
+                              "acknowledgedAt",
+                              "by"
+                            ],
+                            "x-restart": "core",
+                            "x-tier": "advanced",
+                            "x-write-roles": [
+                              "owner",
+                              "admin"
+                            ],
+                            "x-audit": true,
+                            "properties": {
+                              "provider": {
+                                "description": "Exactly the provider confirmed for this function.",
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "acknowledgedAt": {
+                                "description": "When this function-specific privacy acknowledgment was recorded.",
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "by": {
+                                "description": "Person id that recorded this acknowledgment.",
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 256
+                              },
+                              "endpoint": {
+                                "description": "Exact configured endpoint, when the provider has one.",
+                                "type": "string",
+                                "format": "uri",
+                                "maxLength": 2048
+                              }
+                            }
+                          },
                           "maxChars": {
                             "description": "Maximum caption length in characters.",
                             "type": "integer",
@@ -662,6 +774,48 @@
                   "default": "local-transformers",
                   "x-restart": "core",
                   "x-tier": "basic"
+                },
+                "privacyAck": {
+                  "description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "provider",
+                    "acknowledgedAt",
+                    "by"
+                  ],
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true,
+                  "properties": {
+                    "provider": {
+                      "description": "Exactly the provider confirmed for this function.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "acknowledgedAt": {
+                      "description": "When this function-specific privacy acknowledgment was recorded.",
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "by": {
+                      "description": "Person id that recorded this acknowledgment.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    },
+                    "endpoint": {
+                      "description": "Exact configured endpoint, when the provider has one.",
+                      "type": "string",
+                      "format": "uri",
+                      "maxLength": 2048
+                    }
+                  }
                 },
                 "model": {
                   "description": "Model id used for the media index; the same model may serve text and media, the indexes stay separate.",
@@ -779,6 +933,48 @@
                       "x-restart": "core",
                       "x-tier": "advanced"
                     },
+                    "privacyAck": {
+                      "description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "provider",
+                        "acknowledgedAt",
+                        "by"
+                      ],
+                      "x-restart": "core",
+                      "x-tier": "advanced",
+                      "x-write-roles": [
+                        "owner",
+                        "admin"
+                      ],
+                      "x-audit": true,
+                      "properties": {
+                        "provider": {
+                          "description": "Exactly the provider confirmed for this function.",
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "acknowledgedAt": {
+                          "description": "When this function-specific privacy acknowledgment was recorded.",
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "by": {
+                          "description": "Person id that recorded this acknowledgment.",
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 256
+                        },
+                        "endpoint": {
+                          "description": "Exact configured endpoint, when the provider has one.",
+                          "type": "string",
+                          "format": "uri",
+                          "maxLength": 2048
+                        }
+                      }
+                    },
                     "maxChars": {
                       "description": "Maximum caption length in characters.",
                       "type": "integer",
@@ -854,6 +1050,90 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "approvals": {
+          "description": "Approval policy limits; transport-enforced writes require owner or admin and audit.",
+          "type": "object",
+          "default": {},
+          "additionalProperties": false,
+          "properties": {
+            "maxGrantDays": {
+              "type": "integer",
+              "default": 90,
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true,
+              "minimum": 1,
+              "maximum": 365,
+              "description": "Always-grant idle lifetime in days. Explicit shorter expiries still apply."
+            },
+            "requireOsConfirmation": {
+              "type": "boolean",
+              "default": true,
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true,
+              "description": "Allow the required OS confirmation for an otherwise untrusted local decision. False disables this lift; it never bypasses surface trust."
+            }
+          }
+        },
+        "breakglass": {
+          "description": "Break-glass reason and duration bounds; trigger roles remain unchanged.",
+          "type": "object",
+          "default": {},
+          "additionalProperties": false,
+          "properties": {
+            "reasonMinChars": {
+              "type": "integer",
+              "default": 10,
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true,
+              "minimum": 1,
+              "maximum": 10000,
+              "description": "Minimum trimmed break-glass reason length."
+            },
+            "reasonMaxChars": {
+              "type": "integer",
+              "default": 500,
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true,
+              "minimum": 1,
+              "maximum": 10000,
+              "description": "Maximum trimmed break-glass reason length."
+            },
+            "maxWindowMinutes": {
+              "type": "integer",
+              "default": 60,
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "x-write-roles": [
+                "owner",
+                "admin"
+              ],
+              "x-audit": true,
+              "minimum": 1,
+              "maximum": 1440,
+              "description": "Maximum break-glass window in minutes."
+            }
+          }
+        },
         "inbox": {
           "description": "Per-person inbox retention. Both limits are applied when a new entry is written.",
           "type": "object",
@@ -1081,6 +1361,23 @@
           "type": "string",
           "x-restart": "live",
           "x-tier": "advanced"
+        },
+        "activity": {
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "description": "In-process agent activity history; cleared at core restart.",
+          "properties": {
+            "maxEntries": {
+              "type": "integer",
+              "minimum": 200,
+              "maximum": 100000,
+              "default": 1000,
+              "x-tier": "advanced",
+              "x-restart": "core",
+              "description": "Maximum retained agent activity transitions."
+            }
+          }
         },
         "schemaVersion": {
           "description": "Configuration format version; this schema supports version 1.",
@@ -1448,6 +1745,63 @@
               "format": "date-time",
               "x-restart": "core",
               "x-tier": "advanced"
+            }
+          }
+        },
+        "memory": {
+          "description": "Memory settings that the harness owns; the media index is separate from the text index.",
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "embedding": {
+              "description": "Text embedding privacy acknowledgment preparation; text currently remains local-transformers.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "privacyAck": {
+                  "description": "Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "provider",
+                    "acknowledgedAt",
+                    "by"
+                  ],
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true,
+                  "properties": {
+                    "provider": {
+                      "description": "Exactly the provider confirmed for this function.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "acknowledgedAt": {
+                      "description": "When this function-specific privacy acknowledgment was recorded.",
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "by": {
+                      "description": "Person id that recorded this acknowledgment.",
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    },
+                    "endpoint": {
+                      "description": "Exact configured endpoint, when the provider has one.",
+                      "type": "string",
+                      "format": "uri",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
             }
           }
         },

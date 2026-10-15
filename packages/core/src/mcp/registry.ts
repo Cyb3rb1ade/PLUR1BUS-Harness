@@ -250,8 +250,10 @@ export class McpRegistry {
       onState: state => { e.connectionState = state; this.emit({ server: e.def.name, state }); },
       onNotification: (method, params) => this.emit({ server: e.def.name, method, params: this.safeData(e, params) }),
       onToolsChanged: () => { e.cache.markStale(); },
-      onRemoteClose: () => { this.onRemoteClose(e); },
+      // A connection that was already replaced reports its late close here; it must not unhook its successor.
+      onRemoteClose: () => { if (e.conn && e.conn !== mine) return; this.onRemoteClose(e); },
     };
+    let mine: McpConnection | undefined;
     const starting = McpConnection.open(deps, e.startAbort.signal).catch(error => {
       if (!deps.knownVersion || deps.knownVersion === "2026-07-28" || e.startAbort.signal.aborted || !(error instanceof McpClientError) || error.code !== "connect-failed") throw error;
       // A deployment changed generations. Forget only the cached era and probe once; do not retry application calls.
@@ -259,6 +261,7 @@ export class McpRegistry {
       const { knownVersion: _knownVersion, ...fresh } = deps;
       return McpConnection.open(fresh, e.startAbort.signal);
     }).then((c) => {
+      mine = c;
       e.starts++;
       e.conn = c; e.protocolVersion = c.protocolVersion;
       return c;

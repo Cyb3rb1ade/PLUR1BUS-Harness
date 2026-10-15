@@ -7,5 +7,8 @@ import { RpcError } from "./rpc/errors.ts";
 export function acquireCoreLock(path: string, instanceId: string): { release(): void } {
   const lock = acquireExclusiveLock(path, { instanceId });
   if (!lock) throw new RpcError("E_LOCKED", "another core holds the lock", { reason: "core-lock-held", detail: "database is locked" });
-  return lock;
+  // module-api's release() closes the database, which throws on a second call: a shutdown path that releases twice
+  // (signal handler plus normal exit) must not turn into a crash that skips the rest of the cleanup.
+  let released = false;
+  return { release() { if (released) return; released = true; lock.release(); } };
 }

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -57,4 +57,24 @@ test("check mode leaves the bundle untouched; regeneration prunes stale files", 
 test("CLI --check exits 0 on the committed bundle", () => {
   const r = spawnSync(process.execPath, ["--experimental-strip-types", "--no-warnings=ExperimentalWarning", modPath, "--check"], { cwd: repoRoot, encoding: "utf8" });
   assert.equal(r.status, 0, r.stderr);
+});
+
+test("CLI --check fails on a stale bundle when the checkout path contains spaces", () => {
+  // The entry guard compared import.meta.url with a raw `file://${argv[1]}` string, so under a path with spaces (or on
+  // Windows) the CLI silently did nothing and exited 0 whatever the bundle looked like.
+  const root = mkdtempSync(join(tmpdir(), "p1b-help-cli-"));
+  try {
+    const repo = join(root, "with space");
+    mkdirSync(join(repo, "packages/web/scripts"), { recursive: true });
+    copyFileSync(modPath, join(repo, "packages/web/scripts/bundle-user-docs.ts"));
+    for (const lang of ["de", "en"]) {
+      mkdirSync(join(repo, "docs/user", lang), { recursive: true });
+      writeFileSync(join(repo, "docs/user", lang, "index.md"), `# Index ${lang}\n`);
+    }
+    const r = spawnSync(process.execPath, ["--experimental-strip-types", "--no-warnings=ExperimentalWarning", join(repo, "packages/web/scripts/bundle-user-docs.ts"), "--check"], { encoding: "utf8" });
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(r.stderr, /out of date/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

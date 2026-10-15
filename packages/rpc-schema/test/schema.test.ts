@@ -11,7 +11,7 @@ describe("rpc-schema", () => {
     assert.equal(RPC_VERSION, "1.6.0");
     assert.deepEqual([...ERROR_CODES], [
       "E_UNAUTHORIZED", "E_RPC_VERSION", "E_NOT_AVAILABLE", "E_CORE_UNAVAILABLE", "E_INVALID_PARAMS",
-      "E_AGENT_UNKNOWN", "E_CONFIG_INVALID", "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED",
+      "E_AGENT_UNKNOWN", "E_AGENT_EXISTS", "E_AGENT_RIGHTS", "E_AGENT_SECRETS_MISSING", "E_CONFIG_INVALID", "E_MODULE_UNKNOWN", "E_INTERNAL", "E_LOCKED",
       "E_NOT_FOUND", "E_DENIED", "E_APPROVAL_REQUIRED", "E_CONFLICT", "E_STORAGE",
       "E_MEDIA_CAPABILITY", "E_MEDIA_LICENSE", "E_MEDIA_PRIVACY", "E_MEDIA_UNAVAILABLE", "E_MEDIA_DIMENSION", "E_MEDIA_UNSUPPORTED_KIND", "E_PROJECT_WIP_LIMIT", "E_INBOX_CURSOR", "E_INVITE_INVALID",
       "E_VOICE_BUDGET", "E_VOICE_LICENSE", "E_VOICE_UNAVAILABLE", "E_VOICE_LICENCE",
@@ -20,12 +20,12 @@ describe("rpc-schema", () => {
 
   it("has valid params/result fixture for every method and variant", () => {
     for (const [key, f] of Object.entries(fx.methods)) {
-      const method = key.endsWith(".system") ? key.slice(0, -".system".length) : key;
+      const method = key.endsWith(".system") ? key.slice(0, -".system".length) : key === "jobs.run.user" ? "jobs.run" : key;
       assert.ok(METHODS.includes(method), `unknown method for fixture ${key}`);
       assert.deepEqual(validateParams(method, f.params), { ok: true }, `${key} params`);
       assert.deepEqual(validateResult(method, f.result), { ok: true }, `${key} result`);
     }
-    const coveredMethods = new Set(Object.keys(fx.methods).map((k) => (k.endsWith(".system") ? k.slice(0, -".system".length) : k)));
+    const coveredMethods = new Set(Object.keys(fx.methods).map((k) => (k.endsWith(".system") ? k.slice(0, -".system".length) : k === "jobs.run.user" ? "jobs.run" : k)));
     assert.deepEqual([...coveredMethods].sort(), [...METHODS].sort(), "every method has a fixture");
   });
 

@@ -457,6 +457,18 @@ Key rotation must be delivered in an update trusted by the previous key. If a
 channel key is lost, its consumers must reinstall once from an independently
 verified installer; a feed cannot restore trust by announcing a replacement key.
 
+**Update states (Settings → Updates).** An offer whose `minFromVersion` is newer than the installed version shows "Install {version}
+first": the page says so and the install stays blocked. A check or an install that the shell rejects with `update-signature`,
+`update-digest` or `update-manifest` shows that the update could not be verified and links to this section. Nothing is installed,
+and there is no install-anyway action: the install button stays disabled, also in the offer dialog. Other failures keep their own
+text. The shell reports these as plain IPC error codes (`src-tauri/src/updates.rs`, `UpdateError::code`); the UI reads them in
+`src/models/update-model.ts` (`isVerifyFailure`).
+
+**Crash offer and pairing failures.** A crash found at start-up is shown once through `crash_offers`. The dialog says the details
+stay local, copies them on request, and acknowledges the offer only on Dismiss (`crash_handled`); nothing is uploaded. Still missing:
+an "open diagnostics" action and a crash-specific "try again" action, because the shell exposes no command for either. Pairing
+failures keep their reason and the one action it allows (enter a code, repair, or retry) in Connections and Add remote.
+
 **WP boundary:** bundled installs cannot execute an app-only update. They show
 an explicit unavailable message until WP11 provides the shared snapshot,
 migration, health gate and rollback path. The automatic-patch decision function
@@ -624,3 +636,7 @@ hardware, signing/notarization, Store credentials and real harness image/store
 migration acceptance remain open. WP12 deep links and WP13 installer/uninstall
 views do not exist in this base and therefore cannot receive an accessibility
 pass. Every §8 row is classified in the [final report](handoff/status/desktop-shell.md).
+
+## Previous unclean exits
+
+Native startup writes a private running marker in the diagnostic directory. Orderly shutdown and the final native exit event (including updater restarts) remove it; a remaining marker on the next start produces a local `crash_last_report` with the previous session start timestamp, kind, fixed summary and diagnostic availability. `crash_dismiss` acknowledges the previous marker while keeping the current session marker. The crash dialog connects “Open diagnostics” to `diagnostics_open`, which opens only the native-owned diagnostic directory, and “Restart” to the existing native app restart mechanism through `crash_restart`. Each command requires the local shell capability and origin check and uses `try_state`. No upload is performed or exposed.

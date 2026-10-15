@@ -25,6 +25,7 @@ try {
 } catch {
   fail("daemon status printed no JSON");
 }
-const core = (doc.children ?? []).find((c) => c.role === "core" || c.kind === "core");
+const children = doc !== null && typeof doc === "object" && Array.isArray(doc.children) ? doc.children : [];
+const core = children.find((c) => c !== null && typeof c === "object" && (c.role === "core" || c.kind === "core"));
 const state = core?.process?.state;
 if (state !== "ready") fail(`core is ${state ?? "absent"}`);

@@ -59,7 +59,7 @@ export function classifyAnthropicStreamError(v: unknown, redact: (s: string) => 
   const type = raw.type === undefined ? undefined : redact(raw.type).slice(0, MAX_CODE_CHARS);
   const code = raw.code === undefined ? undefined : redact(raw.code).slice(0, MAX_CODE_CHARS);
   const providerMessage = raw.message === undefined ? undefined : redact(raw.message).slice(0, MAX_MESSAGE_CHARS);
-  let kind = raw.type === undefined ? undefined : BY_TYPE[raw.type];
+  let kind = raw.type !== undefined && Object.hasOwn(BY_TYPE, raw.type) ? BY_TYPE[raw.type] : undefined;
   if (kind === undefined) return classifyStreamError(v, redact);
   const text = raw.message ?? "";
   if (kind === "invalid_request" && BILLING_RE.test(text)) kind = "auth";

@@ -27,13 +27,13 @@ export type Entry = {
 export type Hit = { entry: Entry; rank: number };
 export type Segment = { text: string; hit: boolean };
 
-/** Lower-cases, strips diacritics and maps ß to ss, keeping for every folded unit the index of its source character. */
+/** Lower-cases, strips diacritics and maps ß (and ẞ) to ss, keeping for every folded unit the index of its source character. */
 export function fold(s: string): { text: string; map: number[] } {
   let text = "";
   const map: number[] = [];
   let at = 0;
   for (const ch of s) {
-    const f = (ch === "ß" ? "ss" : ch.normalize("NFD").replace(/\p{M}/gu, "")).toLowerCase();
+    const f = ch.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replace(/ß/g, "ss");
     for (let i = 0; i < f.length; i++) map.push(at);
     text += f;
     at += ch.length;
@@ -43,9 +43,23 @@ export function fold(s: string): { text: string; map: number[] } {
 
 const words = (q: string): string[] => fold(q).text.split(/\s+/).filter((w) => w !== "");
 
-/** Keys whose value must never be indexed or shown: any segment naming a key, token, secret, password or credential. */
+/** Keys whose value must never be indexed or shown: a name that says key, token, secret, password (or passwd/pwd/passphrase), credential,
+ * authorization, bearer, cookie, private material, a signature, jwt or hmac, or a leaf called `auth`. The same list as the Settings page
+ * (pages/settings/config/model.ts `isSecretKey`), kept here because Settings imports this module and a back-import would be a cycle.
+ * `auth.*` tuning keys (timeouts, capacity) are not secrets, hence the leaf-only `auth` rule. */
+const SENSITIVE = /key|token|secret|passw|pwd|passphrase|credential|authori[sz]ation|bearer|cookie|private|signature|jwt|hmac|(^|[._-])auth$/i;
 export function isSensitiveKey(key: string): boolean {
-  return /key|token|secret|password|credential/i.test(key);
+  return SENSITIVE.test(key);
+}
+
+const MASK = "••••";
+/** A value that is a URL may carry its secret in the text: `scheme://user:password@host` loses the user part, and a query parameter with a
+ * sensitive name (`?api_key=…`) loses its value. Anything else is returned as it is. */
+export function maskUrlSecrets(value: string): string {
+  if (!value.includes("://") && !value.includes("?")) return value;
+  return value
+    .replace(/([a-z][a-z0-9+.-]{0,31}:\/\/)[^/?#\s@]*@/gi, `$1${MASK}@`)
+    .replace(/([?&;])([^=&#\s]+)=([^&#\s]*)/g, (m, sep: string, name: string) => (isSensitiveKey(name) ? `${sep}${name}=${MASK}` : m));
 }
 
 // Field classes, best first: label starts with the word, label contains it, key, help, value.

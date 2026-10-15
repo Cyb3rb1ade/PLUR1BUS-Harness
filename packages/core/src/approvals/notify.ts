@@ -33,6 +33,7 @@ export interface PermissionNotifier {
   grantChanged(change: "created" | "revoked", grant: GrantRecord): void;
   /** Resolves when everything queued so far has been delivered or withheld. */
   idle(): Promise<void>;
+  confirmationChanged(approval: ApprovalRecord): void;
   /** No delivery after this. */
   close(): void;
 }
@@ -44,17 +45,26 @@ export function createPermissionNotifier(o: PermissionNotifierOptions): Permissi
 
   async function deliver(method: string, action: "approval.read" | "grant.read", person: string, params: object): Promise<void> {
     if (closed) return;
-    const connections = [...new Set(o.subscriptions().filter((s) => s.names?.includes(method)).map((s) => s.connectionId))];
-    if (connections.length === 0) return;
-    for (const connectionId of connections) {
-      let allowed = false;
-      try {
-        const p = await o.principalOf(connectionId, method);
-        allowed = p !== null && p !== undefined && p.kind === "person" && p.userId === person
-          && authorize(p, action, { kind: "system" }, { now: o.now() }).effect === "allow";
-      } catch { allowed = false; }
-      if (!allowed) { log("notification withheld: an opted-in connection may not receive it", { method, connectionId }); return; }
+    const audience = (): string[] => [...new Set(o.subscriptions().filter((s) => s.names?.includes(method)).map((s) => s.connectionId))];
+    // A connection can subscribe while an earlier one is being resolved (the checks await): the audience is re-read after every round and
+    // the notification goes out only when the audience at that very moment (no await in between) consists of checked connections alone.
+    const checked = new Set<string>();
+    for (let round = 0; ; round++) {
+      const todo = audience().filter((c) => !checked.has(c));
+      if (todo.length === 0) break;
+      if (round >= 8) { log("notification withheld: the audience keeps changing", { method }); return; }
+      for (const connectionId of todo) {
+        let allowed = false;
+        try {
+          const p = await o.principalOf(connectionId, method);
+          allowed = p !== null && p !== undefined && p.kind === "person" && p.userId === person
+            && authorize(p, action, { kind: "system" }, { now: o.now() }).effect === "allow";
+        } catch { allowed = false; }
+        if (!allowed) { log("notification withheld: an opted-in connection may not receive it", { method, connectionId }); return; }
+        checked.add(connectionId);
+      }
     }
+    if (checked.size === 0) return;
     if (closed) return;
     o.notify(method, params, { optIn: true });
   }
@@ -86,6 +96,7 @@ export function createPermissionNotifier(o: PermissionNotifierOptions): Permissi
 
   return {
     events,
+    confirmationChanged(approval) { enqueue("approval.requested", "approval.read", approval.principal, () => ({ approval })); },
     grantChanged(change, grant) { enqueue("grant.changed", "grant.read", grant.person, () => ({ change, grant })); },
     idle: () => chain,
     close() { closed = true; },

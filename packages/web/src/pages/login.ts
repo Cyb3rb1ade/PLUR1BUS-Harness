@@ -4,12 +4,14 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { PreferenceControls } from "../components/controls.ts";
 import { t } from "../i18n.ts";
 import { icon } from "../icons.ts";
-import { sessionNotice, signIn, type LoginFailure } from "../session.ts";
+import { sessionNotice, signIn, signInAccount, type LoginFailure } from "../session.ts";
 
 function failureText(f: LoginFailure): string {
   switch (f.kind) {
     case "invalid-token": return t("login.error.invalid");
-    case "rate-limited": return f.retryAfterSeconds === null ? t("login.error.rateUnknown") : t("login.error.rate", { seconds: f.retryAfterSeconds });
+    case "rate-limited":
+      if (f.retryAfterSeconds === null) return t("login.error.rateUnknown");
+      return f.retryAfterSeconds >= 120 ? t("login.error.rateMinutes", { minutes: Math.ceil(f.retryAfterSeconds / 60) }) : t("login.error.rate", { seconds: f.retryAfterSeconds });
     case "network": return t("login.error.network");
     case "server": return t("login.error.server", { status: f.status });
   }
@@ -18,6 +20,7 @@ function failureText(f: LoginFailure): string {
 type Err = { kind: "required" } | { kind: "failure"; failure: LoginFailure };
 
 export function LoginPage(): View {
+  const [account, setAccount] = useState(false); const [username, setUsername] = useState(""); const [password, setPassword] = useState(""); const [challenge, setChallenge] = useState<string | null>(null); const [code, setCode] = useState(""); const submitting = useRef(false);
   const [token, setToken] = useState("");
   const [reveal, setReveal] = useState(false);
   const [pending, setPending] = useState(false);
@@ -27,24 +30,27 @@ export function LoginPage(): View {
 
   const onSubmit = async (e: Event): Promise<void> => {
     e.preventDefault();
-    if (pending) return;
-    if (token.trim() === "") {
+    if (submitting.current) return;
+    if (account ? challenge ? code.trim() === "" : username.trim() === "" || password === "" : token.trim() === "") {
       setError({ kind: "required" });
       tokenRef.current?.focus();
       return;
     }
     setError(null);
-    setPending(true);
-    const result = await signIn(token.trim());
+    submitting.current = true; setPending(true);
+    const result = account ? await signInAccount(challenge ? { challenge, code } : { username, password }) : await signIn(token.trim());
+    submitting.current = false; setPassword(""); setCode("");
     setPending(false);
-    setToken(""); // the token lives in this field only until it has been sent
+    setToken(""); // the token lives in this field only until it has been sent, after a failure too
+    setReveal(false); // and the next attempt starts masked
+    if (!result.ok && "challenge" in result) { setChallenge(result.challenge); return; }
     if (!result.ok) {
       setError({ kind: "failure", failure: result.failure });
       tokenRef.current?.focus();
     }
   };
 
-  const message = error === null ? "" : error.kind === "required" ? t("login.error.required") : failureText(error.failure);
+  const message = error === null ? "" : error.kind === "required" ? t(account ? "login.account.required" : "login.error.required") : account && error.failure.kind === "invalid-token" ? t("login.account.invalid") : failureText(error.failure);
   const invalid = error !== null;
   const describedBy = invalid ? "login-error" : undefined;
 
@@ -55,17 +61,22 @@ export function LoginPage(): View {
       h("h1", { tabIndex: -1 }, t("login.title")),
       h("p", { class: "lead" }, t("login.lead")),
       sessionNotice.value === "expired" ? h("p", { class: "form-notice", role: "status" }, t("login.notice.expired")) : null,
+      h("button", { type: "button", class: "btn btn-quiet", disabled: pending, onClick: () => { setAccount(!account); setChallenge(null); setError(null); setToken(""); setPassword(""); setCode(""); } }, t(account ? "login.account.owner" : "login.account.use")),
       h("form", { noValidate: true, onSubmit },
-        h("div", { class: "field" },
+        account ? h("div", null,
+          challenge ? h("label", { for: "login-totp" }, t("login.account.code"), h("input", { id: "login-totp", value: code, autocomplete: "one-time-code", onInput: (e: Event) => setCode((e.target as HTMLInputElement).value) })) : [
+            h("label", { for: "login-username" }, t("login.account.username"), h("input", { id: "login-username", value: username, autocomplete: "username", onInput: (e: Event) => setUsername((e.target as HTMLInputElement).value) })),
+            h("label", { for: "login-password" }, t("login.account.password"), h("input", { id: "login-password", type: "password", value: password, autocomplete: "current-password", onInput: (e: Event) => setPassword((e.target as HTMLInputElement).value) })),
+          ]) : h("div", { class: "field" },
           h("label", { for: "login-token" }, t("login.token")),
           h("div", { class: "password-row" },
             h("input", {
               id: "login-token", name: "token", type: reveal ? "text" : "password", ref: tokenRef, value: token,
-              autoComplete: "off", autoCapitalize: "none", spellcheck: false, required: true, "aria-invalid": invalid, "aria-describedby": describedBy,
+              autoComplete: "current-password", autoCapitalize: "none", spellcheck: false, required: true, "aria-invalid": invalid, "aria-describedby": describedBy,
               onInput: (e: Event) => setToken((e.target as HTMLInputElement).value),
             }),
             h("button", { type: "button", class: "icon-btn", onClick: () => setReveal(!reveal) },
               icon(reveal ? "eyeOff" : "eye"), h("span", { class: "sr-only" }, reveal ? t("login.hide") : t("login.show"))))),
         h("div", { id: "login-error", class: "form-error", role: "alert" }, message),
-        h("button", { type: "submit", class: "btn btn-primary", "aria-disabled": pending }, pending ? t("login.submitting") : t("login.submit")))));
+        h("button", { type: "submit", class: "btn btn-primary", disabled: pending, "aria-disabled": pending }, pending ? t("login.submitting") : t("login.submit")))));
 }

@@ -62,3 +62,10 @@ describe("mcp server definition", () => {
     assert.equal(validateDefinition({ ...stdio(), trust: "operator-vetted" }, policy).trust, "operator-vetted");
   });
 });
+
+it("timeouts accept only the declared names, not inherited object keys", async () => {
+  for (const key of ["toString", "constructor", "hasOwnProperty", "__proto__"]) {
+    const raw = JSON.parse(`{"name":"x","transport":{"type":"http","url":"https://example.test/mcp"},"timeouts":{"${key}":100}}`);
+    assert.throws(() => validateDefinition(raw, { allowedCommands: [] }), /unknown timeout/, key);
+  }
+});

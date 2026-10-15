@@ -1,4 +1,6 @@
 // F39-F42/F44 administration. Authenticated identity comes only from the RPC guard; params never assert authority.
+import { createHash } from "node:crypto";
+import { apiPrincipal } from "@plur1bus/module-api";
 import type { Handler, CallContext } from "./server.ts";
 import { RpcError } from "./errors.ts";
 import { authenticatedPrincipal } from "../rbac/guard.ts";
@@ -27,6 +29,7 @@ export interface AdminSurfaceDeps {
   /** The engine-derived session-owner principals belonging to this authenticated person. */
   ownership: (who: Principal, params?: unknown) => string[];
   sessionUsage?: (ids: readonly string[]) => Map<string, import("./session-usage.ts").SessionUsage>;
+  rightsChanged?: (userId: string) => void;
   audit: AuditSink; clock: () => number;
 }
 const obj = (p: unknown): Record<string, any> => p && typeof p === "object" && !Array.isArray(p) ? p as Record<string, any> : {};
@@ -73,6 +76,20 @@ export function buildAdminSurface(d: AdminSurfaceDeps): Record<string, Handler> 
     audit(a, `agent.${operation}`, id);
     return { agentId: id, ...d.lifecycle.set(id, patch) };
   });
+  const togglePerson = (p: Record<string, any>, a: Principal, disabled: boolean) => {
+    const id = user(text(p, "userId"));
+    // Older/CLI-created humans may have no explicit preset row: persist their existing Member default before status changes.
+    if (!d.people.person(id)) d.people.setRole(id, d.people.role(id), () => {});
+    const target = d.people.person(id);
+    if (!target) throw new RpcError("E_NOT_FOUND", "person not found");
+    if (a.role !== "owner" && !(a.role === "admin" && (target.role === "member" || target.role === "viewer"))) throw new RpcError("E_DENIED", "person status change denied");
+    if (p.reason !== undefined && (typeof p.reason !== "string" || p.reason.length > 200)) throw new RpcError("E_INVALID_PARAMS", "invalid reason");
+    const reason = (p.reason ?? "").replace(/[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "");
+    const hashed = (v: string) => createHash("sha256").update(v).digest("hex");
+    d.people.setDisabled(id, disabled, a.userId, d.clock(), () => audit({ ...a, userId: hashed(a.userId) }, disabled ? "user.disabled" : "user.enabled", hashed(id), { role: target.role, ...(reason ? { reason } : {}) }));
+    if (target.disabled !== disabled) d.rightsChanged?.(id);
+    return { userId: id, disabled };
+  };
   return {
     "agent.pause": toggle("pause"), "agent.resume": toggle("resume"), "agent.archive": toggle("archive"), "agent.unarchive": toggle("unarchive"),
     "agent.export": bind("admin.agent.manage", async (p, a) => {
@@ -98,14 +115,30 @@ export function buildAdminSurface(d: AdminSurfaceDeps): Record<string, Handler> 
       return { agentId: id, deleted: true };
     }),
     "user.list": bind("admin.users.read", () => {
-      const people = new Map(d.identity.list({}).humans.map(h => [h.id, { id: h.id, displayName: h.displayName, role: d.people.role(h.id) }]));
-      for (const u of d.people.users()) if (!people.has(u.id)) people.set(u.id, { ...u, displayName: u.id });
+      const people = new Map(d.identity.list({}).humans.map(h => [h.id, { id: h.id, displayName: h.displayName, role: d.people.role(h.id), disabled: d.people.person(h.id)?.disabled ?? false }]));
+      for (const u of d.people.users()) people.set(u.id, { id: u.id, role: u.role, disabled: u.disabled, displayName: people.get(u.id)?.displayName ?? u.id });
       return { users: [...people.values()].sort((a, b) => a.id.localeCompare(b.id)) };
     }),
+    "user.disable": bind("admin.users.write", (p, a) => togglePerson(p, a, true)),
+    "user.enable": bind("admin.users.write", (p, a) => togglePerson(p, a, false)),
+    "admin.api.person.resolve": async (params, ctx) => {
+      if (apiPrincipal(ctx) !== null) throw new RpcError("E_DENIED", "API credential required");
+      const id = text(obj(params), "userId", 256);
+      if (!d.people.person(id) && d.identity.list({}).humans.some(h => h.id === id)) d.people.setRole(id, d.people.role(id), () => {});
+      return { person: d.people.person(id) };
+    },
+    "admin.api.invite.validate": async (params, ctx) => {
+      if (apiPrincipal(ctx) !== null) throw new RpcError("E_DENIED", "API credential required");
+      const token = obj(params).token;
+      const row = d.people.validateInvite(isInviteTokenShape(token) ? hashInviteToken(token) : null, d.clock());
+      if (!row || !d.people.resolvePerson(row.userId)) throw new RpcError("E_INVITE_INVALID", "invitation is not valid");
+      return { userId: row.userId, role: row.role };
+    },
     "user.role.set": bind("admin.users.write", (p, a) => {
       const id = user(text(p, "userId")), role = preset(p.role), before = d.people.role(id);
       if ((before === "owner" || role === "owner") && a.role !== "owner") throw new RpcError("E_DENIED", "only an Owner may change ownership", { reason: "owner-only" });
       d.people.setRole(id, role, () => audit(a, "user.role.set", id, { previous: before, role }));
+      d.rightsChanged?.(id);
       return { userId: id, role };
     }),
     "user.invite.create": bind("admin.users.write", (p, a) => {
@@ -177,12 +210,13 @@ export function buildAdminSurface(d: AdminSurfaceDeps): Record<string, Handler> 
       if (p.right !== "use" && p.right !== "manage" && p.right !== null) throw new RpcError("E_INVALID_PARAMS", "invalid agent right");
       audit(a, "agent.rights.set", id, { userId, right: p.right });
       d.people.setRight(id, userId, p.right);
+      d.rightsChanged?.(userId);
       return { agentId: id, userId, right: p.right };
     }),
     "breakglass.request": bind("admin.breakglass.write", (p, a) => {
-      const targetUserId = user(text(p, "targetUserId")), reason = text(p, "reason", 500).trim(), minutes = p.windowMinutes ?? 15;
-      if (reason.length < 10 || !Number.isInteger(minutes) || minutes < 1 || minutes > 60) throw new RpcError("E_INVALID_PARAMS", "reason must be 10-500 characters and window 1-60 minutes");
-      return d.breakglass.request(a, { targetUserId, reason, ttlMs: minutes * 60_000 });
+      const targetUserId = user(text(p, "targetUserId")), reason = text(p, "reason", 10000).trim(), minutes = p.windowMinutes;
+      if (minutes !== undefined && (!Number.isInteger(minutes) || minutes < 1)) throw new RpcError("E_INVALID_PARAMS", "windowMinutes must be a positive integer");
+      return d.breakglass.request(a, { targetUserId, reason, ...(minutes !== undefined ? { ttlMs: minutes * 60_000 } : {}) });
     }),
     "breakglass.list": bind("admin.breakglass.read", (_p, a) => ({ grants: d.breakglass.active(a.userId) })),
     "breakglass.revoke": bind("admin.breakglass.write", (p, a) => { const id = text(p, "grantId"); d.breakglass.revoke(a, id); return { id, revoked: true }; }),

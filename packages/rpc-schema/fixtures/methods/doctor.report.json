@@ -1,0 +1,23 @@
+{
+  "params": {},
+  "result": {
+    "generatedAt": "2026-10-14T10:00:00.000Z",
+    "groups": [
+      {
+        "id": "provisioning",
+        "title": "Provisioning",
+        "checks": [
+          {
+            "id": "models.cache",
+            "status": "ok",
+            "summary": "Models are available",
+            "repair": {
+              "kind": "hint",
+              "label": "Review model settings"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

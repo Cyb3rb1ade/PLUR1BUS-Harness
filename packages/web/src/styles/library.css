@@ -138,3 +138,39 @@
   border-top: 1px solid var(--line);
   padding-top: 12px;
 }
+
+.library-prompt,
+.library-caption-text,
+.library-caption-preview {
+  overflow-wrap: anywhere;
+}
+
+.library-dialog-content {
+  min-width: 0;
+}
+
+.library-dialog-footer {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.library-dialog-footer details {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.library-dialog-footer pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.library-kind-tile {
+  font-weight: 650;
+  color: var(--ink-2);
+}
+
+.library-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}

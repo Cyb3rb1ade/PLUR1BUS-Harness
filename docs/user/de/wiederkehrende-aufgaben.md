@@ -1,32 +1,9 @@
 # Wiederkehrende Aufgaben
 
-Wiederkehrende Aufgaben führen geplante Hintergrundoperationen wie periodische Wartungen, Synchronisierungen und
-automatisierte Arbeitsabläufe aus. Diese Seite beschreibt die Überwachung und manuelle Ausführung geplanter Aufgaben.
-Die englische Version dieser Seite ist [../en/recurring-tasks.md](../en/recurring-tasks.md).
+Unter **Wiederkehrende Aufgaben** kannst du eine eigene Aufgabe anlegen, bearbeiten und nach Bestätigung löschen. Wähle einen Agenten, den du verwalten darfst, einen Prompt, einen Cron-Ausdruck mit fünf Feldern und eine IANA-Zeitzone. Der Dialog zeigt die nächsten drei Termine. Ein Zeitplan, der nie auslöst, etwa `0 0 30 2 *` (30. Februar), wird abgelehnt. Die Zeiten gelten in der Zeitzone der Aufgabe: Eine Uhrzeit, die am Tag der Umstellung auf Sommerzeit nicht existiert (zum Beispiel 02:30 in Berlin am letzten Sonntag im März), entfällt an diesem Tag; eine Uhrzeit, die bei der Rückstellung zweimal vorkommt, läuft einmal, beim ersten Mal. System- und Engine-Jobs bleiben unveränderlich.
 
-In der Weboberfläche befinden sich geplante Aufgaben und deren Ausführungsverlauf unter **Recurring Tasks**
-(`#/recurring`).
+Die Aufgabe läuft unter der Identität ihres Erstellers. Vor jedem Lauf gelten dessen aktuelle Rolle, Agentenrechte und Budgets. Bearbeitest du die Aufgabe einer anderen Person, läuft sie künftig unter deinem Namen; vor dem Speichern erscheint ein Hinweis. Der Aufgabenverlauf zeigt den Anzeigenamen der ausführenden Person.
 
-## Geplante Aufgaben anzeigen
+Bei Rechteverlust oder einer inaktiven Person wird die Aufgabe deaktiviert und ein Inbox-Hinweis erzeugt. Ein hartes Budget überspringt den Lauf. Werkzeugfreigaben und OS-Bestätigungen benötigen die normale Entscheidung der Person. Die Aufgabe bestätigt sie nicht automatisch.
 
-Die Weboberfläche listet alle im System hinterlegten Aufgaben auf (`jobs.list`). Jeder Eintrag enthält:
-
-- **Name und Kennung**: Aufgabenbezeichnung und Funktion.
-- **Zeitplan**: Cron-Ausdruck oder Ausführungsintervall.
-- **Laufzeiten**: Zeitpunkt des letzten Laufs sowie der nächste geplante Lauf.
-- **Status**: Aktueller Betriebszustand (aktiv, pausiert oder deaktiviert).
-
-Beim Auswählen einer Aufgabe wird der Verlauf früherer Ausführungen angezeigt (`jobs.history`), inklusive Laufzeiten,
-Status und Fehlerberichten.
-
-## Aufgabe sofort ausführen
-
-Geplante Aufgaben können bei Bedarf manuell außerhalb ihres regulären Intervalls ausgelöst werden. Ein Klick auf
-**Jetzt ausführen** öffnet einen Bestätigungsdialog, bevor die Ausführung (`jobs.run`) gestartet wird.
-
-## Konfiguration und Einschränkungen
-
-In der aktuellen Version von Plur1bus stellt das RPC-Backend Methoden zum Auflisten von Aufgaben, Abrufen des Verlaufs
-und Auslösen von Läufen bereit (`jobs.run`). Das Anlegen neuer Aufgaben oder Bearbeiten bestehender Zeitpläne über RPC
-wird vom Backend-Schema noch nicht unterstützt (siehe [../../web-ui.md](../../web-ui.md)). Die Weboberfläche weist auf
-diese Lücke mit einem verständlichen Hinweistext hin.
+Technische Details stehen im [Backend-Leitfaden für wiederkehrende Aufgaben](../../recurring.md). Die Web-Anschlüsse sind gegen den typisierten Mock geprüft; der authentifizierte RPC-/Event-Transport folgt in einem eigenen Paket.

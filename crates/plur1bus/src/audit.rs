@@ -65,11 +65,39 @@ pub fn append(layout: &Layout, action: &str, target: &str, detail: Value) -> io:
         "target": target,
         "detail": detail,
     });
-    let mut text = serde_json::to_string(&line).map_err(io::Error::other)?;
-    text.push('\n');
-    let mut f = fs::OpenOptions::new().append(true).open(&path)?;
-    f.write_all(text.as_bytes())?;
+    let mut f = fs::OpenOptions::new().append(true).read(true).open(&path)?;
+    let entry = serde_json::to_string(&line).map_err(io::Error::other)?;
+    {
+        // The torn-line check and the write are one step: without the lock a writer checking the last byte can see
+        // another writer's half-finished line and add a '\n' of its own, which shows up as an extra, empty line.
+        let _guard = APPEND_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        // A file that ends without a newline (a crash in the middle of a line): the fragment stays a line of its own and
+        // this line starts a fresh one, in the same single write.
+        let mut text = String::new();
+        if ends_in_a_torn_line(&mut f)? {
+            text.push('\n');
+        }
+        text.push_str(&entry);
+        text.push('\n');
+        f.write_all(text.as_bytes())?;
+    }
     f.sync_all()
+}
+
+/// Serialises the torn-line check and the append of one entry among the threads of this process.
+static APPEND_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Whether the file is non-empty and its last byte is not a newline.
+fn ends_in_a_torn_line(f: &mut fs::File) -> io::Result<bool> {
+    use std::io::{Read, Seek, SeekFrom};
+    let len = f.metadata()?.len();
+    if len == 0 {
+        return Ok(false);
+    }
+    f.seek(SeekFrom::Start(len - 1))?;
+    let mut last = [0u8; 1];
+    f.read_exact(&mut last)?;
+    Ok(last[0] != b'\n')
 }
 
 #[cfg(test)]
@@ -119,5 +147,143 @@ mod tests {
                 .mode();
             assert_eq!(mode & 0o777, 0o600);
         }
+    }
+
+    fn lines(layout: &Layout) -> Vec<String> {
+        fs::read_to_string(layout.audit_log())
+            .unwrap()
+            .split_inclusive('\n')
+            .map(str::to_string)
+            .collect()
+    }
+
+    #[test]
+    fn a_detail_with_newlines_unicode_and_a_megabyte_is_still_one_line() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        let big = "y".repeat(1 << 20);
+        for (i, detail) in [
+            json!({ "t": "a\nb\r\nc" }),
+            json!({ "t": "ünï ✓ 😀 \u{0} \u{2028}" }),
+            json!({ "t": big }),
+            json!(null),
+            json!([1, 2, 3]),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            append(
+                &layout,
+                &format!("test.action{i}"),
+                "target\nwith newline",
+                detail.clone(),
+            )
+            .unwrap();
+            let all = lines(&layout);
+            assert_eq!(all.len(), i + 1, "one physical line per entry");
+            let v: Value = serde_json::from_str(all.last().unwrap()).unwrap();
+            assert_eq!(v["detail"], detail);
+            assert_eq!(v["target"], "target\nwith newline");
+        }
+    }
+
+    #[test]
+    fn concurrent_writers_never_interleave_audit_lines() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = std::sync::Arc::new(Layout::new(dir.path().to_path_buf()));
+        let handles: Vec<_> = (0..8)
+            .map(|t| {
+                let layout = layout.clone();
+                std::thread::spawn(move || {
+                    for i in 0..60 {
+                        let pad = "z".repeat(if i % 6 == 0 { 70_000 } else { 30 });
+                        append(
+                            &layout,
+                            &format!("t{t}.n{i}"),
+                            "target",
+                            json!({ "pad": pad, "t": t, "i": i }),
+                        )
+                        .unwrap();
+                    }
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
+        let all = lines(&layout);
+        assert_eq!(all.len(), 8 * 60);
+        let mut seen = std::collections::BTreeSet::new();
+        for l in &all {
+            let v: Value =
+                serde_json::from_str(l).unwrap_or_else(|e| panic!("an interleaved line ({e})"));
+            let action = v["action"].as_str().unwrap().to_string();
+            assert_eq!(
+                action,
+                format!("t{}.n{}", v["detail"]["t"], v["detail"]["i"]),
+                "a line mixes two writers"
+            );
+            assert!(seen.insert(action));
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_existing_file_with_wider_permissions_is_made_private_again_before_a_line_is_added() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        fs::create_dir_all(layout.logs()).unwrap();
+        fs::write(layout.audit_log(), "{\"old\":true}\n").unwrap();
+        fs::set_permissions(layout.audit_log(), fs::Permissions::from_mode(0o666)).unwrap();
+        append(&layout, "test.action", "t", json!({})).unwrap();
+        assert_eq!(
+            fs::metadata(layout.audit_log())
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o600
+        );
+        assert!(fs::read_to_string(layout.audit_log())
+            .unwrap()
+            .starts_with("{\"old\":true}\n"));
+    }
+
+    /// A crash in the middle of a line leaves a last line without its newline; the next audit line must not be glued to it, or the
+    /// two become one unreadable line and the new audit event is lost.
+    #[test]
+    fn an_audit_line_after_a_torn_last_line_starts_its_own_line() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        append(&layout, "first", "t", json!({})).unwrap();
+        let intact = fs::read(layout.audit_log()).unwrap();
+        let mut torn = intact.clone();
+        torn.extend_from_slice(b"{\"at\":1,\"actor\":{\"user\":\"u");
+        fs::write(layout.audit_log(), &torn).unwrap();
+        append(&layout, "after", "t", json!({})).unwrap();
+        let now = fs::read(layout.audit_log()).unwrap();
+        assert!(
+            now.starts_with(&torn),
+            "everything that was there stays as it was"
+        );
+        let all = lines(&layout);
+        let last: Value =
+            serde_json::from_str(all.last().unwrap()).expect("the new line is a line of its own");
+        assert_eq!(last["action"], "after");
+        assert_eq!(
+            all.iter()
+                .filter(|l| serde_json::from_str::<Value>(l).is_ok())
+                .count(),
+            2,
+            "{all:?}"
+        );
+        append(&layout, "third", "t", json!({})).unwrap();
+        assert!(
+            !fs::read_to_string(layout.audit_log())
+                .unwrap()
+                .contains("\n\n"),
+            "a terminated file gets no blank line"
+        );
     }
 }

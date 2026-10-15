@@ -19,6 +19,12 @@ export const en = {
   "home.uptime": "Uptime",
   "home.uptimeSeconds": "{seconds}s",
   "home.processState": "Process State",
+  "home.status.connected": "Connected",
+  "home.status.disconnected": "Disconnected",
+  "home.status.yes": "Yes",
+  "home.status.no": "No",
+  "home.status.forbidden": "Status is not available for your role.",
+  "home.status.unknown": "Unknown",
 
   "help.title": "User Handbook",
   "help.search": "Search handbook…",
@@ -49,6 +55,9 @@ export const en = {
   "library.captionPlaceholder": "Enter caption text…",
   "library.unavailable": "Media service is not available on this harness.",
   "library.error": "An error occurred while loading or updating media.",
+  "library.more": "Show more",
+  "library.emptyFiltered": "No media of this type.",
+  "library.captionCancel": "Cancel",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -72,6 +81,12 @@ export const de: Record<keyof typeof en, string> = {
   "home.uptime": "Laufzeit",
   "home.uptimeSeconds": "{seconds}s",
   "home.processState": "Prozesszustand",
+  "home.status.connected": "Verbunden",
+  "home.status.disconnected": "Getrennt",
+  "home.status.yes": "Ja",
+  "home.status.no": "Nein",
+  "home.status.forbidden": "Der Status ist für Ihre Rolle nicht verfügbar.",
+  "home.status.unknown": "Unbekannt",
 
   "help.title": "Benutzerhandbuch",
   "help.search": "Handbuch durchsuchen …",
@@ -102,4 +117,7 @@ export const de: Record<keyof typeof en, string> = {
   "library.captionPlaceholder": "Beschreibung eingeben …",
   "library.unavailable": "Der Mediendienst ist auf dieser Harness nicht verfügbar.",
   "library.error": "Beim Laden oder Bearbeiten der Medien ist ein Fehler aufgetreten.",
+  "library.more": "Mehr anzeigen",
+  "library.emptyFiltered": "Keine Medien dieses Typs.",
+  "library.captionCancel": "Abbrechen",
 };

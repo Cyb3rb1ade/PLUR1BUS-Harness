@@ -40,7 +40,7 @@ describe("tool naming and selection", () => {
   });
 
   it("forbidden methods are never exposed, even when included", () => {
-    const forbidden = ["core.auth", "core.shutdown", "core.adopt", "events.subscribe", "events.unsubscribe", "memory.checkpoint", "agent.open", "agent.close", "supervisor.auth", "daemon.stop", "config.set", "config.get", "module.restart", "grant.list", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.decide", "approval.cancel", "approval.verify", "grant.future.op", "approval.future.op", "user.list", "user.role.set", "user.invite.create", "breakglass.request", "breakglass.list", "device.list", "device.future.op", "agent.delete", "agent.archive", "agent.unarchive", "agent.export", "agent.rights.get", "agent.rights.set", "pairing.qr", "session.list"];
+    const forbidden = ["core.auth", "core.shutdown", "core.adopt", "events.subscribe", "events.unsubscribe", "memory.checkpoint", "agent.open", "agent.close", "supervisor.auth", "daemon.stop", "config.set", "config.get", "module.restart", "grant.list", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.decide", "approval.cancel", "approval.verify", "grant.future.op", "approval.future.op", "user.list", "user.role.set", "user.invite.create", "breakglass.request", "breakglass.list", "device.list", "device.future.op", "agent.create", "agent.import", "agent.validate", "agent.delete", "agent.archive", "agent.unarchive", "agent.export", "agent.rights.get", "agent.rights.set", "pairing.qr", "session.list", "jobs.create", "jobs.update", "jobs.delete", "doctor.report", "agent.activity.list"];
     const fakeCaps = { methods: { ...caps.methods } as Record<string, any> };
     const fakeSchema = structuredClone(SCHEMA) as any;
     for (const m of forbidden) {
@@ -54,7 +54,7 @@ describe("tool naming and selection", () => {
 
   it("admin methods are never offered as WebMCP tools", () => {
     const admin = (Object.keys(caps.methods)).filter((m) => m.startsWith("admin."));
-    assert.equal(admin.length, 11, `the core advertises the admin.* methods: ${admin.join(", ")}`);
+    assert.equal(admin.length, 13, `the core advertises the admin.* methods: ${admin.join(", ")}`);
     // Even when the handshake calls them stable and core-served and the page names them in include (D55).
     const fakeCaps = { methods: { ...caps.methods } as Record<string, any> };
     const fakeSchema = structuredClone(SCHEMA) as any;

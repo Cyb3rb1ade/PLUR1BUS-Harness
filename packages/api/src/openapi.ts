@@ -4,7 +4,7 @@ const errorResponse = (description: string) => ({ description, content: { "appli
 
 function operation(r: RouteSpec): Record<string, unknown> {
   const responses: Record<string, unknown> = {
-    [String(r.successStatus)]: { description: r.success.description, content: { "application/json": { schema: r.success.schema } } },
+    [String(r.successStatus)]: { description: r.success.description, content: { [r.id === "web.events" ? "text/event-stream" : "application/json"]: { schema: r.success.schema } } },
   };
   for (const [status, x] of Object.entries(r.extra ?? {})) responses[status] = { description: x.description, content: { "application/json": { schema: x.schema } } };
   if (r.requestBody) { responses["400"] = errorResponse("Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`)."); responses["415"] = errorResponse("The content type is not `application/json`."); }
@@ -17,10 +17,11 @@ function operation(r: RouteSpec): Record<string, unknown> {
   responses["413"] = errorResponse("The request body exceeds the size limit (`reason`: `body-too-large`).");
   responses["421"] = errorResponse("The `Host` header is not the API's own loopback name (`reason`: `host`).");
   responses["429"] = errorResponse("Rate limit exceeded (`reason`: `rate-limited`); `Retry-After` says when to try again.");
-  responses["504"] = errorResponse("The handler did not answer in time (`reason`: `handler-timeout`).");
+  if (r.id !== "web.rpc") responses["504"] = errorResponse("The handler did not answer in time (`reason`: `handler-timeout`).");
   return {
     operationId: r.id, tags: [r.tag], summary: r.summary,
     ...(r.auth === "session" ? { security: [{ cookieAuth: [] }] } : r.auth === "any" ? { security: [{ cookieAuth: [] }, { bearerAuth: [] }] } : { security: [] }),
+    ...(r.id === "web.events" ? { parameters: [{ name: "Last-Event-ID", in: "header", required: false, schema: { type: "string" }, description: "Resume only this person's retained events; a stale id returns restart." }] } : {}),
     ...(r.csrf ? { parameters: [{ name: "X-CSRF-Token", in: "header", required: true, description: "A one-time token from `GET /api/v1/csrf`.", schema: { type: "string" } }] } : {}),
     ...(r.requestBody ? { requestBody: { required: true, content: { "application/json": { schema: r.requestBody } } } } : {}),
     responses,
@@ -64,5 +65,9 @@ Every route is **deny by default**: a route that is not \`public\` answers 401 w
 | Method | Path | Operation | Auth | Action | CSRF | Rate class | Stability · since |
 |---|---|---|---|---|---|---|---|
 ${rows.join("\n")}
+
+## Härtung und Testabdeckung
+
+Every route of this table is called by the hardening tests (\`packages/api/test/hardening-*.test.ts\`, \`secrets-never-leave.test.ts\`): anonymous, signed in, with a bearer token, with a wrong method, a foreign \`Origin\` and a query string. Each answer carries the security headers; about 200 real answers validate against [openapi.json](openapi.json); every documented status is observed at least once; and the password, owner token, TOTP secret, backup codes, login challenge, session ids and token secret appear only in the answer that issues them, never in another body or header, a log line, an audit event or a call to the core. \`components.Error.error.enum\` is derived from the core's closed \`ErrorCode\` list, so a new code needs a regenerated \`openapi.json\`. Details, limits and known gaps: [api.md](api.md#härtung-und-testabdeckung).
 `;
 }

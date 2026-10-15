@@ -9,11 +9,22 @@ import { sessionState } from "../../session.ts";
 /** Unread entries over all kinds; null while unknown (not signed in, the call failed, or the core has no inbox yet). */
 export const inboxUnread = signal<number | null>(null);
 
+/** The sum of the per-kind counts, or null when any of them is not a non-negative whole number: a wrong badge is worse than none. */
+export function unreadSum(unread: unknown): number | null {
+  if (typeof unread !== "object" || unread === null || Array.isArray(unread)) return null;
+  let sum = 0;
+  for (const n of Object.values(unread)) {
+    if (typeof n !== "number" || !Number.isSafeInteger(n) || n < 0) return null;
+    sum += n;
+  }
+  return Number.isSafeInteger(sum) ? sum : null;
+}
+
 export async function refreshInboxCount(): Promise<void> {
   if (sessionState.value.status !== "authenticated") { inboxUnread.value = null; return; }
   try {
     const c = await getApi().rpc("inbox.count", {}, { write: false });
-    inboxUnread.value = Object.values(c.unread).reduce((sum, n) => sum + n, 0);
+    inboxUnread.value = unreadSum(c?.unread);
   } catch {
     // The badge is a hint: a failed count shows no badge rather than a wrong one.
     inboxUnread.value = null;

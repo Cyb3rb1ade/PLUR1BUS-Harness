@@ -83,6 +83,14 @@ fn method_fixture(name: &str, f: &Value) {
         "agent.unarchive" => pair::<AgentUnarchiveParams, AgentUnarchiveResult>(name, f),
         "agent.export" => pair::<AgentExportParams, AgentExportResult>(name, f),
         "agent.delete" => pair::<AgentDeleteParams, AgentDeleteResult>(name, f),
+        "user.disable" => pair::<UserDisableParams, UserDisableResult>(name, f),
+        "user.enable" => pair::<UserEnableParams, UserEnableResult>(name, f),
+        "admin.api.person.resolve" => {
+            pair::<AdminApiPersonResolveParams, AdminApiPersonResolveResult>(name, f)
+        }
+        "admin.api.invite.validate" => {
+            pair::<AdminApiInviteValidateParams, AdminApiInviteValidateResult>(name, f)
+        }
         "user.list" => pair::<UserListParams, UserListResult>(name, f),
         "user.role.set" => pair::<UserRoleSetParams, UserRoleSetResult>(name, f),
         "user.invite.create" => pair::<UserInviteCreateParams, UserInviteCreateResult>(name, f),
@@ -209,12 +217,22 @@ fn method_fixture(name: &str, f: &Value) {
         "memory.proposals.reject" => {
             pair::<MemoryProposalsRejectParams, MemoryProposalsRejectResult>(name, f)
         }
+        "agent.create" => pair::<AgentCreateParams, AgentCreateResult>(name, f),
+        "agent.validate" => pair::<AgentValidateParams, AgentValidateResult>(name, f),
+        "agent.import" => pair::<AgentImportParams, AgentImportResult>(name, f),
         "agent.list" => pair::<AgentListParams, AgentListResult>(name, f),
         "agent.open" => pair::<AgentOpenParams, AgentOpenResult>(name, f),
         "agent.close" => pair::<AgentCloseParams, AgentCloseResult>(name, f),
+        "doctor.report" => pair::<DoctorReportParams, DoctorReportResult>(name, f),
+        "agent.activity.list" => pair::<AgentActivityListParams, AgentActivityListResult>(name, f),
         "agent.status" => pair::<AgentStatusParams, AgentStatusResult>(name, f),
+        "jobs.create" => pair::<JobsCreateParams, JobsCreateResult>(name, f),
+        "jobs.update" => pair::<JobsUpdateParams, JobsUpdateResult>(name, f),
+        "jobs.delete" => pair::<JobsDeleteParams, JobsDeleteResult>(name, f),
         "jobs.list" => pair::<JobsListParams, JobsListResult>(name, f),
-        "jobs.run" | "jobs.run.system" => pair::<JobsRunParams, JobsRunResult>(name, f),
+        "jobs.run" | "jobs.run.system" | "jobs.run.user" => {
+            pair::<JobsRunParams, JobsRunResult>(name, f)
+        }
         "jobs.history" => pair::<JobsHistoryParams, JobsHistoryResult>(name, f),
         "events.subscribe" => pair::<EventsSubscribeParams, EventsSubscribeResult>(name, f),
         "events.unsubscribe" => pair::<EventsUnsubscribeParams, EventsUnsubscribeResult>(name, f),
@@ -336,6 +354,9 @@ fn all_error_codes() -> BTreeSet<ErrorCode> {
         ErrorCode::ECoreUnavailable,
         ErrorCode::EInvalidParams,
         ErrorCode::EAgentUnknown,
+        ErrorCode::EAgentExists,
+        ErrorCode::EAgentRights,
+        ErrorCode::EAgentSecretsMissing,
         ErrorCode::EConfigInvalid,
         ErrorCode::EModuleUnknown,
         ErrorCode::EInternal,
@@ -367,6 +388,9 @@ fn all_error_codes() -> BTreeSet<ErrorCode> {
             | ErrorCode::ECoreUnavailable
             | ErrorCode::EInvalidParams
             | ErrorCode::EAgentUnknown
+            | ErrorCode::EAgentExists
+            | ErrorCode::EAgentRights
+            | ErrorCode::EAgentSecretsMissing
             | ErrorCode::EConfigInvalid
             | ErrorCode::EModuleUnknown
             | ErrorCode::EInternal
@@ -506,6 +530,7 @@ fn every_notification_fixture_round_trips() {
             "session.event" => round_trip::<types::SessionEventNotification>(v, name),
             "approval.requested" => round_trip::<types::ApprovalRequestedNotification>(v, name),
             "approval.resolved" => round_trip::<types::ApprovalResolvedNotification>(v, name),
+            "api.account.changed" => round_trip::<types::ApiAccountChangedNotification>(v, name),
             "grant.changed" => round_trip::<types::GrantChangedNotification>(v, name),
             "voice.download.progress" => {
                 round_trip::<types::VoiceDownloadProgressNotification>(v, name)

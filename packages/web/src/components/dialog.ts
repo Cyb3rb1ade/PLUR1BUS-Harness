@@ -19,6 +19,9 @@ export type DialogProps = {
 export function Dialog({ title, onClose, actions, children }: DialogProps): View {
   const el = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  // A press that starts inside the dialog (selecting text in a field) and ends on the backdrop is a click on <dialog> too: only a press
+  // that started on the backdrop closes it.
+  const downOnBackdrop = useRef(false);
 
   useLayoutEffect(() => {
     const dialog = el.current;
@@ -27,6 +30,8 @@ export function Dialog({ title, onClose, actions, children }: DialogProps): View
     return () => {
       if (dialog?.open) dialog.close();
       if (opener?.isConnected) opener.focus();
+      // The opener went away with the action (a deleted row): land on the page heading, not on <body>.
+      else if (!document.activeElement || document.activeElement === document.body) document.querySelector<HTMLElement>("main h1")?.focus();
     };
   }, []);
 
@@ -43,7 +48,8 @@ export function Dialog({ title, onClose, actions, children }: DialogProps): View
       else if (!e.shiftKey && at === last) { e.preventDefault(); first.focus(); }
     },
     onCancel: (e: Event) => { e.preventDefault(); onClose(); },
-    onClick: (e: MouseEvent) => { if (e.target === el.current) onClose(); },
+    onMouseDown: (e: MouseEvent) => { downOnBackdrop.current = e.target === el.current; },
+    onClick: (e: MouseEvent) => { const start = downOnBackdrop.current; downOnBackdrop.current = false; if (e.target === el.current && start) onClose(); },
   },
     h("div", { class: "dialog-body" },
       h("div", { class: "dialog-head" },

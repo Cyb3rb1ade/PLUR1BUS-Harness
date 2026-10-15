@@ -6,19 +6,21 @@ it, `plur1bus: <message>` goes to stderr (bold red on a colour terminal, see `--
 [cli.md](cli.md)). A script should branch on the exit code or on `error`, never on the message text.
 
 `tests/docs_consistency.rs` keeps this page and the Rust sources in step: every `E_*` code in `crates/*/src` is listed
-below and every code listed below exists in the sources. `output::tests` keeps the Exit column in step with the code
-that maps an error to an exit code.
+below and every code listed below exists in the sources. The exit code of an error code is decided in ONE place,
+`output::exit_code_for`; `Out::fail`, `ext::Failure::exit` and `BackupError::code` all ask it, `output::tests` keeps the
+Exit column in step with it, and `tests/cli_surface.rs` fails when a command passes a literal exit code for a code in
+the table.
 
 ## Exit codes
 
 | Exit | Meaning |
 |---|---|
 | 0 | Success. A `--check`-style command that found nothing wrong also exits 0. |
-| 1 | The command failed (any error code not listed with another exit below), or a real write error lost the output (a closed pipe does not count). |
-| 2 | The command cannot run here: `E_NOT_AVAILABLE` (also every milestone stub), or it needs an approval first (`E_APPROVAL_REQUIRED`). Usage errors (an unknown flag, a missing argument) also exit 2, before any command runs. |
-| 3 | `E_LOCKED`: the store is locked by another process. Retry later. |
+| 1 | The command ran and failed (any error code not listed with another exit below), or a real write error lost the output (a closed pipe does not count). |
+| 2 | The command was refused before it did any work: `E_INVALID_PARAMS` (a usage or input error: an unknown flag, a missing or malformed argument, a missing `--yes`, also a request the core rejected), `E_NOT_AVAILABLE` (not possible here; also every milestone stub), `E_APPROVAL_REQUIRED` (an approval is needed first) or `E_CANCELLED` (a confirmation prompt was answered no). Nothing was changed. clap's own usage errors exit 2 as well, before any command runs. |
+| 3 | `E_LOCKED`: the store or the home is held by another process (also `supervise` when a supervisor already runs or the lock is held and no supervisor answers). Retry later. |
 | 70 | Internal: the supervisor ended on a panic. Only seen from `plur1bus supervise` (the OS service), never from an interactive command. |
-| 130 | `plur1bus login` was interrupted with Ctrl-C (`E_CANCELLED`, `reason=login-cancelled`); the login was cancelled and nothing was saved. |
+| 130 | Interrupted by a signal or Ctrl-C. `plur1bus login` reports it as `E_CANCELLED`, `reason=login-cancelled` (the login was cancelled and nothing was saved); `acp serve` and `core run` end with 130 when their child process was ended by a signal and left no exit code. |
 | 1..255 | `plur1bus import` passes through the exit code of the importer (`E_IMPORT_FAILED` and the importer's own errors), 1 when it names none. |
 
 ## Error codes
@@ -32,7 +34,10 @@ the core sent. The last two are raised by the CLI itself.
 | `E_RPC_VERSION` | 1 | The core or supervisor speaks an RPC version this CLI does not. |
 | `E_NOT_AVAILABLE` | 2 | The command or feature is not available here: a milestone stub, a container-managed install, a missing prerequisite. |
 | `E_CORE_UNAVAILABLE` | 1 | The core could not be reached (not running, not ready, socket missing). Start it with `plur1bus daemon start`. |
-| `E_INVALID_PARAMS` | 1 | The core rejected the request parameters. |
+| `E_INVALID_PARAMS` | 2 | The input was refused: a usage error of the CLI or request parameters the core rejected. Nothing was changed. |
+| `E_AGENT_EXISTS` | 1 | The agent name or data directory already exists. Use import `--on-conflict rename`. |
+| `E_AGENT_RIGHTS` | 1 | Invalid recipient/right or delegation above the caller; `detail` identifies the field. |
+| `E_AGENT_SECRETS_MISSING` | 1 | Required target secrets are absent; `ids` lists names only. Provision them and retry. |
 | `E_AGENT_UNKNOWN` | 1 | The named agent is not registered. |
 | `E_CONFIG_INVALID` | 1 | A configuration value or file does not validate against the schema. |
 | `E_MODULE_UNKNOWN` | 1 | The named module does not exist. |
@@ -57,7 +62,7 @@ the core sent. The last two are raised by the CLI itself.
 | `E_MEDIA_DIMENSION` | 1 | The query and the indexed documents differ in dimension, or the model does not support the configured dimension. |
 | `E_MEDIA_UNSUPPORTED_KIND` | 1 | The medium cannot be processed (decoder or frame extractor missing, format unknown). |
 | `E_IMPORT_FAILED` | 1 | `plur1bus import` could not run or finish the importer (`reason`: `importer-missing`, `node-unavailable`, `importer-crashed`). The importer's own errors keep the exit code it reports. |
-| `E_CANCELLED` | 1 | The user declined a confirmation prompt; nothing was changed. |
+| `E_CANCELLED` | 2 | The user declined a confirmation prompt (`config apply`, `module`, `secret remove`, `memory forget`, `media reindex`, `ext`, `update apply`: `reason=declined`); nothing was changed. `plur1bus login` ended with Ctrl-C reports it with exit 130 (see above). |
 
 ## Sign-in reasons (`plur1bus login`)
 
@@ -79,8 +84,8 @@ the core sent. The last two are raised by the CLI itself.
 | `reason` | Code | Exit | Meaning |
 |---|---|---|---|
 | `secret-value` | `E_INVALID_PARAMS` | 2 | A `*Secret` key was given something other than a secret name: a value that looks like a credential, or any text outside the name format (`[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}`). The CLI refuses it before the core is called, so nothing is sent; the core refuses it too and stores nothing. A value is never echoed, stored or logged. A credential-shaped value is to be treated as exposed: rotate it. Store secrets with `plur1bus secret set <name>` and pass the name. |
-| `invalid-id`, `invalid-key`, `unknown-key`, `value-required`, `invalid-params` | `E_INVALID_PARAMS` | 1 | Usage: the id or key is not well formed, the key does not exist for that channel, or the value is missing. Nothing was written. |
-| `invalid-value` | `E_INVALID_PARAMS` | 1 | The value does not validate against the config schema; `detail` names the schema complaint (never the value). Nothing was written. |
+| `invalid-id`, `invalid-key`, `unknown-key`, `value-required`, `invalid-params` | `E_INVALID_PARAMS` | 2 | Usage: the id or key is not well formed, the key does not exist for that channel, or the value is missing. Nothing was written. |
+| `invalid-value` | `E_INVALID_PARAMS` | 2 | The value does not validate against the config schema; `detail` names the schema complaint (never the value). Nothing was written. |
 | `unknown-channel` | `E_NOT_FOUND` | 1 | No such channel in the config schema or the registry. |
 | `owner-not-linked` | `E_NOT_FOUND` | 1 | `channel test --send-owner`: you have no linked identity on that channel (see `plur1bus identity link`). |
 | `not-configurable` | `E_NOT_AVAILABLE` | 2 | The channel is registered but has no `channels.<id>` configuration in this version. |
@@ -91,7 +96,7 @@ the core sent. The last two are raised by the CLI itself.
 
 ## Update reasons (`plur1bus update`)
 
-`plur1bus update` reports `E_NOT_AVAILABLE` (exit 1; `confirmation-required` is `E_INVALID_PARAMS`, exit 2) with a `reason`. Nothing was changed for any of them, except where the table says otherwise. See [updates.md](updates.md).
+`plur1bus update` reports `E_NOT_AVAILABLE` (exit 2; `confirmation-required` is `E_INVALID_PARAMS`, also exit 2; a declined prompt is `E_CANCELLED` with `reason=declined`, exit 2) with a `reason`. Nothing was changed for any of them, except where the table says otherwise. See [updates.md](updates.md).
 
 | `reason` | Meaning |
 |---|---|
@@ -103,7 +108,8 @@ the core sent. The last two are raised by the CLI itself.
 | `release-malformed`, `min-from-version`, `no-native-release`, `target-unsupported`, `unit-unsupported` | The release cannot be applied to this install (`unit-unsupported`: it also changes the Node runtime or modules, run `plur1bus setup`). |
 | `downgrade-refused` | The release is older than the installed version; `--allow-downgrade` overrides. |
 | `release-replay` | The release is older than the newest one this install accepted on the channel; `--allow-downgrade` overrides. |
-| `release-version-invalid` | A version that is not `major.minor.patch` cannot be ordered against the other. |
+| `release-version-invalid` | A version that is not a semantic version (`major.minor.patch`, optional `-pre-release`) cannot be ordered against the other. |
+| `prerelease-on-stable` | The release is a pre-release and this install follows the stable channel; `--channel beta` follows pre-releases. |
 | `guard-unreadable`, `addons-unreadable`, `state-unreadable` | A file under `<home>/update/` does not parse; it is never treated as empty. |
 | `addon-incompatible` | A required add-on would be incompatible with the new version; `--force` disables it and updates anyway. |
 | `addon-disable-failed` | (Outcome `rolled-back`.) An add-on could not be disabled after the swap; the update was rolled back. |
@@ -151,3 +157,64 @@ are no new top-level error codes. Messages contain no key material or pairing co
 The central RBAC gate additionally returns `E_UNAUTHORIZED` for a missing
 principal and `E_DENIED` for forbidden role/kind/token scope, using the existing
 RBAC reasons. Repeating a completed revocation is idempotent.
+
+## CLI-Exit-Codes
+
+Which exit code a command ends with, collected from every exit site in `crates/plur1bus/src` by
+`scripts/check-cli-exit-codes.mjs` (`node scripts/check-cli-exit-codes.mjs --list` prints each site with its command
+context and error code). `node scripts/check-cli-exit-codes.mjs --check`, part of `pnpm docs:check`, fails when the
+sources use an exit code that is not in the first column of this table. This section complements the two tables above;
+it does not replace them.
+
+| Exit | Meaning | Typical commands | What to do |
+|---|---|---|---|
+| 0 | Success, or a run that found nothing to do. `repair` and `setup` exit 0 only when their final check is clean. | all | Nothing. |
+| 1 | The command ran and failed: `E_CORE_UNAVAILABLE`, `E_INTERNAL`, `E_STORAGE`, `E_CONFIG_INVALID`, `E_AGENT_UNKNOWN`, `E_NOT_FOUND`, `E_CONFLICT`, `E_UNAUTHORIZED`, `E_IMPORT_FAILED` and every other code that is not listed under 2 or 3. Also a supervisor that cannot set up its endpoint or lock, a failed `repair` or `setup` check, a `chat` turn that failed, a verification, run or scan that reports a failure (`audit verify`, `dreams run`, `model scan`, `memory reembed`, `1staid check`), and a child process (`acp serve`, `core run`) that exits non-zero, whose own code is passed through. | `agent`, `config`, `daemon start`, `media`, `memory`, `module`, `service`, `update`, `supervise` | Read the message (or `error`/`reason` with `--json`) and the matching row in the error-code table above. `E_CORE_UNAVAILABLE`: `plur1bus daemon start`. |
+| 2 | Refused before any work, nothing changed: `E_INVALID_PARAMS` (a bad argument or input, a missing `--yes` outside a terminal, an unknown `--only` step, an unknown or ambiguous `--agent`, a bad key or env value, a request the core rejected), `E_NOT_AVAILABLE` (not possible here or now, also `module start` without a supervisor and `update --rollback` with nothing to roll back), `E_APPROVAL_REQUIRED` (from the core) and `E_CANCELLED` (a prompt answered no, in every command including `update apply`). `supervise` exits 2 for an option that needs `PLUR1BUS_ALLOW_TEST_INTERNALS=1`. clap's own usage errors also exit 2. | `approval`, `budget`, `channel`, `config apply`, `dreams`, `grant`, `login`, `module`, `repair`, `secret`, `service`, `update`, `voice` | Fix the invocation and run it again. A confirmation refused by a script needs `--yes`. For `E_APPROVAL_REQUIRED`, approve the request first. |
+| 3 | Another process holds the store or the home: `E_LOCKED`, or a supervisor already running for this home, or the supervisor lock held with no supervisor answering (an offline `module install`). Under launchd the supervisor reports 2 and 3 as 0 so the service is not restarted in a loop; the "held, nobody answered" case is the one exception there and ends with 1, which launchd retries. | `backup`, `ext`, `supervise` | Wait and retry, or stop the other process (`plur1bus daemon stop`). Do not start a second supervisor. |
+| 70 | Internal: the supervisor ended on a panic. | `supervise` (the OS service) | Read `logs/supervisor.log` and report it. The OS service restarts it. |
+| 130 | Interrupted by a signal or Ctrl-C: `login` (`E_CANCELLED`, `reason=login-cancelled`, nothing was saved), or a child process of `acp serve` or `core run` that a signal ended. | `login`, `acp serve`, `core run` | Run the command again. |
+| 137 | Test internals only: `PLUR1BUS_TEST_UPDATE_KILL_AT` kills the updater right after a phase when `PLUR1BUS_ALLOW_TEST_INTERNALS=1`. Never seen in normal use. | `update apply` | Unset both variables. |
+| 1..255 | `import` passes the importer's own exit code through (1 when it names none or one outside the range). | `import` | Read the importer's message; the code is the importer's, not the CLI's. |
+
+### Inconsistencies (fixed)
+
+The first collection (#423) found the inconsistencies below. All of them are fixed; `tests/cli_surface.rs` and
+`scripts/check-cli-exit-codes.mjs --check` keep them fixed.
+
+- **Fixed:** `E_NOT_AVAILABLE` exited 2 through `output::exit_code_for` but 1 at 16 direct `out.fail(..., 1)` sites. It
+  exits 2 everywhere.
+- **Fixed:** `E_INVALID_PARAMS` exited 2 at 40 sites and 1 at 15. It exits 2 everywhere (a usage or input error, also a
+  request the core rejected), so a script can tell it from a runtime failure.
+- **Fixed:** `E_INVALID_PARAMS` was used for runtime problems. A damaged output of `media save` (`invalid output range`,
+  `incomplete output`, undecodable data) is `E_STORAGE`, exit 1. A prompt answered no (`not applied`, `not reindexed`)
+  is `E_CANCELLED`, exit 2.
+- **Fixed:** A declined confirmation exited 2 with `E_INVALID_PARAMS` (`config apply`, `module`, `secret`, `memory forget`,
+  `media reindex`, `ext`) but 1 with `E_CANCELLED` for `update apply`. It is `E_CANCELLED`, exit 2, everywhere.
+  Ctrl-C and a signal end with 130 (`login`, and the children of `acp serve` and `core run`).
+- **Fixed:** The code-to-exit mapping was written three times. It is written once, `output::exit_code_for`;
+  `ext::Failure::exit` and `BackupError::code` ask it, and `Out::fail` derives its exit from the code (the exit is no
+  longer an argument). `Out::fail_exit` is for the two exits that are not in the table: the importer's own exit code
+  and 130. `every_fail_call_takes_its_exit_code_from_the_table` fails when a call passes a literal exit for a code in
+  the table.
+- **Fixed:** `supervise` exited 3 for "already running" but 1 when the lock was held and no supervisor answered. Both
+  exit 3 (under launchd the second keeps 1, see the table).
+- **Fixed:** `audit verify`, `dreams run`, `model scan`, `memory reembed` and `1staid check` called
+  `std::process::exit(1)` after the normal result, with no `error/1` document. With `--json` the result document now
+  carries the failure as a top-level `error` object, itself an `error/1` document, so stdout stays ONE JSON document
+  and a result such as `{"schema":"audit.verify/1","ok":false,...}` keeps all its fields:
+
+  | Command | `error.error` | `error.reason` |
+  |---|---|---|
+  | `audit verify` | `E_STORAGE` | `audit-verify-failed` |
+  | `dreams run` (a run that `failed` or was `aborted`) | `E_INTERNAL` | `dream-run-failed` |
+  | `model scan` (a provider scan failed) | `E_INTERNAL` | `scan-failed` |
+  | `memory reembed --plan` (incompatible model) | `E_CONFLICT` | `incompatible-model` |
+  | `memory reembed --run` (the migration did not finish) | `E_INTERNAL` | `reembed-failed` |
+  | `1staid check` (a check failed) | `E_INTERNAL` | `checks-failed` (`ids.failed` lists the check ids) |
+
+  The exit stays 1; without `--json` nothing changes. A success is unchanged, in particular the documents the desktop
+  app parses (`1staid.check/1`, `admin.smoke/1`, `daemon.status`, `state.snapshot/1`).
+
+Still open: other commands end with `exit(1)` after their result without an `error` object (`approval verify`,
+`admin embedding probe`, `channel test`, `chat`); their exit code is right, only the `--json` failure object is missing.

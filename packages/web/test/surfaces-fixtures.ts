@@ -151,7 +151,7 @@ export function seedExtensions(
     const detail: ExtDetail = {
       item: it,
       manifest: { name: it.name, version: it.version },
-      capabilities: { network: "none", filesystem: ["read"] },
+      capabilities: { network: "none", filesystem: ["read"], ...(it.name === "telegram-channel" ? { hostBridge: ["file-pick", "notifications"], mcpApps: true } : {}) },
       scripts: [],
       trust: { tier: it.trust, label: it.trust },
       files: { count: 12, bytes: 45000 },
@@ -200,6 +200,7 @@ export function seedApprovals(
   approvals: ApprovalRecord[] = sampleApprovals,
   grants: GrantRecord[] = sampleGrants
 ): void {
+  rpc.handle("config.get", () => ({ value: { approvals: { maxGrantDays: 90, requireOsConfirmation: true } }, revision: "fixture" }), { write: false });
   rpc.handle("approval.list", () => ({ approvals }), { write: false });
   rpc.handle("approval.get", (params) => {
     const { id } = params as { id: string };

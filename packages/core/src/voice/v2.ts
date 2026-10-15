@@ -125,7 +125,7 @@ export function createVoiceV2(d: VoiceV2Deps) {
       channels.add(channel); signal.addEventListener('abort', () => { void close().catch(() => {}); }, { once: true });
       if (signal.aborted) { await close(); throw new Error('voice-closed'); }
       return channel;
-    } catch { lifetime.abort(); await current?.close(); await realtime?.close(); local?.unload(); await d.budget.release(reservation); throw new VoiceProviderError('unavailable', 'voice session unavailable'); }
+    } catch { if (!closed) { lifetime.abort(); await current?.close(); await realtime?.close(); local?.unload(); await d.budget.release(reservation); } else await closing; throw new VoiceProviderError('unavailable', 'voice session unavailable'); } // close() already released everything once
   };
   return { openTalk, metrics: () => metrics.report(), renderMetrics: () => metrics.render(), async close() { stopped = true; await Promise.allSettled([...channels].map(c => c.close())); } };
 }

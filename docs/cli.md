@@ -27,6 +27,8 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus agent`↴](#plur1bus-agent)
 * [`plur1bus agent list`↴](#plur1bus-agent-list)
 * [`plur1bus agent create`↴](#plur1bus-agent-create)
+* [`plur1bus agent validate`↴](#plur1bus-agent-validate)
+* [`plur1bus agent import`↴](#plur1bus-agent-import)
 * [`plur1bus agent remove`↴](#plur1bus-agent-remove)
 * [`plur1bus agent status`↴](#plur1bus-agent-status)
 * [`plur1bus agent pause`↴](#plur1bus-agent-pause)
@@ -67,6 +69,9 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus chat`↴](#plur1bus-chat)
 * [`plur1bus acp`↴](#plur1bus-acp)
 * [`plur1bus acp serve`↴](#plur1bus-acp-serve)
+* [`plur1bus jobs`↴](#plur1bus-jobs)
+* [`plur1bus jobs list`↴](#plur1bus-jobs-list)
+* [`plur1bus jobs create`↴](#plur1bus-jobs-create)
 * [`plur1bus dreams`↴](#plur1bus-dreams)
 * [`plur1bus dreams status`↴](#plur1bus-dreams-status)
 * [`plur1bus dreams run`↴](#plur1bus-dreams-run)
@@ -289,6 +294,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `session` — Chat sessions: list, show, archive
 * `chat` — [experimental] Chat with an agent (one message, or a line-by-line conversation on stdin)
 * `acp` — Agent Client Protocol (ACP): serve a harness agent to an editor over stdio
+* `jobs` — [experimental] User recurring tasks: list or create a scheduled turn
 * `dreams` — Dreaming: phase schedules, status, run, log
 * `config` — Configuration: get, set, schema
 * `module` — Modules: list, graph, install, uninstall, start, stop, restart
@@ -536,6 +542,8 @@ Agents (personas): list, create, remove, status
 
 * `list` — [experimental] List registered agents
 * `create` — [experimental] Register a new agent
+* `validate` — [experimental] Dry-run a JSON create payload, reporting errors by wizard step
+* `import` — [experimental] Import an agent export JSON file (no credentials are imported)
 * `remove` — [experimental] Remove an agent from the registry (data is kept)
 * `status` — [experimental] Show an agent's activity and workspace
 * `pause` — [experimental] Pause new turns and background work while retaining state
@@ -560,11 +568,48 @@ Agents (personas): list, create, remove, status
 
 [experimental] Register a new agent
 
-**Usage:** `plur1bus agent create <ID>`
+**Usage:** `plur1bus agent create [OPTIONS] <ID>`
 
 ###### **Arguments:**
 
 * `<ID>`
+
+###### **Options:**
+
+* `--config <CONFIG>` — JSON settings (persona, model, memory, rights, channels); requires the current core
+
+
+
+## `plur1bus agent validate`
+
+[experimental] Dry-run a JSON create payload, reporting errors by wizard step
+
+**Usage:** `plur1bus agent validate <FILE>`
+
+###### **Arguments:**
+
+* `<FILE>`
+
+
+
+## `plur1bus agent import`
+
+[experimental] Import an agent export JSON file (no credentials are imported)
+
+**Usage:** `plur1bus agent import [OPTIONS] <FILE>`
+
+###### **Arguments:**
+
+* `<FILE>`
+
+###### **Options:**
+
+* `--on-conflict <ON_CONFLICT>`
+
+  Default value: `fail`
+
+  Possible values: `rename`, `fail`
+
 
 
 
@@ -1175,6 +1220,53 @@ stdout carries only ACP JSON-RPC lines; diagnostics go to stderr and never conta
 
 
 
+## `plur1bus jobs`
+
+[experimental] User recurring tasks: list or create a scheduled turn
+
+**Usage:** `plur1bus jobs <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — [experimental] List scheduled tasks (defaults to user jobs)
+* `create` — [experimental] Create a recurring task under the authenticated person's identity
+
+
+
+## `plur1bus jobs list`
+
+[experimental] List scheduled tasks (defaults to user jobs)
+
+**Usage:** `plur1bus jobs list [OPTIONS]`
+
+###### **Options:**
+
+* `--kind <KIND>`
+
+  Default value: `user`
+
+  Possible values: `user`, `system`, `agent`, `all`
+
+
+
+
+## `plur1bus jobs create`
+
+[experimental] Create a recurring task under the authenticated person's identity
+
+**Usage:** `plur1bus jobs create [OPTIONS] --name <NAME> --agent <AGENT> --prompt <PROMPT> --cron <CRON> --timezone <TIMEZONE>`
+
+###### **Options:**
+
+* `--name <NAME>`
+* `--agent <AGENT>`
+* `--prompt <PROMPT>`
+* `--cron <CRON>` — Five-field cron expression
+* `--timezone <TIMEZONE>` — IANA timezone (never implicitly the host timezone)
+* `--disabled`
+
+
+
 ## `plur1bus dreams`
 
 Dreaming: phase schedules, status, run, log
@@ -1669,7 +1761,7 @@ The core stages the memory store through the engine's snapshot and every SQLite 
 
 [experimental] Check an archive: manifest, every entry against its SHA-256, nothing extra, nothing missing
 
-Exits 1 with a `reason` (archive-corrupt, truncated, manifest-invalid, unsupported-format, unexpected-entry, checksum-mismatch, missing-entry) for an archive a restore would refuse.
+Exits 2 (`E_INVALID_PARAMS`) with a `reason` (archive-corrupt, truncated, manifest-invalid, unsupported-format, unexpected-entry, checksum-mismatch, missing-entry) for an archive a restore would refuse.
 
 **Usage:** `plur1bus backup verify <FILE>`
 
@@ -4220,7 +4312,7 @@ Fills `files`, `scripts` and `created`, and writes the package deterministically
 
 [experimental] Verify a `.p1x` without a home: layout, hashes, signature, manifest and compatibility
 
-Trusts only the pinned keys, checks no revocations and no installed names. Exit 1 with the reason when the package is refused.
+Trusts only the pinned keys, checks no revocations and no installed names. Exit 2 with the reason when the package is refused.
 
 **Usage:** `plur1bus ext verify <FILE>`
 

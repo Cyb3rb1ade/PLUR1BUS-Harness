@@ -1,6 +1,6 @@
 // Skills & Plugins Page: ext.list, ext.show, ext.enable/disable, ext.uninstall, ext.restore, ext.install file upload, live watch.
 import { h } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Badge, Card, type BadgeTone } from "../../components/card.ts";
 import { Dialog } from "../../components/dialog.ts";
@@ -23,6 +23,8 @@ import type {
   ExtOverlay,
   ExtTrustTier,
 } from "../common/surfaces-rpc.ts";
+
+import { RightsList } from "./rights.ts";
 
 import "../../styles/extensions.css";
 
@@ -57,6 +59,13 @@ function trustTone(tier: ExtTrustTier): BadgeTone {
     default:
       return "neutral";
   }
+}
+
+/** Key order does not matter when two capability objects are compared. */
+function canonical(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(canonical).join(",")}]`;
+  if (typeof v === "object" && v !== null) return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canonical((v as Record<string, unknown>)[k])}`).join(",")}}`;
+  return JSON.stringify(v) ?? "null";
 }
 
 function UninstallDialog({
@@ -161,6 +170,7 @@ function InstallDialog({
   const [ack, setAck] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const inFlight = useRef(false);
 
   const inspect = async (path: string): Promise<void> => {
     setBusy(true);
@@ -189,7 +199,8 @@ function InstallDialog({
   };
 
   const install = async (): Promise<void> => {
-    if (!inspection) return;
+    if (!inspection || inFlight.current || inspection.checks.some((c) => c.status === "fail")) return;
+    inFlight.current = true;
     setBusy(true);
     setErr("");
     try {
@@ -208,8 +219,11 @@ function InstallDialog({
       setBusy(false);
       const o = (typeof e === "object" && e !== null ? e : {}) as { message?: string };
       setErr(o.message || t("extensions.error.required"));
+    } finally {
+      inFlight.current = false;
     }
   };
+  const blocked = inspection?.checks.some((c) => c.status === "fail") ?? false;
 
   return h(
     Dialog,
@@ -226,7 +240,7 @@ function InstallDialog({
               {
                 type: "button",
                 class: "btn btn-primary",
-                disabled: busy || !ack,
+                disabled: busy || !ack || blocked,
                 onClick: () => { void install(); },
               },
               t("extensions.install.submit"),
@@ -257,9 +271,21 @@ function InstallDialog({
         ? h(
             "div",
             { class: "inspection-disclosure" },
-            h("p", { class: "reading" }, t("extensions.install.ready", { id: inspection.inspectionId, version: inspection.sha256.slice(0, 8) })),
+            h("p", { class: "reading" }, t("extensions.install.ready", { id: String((inspection.manifest as { id?: unknown }).id ?? "?"), version: String((inspection.manifest as { version?: unknown }).version ?? "?") })),
+            h("p", { class: "reading", "data-install": "trust" }, t("extensions.install.trust", { tier: inspection.trust.tier, sha: inspection.sha256.slice(0, 12) })),
+            h(
+              "ul",
+              { class: "plain-list", "data-install": "checks" },
+              inspection.checks.map((c) => h("li", { key: c.id, class: c.status === "fail" ? "form-error" : undefined, role: c.status === "fail" ? "alert" : undefined }, `${c.id}: ${t(`extensions.install.check.${c.status}` as Key)} – ${c.detail}`)),
+            ),
+            inspection.scripts.length
+              ? h("div", { "data-install": "scripts" }, h("h3", null, t("extensions.install.scripts")), h("ul", { class: "plain-list" }, inspection.scripts.map((sc) => h("li", { key: sc.path }, `${sc.path} (${sc.size} B)`))))
+              : null,
             h("h3", null, t("extensions.install.capabilities")),
-            h("pre", { class: "summary-box" }, JSON.stringify(inspection.capabilities, null, 2)),
+            h(RightsList, { caps: inspection.capabilities }),
+            inspection.replaces && inspection.replaces.capabilityDiff.changed.length > 0
+              ? h("p", { class: "form-notice", role: "status" }, t("extensions.install.widens", { list: inspection.replaces.capabilityDiff.changed.join(", ") }))
+              : null,
             h(
               "div",
               { class: "field" },
@@ -281,21 +307,78 @@ function InstallDialog({
   );
 }
 
+function EnableDialog({
+  name,
+  caps,
+  changed,
+  onClose,
+  onConfirm,
+  busy,
+}: {
+  name: string;
+  caps: unknown;
+  /** The rights differ from what the person saw a moment ago: they are shown again and must be acknowledged again. */
+  changed: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  busy: boolean;
+}): View {
+  const [ack, setAck] = useState(false);
+  return h(
+    Dialog,
+    {
+      title: t("extensions.enable.title"),
+      onClose,
+      actions: h(
+        "div",
+        { class: "dialog-actions" },
+        h("button", { type: "button", class: "btn btn-quiet", onClick: onClose }, t("shared.confirm.cancel")),
+        h("button", { type: "button", class: "btn btn-primary", disabled: busy || !ack, onClick: onConfirm }, t("extensions.enable.submit")),
+      ),
+    },
+    h(
+      "div",
+      { class: "dialog-content" },
+      changed ? h("p", { class: "form-error", role: "alert" }, t("extensions.enable.changed")) : null,
+      h("p", { class: "reading" }, t("extensions.enable.intro", { name })),
+      h(RightsList, { caps }),
+      h(
+        "div",
+        { class: "field" },
+        h(
+          "label",
+          { class: "checkbox-label" },
+          h("input", { type: "checkbox", checked: ack, onChange: (e: Event) => setAck((e.target as HTMLInputElement).checked) }),
+          " ",
+          t("extensions.enable.acknowledge"),
+        ),
+      ),
+    ),
+  );
+}
+
 function ExtensionDetailView({
   name,
   onRefresh,
+  changes,
 }: {
   name: string;
   onRefresh: () => void;
+  /** Counts `ext.changed` events: the detail (and the rights it shows) is read again whenever it grows. */
+  changes: number;
 }): View {
   const { state, reload } = useLoad(
     (signal) =>
       getApi().rpc("ext.show", { name }, { write: false, signal }) as Promise<ExtDetail>,
-    [name]
+    [name],
+    changes,
   );
   const [busy, setBusy] = useState(false);
   const [actionNotice, setActionNotice] = useState("");
   const [uninstalling, setUninstalling] = useState(false);
+  // The rights the person is looking at in the enable dialog; `n` restarts the dialog (and its acknowledgement) when they change.
+  const [consent, setConsent] = useState<{ caps: unknown; changed: boolean; n: number } | null>(null);
+  const inFlight = useRef(false);
 
   if (state.status === "loading") return h(PageLoading, { label: t("state.loading") });
   if (state.status === "fail")
@@ -323,6 +406,34 @@ function ExtensionDetailView({
       const o = (typeof e === "object" && e !== null ? e : {}) as { message?: string };
       setActionNotice(o.message || t("extensions.error.required"));
     } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Confirm: what the server holds now must be what was on screen. Otherwise nothing is enabled and the new rights are shown. */
+  const confirmEnable = async (): Promise<void> => {
+    if (inFlight.current || !consent) return;
+    inFlight.current = true;
+    setBusy(true);
+    try {
+      let fresh: ExtDetail;
+      try {
+        fresh = (await getApi().rpc("ext.show", { name: item.name }, { write: false })) as ExtDetail;
+      } catch (e) {
+        setConsent(null);
+        const o = (typeof e === "object" && e !== null ? e : {}) as { message?: string };
+        setActionNotice(o.message || t("extensions.error.required"));
+        return;
+      }
+      if (canonical(fresh.capabilities) !== canonical(consent.caps)) {
+        setConsent({ caps: fresh.capabilities, changed: true, n: consent.n + 1 });
+        reload();
+        return;
+      }
+      setConsent(null);
+      await toggle(true);
+    } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   };
@@ -397,7 +508,7 @@ function ExtensionDetailView({
                 type: "button",
                 class: "btn btn-primary",
                 disabled: busy,
-                onClick: () => { void toggle(true); },
+                onClick: () => setConsent({ caps: detail.capabilities, changed: false, n: 0 }),
               },
               t("extensions.action.enable"),
             ),
@@ -450,7 +561,7 @@ function ExtensionDetailView({
     h(
       Card,
       { title: t("extensions.detail.permissions") },
-      h("pre", { class: "summary-box" }, JSON.stringify(detail.capabilities, null, 2)),
+      h(RightsList, { caps: detail.capabilities }),
     ),
     detail.dependents.length > 0
       ? h(
@@ -486,6 +597,17 @@ function ExtensionDetailView({
           ),
         )
       : null,
+    consent
+      ? h(EnableDialog, {
+          key: consent.n,
+          name: item.name,
+          caps: consent.caps,
+          changed: consent.changed,
+          busy,
+          onClose: () => setConsent(null),
+          onConfirm: () => { void confirmEnable(); },
+        })
+      : null,
     uninstalling
       ? h(UninstallDialog, {
           name: item.name,
@@ -516,6 +638,7 @@ function ExtensionsContent({
   );
   const [search, setSearch] = useState("");
   const [installing, setInstalling] = useState(false);
+  const [changes, setChanges] = useState(0);
 
   useEffect(() => {
     if (sub) setSelectedName(sub);
@@ -529,6 +652,7 @@ function ExtensionsContent({
         onEvent: (ev) => {
           if (ev.event === "ext.changed") {
             reload();
+            setChanges((n) => n + 1);
           }
         },
       });
@@ -684,7 +808,7 @@ function ExtensionsContent({
   );
 
   const detailPane = selected
-    ? h(ExtensionDetailView, { name: selected, onRefresh: reload })
+    ? h(ExtensionDetailView, { name: selected, onRefresh: reload, changes })
     : h(PageState, {
         state: "empty",
         title: t("extensions.empty.title"),

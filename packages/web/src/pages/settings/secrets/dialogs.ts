@@ -1,6 +1,8 @@
 // Create / rotate dialog for a secret. The value lives ONLY in the uncontrolled password input: no state, no signal, no
 // `value` attribute. On submit it is read once, the input is emptied before anything is awaited, and the local goes out of
 // scope when `onSave` settles. The reveal toggle is dialog-local and resets on submit and on close.
+// Rotating asks once more before anything is sent: the first Save only validates and shows the question (the value stays in
+// the read-only input meanwhile), the second one sends.
 import { h } from "preact";
 import { useRef, useState } from "preact/hooks";
 import type { View } from "../../../view.ts";
@@ -8,7 +10,8 @@ import { Dialog } from "../../../components/dialog.ts";
 import { t } from "../../../i18n.ts";
 import { bad, Field } from "../../common/field.ts";
 
-const NAME = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/;
+/** The names the secret store accepts. */
+export const SECRET_NAME = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$/;
 export type SaveResult = { ok: true } | { ok: false; message: string };
 
 export type SecretDialogProps = {
@@ -28,16 +31,18 @@ export function SecretDialog({ rotate, existing, onSave, onClose }: SecretDialog
   const [saveErr, setSaveErr] = useState("");
   const [reveal, setReveal] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   const submit = async (): Promise<void> => {
     if (busy) return;
     const input = value.current;
-    const nErr = rotate !== undefined ? "" : !NAME.test(name) ? t("secrets.err.name") : existing.includes(name) ? t("secrets.err.exists") : "";
+    const nErr = rotate !== undefined ? "" : !SECRET_NAME.test(name) ? t("secrets.err.name") : existing.includes(name) ? t("secrets.err.exists") : "";
     const vErr = input && input.value.length > 0 ? "" : t("secrets.err.value");
     setNameErr(nErr); setValueErr(vErr); setSaveErr("");
     if (nErr || vErr || !input) return;
+    if (rotate !== undefined && !confirming) { setConfirming(true); setReveal(false); return; }
     const secret = input.value;
-    input.value = ""; setReveal(false); setBusy(true);
+    input.value = ""; setReveal(false); setConfirming(false); setBusy(true);
     let r: SaveResult;
     try { r = await onSave(rotate ?? name, secret); } catch { r = { ok: false, message: t("secrets.err.save") }; }
     if (r.ok) { onClose(); return; }
@@ -49,7 +54,9 @@ export function SecretDialog({ rotate, existing, onSave, onClose }: SecretDialog
     title, onClose,
     actions: [
       h("button", { key: "c", type: "button", class: "btn btn-quiet", onClick: onClose }, t("secrets.cancel")),
-      h("button", { key: "s", type: "submit", form: "secret-form", class: "btn btn-primary", disabled: busy, "aria-disabled": busy }, busy ? t("secrets.saving") : t("secrets.save")),
+      confirming ? h("button", { key: "b", type: "button", class: "btn", disabled: busy, onClick: () => { setConfirming(false); } }, t("secrets.back")) : null,
+      h("button", { key: "s", type: "submit", form: "secret-form", class: "btn btn-primary", disabled: busy, "aria-disabled": busy },
+        busy ? t("secrets.saving") : confirming ? t("secrets.rotate.confirm") : t("secrets.save")),
     ],
   },
     h("form", { id: "secret-form", class: "secret-form", autocomplete: "off", noValidate: true, onSubmit: (e: Event) => { e.preventDefault(); void submit(); } },
@@ -61,8 +68,10 @@ export function SecretDialog({ rotate, existing, onSave, onClose }: SecretDialog
         : null,
       h(Field, { id: "secret-value", label: rotate !== undefined ? t("secrets.field.newValue") : t("secrets.field.value"), hint: t("secrets.field.value.hint"), error: valueErr },
         h("input", { id: "secret-value", ref: value, type: reveal ? "text" : "password", autocomplete: "off", spellcheck: false, autocapitalize: "off", name: "secret-value",
+          readOnly: confirming,
           "aria-describedby": valueErr ? "secret-value-err" : "secret-value-hint", ...(valueErr ? { "aria-invalid": true } : {}) })),
       h("label", { class: "check" },
         h("input", { type: "checkbox", checked: reveal, onChange: (e: Event) => { setReveal((e.target as HTMLInputElement).checked); } }), " ", t("secrets.reveal")),
+      confirming && rotate !== undefined ? h("p", { class: "secret-confirm", role: "status" }, t("secrets.rotate.confirmText", { name: rotate })) : null,
       saveErr ? h("p", { class: "form-error", role: "alert" }, saveErr) : null));
 }

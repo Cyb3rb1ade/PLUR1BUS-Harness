@@ -83,6 +83,8 @@ The channel does not verify DKIM or SPF itself. It trusts the receiving server's
 - SPF, DKIM and DMARC are evaluated by the receiving server, not by this package. DMARC `pass` is the signal to trust, because it requires the signing or envelope domain to align with the From domain.
 - `requireAuthPass: true` is recommended for any mailbox that may receive mail from unknown mailboxes. It is also what approval by email relies on (section 5).
 - Spoofed From headers are rejected when they are ambiguous: duplicate From, multiple mailboxes, group syntax, or a Sender that disagrees with From.
+- Without `requireAuthPass`, `dmAllowlist` compares the From address only, and anyone can forge a From header. Pairing (`link`) and approvals always need DMARC `pass`, regardless of this setting.
+- Sender addresses longer than 254 characters are dropped. Stored thread subjects are cut to 500 characters and reference chains to 64 entries.
 
 ## 4. Reply rules
 
@@ -123,7 +125,7 @@ In a reply or new mail, put `link <code>` or `/link <code>` on the first line of
 ## 7. Health and failures
 
 - `health()` reports the IMAP session (`imap:up` or `imap:down`) and the last SMTP check. SMTP is checked with NOOP at most once per ten minutes, not on every health call.
-- Transient IMAP failures reconnect with exponential backoff and jitter. A rejected password is fatal: the channel reports failure to the host once and stops, without retrying the same bad password.
+- Transient IMAP failures reconnect with exponential backoff and jitter. The backoff only resets after a sync completes, so a server that accepts the login and then fails keeps being retried at growing intervals. The socket inactivity timeout is suspended while IDLE waits (the IDLE timer bounds it). A rejected password is fatal: the channel reports failure to the host once and stops, without retrying the same bad password.
 - A UIDVALIDITY change (the provider rebuilt the mailbox) resets the cursor to the current top of the mailbox. Old mail is not processed again.
 - Corrupt state files fail closed: the channel refuses to start rather than guessing a cursor.
 

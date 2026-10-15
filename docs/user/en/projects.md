@@ -28,14 +28,14 @@ Each column represents a workflow stage. Columns can define a **WIP limit** (max
 - When the number of active cards reaches or exceeds the WIP limit, the column badge turns into an error state warning operators.
 - Moving or creating a card in a column that has reached its WIP limit is prevented by the backend with an `E_PROJECT_WIP_LIMIT` error. The UI displays an explanatory notification and automatically rolls back any optimistic card movement.
 
-Columns can be added, reordered, edited, or deleted via **Manage columns** by project leads, administrators, and owners. When deleting a column, cards can be migrated to another target column.
+Columns can be added, reordered, edited, or deleted via **Manage columns** by project leads, administrators, and owners. A column that still holds cards is deleted only after you choose a target column; the form states how many cards will move. If there is no other column to move them to, the delete button stays disabled. A WIP refusal while moving cards names the column and its limit.
 
 ## Cards
 
 Each card captures a work item:
 - **Title and Description:** Plain title and rich Markdown description supporting lists, code snippets, blockquotes, bold, italics, and safe URLs (HTML tags and javascript links are blocked).
 - **Priority:** None, Low, Normal, High, or Urgent.
-- **Assignees:** Human team members and AI agents. Agents are distinguished with a specialized agent robot icon. Agents may only move cards assigned to them.
+- **Assignees:** Human team members and AI agents. Agents are distinguished with a specialized agent robot icon. Agents may only move cards assigned to them. Removing a member or an agent from a project also removes them from all cards they were assigned to (recorded in the card activity).
 - **Due Date:** Due date indicators display warning icons for overdue cards.
 - **Links:** Quick references to related sessions, jobs, media assets, or external URLs.
 
@@ -58,6 +58,7 @@ Clicking a card opens the slide-over detail drawer:
 - **Assignees:** Assign or remove project members and AI agents.
 - **Comments:** Discussion thread for human operators and agents. Type a comment and press **Add comment**.
 - **Activity Log:** Chronological timeline tracking creation, column moves, assignment updates, comments, and archive events.
+- **Priority:** Change the priority (None, Low, Normal, High, Urgent) with the **Change priority** selector in the drawer footer. Only people who can edit cards see it.
 - **Archive / Unarchive:** Completed or superseded cards can be archived to keep the board clean while preserving full history.
 
 ## Filters

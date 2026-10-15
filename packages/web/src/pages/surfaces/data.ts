@@ -78,6 +78,15 @@ export function imageUrl(value: {
     ? `data:${value.mimeType};base64,${value.data}`
     : null;
 }
+/** An output as `media.output.list` is meant to send it. An entry that is not (a null, a number, a record without its
+ *  metadata) is left out instead of taking the whole list, and the page, down. */
+export function isOutput(v: unknown): v is Output {
+  if (!v || typeof v !== "object") return false;
+  const o = v as Partial<Output> & { metadata?: unknown };
+  const m = o.metadata as { adapter?: unknown } | null | undefined;
+  // Only what the list reads without a guard: the id, the agent, the prompt and the adapter.
+  return typeof o.id === "string" && typeof o.agentId === "string" && typeof o.prompt === "string" && !!m && typeof m === "object" && typeof m.adapter === "string";
+}
 export function filterOutputs<
   T extends {
     agentId: string;

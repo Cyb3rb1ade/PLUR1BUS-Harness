@@ -97,6 +97,11 @@ is refused unless `--channel` names it. `--from` cannot be combined with `--mani
 artefacts verified, before the swap; `--check` never writes it).
 
 - A release **older than the installed version** is refused (`downgrade-refused`).
+  "Older" follows SemVer precedence: `1.2.0-rc.1` is older than `1.2.0`, `rc.2` newer than `rc.1`, numeric
+  identifiers compare numerically (`rc.2` < `rc.10`), and build metadata (`+build`) is ignored. The desktop updater
+  orders versions the same way.
+- The **stable channel never offers a pre-release**: `update --check` reports nothing available for it, and applying one
+  is refused with `prerelease-on-stable` (pass `--channel beta` to follow pre-releases).
 - A validly signed release **older than the highest accepted one** is a replay (`release-replay`): a stale manifest
   served again.
 - `--allow-downgrade` lifts both, for a person who means it. The highest-seen version is never lowered.
@@ -125,3 +130,22 @@ Every download (feed, signatures, artefacts) uses one client:
 - `PLUR1BUS_CA_BUNDLE=<pem file>` or `update --ca-bundle <pem file>`: the PEM certificates are the **only** trust
   anchors for https (like `curl --cacert`; they replace the OS store), which is what a TLS-inspecting proxy needs. An
   unreadable file or one without a certificate is refused up front. Without it the OS trust store applies.
+
+## Testabdeckung und bekannte Lücken
+
+What the tests of `plur1bus update` cover (Rust core hardening pass, 2026-10-12). Nothing above is rewritten by this section.
+
+- **Version comparison, `minFromVersion`, signatures, payloads** (`crates/plur1bus/tests/update_gaps.rs`, the tests added at its end):
+  numeric `major.minor.patch` order and ignored build metadata (`update_check_compares_versions_numerically_and_ignores_build_metadata`),
+  non-semver targets never applied, `min-from-version` for exactly the installs below the minimum with a hint that names the version to
+  upgrade to and no override by `--allow-downgrade` or `--force`, eight kinds of damaged release signature, and signed releases whose
+  core payload is a cut gzip stream, noise, empty, or holds `..`, absolute and symlink entries. Each leaves the binary, `config.json`, the
+  install manifest, the core and the update state untouched.
+- **Already covered elsewhere:** downgrade and replay refusal, key rotation, offline bundles, crash recovery and rollback
+  (`update_apply.rs`, `update_gaps.rs`, `src/update/tests.rs`, `coverage_update.rs`).
+- **Known gap:** a pre-release suffix is ignored when versions are compared (`is_newer`, `guard::compare`), so `1.2.3-rc.1` is neither
+  older nor newer than `1.2.3`, and an install on a release candidate is told it is up to date when the final release appears. Test:
+  `update_check_orders_pre_releases_below_their_release_as_semver_does` (ignored). The code states this rule in its comments; this page
+  did not, and does not change it.
+- **Not tested:** a network connection cut in the middle of a download. Every feed in the tests is a local file, so a signed payload that
+  is a truncated archive stands in for it. The desktop update UI is outside this crate.

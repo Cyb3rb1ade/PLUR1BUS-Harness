@@ -169,7 +169,7 @@ export function classifyGeminiStreamError(v: unknown, redact: (s: string) => str
   if (retry !== undefined) init.retryAfterMs = retry;
   const where = `${gstatus ?? code ?? "error"}`;
   const text = (what: string) => `${what} in stream (${where})${message ? `: ${message}` : ""}`;
-  let kind: ProviderError["kind"] | undefined = gstatus === undefined ? undefined : GRPC_KIND[gstatus];
+  let kind: ProviderError["kind"] | undefined = gstatus !== undefined && Object.hasOwn(GRPC_KIND, gstatus) ? GRPC_KIND[gstatus] : undefined;
   if (kind === undefined && code !== undefined) {
     kind = code === 429 ? "rate_limit" : code === 401 || code === 403 ? "auth" : code >= 500 ? "overloaded" : code >= 400 ? "invalid_request" : undefined;
   }

@@ -1,6 +1,8 @@
 // Core catalogue: shell, navigation, sign-in, session, shared page states and components. Owned by the shell; page areas
 // add their own file (see ./index.ts).
 export const en = {
+  "login.account.use": "Use username and password", "login.account.owner": "Use Owner token", "login.account.username": "Username", "login.account.password": "Password", "login.account.code": "TOTP or backup code", "login.account.invalid": "Sign-in failed. Check your credentials.", "login.account.required": "Enter your account credentials.",
+  "join.title": "Create your account", "join.code": "Invitation code", "join.username": "Username", "join.password": "Password (at least 12 characters)", "join.repeat": "Repeat password", "join.submit": "Create account", "join.success": "Account created. Sign in to continue.", "join.login": "Sign in", "join.invalid": "Check your invitation and account details.", "join.used": "This invitation is not valid or has already been used.", "join.exists": "This username or person already has an account.", "join.rate": "Too many attempts. Try again later.",
   "app.skip": "Skip to content",
   "app.loading": "Checking your session…",
   "app.more": "More",
@@ -52,6 +54,7 @@ export const en = {
   "login.error.invalid": "The token is not correct.",
   "login.error.rate": "Too many attempts. Try again in {seconds} s.",
   "login.error.rateUnknown": "Too many attempts. Try again in a moment.",
+  "login.error.rateMinutes": "Too many attempts. Try again in {minutes} min.",
   "login.error.network": "The harness cannot be reached. Check that it is running.",
   "login.error.server": "The harness answered with an error ({status}). Try again.",
   "login.success": "Signed in.",
@@ -59,6 +62,7 @@ export const en = {
   "session.error.expired": "Your session has expired. Sign in again.",
   "session.error.csrf": "The request was refused (security token). Reload the page and try again.",
   "session.error.rate": "Too many requests. Try again in a moment.",
+  "session.error.rateWait": "Too many requests. Try again in {seconds} s.",
   "session.error.network": "The harness cannot be reached. Check that it is running.",
   "session.error.server": "The harness answered with an error ({status}). Try again.",
   "app.moreActions": "More actions",
@@ -79,11 +83,17 @@ export const en = {
   "nav.gallery": "Pattern gallery",
   "nav.setup": "First-run setup",
   "dialog.close": "Close",
+  "nav.wordmarkHome": "PLUR1BUS Home",
+  "nav.wordmark": "PLUR1BUS - {name}",
   "nav.inboxUnread": "{count} unread",
   "nav.breakglass": "Break-Glass",
+  "state.loadFailed.title": "This page could not be loaded",
+  "state.loadFailed.body": "The part of the app for this page did not arrive. Check your connection and try again; after an update, reload the page to get the new version.",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "login.account.use": "Benutzername und Passwort verwenden", "login.account.owner": "Owner-Token verwenden", "login.account.username": "Benutzername", "login.account.password": "Passwort", "login.account.code": "TOTP- oder Backup-Code", "login.account.invalid": "Anmeldung fehlgeschlagen. Prüfe deine Zugangsdaten.", "login.account.required": "Gib deine Zugangsdaten ein.",
+  "join.title": "Konto erstellen", "join.code": "Einladungscode", "join.username": "Benutzername", "join.password": "Passwort (mindestens 12 Zeichen)", "join.repeat": "Passwort wiederholen", "join.submit": "Konto erstellen", "join.success": "Konto erstellt. Bitte melde dich an.", "join.login": "Anmelden", "join.invalid": "Prüfe Einladung und Kontodaten.", "join.used": "Diese Einladung ist ungültig oder wurde bereits verwendet.", "join.exists": "Dieser Benutzername oder diese Person hat bereits ein Konto.", "join.rate": "Zu viele Versuche. Bitte versuche es später erneut.",
   "app.skip": "Zum Inhalt springen",
   "app.loading": "Sitzung wird geprüft …",
   "app.more": "Mehr",
@@ -135,6 +145,7 @@ export const de: Record<keyof typeof en, string> = {
   "login.error.invalid": "Das Token stimmt nicht.",
   "login.error.rate": "Zu viele Versuche. Versuche es in {seconds} s erneut.",
   "login.error.rateUnknown": "Zu viele Versuche. Versuche es gleich noch einmal.",
+  "login.error.rateMinutes": "Zu viele Versuche. Versuche es in {minutes} min erneut.",
   "login.error.network": "Die Harness ist nicht erreichbar. Prüfe, ob sie läuft.",
   "login.error.server": "Die Harness meldet einen Fehler ({status}). Versuche es erneut.",
   "login.success": "Angemeldet.",
@@ -142,6 +153,7 @@ export const de: Record<keyof typeof en, string> = {
   "session.error.expired": "Deine Sitzung ist abgelaufen. Melde dich erneut an.",
   "session.error.csrf": "Die Anfrage wurde abgelehnt (Sicherheits-Token). Lade die Seite neu und versuche es erneut.",
   "session.error.rate": "Zu viele Anfragen. Versuche es gleich noch einmal.",
+  "session.error.rateWait": "Zu viele Anfragen. Versuche es in {seconds} s noch einmal.",
   "session.error.network": "Die Harness ist nicht erreichbar. Prüfe, ob sie läuft.",
   "session.error.server": "Die Harness meldet einen Fehler ({status}). Versuche es erneut.",
   "app.moreActions": "Weitere Aktionen",
@@ -162,6 +174,10 @@ export const de: Record<keyof typeof en, string> = {
   "nav.gallery": "Mustergalerie",
   "nav.setup": "Ersteinrichtung",
   "dialog.close": "Schließen",
+  "nav.wordmarkHome": "PLUR1BUS Startseite",
+  "nav.wordmark": "PLUR1BUS - {name}",
   "nav.inboxUnread": "{count} ungelesen",
   "nav.breakglass": "Break-Glass",
+  "state.loadFailed.title": "Diese Seite konnte nicht geladen werden",
+  "state.loadFailed.body": "Der Teil der App für diese Seite ist nicht angekommen. Prüfe die Verbindung und versuche es erneut; nach einem Update lade die Seite neu, um die neue Version zu erhalten.",
 };

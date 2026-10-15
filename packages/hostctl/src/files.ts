@@ -56,9 +56,11 @@ export function files(roots: readonly PathRoot[], extraDeny: readonly DenyEntry[
       case 'write': return atomicWrite(input, Buffer.from(string(a, 'content')), true, canon, signal, config.output.maxBytes, afterStage);
       case 'append': case 'edit': {
         const old = await fs.read({ path: input, encoding: 'utf8' }, { signal }); let content: string;
+        // Decoding drops a byte order mark; an edit or an append must not change bytes it was not asked to.
+        const bom = Buffer.from((await fs.read({ path: input, encoding: 'base64', offset: 0, length: 3 }, { signal })).content, 'base64').equals(Buffer.from([0xef, 0xbb, 0xbf])) ? '\uFEFF' : '';
         if (op === 'append') content = old.content + string(a, 'content');
         else { const needle = string(a, 'oldText'); if (!needle || old.content.indexOf(needle) < 0 || old.content.indexOf(needle) !== old.content.lastIndexOf(needle)) fail('NOT_UNIQUE', 'oldText must occur exactly once; read the file and use more context.'); content = old.content.replace(needle, () => string(a, 'newText')); }
-        return atomicWrite(input, Buffer.from(content), true, canon, signal, config.output.maxBytes, afterStage);
+        return atomicWrite(input, Buffer.from(bom + content), true, canon, signal, config.output.maxBytes, afterStage);
       }
       case 'list': return walk(input, integer(a.depth, 0, 16), integer(a.limit, config.search.maxResults, 1000), signal);
       case 'search': {

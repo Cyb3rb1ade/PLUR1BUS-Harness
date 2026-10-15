@@ -327,3 +327,20 @@ describe("review hardening (#121)", () => {
     assert.equal(run(call({ capability: "shell.exec", flags: { sandboxed: true } }), ctx({ overrides: { "shell.exec": "allowed", "SHELL.EXEC": "approval" } })).kind, "ask");
   });
 });
+
+it("configured always-grant lifetime overrides the idle limit but keeps explicit expiry", T, () => {
+ const g=grant("shell.exec","always",undefined,{createdAt:NOW,surface:3});
+ assert.equal(grantExpiry(g,2),NOW+2*24*60*60*1000);
+ assert.equal(grantExpiry(g,120),NOW+120*24*60*60*1000);
+ assert.equal(grantExpiry({...g,expiresAt:NOW+1000},120),NOW+1000);
+});
+
+it("live policy re-evaluates configured idle expiry on each tool decision", T, () => {
+ const g=grant("shell.exec","always",undefined,{createdAt:NOW,surface:3});
+ const source=new MemoryGrants([g]);let days=2;
+ const grants={list:source.list.bind(source),get:source.get.bind(source),maxGrantDays:()=>days};
+ const deps={grants,clock:new FakeClock(NOW+3*DAY)};
+ const c=call({capability:"shell.exec",flags:{sandboxed:true}});
+ assert.equal(decide(c,ctx(),deps).kind,"ask");days=5;
+ assert.equal(decide(c,ctx(),deps).kind,"allow");
+});

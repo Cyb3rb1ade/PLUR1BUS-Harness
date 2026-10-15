@@ -1,21 +1,23 @@
 import { h } from "preact";
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { View } from "../../view.ts";
 import { Dialog } from "../../components/dialog.ts";
 import { bad, Field } from "../common/field.ts";
 import { t } from "../../i18n.ts";
 import { getApi } from "../common/load.ts";
 import "./rpc-types.ts";
+import { loadSecurityLimits, DEFAULT_SECURITY_LIMITS } from "../settings/security/limits.ts";
+import { useLoad } from "../common/load.ts";
 import type { BreakglassRequestResult } from "./rpc-types.ts";
 
 export const BG_REASON_MIN = 10;
 export const BG_REASON_MAX = 500;
 export const BG_TTL_DEFAULT = 15;
 
-export function validateReason(raw: string): "ok" | "short" | "long" {
+export function validateReason(raw: string, min = BG_REASON_MIN, max = BG_REASON_MAX): "ok" | "short" | "long" {
   const n = raw.trim().length;
-  if (n < BG_REASON_MIN) return "short";
-  if (n > BG_REASON_MAX) return "long";
+  if (n < min) return "short";
+  if (n > max) return "long";
   return "ok";
 }
 
@@ -25,27 +27,34 @@ export type RequestBreakglassDialogProps = {
 };
 
 export function RequestBreakglassDialog({ onClose, onSuccess }: RequestBreakglassDialogProps): View {
+  const config = useLoad(loadSecurityLimits, []);
+  const limits = config.state.status === "ok" ? config.state.data : DEFAULT_SECURITY_LIMITS;
   const [targetUserId, setTargetUserId] = useState("");
   const [reason, setReason] = useState("");
   const [windowMinutes, setWindowMinutes] = useState(String(BG_TTL_DEFAULT));
+  useEffect(() => { if (config.state.status === "ok") setWindowMinutes(v => String(Math.min(Number(v), limits.maxWindowMinutes))); }, [limits.maxWindowMinutes]);
   const [confirmed, setConfirmed] = useState(false);
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [serverError, setServerError] = useState("");
+  // A request is one audited grant and one notice to the person concerned. `busy` is read from the render a handler was created in, so two
+  // submits in the same task would both pass it; this ref is set synchronously.
+  const inFlight = useRef(false);
 
   const targetValid = targetUserId.trim().length > 0;
-  const reasonValidation = validateReason(reason);
+  const reasonValidation = validateReason(reason, limits.reasonMinChars, limits.reasonMaxChars);
   const targetError = touched && !targetValid ? t("breakglass.dialog.errorTarget") : undefined;
   const reasonError = touched && reasonValidation !== "ok"
-    ? t(reasonValidation === "short" ? "breakglass.dialog.errorReasonShort" : "breakglass.dialog.errorReasonLong")
+    ? (limits.reasonMinChars === 10 && limits.reasonMaxChars === 500 ? t(reasonValidation === "short" ? "breakglass.dialog.errorReasonShort" : "breakglass.dialog.errorReasonLong") : t("breakglass.dialog.reasonBounds", { min: limits.reasonMinChars, max: limits.reasonMaxChars }))
     : undefined;
   const confirmError = touched && !confirmed ? t("breakglass.dialog.errorConfirm") : undefined;
 
   const handleSubmit = async (e: Event): Promise<void> => {
     e.preventDefault();
     setTouched(true);
-    if (!targetValid || reasonValidation !== "ok" || !confirmed || busy) return;
+    if (!targetValid || reasonValidation !== "ok" || !confirmed || busy || inFlight.current || config.state.status !== "ok" || Number(windowMinutes) > limits.maxWindowMinutes) return;
 
+    inFlight.current = true;
     setBusy(true);
     setServerError("");
     try {
@@ -58,6 +67,7 @@ export function RequestBreakglassDialog({ onClose, onSuccess }: RequestBreakglas
       onSuccess(res);
       onClose();
     } catch (err: unknown) {
+      inFlight.current = false;
       setBusy(false);
       const o = (typeof err === "object" && err !== null ? err : {}) as { kind?: string; errorCode?: string; message?: string; code?: number };
       if (o.kind === "forbidden" || o.errorCode === "E_DENIED") {
@@ -78,14 +88,14 @@ export function RequestBreakglassDialog({ onClose, onSuccess }: RequestBreakglas
       actions: h(
         "div",
         { class: "bg-dialog-actions" },
-        h("button", { type: "button", class: "btn btn-quiet", onClick: onClose }, t("breakglass.revoke.cancel")),
+        h("button", { type: "button", class: "btn btn-quiet", onClick: onClose }, t("shared.confirm.cancel")),
         h(
           "button",
           {
             type: "submit",
             form: "bg-request-form",
             class: "btn btn-primary",
-            disabled: busy,
+            disabled: busy || config.state.status !== "ok",
           },
           busy ? t("breakglass.dialog.submitting") : t("breakglass.dialog.submit"),
         ),
@@ -111,11 +121,11 @@ export function RequestBreakglassDialog({ onClose, onSuccess }: RequestBreakglas
       ),
       h(
         Field,
-        { id: "bg-reason", label: t("breakglass.dialog.reason"), error: reasonError, hint: t("breakglass.dialog.reasonHint") },
+        { id: "bg-reason", label: t("breakglass.dialog.reason"), error: reasonError, hint: limits.reasonMinChars === 10 && limits.reasonMaxChars === 500 ? t("breakglass.dialog.reasonHint") : t("breakglass.dialog.reasonBounds", { min: limits.reasonMinChars, max: limits.reasonMaxChars }) },
         h("textarea", {
           id: "bg-reason",
           rows: 3,
-          maxLength: BG_REASON_MAX + 50,
+          maxLength: limits.reasonMaxChars + 50,
           value: reason,
           required: true,
           onInput: (e: Event) => { setReason((e.target as HTMLTextAreaElement).value); },
@@ -133,7 +143,7 @@ export function RequestBreakglassDialog({ onClose, onSuccess }: RequestBreakglas
             value: windowMinutes,
             onChange: (e: Event) => { setWindowMinutes((e.target as HTMLSelectElement).value); },
           },
-          [1, 5, 15, 30, 60].map((n) => h("option", { key: n, value: String(n) }, t("breakglass.dialog.minutes", { n }))),
+          [...new Set([1, 5, 15, 30, 60, limits.maxWindowMinutes])].filter(n => n <= limits.maxWindowMinutes).map((n) => h("option", { key: n, value: String(n) }, t("breakglass.dialog.minutes", { n }))),
         ),
       ),
       h(

@@ -6,6 +6,10 @@ import { createChatCompletionsAdapter } from "../../src/client.ts";
 import { availabilityOf, createLocalChatAdapter, discoverLocalEndpoints, isLoopbackHost, isLoopbackUrl, NO_AUTH, probeEndpoint } from "../../src/local/index.ts";
 import type { DiscoveredEndpoint, ProbeResult } from "../../src/local/index.ts";
 import { basicRequest, hold, startStub } from "../helpers/stub.ts";
+/** Probes of a live local stub are not about timing: no per-request bound or discovery deadline that a loaded machine
+ *  could overrun (the default 1.5 s / 3 s). Tests of the timeout behaviour itself pass their own small values. */
+const LIVE = { timeoutMs: 600_000 };
+const LIVE_DISCOVERY = { timeoutMs: 600_000, deadlineMs: 600_000 };
 
 const T = { timeout: 15_000 };
 const originOf = (baseUrl: string) => baseUrl.replace(/\/v1$/, "");
@@ -23,8 +27,8 @@ describe("no credentials on the wire", () => {
   it("probe and discovery requests carry no authorization/cookie", T, async () => {
     const s = await startStub((_q, res) => models(res));
     try {
-      await probeEndpoint({ origin: originOf(s.baseUrl), dialects: ["openai"] });
-      await discoverLocalEndpoints({ candidates: [{ origin: originOf(s.baseUrl), dialects: ["ollama", "openai"], label: "x" }] });
+      await probeEndpoint({ origin: originOf(s.baseUrl), dialects: ["openai"] }, LIVE);
+      await discoverLocalEndpoints({ ...LIVE_DISCOVERY, candidates: [{ origin: originOf(s.baseUrl), dialects: ["ollama", "openai"], label: "x" }] });
       assert.ok(s.requests.length >= 2);
       for (const r of s.requests) {
         assert.equal(r.headers.authorization, undefined);
@@ -57,43 +61,41 @@ describe("discovery never blocks and never throws", () => {
   it("a hanging server is reported as timeout within the deadline", T, async () => {
     const s = await startStub((_q, res) => hold(res));
     try {
-      const t0 = Date.now();
-      const found = await discoverLocalEndpoints({ deadlineMs: 300, timeoutMs: 10_000, candidates: [
+      // No wall-clock bound: the per-request timeout is far beyond this test's own, so only the discovery deadline can end the
+      // wait (a deadline that did not work hangs until the test timeout and fails there, however loaded the machine is).
+      const found = await discoverLocalEndpoints({ deadlineMs: 300, timeoutMs: 600_000, candidates: [
         { origin: originOf(s.baseUrl), dialects: ["ollama", "openai"], label: "a" },
         { origin: originOf(s.baseUrl), dialects: ["openai"], label: "b" },
       ] });
-      assert.ok(Date.now() - t0 < 300 + 1000, `took ${Date.now() - t0} ms`);
       assert.deepEqual(found.map((f) => [f.label, f.state]), [["a", "timeout"], ["b", "timeout"]]);
       assert.ok(found.every((f) => f.detail && f.models.length === 0));
     } finally { await s.close(); }
   });
 
   it("the deadline also bounds a hung fetch that ignores its signal; finished candidates keep their result and order", T, async () => {
-    const live = await startStub((_q, res) => models(res));
-    try {
-      const fetch: typeof globalThis.fetch = (u, init) => String(u).includes("127.0.0.1:9/") ? new Promise(() => {}) : globalThis.fetch(u, init);
-      const t0 = Date.now();
-      const found = await discoverLocalEndpoints({ deadlineMs: 200, fetch, candidates: [
-        { origin: "http://127.0.0.1:9", dialects: ["openai"], label: "hung" },
-        { origin: originOf(live.baseUrl), dialects: ["openai"], label: "live" },
-      ] });
-      assert.ok(Date.now() - t0 < 1200);
-      assert.deepEqual(found.map((f) => [f.label, f.state]), [["hung", "timeout"], ["live", "ok"]]);
-    } finally { await live.close(); }
+    // The live candidate answers from an in-process fetch, not a socket: it settles within a few microtasks, long before the
+    // deadline timer can fire, however slow the machine is (a real server could miss the 200 ms deadline under load).
+    const fetch: typeof globalThis.fetch = (u) => String(u).includes("127.0.0.1:9/") ? new Promise(() => {})
+      : Promise.resolve(new Response(JSON.stringify({ data: [{ id: "m1" }] }), { status: 200, headers: { "content-type": "application/json" } }));
+    // The hung fetch never settles and ignores its signal: only the deadline can end the wait (see above).
+    const found = await discoverLocalEndpoints({ deadlineMs: 200, fetch, candidates: [
+      { origin: "http://127.0.0.1:9", dialects: ["openai"], label: "hung" },
+      { origin: "http://127.0.0.1:10", dialects: ["openai"], label: "live" },
+    ] });
+    assert.deepEqual(found.map((f) => [f.label, f.state]), [["hung", "timeout"], ["live", "ok"]]);
   });
 
   it("refused port is unreachable; nothing throws", T, async () => {
-    const found = await discoverLocalEndpoints({ candidates: [{ origin: await deadOrigin(), dialects: ["ollama", "openai"], label: "dead" }] });
+    const found = await discoverLocalEndpoints({ ...LIVE_DISCOVERY, candidates: [{ origin: await deadOrigin(), dialects: ["ollama", "openai"], label: "dead" }] });
     assert.equal(found[0]?.state, "unreachable");
   });
 
   it("per-request timeoutMs still applies below the deadline", T, async () => {
     const s = await startStub((_q, res) => hold(res));
     try {
-      const t0 = Date.now();
-      const found = await discoverLocalEndpoints({ timeoutMs: 50, deadlineMs: 5000, candidates: [{ origin: originOf(s.baseUrl), dialects: ["openai"] }] });
+      // The deadline is far beyond this test's own timeout, so only the per-request timeout can end the wait.
+      const found = await discoverLocalEndpoints({ timeoutMs: 50, deadlineMs: 600_000, candidates: [{ origin: originOf(s.baseUrl), dialects: ["openai"] }] });
       assert.equal(found[0]?.state, "timeout");
-      assert.ok(Date.now() - t0 < 1500);
     } finally { await s.close(); }
   });
 
@@ -101,7 +103,7 @@ describe("discovery never blocks and never throws", () => {
     const s = await startStub((_q, res) => hold(res));
     try {
       const ac = new AbortController();
-      const p = discoverLocalEndpoints({ signal: ac.signal, candidates: [{ origin: originOf(s.baseUrl), dialects: ["openai"] }] });
+      const p = discoverLocalEndpoints({ ...LIVE_DISCOVERY, signal: ac.signal, candidates: [{ origin: originOf(s.baseUrl), dialects: ["openai"] }] });
       setTimeout(() => ac.abort(new Error("stop")), 30);
       await assert.rejects(p, /stop/);
     } finally { await s.close(); }

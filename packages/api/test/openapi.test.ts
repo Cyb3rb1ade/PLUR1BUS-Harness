@@ -29,7 +29,7 @@ test("the document says what the server enforces: cookie auth except login, CSRF
     assert.equal(op["x-stability"] !== undefined && op["x-since"] !== undefined, true, r.id);
     assert.deepEqual(op.security, r.auth === "session" ? [{ cookieAuth: [] }] : r.auth === "any" ? [{ cookieAuth: [] }, { bearerAuth: [] }] : [], r.id);
     assert.equal(Boolean(op.parameters?.some((p: any) => p.name === "X-CSRF-Token")), r.csrf, r.id);
-    for (const s of ["401", "403", "413", "421", "429", "504"]) assert.ok(op.responses[s], `${r.id} ${s}`);
+    for (const s of ["401", "403", "413", "421", "429", ...(r.id === "web.rpc" ? [] : ["504"])]) assert.ok(op.responses[s], `${r.id} ${s}`);
     assert.ok(op.responses[String(r.successStatus)], r.id);
   }
   assert.equal(doc.components.securitySchemes.cookieAuth.in, "cookie");

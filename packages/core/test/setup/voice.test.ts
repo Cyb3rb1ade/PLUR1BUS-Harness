@@ -50,3 +50,9 @@ it('an unexpected stored voice answer reads as not done', () => {
   save({ ...stored, answers: { ...stored.answers, voice: { language: '', profile: 'research' } as unknown as typeof stored.answers.voice } });
   assert.equal(load().answers.voice, null);
 });
+
+import { validateVoiceSetupSelection } from '../../src/setup/model.ts';
+it('rejects a missing or non-object voice selection with E_INVALID_PARAMS instead of a TypeError', () => {
+  for (const bad of [undefined, null, 'de', 7, []]) assert.throws(() => validateVoiceSetupSelection(bad as never), (e: any) => e.error === 'E_INVALID_PARAMS', String(bad));
+  assert.doesNotThrow(() => validateVoiceSetupSelection({ language: 'de', profile: 'fast' }));
+});

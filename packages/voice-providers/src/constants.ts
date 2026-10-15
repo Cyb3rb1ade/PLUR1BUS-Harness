@@ -80,3 +80,21 @@ export const POLLY = {
   /** 3000 billed characters per request (6000 including SSML tags, docs 2026-10); the lower figure is enforced. */
   maxTextChars: 3000,
 } as const;
+
+/** Limits for audio and for everything a peer can make us hold in memory. */
+export const AUDIO_LIMITS = {
+  /** Sample rates a cloud vendor can take, inclusive. */
+  minSampleRate: 8000,
+  maxSampleRate: 192_000,
+  /** Events held for a consumer that does not read (a realtime session or a text-input TTS stream). */
+  maxQueuedEvents: 4096,
+  /** Frames (as JSON text) held while a session waits for the service to say it is ready. */
+  maxPendingBytes: 4 * 1024 * 1024,
+  /** An assistant or user transcript assembled from deltas. */
+  maxTranscriptChars: 1024 * 1024,
+} as const;
+
+/** Host for a data-residency region; an unknown region, including a name like "constructor", is the default host. */
+export function elevenlabsHost(region: string | undefined): string {
+  return (region !== undefined && Object.hasOwn(ELEVENLABS.hosts, region) ? ELEVENLABS.hosts[region] : undefined) ?? ELEVENLABS.hosts["default"]!;
+}

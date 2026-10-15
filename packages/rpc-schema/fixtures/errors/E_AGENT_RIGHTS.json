@@ -1,0 +1,12 @@
+{
+  "jsonrpc": "2.0",
+  "id": 32,
+  "error": {
+    "code": -32000,
+    "message": "invalid agent rights",
+    "data": {
+      "error": "E_AGENT_RIGHTS",
+      "detail": "rights"
+    }
+  }
+}

@@ -40,18 +40,22 @@ export class ChatController {
   #handle: EventsHandle | null = null;
   #catching = false;
   #again = false;
+  /** Counts start() calls: only the newest one may apply its answer (Try again, or the quiet reload after a busy refusal). */
+  #gen = 0;
 
   constructor(sessionId: string, api: Api = getApi()) { this.sessionId = sessionId; this.#api = api; }
 
   /** Loads the chat, then follows its stream. Calling it again (Try again) reloads. */
   async start(quiet = false): Promise<void> {
+    const gen = ++this.#gen;
     if (!quiet) this.load.value = { status: "loading" };
     try {
       const r = await this.#api.rpc("session.resume", { sessionId: this.sessionId, limit: 200 }, { write: false, signal: this.#ctl.signal });
+      if (gen !== this.#gen) return;
       this.tr.value = fromResume(r);
       this.load.value = { status: "ready", session: r.session };
     } catch (error) {
-      if (!isAborted(error) && !quiet) this.load.value = { status: "error", error };
+      if (gen === this.#gen && !isAborted(error) && !quiet) this.load.value = { status: "error", error };
       return;
     }
     if (this.tr.value.runningTurnId !== null) void this.catchUp();

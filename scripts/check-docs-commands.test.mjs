@@ -25,3 +25,11 @@ test("extracts fenced lines and inline spans only", () => {
   const md = "Use `plur1bus update --check` or plur1bus alone.\n```sh\n$ plur1bus agent list\necho plur1bus x\n```\nThe `plur1bus` binary.\n";
   assert.deepEqual(extractCommands(md).map((c) => c.text), ["plur1bus update --check", "plur1bus agent list"]);
 });
+
+test("tilde fences and longer backtick fences are fenced code too", () => {
+  const tilde = "~~~sh\nplur1bus agent make main\n~~~\nplur1bus not-a-command\n";
+  assert.deepEqual(extractCommands(tilde).map((c) => c.text), ["plur1bus agent make main"]);
+  // A ``` line inside a four-backtick fence does not close it.
+  const nested = "````md\n```sh\nplur1bus agent list\n```\nplur1bus agent make main\n````\nplur1bus outside\n";
+  assert.deepEqual(extractCommands(nested).map((c) => c.text), ["plur1bus agent list", "plur1bus agent make main"]);
+});

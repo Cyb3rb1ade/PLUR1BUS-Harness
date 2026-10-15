@@ -7,14 +7,16 @@ import { Dialog } from "../../components/dialog.ts";
 import { ConfirmDialog } from "../../components/confirm-dialog.ts";
 import { t } from "../../i18n.ts";
 import { Field } from "../common/field.ts";
-import { useLoad, currentRole } from "../common/load.ts";
+import { useLoad, currentRole, getApi } from "../common/load.ts";
 import { FailureState } from "../common/states.ts";
-import { rpc, imageUrl, filterOutputs, type Output } from "./data.ts";
+import { rpc, imageUrl, filterOutputs, isOutput, type Output } from "./data.ts";
 import { MediaSearch, SimilarButton } from "../media-search/search.ts";
 import "../../styles/media.css";
+import "../../styles/surfaces.css";
 
 import { StoredImage } from "./stored-image.ts";
 export { StoredImage };
+const MEDIA_PAGE_SIZE = 24;
 function Generate({
   onClose,
   onQueued,
@@ -23,7 +25,7 @@ function Generate({
   onQueued: (id: string) => void;
 }): View {
   const [prompt, setPrompt] = useState(""),
-    [agent, setAgent] = useState("main"),
+    [agent, setAgent] = useState(""),
     [adapter, setAdapter] = useState(""),
     [reference, setReference] = useState(""),
     [mask, setMask] = useState(""),
@@ -43,6 +45,16 @@ function Generate({
       }>("media.adapters.list", {}, signal),
     [],
   );
+  // The agent is one the backend lists for this person, never a name the page assumes.
+  const agents = useLoad((signal) => getApi().get<{ agents?: unknown }>("/api/v1/agents", { signal }), []);
+  const agentIds =
+    agents.state.status === "ok" && Array.isArray(agents.state.data.agents)
+      ? agents.state.data.agents.flatMap((a) => {
+          const id = (a as { agentId?: unknown } | null)?.agentId;
+          return typeof id === "string" && id !== "" ? [id] : [];
+        })
+      : [];
+  const chosen = agentIds.includes(agent) ? agent : (agentIds[0] ?? "");
   const text = (
     id: string,
     key: Parameters<typeof t>[0],
@@ -94,7 +106,7 @@ function Generate({
             const result = await rpc<{ jobId: string }>(
               reference ? "media.edit" : "media.generate",
               {
-                agentId: agent,
+                agentId: chosen,
                 ...(adapter ? { adapter } : {}),
                 request: {
                   prompt,
@@ -120,7 +132,24 @@ function Generate({
         },
       },
       text("prompt", "media.prompt", prompt, setPrompt),
-      text("agent", "surfaces.agent", agent, setAgent),
+      h(
+        Field,
+        { id: "agent", label: t("surfaces.agent") },
+        h(
+          "select",
+          {
+            id: "agent",
+            value: chosen,
+            disabled: agentIds.length === 0,
+            onChange: (e: Event) =>
+              setAgent((e.currentTarget as HTMLSelectElement).value),
+          },
+          agentIds.map((id) => h("option", { key: id, value: id }, id)),
+        ),
+      ),
+      agents.state.status !== "loading" && agentIds.length === 0
+        ? h("p", { class: "form-notice", "data-tone": "warn", role: "status" }, t("media.noAgents"))
+        : null,
       h(
         Field,
         { id: "adapter", label: t("surfaces.adapter") },
@@ -179,7 +208,7 @@ function Generate({
         {
           class: "btn btn-primary",
           type: "submit",
-          disabled: busy || !prompt.trim(),
+          disabled: busy || !prompt.trim() || !chosen,
         },
         t("media.generate"),
       ),
@@ -197,6 +226,7 @@ export function MediaPage(): View {
     [to, setTo] = useState(""),
     [selected, setSelected] = useState<Output | null>(null),
     [generate, setGenerate] = useState(false),
+    [pageIndex, setPageIndex] = useState(0),
     [remove, setRemove] = useState<Output | null>(null),
     [job, setJob] = useState(""),
     [jobState, setJobState] = useState("");
@@ -208,11 +238,14 @@ export function MediaPage(): View {
       try {
         const value = await rpc<{
           state: string;
-          progress: { fraction: number };
+          progress?: { fraction?: number };
         }>("media.job.get", { id: job }, ctl.signal);
         if (ctl.signal.aborted) return;
+        const fraction = value.progress?.fraction;
         setJobState(
-          `${value.state} ${Math.round(value.progress.fraction * 100)}%`,
+          typeof fraction === "number" && Number.isFinite(fraction)
+            ? `${value.state} ${Math.round(fraction * 100)}%`
+            : String(value.state),
         );
         if (["succeeded", "failed", "cancelled"].includes(value.state)) {
           reload();
@@ -243,12 +276,16 @@ export function MediaPage(): View {
       }),
     );
   const write = currentRole() !== "viewer";
-  const outputs = filterOutputs(state.data.outputs, {
+  const outputs = filterOutputs(Array.isArray(state.data.outputs) ? state.data.outputs.filter(isOutput) : [], {
     agent,
     adapter,
     ...(from ? { after: new Date(from).getTime() } : {}),
     ...(to ? { before: new Date(to).getTime() + 86400000 - 1 } : {}),
   });
+  // Every card loads its image over RPC, so only one page of cards exists at a time.
+  const pages = Math.max(1, Math.ceil(outputs.length / MEDIA_PAGE_SIZE));
+  const current = Math.min(pageIndex, pages - 1);
+  const visible = outputs.slice(current * MEDIA_PAGE_SIZE, (current + 1) * MEDIA_PAGE_SIZE);
   const input = (
     id: string,
     label: string,
@@ -263,7 +300,10 @@ export function MediaPage(): View {
         id,
         type,
         value,
-        onInput: (e: Event) => set((e.currentTarget as HTMLInputElement).value),
+        onInput: (e: Event) => {
+          set((e.currentTarget as HTMLInputElement).value);
+          setPageIndex(0);
+        },
       }),
     );
   return h(
@@ -292,14 +332,14 @@ export function MediaPage(): View {
       ? h(
           "div",
           { class: "media-grid" },
-          outputs.map((output) =>
+          visible.map((output) =>
             h(
               "article",
               { key: output.id, class: "card" },
               h(
                 "button",
                 { class: "btn", onClick: () => setSelected(output) },
-                h(StoredImage, { id: output.id }),
+                h(StoredImage, { id: output.id, alt: "" }),
                 h("span", {}, output.prompt),
               ),
               h("p", {}, output.agentId, " · ", output.metadata.adapter),
@@ -308,14 +348,23 @@ export function MediaPage(): View {
           ),
         )
       : h(PageState, { state: "empty", title: t("surfaces.empty") }),
+    pages > 1
+      ? h(
+          "nav",
+          { class: "chip-row", "aria-label": t("surfaces.page.label") },
+          h("button", { type: "button", class: "btn", disabled: current === 0, onClick: () => setPageIndex(current - 1) }, t("surfaces.page.prev")),
+          h("span", { role: "status", "aria-live": "polite" }, t("surfaces.page.of", { page: current + 1, pages })),
+          h("button", { type: "button", class: "btn", disabled: current >= pages - 1, onClick: () => setPageIndex(current + 1) }, t("surfaces.page.next")),
+        )
+      : null,
     selected
       ? h(
           Dialog,
           { title: selected.prompt, onClose: () => setSelected(null) },
-          h(StoredImage, { id: selected.id, download: true }),
+          h(StoredImage, { id: selected.id, download: true, alt: selected.prompt }),
           h(
             "details",
-            {},
+            { class: "media-manifest" },
             h("summary", {}, t("media.manifest")),
             h("pre", {}, JSON.stringify(selected, null, 2)),
           ),

@@ -26,6 +26,9 @@ export function MoreMenu({ id, label, icon: glyph = "menu", class: cls, children
     if (!open) return;
     const onKey = (e: KeyboardEvent): void => {
       if (e.key !== "Escape") return;
+      // Esc inside a dialog opened from this menu belongs to that dialog: closing the menu too would remove the dialog's opener.
+      const inDialog = e.target instanceof Element ? e.target.closest("dialog") : null;
+      if (inDialog && inDialog !== root.current?.closest("dialog")) return;
       setOpen(false);
       button.current?.focus();
     };

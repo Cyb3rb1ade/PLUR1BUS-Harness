@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { EmailChannel, MemoryUidStore, parseMessage, type EmailChannelOptions, type EmailConfig } from "../../src/index.ts";
-import type { SecretReader } from "../../src/port.ts";
+import type { SecretReader, UidStore } from "../../src/port.ts";
 import { FakeImap } from "./fake-imap.ts";
 import { FakeSmtp } from "./fake-smtp.ts";
 
@@ -109,7 +109,7 @@ export async function makeEmailFixture() {
   const make = (
     missing: boolean,
     extra: FixtureOverrides & { noAuthServId?: boolean } = {},
-    uidStore = new MemoryUidStore(),
+    uidStore: UidStore = new MemoryUidStore(),
   ): EmailChannel => {
     const { noAuthServId, ...rest } = extra;
     const { authServId: _unused, ...withoutAuthServId } = config;

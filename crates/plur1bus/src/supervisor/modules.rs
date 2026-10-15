@@ -829,6 +829,79 @@ fn uninstall_module(
     Ok(json!({ "name": name, "removed": true }))
 }
 
+// Local metadata only. Never import the updater/fetcher into the supervisor.
+fn valid_cache_time(at: &str) -> bool {
+    use std::sync::OnceLock;
+    static V: OnceLock<jsonschema::Validator> = OnceLock::new();
+    V.get_or_init(|| {
+        jsonschema::options()
+            .should_validate_formats(true)
+            .build(&json!({"type":"string","format":"date-time"}))
+            .expect("cache time schema")
+    })
+    .is_valid(&json!(at))
+}
+
+fn read_module_update_cache(path: &std::path::Path) -> Result<Option<Value>, ()> {
+    let file = match std::fs::File::open(path) {
+        Ok(file) => file,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(_) => return Err(()),
+    };
+    if file.metadata().map_err(|_| ())?.len() > 1024 * 1024 {
+        return Err(());
+    }
+    let v: Value = serde_json::from_reader(file).map_err(|_| ())?;
+    let at = v["checkedAt"].as_str().ok_or(())?;
+    if v["format"] != 1
+        || !valid_cache_time(at)
+        || at.len() != 20
+        || !at.ends_with('Z')
+        || !v["modules"].is_object()
+    {
+        return Err(());
+    }
+    for item in v["modules"].as_object().ok_or(())?.values() {
+        if !item.is_object() {
+            return Err(());
+        }
+        if let Some(version) = item.get("availableVersion") {
+            if semver::Version::parse(version.as_str().ok_or(())?).is_err() {
+                return Err(());
+            }
+        }
+        if let Some(reason) = item.get("updateBlockedReason") {
+            if !matches!(reason.as_str(), Some("minFromVersion" | "signature")) {
+                return Err(());
+            }
+        }
+    }
+    Ok(Some(v))
+}
+
+fn apply_module_update_cache(entry: &mut Value, cache: &Value) {
+    let Some(name) = entry["name"].as_str() else {
+        return;
+    };
+    let Some(item) = cache["modules"].get(name) else {
+        return;
+    };
+    if let Some(reason) = item.get("updateBlockedReason") {
+        entry["updateBlockedReason"] = reason.clone();
+    }
+    if let Some(version) = item["availableVersion"].as_str() {
+        let newer = entry["version"]
+            .as_str()
+            .and_then(|v| semver::Version::parse(v).ok())
+            .zip(semver::Version::parse(version).ok())
+            .is_some_and(|(installed, available)| available > installed);
+        if newer && item["updateBlockedReason"] != "signature" {
+            entry["availableVersion"] = json!(version);
+        }
+    }
+    entry["feedCheckedAt"] = cache["checkedAt"].clone();
+}
+
 /// The `module.list` result: [`crate::modules::list_entries`] with every module's child and last polled detail.
 pub fn module_list(shared: &Shared, layout: &Layout) -> Value {
     let installed = crate::modules::scan(layout);
@@ -838,6 +911,16 @@ pub fn module_list(shared: &Shared, layout: &Layout) -> Value {
         .map(|c| c["modules"].clone())
         .unwrap_or(Value::Null);
     let mut entries = crate::modules::list_entries(&installed, &modules_config);
+    let cache = match read_module_update_cache(&layout.state().join("module-updates.json")) {
+        Ok(cache) => cache,
+        Err(()) => {
+            shared.log.warn(
+                "module update cache ignored",
+                json!({"reason":"invalid-cache"}),
+            );
+            None
+        }
+    };
     let st = shared.lock();
     for e in &mut entries {
         let slot = e["name"].as_str().and_then(|n| st.slot(n));
@@ -846,6 +929,9 @@ pub fn module_list(shared: &Shared, layout: &Layout) -> Value {
             .map(ChildState::to_json)
             .unwrap_or(Value::Null);
         e["detail"] = slot.and_then(|s| s.detail.clone()).unwrap_or(Value::Null);
+        if let Some(cache) = &cache {
+            apply_module_update_cache(e, cache);
+        }
     }
     json!({ "modules": entries })
 }
@@ -873,6 +959,32 @@ fn valid_role_name(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn module_update_cache_is_optional_and_projects_only_known_fields() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("module-updates.json");
+        assert!(read_module_update_cache(&path).unwrap().is_none());
+        std::fs::write(&path, b"broken").unwrap();
+        assert!(read_module_update_cache(&path).is_err());
+        std::fs::write(
+            &path,
+            br#"{"format":2,"checkedAt":"2026-10-14T10:00:00Z","modules":{}}"#,
+        )
+        .unwrap();
+        assert!(read_module_update_cache(&path).is_err());
+        for reason in ["minFromVersion", "signature"] {
+            let cache = json!({"format":1,"checkedAt":"2026-10-14T10:00:00Z","modules":{"fixture":{"updateBlockedReason":reason}}});
+            std::fs::write(&path, cache.to_string()).unwrap();
+            let cached = read_module_update_cache(&path).unwrap().unwrap();
+            let mut entry = json!({"name":"fixture","version":"1.0.0"});
+            apply_module_update_cache(&mut entry, &cached);
+            assert_eq!(entry["updateBlockedReason"], reason);
+            assert_eq!(entry["feedCheckedAt"], cache["checkedAt"]);
+            assert!(entry.get("availableVersion").is_none());
+            assert_eq!(entry["version"], "1.0.0");
+        }
+    }
 
     fn slot_in(health: Option<Health>) -> Slot {
         let mut slot = Slot::new(Role::module("fixture"), 1.0);

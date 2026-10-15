@@ -8,6 +8,7 @@ import { navigate, query } from "../../router.ts";
 import { DEFAULT_SECTION, SECTIONS, sectionById, type SectionDef } from "../../settings-sections.ts";
 import { lazySection } from "../common/lazy-section.ts";
 import type { PageProps } from "../registry.ts";
+import { leaveAllowed } from "./unsaved.ts";
 
 export type SectionProps = { section: SectionDef; focus?: string };
 import "../../styles/settings.css";
@@ -17,12 +18,14 @@ const SecretsSection = lazySection<SectionProps>(() => import("./sections/secret
 const ProvidersSection = lazySection<SectionProps>(() => import("./sections/providers.ts").then((m) => m.ProvidersSection));
 const UsersSection = lazySection<SectionProps>(() => import("./sections/users.ts").then((m) => m.UsersSection));
 const DevicesSection = lazySection<SectionProps>(() => import("./sections/devices.ts").then((m) => m.DevicesSection));
+const SecuritySection = lazySection<SectionProps>(() => import("./sections/security.ts").then((m) => m.SecuritySection));
 const VoiceSection = lazySection<SectionProps>(() => import("./sections/voice.ts").then((m) => m.VoiceSection));
+const ModulesSection = lazySection<SectionProps>(() => import("./sections/modules.ts").then((m) => m.ModulesSection));
 
 const MediaIndexPanel = lazySection<object>(() => import("../media-search/settings.ts").then((m) => m.MediaIndexPanel));
 const MediaSection = lazySection<SectionProps>(() => import("../surfaces/media.ts").then(m => m.MetadataPreference));
 
-const BODY = { media: MediaSection, config: ConfigSection, secrets: SecretsSection, providers: ProvidersSection, users: UsersSection, devices: DevicesSection, voice: VoiceSection } as const;
+const BODY = { media: MediaSection, config: ConfigSection, secrets: SecretsSection, providers: ProvidersSection, users: UsersSection, devices: DevicesSection, voice: VoiceSection, modules: ModulesSection, security: SecuritySection } as const;
 
 export function SettingsPage({ sub }: PageProps): View {
   const section = sectionById(sub) ?? sectionById(DEFAULT_SECTION)!;
@@ -31,11 +34,11 @@ export function SettingsPage({ sub }: PageProps): View {
   return h(Page, { title: t("settings.title"), width: "full" },
     h("div", { class: "settings-layout" },
       h("nav", { class: "settings-nav", "aria-label": t("settings.nav") },
-        h("a", { class: "settings-nav-link", href: "#/settings/users?tab=identities" }, t("nav.identities")),
+        h("a", { class: "settings-nav-link", href: "#/settings/users?tab=identities", onClick: (e: MouseEvent) => { if (!leaveAllowed()) e.preventDefault(); } }, t("nav.identities")),
         h("ul", null, SECTIONS.map((s) => h("li", { key: s.id },
           h("a", {
             href: `#/settings/${s.id}`, class: "settings-nav-link", ...(s.id === section.id ? { "aria-current": "true" } : {}),
-            onClick: (e: MouseEvent) => { if (e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey) { e.preventDefault(); navigate(`/settings/${s.id}`); } },
+            onClick: (e: MouseEvent) => { if (e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey) { e.preventDefault(); if (leaveAllowed()) navigate(`/settings/${s.id}`); } },
           }, t(s.label)))))),
       h("div", { class: "settings-content" }, section.id === "memory" ? h(MediaIndexPanel, {}) : null, body)));
 }

@@ -165,7 +165,7 @@ test("the surface answers E_NOT_AVAILABLE while the inbox is not up", async () =
   await assert.rejects(methods["inbox.count"]!({}, ctx), isCode("E_NOT_AVAILABLE"));
 });
 
-test("live delivery is fail closed: only when every opted-in subscriber is the person", async () => {
+test("live delivery targets only matching person connections among mixed subscribers", async () => {
   const sent: { method: string; params: object; opts: object }[] = [];
   const subs = (...ids: string[]) => ids.map(connectionId => ({ connectionId, names: ["inbox.changed"] as const }));
   const who: Record<string, Principal | null> = { a1: person("alice"), a2: person("alice", "viewer"), b1: person("bob"), ag: { userId: "bot", kind: "agent", role: "member" }, none: null };
@@ -181,10 +181,11 @@ test("live delivery is fail closed: only when every opted-in subscriber is the p
   const ok = await run(["a1", "a2"]);
   assert.equal(ok.length, 1);
   assert.deepEqual(ok[0]!.params, { change: "created", kinds: ["approval"] }, "no userId, no entry data");
-  assert.deepEqual(ok[0]!.opts, { optIn: true });
-  assert.equal((await run(["a1", "b1"])).length, 0, "a foreign subscriber withholds it from everyone");
-  assert.equal((await run(["a1", "ag"])).length, 0, "an agent subscriber withholds it");
-  assert.equal((await run(["a1", "none"])).length, 0, "an unresolved subscriber withholds it");
+  assert.deepEqual(ok[0]!.opts, { optIn: true, audience: [{ connectionId: "a1" }, { connectionId: "a2" }] });
+  assert.deepEqual((await run(["a1", "b1"]))[0]!.opts, { optIn: true, audience: [{ connectionId: "a1" }] }, "foreign subscriber excluded");
+  assert.deepEqual((await run(["a1", "ag"]))[0]!.opts, { optIn: true, audience: [{ connectionId: "a1" }] }, "agent excluded");
+  assert.deepEqual((await run(["a1", "none"]))[0]!.opts, { optIn: true, audience: [{ connectionId: "a1" }] }, "unresolved subscriber excluded");
+  assert.equal((await run(["b1", "ag", "none"])).length, 0, "no matching person means no event");
   assert.equal((await run([])).length, 0);
   assert.equal((await run(["a1"], [{ connectionId: "b1", names: ["other.event"] }])).length, 1, "subscribers to other events do not matter");
   assert.equal((await run(["a1"], [{ connectionId: "b1" }])).length, 1, "a nameless subscription cannot receive an optIn event, so it does not matter");

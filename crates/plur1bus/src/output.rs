@@ -101,14 +101,37 @@ fn error_prefix() -> &'static str {
     }
 }
 
-/// Exit code for a mapped RPC error code (per G18/carry-over from Task 4 review):
-/// `E_LOCKED` → 3, `E_NOT_AVAILABLE` and `E_APPROVAL_REQUIRED` → 2 (a script run that hits
-/// `E_APPROVAL_REQUIRED` must not report success), everything else → 1.
-fn exit_code_for(code_name: &str) -> i32 {
+/// Exit code of a command that was interrupted by a signal or Ctrl-C (the shell convention for SIGINT, 128 + 2).
+pub(crate) const EXIT_INTERRUPTED: i32 = 130;
+
+/// The exit code for a child process that ended (`acp serve`, `core run`): its own code passed through, and
+/// [`EXIT_INTERRUPTED`] when a signal ended it (Ctrl-C or a kill: it has no code), 1 when there is nothing else to go by.
+pub(crate) fn child_exit_code(status: &std::process::ExitStatus) -> i32 {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        if status.code().is_none() && status.signal().is_some() {
+            return EXIT_INTERRUPTED;
+        }
+    }
+    status.code().unwrap_or(1)
+}
+
+/// The one place that maps an error code to the exit code of the process. `Out::fail` derives its exit from it,
+/// `ext::Failure::exit` and `backup::BackupError::code` call it, and `docs/errors.md` is checked against it
+/// (`documented_exit_codes_match_the_mapping`, `scripts/check-cli-exit-codes.mjs`).
+///
+/// - `E_LOCKED` → 3: another process holds the store or the home; retry later.
+/// - `E_INVALID_PARAMS`, `E_NOT_AVAILABLE`, `E_APPROVAL_REQUIRED`, `E_CANCELLED` → 2: the command was refused before it
+///   did any work (a usage or input error, not possible here, an approval is missing, a confirmation was declined).
+/// - everything else → 1: the command ran and failed.
+///
+/// A signal or Ctrl-C is not an error code: it ends with [`EXIT_INTERRUPTED`], and `plur1bus import` passes the
+/// importer's own exit code through (`Out::fail_exit`).
+pub(crate) fn exit_code_for(code_name: &str) -> i32 {
     match code_name {
         "E_LOCKED" => 3,
-        "E_NOT_AVAILABLE" => 2,
-        "E_APPROVAL_REQUIRED" => 2,
+        "E_INVALID_PARAMS" | "E_NOT_AVAILABLE" | "E_APPROVAL_REQUIRED" | "E_CANCELLED" => 2,
         _ => 1,
     }
 }
@@ -205,7 +228,6 @@ impl Out {
                     "E_INTERNAL",
                     &format!("cannot serialise the result: {e}"),
                     json!({}),
-                    1,
                 )
             });
             say(&document(schema, v).to_string());
@@ -213,17 +235,45 @@ impl Out {
             say(&human());
         }
     }
-    /// Prints an error and exits. JSON goes to stdout (stable shape, `schema: "error/1"`), human
-    /// text to stderr.
-    pub fn fail(&self, code: &str, message: &str, extra: serde_json::Value, exit: i32) -> ! {
+    /// Prints a result that reports a failure (a verification that found damage, a run that failed) and exits with the
+    /// exit code of `code`. Without `--json` it is `human()` on stdout, as for [`Out::ok`]. With `--json` it is the
+    /// result document, so everything a script read from it before is still there, plus a top-level `error` object
+    /// that is the `error/1` document of the failure (`schema`, `error`, `message`, `reason`, ...): stdout stays ONE
+    /// JSON document, and a caller that wants the failure reads `doc.error`. A result that already has a top-level
+    /// `error` key keeps it (none of the commands that use this does).
+    pub fn ok_but_failed<T: Serialize>(
+        &self,
+        schema: &str,
+        value: &T,
+        human: impl FnOnce() -> String,
+        failure: Failure,
+    ) -> ! {
         if self.json {
-            let mut v = json!({ "error": code, "message": message });
-            if let (Some(a), Some(b)) = (v.as_object_mut(), extra.as_object()) {
-                for (k, x) in b {
-                    a.insert(k.clone(), x.clone());
-                }
-            }
-            say(&document("error/1", v).to_string());
+            let v = serde_json::to_value(value).unwrap_or_else(|e| {
+                self.fail(
+                    "E_INTERNAL",
+                    &format!("cannot serialise the result: {e}"),
+                    json!({}),
+                )
+            });
+            let v = with_failure(v, &failure);
+            say(&document(schema, v).to_string());
+        } else {
+            say(&human());
+        }
+        exit(exit_code_for(failure.code))
+    }
+    /// Prints an error and exits with the exit code of `code` ([`exit_code_for`]). JSON goes to stdout (stable shape,
+    /// `schema: "error/1"`), human text to stderr.
+    pub fn fail(&self, code: &str, message: &str, extra: serde_json::Value) -> ! {
+        self.fail_exit(code, message, extra, exit_code_for(code))
+    }
+    /// [`Out::fail`] with an exit code that does not come from the code table: the importer's own exit code
+    /// (`plur1bus import`) or [`EXIT_INTERRUPTED`] (`plur1bus login` on Ctrl-C). Never pass a literal for a code that
+    /// `exit_code_for` knows; `every_fail_call_takes_its_exit_code_from_the_table` (tests/cli_surface.rs) fails on that.
+    pub fn fail_exit(&self, code: &str, message: &str, extra: serde_json::Value, exit: i32) -> ! {
+        if self.json {
+            say(&error_document(code, message, &extra).to_string());
         } else {
             say_err(&format!("{} {message}", error_prefix()));
             if let Some(line) = ids_line(&extra) {
@@ -237,13 +287,46 @@ impl Out {
     #[allow(clippy::wrong_self_convention)]
     pub fn from_rpc_error(&self, e: &RpcError) -> ! {
         let extra = rpc_error_extra(e);
-        self.fail(
-            &e.code_name(),
-            &e.to_string(),
-            extra,
-            exit_code_for(&e.code_name()),
-        )
+        self.fail(&e.code_name(), &e.to_string(), extra)
     }
+}
+
+/// What [`Out::ok_but_failed`] reports next to a result: an error code (it decides the exit code), a message and the
+/// extra `error/1` fields (`reason`, `detail`, `ids`).
+pub struct Failure {
+    pub code: &'static str,
+    pub message: String,
+    pub extra: Value,
+}
+
+impl Failure {
+    pub fn new(code: &'static str, reason: &str, message: impl Into<String>) -> Self {
+        Failure {
+            code,
+            message: message.into(),
+            extra: json!({ "reason": reason }),
+        }
+    }
+}
+
+/// `result` with the failure as its top-level `error` (the `error/1` document); a result that has an `error` keeps it.
+fn with_failure(mut result: Value, failure: &Failure) -> Value {
+    if let Some(o) = result.as_object_mut() {
+        o.entry("error")
+            .or_insert_with(|| error_document(failure.code, &failure.message, &failure.extra));
+    }
+    result
+}
+
+/// The `error/1` document for `code`: `{ schema, error, message, ..extra }`.
+fn error_document(code: &str, message: &str, extra: &Value) -> Value {
+    let mut v = json!({ "error": code, "message": message });
+    if let (Some(a), Some(b)) = (v.as_object_mut(), extra.as_object()) {
+        for (k, x) in b {
+            a.insert(k.clone(), x.clone());
+        }
+    }
+    document("error/1", v)
 }
 
 /// The `reason`/`detail`/`ids` `--json` fields for an `RpcError` (Task 4 carry-over review, G7):
@@ -323,6 +406,75 @@ mod tests {
         );
         assert_eq!(exit_code_for("E_DENIED"), 1);
         assert_eq!(exit_code_for("E_INTERNAL"), 1);
+    }
+
+    #[test]
+    fn a_failed_result_carries_one_error_document_and_keeps_its_fields() {
+        let f = Failure::new("E_STORAGE", "audit-verify-failed", "did not verify");
+        let v = document(
+            "audit.verify/1",
+            with_failure(json!({ "ok": false, "findings": [1] }), &f),
+        );
+        assert_eq!(v["schema"], "audit.verify/1");
+        assert_eq!(v["ok"], false);
+        assert_eq!(v["findings"], json!([1]));
+        assert_eq!(v["error"]["schema"], "error/1");
+        assert_eq!(v["error"]["error"], "E_STORAGE");
+        assert_eq!(v["error"]["message"], "did not verify");
+        assert_eq!(v["error"]["reason"], "audit-verify-failed");
+        // a result that already has an `error` keeps it
+        let kept = with_failure(json!({ "error": "mine" }), &f);
+        assert_eq!(kept["error"], "mine");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_child_ended_by_a_signal_exits_130_and_any_other_child_keeps_its_code() {
+        let status = |script: &str| {
+            std::process::Command::new("sh")
+                .args(["-c", script])
+                .status()
+                .unwrap()
+        };
+        assert_eq!(child_exit_code(&status("exit 0")), 0);
+        assert_eq!(child_exit_code(&status("exit 7")), 7);
+        assert_eq!(child_exit_code(&status("kill -TERM $$")), EXIT_INTERRUPTED);
+        assert_eq!(child_exit_code(&status("kill -INT $$")), EXIT_INTERRUPTED);
+    }
+
+    #[test]
+    fn the_exit_table_is_the_one_mapping() {
+        for (code, exit) in [
+            ("E_LOCKED", 3),
+            ("E_INVALID_PARAMS", 2),
+            ("E_NOT_AVAILABLE", 2),
+            ("E_APPROVAL_REQUIRED", 2),
+            ("E_CANCELLED", 2),
+            ("E_CONFLICT", 1),
+            ("E_STORAGE", 1),
+            ("E_IMPORT_FAILED", 1),
+            ("X_NOT_A_CODE", 1),
+        ] {
+            assert_eq!(exit_code_for(code), exit, "{code}");
+        }
+        // The other two places that used to repeat it now ask this one.
+        for reason in [
+            "core-running",
+            "core-unavailable",
+            "io",
+            "restore-failed",
+            "source-busy",
+            "snapshot-mismatch",
+            "exists",
+            "whatever-else",
+        ] {
+            let (code, exit) = crate::backup::BackupError::new(reason, "").code();
+            assert_eq!(exit, exit_code_for(code), "backup reason {reason}");
+        }
+        assert_eq!(
+            crate::backup::BackupError::new("whatever-else", "").code(),
+            ("E_INVALID_PARAMS", 2)
+        );
     }
 
     #[test]
@@ -456,15 +608,11 @@ mod tests {
             let mut cols = line.split('|').map(str::trim);
             let code = format!("E_{}", cols.next().unwrap().trim_end_matches('`'));
             let exit: i32 = cols.next().unwrap().parse().unwrap();
-            // Raised by the CLI itself with an explicit exit code, not mapped from an RPC error.
-            let cli_local = matches!(code.as_str(), "E_IMPORT_FAILED" | "E_CANCELLED");
-            if !cli_local {
-                assert_eq!(
-                    exit_code_for(&code),
-                    exit,
-                    "docs/errors.md says {code} exits {exit}"
-                );
-            }
+            assert_eq!(
+                exit_code_for(&code),
+                exit,
+                "docs/errors.md says {code} exits {exit}"
+            );
             seen += 1;
         }
         assert!(seen >= 15, "sanity: saw {seen} documented codes");

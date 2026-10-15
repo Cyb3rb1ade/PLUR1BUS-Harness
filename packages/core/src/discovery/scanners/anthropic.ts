@@ -3,7 +3,7 @@ import type { ProfileInfo } from "../ports.ts";
 // GET /models?limit=1000, next page adds after_id=<last_id> while has_more, header anthropic-version: 2023-06-01.
 import type { RawEntry } from "../types.ts";
 import { ScanError, type PinnedClient } from "../http.ts";
-import { checkId, checkPositiveInt, checkString, finalizeEntries } from "../validate.ts";
+import { checkId, present, checkPositiveInt, checkString, finalizeEntries } from "../validate.ts";
 import type { ScanOutput, Scanner } from "./index.ts";
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -24,14 +24,14 @@ export const scanAnthropic: Scanner = async (_profile: ProfileInfo, client: Pinn
     for (const item of res.data) {
       if (!isObj(item)) throw new ScanError("failed:invalid", "bad_envelope");
       const id = checkId(item.id);
-      const displayName = item.display_name !== undefined ? checkString(item.display_name) : undefined;
+      const displayName = present(item.display_name) ? checkString(item.display_name) : undefined;
       let created: number | undefined;
-      if (item.created_at !== undefined) {
+      if (present(item.created_at)) {
         const str = checkString(item.created_at);
         const parsed = Date.parse(str);
         if (Number.isFinite(parsed) && parsed > 0) created = parsed;
       }
-      const contextWindow = item.max_input_tokens !== undefined ? checkPositiveInt(item.max_input_tokens) : undefined;
+      const contextWindow = present(item.max_input_tokens) ? checkPositiveInt(item.max_input_tokens) : undefined;
 
       allEntries.push({
         id,

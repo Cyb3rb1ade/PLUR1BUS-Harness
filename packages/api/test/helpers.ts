@@ -14,6 +14,8 @@ export const OWNER_TOKEN = "0123456789abcdef".repeat(4);
 export interface FakeCore extends CoreRpc { calls: Array<{ method: string; params?: object }>; impl: (method: string, params?: object) => Promise<unknown> }
 export function fakeCore(): FakeCore {
   const core: FakeCore = {
+    callAs: (async (method, params) => core.call(method, Object.keys(params).length ? params : undefined)) as NonNullable<CoreRpc["callAs"]>,
+    subscribeAs: async () => () => {},
     calls: [],
     impl: async (method) => {
       if (method === "agent.list") return { agents: [{ agentId: "main", open: true, activity: { state: "idle", since: 1 } }] };
@@ -31,6 +33,7 @@ export interface Harness {
 
 export interface StartOptions {
   limits?: Partial<ApiLimits>; rateClasses?: RateClasses; sessionLimits?: SessionLimits; core?: FakeCore;
+  accounts?: import("../src/account-store.ts").AccountStore;
   users?: MemoryUserDirectory; lockout?: Partial<LockoutPolicy>; extraRoutes?: ApiServerOptions["extraRoutes"]; webRoot?: string;
   /** Break-glass writes here instead of the shared sink; `noAudit` configures no sink at all. */
   breakGlassAudit?: AuditSink; auditSink?: AuditSink; notifyBreakGlass?: ApiServerOptions["notifyBreakGlass"]; noAudit?: boolean;
@@ -41,7 +44,7 @@ export async function start(o: StartOptions = {}): Promise<Harness> {
   const audit = memoryAuditSink(); const users = o.users ?? new MemoryUserDirectory();
   const sink = (level: string) => (msg: string, fields?: Record<string, unknown>) => { logs.push(JSON.stringify({ level, msg, ...fields })); };
   const api = createApiServer({
-    core, ownerToken: OWNER_TOKEN, clock, users, ...(o.noAudit ? {} : { audit: o.auditSink ?? audit }), logger: { debug: sink("debug"), info: sink("info"), warn: sink("warn"), error: sink("error") },
+    core, ownerToken: OWNER_TOKEN, clock, users, ...(o.accounts ? { accounts: o.accounts } : {}), ...(o.noAudit ? {} : { audit: o.auditSink ?? audit }), logger: { debug: sink("debug"), info: sink("info"), warn: sink("warn"), error: sink("error") },
     ...(o.limits ? { limits: o.limits } : {}), ...(o.rateClasses ? { rateClasses: o.rateClasses } : {}), ...(o.sessionLimits ? { sessionLimits: o.sessionLimits } : {}),
     ...(o.lockout ? { lockout: o.lockout } : {}), ...(o.extraRoutes ? { extraRoutes: o.extraRoutes } : {}), ...(o.webRoot ? { webRoot: o.webRoot } : {}),
     ...(o.breakGlassAudit ? { breakGlassAudit: o.breakGlassAudit } : {}), ...(o.notifyBreakGlass ? { notifyBreakGlass: o.notifyBreakGlass } : {}),
@@ -72,6 +75,10 @@ export interface Res { status: number; headers: IncomingHttpHeaders; text: strin
 export function raw(h: Harness, o: { method?: string; path: string; headers?: Record<string, string>; body?: string | Buffer }): Promise<Res> {
   return new Promise((resolve, reject) => {
     const req = request({ host: "127.0.0.1", port: h.port, method: o.method ?? "GET", path: o.path, headers: o.headers ?? {}, agent: false, timeout: 5000 }, (res) => {
+      if (String(res.headers["content-type"]).startsWith("text/event-stream")) {
+        res.once("data", (chunk: Buffer) => { resolve({ status: res.statusCode ?? 0, headers: res.headers, text: chunk.toString("utf8"), json: undefined }); res.destroy(); req.destroy(); });
+        return;
+      }
       const chunks: Buffer[] = [];
       res.on("data", (c) => chunks.push(c));
       res.on("end", () => { const text = Buffer.concat(chunks).toString("utf8"); let json: any; try { json = JSON.parse(text); } catch { json = undefined; } resolve({ status: res.statusCode ?? 0, headers: res.headers, text, json }); });

@@ -13,6 +13,12 @@ export const MEMORY_OP_METHODS = ["memory.list", "memory.show", "memory.forget",
   "memory.propose", "memory.proposals.list", "memory.proposals.accept", "memory.proposals.reject"] as const;
 export type MemoryOpMethod = (typeof MEMORY_OP_METHODS)[number];
 
+/** Whitespace-only, including the zero-width characters `\s` does not cover; the schema's minLength 1 lets these through. */
+const isBlank = (s: string): boolean => /^[\s\u200b-\u200d\u2060\ufeff]*$/u.test(s);
+const requireText = (s: string): void => {
+  if (isBlank(s)) throw new RpcError("E_INVALID_PARAMS", "text must not be blank", { reason: "blank-text" });
+};
+
 export interface MemoryOpDeps { engine: E.Engine; agents: AgentRegistry; logger: HarnessLogger; isStopping: () => boolean }
 
 /** The H1 agent check every agent-scoped method shares: the workspace of a registered agent, else E_AGENT_UNKNOWN. */
@@ -51,7 +57,8 @@ export function mapMemoryOpError(e: unknown, o: { stopping: boolean }): RpcError
 export function projectCard(c: E.MemoryCard): MemoryCard {
   return {
     id: c.id, scope: c.scope, text: c.text, summary: c.summary, createdAt: c.createdAt, origin: c.origin, epistemicStatus: c.epistemicStatus,
-    ...(typeof c.score === "number" ? { score: c.score } : {}),
+    // A NaN/Infinity score (e.g. cosine of a zero vector) would fail the closed result schema and turn the whole listing into E_INTERNAL.
+    ...(typeof c.score === "number" && Number.isFinite(c.score) ? { score: c.score } : {}),
     ...(typeof c.sharedBy === "string" ? { sharedBy: c.sharedBy } : {}),
     ...(typeof c.sourceId === "string" ? { sourceId: c.sourceId } : {}),
   };
@@ -76,7 +83,15 @@ export function buildMemoryOpMethods(d: MemoryOpDeps): Record<MemoryOpMethod, Ha
     return async (p: P) => {
       if (d.isStopping()) throw coreStopping();
       const workspace = requireAgent(d.agents, p.agentId);
-      const { principal, degraded } = callerToPrincipal(p.caller, p.agentId, workspace);
+      let resolved: ReturnType<typeof callerToPrincipal>;
+      try {
+        resolved = callerToPrincipal(p.caller, p.agentId, workspace);
+      } catch (e) {
+        // The agent is registered but its workspace directory is gone or unreadable: realpath throws a raw fs error carrying the path.
+        d.logger.warn("memory op: workspace unavailable", { method, agentId: p.agentId, code: (e as { code?: unknown })?.code });
+        throw new RpcError("E_STORAGE", "agent workspace is not available", { reason: "workspace-unavailable" });
+      }
+      const { principal, degraded } = resolved;
       // G8: a write never reaches the engine with an inferred principal; a read proceeds and says so.
       if (degraded && write) throw new RpcError("E_DENIED", `caller identity is not valid (${degraded.detail ?? "identity"})`, { reason: "principal-invalid" });
       pre?.(p);
@@ -103,6 +118,8 @@ export function buildMemoryOpMethods(d: MemoryOpDeps): Record<MemoryOpMethod, Ha
       // G9: the flat params cannot express "exactly one of topic/since" (nor the engine's "until only with since").
       if ((p.topic !== undefined) === (p.since !== undefined)) throw new RpcError("E_INVALID_PARAMS", "exactly one of topic and since is required", { reason: "topic-xor-since" });
       if (p.until !== undefined && p.since === undefined) throw new RpcError("E_INVALID_PARAMS", "until is only allowed with since", { reason: "topic-xor-since" });
+      if (p.until !== undefined && p.since !== undefined && p.until < p.since) throw new RpcError("E_INVALID_PARAMS", "until must not be before since", { reason: "until-before-since" });
+      if (p.topic !== undefined) requireText(p.topic);
     }),
 
     "memory.show": op<MemoryShowParams, unknown>("memory.show", false, async (p, c) =>
@@ -116,7 +133,7 @@ export function buildMemoryOpMethods(d: MemoryOpDeps): Record<MemoryOpMethod, Ha
     "memory.correct": op<MemoryCorrectParams, unknown>("memory.correct", true, async (p, c) => {
       const r = await m.correct(p.id, p.text, c.principal, AGENT_CONTEXT_CLI);
       return { id: r.id, archived: r.archived };
-    }),
+    }, (p) => requireText(p.text)),
 
     "memory.share": op<MemoryShareParams, unknown>("memory.share", true, async (p, c) => {
       // allowSensitive only as the caller's explicit `true`; anything else leaves the engine's approval gate in place.
@@ -138,7 +155,7 @@ export function buildMemoryOpMethods(d: MemoryOpDeps): Record<MemoryOpMethod, Ha
         ? await m.propose(p.sharedId, p.text, c.principal, AGENT_CONTEXT_CLI, { note: p.note })
         : await m.propose(p.sharedId, p.text, c.principal, AGENT_CONTEXT_CLI);
       return { proposalId: r.proposalId, sharedId: r.sharedId, sharerAgentId: r.sharerAgentId };
-    }),
+    }, (p) => requireText(p.text)),
 
     "memory.proposals.list": op<MemoryProposalsListParams, unknown>("memory.proposals.list", false, async (p, c) => {
       const q: E.MemoryProposalListQuery = { ...(p.status !== undefined ? { status: p.status } : {}), ...(p.limit !== undefined ? { limit: p.limit } : {}) };

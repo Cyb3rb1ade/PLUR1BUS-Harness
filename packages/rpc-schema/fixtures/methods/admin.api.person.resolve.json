@@ -1,0 +1,14 @@
+{
+  "params": {
+    "userId": "person-fixture"
+  },
+  "result": {
+    "person": {
+      "userId": "person-fixture",
+      "kind": "person",
+      "role": "member",
+      "disabled": false,
+      "version": 1
+    }
+  }
+}

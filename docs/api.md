@@ -115,7 +115,8 @@ in whole seconds, `reason: rate-limited`.
 | `totp` | 5 | 1 per 60 s | second step, confirm, disable (also per user on the second step) |
 | `read` | 120 | 20 per s | reads, static files |
 | `write` | 30 | 5 per s | writes |
-| `stream` | 6 | 1 per 5 s | reserved for SSE/WebSocket connections (no such route yet) |
+| `stream` | 6 | 1 per 5 s | opening `/events` |
+| `rpc` | 60 | 10 per s | `/rpc` |
 
 Forwarding headers (`X-Forwarded-For` and the like) are not trusted; the address is the socket's.
 
@@ -185,3 +186,85 @@ secrets live in memory and are lost at a restart.
 - **Break-glass delivery** to channels, and the memory routes that use a grant (they need a resource selector in the route table).
 - `stream` routes (SSE, WebSocket) and OIDC/WebAuthn session binding are the next users of the `stream` class and the surface map.
 - `docs/openapi.json` and `docs/api-surface.md` are regenerated with `pnpm docs:gen` whenever the route table changes.
+
+## Härtung und Testabdeckung
+
+The hardening sweep pins the behaviour below with tests: `packages/api/test/hardening-*.test.ts` and
+`secrets-never-leave.test.ts`. A test marked `KNOWN GAP` is a `todo`: it records a weakness that cannot be closed without
+changing public behaviour (a route, status code, response, cookie name, RPC, config key or error code), and it is listed under
+*Known gaps* below, not counted as a pass.
+
+| Area | Test file | What is pinned |
+|---|---|---|
+| Sessions, cookies, headers | `hardening-session.test.ts` | Every route of the table carries the security headers (anonymous, signed in, wrong method, foreign `Origin`, query string); the 64-session cap; parallel sessions; cookie clearing; truncated, repeated and odd cookie values. |
+| Password and second-step login | `hardening-login.test.ts` | The lockout counts every attempt of a parallel burst; a challenge is spent once, also under two simultaneous valid codes. |
+| Personal tokens | `hardening-tokens.test.ts` | The cap of 50 live tokens holds under parallel creation; scopes only narrow. |
+| Audit and redaction | `hardening-audit.test.ts` | Queue order, retries, the full queue, the redaction net under logs and audit (field names such as `code`, `totp`, `otp`, `otpauthUri`, `backup*`, `challenge`, `bearer`, `passphrase`; error ids such as `HPE_*` stay readable); rate limits refuse non-finite capacity or refill. |
+| OpenAPI | `hardening-openapi.test.ts` | About 200 real answers over all routes validate against `docs/openapi.json` (a small validator in `test/openapi-validate.ts`, no dependency); every documented status is observed; `components.Error.error.enum` is derived from `ERROR_CODES`; `agents.list` documents 502/503 and the optional `lifecycle` and `activity.job` fields. |
+| Static files, core link | `hardening-static.test.ts`, `hardening-core-link.test.ts` | Path handling, `health` and `agents.list` against odd core answers, `close()` during a connect. |
+| Secrets | `secrets-never-leave.test.ts` | The password, owner token, TOTP secret, backup codes, login challenge, session ids and token secret appear only in the answer that issues them (a session id only in its login's `Set-Cookie`). Every route is called anonymously, with a bearer token, with a damaged cookie and with both cookies, each time with every secret in the body, path, query, `Origin` and `Cookie`; no other body, header, log line, audit event or call to the core carries one, in six spellings. |
+
+### What the core may answer
+
+`health` accepts the fields of `core.status` only with the right type and size; anything else gives the same 503 "down"
+answer as an unreachable core. `agents.list` takes an object with an `agents` array and keeps entries with a non-empty string
+`agentId`; any other answer is a 502 with `reason: core-error`, and the core cannot override the `schema` id. The core's own text is
+never forwarded.
+
+### Behaviour worth knowing
+
+- **Audit queue.** Auth events are queued (default 2000) and written in order from the event loop; each gets a few retries.
+  When the queue is full the *new* event is dropped (the oldest stay), counted in `dropped` and logged once per burst. Events
+  still queued when the process is killed (`SIGKILL`) are lost; a sink that throws after a partial write can produce a
+  duplicate line. Break-glass does not use the queue.
+- **Rate limits per address.** The key is the socket address, which on loopback is always `127.0.0.1`: every local client
+  shares one `auth` bucket, so a local process can keep it empty and make the owner's login answer 429 until it refills.
+  The account lock is the real defence against guessing; the bucket is a cost brake.
+- **Core link.** There is no back-off: the next request simply tries again. The connect timeout is 1 s; a call (the handshake
+  included) uses the default of 30 s, so a core that accepts the socket and never answers holds the shared pending connection
+  that long; requests end earlier with 504/503. `close()` during a connect closes the late connection.
+- **Static files.** `Cache-Control: no-store` on every file (hashed assets too), no validators, `Range` ignored (the whole file
+  answers 200), `HEAD` has the headers of `GET`. A file up to 16 MiB is read into memory.
+
+### Known gaps
+
+Each is a test marked `KNOWN GAP`; none is fixed because the fix changes behaviour.
+
+- **Global session cap** (`hardening-session.test.ts`): any signed-in account can fill the 64 sessions and evict everyone else's,
+  the owner's included. A per-principal limit would fix it.
+- **Stronger password hashes are replaced** (`hardening-login.test.ts`): `needsRehash` rewrites any hash whose parameters differ
+  from the current ones, a stronger hash included.
+- **No HTTP status for six core codes** (`hardening-openapi.test.ts`): `E_PROJECT_WIP_LIMIT`, `E_INBOX_CURSOR`,
+  `E_INVITE_INVALID` and the voice codes (`E_VOICE_BUDGET`, `E_VOICE_LICENSE`, `E_VOICE_LICENCE`, `E_VOICE_UNAVAILABLE`) fall back to 500. No route returns them yet.
+- **Windows device names** (`hardening-static.test.ts`): `CON`, `NUL`, `AUX`, `COM1`, `LPT1` (with or without an extension) are
+  not refused as path segments; on Windows opening one can block a thread-pool worker. Not verified on Windows.
+
+## Browser RPC and events
+
+The browser uses `POST /rpc` (one JSON-RPC 2.0 request, no batches) and `GET /events` (SSE), exclusively through the existing session cookie. Both retain the shared Host/Origin/Referer/Sec-Fetch-Site checks. `/rpc` requires a fresh one-time CSRF token for **every** POST because the RPC schema has no read/write annotation; the typed client retries a read once with CSRF. The RPC body default is 1 MiB, overridden by `ApiServerOptions.limits.maxBodyBytes`; REST retains its 64 KiB default. The independent `rpc` token bucket is 60 requests with 10 tokens/second, per IP and person.
+
+The API discards browser `principal`/`actAs` claims. A separate `harness-api` delegation credential (`run/api-delegation.token`, private to the installation OS user, rotated with the core) accompanies every delegated local request. Connections are bound to an authenticated session and person; connection-only events cannot cross cookie sessions. The core resolves current stored roles/agent rights, and ordinary clients with only `core.token` cannot delegate. Bootstrap cookie identity `owner` maps explicitly to core identity `local-owner`; a directory account named `owner` does not receive that mapping. REST core calls also carry their initiating principal; personal-token calls retain `kind: agent` and their scopes. No browser receives either local RPC credential.
+
+`packages/api/src/rpc-route.ts` contains the explicit method exposure lists. Internal auth/adoption/shutdown, direct subscriptions, backup/import and secret reveal are excluded; supervisor exposure is limited to config get/set and module list/graph. The existing core Guard and RPC_RULES are unchanged. Legacy methods without a guard are conservatively restricted to the actual stored Owner on API connections, with agent listing filtered through the existing authorization function and core status subject to doctor.read. Raw caller-based memory methods remain excluded pending trusted engine-caller binding.
+
+RPC application failures use HTTP 200 and retain `error.data.error`; their messages are fixed, and free error text, stacks, details and ids are omitted. Transport rejection uses 401/403, oversized bodies 413, rate limits 429. Malformed JSON produces a JSON-RPC parse error. A malformed request does not echo its arbitrary `id`. The long RPC response budget defaults to five minutes, so a user-job/approval response can finish after browser disconnection; an explicit handler budget can shorten it.
+
+SSE subscriptions preserve audience metadata on the API-only local wire. Only the authenticated person or the same delegated connection receives a targeted event. Unaddressed events are dropped except `core.state` (process state only). Unknown event names are dropped. The API buffers already filtered events separately per person and authenticated session: 256 entries and 1 MiB per authenticated session, at most 64 feeds, with a two-minute reconnect window. `Last-Event-ID` replays only that person's retained events; an unknown/evicted cursor emits `restart`, which causes the typed client to reload current state. Epochs change when a feed or core connection is lost. Query parameters are refused.
+
+There are at most eight simultaneous streams per person. Heartbeats are comment lines every 25 seconds. Each connection has a 1 MiB queued-output cap; oversized individual events close the feed. Logout, revocation, eviction, rotation and expiry close affected streams; streams do not renew idle expiry. `rightsChanged` closes the person's streams and invalidates replay. A directory change also ends a stream at its next heartbeat. Local delegated RPC peers are bounded at 128 and idle peers are retired after five minutes.
+
+Config calls go to the real supervisor. It asks the core for the authenticated person's current role on each call, and config writes check all changed `x-write-roles` nodes, including descendants of parent replacements. Changed `x-audit` nodes produce durable `audit.config.set` records with personId and old/new values; inherited `x-sensitive` values and credential-named fields are redacted. Audit failure refuses the write. Records are written before the config rename and carry `phase: prepare` plus the intended targetRevision; a later I/O failure can leave an intent record without that revision becoming live. Dry runs create no audit records. Changes to providers/endpoints remove old privacy acknowledgments; new acknowledgments use the actual writer id. Changing provider definitions conservatively invalidates old acknowledgments for all functions. The concrete config annotations from merged PR #426 are enforced and covered by five-role schema tests and the real supervisor acceptance test.
+
+Local trust still ends at the OS-user boundary: another process with the same user's file access can read the API credential, and possession of a cookie cannot prove a physical human initiated an action. Delegation does not raise surface trust or attest the browser. Account-password persistence and the invitation-to-account provisioning adapter are existing host responsibilities; the standalone API remains Owner-token-only unless a UserDirectory is supplied. See the [transport handoff](handoff/2026-10-14-web-transport.md) for validation and Owner questions.
+
+## Durable accounts and person status
+
+The standalone API stores credentials in `<home>/state/api/accounts.db` (SQLite WAL, schema version 1; directory 0700, database 0600). It stores normalized unique usernames, unique Core person links, Argon2id PHC hashes, TOTP secrets and backup hashes, personal token hashes, credential versions and timestamps. Role, object rights and `disabled` always come from Core; missing people fail closed.
+
+`POST /api/v1/invitations/redeem` takes `{code, username, password}` without a session. `code` is the shareable invitation token, not a channel pairing code. Origin/Fetch-Site, body and per-IP/global authentication rate limits apply. Invalid, expired, revoked and consumed codes answer identically with HTTP 400 `E_INVITE_INVALID`. Only after validation can HTTP 409 `E_CONFLICT` reveal an account collision. Invalid usernames/passwords use HTTP 400 `E_INVALID_PARAMS` and reasons `username`/`password`; usernames are NFC/trim/lowercase, 3–64 ASCII letters/digits/dot/underscore/hyphen, excluding owner/admin/root/system. Passwords require 12 characters, at most 1024 UTF-8 bytes, and must differ from the username. HTTP 201 creates the account without logging in. Storage failures return `E_STORAGE` with fixed text, never paths or SQLite details.
+
+`POST /api/v1/accounts/bootstrap` creates the one password account linked to `local-owner`. It requires an authenticated bootstrap session, one-time CSRF and `{proof, username, password}` containing the current bootstrap token again. A password account named "owner" is never a bootstrap alias.
+
+Core `user.disable` / `user.enable` preserve role and rights. Owner can change any person except disabling the last active Owner; Admin can change Member/Viewer only; agents and personal tokens cannot change person status. A disable increments the Core revision, invalidates sessions/replay/streams and permanently revokes existing personal tokens. Enable requires a fresh login. Requests and SSE heartbeats join current Core status; Core authority-change notifications reach a dedicated credential-authenticated API service connection and invalidate IPC-originated changes immediately; the standalone account synchronizer checks every five seconds as a reconnect fallback. Tokens remember their issuance revision, so disable/enable during API downtime cannot revive them. TOTP is optional through the existing flows; no mandatory-role configuration has been added.
+
+Invitations already create their Core person before redemption. Failed registration deletes the pending credential record. If consuming the invitation succeeds but activating the account fails, the existing person remains and `invitation.account.failed` records the failure; the one-time invitation cannot be recovered automatically. An administrator must issue a new invitation. No person is created by the redeem step.

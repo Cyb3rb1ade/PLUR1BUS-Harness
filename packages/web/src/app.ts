@@ -9,6 +9,7 @@ import { lang, t } from "./i18n.ts";
 import { LANDING } from "./nav.ts";
 import { Palette } from "./palette/palette.ts";
 import { bindPalette } from "./palette/hotkey.ts";
+import { JoinPage } from "./pages/join.ts";
 import { LoginPage } from "./pages/login.ts";
 import { NotFoundPage } from "./pages/not-found.ts";
 import { pageFor } from "./pages/registry.ts";
@@ -24,14 +25,14 @@ export function bindApp(): () => void {
       const s = sessionState.value;
       const r = route.value;
       if (s.status === "checking") return;
-      if (s.status === "anonymous" && r.kind !== "login") {
+      if (s.status === "anonymous" && r.kind !== "login" && r.kind !== "join") {
         const p = path.value;
         returnTo = resolve(p).kind === "page" ? p : null;
-        navigate("/login", { replace: true });
+        navigate("/login", { replace: true, force: true });
       } else if (s.status === "authenticated" && r.kind === "login") {
         const to = returnTo ?? LANDING;
         returnTo = null;
-        navigate(to, { replace: true });
+        navigate(to, { replace: true, force: true });
       }
     }),
     bindPalette(),
@@ -77,6 +78,7 @@ export function App(): View | null {
   const s = sessionState.value;
   const r = route.value;
   if (s.status === "checking") return h("div", { class: "boot", role: "status" }, t("app.loading"));
+  if (r.kind === "join") return h(JoinPage, {});
   if (r.kind === "login") return h(LoginPage, {});
   if (s.status !== "authenticated") return h("div", { class: "boot", role: "status" }, t("app.loading"));
   return h(Shell, { r });

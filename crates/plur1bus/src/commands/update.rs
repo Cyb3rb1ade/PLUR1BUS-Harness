@@ -1,6 +1,6 @@
 //! `plur1bus update --check` (spec §6.5, D78, HB10, H3b-b-2). Compares the install manifest with the signed
 //! release feed and names the units that would restart. Never
-//! writes anything: `update --check` only reads the install manifest and the release feed. Applying (D78) lives in
+//! changes installed units: `update --check` reads the manifest/feed and caches module metadata. Applying (D78) lives in
 //! `update_apply.rs` beside it and in `crate::update`.
 use crate::cli::{UpdateArgs, UpdateCmd};
 use crate::install;
@@ -33,7 +33,7 @@ pub(super) struct Feed {
 /// Fails the command; an extracted bundle is removed first.
 fn fail_feed(out: &Out, layout: &Layout, reason: &str, message: &str) -> ! {
     crate::update::bundle::cleanup(layout);
-    out.fail("E_NOT_AVAILABLE", message, json!({ "reason": reason }), 1)
+    out.fail("E_NOT_AVAILABLE", message, json!({ "reason": reason }))
 }
 
 /// `--ca-bundle` is the same as `PLUR1BUS_CA_BUNDLE`: checked now, so a bad file is one clear refusal.
@@ -44,7 +44,6 @@ fn apply_ca_bundle(out: &Out, args: &UpdateArgs) {
             "E_INVALID_PARAMS",
             &e.to_string(),
             json!({ "reason": "ca-bundle-invalid" }),
-            2,
         );
     }
     std::env::set_var(install::fetch::CA_BUNDLE_ENV, p);
@@ -58,24 +57,17 @@ fn load_feed(out: &Out, layout: &Layout, args: &UpdateArgs, persist: bool) -> Fe
             "E_NOT_AVAILABLE",
             "no install manifest here: run `plur1bus setup` first",
             json!({ "reason": "not-installed" }),
-            1,
         ),
         Err(e) => out.fail(
             "E_NOT_AVAILABLE",
             &format!("install manifest is unreadable: {e}"),
             json!({ "reason": "not-installed" }),
-            1,
         ),
     };
 
     let bundle = args.from.as_ref().map(|path| {
         crate::update::bundle::open(layout, path).unwrap_or_else(|e| {
-            out.fail(
-                "E_NOT_AVAILABLE",
-                &e.message,
-                json!({ "reason": e.reason }),
-                1,
-            )
+            out.fail("E_NOT_AVAILABLE", &e.message, json!({ "reason": e.reason }))
         })
     });
 
@@ -93,7 +85,6 @@ fn load_feed(out: &Out, layout: &Layout, args: &UpdateArgs, persist: bool) -> Fe
                 "E_NOT_AVAILABLE",
                 &format!("could not read the release manifest: {e}"),
                 json!({ "reason": e.reason() }),
-                1,
             ),
         },
     };
@@ -125,7 +116,17 @@ fn load_feed(out: &Out, layout: &Layout, args: &UpdateArgs, persist: bool) -> Fe
 
     let verified = match verify_release(layout, &raw, &channel, &src, bundle.as_ref(), persist) {
         Ok(v) => v,
-        Err((reason, message)) => fail_feed(out, layout, reason, &message),
+        Err((reason, message)) => {
+            if !persist && reason == "release-signature-invalid" {
+                let modules = installed_modules(layout)
+                    .into_iter()
+                    .filter_map(|m| m["name"].as_str().map(str::to_owned))
+                    .map(|name| (name, json!({"updateBlockedReason":"signature"})))
+                    .collect::<serde_json::Map<_, _>>();
+                save_module_cache(layout, Value::Object(modules));
+            }
+            fail_feed(out, layout, reason, &message)
+        }
     };
     Feed {
         manifest,
@@ -135,6 +136,13 @@ fn load_feed(out: &Out, layout: &Layout, args: &UpdateArgs, persist: bool) -> Fe
         native,
         verified,
         bundle: bundle.map(|b| b.dir),
+    }
+}
+
+fn save_module_cache(layout: &Layout, modules: Value) {
+    let cache = json!({"format":1,"checkedAt":super::agent::rfc3339_now(),"modules":modules});
+    if plur1bus_config::write_atomic(&layout.state().join("module-updates.json"), &cache).is_err() {
+        eprintln!("warning: module update cache could not be written");
     }
 }
 
@@ -157,7 +165,7 @@ pub fn run(out: &Out, layout: &Layout, args: UpdateArgs) -> ! {
 
     let Feed {
         manifest,
-        channel: _,
+        channel,
         raw,
         head,
         native,
@@ -167,6 +175,12 @@ pub fn run(out: &Out, layout: &Layout, args: UpdateArgs) -> ! {
 
     let doc: Value = serde_json::from_slice(&raw).unwrap_or(json!({}));
     let installed_modules = installed_modules(layout);
+    let modules = native.as_ref().map(|n| n.modules.iter().map(|m| {
+        let mut item = json!({"availableVersion":m.version,"minFromVersion":head.min_from_version});
+        if is_newer(&head.min_from_version, &manifest.binary.version) { item["updateBlockedReason"] = json!("minFromVersion"); }
+        (m.name.clone(), item)
+    }).collect::<serde_json::Map<_,_>>()).unwrap_or_default();
+    save_module_cache(layout, Value::Object(modules));
     let installed_json = json!({
         "version": manifest.binary.version,
         "core": manifest.core.version,
@@ -174,7 +188,8 @@ pub fn run(out: &Out, layout: &Layout, args: UpdateArgs) -> ! {
         "modules": installed_modules,
     });
 
-    let newer = is_newer(&head.version, &manifest.binary.version);
+    let newer =
+        offerable(&channel, &head.version) && is_newer(&head.version, &manifest.binary.version);
     let (available, changes, restart_core, restart_modules, supervisor_restart, blocked) = if !newer
     {
         (
@@ -347,26 +362,20 @@ pub(super) fn installed_modules(layout: &Layout) -> Vec<Value> {
         .collect()
 }
 
-/// `a > b`, comparing `major.minor.patch` numerically when both parse as semver's release triple; otherwise a
-/// plain string mismatch (a release build never ships a non-semver version, so this fallback is unreached in
-/// practice).
+/// `a > b` by SemVer precedence (pre-releases below their release, build metadata ignored) when both are valid
+/// semver; otherwise a plain string mismatch (a release build never ships a non-semver version, so this fallback is
+/// unreached in practice).
 pub(super) fn is_newer(a: &str, b: &str) -> bool {
-    match (parse_semver_triple(a), parse_semver_triple(b)) {
-        (Some(x), Some(y)) => x > y,
-        _ => a != b,
+    match crate::update::guard::precedence(a, b) {
+        Some(o) => o == std::cmp::Ordering::Greater,
+        None => a != b,
     }
 }
 
-fn parse_semver_triple(v: &str) -> Option<(u64, u64, u64)> {
-    let core = v.split(['-', '+']).next().unwrap_or(v);
-    let mut it = core.split('.');
-    let major = it.next()?.parse().ok()?;
-    let minor = it.next()?.parse().ok()?;
-    let patch = it.next()?.parse().ok()?;
-    if it.next().is_some() {
-        return None;
-    }
-    Some((major, minor, patch))
+/// Whether a release on `channel` may be offered: the stable channel never carries a pre-release (the desktop updater
+/// applies the same rule).
+pub(super) fn offerable(channel: &str, version: &str) -> bool {
+    !(channel == "stable" && crate::update::guard::is_prerelease(version))
 }
 
 /// The units that differ between the installed manifest and the release's `native` object (`None` for an
@@ -478,4 +487,25 @@ pub(super) fn plan_changes(
         restart_modules.into_iter().collect(),
         supervisor_restart,
     )
+}
+
+#[cfg(test)]
+mod module_cache_tests {
+    use super::*;
+    #[test]
+    fn an_interrupted_module_cache_write_keeps_the_previous_snapshot() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("module-updates.json");
+        let old = json!({"format":1,"modules":{}});
+        plur1bus_config::write_atomic(&path, &old).unwrap();
+        let before = std::fs::read(&path).unwrap();
+        let temp = path.with_extension(format!("json.tmp-{}", std::process::id()));
+        std::fs::create_dir(&temp).unwrap();
+        assert!(plur1bus_config::write_atomic(
+            &path,
+            &json!({"format":1,"modules":{"fixture":{"availableVersion":"2.0.0"}}})
+        )
+        .is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+    }
 }

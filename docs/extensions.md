@@ -123,7 +123,7 @@ printf -- '---\nname: demo-skill\ndescription: Say hello.\n---\nRun scripts/hell
 printf '#!/bin/sh\necho hello\n' > demo/demo-skill/scripts/hello.sh && chmod +x demo/demo-skill/scripts/hello.sh
 plur1bus ext pack demo/demo-skill -o demo/demo-skill.p1x
 
-plur1bus ext verify demo/demo-skill.p1x               # offline, no home: exit 1 with the reason when refused
+plur1bus ext verify demo/demo-skill.p1x               # offline, no home: exit 2 with the reason when refused
 plur1bus --home /tmp/p1x-demo ext inspect demo/demo-skill.p1x        # the disclosure; installs nothing
 plur1bus --home /tmp/p1x-demo skill install demo/demo-skill.p1x --dry-run   # the same document
 
@@ -175,7 +175,7 @@ Every file argument accepts `-` for a package on stdin (spooled to `run/inspect/
 
 With a supervisor that answers, every verb is its `ext.*` method; without one, the CLI takes the supervisor's single-instance lock, runs `ext::recover`, and calls the same functions in-process (offline). A lock held by a starting supervisor is `E_NOT_AVAILABLE reason=supervisor-running`, and a supervisor that holds its socket but does not answer is `supervisor-unresponsive` (both exit 2). A supervisor that predates extensions is the CLI-only refusal `E_NOT_AVAILABLE reason=supervisor-lacks-method` (restart it with `plur1bus daemon restart`); it is not an RPC error.
 
-Exit codes of the ext commands: `E_LOCKED` (an importer holds `skills/index.json`, `reason=skills-locked`) exits 3; `E_NOT_AVAILABLE` and `E_APPROVAL_REQUIRED` exit 2 (so **`supervisor-running` exits 2** here); everything else exits 1. `plur1bus module` differs: its `supervisor-running` and `supervisor-not-running` refusals exit 1 (module-guide §9).
+Exit codes of the ext commands: `E_LOCKED` (an importer holds `skills/index.json`, `reason=skills-locked`) exits 3; `E_NOT_AVAILABLE`, `E_APPROVAL_REQUIRED`, `E_INVALID_PARAMS` and `E_CANCELLED` (a declined prompt) exit 2 (so **`supervisor-running` exits 2** here); everything else exits 1. `plur1bus module` now behaves the same: its `supervisor-running` and `supervisor-not-running` refusals exit 2 as well (module-guide §9).
 
 ## 6. RPC (1.4.0)
 
@@ -242,3 +242,18 @@ Not reachable over RPC or the CLI yet; the building blocks are `plur1bus_ext::ki
 - **X3:** web UI, the upload endpoint (`ext.inspect` `upload`), D1 `.p1x` file association, the WebMCP deny list work beyond the one-line defence in depth already in place.
 - **X4:** the signed catalogue and `ext.inspect` `catalog`, search, per-item updates with health gate and rollback, pin/skip, revocation lists and `--force-revoked`, the 24 h integrity timer and repair from the cache, key rotation.
 - **X5:** the pinned first-party keys, `ext lint`, the publishing repository and first packages. After X5 a signed package can be `first-party`.
+
+## Testabdeckung und bekannte Lücken
+
+- **Manifest and rights** (`crates/plur1bus-ext/tests/manifest_hardening.rs`, next to `manifest.rs`, `kinds.rs`, `zipaudit.rs`, `verify.rs`
+  and `fuzz.rs`): every required property at every level removed in turn, the spelling, unknown-name and duplicate matrix for the
+  capabilities, `hostBridge` and `mcpApps` declared only when the manifest says so, a SemVer matrix, a seeded 4000-case mutation run, the
+  hash a consent is tied to over 600 generated upgrades, and the archive caps at limit − 1, limit and limit + 1.
+- **Consent on upgrade** is tested at the lifecycle level in `crates/plur1bus/tests/ext_lifecycle.rs` (first enable, re-enable after the
+  capabilities widened, replacing an enabled module).
+- **Known gap (security):** the acknowledged hash covers `capabilities` only. `remote:<url>` (an MCP server's endpoint) and
+  `provider:<baseUrl>` are declared rights that come from `remote.url` and `provider.baseUrl`, outside `capabilities`, so an upgrade that
+  only changes such a URL on the already allowed host declares a new right without asking again. Test:
+  `an_upgrade_that_only_changes_the_remote_or_provider_url_asks_for_consent_again` (ignored).
+- **Also noted:** the manifest schema requires only the `payload/` prefix for `files` and `scripts` keys; names with `..`, drive letters,
+  UNC or backslashes parse there and are refused by the archive audit, which is the path-safety layer.

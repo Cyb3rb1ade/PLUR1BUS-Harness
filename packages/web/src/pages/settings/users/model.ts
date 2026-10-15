@@ -28,28 +28,32 @@ export const NAME_MAX = 128;
 export const presetName = (r: string): string => (r in PRESET_TEXT ? t(`users.preset.${r}.name` as Key) : r);
 const PRESET_TEXT: Record<RolePreset, true> = { owner: true, admin: true, operator: true, member: true, viewer: true };
 
-export type Row = { id: string; name: string; self: boolean; role: RolePreset | null; statusKeys: { key: Key; n?: number }[] };
+export type Row = { id: string; name: string; self: boolean; role: RolePreset | null; disabled?: boolean; statusKeys: { key: Key; n?: number }[] };
 
 /** Builds rows when user.list is supported. */
 export function buildRowsFromUserList(self: { id: string; role: string }, list: UserListResult | null): Row[] {
   if (!list) return [];
   const rows: Row[] = [];
-  const selfUser = list.users.find((u) => u.id === self.id);
+  // Presentation alias for the bootstrap row only; RPC authority still comes from the API session/Core.
+  const selfUser = list.users.find((u) => u.id === self.id) ?? (self.id === "owner" ? list.users.find(u => u.id === "local-owner") : undefined);
+  const selfId = selfUser?.id ?? self.id;
   rows.push({
-    id: self.id,
+    id: selfId,
+    ...(selfUser ? { disabled: selfUser.disabled ?? false } : {}),
     name: selfUser?.displayName ?? self.id,
     self: true,
     role: (selfUser?.role ?? self.role) as RolePreset,
     statusKeys: [{ key: "users.status.signedIn" }],
   });
   for (const u of list.users) {
-    if (u.id === self.id) continue;
+    if (u.id === selfId) continue;
     rows.push({
       id: u.id,
       name: u.displayName || u.id,
       self: false,
       role: u.role as RolePreset,
-      statusKeys: [],
+      disabled: u.disabled ?? false,
+      statusKeys: u.disabled ? [{ key: "users.status.disabled" }] : [],
     });
   }
   return rows;

@@ -11,6 +11,11 @@ const opts = { skip: browserSkip };
 const calls = (app: App, method: string): { params: unknown; csrf: string | null }[] =>
   app.server.rpc.calls.filter((c) => c.method === method);
 
+/** A fixed 50 ms wait was too short on a loaded machine: wait until the call has reached the mock. */
+async function waitForCalls(app: App, method: string, n: number): Promise<void> {
+  for (let i = 0; i < 400 && calls(app, method).length < n; i++) await new Promise((r) => setTimeout(r, 10));
+}
+
 describe("Skills & Plugins (Extensions) page", opts, () => {
   test("lists extensions, filters by kind and search", async () => {
     await withApp({}, async (app) => {
@@ -120,6 +125,7 @@ describe("Approvals page", opts, () => {
 
       const select = app.page.locator(".approval-scope-select");
       await select.waitFor();
+      await select.getByRole("option", { name: /90 days|90 Tage/ }).waitFor({ state: "attached" });
       // Verify scope selector options
       const options = await select.locator("option").allInnerTexts();
       assert.ok(options.some((o) => o.includes("90 days") || o.includes("90 Tage")));
@@ -129,7 +135,7 @@ describe("Approvals page", opts, () => {
       // Test approve click
       const approveBtn = app.page.getByRole("button", { name: /^Approve$|^Freigeben$/i });
       await approveBtn.click();
-      await app.page.waitForTimeout(50);
+      await waitForCalls(app, "approval.decide", 1);
       assert.equal(calls(app, "approval.decide").length, 1);
     });
   });
@@ -147,7 +153,7 @@ describe("Approvals page", opts, () => {
       const revokeBtn = app.page.getByRole("button", { name: /Revoke grant|Grant widerrufen/i });
       await revokeBtn.waitFor();
       await revokeBtn.click();
-      await app.page.waitForTimeout(50);
+      await waitForCalls(app, "grant.revoke", 1);
       assert.equal(calls(app, "grant.revoke").length, 1);
     });
   });
@@ -179,8 +185,10 @@ describe("Recurring Tasks page", opts, () => {
       await app.page.getByText("consolidate").waitFor();
       await app.page.getByText("models.scan").waitFor();
 
-      // Check gap note for job creation
-      await app.page.getByText(/docs\/web-ui\.md/i).waitFor();
+      // The new user-job panel replaces the old unsupported-creation notice.
+      await app.page.getByText("No personal recurring tasks.", { exact: true }).waitFor();
+      assert.equal(await app.page.getByRole("button", { name: "Create recurring task", exact: true }).count(), 0, "no manageable targets were supplied");
+      assert.equal(calls(app, "jobs.create").length, 0);
     });
   });
 

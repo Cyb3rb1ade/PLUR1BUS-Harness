@@ -27,7 +27,8 @@ Per person, the newest 1000 entries and nothing older than 90 days are kept. Bot
 person gets a new entry. Configure `inbox.retention.days` (default 90, range 1–3650) and
 `inbox.retention.maxEntries` (default 1000, range 10–100000). Both are advanced settings and require a core restart.
 `CoreOptions.inbox.maxAgeDays` / `maxEntries` remain per-field overrides for tests. A dismissed entry stays in the
-table until it ages out, so a repeated event cannot bring it back.
+table until it ages out, so a repeated event cannot bring it back. Retention runs before the dedupe check: an entry that is already past its age
+no longer hides a repeat of the same event behind its dedupe key, so the repeat creates a new entry.
 
 ## Who gets what
 
@@ -47,6 +48,12 @@ table until it ages out, so a repeated event cannot bring it back.
 Every producer calls an `InboxPort` (`publish`, `settle`). The call is synchronous and never throws: a failing inbox is
 logged and the source module carries on unchanged. Each entry has a dedupe key (`kind:objectId`), so a repeated event
 for the same person produces no second entry.
+
+Producer text is cleaned before it becomes a parameter. Every string a producer passes (capability, job name, failure reason, media stage,
+channel name) has its whitespace folded and trimmed, is cut to **200 characters** (the store's limit; the cut ends in `…`, so a long text no longer
+costs the whole notification), and has token-shaped words replaced by `[redacted]`. The check looks at every piece between separators, so a token hidden in a URL
+or a `key=value` pair is masked as well, and so is a bot token (`<digits>:<secret>`) glued to a path segment. The per-entry kinds reported to listeners by
+`markRead` and `dismiss` come from the person's whole inbox, not from the first page of 200 entries.
 
 ### Break-Glass
 
@@ -99,3 +106,26 @@ plur1bus inbox dismiss <id>...
 
 `--json` prints the RPC result with the schema ids `inbox.list/1`, `inbox.count/1`, `inbox.read/1` and
 `inbox.dismiss/1`. Reference: [cli.md](cli.md), [rpc.md](rpc.md).
+
+## Härtung und Testabdeckung
+
+The page (`packages/web/src/pages/inbox`) is covered by `inbox-page.test.ts`, `inbox-model.test.ts` and, from the hardening sweep,
+`inbox-hardening.test.ts` (real Chromium against the mock API, axe in light and dark, English and German, 360 and 1440 px).
+
+- **Who sees what is the backend's job.** The page shows every entry `inbox.list` returns and offers every action to every role; it sends
+  no role and no person and filters nothing by audience itself (tested for all five roles).
+- **Live updates.** `inbox.changed` and a reconnect only make the page ask again. A refresh asks for as many entries as are shown (50 to 200,
+  the maximum of `inbox.list`), so paging is not lost, a burst of hints leaves no entry twice, and the order is the backend's. A refresh that
+  fails keeps the list and shows "That did not work. Try again."; only a first load that fails shows the error page.
+- **Entries are checked.** An entry needs a non-empty string `id` (repeated ids: the first wins), a known `kind` and `severity`, a string
+  `titleKey`, a `params` object of strings, numbers and booleans, finite `createdAt` within the range of a date, `readAt` and `dismissedAt`
+  `null` or a time, and a `ref` of `null` or an object with optional string fields. Anything else is left out, not shown half. Titles are text,
+  an unknown title key shows the kind label, and a link is only built for a known app route.
+- **Bulk action.** Without a kind filter "Mark all as read" keeps its meaning (`{ all: true }`, immediately). Under a kind filter it asks first
+  and marks only the unread entries shown (`{ ids }`, at most 500 per call), so entries the filter hides stay unread.
+- **Keyboard.** After "Mark as read" the focus moves to the entry's "Dismiss" button (or the heading when the entry left the list); after
+  "Load more" it moves to the first new entry.
+- **Badge.** The sidebar count is the sum of `inbox.count`'s per-kind numbers, shown only when every one is a non-negative whole number.
+
+Limits: an entry of a kind this UI does not know is not shown (the kinds are a closed list in `rpc-types.ts`); "Mark all as read" without a kind
+filter also marks entries that are not loaded yet, as the label says.

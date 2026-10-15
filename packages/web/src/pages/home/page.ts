@@ -7,14 +7,17 @@ import { PageLoading } from "../../components/page-state.ts";
 import { t } from "../../i18n.ts";
 import { registerArea } from "../../i18n/index.ts";
 import { area } from "./area.ts";
-import { getActiveExternalLinks, type ExternalLink } from "./links.ts";
+import { getActiveExternalLinks } from "./links.ts";
 import { getApi } from "../../api/shared.ts";
+import { failureOf } from "../common/load.ts";
+import { Notice } from "../common/states.ts";
 import "../../styles/home.css";
 
 registerArea("homeHelpLibrary", area);
 
 type SystemStatus = {
-  version: string;
+  /** Only what the harness reported: no number is made up when nothing was reported. */
+  version?: string;
   coreReachable: boolean;
   engineReady?: boolean;
   engineDegraded?: boolean;
@@ -23,59 +26,70 @@ type SystemStatus = {
   processState?: string;
 };
 
+/** `ok`: at least one source answered. `forbidden`: every source refused this role (health needs `doctor.read`), which says
+ *  nothing about the core. `down`: nothing answered and not because of the role. */
+type Phase = { kind: "loading" } | { kind: "ok"; status: SystemStatus } | { kind: "forbidden" } | { kind: "down" };
+
+const rec = (v: unknown): Record<string, unknown> | undefined => (typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined);
+const text = (v: unknown, max: number): string | undefined => (typeof v === "string" && v.trim() !== "" && v.length <= max ? v : undefined);
+
+/** Reads what the two answers say, whatever shape they have: a field of the wrong type is skipped, never a reason to fail. */
+export function readStatus(health: unknown, core: unknown, healthOk: boolean, coreOk: boolean): SystemStatus {
+  const s: SystemStatus = { coreReachable: coreOk };
+  if (healthOk) {
+    const body = rec(health); const version = text(rec(body?.api)?.version, 64); if (version) s.version = version;
+    const c = rec(body?.core);
+    if (c?.reachable === true) s.coreReachable = true;
+    if (typeof c?.uptimeMs === "number" && Number.isFinite(c.uptimeMs) && c.uptimeMs >= 0) s.uptimeSeconds = Math.floor(c.uptimeMs / 1000);
+    if (typeof c?.engineReady === "boolean") s.engineReady = c.engineReady;
+    if (typeof c?.degraded === "boolean") s.engineDegraded = c.degraded;
+  }
+  if (coreOk) {
+    const body = rec(core); const state = text(rec(body?.process)?.state, 40); if (state) s.processState = state;
+    const engine = rec(body?.engine);
+    if (typeof engine?.ready === "boolean") s.engineReady = engine.ready;
+    if (engine && engine.degraded !== undefined) s.engineDegraded = engine.degraded !== null;
+    const models = rec(engine?.models);
+    if (models) s.modelsReady = Object.values(models).every((m) => rec(m)?.state === "ready");
+  }
+  return s;
+}
+
+async function loadStatus(): Promise<Phase> {
+  const api = getApi();
+  const [health, core] = await Promise.allSettled([api.get("/api/v1/health"), api.rpc("core.status", undefined, { write: false })]);
+  if (health.status === "fulfilled" || core.status === "fulfilled") {
+    return { kind: "ok", status: readStatus(health.status === "fulfilled" ? health.value : undefined, core.status === "fulfilled" ? core.value : undefined, health.status === "fulfilled", core.status === "fulfilled") };
+  }
+  const failures = [health, core].map((r) => failureOf((r as PromiseRejectedResult).reason));
+  return failures.every((f) => f.kind === "forbidden") ? { kind: "forbidden" } : { kind: "down" };
+}
+
+const yesNo = (v: boolean): string => (v ? t("home.status.yes") : t("home.status.no"));
+const fact = (label: string, value: View | string, key: string): View =>
+  h("div", { class: "status-fact", key }, h("span", { class: "status-key" }, label), typeof value === "string" ? h("span", { class: "status-val" }, value) : value);
+const badge = (ok: boolean, label: string): View => h("span", { class: `status-badge ${ok ? "status-ok" : "status-warn"}` }, label);
+
+function StatusFacts({ status }: { status: SystemStatus }): View {
+  return h("div", { class: "home-status-facts" },
+    fact(t("home.version"), status.version ?? "—", "version"),
+    fact(t("home.coreStatus"), badge(status.coreReachable, status.coreReachable ? t("home.status.connected") : t("home.status.disconnected")), "core"),
+    status.processState ? fact(t("home.processState"), status.processState, "process") : null,
+    status.engineReady !== undefined ? fact(t("home.engineReady"), badge(status.engineReady, yesNo(status.engineReady)), "engine") : null,
+    status.uptimeSeconds !== undefined ? fact(t("home.uptime"), t("home.uptimeSeconds", { seconds: String(status.uptimeSeconds) }), "uptime") : null);
+}
+
 export function HomePage(): View {
-  const [status, setStatus] = useState<SystemStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [phase, setPhase] = useState<Phase>({ kind: "loading" });
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
-    const api = getApi();
-    Promise.allSettled([
-      api.get("/api/v1/health"),
-      api.rpc("core.status", undefined, { write: false }),
-    ]).then(([healthRes, coreRes]) => {
-      if (!active) return;
-      const s: SystemStatus = {
-        version: "0.1.0",
-        coreReachable: false,
-      };
-
-      if (healthRes.status === "fulfilled" && healthRes.value && typeof healthRes.value === "object") {
-        const h = healthRes.value as Record<string, unknown>;
-        const apiObj = h.api as { version?: string } | undefined;
-        if (apiObj?.version) s.version = apiObj.version;
-        const coreObj = h.core as { reachable?: boolean; uptimeMs?: number; engineReady?: boolean; degraded?: boolean } | undefined;
-        if (coreObj) {
-          s.coreReachable = coreObj.reachable === true;
-          if (typeof coreObj.uptimeMs === "number") s.uptimeSeconds = Math.floor(coreObj.uptimeMs / 1000);
-          if (typeof coreObj.engineReady === "boolean") s.engineReady = coreObj.engineReady;
-          if (typeof coreObj.degraded === "boolean") s.engineDegraded = coreObj.degraded;
-        }
-      }
-
-      if (coreRes.status === "fulfilled" && coreRes.value && typeof coreRes.value === "object") {
-        const c = coreRes.value as Record<string, unknown>;
-        const proc = c.process as { state?: string } | undefined;
-        if (proc?.state) s.processState = proc.state;
-        const eng = c.engine as { ready?: boolean; degraded?: unknown; models?: Record<string, { state?: string }> } | undefined;
-        if (eng) {
-          if (typeof eng.ready === "boolean") s.engineReady = eng.ready;
-          if (eng.degraded !== undefined) s.engineDegraded = eng.degraded !== null;
-          if (eng.models) {
-            const allModelsOk = Object.values(eng.models).every((m) => m.state === "ready");
-            s.modelsReady = allModelsOk;
-          }
-        }
-      }
-
-      setStatus(s);
-      setLoading(false);
-    });
-
-    return () => {
-      active = false;
-    };
-  }, []);
+    setPhase({ kind: "loading" });
+    // A status that cannot be read is a state of its own card; it never takes the links with it.
+    loadStatus().then((p) => { if (active) setPhase(p); }, () => { if (active) setPhase({ kind: "down" }); });
+    return () => { active = false; };
+  }, [attempt]);
 
   const activeLinks = getActiveExternalLinks();
 
@@ -113,58 +127,12 @@ export function HomePage(): View {
       h(
         Card,
         { title: t("home.section.status") },
-        loading
-          ? h(PageLoading, { label: t("state.loading") })
-          : h(
-              "div",
-              { class: "home-status-facts" },
-              h(
-                "div",
-                { class: "status-fact" },
-                h("span", { class: "status-key" }, t("home.version")),
-                h("span", { class: "status-val" }, status?.version || "0.1.0"),
-              ),
-              h(
-                "div",
-                { class: "status-fact" },
-                h("span", { class: "status-key" }, t("home.coreStatus")),
-                h(
-                  "span",
-                  {
-                    class: `status-badge ${status?.coreReachable ? "status-ok" : "status-warn"}`,
-                  },
-                  status?.coreReachable ? "Connected" : "Disconnected",
-                ),
-              ),
-              status?.processState
-                ? h(
-                    "div",
-                    { class: "status-fact" },
-                    h("span", { class: "status-key" }, t("home.processState")),
-                    h("span", { class: "status-val" }, status.processState),
-                  )
-                : null,
-              status?.engineReady !== undefined
-                ? h(
-                    "div",
-                    { class: "status-fact" },
-                    h("span", { class: "status-key" }, t("home.engineReady")),
-                    h(
-                      "span",
-                      { class: `status-badge ${status.engineReady ? "status-ok" : "status-warn"}` },
-                      status.engineReady ? "Yes" : "No",
-                    ),
-                  )
-                : null,
-              status?.uptimeSeconds !== undefined
-                ? h(
-                    "div",
-                    { class: "status-fact" },
-                    h("span", { class: "status-key" }, t("home.uptime")),
-                    h("span", { class: "status-val" }, t("home.uptimeSeconds", { seconds: String(status.uptimeSeconds) })),
-                  )
-                : null,
-            ),
+        phase.kind === "loading" ? h(PageLoading, { label: t("state.loading") })
+          : phase.kind === "forbidden" ? h(Notice, {}, t("home.status.forbidden"))
+          : phase.kind === "down" ? h("div", { class: "home-status-facts" },
+              fact(t("home.coreStatus"), badge(false, t("home.status.disconnected")), "core"),
+              h("div", { class: "state-actions" }, h("button", { type: "button", class: "btn", onClick: () => setAttempt((n) => n + 1) }, t("state.retry"))))
+          : h(StatusFacts, { status: phase.status }),
       ),
     ),
   );

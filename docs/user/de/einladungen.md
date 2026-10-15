@@ -1,0 +1,29 @@
+# Personen einladen
+
+Personen lädst du unter **Einstellungen → Benutzer & Rollen** ein. Eine Einladung legt eine Person mit einer Rolle an und liefert dir einen Link, mit dem sie beitreten kann. Die englische Version dieser Seite ist [../en/invitations.md](../en/invitations.md).
+
+## Eine Einladung anlegen
+
+1. Öffne **Einstellungen → Benutzer & Rollen** und wähle **Person einladen**.
+2. Trage einen **Namen** mit 1 bis 128 Zeichen ein. Er erscheint in Listen.
+3. Wähle eine **Rolle**: Admin, Operator, Member oder Viewer. Owner lässt sich nicht per Einladung vergeben; die Eigentümerschaft wird separat übergeben.
+4. Wähle **Gültig für**: 1 Stunde, 24 Stunden, 7 Tage, 30 Tage oder **Benutzerdefiniert** mit einer ganzen Anzahl Stunden von 1 bis 720 (30 Tage).
+5. Wähle **Einladung senden**.
+
+## Den Link jetzt kopieren
+
+Der Link wird nur einmal angezeigt, direkt nach dem Anlegen. Kopiere ihn und schicke ihn der Person. Er funktioniert einmal und wird danach nicht mehr angezeigt. Hast du ihn verloren, widerrufe die Einladung und lege eine neue an.
+
+## Offene Einladungen
+
+Die Liste unter **Offene Einladungen** zeigt jede offene Einladung mit ihrem Ablaufzeitpunkt. Mit **Widerrufen** stoppst du eine Einladung sofort. Das Widerrufen fragt nach und lässt sich nicht rückgängig machen. Danach funktioniert der Link nicht mehr, auch nicht vor Ablauf.
+
+## Weiter
+
+- Break-Glass-Zugriff auf Daten einer Person: [breakglass.md](breakglass.md)
+
+## Web-Konto erstellen
+
+Öffne den Einladungslink (oder `#/join`) und gib Benutzername, ein Passwort mit mindestens zwölf Zeichen und die Passwortwiederholung ein. Der Link gewährt ausschließlich den Zugang der eingeladenen Person. Melde dich nach dem Erstellen des Kontos separat über **Benutzername und Passwort verwenden** an. Wenn TOTP über den vorhandenen API-Einrichtungsflow aktiviert wurde, fragt die Anmeldung nach einem TOTP- oder Backup-Code.
+
+Unter **Einstellungen → Personen & Rollen** kann der Owner Personen aktivieren und deaktivieren; Admins können das für Member und Viewer. Deaktivierte Personen tragen ein Badge. Deaktivieren beendet Web-Sitzungen und Streams und widerruft alte Tokens dauerhaft. Aktivieren erhält Rolle und Rechte, verlangt aber eine neue Anmeldung. Der letzte aktive Owner kann nicht deaktiviert werden.

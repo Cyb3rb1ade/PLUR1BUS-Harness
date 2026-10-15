@@ -103,4 +103,24 @@ describe("buildIndex", () => {
     const specs: SettingSpec[] = [{ key: "a.apiKey", type: "string", tier: "basic" }, { key: "a.name", type: "string", tier: "basic" }];
     assert.deepEqual(settingValues({ a: { apiKey: "sk-1", name: "n" } }, specs), { "a.name": "n" });
   });
+  test("the keys the first heuristic missed stay out of the index, both from settingValues and from buildIndex", () => {
+    const keys = ["egress.proxy.authorization", "web.cookie", "tls.passphrase", "auth.bearer", "egress.proxy.auth"];
+    const specs: SettingSpec[] = [...keys.map((key) => ({ key, type: "string", tier: "advanced" as const })), { key: "core.logLevel", type: "enum", tier: "advanced" }];
+    const config = { egress: { proxy: { authorization: "hunter2", auth: "hunter2" } }, web: { cookie: "hunter2" }, tls: { passphrase: "hunter2" }, auth: { bearer: "hunter2" }, core: { logLevel: "debug" } };
+    const values = settingValues(config, specs);
+    assert.deepEqual(values, { "core.logLevel": "debug" });
+    const index = buildIndex({ lang: "en", settings: specs, values: { ...Object.fromEntries(keys.map((k) => [k, "hunter2"])), "core.logLevel": "debug" } });
+    assert.equal(JSON.stringify(index).includes("hunter2"), false);
+  });
+  test("credentials inside a URL value are masked, whatever the key is called", () => {
+    const specs: SettingSpec[] = [{ key: "metrics.remoteWrite", type: "string", tier: "advanced" }, { key: "core.dataDir", type: "string", tier: "advanced" }];
+    const config = { metrics: { remoteWrite: "https://bob:hunter2@metrics.example/api?api_key=hunter3&x=1" }, core: { dataDir: "/var/lib" } };
+    const values = settingValues(config, specs);
+    assert.equal(values["core.dataDir"], "/var/lib");
+    assert.equal(JSON.stringify(values).includes("hunter"), false);
+    assert.match(values["metrics.remoteWrite"] ?? "", /metrics\.example\/api\?api_key=••••&x=1$/);
+    const index = buildIndex({ lang: "en", settings: specs, values: { "metrics.remoteWrite": "https://bob:hunter2@metrics.example/" } });
+    assert.equal(JSON.stringify(index).includes("hunter2"), false);
+    assert.deepEqual(search(index, "hunter2"), []);
+  });
 });

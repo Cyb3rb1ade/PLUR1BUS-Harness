@@ -13,10 +13,10 @@ import { AGENT_CONTEXT_CLI, callerToPrincipal } from "../principal.ts";
 
 export interface TurnMemory {
   /** One call per turn, before the provider runs. Never throws for a degraded recall (returns `degraded`). */
-  recall(a: { agentId: string; caller: CallerIdentity; query: string; signal: AbortSignal; turnProfile?: import("../voice/turn-profile.ts").TurnProfile }): Promise<{ text: string; degraded: Degraded | null }>;
+  recall(a: { agentId: string; caller: CallerIdentity; authenticatedPerson?: string; query: string; signal: AbortSignal; turnProfile?: import("../voice/turn-profile.ts").TurnProfile }): Promise<{ text: string; degraded: Degraded | null }>;
   /** One call per turn, after it completed, and never for an incognito session. `incognito` is derived by the core from
    *  the session (F10): it is never a client parameter. */
-  capture(a: { agentId: string; caller: CallerIdentity; sessionId: string; turnId: string; messages: { role: "user" | "assistant"; content: string }[]; incognito: boolean; turnProfile?: import("../voice/turn-profile.ts").TurnProfile }): Promise<void>;
+  capture(a: { agentId: string; caller: CallerIdentity; authenticatedPerson?: string; sessionId: string; turnId: string; messages: { role: "user" | "assistant"; content: string }[]; incognito: boolean; turnProfile?: import("../voice/turn-profile.ts").TurnProfile }): Promise<void>;
   /** D23: the `compaction` checkpoint before a swap; never called for an incognito session. */
   checkpoint(a: { agentId: string; reason: "compaction" | "session-end" }): Promise<void>;
 }
@@ -31,15 +31,16 @@ export interface EnginePortDeps {
 }
 
 export function engineTurnMemory(d: EnginePortDeps): TurnMemory {
-  const identity = (caller: CallerIdentity, agentId: string) => {
+  const identity = (caller: CallerIdentity, agentId: string, authenticatedPerson?: string) => {
     const result = callerToPrincipal(caller, agentId, requireAgent(d.agents, agentId));
     const linked = d.identity?.resolve(caller);
-    if (linked) result.principal.user = deriveUserPrincipal(linked.humanId);
+    if (authenticatedPerson) result.principal.user = deriveUserPrincipal(authenticatedPerson);
+    else if (linked) result.principal.user = deriveUserPrincipal(linked.humanId);
     return result;
   };
   return {
-    async recall({ agentId, caller, query, signal, turnProfile }) {
-      const { principal, degraded } = identity(caller, agentId);
+    async recall({ agentId, caller, authenticatedPerson, query, signal, turnProfile }) {
+      const { principal, degraded } = identity(caller, agentId, authenticatedPerson);
       const r = d.config().core.recall;
       const hard = AbortSignal.timeout(r.hardBudgetMs);
       const principals = (!turnProfile?.localRealtime.enabled || turnProfile.localRealtime.features.recallMultiIdentity.mode === 'on') && principal.user?.startsWith('user:v2:') && d.scope ? d.scope.resolvePrincipals(principal.user) as NonNullable<typeof principal.user>[] : [principal.user];
@@ -55,9 +56,9 @@ export function engineTurnMemory(d: EnginePortDeps): TurnMemory {
       const g = res.degraded ? { reason: String(res.degraded.reason), capability: String(res.degraded.capability ?? "recall") } : null;
       return { text, degraded: g ?? degraded };
     },
-    async capture({ agentId, caller, sessionId, turnId, messages, incognito }) {
+    async capture({ agentId, caller, authenticatedPerson, sessionId, turnId, messages, incognito }) {
       if (d.isStopping()) return; // the turn is already stored; a stopping core takes no new capture (the next start does not replay it: RULING, a lost capture is logged)
-      const { principal } = identity(caller, agentId);
+      const { principal } = identity(caller, agentId, authenticatedPerson);
       if (principal.user?.startsWith('user:v2:') && d.scope) principal.user = d.scope.capturePrincipal(principal.user) as NonNullable<typeof principal.user>;
       const handle = d.engine.capture({
         agentId, principal, agent: AGENT_CONTEXT_CLI, messages, incognito, signal: d.captureSignal, sessionKey: `session:${sessionId}`, runId: turnId,

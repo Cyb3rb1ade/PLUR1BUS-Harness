@@ -33,7 +33,7 @@ That mode makes the vendor call a model endpoint that we expose, which needs a p
 
 ## WebSocket client
 
-The realtime and streaming providers use a small built-in RFC 6455 client (`src/ws.ts`) instead of the global `WebSocket`, because the global one hides the status of a refused handshake and the unified codes need it (401 `auth`, 429 `rate_limited` with `Retry-After`). It treats everything the service sends as untrusted: a total message limit over all fragments (4 MiB, close 1009), reserved bits, masked server frames, bad fragmentation, bad control frames and unknown opcodes (1002), invalid UTF-8 in a message or close reason (1007), a close timeout (5 s) and a ping keepalive (every 20 s idle, dead peer after 10 s without any bytes). A frame that makes a codec throw ends the session with one `upstream_protocol` error event and a clean close. Limits and timers can be passed per socket (`limits`, `timers`); the global proxy variables are not honoured by this client.
+The realtime and streaming providers use a small built-in RFC 6455 client (`src/ws.ts`) instead of the global `WebSocket`, because the global one hides the status of a refused handshake and the unified codes need it (401 `auth`, 429 `rate_limited` with `Retry-After`). It treats everything the service sends as untrusted: a total message limit over all fragments (4 MiB, close 1009), reserved bits, masked server frames, bad fragmentation, bad control frames and unknown opcodes (1002), invalid UTF-8 in a message or close reason (1007), a close timeout (5 s) and a ping keepalive (every 20 s idle, dead peer after 10 s without any bytes). A frame that makes a codec throw ends the session with one `upstream_protocol` error event and a clean close. Limits and timers can be passed per socket (`limits`, `timers`); the global proxy variables are not honoured by this client. The handshake has its own deadline (`connectTimeoutMs`, 15 s, code `timeout`), and `send` throws `overloaded` once more than `maxBufferedBytes` (4 MiB) wait unflushed on the socket, so live audio cannot pile up behind a peer that does not read. HTTP calls fail with `timeout` when no response headers arrive within `headersTimeoutMs` (30 s; the body is not covered, so long audio streams are not cut).
 
 ## Egress
 
@@ -56,3 +56,58 @@ No vendor endpoint was exercised against the live service. Everything below live
 ## Tests
 
 `pnpm --filter @plur1bus/voice-providers test` runs against a fake vendor server (HTTP and a small RFC 6455 implementation) and a fake local engine. No network, no model files.
+
+## HTTP error mapping per voice adapter (test matrix)
+
+`packages/voice-providers/test/error-table.test.ts` runs the same simulated responses through every voice function the cloud registry
+exposes: ElevenLabs (`synthesize`, `synthesizeStream` over HTTP and WebSocket, `listVoices`, `transcribe`, `openStream`), xAI (`connect`,
+`listModels`), Gemini (`connect`, `listModels`) and Polly (`synthesize`, `synthesizeStream`, `listVoices`). Cells read
+`code / retryable / documented`. `[KNOWN GAP]` would mark a cell that differs from the documented mapping in `docs/errors.md` (Voice provider
+error codes) or in this file; there are none at present. Every status message carries the provider name and the status only: never vendor text, never a key.
+
+Shared status rows (ElevenLabs HTTP and WebSocket, xAI and Gemini `connect`, the JSON listing calls):
+
+| Response | Code / retryable / documented |
+|---|---|
+| 401 | `auth` / no / yes |
+| 403 | `auth` / no / yes |
+| 404 (unknown voice or model) | `invalid_request` / no / yes |
+| 408 | `timeout` / yes / no (the adapters have no deadline seam; 408 stands in) |
+| 413 (audio too large) | `invalid_request` / no / yes |
+| 429 with `Retry-After: 7` | `rate_limited` / yes / yes (`retryAfterMs` 7000) |
+| 429 without `Retry-After` | `rate_limited` / yes / yes |
+| 500 | `overloaded` / yes / yes |
+| 503 | `overloaded` / yes / yes |
+
+Body and abort rows:
+
+| Function | Truncated JSON | Invalid JSON | Abort mid-response |
+|---|---|---|---|
+| ElevenLabs `synthesize`, `synthesizeStream` (HTTP) | n/a | n/a | `network` / yes / yes (a body cut off mid-stream; an aborted signal gives `aborted`) |
+| ElevenLabs `synthesizeStream` (WebSocket), `openStream`; xAI and Gemini `connect` | `upstream_protocol` / no / yes | `upstream_protocol` / no / yes | `network` / yes / yes |
+| ElevenLabs `listVoices`, `transcribe`; xAI and Gemini `listModels` | `bad_response` / no / yes | `bad_response` / no / yes | n/a |
+| Polly `synthesize`, `synthesizeStream` | n/a | n/a | `network` / yes / yes |
+| Polly `listVoices` | n/a | n/a | n/a |
+
+Polly's status rows differ from the shared ones:
+
+| Response | Polly |
+|---|---|
+| 401, 403 | `auth` / no / yes |
+| 404 | `invalid_request` / no / yes |
+| 408 | `network` / yes / no |
+| 413 | `invalid_request` / no / yes |
+| 429 (with or without `Retry-After`, since the simulated client sends no headers) | `rate_limited` / yes / no for the Retry-After row (no `retryAfterMs`), yes / yes otherwise |
+| 500, 503 | `overloaded` / yes / yes |
+
+Error messages (all HTTP and handshake statuses): `<provider>: <fixed text> (<status>)`, built in `src/errors.ts` (`errorFromStatus`). The vendor's response body is
+not read into the error and there is no separate debug field. 429 and 5xx are `retryable`; the HTTP client retries them and waits `Retry-After` (seconds or
+HTTP date, capped at one hour, and at `maxRetryWaitMs` for the wait itself) before falling back to exponential backoff. Polly exposes no response headers, so
+it never has `retryAfterMs`. The secret is scrubbed in every cell.
+
+Observations outside the table: `errorFromStatus` maps 504 to `timeout` (`src/errors.ts:84`), while the docs describe 5xx as `overloaded`. Not covered by
+the matrix. The cloud registry names the xAI adapter `xai` (its file is `grok.ts`); `src/local/providers.ts` is outside the registry by design.
+
+## Bounds on what a peer or a caller can make the package hold
+
+A realtime session keeps at most 4096 undelivered events; a consumer that does not read gets one `overloaded` error event and the socket is closed (1013). Input sent before the service reports the session ready is capped at 4 MiB of frames; past that `sendAudio` throws `overloaded`. An assistant or user transcript assembled from deltas is capped at 1 Mi characters (`upstream_protocol` beyond). Sample rates must be whole numbers from 8000 to 192000 Hz (`invalid_request` for ElevenLabs `transcribe` and `openStream`, `upstream_protocol` for a Gemini audio part that names another rate). Token counts that are negative, fractional or not finite are dropped from a `UsageReport`, durations of invalid input are 0 s, and `toVoiceUsage` never yields a negative or non-finite number. A `baseUrl` must not carry `user:password@` (`config`; `voiceEgressHosts` throws), and a region named like an object member (`constructor`) is simply an unknown region. `lookupProvider(registry, kind, id)` answers only for registered ids.

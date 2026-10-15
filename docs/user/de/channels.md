@@ -104,6 +104,8 @@ Damit der Assistent weiß, wer du bist, verknüpfst du dein Konto auf dem Kanal 
 
 Der Code gilt nur kurz und ist nur einmal verwendbar. Hast du keinen Code mehr, erzeuge einen neuen.
 
+Eine Kanalnachricht, die doppelt eintrifft (zum Beispiel nach einem Wiederverbinden), wird nur einmal beantwortet. Nachrichten, die nur aus Leerzeichen bestehen, werden ignoriert. Sendet ein Chat mehr als 20 Nachrichten, während eine frühere noch beantwortet wird, werden die überzähligen verworfen.
+
 ## Kanäle verwalten
 
 | Befehl | Was er tut |

@@ -26,7 +26,9 @@ export function voiceErrorOf(e: unknown): VoiceErrorCode | null {
 /** Licences the harness knows to be research-only / non-commercial. Matching is on the licence id as the server sends it, never on a link. */
 const RESEARCH_IDS = new Set(["blizzard-2013", "blizzard", "lessac-research", "research-only", "research"]);
 export function isResearchOnly(licenceId: string): boolean {
-  const id = licenceId.trim().toLowerCase();
+  if (typeof licenceId !== "string") return false;
+  // Compatibility form first, and every dash a licence name may be typed with becomes "-": "CC\u2011BY\u2011NC" is the same licence.
+  const id = licenceId.normalize("NFKC").trim().toLowerCase().replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, "-");
   if (RESEARCH_IDS.has(id)) return true;
   return /(^|[-_. ])(nc|non-?commercial|research(-only)?)([-_. ]|$)/.test(id);
 }
@@ -35,8 +37,9 @@ export const modelNeedsResearchWarning = (m: VoiceModel): boolean => isResearchO
 /** The key a licence confirmation travels under: `"modelId@licenceId"`. */
 export const licenceKey = (m: Pick<VoiceModel, "modelId" | "licenceId">): string => `${m.modelId}@${m.licenceId}`;
 
-/** Models of a profile that would be downloaded and need a confirmation first. Installed models were accepted when they were fetched. */
-export const confirmationsNeeded = (models: readonly VoiceModel[]): VoiceModel[] => models.filter((m) => m.needsConfirmation && !m.installed);
+/** Models of a profile that would be downloaded and need a confirmation first. Installed models were accepted when they were fetched.
+ *  A research-only licence always needs it, whatever the server flagged: the person never skips that confirmation. */
+export const confirmationsNeeded = (models: readonly VoiceModel[]): VoiceModel[] => models.filter((m) => (m.needsConfirmation || modelNeedsResearchWarning(m)) && !m.installed);
 export const missingModels = (models: readonly VoiceModel[]): VoiceModel[] => models.filter((m) => !m.installed);
 
 /** Whether every needed confirmation is ticked (the Apply button stays disabled until it is). */
@@ -93,14 +96,20 @@ export type Downloads = Readonly<Record<string, DownloadState>>;
 export function parseProgress(data: string): VoiceDownloadProgress | null {
   try {
     const o = JSON.parse(data) as Record<string, unknown>;
-    if (typeof o.modelId !== "string" || typeof o.receivedBytes !== "number" || typeof o.totalBytes !== "number" || typeof o.done !== "boolean") return null;
+    if (typeof o.modelId !== "string" || o.modelId === "" || typeof o.done !== "boolean") return null;
+    if (typeof o.receivedBytes !== "number" || typeof o.totalBytes !== "number" || !(o.receivedBytes >= 0) || !(o.totalBytes >= 0) || !Number.isFinite(o.receivedBytes) || !Number.isFinite(o.totalBytes)) return null;
     return { modelId: o.modelId, receivedBytes: o.receivedBytes, totalBytes: o.totalBytes, done: o.done, ...(typeof o.error === "string" ? { error: o.error } : {}) };
   } catch { return null; }
 }
 export function applyProgress(d: Downloads, p: VoiceDownloadProgress): Downloads {
   return { ...d, [p.modelId]: { receivedBytes: p.receivedBytes, totalBytes: p.totalBytes, done: p.done, ...(p.error !== undefined ? { error: p.error } : {}) } };
 }
-export const percentOf = (s: DownloadState | undefined): number => (!s ? 0 : s.done && !s.error ? 100 : s.totalBytes > 0 ? Math.min(100, Math.floor((s.receivedBytes / s.totalBytes) * 100)) : 0);
+export const percentOf = (s: DownloadState | undefined): number => {
+  if (!s) return 0;
+  if (s.done && !s.error) return 100;
+  const share = s.totalBytes > 0 ? (s.receivedBytes / s.totalBytes) * 100 : 0;
+  return Number.isFinite(share) ? Math.min(100, Math.max(0, Math.floor(share))) : 0;
+};
 
 export type DownloadSummary = { status: "idle" | "running" | "done" | "failed"; percent: number; failed: string[] };
 /** Overall state of the downloads of `ids` (the models the Apply call has to fetch). */

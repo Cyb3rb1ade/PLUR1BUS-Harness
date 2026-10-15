@@ -33,6 +33,9 @@ A closed enum; the core puts the code into every error response as `error.data.e
 - `E_CORE_UNAVAILABLE`
 - `E_INVALID_PARAMS`
 - `E_AGENT_UNKNOWN`
+- `E_AGENT_EXISTS`
+- `E_AGENT_RIGHTS`
+- `E_AGENT_SECRETS_MISSING`
 - `E_CONFIG_INVALID`
 - `E_MODULE_UNKNOWN`
 - `E_INTERNAL`
@@ -70,6 +73,217 @@ A closed enum; the core puts the code into every error response as `error.data.e
 Everything else is experimental and may change in any minor release (ADR-016 §4).
 
 ## Methods
+
+### `jobs.create`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human-only user-job create. Current agent.manage rights are required; system and engine jobs are immutable. Editing changes runAs to the editor, never to a requested third person.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "schedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cron",
+        "timezone"
+      ],
+      "properties": {
+        "cron": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "enabled": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "name",
+    "agentId",
+    "prompt",
+    "schedule",
+    "enabled"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job"
+  ],
+  "properties": {
+    "job": {
+      "$ref": "#/$defs/UserJob"
+    }
+  }
+}
+```
+
+### `jobs.update`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human-only user-job update. Current agent.manage rights are required; system and engine jobs are immutable. Editing changes runAs to the editor, never to a requested third person.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "schedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cron",
+        "timezone"
+      ],
+      "properties": {
+        "cron": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job"
+  ],
+  "properties": {
+    "job": {
+      "$ref": "#/$defs/UserJob"
+    }
+  }
+}
+```
+
+### `jobs.delete`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human-only user-job delete. Current agent.manage rights are required; system and engine jobs are immutable. Editing changes runAs to the editor, never to a requested third person.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "confirm": {
+      "const": true
+    }
+  },
+  "required": [
+    "id",
+    "confirm"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "deleted"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "deleted": {
+      "const": true
+    }
+  }
+}
+```
 
 ### `voice.status`
 
@@ -3500,6 +3714,9 @@ Human-only principals; self or authenticated administrator, codes revealed only 
       "type": "string",
       "minLength": 64,
       "maxLength": 64
+    },
+    "api": {
+      "$ref": "#/$defs/ApiDelegation"
     }
   }
 }
@@ -3532,6 +3749,16 @@ Human-only principals; self or authenticated administrator, codes revealed only 
     },
     "capabilities": {
       "$ref": "#/$defs/Capabilities"
+    },
+    "apiPrincipal": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ApiPrincipal"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   }
 }
@@ -4599,6 +4826,387 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 }
 ```
 
+### `agent.create`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Create an agent using Config Schema validation; Owner/Admin people only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": {},
+    "persona": {},
+    "model": {},
+    "memory": {},
+    "rights": {},
+    "channels": {}
+  },
+  "required": [
+    "name"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  },
+  "required": [
+    "agentId"
+  ]
+}
+```
+
+### `agent.validate`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Dry-run the create payload; field errors grouped by wizard step without mutation.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": {},
+    "persona": {},
+    "model": {},
+    "memory": {},
+    "rights": {},
+    "channels": {}
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "valid": {
+      "type": "boolean"
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "step": {
+            "enum": [
+              "identity",
+              "model",
+              "rights"
+            ]
+          },
+          "field": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "code": {
+            "$ref": "#/$defs/ErrorCode"
+          }
+        },
+        "required": [
+          "step",
+          "field",
+          "message",
+          "code"
+        ]
+      }
+    }
+  },
+  "required": [
+    "valid",
+    "errors"
+  ]
+}
+```
+
+### `agent.import`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Verify and import an agent.export bundle, stripping secrets and bounding rights.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "bundle": {
+      "type": "object"
+    },
+    "onConflict": {
+      "enum": [
+        "rename",
+        "fail"
+      ]
+    }
+  },
+  "required": [
+    "bundle"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "discardedRights": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "agentId",
+    "discardedRights"
+  ]
+}
+```
+
+### `doctor.report`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Cached authoritative 1staid report, with provisioning categories lacking checks explicitly skipped. Human-only reads for all roles; refresh for Owner/Admin/Operator, at most once per 30 seconds (E_CONFLICT reason refresh-rate-limit). Free-form detail is never forwarded.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "refresh": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generatedAt",
+    "groups"
+  ],
+  "properties": {
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "checks"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "status",
+                "summary"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "ok",
+                    "warn",
+                    "fail",
+                    "skipped"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "detail": {
+                  "type": "string"
+                },
+                "repair": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "label"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "command": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `agent.activity.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Bounded in-process agent activity transitions, newest first. Human-only. Owner/Admin see all agents; other roles need use or manage rights. Restart, retention expiry or changed visibility invalidates cursors (E_INVALID_PARAMS reason bad-cursor).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string"
+    },
+    "since": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "until": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "kinds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "idle",
+          "recalling",
+          "capturing",
+          "checkpointing",
+          "dreaming",
+          "consolidating",
+          "maintenance"
+        ]
+      }
+    },
+    "cursor": {
+      "type": "string",
+      "maxLength": 8192
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200,
+      "default": 50
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "items"
+  ],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "agentId",
+          "activity"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "agentId": {
+            "type": "string"
+          },
+          "activity": {
+            "$ref": "#/$defs/Activity"
+          }
+        }
+      }
+    },
+    "nextCursor": {
+      "type": "string"
+    }
+  }
+}
+```
+
 ### `agent.list`
 
 **Stability:** experimental · since 1.0.0
@@ -4857,6 +5465,7 @@ Lists scheduled jobs, optionally filtered by kind.
       "enum": [
         "agent",
         "system",
+        "user",
         "all"
       ],
       "description": "Filter jobs by kind. Defaults to 'agent'."
@@ -4878,65 +5487,79 @@ Lists scheduled jobs, optionally filtered by kind.
     "jobs": {
       "type": "array",
       "items": {
-        "type": "object",
-        "additionalProperties": true,
-        "required": [
-          "name",
-          "needsLlm",
-          "singleton"
-        ],
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "The job name."
-          },
-          "needsLlm": {
-            "type": "boolean"
-          },
-          "singleton": {
-            "type": "boolean"
-          },
-          "phase": {
-            "enum": [
-              "light",
-              "rem",
-              "deep"
-            ]
-          },
-          "kind": {
-            "enum": [
-              "agent",
-              "system"
-            ],
-            "description": "Whether the job is an agent job or a system job."
-          },
-          "schedule": {
+        "oneOf": [
+          {
             "type": "object",
-            "additionalProperties": false,
+            "additionalProperties": true,
             "required": [
-              "every",
-              "jitter"
+              "name",
+              "needsLlm",
+              "singleton"
             ],
-            "description": "Cadence information for scheduled runs.",
             "properties": {
-              "every": {
-                "type": "integer",
-                "description": "Nominal interval between runs in milliseconds."
+              "name": {
+                "type": "string",
+                "description": "The job name."
               },
-              "jitter": {
-                "type": "number",
-                "description": "Fractional jitter applied to the interval."
+              "needsLlm": {
+                "type": "boolean"
+              },
+              "singleton": {
+                "type": "boolean"
+              },
+              "phase": {
+                "enum": [
+                  "light",
+                  "rem",
+                  "deep"
+                ]
+              },
+              "kind": {
+                "enum": [
+                  "agent",
+                  "system"
+                ],
+                "description": "Whether the job is an agent job or a system job."
+              },
+              "schedule": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "every",
+                  "jitter"
+                ],
+                "description": "Cadence information for scheduled runs.",
+                "properties": {
+                  "every": {
+                    "type": "integer",
+                    "description": "Nominal interval between runs in milliseconds."
+                  },
+                  "jitter": {
+                    "type": "number",
+                    "description": "Fractional jitter applied to the interval."
+                  }
+                }
+              },
+              "nextRunAt": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "description": "Epoch timestamp in milliseconds of next scheduled run, or null if unscheduled."
               }
             }
           },
-          "nextRunAt": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "description": "Epoch timestamp in milliseconds of next scheduled run, or null if unscheduled."
+          {
+            "$ref": "#/$defs/UserJob"
           }
-        }
+        ]
+      }
+    },
+    "manageableAgents": {
+      "type": "array",
+      "description": "For kind user: live agent.manage targets for the authenticated person; the create/edit selector uses only these ids.",
+      "items": {
+        "$ref": "#/$defs/AgentId"
       }
     }
   }
@@ -4991,6 +5614,9 @@ Runs a job immediately. agentId is required for agent jobs and refused for syste
     },
     {
       "$ref": "#/$defs/SystemJobRun"
+    },
+    {
+      "$ref": "#/$defs/UserJobRun"
     }
   ]
 }
@@ -5028,6 +5654,14 @@ Returns past job execution records. When agentId is omitted, returns system job 
       "minimum": 1,
       "maximum": 1000,
       "description": "Maximum number of recent runs to return (newest first)."
+    },
+    "kind": {
+      "enum": [
+        "agent",
+        "system",
+        "user",
+        "all"
+      ]
     }
   }
 }
@@ -5052,6 +5686,9 @@ Returns past job execution records. When agentId is omitted, returns system job 
           },
           {
             "$ref": "#/$defs/SystemJobRun"
+          },
+          {
+            "$ref": "#/$defs/UserJobRun"
           }
         ]
       }
@@ -9571,6 +10208,25 @@ Secret-redacted UTF-8 JSON bundle with an Ed25519 signature of the SHA-256 manif
                   }
                 }
               }
+            },
+            "rights": {
+              "type": "object",
+              "additionalProperties": {
+                "enum": [
+                  "use",
+                  "manage"
+                ]
+              }
+            },
+            "requiredSecrets": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "maxItems": 128,
+              "uniqueItems": true
             }
           }
         },
@@ -9703,6 +10359,9 @@ People and role presets, Owner/Admin only.
             "minLength": 1,
             "maxLength": 128
           },
+          "disabled": {
+            "type": "boolean"
+          },
           "displayName": {
             "type": "string",
             "minLength": 1,
@@ -9721,6 +10380,195 @@ People and role presets, Owner/Admin only.
       }
     }
   }
+}
+```
+
+### `user.disable`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Change Core person status; preserve rights, protect the last active Owner and audit.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 200
+    }
+  },
+  "required": [
+    "userId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "disabled": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "userId",
+    "disabled"
+  ]
+}
+```
+
+### `user.enable`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Change Core person status; preserve rights, protect the last active Owner and audit.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "userId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "disabled": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "userId",
+    "disabled"
+  ]
+}
+```
+
+### `admin.api.person.resolve`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+API credential only; never exposed to browsers or WebMCP.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "userId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `admin.api.invite.validate`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+API credential only; never exposed to browsers or WebMCP.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "token": {
+      "type": "string",
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "token"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "role": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "userId",
+    "role"
+  ]
 }
 ```
 
@@ -10258,7 +11106,7 @@ Assign use/manage; null revokes the explicit right. Role and token scopes still 
 
 **Served by:** core
 
-Request an audited read-only window for another person. Affected person receives a durable notice; reason 10-500 trimmed characters, window 1-60 minutes.
+Request an audited read-only window for another person. Affected person receives a durable notice; reason and window bounds come from breakglass configuration (defaults 10-500 trimmed characters, 1-60 minutes).
 
 **params**
 
@@ -10278,13 +11126,13 @@ Request an audited read-only window for another person. Affected person receives
     },
     "reason": {
       "type": "string",
-      "minLength": 10,
-      "maxLength": 500
+      "minLength": 1,
+      "maxLength": 10000
     },
     "windowMinutes": {
       "type": "integer",
       "minimum": 1,
-      "maximum": 60
+      "maximum": 1440
     }
   }
 }
@@ -10323,7 +11171,7 @@ Request an audited read-only window for another person. Affected person receives
     "reason": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 500
+      "maxLength": 10000
     },
     "issuedAt": {
       "type": "integer",
@@ -13113,6 +13961,33 @@ D109 §6: verifies the HMAC-SHA256 chain of the approval store (the `1staid chec
 
 Delivered on the same connection to clients that called `events.subscribe`.
 
+### `api.account.changed`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Core person authority changed; connection-targeted to authenticated API service listeners only.
+
+```json
+{
+  "x-server": "core",
+  "x-stability": "experimental",
+  "x-since": "1.6.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "userId"
+  ],
+  "properties": {
+    "userId": {
+      "type": "string"
+    }
+  },
+  "description": "Core person authority changed; connection-targeted to authenticated API service listeners only."
+}
+```
+
 ### `voice.realtime.state`
 
 **Stability:** experimental · since 1.6.0
@@ -14300,6 +15175,189 @@ D109 §4: a grant was created or revoked (use, expiry and suspension are not not
 
 Shared `$defs` referenced above as `#/$defs/<Name>`.
 
+### `UserJob`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "agentId",
+    "prompt",
+    "schedule",
+    "enabled",
+    "id",
+    "kind",
+    "needsLlm",
+    "singleton",
+    "runAs",
+    "createdBy",
+    "createdAt",
+    "updatedAt",
+    "nextRunAt"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "schedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cron",
+        "timezone"
+      ],
+      "properties": {
+        "cron": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "kind": {
+      "const": "user"
+    },
+    "needsLlm": {
+      "const": true
+    },
+    "singleton": {
+      "const": true
+    },
+    "runAs": {
+      "type": "string"
+    },
+    "createdBy": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "updatedAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "nextRunAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "disabledReason": {
+      "enum": [
+        "skipped_owner_inactive",
+        "skipped_no_rights",
+        "skipped_agent_missing"
+      ]
+    }
+  }
+}
+```
+
+### `UserJobRun`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "jobId",
+    "job",
+    "kind",
+    "runAs",
+    "runAsDisplayName",
+    "trigger",
+    "startedAt",
+    "finishedAt",
+    "durationMs",
+    "outcome",
+    "agentId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string"
+    },
+    "jobId": {
+      "type": "string"
+    },
+    "job": {
+      "type": "string"
+    },
+    "runAs": {
+      "type": "string"
+    },
+    "runAsDisplayName": {
+      "type": "string"
+    },
+    "kind": {
+      "const": "user"
+    },
+    "trigger": {
+      "const": "recurring"
+    },
+    "startedAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "finishedAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "outcome": {
+      "enum": [
+        "running",
+        "completed",
+        "failed",
+        "abandoned",
+        "skipped_owner_inactive",
+        "skipped_no_rights",
+        "skipped_agent_missing",
+        "skipped_agent_inactive",
+        "skipped_budget",
+        "approval_timeout"
+      ]
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "requestedBy": {
+      "type": "string",
+      "description": "Authenticated person who requested a manual run; runAs remains the execution identity."
+    }
+  }
+}
+```
+
 ### `VoiceProfileName`
 
 ```json
@@ -15402,6 +16460,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "E_CORE_UNAVAILABLE",
     "E_INVALID_PARAMS",
     "E_AGENT_UNKNOWN",
+    "E_AGENT_EXISTS",
+    "E_AGENT_RIGHTS",
+    "E_AGENT_SECRETS_MISSING",
     "E_CONFIG_INVALID",
     "E_MODULE_UNKNOWN",
     "E_INTERNAL",
@@ -15490,6 +16551,91 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `ApiPrincipal`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "userId",
+    "kind",
+    "role"
+  ],
+  "properties": {
+    "userId": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,255}$"
+    },
+    "kind": {
+      "enum": [
+        "person",
+        "agent"
+      ]
+    },
+    "role": {
+      "enum": [
+        "owner",
+        "admin",
+        "operator",
+        "member",
+        "viewer"
+      ]
+    },
+    "agentRights": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": [
+          "use",
+          "manage"
+        ]
+      }
+    },
+    "projectRights": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": [
+          "member",
+          "lead"
+        ]
+      }
+    },
+    "tokenScopes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 256
+      }
+    }
+  }
+}
+```
+
+### `ApiDelegation`
+
+```json
+{
+  "description": "Local-only API registration credential, separate from core.token, with request principal. Never forwarded from the browser. The core remains authoritative for stored roles and rights.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "clientId",
+    "token"
+  ],
+  "properties": {
+    "clientId": {
+      "const": "harness-api"
+    },
+    "token": {
+      "type": "string"
+    },
+    "principal": {
+      "$ref": "#/$defs/ApiPrincipal"
+    }
+  }
+}
+```
+
 ### `Request`
 
 ```json
@@ -15513,6 +16659,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "params": {
       "type": "object"
+    },
+    "api": {
+      "$ref": "#/$defs/ApiDelegation"
     }
   }
 }
@@ -15563,6 +16712,46 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "params": {
       "type": "object"
+    },
+    "connectionId": {
+      "type": "string"
+    },
+    "audience": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "connectionId"
+            ],
+            "properties": {
+              "connectionId": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "personId"
+            ],
+            "properties": {
+              "personId": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      }
     }
   }
 }
@@ -16605,6 +17794,20 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "object",
         "null"
       ]
+    },
+    "availableVersion": {
+      "type": "string"
+    },
+    "updateBlockedReason": {
+      "type": "string",
+      "enum": [
+        "minFromVersion",
+        "signature"
+      ]
+    },
+    "feedCheckedAt": {
+      "type": "string",
+      "format": "date-time"
     }
   }
 }
@@ -20088,6 +21291,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "updatedAt": {
       "type": "string"
+    },
+    "updatedBy": {
+      "type": "string",
+      "description": "Person ID of the last writer, when known; never a secret value."
     }
   }
 }
@@ -20173,6 +21380,35 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "remedy": {
       "type": "string"
+    },
+    "secrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "backend"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "backend": {
+            "$ref": "#/$defs/SecretBackend"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "updatedBy": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Persisted metadata only. Unknown legacy timestamps and writer are omitted."
     }
   }
 }
@@ -20481,6 +21717,44 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "delegable"
   ],
   "properties": {
+    "osConfirmation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "status"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "confirmed",
+            "denied",
+            "failed",
+            "not_required"
+          ]
+        },
+        "platform": {
+          "type": "string",
+          "enum": [
+            "touchid",
+            "windows_hello",
+            "uac",
+            "polkit",
+            "other"
+          ]
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "Connection-relative OS confirmation state. A status is informational; approval still verifies a fresh, action-bound attestation."
+    },
     "id": {
       "$ref": "#/$defs/ApprovalId"
     },

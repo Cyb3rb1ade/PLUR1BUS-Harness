@@ -1,6 +1,7 @@
 import {element,append} from "../components/dom.ts";
 import {button} from "../components/button.ts";
 import {translate,type MessageKey} from "../i18n.ts";
+import {redactDiagnostics} from "../models/redact.ts";
 export type UpgradeOutcome={state:"upgraded";to:string}|{state:"rolledBack";failed_step:string;from:string;to:string}|{state:"recoveryFailed";diagnostic:string};
 const steps=["app","preflight","stopping","snapshotting","swapping","migrating","gating","done","rollingBack","restoringSnapshot","startingPrevious","gatingPrevious","rolledBack","recoveryFailed"];
 export function stepLabel(step:string,de:boolean):string{
@@ -22,8 +23,9 @@ export function upgradeProgress(step:string,outcome:UpgradeOutcome|null,diagnost
   const error=element("p",undefined,t("upgrade.recovery"));error.setAttribute("role","alert");root.append(error);
   root.append(element("p",undefined,t("upgrade.guide")));
  }
- const details=diagnostic??(outcome?.state==="recoveryFailed"?outcome.diagnostic:undefined);
- if(details){
+ const rawDetails=diagnostic??(outcome?.state==="recoveryFailed"?outcome.diagnostic:undefined);
+ if(rawDetails){
+  const details=redactDiagnostics(rawDetails);
   root.append(element("pre","diagnostic-details",details));
   const error=element("p");error.setAttribute("aria-live","polite");
   root.append(button(t("upgrade.copy"),()=>{void navigator.clipboard.writeText(details).catch(()=>{error.setAttribute("role","alert");error.textContent=t("upgrade.copyFailed");});}),error);

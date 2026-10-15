@@ -1,0 +1,33 @@
+{
+  "params": {
+    "name": "Morning briefing",
+    "agentId": "bernd",
+    "prompt": "Summarize the day",
+    "schedule": {
+      "cron": "0 9 * * *",
+      "timezone": "Europe/Berlin"
+    },
+    "enabled": true
+  },
+  "result": {
+    "job": {
+      "id": "user:fixture",
+      "kind": "user",
+      "name": "Morning briefing",
+      "agentId": "bernd",
+      "prompt": "Summarize the day",
+      "schedule": {
+        "cron": "0 9 * * *",
+        "timezone": "Europe/Berlin"
+      },
+      "enabled": true,
+      "needsLlm": true,
+      "singleton": true,
+      "runAs": "person-alice",
+      "createdBy": "person-alice",
+      "createdAt": 1758700000000,
+      "updatedAt": 1758700000000,
+      "nextRunAt": 1758780000000
+    }
+  }
+}

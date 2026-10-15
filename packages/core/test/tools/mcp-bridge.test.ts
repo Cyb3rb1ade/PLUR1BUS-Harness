@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import { mcpToolDefs, type McpToolPort } from "../../src/tools/mcp-bridge.ts";
 import { ToolDispatcher, type DispatchContext } from "../../src/tools/dispatcher.ts";
 import { ToolRegistry } from "../../src/tools/registry.ts";
+import { validateArgs } from "../../src/tools/repair.ts";
 import type { McpCaller, McpToolDescriptor, McpToolResult } from "../../src/mcp/types.ts";
 import { lastNonce, rig, tick } from "../approvals/service-helpers.ts";
+import { cpuMs } from "../helpers/cpu-time.ts";
 
 const T = { timeout: 20_000 };
 const schema = { type: "object", additionalProperties: false, properties: { q: { type: "string" } } };
@@ -100,5 +102,32 @@ describe("MCP tools go through the dispatcher (D109 §7)", () => {
     r.service.decide({ requestId: n.id, nonce: n.nonce, decision: "approve", person: "christian", surface: 3 });
     await p;
     assert.equal(calls[0]!.caller.agentId, "bernd");
+  });
+});
+
+describe("MCP tool schemas are third-party input", () => {
+  const build = (tools: McpToolDescriptor[]) => mcpToolDefs(port(tools).p, "srv", { agentId: "bernd", principal: "christian" });
+  it("a `pattern` is not run in-process: a catastrophic one cannot freeze argument validation", T, async () => {
+    const evil = { type: "object", properties: { q: { type: "string", pattern: "^(a+)+$" }, n: { type: "array", items: { type: "string", pattern: "^(x*)*y$" } } } };
+    const { tools } = await build([{ name: "search", inputSchema: evil }]);
+    assert.equal(tools.length, 1);
+    const t0 = cpuMs(); // CPU time, not wall clock: stays put while a loaded machine delays this process
+    assert.deepEqual(validateArgs(tools[0]!.inputSchema, { q: `${"a".repeat(40)}!`, n: ["x".repeat(40)] }), []);
+    assert.ok(cpuMs() - t0 < 200, `validation took ${Math.round(cpuMs() - t0)} ms of CPU`);
+  });
+  it("the other constraints of the schema are kept", T, async () => {
+    const s = { type: "object", required: ["q"], additionalProperties: false, properties: { q: { type: "string", maxLength: 5, pattern: "^a" } } };
+    const { tools } = await build([{ name: "search", inputSchema: s }]);
+    assert.equal(validateArgs(tools[0]!.inputSchema, { q: "toolong" }).length, 1);
+    assert.equal(validateArgs(tools[0]!.inputSchema, {}).length, 1);
+    assert.deepEqual((tools[0]!.inputSchema.properties as Record<string, Record<string, unknown>>).q!.pattern, undefined);
+  });
+  it("an enormous or absurdly deep schema is skipped, not sent to the model on every turn", T, async () => {
+    let deep: Record<string, unknown> = { type: "string" };
+    for (let i = 0; i < 100; i++) deep = { type: "object", properties: { a: deep } };
+    const huge = { type: "object", properties: Object.fromEntries(Array.from({ length: 3000 }, (_, i) => [`p${i}`, { type: "string", description: "x".repeat(40) }])) };
+    const r = await build([{ name: "ok", inputSchema: schema }, { name: "deep", inputSchema: deep as never }, { name: "huge", inputSchema: huge }]);
+    assert.deepEqual(r.tools.map((t) => t.name), ["mcp.srv.ok"]);
+    assert.deepEqual(r.skipped.map((s) => [s.tool, s.reason]).sort(), [["deep", "schema"], ["huge", "schema"]]);
   });
 });

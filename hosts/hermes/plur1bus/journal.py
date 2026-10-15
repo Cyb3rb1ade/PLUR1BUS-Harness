@@ -100,6 +100,24 @@ def clean_code(code: object) -> str | None:
     return _CODE_BAD.sub("?", code)[:_CODE_MAX]
 
 
+def _dumps(obj: object) -> bytes:
+    """Compact JSON as UTF-8. A lone surrogate in the text cannot be encoded, so such a document falls back to
+    ASCII escapes (``\\ud800``), which ``json.loads`` reads back unchanged."""
+    try:
+        return json.dumps(obj, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    except UnicodeEncodeError:
+        return json.dumps(obj, ensure_ascii=True, separators=(",", ":")).encode("ascii")
+
+
+def _loads(data: bytes | str) -> Any:
+    """``json.loads`` whose only failure is ``ValueError``: nesting past the recursion limit (a 600 KB line of
+    ``[`` is valid input for the file readers) raises ``RecursionError``, which no caller expects."""
+    try:
+        return json.loads(data)
+    except RecursionError:
+        raise ValueError("JSON nested too deeply") from None
+
+
 def _int(v: object) -> int:
     """A counter from ``state.json``: a non-negative int, else 0 (the file may hold anything)."""
     if isinstance(v, bool) or not isinstance(v, int) or v < 0:
@@ -312,7 +330,7 @@ class CaptureJournal:
         """The counters. A missing or corrupt file is ``{}``. Any other read error past the sharing retries is
         ``{}`` for readers, but raised when ``strict`` (a read-modify-write must not reset the counters)."""
         try:
-            doc = json.loads(_read_bytes(self.state_path).decode("utf-8"))
+            doc = _loads(_read_bytes(self.state_path).decode("utf-8"))
         except FileNotFoundError:
             return {}
         except ValueError:  # includes UnicodeDecodeError
@@ -338,7 +356,7 @@ class CaptureJournal:
         entry = dict(entry)
         entry.setdefault("id", uuid.uuid4().hex)
         entry.setdefault("at", int(time.time() * 1000))
-        line = json.dumps(entry, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        line = _dumps(entry)
         dropped = 0
         with self._lock.hold(timeout):
             self._secure()
@@ -390,17 +408,7 @@ class CaptureJournal:
         records, _ = self._scan_file(self.dead_letter_path)
         now = int(time.time() * 1000)
         for entry, code in items:
-            records.append(
-                json.dumps(
-                    {
-                        "at": now,
-                        "code": clean_code(code) or "E_UNKNOWN",
-                        "entry": entry,
-                    },
-                    ensure_ascii=False,
-                    separators=(",", ":"),
-                ).encode("utf-8")
-            )
+            records.append(_dumps({"at": now, "code": clean_code(code) or "E_UNKNOWN", "entry": entry}))
         total = sum(len(_frame(r)) + 1 for r in records)
         while records and (len(records) > self.dead_letter_max_entries or total > self.dead_letter_max_bytes):
             total -= len(_frame(records[0])) + 1
@@ -412,7 +420,7 @@ class CaptureJournal:
         out = []
         for raw in self._scan_file(self.dead_letter_path)[0]:
             try:
-                doc = json.loads(raw)
+                doc = _loads(raw)
             except ValueError:
                 continue
             if isinstance(doc, dict):
@@ -494,7 +502,7 @@ class CaptureJournal:
             stop = False
             for raw in snapshot:
                 try:
-                    entry = json.loads(raw)
+                    entry = _loads(raw)
                     if not isinstance(entry, dict):
                         raise ValueError("not an object")
                 except ValueError:

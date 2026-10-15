@@ -388,3 +388,310 @@ fn doctor_reports_notice_and_fails_for_an_unsafe_existing_store() {
         .unwrap()
         .contains("choose a path under the harness home"));
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Step 13 hardening: spellings of the store path, the state directory's resolution, and the host-mode notice.
+
+fn violation(
+    home: &Path,
+    platform: &str,
+    cfg: &Value,
+    vars: &[(&str, &str)],
+) -> Option<coexistence::StoreViolation> {
+    let mut all: HashMap<String, String> = vars
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+    all.entry("HOME".into())
+        .or_insert_with(|| home.to_string_lossy().into_owned());
+    coexistence::store_violation(
+        cfg,
+        &HostEnvironment::injected(all, home.to_path_buf(), platform),
+    )
+}
+
+#[test]
+fn every_spelling_of_a_path_inside_the_openclaw_state_directory_is_refused() {
+    let home = tempfile::tempdir().unwrap();
+    let root = state_root(home.path());
+    let h = home.path().to_string_lossy().into_owned();
+    let spellings = [
+        format!("{}/", root.display()),
+        format!("{}//memory///lancedb//", root.display()),
+        format!("{}/./memory/./lancedb", root.display()),
+        format!("{}/memory/../memory/lancedb", root.display()),
+        format!("{h}/elsewhere/../.openclaw/memory/lancedb"),
+        format!("{h}/a/b/../../.openclaw/x"),
+        "~/.openclaw/memory/lancedb".to_string(),
+        "~/.openclaw".to_string(),
+        format!("  {}/memory/lancedb  ", root.display()), // surrounding blanks are trimmed
+    ];
+    for s in spellings {
+        let cfg = json!({ "engine": { "baseDbPathOverride": s } });
+        assert!(
+            violation(home.path(), "linux", &cfg, &[]).is_some(),
+            "{s:?} was not refused"
+        );
+    }
+    // The state directory of a home with spaces and umlauts.
+    let odd = tempfile::tempdir().unwrap();
+    let odd_home = odd.path().join("Jürgen Müller ✓");
+    fs::create_dir_all(odd_home.join(".openclaw")).unwrap();
+    fs::write(odd_home.join(".openclaw/openclaw.json"), "{}").unwrap();
+    let cfg =
+        json!({ "engine": { "baseDbPathOverride": odd_home.join(".openclaw/memory/lancedb") } });
+    assert!(violation(&odd_home, "linux", &cfg, &[]).is_some());
+    let cfg =
+        json!({ "engine": { "baseDbPathOverride": odd_home.join(".plur1bus/state/lancedb") } });
+    assert!(
+        violation(&odd_home, "linux", &cfg, &[]).is_none(),
+        "the harness's own home next to it is fine"
+    );
+}
+
+#[test]
+fn paths_next_to_the_state_directory_and_under_another_harness_home_are_allowed() {
+    let home = tempfile::tempdir().unwrap();
+    let root = state_root(home.path());
+    let h = home.path().to_string_lossy().into_owned();
+    for s in [
+        format!("{h}/.openclaw-backup/memory/lancedb"),
+        format!("{h}/.openclawx"),
+        format!("{h}/openclaw/memory/lancedb"),
+        format!("{h}/.plur1bus/state/lancedb"),
+        format!("{h}/second-install/state/lancedb"),
+        format!("{}-copy/memory", root.display()),
+        "/definitely/not/there/lancedb".to_string(),
+        "~/.plur1bus/state/lancedb".to_string(),
+    ] {
+        let cfg = json!({ "engine": { "baseDbPathOverride": s } });
+        assert!(
+            violation(home.path(), "linux", &cfg, &[]).is_none(),
+            "{s:?} was refused"
+        );
+    }
+}
+
+#[test]
+fn a_store_path_that_is_not_a_usable_string_is_no_violation_and_never_a_panic() {
+    let home = tempfile::tempdir().unwrap();
+    state_root(home.path());
+    for v in [
+        json!(null),
+        json!(1),
+        json!(true),
+        json!([]),
+        json!({}),
+        json!(["/x"]),
+        json!(""),
+        json!("   "),
+    ] {
+        let cfg = json!({ "engine": { "baseDbPathOverride": v } });
+        assert!(violation(home.path(), "linux", &cfg, &[]).is_none(), "{v}");
+    }
+    for cfg in [
+        json!({}),
+        json!({ "engine": null }),
+        json!({ "engine": [] }),
+        json!({ "engine": {} }),
+        json!(null),
+        json!([]),
+    ] {
+        assert!(
+            violation(home.path(), "linux", &cfg, &[]).is_none(),
+            "{cfg}"
+        );
+    }
+    // Hostile text: NUL, a very long path, only separators, only dots.
+    for s in [
+        "a\0b".to_string(),
+        "x".repeat(10_000),
+        "/".repeat(500),
+        "../".repeat(300),
+        "\u{202e}/.openclaw".to_string(),
+    ] {
+        let cfg = json!({ "engine": { "baseDbPathOverride": s } });
+        let _ = violation(home.path(), "linux", &cfg, &[]);
+    }
+}
+
+#[test]
+fn a_relative_store_path_is_resolved_against_the_working_directory() {
+    let home = tempfile::tempdir().unwrap();
+    let root = state_root(home.path());
+    let cwd = std::env::current_dir().unwrap();
+    // Relative to the current directory it points at the state directory only when the current directory is inside it; a
+    // relative `.openclaw/...` from the temp dir above does not.
+    let cfg = json!({ "engine": { "baseDbPathOverride": ".openclaw/memory/lancedb" } });
+    let expected = cwd.join(".openclaw/memory/lancedb").starts_with(&root);
+    assert_eq!(
+        violation(home.path(), "linux", &cfg, &[]).is_some(),
+        expected
+    );
+}
+
+#[test]
+fn openclaw_home_state_dir_and_profile_decide_the_state_directory_in_that_order() {
+    let home = tempfile::tempdir().unwrap();
+    let h = home.path();
+    let make = |dir: &str| {
+        let p = h.join(dir);
+        fs::create_dir_all(&p).unwrap();
+        fs::write(p.join("openclaw.json"), "{}").unwrap();
+        p
+    };
+    let default_root = make(".openclaw");
+    let profile_root = make(".openclaw-work");
+    let state_dir = make("custom-state");
+    let moved_home = h.join("moved-home");
+    let moved_root = moved_home.join(".openclaw");
+    fs::create_dir_all(&moved_root).unwrap();
+    let inside =
+        |root: &Path| json!({ "engine": { "baseDbPathOverride": root.join("memory/lancedb") } });
+    // OPENCLAW_STATE_DIR beats the profile, which beats the default.
+    let vars = [
+        ("OPENCLAW_STATE_DIR", state_dir.to_str().unwrap()),
+        ("OPENCLAW_PROFILE", "work"),
+    ];
+    assert!(violation(h, "linux", &inside(&state_dir), &vars).is_some());
+    assert!(
+        violation(h, "linux", &inside(&profile_root), &vars).is_some(),
+        "a marker file makes any ancestor a state root"
+    );
+    let vars = [("OPENCLAW_PROFILE", "work")];
+    assert!(violation(h, "linux", &inside(&profile_root), &vars).is_some());
+    // The default root is still found by its marker file even when a profile is selected.
+    assert!(violation(h, "linux", &inside(&default_root), &vars).is_some());
+    // OPENCLAW_HOME moves the home the default directory is looked up in.
+    fs::write(moved_root.join("openclaw.json"), "{}").unwrap();
+    let vars = [("OPENCLAW_HOME", moved_home.to_str().unwrap())];
+    assert!(violation(h, "linux", &inside(&moved_root), &vars).is_some());
+    // `~` in OPENCLAW_STATE_DIR is the OpenClaw home.
+    let vars = [("OPENCLAW_STATE_DIR", "~/custom-state")];
+    assert!(violation(h, "linux", &inside(&state_dir), &vars).is_some());
+}
+
+#[test]
+fn an_invalid_profile_name_is_ignored_and_a_blank_variable_counts_as_unset() {
+    let home = tempfile::tempdir().unwrap();
+    let h = home.path();
+    let default_root = state_root(h);
+    let too_long = "a".repeat(65);
+    // A profile directory exists for each name, but only a valid name may select it.
+    for bad in [
+        "",
+        " ",
+        "default",
+        "DEFAULT",
+        "-x",
+        "_x",
+        "a b",
+        "a/b",
+        "../x",
+        "ä",
+        too_long.as_str(),
+    ] {
+        let dir = h.join(format!(".openclaw-{bad}"));
+        let candidate = if bad.contains('/') || bad.is_empty() {
+            None
+        } else {
+            Some(dir)
+        };
+        if let Some(d) = &candidate {
+            let _ = fs::create_dir_all(d.join("memory/lancedb"));
+        }
+        let cfg = json!({ "engine": { "baseDbPathOverride": h.join(".plur1bus/state/lancedb") } });
+        assert!(
+            violation(h, "linux", &cfg, &[("OPENCLAW_PROFILE", bad)]).is_none(),
+            "{bad:?}"
+        );
+        // The default state directory is what applies.
+        let cfg =
+            json!({ "engine": { "baseDbPathOverride": default_root.join("memory/lancedb") } });
+        assert!(
+            violation(h, "linux", &cfg, &[("OPENCLAW_PROFILE", bad)]).is_some(),
+            "{bad:?}"
+        );
+    }
+    // A blank OPENCLAW_STATE_DIR / OPENCLAW_HOME is as good as none.
+    let cfg = json!({ "engine": { "baseDbPathOverride": default_root.join("memory/lancedb") } });
+    assert!(violation(
+        h,
+        "linux",
+        &cfg,
+        &[("OPENCLAW_STATE_DIR", "   "), ("OPENCLAW_HOME", "")]
+    )
+    .is_some());
+}
+
+#[test]
+fn the_legacy_directory_is_used_only_when_the_current_one_does_not_exist() {
+    let home = tempfile::tempdir().unwrap();
+    let h = home.path();
+    let legacy = h.join(".clawdbot");
+    fs::create_dir_all(legacy.join("memory/lancedb-namespaced")).unwrap();
+    let cfg =
+        json!({ "engine": { "baseDbPathOverride": legacy.join("memory/lancedb-namespaced") } });
+    assert!(
+        violation(h, "linux", &cfg, &[]).is_some(),
+        "only the legacy directory exists"
+    );
+    // Once the current directory exists (with or without a marker) it is the state root; the legacy one is still a state
+    // root through its own plugin store layout, which is checked by the layout of the path itself.
+    fs::create_dir_all(h.join(".openclaw")).unwrap();
+    let cfg = json!({ "engine": { "baseDbPathOverride": h.join(".plur1bus/state/lancedb") } });
+    assert!(violation(h, "linux", &cfg, &[]).is_none());
+}
+
+#[test]
+fn the_host_mode_notice_needs_a_readable_openclaw_json_with_the_plugin_entry() {
+    let home = tempfile::tempdir().unwrap();
+    let h = home.path();
+    let root = h.join(".openclaw");
+    fs::create_dir_all(&root).unwrap();
+    let e = env(h, "linux");
+    let write = |text: &str| fs::write(root.join("openclaw.json"), text).unwrap();
+    assert!(
+        coexistence::host_mode_notice(&e).is_none(),
+        "no openclaw.json at all"
+    );
+    let present = r#"{"plugins":{"entries":{"memory-lancedb-namespaced":{"enabled":true}}}}"#;
+    write(present);
+    assert!(coexistence::host_mode_notice(&e).is_some());
+    for text in [
+        "",
+        "not json",
+        "{",
+        "[]",
+        "null",
+        r#"{"plugins":null}"#,
+        r#"{"plugins":[]}"#,
+        r#"{"plugins":{"entries":null}}"#,
+        r#"{"plugins":{"entries":[]}}"#,
+        r#"{"plugins":{"entries":{}}}"#,
+        r#"{"plugins":{"entries":{"Memory-Lancedb-Namespaced":{}}}}"#, // the id is exact
+        r#"{"plugins":{"entries":{"memory-lancedb-namespaced-x":{}}}}"#,
+        &format!("\u{feff}{present}"), // a BOM: not JSON for serde, so no notice
+        &format!("{}{}", " ".repeat(5_000_000), "{}"),
+    ] {
+        write(text);
+        assert!(
+            coexistence::host_mode_notice(&e).is_none(),
+            "{:?}",
+            &text[..text.len().min(60)]
+        );
+    }
+    // A directory in place of the file, and a file of binary noise.
+    fs::remove_file(root.join("openclaw.json")).unwrap();
+    fs::create_dir(root.join("openclaw.json")).unwrap();
+    assert!(coexistence::host_mode_notice(&e).is_none());
+    fs::remove_dir(root.join("openclaw.json")).unwrap();
+    fs::write(
+        root.join("openclaw.json"),
+        (0..4096u32)
+            .map(|i| (i * 7 % 256) as u8)
+            .collect::<Vec<u8>>(),
+    )
+    .unwrap();
+    assert!(coexistence::host_mode_notice(&e).is_none());
+}

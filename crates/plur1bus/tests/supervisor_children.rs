@@ -713,3 +713,172 @@ fn logs_and_child_output_are_private_under_umask_022() {
         .contains("\"msg\":\"log permissions tightened\""));
     drop(supervisor);
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Step 12 hardening (unix): a core killed by a signal that nobody asked for, and the processes it leaves behind.
+
+/// A core that dies of a signal the supervisor did not send is a crash like any other: its last exit names the signal and no
+/// code, the exit is logged with the signal and a restart is scheduled; it is not "requested" and not fatal.
+#[cfg(unix)]
+#[test]
+fn a_core_killed_by_an_outside_signal_is_classified_logged_and_restarted() {
+    for (signal, name) in [
+        (libc::SIGKILL, "SIGKILL"),
+        (libc::SIGHUP, "SIGHUP"),
+        (libc::SIGTERM, "SIGTERM"),
+    ] {
+        let h = Home::new();
+        let _s = start(&h, "ok", "0.02");
+        let mut c = client(&h.home);
+        let first = wait_child(&mut c, "ready", WAIT, |c| state(c) == "ready");
+        let first_pid = first["pid"].as_u64().unwrap();
+        // SAFETY: a signal to the pid of the core this test just started.
+        assert_eq!(unsafe { libc::kill(first_pid as i32, signal) }, 0);
+        let again = wait_child(&mut c, "a restarted core", WAIT, |c| {
+            c["restarts"].as_u64().unwrap_or(0) >= 1
+                && c["pid"].as_u64().is_some_and(|p| p != first_pid)
+        });
+        assert_eq!(again["lastExit"]["signal"], name, "{name}: {again}");
+        assert!(
+            again["lastExit"]["code"].is_null(),
+            "{name}: a signal death has no exit code: {again}"
+        );
+        assert_ne!(again["process"]["reason"], "config-invalid", "{again}");
+        let records = h.log_records();
+        let exit = records
+            .iter()
+            .find(|r| r["msg"] == "core exited" && r["pid"] == first_pid)
+            .unwrap_or_else(|| {
+                panic!("{name}: no 'core exited' record for pid {first_pid}: {records:?}")
+            });
+        assert_eq!(exit["signal"], name, "{exit}");
+        assert!(exit["code"].is_null());
+        assert_eq!(exit["state"], "crashed", "{exit}");
+        assert!(
+            exit["nextRestartAt"].is_u64(),
+            "a restart is scheduled: {exit}"
+        );
+        // The same core record, not a requested stop.
+        assert!(
+            h.named_events("shutdown").is_empty(),
+            "{name}: the supervisor never asked the core to shut down"
+        );
+    }
+}
+
+/// Stand-in core that, like a real one with an MCP server or a worker, has a child of its own, in the core's process group
+/// (the supervisor makes the core a group leader). The child's pid is written to `<home>/grandchild.pid`.
+#[cfg(unix)]
+fn core_with_a_child_of_its_own(h: &Home) -> PathBuf {
+    let wrapper = h._dir.path().join("core-with-child.mjs");
+    let pidfile = h.home.join("grandchild.pid");
+    std::fs::write(
+        &wrapper,
+        format!(
+            "import {{ spawn }} from 'node:child_process';\nimport {{ writeFileSync }} from 'node:fs';\n\
+             const g = spawn('sleep', ['300'], {{ stdio: 'ignore' }});\nwriteFileSync({:?}, String(g.pid));\n\
+             await import({:?});\n",
+            pidfile.to_string_lossy(),
+            fixture().to_string_lossy()
+        ),
+    )
+    .unwrap();
+    wrapper
+}
+
+#[cfg(unix)]
+struct KillOnDrop(i32);
+#[cfg(unix)]
+impl Drop for KillOnDrop {
+    fn drop(&mut self) {
+        // SAFETY: the pid of the `sleep` this test started; ESRCH when it is already gone is fine.
+        unsafe { libc::kill(self.0, libc::SIGKILL) };
+    }
+}
+
+#[cfg(unix)]
+fn gone(pid: i32) -> bool {
+    // SAFETY: signal 0 only checks the pid.
+    unsafe {
+        libc::kill(pid, 0) != 0
+            && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH)
+    }
+}
+
+/// The supervisor starts the core in a process group of its own (`child.rs`, `process_group(0)`) but ends it by pid: `core.shutdown`,
+/// then SIGTERM and SIGKILL to the pid, never `kill(-pgid)`. A process the core started is not ended with it, on a clean stop
+/// and not when the core is killed either. On Windows there is no job object. This test says what a person expects of
+/// "stopped": nothing of the core's tree is left running.
+#[cfg(unix)]
+#[test]
+#[ignore = "KNOWN GAP: the supervisor ends the core by pid, not by process group, so a child of the core outlives `daemon stop` and a killed core"]
+fn stopping_the_daemon_leaves_no_process_of_the_cores_tree_running() {
+    for how in ["daemon.stop", "kill -9 the core"] {
+        let h = Home::new();
+        let wrapper = core_with_a_child_of_its_own(&h);
+        let mut s = start_with(&h, "ok", "0.02", &wrapper);
+        let mut c = client(&h.home);
+        let core = wait_child(&mut c, "ready", WAIT, |c| state(c) == "ready");
+        wait_until("the child's pid file", WAIT, || {
+            h.home.join("grandchild.pid").exists()
+        });
+        let grandchild: i32 = std::fs::read_to_string(h.home.join("grandchild.pid"))
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
+        let _guard = KillOnDrop(grandchild);
+        if how == "daemon.stop" {
+            assert_eq!(
+                c.call("daemon.stop", json!({ "budgetMs": 2000 })).unwrap(),
+                json!({ "accepted": true })
+            );
+            s.wait_exit(WAIT);
+        } else {
+            // SAFETY: SIGKILL to the core this test started.
+            assert_eq!(
+                unsafe { libc::kill(core["pid"].as_u64().unwrap() as i32, libc::SIGKILL) },
+                0
+            );
+            wait_child(&mut c, "a restart", WAIT, |c| {
+                c["restarts"].as_u64().unwrap_or(0) >= 1
+            });
+        }
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !gone(grandchild) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        assert!(
+            gone(grandchild),
+            "{how}: the core's own child (pid {grandchild}) is still running"
+        );
+    }
+}
+
+/// Something else (not a harness supervisor) is listening on the supervisor's socket and nobody holds the supervisor lock. The
+/// lock, not the socket file, decides who the one supervisor is, so a supervisor that holds it takes the path over, serves,
+/// starts its core and stops cleanly: it neither loops on the busy address nor gives up. (A second supervisor, which does not
+/// hold the lock, exits 3: `tests/supervisor.rs`.)
+#[cfg(unix)]
+#[test]
+fn a_foreign_listener_on_the_supervisor_socket_does_not_stop_the_lock_holder_from_serving() {
+    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::net::UnixListener;
+    let h = Home::new();
+    let run = h.home.join("run");
+    std::fs::create_dir_all(&run).unwrap();
+    std::fs::set_permissions(&run, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let foreign = UnixListener::bind(run.join("supervisor.sock")).unwrap();
+    let mut s = start(&h, "ok", "0.02");
+    let mut c = client(&h.home);
+    let child = wait_child(&mut c, "ready", WAIT, |c| state(c) == "ready");
+    assert_eq!(child["restarts"], 0, "{child}");
+    assert_eq!(child["pid"].as_u64(), pid_file(&h.home));
+    // The answer came from the supervisor, and it still stops on request.
+    assert_eq!(
+        c.call("daemon.stop", json!({ "budgetMs": 2000 })).unwrap(),
+        json!({ "accepted": true })
+    );
+    assert_eq!(s.wait_exit(WAIT).code(), Some(0));
+    drop(foreign);
+}

@@ -1,6 +1,8 @@
 // users area catalogue (Settings > Users & roles): keys `users.<topic>`; en and de have the same keys and {placeholders}.
 // The preset texts restate docs/rbac.md (roles, action table) in plain language.
 export const en = {
+  "users.status.lastOwner": "The last active Owner cannot be disabled.", "users.status.failed": "Access status could not be changed. Nothing was changed.",
+  "users.status.disabled": "Disabled", "users.disable": "Disable person", "users.enable": "Enable person", "users.status.confirm": "Change access for {name}? Disabled access ends sessions and revokes tokens. Enabling requires a new login.",
   "users.title": "Users & roles",
   "users.lead": "Who can use this harness, and what each role may do.",
   "users.forbidden.title": "Only Owner and Admin manage users",
@@ -55,6 +57,9 @@ export const en = {
   "users.role.set": "Change role",
   "users.role.lastOwner": "The last owner cannot be demoted.",
   "users.role.success": "Role updated.",
+  "users.role.forbidden": "Your role does not allow changing roles.",
+  "users.role.failed": "The role could not be changed. Nothing was changed.",
+  "users.bg.revokeFailed": "The break-glass window could not be revoked. It is still active.",
   "users.invites.title": "Open invitations",
   "users.invites.empty": "No active invitations.",
   "users.invites.code": "Invitation code",
@@ -129,6 +134,8 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "users.status.lastOwner": "Der letzte aktive Owner kann nicht deaktiviert werden.", "users.status.failed": "Der Zugangsstatus konnte nicht geändert werden. Es wurde nichts geändert.",
+  "users.status.disabled": "Deaktiviert", "users.disable": "Person deaktivieren", "users.enable": "Person aktivieren", "users.status.confirm": "Zugang für {name} ändern? Deaktivieren beendet Sitzungen und widerruft Tokens. Aktivieren erfordert eine neue Anmeldung.",
   "users.title": "Nutzer & Rollen",
   "users.lead": "Wer dieses Harness nutzen darf und was jede Rolle darf.",
   "users.forbidden.title": "Nur Owner und Admin verwalten Nutzer",
@@ -183,6 +190,9 @@ export const de: Record<keyof typeof en, string> = {
   "users.role.set": "Rolle ändern",
   "users.role.lastOwner": "Der letzte Owner kann nicht herabgestuft werden.",
   "users.role.success": "Rolle aktualisiert.",
+  "users.role.forbidden": "Deine Rolle erlaubt es nicht, Rollen zu ändern.",
+  "users.role.failed": "Die Rolle konnte nicht geändert werden. Es wurde nichts geändert.",
+  "users.bg.revokeFailed": "Das Break-Glass-Fenster konnte nicht widerrufen werden. Es ist weiterhin aktiv.",
   "users.invites.title": "Offene Einladungen",
   "users.invites.empty": "Keine aktiven Einladungen.",
   "users.invites.code": "Einladungscode",

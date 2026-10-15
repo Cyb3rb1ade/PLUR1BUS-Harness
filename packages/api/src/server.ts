@@ -1,3 +1,9 @@
+import type { AccountStore, CorePerson } from "./account-store.ts";
+import { buildAccountHandlers } from "./account-routes.ts";
+import { requestCore } from "./request-core.ts";
+import { createEventsRoute } from "./events-route.ts";
+import { rpcFailure } from "./rpc-route.ts";
+import { webPrincipal, webConnection, forgetWebConnection } from "./principal.ts";
 import { statSync } from "node:fs";
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
@@ -40,9 +46,11 @@ export interface ApiServerOptions {
   ownerToken: string;
   /** Local accounts (password login). Without it only the owner token logs in. */
   users?: UserDirectory;
-  /** Where personal API tokens live. The in-memory default forgets them at a restart; the real store is a follow-up. */
+  accounts?: AccountStore;
+  resolveBootstrap?: () => Promise<CorePerson | null>;
+  /** Where personal API tokens live. The in-memory default forgets them at a restart; the standalone entry supplies the durable adapter. */
   tokens?: TokenStore;
-  /** Where second-factor secrets live; the in-memory default forgets them at a restart (the real store is core's secret store, a follow-up). */
+  /** Where second-factor secrets live; the in-memory default forgets them at a restart (the standalone entry supplies the private durable adapter). */
   totp?: TotpStore; totpIssuer?: string;
   /** Break-glass writes its own audit here and must not act unrecorded, so this is the unbuffered, fail-closed sink
    *  (default: `audit`; with neither, there is no break-glass). */
@@ -129,6 +137,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
     error: (m, f) => base.error(m, f && (redactFields(f) as Record<string, unknown>)),
   };
   const sessions = new SessionStore(clock, o.sessionLimits ?? DEFAULT_SESSION_LIMITS);
+  const forgetConnection = sessions.onEnd(forgetWebConnection);
   const limiter = new RateLimiter(clock, o.rateClasses ?? DEFAULT_RATE_CLASSES);
   const audit = createAuditEmitter({ sink: o.audit, clock, log });
   const login = o.users ? new PasswordLogin({ users: o.users, clock, ...(o.lockout ? { policy: o.lockout } : {}) }) : undefined;
@@ -138,7 +147,10 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   const notices = new NoticeInbox(clock);
   const noSink: AuditSink = { append() { throw new Error("no audit sink configured"); } };
   const breakGlass = createBreakGlass({ audit: o.breakGlassAudit ?? o.audit ?? noSink, clock: () => clock.now(), host: "api", notify: (n) => { notices.add(n); o.notifyBreakGlass?.(n); } });
-  const handlers = buildHandlers({ core: o.core, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, breakGlass, notices, audit });
+  const events = createEventsRoute({ core: o.core, sessions, initTimeoutMs: limits.handlerTimeoutMs, now: () => clock.now() });
+  const perRequest = requestCore(o.core);
+  const handlerDeps = { core: { ...perRequest.core, ...(o.core.callAs ? { callAs: o.core.callAs.bind(o.core) } : {}) }, sessions, verifyOwner, clock, tls, principal: OWNER, healthTimeoutMs: limits.healthTimeoutMs, log, login, tokens, users: o.users, totp, challenges, limiter, breakGlass, notices, audit, resolveBootstrap: o.resolveBootstrap };
+  const handlers = { ...buildHandlers(handlerDeps), ...buildAccountHandlers(handlerDeps, o.accounts, o.core) };
   if (o.webRoot !== undefined && !statSync(o.webRoot, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`webRoot ${JSON.stringify(o.webRoot)} is not a directory`);
   const staticFiles = o.webRoot !== undefined ? createStaticServer(o.webRoot) : undefined;
   const cookieName = tls ? COOKIE_NAME_TLS : COOKIE_NAME;
@@ -171,7 +183,10 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   async function resolve(session: Session): Promise<Resolved | undefined> { return resolveSubject(session.principal.kind, session.principal.id); }
 
   async function resolveSubject(kind: Principal["kind"] | undefined, id: string): Promise<Resolved | undefined> {
-    if (kind === "owner" || (kind === undefined && id === OWNER.id)) return { principal: OWNER, rbac: { userId: OWNER.id, role: "owner", kind: "person" }, version: 0 };
+    if (kind === "owner" || (kind === undefined && id === OWNER.id)) {
+      if (o.resolveBootstrap) { const p = await o.resolveBootstrap(); if (!p || p.disabled) return undefined; return { principal: { ...OWNER, role: p.role }, rbac: { ...p, userId: OWNER.id }, version: p.version }; }
+      return { principal: OWNER, rbac: { userId: OWNER.id, role: "owner", kind: "person" }, version: 0 };
+    }
     const u = await o.users?.findById(id);
     if (!u || u.disabled === true) return undefined;
     return {
@@ -185,7 +200,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
   function decide(spec: RouteSpec, rbac: RbacPrincipal): Decision {
     const az = spec.authz as RouteSpec["authz"] | undefined;
     if (az === undefined || az === "public") return { effect: "deny", reason: "unknown-action" };
-    if (az === "authenticated") return { effect: "allow", reason: "role" };
+    if (az === "authenticated" || az === "delegated") return { effect: "allow", reason: "role" };
     // "user": some user, to be named by the handler, which asks the registry again with the real target.
     const resource: Resource = az.resource === "self" ? { kind: "user", userId: rbac.userId } : az.resource === "user" ? { kind: "user", userId: "*" } : { kind: "system" };
     // The registry honours the caller's live break-glass grants and audits their use; without one it is plain authorize().
@@ -219,6 +234,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       if (site !== undefined && site !== "same-origin" && site !== "none") throw errors.forbidden("cross-site");
       const methods = byPath.get(path); const route = methods?.get(req.method ?? "");
       const cls = route?.spec.rate ?? "read";
+      if (route?.spec.id === "invitation.redeem") { const global = limiter.take("auth", "invitation:global"); if (!global.ok) rateLimited("invitation:global", "auth", global.retryAfterSec); }
       const ipVerdict = limiter.take(cls, `ip:${ip}`);
       if (!ipVerdict.ok) rateLimited(`ip:${ip}`, cls, ipVerdict.retryAfterSec);
       if (!methods) {
@@ -240,15 +256,20 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       }
       if (!route) throw errors.methodNotAllowed([...methods.keys()]);
       const { spec, handler } = route; routeId = spec.id;
+      const bodyLimit = spec.id === "web.rpc" ? o.limits?.maxBodyBytes ?? 1024 * 1024 : limits.maxBodyBytes;
 
       const declared = req.headers["content-length"];
       if (declared !== undefined) {
         const n = Number(declared);
         if (!/^\d+$/.test(declared) || !Number.isSafeInteger(n)) throw errors.badRequest("content-length", "invalid Content-Length");
-        if (n > limits.maxBodyBytes) { drain(req, limits.maxBodyBytes * 4 + 65_536); throw errors.tooLarge(limits.maxBodyBytes); }
+        if (n > bodyLimit) { drain(req, bodyLimit * 4 + 65_536); throw errors.tooLarge(bodyLimit); }
       }
 
       const presented = readCookie(req.headers.cookie, cookieName);
+      if ((spec.id === "web.rpc" || spec.id === "web.events") && req.headers.authorization !== undefined) {
+        if (!presented) throw errors.unauthenticated();
+        throw errors.forbidden("web-session-only");
+      }
       let sessionId: string | undefined; let session: Session | undefined; let resolved: Resolved | undefined; let rotated: string | undefined;
       let via: "session" | "token" | undefined; let tokenInfo: { id: string; prefix: string; scopes: readonly string[]; expiresAt: number } | undefined; let rateKey: string | undefined;
       const authHeader = req.headers.authorization;
@@ -263,7 +284,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
           throw errors.unauthenticated("invalid-token");
         }
         resolved = await resolveSubject(r.record.userId === OWNER.id ? "owner" : "user", r.record.userId);
-        if (!resolved) { audit.emit("auth.token.used-denied", "anonymous", `token:${r.record.id}`, { reason: "account", ip }); throw errors.unauthenticated("invalid-token"); }
+        if (!resolved) { try { await tokens.revoke(r.record.userId, r.record.id); } catch { /* invalid credentials remain refused */ } audit.emit("auth.token.used-denied", "anonymous", `token:${r.record.id}`, { reason: "account", ip }); throw errors.unauthenticated("invalid-token"); }
         resolved = { ...resolved, rbac: { ...resolved.rbac, kind: "agent", tokenScopes: r.record.scopes } };
         via = "token"; tokenInfo = { id: r.record.id, prefix: `plb_${r.record.id}`, scopes: r.record.scopes, expiresAt: r.record.expiresAt };
         principalId = resolved.principal.id; rateKey = `token:${r.record.id}`;
@@ -290,6 +311,10 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
           throw errors.forbidden("csrf", "a valid one-time CSRF token is required");
         }
         // Rights changed since the session was made (or someone asked for it): the cookie value changes, the old one dies.
+        if (o.accounts && (session.mustRotate || resolved.version !== session.authVersion)) {
+          sessions.destroy(sessionId); events.revoke(webPrincipal(resolved.rbac, session.principal.kind === "owner").userId);
+          throw errors.unauthenticated("session-changed");
+        }
         if (session.mustRotate || resolved.version !== session.authVersion) {
           const r = sessions.rotate(sessionId, resolved.version);
           if (r) {
@@ -308,20 +333,39 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         throw errors.undeclared();
       }
 
+      if (spec.id === "web.events") {
+        if (target.includes("?")) throw errors.badRequest("query", "event credentials and filters cannot be in a URL");
+        status = 200;
+        await events.open(res, webPrincipal(resolved!.rbac, resolved!.principal.kind === "owner"), session!, sessionId!, webConnection(session!),
+          typeof req.headers["last-event-id"] === "string" ? req.headers["last-event-id"] : undefined,
+          { ...secHeaders, ...(rotated ? { "Set-Cookie": rotated } : {}) },
+          async () => { const now = await resolve(session!); return now !== undefined && now.version === resolved!.version; });
+        return;
+      }
       let body: unknown;
       if (spec.requestBody) {
         const ct = (req.headers["content-type"] ?? "").split(";", 1)[0]!.trim().toLowerCase();
         if (ct !== "application/json") throw errors.unsupportedMedia();
-        body = parseJson(await readBody(req, limits.maxBodyBytes));
+        const raw = await readBody(req, bodyLimit);
+        try { body = parseJson(raw); }
+        catch (e) { if (spec.id !== "web.rpc") throw e; status = 200; send(res, 200, rpcFailure(null, { error: "E_INVALID_PARAMS", code: -32700, reason: "parse-error" })); return; }
       } else if (declared !== undefined && declared !== "0") {
-        await readBody(req, limits.maxBodyBytes); // counted against the limit, then ignored
+        await readBody(req, bodyLimit); // counted against the limit, then ignored
       }
 
       let timer: NodeJS.Timeout | undefined;
       const out = await Promise.race([
-        Promise.resolve(handler({ principal: resolved?.principal, session, sessionId, body, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined, ip, via, token: tokenInfo })),
-        new Promise<never>((_, rej) => { timer = setTimeout(() => rej(errors.timeout()), limits.handlerTimeoutMs); }),
+        Promise.resolve(resolved ? perRequest.run(webPrincipal(resolved.rbac, resolved.principal.kind === "owner"), () => handler({ principal: resolved?.principal, session, sessionId, body, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined, ip, via, token: tokenInfo }), session ? webConnection(session) : tokenInfo ? `token:${tokenInfo.id}` : undefined) : handler({ principal: undefined, session, sessionId, body, rbac: undefined, presentedSessionId: presented, ip, via, token: tokenInfo })),
+        new Promise<import("./routes.ts").HandlerOutput>((resolveTimeout, rej) => {
+          timer = setTimeout(() => spec.id === "web.rpc"
+            ? resolveTimeout({ body: rpcFailure((body as { id?: unknown })?.id ?? null, { error: "E_NOT_AVAILABLE", reason: "handler-timeout" }) })
+            : rej(errors.timeout()), spec.id === "web.rpc" ? o.limits?.handlerTimeoutMs ?? 300_000 : limits.handlerTimeoutMs);
+        }),
       ]).finally(() => clearTimeout(timer));
+      if (o.accounts && spec.id === "web.rpc" && !out.body.error) {
+        const request = body as { method?: string; params?: { userId?: string } };
+        if (["user.disable", "user.enable", "user.role.set", "agent.rights.set"].includes(request.method ?? "") && request.params?.userId) await o.accounts.findById(request.params.userId);
+      }
       status = out.status ?? spec.successStatus;
       send(res, status, out.body, { ...(rotated ? { "Set-Cookie": rotated } : {}), ...out.headers });
     } catch (e) {
@@ -355,7 +399,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
 
   return {
     server,
-    rightsChanged: (userId) => sessions.markRotate(userId),
+    rightsChanged: (userId) => { events.revoke(userId); if (userId === "owner") events.revoke("local-owner"); return o.accounts ? sessions.destroyAllFor(userId) + (userId === "local-owner" ? sessions.destroyAllFor("owner") : 0) : sessions.markRotate(userId); },
     listen() {
       return new Promise((resolveListen, reject) => {
         server.once("error", reject);
@@ -375,6 +419,7 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       });
     },
     close() {
+      forgetConnection(); events.close();
       if (sweeper) clearInterval(sweeper);
       return new Promise((resolveClose) => { server.close(() => resolveClose()); server.closeAllConnections(); });
     },

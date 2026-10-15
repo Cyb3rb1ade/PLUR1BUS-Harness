@@ -1,5 +1,17 @@
 {
   "methods": {
+    "jobs.create": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "jobs.update": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "jobs.delete": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "voice.status": {
       "stability": "experimental",
       "since": "1.6.0"
@@ -324,6 +336,26 @@
       "stability": "experimental",
       "since": "1.1.0"
     },
+    "agent.create": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "agent.validate": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "agent.import": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "doctor.report": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "agent.activity.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "agent.list": {
       "stability": "experimental",
       "since": "1.0.0"
@@ -531,6 +563,22 @@
     "user.list": {
       "stability": "experimental",
       "since": "1.5.0"
+    },
+    "user.disable": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "user.enable": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.person.resolve": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.invite.validate": {
+      "stability": "experimental",
+      "since": "1.6.0"
     },
     "user.role.set": {
       "stability": "experimental",
@@ -758,6 +806,10 @@
     }
   },
   "notifications": {
+    "api.account.changed": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "voice.realtime.state": {
       "stability": "experimental",
       "since": "1.6.0"
