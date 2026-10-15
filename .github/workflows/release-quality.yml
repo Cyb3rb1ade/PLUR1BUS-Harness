@@ -16,6 +16,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
         with: { version: 10.28.0 }
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -37,8 +38,6 @@ jobs:
           export GIT_CONFIG_COUNT=$n
           unset GH_ENGINE_READ_TOKEN base
           pnpm install --frozen-lockfile
-      - name: advisory gate (proposed owner threshold high)
-        run: pnpm audit --audit-level high
       - run: node scripts/release/third-party.mjs --check
       - run: pnpm gen
       - run: pnpm build
@@ -47,3 +46,10 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
       - run: node --test scripts/release/test/portable-backup.test.mjs scripts/release/test/source-quality.test.mjs
+      - run: node --test scripts/release/test/audit-policy.test.mjs
+      - name: install pinned Rust advisory tooling
+        if: ${{ !cancelled() }}
+        run: cargo install cargo-deny --version 0.20.2 --locked
+      - name: production advisory gate and development warnings
+        if: ${{ !cancelled() }}
+        run: node scripts/release/audit-policy.mjs

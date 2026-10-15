@@ -70,6 +70,35 @@ Approved exceptions live in `docs/dependency-exceptions.json`, never in the scri
 
 ## Vulnerabilities
 
+The release gate is `node scripts/release/audit-policy.mjs`, wired into `release-quality.yml`.
+The owner selected this policy on 2026-10-15:
+
+- Production **High and Critical** block; production Moderate/Low and development findings
+  (including High/Critical) appear as warnings in the GitHub job summary.
+- npm scope comes from separate `pnpm audit --prod --json` and full `pnpm audit --json` reports.
+  A package reachable in both scopes remains production.
+- Rust uses pinned `cargo-deny 0.20.2`, each of the root and desktop Cargo workspaces,
+  all features and targets, and paired reports with/without `--exclude-dev`. This conservatively
+  includes build dependencies used to produce the release; purely development dependencies warn.
+  RustSec CVSS 3.0/3.1 base vectors determine severity. Unscored/unsupported vulnerability vectors
+  and unsoundness advisories fail closed for production; unmaintained/yanked notices warn.
+- Invalid reports, unavailable tools/databases/network, invalid policy and expired exceptions fail
+  the job. The script still attempts each ecosystem and writes the summary on failure.
+- Only `audit-allowlist.json` can exempt an advisory. It starts empty; no exceptions were added.
+  Entries require `advisoryId` (GHSA/RUSTSEC), `reason`, `created` and `expires` (UTC `YYYY-MM-DD`).
+  Expiry is exclusive at 00:00 UTC and must be at most 90 days after creation. An expired entry
+  fails even if the advisory disappeared. No automatic renewal or package-wide exceptions.
+
+Only the repository owner changes the allowlist. CODEOWNERS requests their review, and the
+release gate rejects an allowlist change in a PR created by anyone else. The owner must enable
+required `release-quality` checks and code-owner review in branch protection to enforce this
+against merges/direct pushes; repository files cannot enable that protection themselves.
+The enforcement script, workflow and CODEOWNERS are also owner-owned. The CI auditor uses an
+isolated cargo-deny configuration with no ignored advisories or severity filter.
+
+The following older, optional local advisory helper has different exit semantics and is **not**
+the release gate:
+
 `node scripts/audit-deps.mjs --advisories` runs `pnpm audit` and, when `cargo-audit` is installed, `cargo audit` on both
 `Cargo.lock` files. A missing tool or no network is reported as `skipped` with the reason; the mode then still exits 0.
 Only an advisory actually found exits 1. Python advisories are not wired.
@@ -83,9 +112,9 @@ Only an advisory actually found exits 1. Python advisories are not wired.
 | 2 | usage error, unreadable or malformed policy / exceptions file |
 | 3 | an ecosystem could not be collected (`--allow-incomplete` turns this into a warning) |
 
-## Suggested CI job (not enabled)
+## Optional legacy helper job (not the release gate)
 
-The repository does not run this in CI yet. A job could look like this (not part of `.github/workflows` today):
+The generic helper is not wired into CI. An optional informational job could look like this:
 
 ```yaml
 audit-deps:
