@@ -757,10 +757,10 @@ export function createCore(o: CoreOptions): Core {
         // D4 / D111: logs.query / logs.tail / logs.levels over <home>/logs; RBAC-guarded below (RPC_RULES).
         ...createLogsMethods({
           dir: l.logs, signal: shutdown.signal,
-          writer: {
-            currentLevels: () => coreWriter?.currentLevels() ?? discoveryWriter?.currentLevels() ?? { defaultLevel: "info" },
+          ...(coreWriter ? { writer: {
+            currentLevels: () => coreWriter!.currentLevels(),
             updateLevels(s) { coreWriter?.updateLevels(s); discoveryWriter?.updateLevels(s); },
-          },
+          } } : {}),
           audit: rbacAudit, now: clock,
           actor: (ctx) => { try { const p = authenticatedPrincipal(ctx); return { user: p.userId, host: "rpc" }; } catch { return { user: "unknown", host: "rpc" }; } },
         }),
