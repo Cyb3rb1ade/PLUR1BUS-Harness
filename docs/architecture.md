@@ -24,7 +24,11 @@ Never serialize the runtime `HandoffContext` to an external target: it contains
 Core-only authority checks/callbacks. Only the validated D104 contract and
 explicit artifacts cross an adapter's transport boundary.
 
-Production Web exposure for new M5 RPCs is an explicit allowlist release gate.
+The owner-approved twelve-method Web allowlist is verified through the real HTTP
+API and Core in `collab/web-transport.test.ts`: no session/CSRF, Viewer writes,
+foreign traces/chats, principal spoofing and malformed params are refused.
+Authorized replay and selected-message promotion succeed. Existing scoped board
+agent reads/comments remain intentional; Web sessions represent people.
 See [collaboration](collaboration.md), [milestones](milestones.md) and the
-[phase-5 handoff](handoff/2026-10-15-m5-p5.md). No API ownership exception has been
-inferred from passing Core or mocked-browser tests.
+[phase-5 handoff](handoff/2026-10-15-m5-p5.md). M3 P1 remains an open dependency;
+this evidence is local PR-stack acceptance, not a rollout claim.

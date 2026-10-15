@@ -292,10 +292,15 @@ promotion, so replay sessions cannot silently persist its context.
 
 The chat menu provides DE/EN destination/content choices, a mandatory preview,
 selection-change invalidation, native modal focus handling and confirmation.
-M3 P1 (#493) is merged as a dependency. Production Web exposure still requires
-the explicit API allowlist addition described in the phase-5 handoff; the owner
-work package forbids this package from editing `packages/api/**` without an
-exception. Core/RPC and mocked browser tests alone do not remove that release gate.
+M3 P1 (#493) is merged as a dependency and remains open upstream. On 2026-10-15
+the owner explicitly authorized appending only the twelve M5 method names in
+`packages/api/src/rpc-route.ts`; other API files are unchanged. Existing
+`RPC_RULES` and read/write/principal classifications are asserted for each
+method in `collab/web-transport.test.ts`, which uses real HTTP and real Core.
+It verifies session/CSRF, Viewer writes, foreign trace/chat denial, malformed
+params, principal spoofing, exact replay and selected-message promotion.
+Task completion preserves object-denial RPC codes through the existing error
+mapper. This closes the local Web exposure gate without asserting a rollout.
 
 Final integration also pins handoff behavior/authority/return constraints across
 sender repair, transfers card assignment on acknowledged ownership handoff, and

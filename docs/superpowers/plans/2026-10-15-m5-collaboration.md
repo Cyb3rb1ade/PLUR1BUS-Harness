@@ -46,4 +46,4 @@
 - [x] Owner-only promotion tests; DE/EN Web action; update milestone evidence, architecture isolation and docs/demos/m5.md.
 - [x] Commit and Draft PR with final handoff; remaining Web exposure acceptance explicitly blocked by API ownership decision.
 
-- [ ] Resolve explicit API ownership exception/handoff, append guarded Web methods, and run live transport acceptance. No permission inferred from elapsed time.
+- [x] Owner explicitly approved minimal API allowlist exception on 2026-10-15; twelve methods and real HTTP/Core per-method acceptance are in separate commit 6aab258f. Existing RPC_RULES and M3 delegated route classification are asserted; no other API file changed.
