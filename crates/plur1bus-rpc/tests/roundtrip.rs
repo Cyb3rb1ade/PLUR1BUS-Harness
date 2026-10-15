@@ -260,6 +260,109 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "channel.crypto" => {
+                check_pair::<types::ChannelCryptoParams, types::ChannelCryptoResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "channel.handoff.create" => check_pair::<
+                types::ChannelHandoffCreateParams,
+                types::ChannelHandoffCreateResult,
+            >(name, fixture, &root_schema),
+            "channel.handoff.redeem" => check_pair::<
+                types::ChannelHandoffRedeemParams,
+                types::ChannelHandoffRedeemResult,
+            >(name, fixture, &root_schema),
+            "channel.history.get" => check_pair::<
+                types::ChannelHistoryGetParams,
+                types::ChannelHistoryGetResult,
+            >(name, fixture, &root_schema),
+            "channel.history.list" => check_pair::<
+                types::ChannelHistoryListParams,
+                types::ChannelHistoryListResult,
+            >(name, fixture, &root_schema),
+            "chat.archive" => check_pair::<types::ChatArchiveParams, types::ChatArchiveResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.cancel" => check_pair::<types::ChatCancelParams, types::ChatCancelResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.create" => check_pair::<types::ChatCreateParams, types::ChatCreateResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.delete" => check_pair::<types::ChatDeleteParams, types::ChatDeleteResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.events" => check_pair::<types::ChatEventsParams, types::ChatEventsResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.export" => check_pair::<types::ChatExportParams, types::ChatExportResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.fork" => check_pair::<types::ChatForkParams, types::ChatForkResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.get" => check_pair::<types::ChatGetParams, types::ChatGetResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.list" => check_pair::<types::ChatListParams, types::ChatListResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.restore" => check_pair::<types::ChatRestoreParams, types::ChatRestoreResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.submit" => check_pair::<types::ChatSubmitParams, types::ChatSubmitResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.update" => check_pair::<types::ChatUpdateParams, types::ChatUpdateResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "delivery.target.add" => check_pair::<
+                types::DeliveryTargetAddParams,
+                types::DeliveryTargetAddResult,
+            >(name, fixture, &root_schema),
+            "delivery.target.confirm" => check_pair::<
+                types::DeliveryTargetConfirmParams,
+                types::DeliveryTargetConfirmResult,
+            >(name, fixture, &root_schema),
+            "delivery.target.list" => check_pair::<
+                types::DeliveryTargetListParams,
+                types::DeliveryTargetListResult,
+            >(name, fixture, &root_schema),
+            "delivery.target.remove" => check_pair::<
+                types::DeliveryTargetRemoveParams,
+                types::DeliveryTargetRemoveResult,
+            >(name, fixture, &root_schema),
+            "delivery.target.subscribe" => check_pair::<
+                types::DeliveryTargetSubscribeParams,
+                types::DeliveryTargetSubscribeResult,
+            >(name, fixture, &root_schema),
             "channel.list" => check_pair::<types::ChannelListParams, types::ChannelListResult>(
                 name,
                 fixture,

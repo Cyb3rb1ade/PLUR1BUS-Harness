@@ -1,5 +1,7 @@
 # M4 phase 5 — Web continuation and own channel DMs
 
+Draft PR: [#506](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/506).
+
 ## Inventory and decisions
 
 Adds a private SQLite WAL/FULL handoff registry, trusted host ingress recording, four closed-schema RPCs and authenticated API routes, `/web` across hosted channels, and DE/EN read-only channel history with Continue in Web. No new dependency. M3 phase 1 (#493) is merged normally because its chat routes are required; this PR remains stacked on #505. No engine changes.
@@ -38,7 +40,7 @@ Hotspots: M3 chat Core/API routes and SessionStore, channel command hook/router,
 
 Node 24.21.0. Owned focused checks: 28/28; final Web/schema/actual-Core checks: 109/109, including DE/EN browser and axe. API route/security subset after catalogue updates: 78 tests, 77 passed, one existing TODO, zero failed. Buzz final suite: 11/11. Seven-adapter run: 1784 tests, 1763 passed, 21 existing TODOs, zero failed. Broad earlier Core/API/RPC run exposed six API catalogue/fixture failures, all addressed and rerun in the focused API subset; it is not itself recorded as a green broad run.
 
-Final lint, Rust and formatting results are recorded in the execution ledger. docs generation, generated freshness and link checks pass; `docs:check` still fails the previously reproduced untouched-main stale-bundle subprocess assertion (`bundle-user-docs.test.mjs`, expected 1, got 0). Earlier Approvals/recurring browser gaps remain documented in prior handoffs. No claim that the complete workspace suite is green. No CI polling, GitHub merge or real external messages.
+Final lint passes, including typecheck/builds and 99 script tests. The Rust RPC crate passes with all three fixture/generative/Serde tables complete; its all-target Clippy with warnings denied and cargo fmt also pass. Full-workspace Rust results are recorded in the execution ledger. docs generation, generated freshness and link checks pass; `docs:check` still fails the previously reproduced untouched-main stale-bundle subprocess assertion (`bundle-user-docs.test.mjs`, expected 1, got 0). Earlier Approvals/recurring browser gaps remain documented in prior handoffs. No claim that the complete workspace suite is green. No CI polling, GitHub merge or real external messages.
 
 ## Known gaps / acceptance
 

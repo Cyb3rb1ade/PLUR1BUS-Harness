@@ -227,7 +227,7 @@ criteria are met on this codebase:
 
 **Effort 23–36 ad.** Direct-chat handoff 1–2, Telegram 3–4, Discord 3–5, Matrix incl. E2EE and verification 7–11, Buzz/Nostr 4–6, identity linking + commands + delivery 5–8.
 
-**Status — M4 (reconciled 2026-10-15 in the Draft stack based on `origin/main` @ `4557176c`, with a normal merge of M3 #493; M4 is not done).** The merged channel framework/adapters and deny-by-default remain the baseline. Drafts #499 (behaviour), #500 (Matrix), #503 (Buzz), #505 (identity/delivery) and phase 5 add the following evidence; these changes are not merged acceptance.
+**Status — M4 (reconciled 2026-10-15 in the Draft stack based on `origin/main` @ `4557176c`, with a normal merge of M3 #493; M4 is not done).** The merged channel framework/adapters and deny-by-default remain the baseline. Drafts #499 (behaviour), #500 (Matrix), #503 (Buzz), #505 (identity/delivery) and #506 (Web handoff) add the following evidence; these changes are not merged acceptance.
 
 | Criterion | Status in Draft stack | Named evidence / limit |
 | --- | --- | --- |

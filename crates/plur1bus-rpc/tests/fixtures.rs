@@ -141,8 +141,6 @@ fn method_fixture(name: &str, f: &Value) {
         "delivery.target.subscribe" => {
             pair::<DeliveryTargetSubscribeParams, DeliveryTargetSubscribeResult>(name, f)
         }
-        "jobs.run" => pair::<JobsRunParams, JobsRunResult>(name, f),
-        "jobs.run.system" => pair::<JobsRunParams, JobsRunResult>(name, f),
         "channel.list" => pair::<ChannelListParams, ChannelListResult>(name, f),
         "channel.get" => pair::<ChannelGetParams, ChannelGetResult>(name, f),
         "channel.enable" => pair::<ChannelEnableParams, ChannelEnableResult>(name, f),
