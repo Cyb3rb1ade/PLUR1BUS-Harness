@@ -8214,14 +8214,20 @@
       },
       "approval.verify": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
-        "description": "D109 §6: verifies the HMAC-SHA256 chain of the approval store (the `1staid check approvals.integrity` check, on demand). Read-only. A broken chain is a finding (ok false, brokenAt, reason), never an RPC error; a broken chain suspends every grant after the break. Owner/Admin/Operator (RBAC action approval.read); refused for every agent principal.",
+        "description": "D109 §6/§9.7: verifies the HMAC-SHA256 chain of the approval store and additive Ed25519 signatures on decisions (the `1staid check approvals.integrity` check, on demand). Read-only. A broken chain is a finding (ok false, brokenAt, reason), never an RPC error; a broken chain suspends every grant after the break. Unsigned legacy entries remain valid. Owner/Admin/Operator (RBAC action approval.read); refused for every agent principal.",
         "params": { "type": "object", "additionalProperties": false, "properties": {} },
         "result": { "type": "object", "additionalProperties": false, "required": ["ok", "entries", "head"], "properties": {
           "ok": { "type": "boolean" },
           "entries": { "type": "integer", "minimum": 0 },
           "head": { "anyOf": [{ "type": "object", "additionalProperties": false, "required": ["seq", "mac"], "properties": { "seq": { "type": "integer", "minimum": 1 }, "mac": { "type": "string", "pattern": "^[0-9a-f]{64}$" } } }, { "type": "null" }], "description": "The newest entry; null for an empty chain. Pin it outside the host to detect a rewrite of the whole chain." },
           "brokenAt": { "type": "integer", "minimum": 1, "description": "First seq at which the chain does not hold. Present only when ok is false." },
-          "reason": { "enum": ["seq-gap", "prev-mismatch", "mac-mismatch", "truncated", "head-mismatch", "malformed", "nonce-reuse", "binding-mismatch", "duplicate"], "description": "Present only when ok is false." } } }
+          "reason": { "enum": ["seq-gap", "prev-mismatch", "mac-mismatch", "truncated", "head-mismatch", "malformed", "nonce-reuse", "binding-mismatch", "duplicate", "signature-mismatch"], "description": "Present only when ok is false." },
+          "signatures": { "type": "object", "additionalProperties": false, "required": ["unsignedLegacy", "signedOk", "signedBad", "report"], "properties": {
+            "unsignedLegacy": { "type": "integer", "minimum": 0 },
+            "signedOk": { "type": "integer", "minimum": 0 },
+            "signedBad": { "type": "integer", "minimum": 0 },
+            "report": { "enum": ["unsigned (legacy)", "signed-ok", "signed-bad"] }
+          }, "description": "Additive Ed25519 status. Unsigned legacy entries remain valid." } } }
       }
     },
     "BudgetLimit": {

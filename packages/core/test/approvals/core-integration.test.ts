@@ -113,7 +113,7 @@ describe("grant.* and approval.* in a running core: the owner's path", () => {
   it("the approval store is opened by the first use, not by the start", T, async () => {
     assert.equal(existsSync(approvalsDbPath(home)), false);
     assert.equal((await c.call<any>("core.status")).process.state, "ready");
-    assert.deepEqual(await c.call("approval.verify", {}), { ok: true, entries: 0, head: null });
+    assert.deepEqual(await c.call("approval.verify", {}), { ok: true, entries: 0, head: null, signatures: { unsignedLegacy: 0, signedOk: 0, signedBad: 0, report: "unsigned (legacy)" } });
     assert.equal(existsSync(approvalsDbPath(home)), true);
   });
 

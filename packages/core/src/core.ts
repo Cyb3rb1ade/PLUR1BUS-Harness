@@ -7,7 +7,7 @@ import { createD111Events } from "./discovery/events-logger.ts";
 import { createPinnedClient } from "./discovery/http.ts";
 import type { DiscoveryProviderDefinition } from "./discovery/real-adapters.ts";
 import { randomBytes, randomUUID } from "node:crypto";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
 import type { Engine, EngineStatus, HostServices, ModelsStatus } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import type { HarnessConfig } from "@plur1bus/config-schema";
@@ -91,7 +91,8 @@ import { createAuditWriter } from "./identity/audit.ts";
 import { createAuditChain, teeAuditSinks, type AuditChain } from "./audit/chain.ts";
 import { createIdentityService, type IdentityService } from "./identity/service.ts";
 import { approvalsDbPath } from "./approvals/db.ts";
-import { secretStoreKeySource } from "./approvals/keys.ts";
+import { secretStoreKeySource, secretStoreSigningKeySource } from "./approvals/keys.ts";
+import { createApprovalsIntegrityJob } from "./approvals/integrity-job.ts";
 import { createPermissionNotifier, type PermissionNotifier } from "./approvals/notify.ts";
 import { openChannelSwitchboard } from "./channels/core-host.ts";
 import type { Switchboard } from "./channels/switchboard.ts";
@@ -585,10 +586,16 @@ export function createCore(o: CoreOptions): Core {
       permissions = createPermissionRuntime({
         maxGrantDays: () => cfg().approvals?.maxGrantDays ?? 90,
         // The switchboard sees approval requests next to the RPC notifier: a channel chat shows its own prompt.
-        dbPath: approvalsDbPath(l.home), keys: secretStoreKeySource(secretStore), clock: { now: clock }, events: { emit: (n, p) => { notifier.events.emit(n, p); board.approvalEvents.emit(n, p); approvalToInbox(inboxPort, n, p); } },
+        dbPath: approvalsDbPath(l.home), keys: secretStoreKeySource(secretStore), signing: secretStoreSigningKeySource(secretStore), clock: { now: clock }, events: { emit: (n, p) => { notifier.events.emit(n, p); board.approvalEvents.emit(n, p); approvalToInbox(inboxPort, n, p); } },
         audit: createPolicyAudit({ sink: rbacAudit, clock: { now: clock } }), securePath: platform.securePath,
       });
       const perms = permissions;
+      systemJobs.register(createApprovalsIntegrityJob({
+        clock: { now: clock },
+        present: () => existsSync(approvalsDbPath(l.home)),
+        verify: async () => (await perms.open()).service.verify(),
+      }));
+      void systemJobs.run("approvals.integrity", {}, { trigger: "harness" }).catch(err => logger.warn("approvals.integrity at start failed", { err }));
       try { turnComposition = await openTurnComposition({ home: l.home, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
         voiceConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal, secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
         // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or

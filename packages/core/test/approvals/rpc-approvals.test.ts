@@ -193,7 +193,7 @@ describe("approval.cancel and approval.verify", () => {
   it("verify reports the chain; a tampered chain is a finding, not an error", T, async () => {
     const r = await rpcRig();
     const empty = await r.call("approval.verify");
-    assert.deepEqual(empty, { ok: true, entries: 0, head: null });
+    assert.deepEqual(empty, { ok: true, entries: 0, head: null, signatures: { unsignedLegacy: 0, signedOk: 0, signedBad: 0, report: "unsigned (legacy)" } });
     const { id } = await r.park();
     await r.call("approval.decide", { id, decision: "approve" });
     const ok = await r.call("approval.verify");

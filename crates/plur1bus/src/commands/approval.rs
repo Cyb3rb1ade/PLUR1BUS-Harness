@@ -236,11 +236,15 @@ pub(crate) fn render_verify(v: &Value) -> String {
         (Some(seq), Some(mac)) => format!(", head seq {seq} mac {}", clean(mac)),
         _ => String::new(),
     };
+    let sig = v["signatures"]["report"]
+        .as_str()
+        .map(|r| format!(" ({r})"))
+        .unwrap_or_default();
     if verify_intact(v) {
-        format!("approval chain intact: {n} entries{head}")
+        format!("approval chain intact: {n} entries{head}{sig}")
     } else {
         format!(
-            "APPROVAL CHAIN BROKEN at seq {} ({}): {n} entries{head}; grants after the break are suspended",
+            "APPROVAL CHAIN BROKEN at seq {} ({}): {n} entries{head}{sig}; grants after the break are suspended",
             v["brokenAt"].as_u64().map_or("?".to_string(), |x| x.to_string()),
             clean(v["reason"].as_str().unwrap_or("unknown reason"))
         )

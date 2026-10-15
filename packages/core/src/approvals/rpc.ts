@@ -147,7 +147,10 @@ export function buildApprovalMethods(d: ApprovalMethodDeps): Record<ApprovalMeth
     "approval.verify": guard("approval.verify", async (_p: unknown, _c: Caller, h): Promise<ApprovalVerifyResult> => {
       const v = h.service.verify();
       // A broken chain is a finding. It has no trustworthy head to pin, so `head` is null then.
-      return v.ok ? { ok: true, entries: v.entries, head: v.head } : { ok: false, entries: v.entries, head: null, brokenAt: v.brokenAt, reason: v.reason };
+      const signatures = v.signatures;
+      return v.ok
+        ? { ok: true, entries: v.entries, head: v.head, signatures }
+        : { ok: false, entries: v.entries, head: null, brokenAt: v.brokenAt, reason: v.reason, signatures };
     }),
   };
 }

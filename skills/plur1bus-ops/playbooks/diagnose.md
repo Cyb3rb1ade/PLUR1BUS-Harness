@@ -36,6 +36,7 @@ The result is `{"schema":"1staid.check/1","ok":<bool>,"checks":[{"id","status","
 | `extensions.consistency` | Extension records, their code directories and the skills index agree | `fail`: a record whose skill/module directory is missing; `warn`: an index entry that names a package but has no record | Reinstall the package, or drop the stray index entry |
 | `extensions.revoked` | No installed extension is on the revocation list | An installed extension was revoked (detail gives the reason); it is held back and cannot be enabled | `plur1bus skill uninstall <name>` or `plur1bus plugin uninstall <name>`; look for a fixed version |
 | `models.roles` | Model roles in config point to available models in the catalog | A role points at an unavailable model | Switch the role to an available model with `plur1bus config set` or inspect with `plur1bus model list` |
+| `approvals.integrity` | The approval store HMAC chain and Ed25519 decision signatures (`approval.verify`) | The chain is broken or a signed decision was tampered with; unsigned legacy entries stay valid | `plur1bus approval verify --json`; skip when the core is not reachable |
 
 ## 2. Cross-check with process status and logs
 
