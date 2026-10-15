@@ -20833,6 +20833,34 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `ResolvedChannelBehaviour`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile",
+    "origins"
+  ],
+  "properties": {
+    "profile": {
+      "type": "object",
+      "description": "Effective restrictive behaviour, keyed by section and field."
+    },
+    "origins": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+```
+
 ### `ChannelDetail`
 
 ```json
@@ -20940,6 +20968,38 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "config": {
       "type": "object"
+    },
+    "behaviour": {
+      "description": "ADR-003 effective direct/group policy with per-field source paths and the channel-kind layer editable by owner/admin. Null if no unambiguous default agent exists.",
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "agentId",
+        "editableKey",
+        "layer",
+        "direct",
+        "group"
+      ],
+      "properties": {
+        "agentId": {
+          "type": "string"
+        },
+        "editableKey": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "object"
+        },
+        "direct": {
+          "$ref": "#/$defs/ResolvedChannelBehaviour"
+        },
+        "group": {
+          "$ref": "#/$defs/ResolvedChannelBehaviour"
+        }
+      }
     },
     "attempts": {
       "type": "integer",
