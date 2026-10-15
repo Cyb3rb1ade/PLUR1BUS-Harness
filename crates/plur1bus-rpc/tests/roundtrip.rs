@@ -822,6 +822,11 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                     &root_schema,
                 )
             }
+            "dreams.diary" => check_pair::<types::DreamsDiaryParams, types::DreamsDiaryResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "admin.reembed.plan" => check_pair::<
                 types::AdminReembedPlanParams,
                 types::AdminReembedPlanResult,

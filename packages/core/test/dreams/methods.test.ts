@@ -2,8 +2,13 @@
 // registered (E_AGENT_UNKNOWN), an unavailable scheduler answers E_NOT_AVAILABLE, bad edits map to E_INVALID_PARAMS.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { writeFileSync } from "node:fs";
+import path from "node:path";
 import { RpcError } from "../../src/rpc/errors.ts";
 import { buildDreamsMethods } from "../../src/dreams/methods.ts";
+import { memoryAuditSink } from "../../src/rbac/audit.ts";
+import { guardMethods } from "../../src/rbac/guard.ts";
+import type { Principal, Role } from "../../src/rbac/types.ts";
 import { harness, HOUR, settle, T0, useTempDirs } from "./helpers.ts";
 
 const dirs = useTempDirs();
@@ -29,6 +34,7 @@ describe("dreams.* methods: the registry decides who may be addressed", () => {
     ["dreams.disable", { agentId: "ghost", phase: "deep" }],
     ["dreams.status", { agentId: "ghost" }],
     ["dreams.log", { agentId: "ghost" }],
+    ["dreams.diary", { agentId: "ghost" }],
   ];
   for (const [name, params] of agentScoped) {
     it(`${name} ${JSON.stringify(params)} refuses an unregistered agent and has no effect`, async () => {
@@ -62,6 +68,7 @@ describe("dreams.* methods: availability", () => {
   const all: [string, object][] = [
     ["dreams.status", {}], ["dreams.log", {}], ["dreams.run", { agentId: "alpha", phase: "deep" }], ["dreams.schedule.get", { agentId: "alpha" }],
     ["dreams.schedule.set", { agentId: "alpha", phase: "deep", enabled: true }], ["dreams.enable", { agentId: "alpha", phase: "deep" }], ["dreams.disable", { agentId: "alpha", phase: "deep" }],
+    ["dreams.diary", { agentId: "alpha" }],
   ];
   for (const [name, params] of all) {
     it(`${name} answers E_NOT_AVAILABLE with the reason and the cause while the scheduler is down`, async () => {
@@ -73,9 +80,9 @@ describe("dreams.* methods: availability", () => {
     const m = buildDreamsMethods({ dreams: () => null, agents: { list: () => [], has: () => false, scaffold: () => {}, workspaceOf: () => "/ws" } });
     await assert.rejects(m["dreams.status"]!({}, ctx()), (e: any) => e.error === "E_NOT_AVAILABLE" && e.detail === undefined);
   });
-  it("exposes exactly the seven documented methods", () => {
+  it("exposes exactly the eight documented methods", () => {
     const { m } = setup();
-    assert.deepEqual(Object.keys(m).sort(), ["dreams.disable", "dreams.enable", "dreams.log", "dreams.run", "dreams.schedule.get", "dreams.schedule.set", "dreams.status"]);
+    assert.deepEqual(Object.keys(m).sort(), ["dreams.diary", "dreams.disable", "dreams.enable", "dreams.log", "dreams.run", "dreams.schedule.get", "dreams.schedule.set", "dreams.status"]);
   });
 });
 
@@ -182,5 +189,54 @@ describe("dreams.schedule.* and enable/disable", () => {
     await h.clock.advance(10 * 60_000);
     const r = await call("dreams.enable", { agentId: "alpha", phase: "rem" });
     assert.equal(r.schedule.nextRunAt, before);
+  });
+});
+
+describe("dreams.diary", () => {
+  const asRole = (role: Role): Principal => ({ userId: "u-1", role, kind: "person" });
+
+  it("Diary only with the right (viewer sees nothing foreign).", async () => {
+    const h = harness(dirs, { agents: ["alpha", "beta"] });
+    const alphaDiary = path.join(h.dir, "alpha-dreaming.md");
+    const betaDiary = path.join(h.dir, "beta-dreaming.md");
+    writeFileSync(alphaDiary, "alpha private notes\nauthorization: Bearer x\n");
+    writeFileSync(betaDiary, "beta private notes\n");
+    const sched = h.make({ diaryPath: (id) => (id === "alpha" ? alphaDiary : id === "beta" ? betaDiary : null) });
+    const agents = { list: () => ["alpha", "beta"], has: (id: string) => id === "alpha" || id === "beta", scaffold: () => {}, workspaceOf: (id: string) => `/ws/${id}` };
+    const raw = buildDreamsMethods({ dreams: () => sched, agents });
+    const wrap = (role: Role) => guardMethods(raw, { resolve: () => asRole(role), audit: memoryAuditSink(), now: () => T0 });
+    const viewer = wrap("viewer");
+    const owner = wrap("owner");
+    await assert.rejects(viewer["dreams.diary"]!({ agentId: "alpha" }, ctx()), (e: any) => e instanceof RpcError && e.error === "E_DENIED");
+    await assert.rejects(viewer["dreams.diary"]!({ agentId: "beta" }, ctx()), (e: any) => e instanceof RpcError && e.error === "E_DENIED");
+    const alpha = await owner["dreams.diary"]!({ agentId: "alpha" }, ctx()) as { exists: boolean; text: string };
+    assert.equal(alpha.exists, true);
+    assert.match(alpha.text, /alpha private notes/);
+    assert.equal(alpha.text.includes("Bearer x"), false);
+    assert.equal(alpha.text.includes("beta private"), false);
+    const beta = await owner["dreams.diary"]!({ agentId: "beta" }, ctx()) as { text: string };
+    assert.match(beta.text, /beta private notes/);
+  });
+
+  it("redacts authorization headers in diary text", async () => {
+    const h = harness(dirs, { agents: ["alpha"] });
+    const diary = path.join(h.dir, "dreaming.md");
+    writeFileSync(diary, "notes\nauthorization: Bearer x\n");
+    const sched = h.make({ diaryPath: () => diary });
+    const agents = { list: () => ["alpha"], has: () => true, scaffold: () => {}, workspaceOf: () => "/ws/alpha" };
+    const m = buildDreamsMethods({ dreams: () => sched, agents });
+    const r = await (m["dreams.diary"] as (p: unknown, c: unknown) => Promise<any>)({ agentId: "alpha" }, ctx());
+    assert.equal(r.exists, true);
+    assert.equal(r.text.includes("Bearer x"), false);
+    assert.match(r.text, /authorization:/i);
+  });
+
+  it("an agent with no diary file answers exists false and empty text", async () => {
+    const { call } = setup();
+    const r = await call("dreams.diary", { agentId: "alpha" });
+    assert.equal(r.agentId, "alpha");
+    assert.equal(r.exists, false);
+    assert.equal(r.text, "");
+    assert.equal(r.truncated, false);
   });
 });
