@@ -4,7 +4,7 @@ import { canonicalisePath, checkSyntax, matchDeny, type DenyEntry, type PathRoot
 import { denyEntriesFor } from '../../host-tools/denylist.ts';
 import { isHostPlatform } from '../../host-tools/types.ts';
 import { SandboxFailure, type SandboxPolicy } from './types.ts';
-export interface PreparedPolicy extends SandboxPolicy { denied: readonly DenyEntry[]; runtimeRoots: readonly string[] }
+export interface PreparedPolicy extends SandboxPolicy { denied: readonly DenyEntry[]; runtimeRoots: readonly string[]; runtimePaths: readonly string[] }
 // Runtime support is read-only and never includes a user or writable package-manager prefix.
 export const RUNTIME_ROOTS = process.platform === 'darwin'
   ? ['/usr/bin', '/usr/sbin', '/usr/lib', '/usr/share', '/bin', '/sbin', '/System/Library', '/Library/Apple', '/dev/null', '/dev/urandom', '/dev/random']
@@ -50,6 +50,7 @@ export async function preparePolicy(p: SandboxPolicy): Promise<PreparedPolicy> {
   for (const r of [...readRoots, ...writeRoots]) await scan(r.path);
   const cwd = await absolute(p.cwd);
   if (![...readRoots, ...writeRoots].some(r => cwd === r.path || cwd.startsWith(r.path + '/')) || matchDeny(cwd, denied)) throw new SandboxFailure('sandbox cwd is outside roots');
-  const runtimeRoots = (await Promise.all(RUNTIME_ROOTS.map(s => realpath(s).catch(() => null)))).filter((s): s is string => s !== null);
-  return { ...p, limitsHelper, home, userHome, cwd, readRoots, writeRoots, denied, runtimeRoots: [...new Set(runtimeRoots)] };
+  const runtime = (await Promise.all(RUNTIME_ROOTS.map(async source => { const canonical = await realpath(source).catch(() => null); return canonical ? { source, canonical } : null; }))).filter((s): s is {source:string;canonical:string} => s !== null);
+  const runtimeRoots = runtime.map(r=>r.canonical), runtimePaths = runtime.map(r=>r.source);
+  return { ...p, limitsHelper, home, userHome, cwd, readRoots, writeRoots, denied, runtimeRoots: [...new Set(runtimeRoots)], runtimePaths };
 }

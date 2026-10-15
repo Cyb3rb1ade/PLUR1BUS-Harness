@@ -72,3 +72,12 @@ test('hard-link credential aliases and writable launcher locations refuse the wh
     await assert.rejects(preparePolicy({...f.policy,limitsHelper:helper}),/outside writable roots/);
   } finally {await f.close();}
 });
+test('bubblewrap preserves original /bin and loader mount spellings on merged-usr hosts', {skip:process.platform==='win32'?'POSIX mount layout only':false}, async () => {
+  const {backendArgv}=await import('../../../src/tools/sandbox/backends.ts');
+  const f=await fixture();try{
+    const p=await preparePolicy({...f.policy,writeRoots:[],limitsHelper:process.execPath});
+    const argv=await backendArgv(p,{backend:'bubblewrap',strength:'partial',available:true,reason:'fixture'},['/bin/echo','x']);
+    for(const source of p.runtimePaths) assert.ok(argv.some((arg,i)=>arg==='--ro-bind' && argv[i+1]===source && argv[i+2]===source));
+    assert.ok(p.runtimePaths.includes('/bin'));
+  }finally{await f.close();}
+});
