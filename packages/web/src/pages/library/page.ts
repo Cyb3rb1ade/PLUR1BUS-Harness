@@ -12,14 +12,14 @@ import { t } from "../../i18n.ts";
 import { registerArea } from "../../i18n/index.ts";
 import { area } from "../home/area.ts";
 import { StoredImage } from "../surfaces/stored-image.ts";
-import * as mediaArea from "../../i18n/library-media.ts";
+import * as mediaArea from "../../i18n/libmedia.ts";
 import type { EditSource, MediaDialogProps } from "./generate.ts";
 import { JobBar } from "./jobs.ts";
 import { Preferences } from "./prefs.ts";
 import "../../styles/library.css";
 
 registerArea("homeHelpLibrary", area);
-registerArea("libraryMedia", mediaArea);
+registerArea("libmedia", mediaArea);
 
 export interface LibraryOutput {
   id: string;
