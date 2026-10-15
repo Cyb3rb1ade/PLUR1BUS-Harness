@@ -31,6 +31,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `$schema` | string |  | live | URI identifying the JSON Schema used to validate this configuration. |
 | `activity.maxEntries` | integer | `1000` | core | Maximum retained agent activity transitions. |
 | `schemaVersion` | const |  | core | Configuration format version; this schema supports version 1. |
+| `tools.sandbox.required` | boolean | `true` | core | Require OS sandbox for agent processes. Owner-only false explicitly permits unsandboxed execution, audited before each spawn. |
 | `tools.hostctl.enabled` | boolean | `true` | core | Register local hostctl tools. |
 | `tools.hostctl.shell.allowed` | boolean | `false` | core | Allow proc.shell after normal D109 approval. |
 | `tools.hostctl.shell.default` | string | `"bash"` | core | Shell executable; set pwsh on Windows. |
