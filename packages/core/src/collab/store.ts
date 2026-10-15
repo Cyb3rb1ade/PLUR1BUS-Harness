@@ -233,6 +233,8 @@ export class CollabStore {
     );
   }
 
+  bindSession(spanId: string, sessionId: string): void { this.#run("UPDATE spans SET session_id=? WHERE span_id=?", sessionId, spanId); }
+
   finishSpan(spanId: string, patch: {
     status: SpanStatus; outputPreview?: string; error?: string | null; guardrail?: string | null;
     inputTokens?: number; outputTokens?: number; costEstimate?: number | null;
@@ -328,6 +330,7 @@ export class CollabStore {
 
 function toSpan(r: Row): CollabSpan {
   return {
+    ...(r.session_id ? { sessionId: r.session_id as string } : {}),
     spanId: r.span_id as string, traceId: r.trace_id as string, parentSpanId: (r.parent_span_id as string | null) ?? null,
     agentId: r.agent_id as string, kind: r.kind as CollabSpan["kind"], startedAt: r.started_at as number,
     endedAt: (r.ended_at as number | null) ?? null, status: r.status as SpanStatus,

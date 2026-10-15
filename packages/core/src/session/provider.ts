@@ -7,13 +7,16 @@ export type ChatChunk =
   /** With a tool dispatcher the loop executes the call and persists the envelope as `tool.result`; without one it persists a reported call/result and executes nothing. */
   | { type: "tool.call"; id: string; name: string; args?: unknown }
   | { type: "tool.result"; id: string; output: string }
-  | { type: "usage"; inputTokens: number; outputTokens: number; model?: string; measurements?: UsageMeasurement[] };
+  | { type: "usage"; inputTokens: number; outputTokens: number; costMicros?: number | null; model?: string; measurements?: UsageMeasurement[] };
 
 export interface TurnApprover { person: string | null; surface: 0 | 1 | 2 | 3 }
 
 export interface RecurringOrigin { jobId: string; jobName: string; runAs: string; trigger: "recurring" }
 
 export interface ChatRequest {
+  collaborationTier?: 'cheap' | 'standard' | 'premium';
+  /** Internal peer envelopes: persisted/rendered as tool results, never system or assistant text. */
+  peerResults?: readonly { id: string; name: string; text: string }[];
   /** Trusted internal origin, never accepted as session.submit params. */
   recurring?: RecurringOrigin;
   turnProfile?: import("../voice/turn-profile.ts").TurnProfile;
