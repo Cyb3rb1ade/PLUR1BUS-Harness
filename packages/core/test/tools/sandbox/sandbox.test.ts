@@ -79,5 +79,7 @@ test('bubblewrap preserves original /bin and loader mount spellings on merged-us
     const argv=await backendArgv(p,{backend:'bubblewrap',strength:'partial',available:true,reason:'fixture'},['/bin/echo','x']);
     for(const source of p.runtimePaths) assert.ok(argv.some((arg,i)=>arg==='--ro-bind' && argv[i+1]===source && argv[i+2]===source));
     assert.ok(p.runtimePaths.includes('/bin'));
+    assert.ok(argv.some((a,i)=>a==='--remount-ro' && argv[i+1]==='/'));
+    assert.equal(argv.some((a,i)=>a==='--tmpfs' && argv[i+1]==='/tmp'),false);
   }finally{await f.close();}
 });
