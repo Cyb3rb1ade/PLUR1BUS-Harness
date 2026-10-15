@@ -6,7 +6,7 @@ WP12 implementation: [#498](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/
 [phase 1 handoff](2026-10-15-d1-p1.md). WP13 implementation:
 [#501](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/501),
 [phase 2 handoff](2026-10-15-d1-p2.md). Real-image compatibility/migration:
-[phase 3 handoff](2026-10-15-d1-p3.md), [#502](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/502). CI and acceptance: [phase 4 handoff](2026-10-15-d1-p4.md), [owner worksheet](../../demos/d1.md). These are draft-stack changes, not a claim
+[phase 3 handoff](2026-10-15-d1-p3.md), [#502](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/502). CI and acceptance: [#504](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/504), [phase 4 handoff](2026-10-15-d1-p4.md), [owner worksheet](../../demos/d1.md). These are draft-stack changes, not a claim
 that `main` or D1 acceptance is complete. Real API/pairing/cold-snapshot contracts,
 production migration/SIGKILL evidence and native/manual acceptance remain open.
 The chronological reports below retain the scope and evidence of their own PRs.
