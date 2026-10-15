@@ -19,6 +19,7 @@ export interface MediaEmbeddingConfig {
 type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 
 export interface HarnessConfig {
+  collaboration: { fanoutEnabled: boolean };
   approvals?: { maxGrantDays: number; requireOsConfirmation: boolean };
   breakglass?: { reasonMinChars: number; reasonMaxChars: number; maxWindowMinutes: number };
   activity?: { maxEntries: number };

@@ -59,3 +59,14 @@
   .chat-compose-row .btn { flex: none; }
   .msg[data-role="user"] { max-width: 92%; }
 }
+
+.promotion-preview pre { white-space: pre-wrap; overflow-wrap: anywhere; max-block-size: 24rem; overflow: auto; }
+.promotion-messages { display: grid; gap: 12px; max-block-size: 24rem; overflow: auto; }
+.promotion-message { display: flex; gap: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.chat-head { flex-wrap: wrap; }
+.chat-menu { margin-inline-start: auto; max-inline-size: 100%; }
+.chat-menu > summary { cursor: pointer; }
+.chat-menu .btn { white-space: normal; max-inline-size: 100%; }
+.promotion-fields { min-inline-size: 0; }
+.promotion-fields select, .promotion-fields input, .promotion-fields textarea { min-inline-size: 0; max-inline-size: 100%; }

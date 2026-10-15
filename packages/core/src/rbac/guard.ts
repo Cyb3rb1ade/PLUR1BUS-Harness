@@ -41,6 +41,22 @@ export function authenticatedPrincipal(ctx: CallContext): Principal {
 }
 
 export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
+  "chat.promote.links": { ...rule("chat:read", system), humanOnly: true },
+  "chat.promote.preview": { ...rule("chat:write", system), humanOnly: true },
+  "chat.promote.commit": { ...rule("chat:write", system), humanOnly: true },
+  "chat.create": rule("chat:write", system),
+  "chat.list": rule("chat:read", system),
+  "chat.get": rule("chat:read", system),
+  "chat.events": rule("chat:read", system),
+  "chat.submit": rule("chat:write", system),
+  "chat.update": rule("chat:write", system),
+  "chat.archive": rule("chat:write", system),
+  "chat.restore": rule("chat:write", system),
+  "chat.cancel": rule("chat:write", system),
+  "chat.fork": rule("chat:write", system),
+  "chat.delete": rule("chat:delete", system),
+  "chat.export": rule("chat:read", system),
+
   "jobs.create": { ...rule("agent.manage", agent), humanOnly: true },
   "jobs.update": { ...rule("agent.list", system), humanOnly: true },
   "jobs.delete": { ...rule("agent.list", system), humanOnly: true },
@@ -96,6 +112,8 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "project.member.role": rule("project.surface.write", system),
   "project.agent.add": rule("project.surface.write", system),
   "project.agent.remove": rule("project.surface.write", system),
+  "task.complete": { ...rule("project.surface.write", system), humanOnly: true },
+  "collab.session.replay": rule("project.surface.read", system),
   "collab.trace.get": rule("project.surface.read", system),
   "collab.trace.list": rule("project.surface.read", system),
   "collab.chain.cancel": rule("project.surface.write", system),

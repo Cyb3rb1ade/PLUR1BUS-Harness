@@ -1,5 +1,65 @@
 {
   "methods": {
+    "chat.promote.links": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.promote.preview": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.promote.commit": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.create": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.get": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.events": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.submit": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.update": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.archive": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.restore": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.cancel": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.fork": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.delete": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.export": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "jobs.create": {
       "stability": "experimental",
       "since": "1.6.0"
@@ -229,6 +289,14 @@
       "since": "1.5.0"
     },
     "project.agent.remove": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "task.complete": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "collab.session.replay": {
       "stability": "experimental",
       "since": "1.5.0"
     },
