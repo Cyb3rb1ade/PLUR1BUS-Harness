@@ -56,10 +56,10 @@ export async function backendArgv(p: PreparedPolicy, d: SandboxDetection, argv: 
   if (d.backend !== 'bubblewrap') throw new SandboxFailure(d.reason);
   // Writable mounts could create/rename credential files after the mask scan. Refuse until a dynamic Landlock/seccomp layer exists.
   if (p.writeRoots.length) throw new SandboxFailure('bubblewrap writable roots require dynamic credential-name enforcement; backend refused');
-  const args = ['/usr/bin/bwrap', '--unshare-all', '--die-with-parent', '--new-session', '--cap-drop', 'ALL', '--proc', '/proc', '--dev', '/dev', '--tmpfs', '/tmp'];
+  const args = ['/usr/bin/bwrap', '--unshare-all', '--die-with-parent', '--new-session', '--cap-drop', 'ALL', '--proc', '/proc', '--dev', '/dev'];
   if (p.network === 'full') args.push('--share-net');
   for (const r of [...p.runtimePaths, ...p.readRoots.map(r => r.path)]) args.push('--ro-bind', r, r);
   for (const m of await masks(p)) args.push(...(m.directory ? ['--tmpfs', m.path] : ['--ro-bind', '/dev/null', m.path]));
-  args.push('--chdir', p.cwd, '--', ...argv);
+  args.push('--remount-ro', '/', '--chdir', p.cwd, '--', ...argv);
   return args;
 }
