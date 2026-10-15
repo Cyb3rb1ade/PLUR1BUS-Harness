@@ -1,7 +1,7 @@
 // Shared state of the chat page: the API client, the history list, the agents and the hand-over of an unsent draft.
 import { signal } from "@preact/signals";
 import { API_ROUTES, isApiError } from "../../api/index.ts";
-import { getApi } from "../../api/shared.ts";
+import { getChatApi as getApi } from "./api.ts";
 import type { Key } from "../../i18n.ts";
 import { sessionNotice, sessionState } from "../../session.ts";
 import type { AgentsAnswer, SessionRecord } from "./rpc-types.ts";

@@ -1,5 +1,53 @@
 {
   "methods": {
+    "chat.create": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.get": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.events": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.submit": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.update": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.archive": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.restore": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.cancel": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.fork": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.delete": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.export": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "jobs.create": {
       "stability": "experimental",
       "since": "1.6.0"
@@ -133,6 +181,22 @@
       "since": "1.6.0"
     },
     "project.card.activity.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.device.pair": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.device.challenge": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.device.prove": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.device.announce": {
       "stability": "experimental",
       "since": "1.6.0"
     },
@@ -335,6 +399,22 @@
     "memory.proposals.reject": {
       "stability": "experimental",
       "since": "1.1.0"
+    },
+    "model.embedding.select": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "model.licence.confirm": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "model.licence.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "model.licence.check": {
+      "stability": "experimental",
+      "since": "1.6.0"
     },
     "agent.create": {
       "stability": "experimental",
@@ -806,6 +886,10 @@
     }
   },
   "notifications": {
+    "devices.trust.next": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "api.account.changed": {
       "stability": "experimental",
       "since": "1.6.0"

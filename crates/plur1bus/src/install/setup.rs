@@ -942,6 +942,20 @@ fn step_config(
     let answers = answer_config(o, profile, config["embedding"]["useClass"].as_str(), ask)?;
     let now = crate::commands::agent::rfc3339_now();
     let mut changes = config_changes(&config, &answers, &now);
+    // Unattended first installation cannot obtain model/revision-specific human consent.
+    // Preserve any existing embedding configuration: changing model/dimensions on rerun
+    // would require validated re-embedding, and NC execution remains subject to the core licence gate.
+    let embedding = &config["engine"]["embedding"];
+    let no_embedding_selection = embedding.is_null()
+        || embedding
+            .as_object()
+            .is_some_and(|selection| selection.is_empty());
+    if o.non_interactive && no_embedding_selection {
+        changes.push((
+            "engine.embedding.local".to_string(),
+            json!({ "model": "intfloat/multilingual-e5-small", "dimensions": 384 }),
+        ));
+    }
     let media = if profile == PROFILE_HOST {
         None
     } else {

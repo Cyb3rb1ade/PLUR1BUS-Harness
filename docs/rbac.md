@@ -430,3 +430,10 @@ The internal `admin.api.person.resolve` and `admin.api.invite.validate` methods 
 
 | `admin.api.person.resolve` | `admin.users.read` | ✔ | ✔ | – | – | – | API service credential only; role policy does not admit ordinary clients |
 | `admin.api.invite.validate` | `admin.users.read` | ✔ | ✔ | – | – | – | API service credential only; role policy does not admit ordinary clients |
+
+Remote trust challenge and acknowledgement use the additive human-only `remote.device.write` action (Owner/Admin/Operator/Member; Viewer denied) and cookie sessions with CSRF. Nonce-only pairing proof and one-use code redemption are reviewed bootstrap exceptions: no delegated identity or normal session is manufactured. All four private device services use the existing DeviceStore and a separately authenticated API service credential without a delegated principal.
+
+| `admin.api.device.pair` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
+| `admin.api.device.challenge` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
+| `admin.api.device.prove` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
+| `admin.api.device.announce` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |

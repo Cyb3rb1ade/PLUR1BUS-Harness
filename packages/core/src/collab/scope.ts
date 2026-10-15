@@ -1,7 +1,7 @@
-import { AsyncLocalStorage } from "node:async_hooks";
+import * as processScope from "../agents/scope.ts";
 import { CollabError } from "./errors.ts";
 
-/** Collab-local AgentScope (ADR-003). The M3 process-wide scope is a follow-up; consult/delegate fail closed without one. */
+/** Collaboration adapter for the process-wide AgentScope (ADR-003); consult/delegate fail closed without one. */
 export interface AgentScopeValue {
   agentId: string;
   projectId: string;
@@ -11,26 +11,26 @@ export interface AgentScopeValue {
   toolView: readonly string[];
 }
 
-const als = new AsyncLocalStorage<AgentScopeValue>();
+
 
 export function currentAgentScope(): AgentScopeValue | undefined {
-  return als.getStore();
+  return processScope.currentAgentScope() as AgentScopeValue | undefined;
 }
 
 export function requireAgentScope(): AgentScopeValue {
-  const s = als.getStore();
+  const s = currentAgentScope();
   if (!s) throw new CollabError("no-scope", "AgentScope is required; unscoped access is refused");
   return s;
 }
 
 export function runWithAgentScope<T>(scope: AgentScopeValue, fn: () => T): T {
-  return als.run(scope, fn);
+  return processScope.runWithAgentScope(scope, fn);
 }
 
 export function alsAgentScopePort(): import("./ports.ts").AgentScopePort {
   return {
-    run: (scope, fn) => als.run(scope, fn),
-    current: () => als.getStore(),
+    run: (scope, fn) => processScope.runWithAgentScope(scope, fn),
+    current: () => currentAgentScope(),
   };
 }
 

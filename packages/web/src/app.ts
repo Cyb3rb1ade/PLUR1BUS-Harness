@@ -25,7 +25,7 @@ export function bindApp(): () => void {
       const s = sessionState.value;
       const r = route.value;
       if (s.status === "checking") return;
-      if (s.status === "anonymous" && r.kind !== "login" && r.kind !== "join") {
+      if (s.status === "anonymous" && r.kind !== "login" && r.kind !== "join" && !(r.kind === "page" && r.item.id === "setup")) {
         const p = path.value;
         returnTo = resolve(p).kind === "page" ? p : null;
         navigate("/login", { replace: true, force: true });
@@ -80,6 +80,7 @@ export function App(): View | null {
   if (s.status === "checking") return h("div", { class: "boot", role: "status" }, t("app.loading"));
   if (r.kind === "join") return h(JoinPage, {});
   if (r.kind === "login") return h(LoginPage, {});
+  if (s.status === "anonymous" && r.kind === "page" && r.item.id === "setup") return h("main", { id: "main", class: "page" }, h(Routed, { r }));
   if (s.status !== "authenticated") return h("div", { class: "boot", role: "status" }, t("app.loading"));
   return h(Shell, { r });
 }
