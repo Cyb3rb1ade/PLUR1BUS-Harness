@@ -1,3 +1,5 @@
+import { join } from "node:path";
+import { detectSandbox } from "./tools/sandbox/index.ts";
 import { execFile } from "node:child_process";
 import { homedir } from "node:os";
 import { authorize } from "./rbac/authorize.ts";
@@ -44,6 +46,8 @@ export function buildDoctorMethods(o: { home: string; clock: () => number; check
       const status: Status = c.status === "info" ? "ok" : c.status === "skip" ? "skipped" : c.status as Status;
       return { id: c.id, status, summary: safe(c.summary), ...(typeof c.hint === "string" ? { repair: { kind: "hint", label: safe(c.hint) } } : {}) };
     });
+    const sandbox = await detectSandbox(join(o.home, "bin", "plur1bus-sandbox-limits"));
+    checks.push({ id: "tools.sandbox", status: sandbox.available ? "warn" : "fail", summary: safe(`${sandbox.backend} (${sandbox.strength}): ${sandbox.reason}`), ...(sandbox.hint ? { repair: { kind: "hint", label: safe(sandbox.hint) } } : {}) });
     // These categories have no authoritative 1staid check in this revision. Report that explicitly; do not invent probes.
     for (const id of ["containers", "secrets", "certificates", "ports", "disks"]) if (!checks.some(c => c.id === id || c.id.startsWith(`${id}.`))) checks.push({ id, status: "skipped", summary: "No authoritative provisioning check is available in this installation." });
     cached = { generatedAt: new Date(o.clock()).toISOString(), groups: [{ id: "provisioning", title: "Provisioning", checks }] };
