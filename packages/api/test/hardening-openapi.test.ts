@@ -33,6 +33,9 @@ test("the test validator rejects what a schema forbids (so a green run below mea
   assert.ok(validate({ oneOf: [{ type: "string" }, { type: "string", minLength: 2 }] }, "abc", d).length > 0, "two matching branches are not exactly one");
   assert.deepEqual(validate({ type: "string", format: "date-time" }, "2026-10-12T10:00:00.000Z", d), []);
   assert.ok(validate({ type: "string", format: "date-time" }, "yesterday", d).length > 0);
+  assert.deepEqual(validate({ type: ["integer", "null"], minimum: 0 }, null, d), []);
+  assert.deepEqual(validate({ type: ["integer", "null"], minimum: 0 }, 1, d), []);
+  for(const bad of ["1", -1, 1.5, false])assert.ok(validate({ type: ["integer", "null"], minimum: 0 }, bad, d).length>0);
   assert.throws(() => validate({ type: "string", contentEncoding: "base64" } as never, "x", d), /does not know/);
 });
 
@@ -211,7 +214,7 @@ test("every route, driven through its success and failure paths on the real serv
 
     // Direct-chat contracts: the generic server rig uses an explicit fake Core result; true Core lifecycle is tested separately.
     const previousCore = core.impl;
-    core.impl = async (method, params) => method.startsWith("chat.") ? { sessionId: "contract-chat", messages: [], events: [], chats: [], title: "Contract", archived: false, exported: true, deleted: true } : previousCore(method, params);
+    core.impl = async (method, params) => method.startsWith("chat.") ? JSON.parse(readFileSync(new URL(`../../rpc-schema/fixtures/methods/${method}.json`, import.meta.url), "utf8")).result : previousCore(method, params);
     for (const spec of ROUTES.filter(r => r.id.startsWith("chats."))) {
       const concrete = spec.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat");
       const body = spec.id === "chats.create" ? { agentId: "main" } : spec.id === "chats.submit" ? { text: "Contract hello" } : spec.requestBody ? {} : undefined;

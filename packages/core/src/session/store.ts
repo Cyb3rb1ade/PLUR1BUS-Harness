@@ -181,6 +181,28 @@ export class SessionStore {
     return { sessions: rows.slice(0, limit).map(toSession), truncated: rows.length > limit };
   }
 
+  /** Direct-chat keyset page. Both SQLite stores (persistent and RAM) use precisely this order.
+   * Visibility is filtered before LIMIT so a hidden agent cannot truncate or starve a page. */
+  listChatSessions(f: ListFilter & { allowedAgents: readonly string[]; after?: { pinned: boolean; updatedAt: number; id: string } }): { sessions: SessionRecord[]; truncated: boolean } {
+    const limit = Math.min(Math.max(f.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT + 1);
+    if (!f.allowedAgents.length) return { sessions: [], truncated: false };
+    const where = ["s.owner=?", "s.kind='direct'", `s.agent_id IN (${f.allowedAgents.map(() => "?").join(",")})`];
+    const args: (string | number | null)[] = [f.owner, ...f.allowedAgents];
+    if (f.agentId) { where.push("s.agent_id=?"); args.push(f.agentId); }
+    const archived = f.archived ?? "exclude";
+    if (archived === "exclude") where.push("s.archived_at IS NULL"); else if (archived === "only") where.push("s.archived_at IS NOT NULL");
+    if (f.search !== undefined) {
+      const q = ftsQuery(f.search);
+      where.push("(s.rowid IN (SELECT rowid FROM sessions_fts WHERE sessions_fts MATCH ?) OR s.id IN (SELECT m.session_id FROM messages m WHERE m.rowid IN (SELECT rowid FROM messages_fts WHERE messages_fts MATCH ?)))"); args.push(q, q);
+    }
+    if (f.after) {
+      where.push("(s.pinned < ? OR (s.pinned = ? AND s.updated_at < ?) OR (s.pinned = ? AND s.updated_at = ? AND s.id > ?))");
+      const pinned = Number(f.after.pinned); args.push(pinned, pinned, f.after.updatedAt, pinned, f.after.updatedAt, f.after.id);
+    }
+    const rows = this.#all(`SELECT s.* FROM sessions s WHERE ${where.join(" AND ")} ORDER BY s.pinned DESC, s.updated_at DESC, s.id ASC LIMIT ?`, ...args, limit + 1);
+    return { sessions: rows.slice(0, limit).map(toSession), truncated: rows.length > limit };
+  }
+
   /** F42 metadata listing; omitting owner is allowed only by the admin RPC's role gate.
    * Own-session listing/search keeps the original query semantics. No message or event payload leaves this method. */
   listOverview(f: Omit<ListFilter, "owner"> & { owner?: string; owners?: string[] }): { sessions: (SessionRecord & { model: string | null; usage: { inputTokens: number; outputTokens: number; costMicros: number | null } })[]; truncated: boolean } {
@@ -400,8 +422,10 @@ export class SessionStore {
     return this.#all("SELECT * FROM events WHERE session_id = ? AND seq > ? ORDER BY seq LIMIT ?", sessionId, afterSeq, Math.min(Math.max(limit, 1), 2000)).map(toEvent);
   }
 
-  listMessages(sessionId: string, o: { afterSeq?: number; limit?: number } = {}): MessageRecord[] {
-    return this.#all("SELECT * FROM messages WHERE session_id = ? AND seq > ? ORDER BY seq LIMIT ?", sessionId, o.afterSeq ?? 0, Math.min(Math.max(o.limit ?? 10_000, 1), 100_000)).map(toMessage);
+  listMessages(sessionId: string, o: { afterSeq?: number; beforeSeq?: number; limit?: number } = {}): MessageRecord[] {
+    const limit = Math.min(Math.max(o.limit ?? 10_000, 1), 100_000);
+    if (o.beforeSeq !== undefined) return this.#all("SELECT * FROM messages WHERE session_id=? AND seq<? AND seq>? ORDER BY seq DESC LIMIT ?", sessionId, o.beforeSeq, o.afterSeq ?? 0, limit).map(toMessage).reverse();
+    return this.#all("SELECT * FROM messages WHERE session_id = ? AND seq > ? ORDER BY seq LIMIT ?", sessionId, o.afterSeq ?? 0, limit).map(toMessage);
   }
 
   tokenCalibration(model: string): number | null { return (this.#get("SELECT factor FROM token_calibration WHERE model=?", model)?.factor as number | undefined) ?? null; }

@@ -650,7 +650,154 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "sessions": {
+                      "type": "array",
+                      "items": {
+                        "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The overview adds owner, model/provider and usage metadata. Transcript access stays owner-scoped or explicitly audited through break-glass.",
+                        "x-stability": "experimental",
+                        "x-since": "1.5.0",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "kind",
+                          "agentId",
+                          "scope",
+                          "chatKey",
+                          "title",
+                          "pinned",
+                          "memoryMode",
+                          "createdAt",
+                          "updatedAt",
+                          "lastTurnAt",
+                          "archivedAt",
+                          "turnCount"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "kind": {
+                            "enum": [
+                              "direct",
+                              "card",
+                              "project",
+                              "channel",
+                              "acp"
+                            ]
+                          },
+                          "agentId": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                          },
+                          "scope": {
+                            "type": "string"
+                          },
+                          "chatKey": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "pinned": {
+                            "type": "boolean"
+                          },
+                          "memoryMode": {
+                            "enum": [
+                              "remember",
+                              "incognito"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "integer"
+                          },
+                          "updatedAt": {
+                            "type": "integer"
+                          },
+                          "lastTurnAt": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "archivedAt": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "turnCount": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "owner": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "model": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "usage": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "inputTokens",
+                              "outputTokens",
+                              "costMicros"
+                            ],
+                            "properties": {
+                              "inputTokens": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "outputTokens": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "costMicros": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ],
+                                "minimum": 0
+                              },
+                              "pendingCalls": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "nextCursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 2048
+                    }
+                  },
+                  "required": [
+                    "sessions",
+                    "truncated",
+                    "nextCursor"
+                  ]
                 }
               }
             }
@@ -793,7 +940,139 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "session": {
+                      "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The overview adds owner, model/provider and usage metadata. Transcript access stays owner-scoped or explicitly audited through break-glass.",
+                      "x-stability": "experimental",
+                      "x-since": "1.5.0",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "kind",
+                        "agentId",
+                        "scope",
+                        "chatKey",
+                        "title",
+                        "pinned",
+                        "memoryMode",
+                        "createdAt",
+                        "updatedAt",
+                        "lastTurnAt",
+                        "archivedAt",
+                        "turnCount"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "kind": {
+                          "enum": [
+                            "direct",
+                            "card",
+                            "project",
+                            "channel",
+                            "acp"
+                          ]
+                        },
+                        "agentId": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "chatKey": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "pinned": {
+                          "type": "boolean"
+                        },
+                        "memoryMode": {
+                          "enum": [
+                            "remember",
+                            "incognito"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "integer"
+                        },
+                        "updatedAt": {
+                          "type": "integer"
+                        },
+                        "lastTurnAt": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "archivedAt": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "turnCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "owner": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "model": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "usage": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "inputTokens",
+                            "outputTokens",
+                            "costMicros"
+                          ],
+                          "properties": {
+                            "inputTokens": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "outputTokens": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "costMicros": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ],
+                              "minimum": 0
+                            },
+                            "pendingCalls": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "session"
+                  ]
                 }
               }
             }
@@ -950,7 +1229,139 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "session": {
+                      "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The overview adds owner, model/provider and usage metadata. Transcript access stays owner-scoped or explicitly audited through break-glass.",
+                      "x-stability": "experimental",
+                      "x-since": "1.5.0",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "kind",
+                        "agentId",
+                        "scope",
+                        "chatKey",
+                        "title",
+                        "pinned",
+                        "memoryMode",
+                        "createdAt",
+                        "updatedAt",
+                        "lastTurnAt",
+                        "archivedAt",
+                        "turnCount"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "kind": {
+                          "enum": [
+                            "direct",
+                            "card",
+                            "project",
+                            "channel",
+                            "acp"
+                          ]
+                        },
+                        "agentId": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "chatKey": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "pinned": {
+                          "type": "boolean"
+                        },
+                        "memoryMode": {
+                          "enum": [
+                            "remember",
+                            "incognito"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "integer"
+                        },
+                        "updatedAt": {
+                          "type": "integer"
+                        },
+                        "lastTurnAt": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "archivedAt": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "turnCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "owner": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "model": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "usage": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "inputTokens",
+                            "outputTokens",
+                            "costMicros"
+                          ],
+                          "properties": {
+                            "inputTokens": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "outputTokens": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "costMicros": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ],
+                              "minimum": 0
+                            },
+                            "pendingCalls": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "session"
+                  ]
                 }
               }
             }
@@ -1074,7 +1485,194 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "session",
+                    "runningTurnId",
+                    "messages",
+                    "lastEventSeq"
+                  ],
+                  "properties": {
+                    "session": {
+                      "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The overview adds owner, model/provider and usage metadata. Transcript access stays owner-scoped or explicitly audited through break-glass.",
+                      "x-stability": "experimental",
+                      "x-since": "1.5.0",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "kind",
+                        "agentId",
+                        "scope",
+                        "chatKey",
+                        "title",
+                        "pinned",
+                        "memoryMode",
+                        "createdAt",
+                        "updatedAt",
+                        "lastTurnAt",
+                        "archivedAt",
+                        "turnCount"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "kind": {
+                          "enum": [
+                            "direct",
+                            "card",
+                            "project",
+                            "channel",
+                            "acp"
+                          ]
+                        },
+                        "agentId": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "chatKey": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "pinned": {
+                          "type": "boolean"
+                        },
+                        "memoryMode": {
+                          "enum": [
+                            "remember",
+                            "incognito"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "integer"
+                        },
+                        "updatedAt": {
+                          "type": "integer"
+                        },
+                        "lastTurnAt": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "archivedAt": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "turnCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "owner": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "model": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "usage": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "inputTokens",
+                            "outputTokens",
+                            "costMicros"
+                          ],
+                          "properties": {
+                            "inputTokens": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "outputTokens": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "costMicros": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ],
+                              "minimum": 0
+                            },
+                            "pendingCalls": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "runningTurnId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "messages": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "seq",
+                          "role",
+                          "text",
+                          "createdAt"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "seq": {
+                            "type": "integer"
+                          },
+                          "turnId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "role": {
+                            "enum": [
+                              "system",
+                              "user",
+                              "assistant",
+                              "tool"
+                            ]
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
+                    "lastEventSeq": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
                 }
               }
             }
@@ -1216,7 +1814,139 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "session": {
+                      "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The overview adds owner, model/provider and usage metadata. Transcript access stays owner-scoped or explicitly audited through break-glass.",
+                      "x-stability": "experimental",
+                      "x-since": "1.5.0",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "kind",
+                        "agentId",
+                        "scope",
+                        "chatKey",
+                        "title",
+                        "pinned",
+                        "memoryMode",
+                        "createdAt",
+                        "updatedAt",
+                        "lastTurnAt",
+                        "archivedAt",
+                        "turnCount"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "kind": {
+                          "enum": [
+                            "direct",
+                            "card",
+                            "project",
+                            "channel",
+                            "acp"
+                          ]
+                        },
+                        "agentId": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "chatKey": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "pinned": {
+                          "type": "boolean"
+                        },
+                        "memoryMode": {
+                          "enum": [
+                            "remember",
+                            "incognito"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "integer"
+                        },
+                        "updatedAt": {
+                          "type": "integer"
+                        },
+                        "lastTurnAt": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "archivedAt": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "turnCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "owner": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "model": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "usage": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "inputTokens",
+                            "outputTokens",
+                            "costMicros"
+                          ],
+                          "properties": {
+                            "inputTokens": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "outputTokens": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "costMicros": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ],
+                              "minimum": 0
+                            },
+                            "pendingCalls": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "session"
+                  ]
                 }
               }
             }
@@ -1366,7 +2096,54 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "confirmation": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "nonce": {
+                              "type": "string"
+                            },
+                            "expiresAt": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "nonce",
+                            "expiresAt"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "confirmation"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "purged": {
+                          "const": true
+                        },
+                        "tombstoneId": {
+                          "type": "string"
+                        },
+                        "messages": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "purged",
+                        "tombstoneId",
+                        "messages"
+                      ]
+                    }
+                  ]
                 }
               }
             }
@@ -1490,7 +2267,194 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "session",
+                    "runningTurnId",
+                    "messages",
+                    "lastEventSeq"
+                  ],
+                  "properties": {
+                    "session": {
+                      "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The overview adds owner, model/provider and usage metadata. Transcript access stays owner-scoped or explicitly audited through break-glass.",
+                      "x-stability": "experimental",
+                      "x-since": "1.5.0",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "kind",
+                        "agentId",
+                        "scope",
+                        "chatKey",
+                        "title",
+                        "pinned",
+                        "memoryMode",
+                        "createdAt",
+                        "updatedAt",
+                        "lastTurnAt",
+                        "archivedAt",
+                        "turnCount"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "kind": {
+                          "enum": [
+                            "direct",
+                            "card",
+                            "project",
+                            "channel",
+                            "acp"
+                          ]
+                        },
+                        "agentId": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "chatKey": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "pinned": {
+                          "type": "boolean"
+                        },
+                        "memoryMode": {
+                          "enum": [
+                            "remember",
+                            "incognito"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "integer"
+                        },
+                        "updatedAt": {
+                          "type": "integer"
+                        },
+                        "lastTurnAt": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "archivedAt": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "turnCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "owner": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "model": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "usage": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "inputTokens",
+                            "outputTokens",
+                            "costMicros"
+                          ],
+                          "properties": {
+                            "inputTokens": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "outputTokens": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "costMicros": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ],
+                              "minimum": 0
+                            },
+                            "pendingCalls": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "runningTurnId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "messages": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "seq",
+                          "role",
+                          "text",
+                          "createdAt"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "seq": {
+                            "type": "integer"
+                          },
+                          "turnId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "role": {
+                            "enum": [
+                              "system",
+                              "user",
+                              "assistant",
+                              "tool"
+                            ]
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
+                    "lastEventSeq": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
                 }
               }
             }
@@ -1635,7 +2599,40 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "sessionId",
+                    "turnId",
+                    "messageId",
+                    "state"
+                  ],
+                  "properties": {
+                    "sessionId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "turnId": {
+                      "type": "string"
+                    },
+                    "messageId": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "enum": [
+                        "running",
+                        "completed",
+                        "failed"
+                      ]
+                    },
+                    "reply": {
+                      "type": "string"
+                    },
+                    "error": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }
@@ -1759,7 +2756,79 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "sessionId",
+                    "events",
+                    "lastSeq",
+                    "running"
+                  ],
+                  "properties": {
+                    "sessionId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "description": "One event of a session's ordered stream. seq is per session, starts at 1 and has no gaps; data's shape depends on type.",
+                        "x-stability": "experimental",
+                        "x-since": "1.5.0",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "sessionId",
+                          "seq",
+                          "turnId",
+                          "type",
+                          "data",
+                          "at"
+                        ],
+                        "properties": {
+                          "sessionId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "seq": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "turnId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "type": {
+                            "enum": [
+                              "turn.started",
+                              "delta",
+                              "tool.call",
+                              "tool.result",
+                              "turn.completed",
+                              "turn.failed"
+                            ]
+                          },
+                          "data": {
+                            "type": "object"
+                          },
+                          "at": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
+                    "lastSeq": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "running": {
+                      "type": "boolean"
+                    }
+                  }
                 }
               }
             }
@@ -1895,7 +2964,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "sessionId",
+                    "turnId",
+                    "cancelled"
+                  ],
+                  "properties": {
+                    "sessionId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "turnId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "cancelled": {
+                      "type": "boolean"
+                    }
+                  }
                 }
               }
             }
@@ -2041,7 +3132,139 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "session": {
+                      "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The overview adds owner, model/provider and usage metadata. Transcript access stays owner-scoped or explicitly audited through break-glass.",
+                      "x-stability": "experimental",
+                      "x-since": "1.5.0",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "kind",
+                        "agentId",
+                        "scope",
+                        "chatKey",
+                        "title",
+                        "pinned",
+                        "memoryMode",
+                        "createdAt",
+                        "updatedAt",
+                        "lastTurnAt",
+                        "archivedAt",
+                        "turnCount"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "kind": {
+                          "enum": [
+                            "direct",
+                            "card",
+                            "project",
+                            "channel",
+                            "acp"
+                          ]
+                        },
+                        "agentId": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "chatKey": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "pinned": {
+                          "type": "boolean"
+                        },
+                        "memoryMode": {
+                          "enum": [
+                            "remember",
+                            "incognito"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "integer"
+                        },
+                        "updatedAt": {
+                          "type": "integer"
+                        },
+                        "lastTurnAt": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "archivedAt": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "turnCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "owner": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "model": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "usage": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "inputTokens",
+                            "outputTokens",
+                            "costMicros"
+                          ],
+                          "properties": {
+                            "inputTokens": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "outputTokens": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "costMicros": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ],
+                              "minimum": 0
+                            },
+                            "pendingCalls": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "session"
+                  ]
                 }
               }
             }
@@ -2187,7 +3410,139 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "session": {
+                      "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The overview adds owner, model/provider and usage metadata. Transcript access stays owner-scoped or explicitly audited through break-glass.",
+                      "x-stability": "experimental",
+                      "x-since": "1.5.0",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "kind",
+                        "agentId",
+                        "scope",
+                        "chatKey",
+                        "title",
+                        "pinned",
+                        "memoryMode",
+                        "createdAt",
+                        "updatedAt",
+                        "lastTurnAt",
+                        "archivedAt",
+                        "turnCount"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "kind": {
+                          "enum": [
+                            "direct",
+                            "card",
+                            "project",
+                            "channel",
+                            "acp"
+                          ]
+                        },
+                        "agentId": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "chatKey": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "pinned": {
+                          "type": "boolean"
+                        },
+                        "memoryMode": {
+                          "enum": [
+                            "remember",
+                            "incognito"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "integer"
+                        },
+                        "updatedAt": {
+                          "type": "integer"
+                        },
+                        "lastTurnAt": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "archivedAt": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "turnCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "owner": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "model": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "usage": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "inputTokens",
+                            "outputTokens",
+                            "costMicros"
+                          ],
+                          "properties": {
+                            "inputTokens": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "outputTokens": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "costMicros": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ],
+                              "minimum": 0
+                            },
+                            "pendingCalls": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "session"
+                  ]
                 }
               }
             }
@@ -2342,7 +3697,139 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "session": {
+                      "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The overview adds owner, model/provider and usage metadata. Transcript access stays owner-scoped or explicitly audited through break-glass.",
+                      "x-stability": "experimental",
+                      "x-since": "1.5.0",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "kind",
+                        "agentId",
+                        "scope",
+                        "chatKey",
+                        "title",
+                        "pinned",
+                        "memoryMode",
+                        "createdAt",
+                        "updatedAt",
+                        "lastTurnAt",
+                        "archivedAt",
+                        "turnCount"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "kind": {
+                          "enum": [
+                            "direct",
+                            "card",
+                            "project",
+                            "channel",
+                            "acp"
+                          ]
+                        },
+                        "agentId": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "chatKey": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "pinned": {
+                          "type": "boolean"
+                        },
+                        "memoryMode": {
+                          "enum": [
+                            "remember",
+                            "incognito"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "integer"
+                        },
+                        "updatedAt": {
+                          "type": "integer"
+                        },
+                        "lastTurnAt": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "archivedAt": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "turnCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "owner": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "model": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "usage": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "inputTokens",
+                            "outputTokens",
+                            "costMicros"
+                          ],
+                          "properties": {
+                            "inputTokens": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "outputTokens": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "costMicros": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ],
+                              "minimum": 0
+                            },
+                            "pendingCalls": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "session"
+                  ]
                 }
               }
             }
@@ -2488,7 +3975,182 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "session": {
+                      "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The overview adds owner, model/provider and usage metadata. Transcript access stays owner-scoped or explicitly audited through break-glass.",
+                      "x-stability": "experimental",
+                      "x-since": "1.5.0",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "kind",
+                        "agentId",
+                        "scope",
+                        "chatKey",
+                        "title",
+                        "pinned",
+                        "memoryMode",
+                        "createdAt",
+                        "updatedAt",
+                        "lastTurnAt",
+                        "archivedAt",
+                        "turnCount"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "kind": {
+                          "enum": [
+                            "direct",
+                            "card",
+                            "project",
+                            "channel",
+                            "acp"
+                          ]
+                        },
+                        "agentId": {
+                          "type": "string",
+                          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "chatKey": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "pinned": {
+                          "type": "boolean"
+                        },
+                        "memoryMode": {
+                          "enum": [
+                            "remember",
+                            "incognito"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "integer"
+                        },
+                        "updatedAt": {
+                          "type": "integer"
+                        },
+                        "lastTurnAt": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "archivedAt": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "turnCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "owner": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "model": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "usage": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "inputTokens",
+                            "outputTokens",
+                            "costMicros"
+                          ],
+                          "properties": {
+                            "inputTokens": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "outputTokens": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "costMicros": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ],
+                              "minimum": 0
+                            },
+                            "pendingCalls": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "messages": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "seq",
+                          "role",
+                          "text",
+                          "createdAt"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "seq": {
+                            "type": "integer"
+                          },
+                          "turnId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "role": {
+                            "enum": [
+                              "system",
+                              "user",
+                              "assistant",
+                              "tool"
+                            ]
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "session",
+                    "messages"
+                  ]
                 }
               }
             }
