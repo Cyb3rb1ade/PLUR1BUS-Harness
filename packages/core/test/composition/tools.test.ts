@@ -21,11 +21,13 @@ const get = (r: ToolRegistry, name: string) => r.entries().find((t) => t.name ==
 
 // From docs/host-tools.md: the D106 catalogue and its capability and risk.
 const HOST: Record<string, [string, string]> = {
+  "sys.memory": ["sys.read", "low"], "sys.startupItems": ["sys.read", "low"], "sys.services": ["sys.read", "low"], "sys.updates": ["sys.read", "low"],
+  "apps.focus": ["apps.launch", "medium"], "apps.quit": ["proc.signal", "medium"], "pkg.upgrade": ["pkg.change", "high"],
   "sys.info": ["sys.read", "low"], "sys.disks": ["sys.read", "low"], "sys.network": ["sys.read", "low"], "sys.battery": ["sys.read", "low"],
   "proc.list": ["sys.read", "low"], "proc.info": ["sys.read", "low"], "proc.kill": ["proc.signal", "medium"], "proc.wait": ["sys.read", "low"],
   "pkg.detect": ["sys.read", "low"], "pkg.search": ["sys.read", "low"], "pkg.list-installed": ["sys.read", "low"], "pkg.info": ["sys.read", "low"],
   "pkg.install": ["pkg.change", "high"], "pkg.remove": ["pkg.change", "high"],
-  "apps.list": ["sys.read", "low"], "apps.open": ["sys.read", "low"], "apps.running": ["sys.read", "low"],
+  "apps.list": ["sys.read", "low"], "apps.open": ["apps.launch", "medium"], "apps.running": ["sys.read", "low"],
   "clipboard.read": ["clipboard.read", "low"], "clipboard.write": ["clipboard.read", "low"], notify: ["sys.read", "low"],
 };
 
