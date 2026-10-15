@@ -5,7 +5,7 @@ Preparation base: `origin/main` at `4557176c`, branch `codex/m3-p5-browser-ci`. 
 ## Inventory and decisions
 
 - Ubuntu `web-browser` job builds Core/current-branch CLI with the pinned Rust toolchain and requires the real transport/account tests (`PLUR1BUS_WEB_TRANSPORT_REQUIRED=1`, absolute binary path). It installs Chromium using the exact Playwright CLI from the frozen lockfile (1.63.0). Required mode fails if that browser is missing; it never silently uses system Chrome. The whole web suite runs.
-- First commit `175969ea` adds the job as informational. Gate activation belongs to its own subsequent commit after the repaired local baseline passes.
+- First commit `175969ea` adds the job as informational. Gate activation belongs to its own subsequent commit after the complete integrated required-browser suite passes.
 - The shipped-page matrix derives all 22 roots from `PAGES`: both themes, four widths, 200% browser reflow, and 200% CSS-zoom enlarged text (264 cases). New registry pages inherit the matrix automatically.
 - `main[data-page]` identifies a committed route; the fixture waits for that route and for all loading states to finish. Doctor can render two independent loading regions, so the wait checks their count instead of using a strict single-element locator.
 - Compact targets: Home links (39px), Inbox chips (32px), Help table-of-contents links (35.6px) are now at least 44px. Normal/wide sizing remains at least 24px.
@@ -16,6 +16,7 @@ Preparation base: `origin/main` at `4557176c`, branch `codex/m3-p5-browser-ci`. 
 - Models' malformed-percent-escape test now requires the router's existing fail-closed 404 and absence of the model surface/actions. Incomplete model segment counts retain their no-selection assertions. No timeout was increased.
 - Three former Identity todos are active regression tests: the channel starts empty with suggestions from linked channels, successful requests clear an old error, and removal buttons identify their row. The existing Owner flow explicitly chooses its channel.
 - The Voice event-before-response regression waits for the one completion refresh and the late RPC response. Its previous fixed pause compared the count before the scheduled initial refresh ran; now it asserts exactly two total loads and no further application. No product deduplication was weakened.
+- Loaded Settings Security and Devices supplement the root registry in EN/DE and both themes at every width, browser reflow and enlarged text. The additional matrix reproduces 21px unstyled passkey buttons, 17px standalone Security links, rigid rule-grid overflow and oversized QR content under enlarged text; these use existing button tokens, container-aware grids and bounded QR widths after repair.
 - The macOS unit lint step gets a 4096MiB V8 heap. There was no explicit 2048MiB or informational lint configuration in this preparation base; the local Mac can validate the check, not the hosted runner's memory behavior.
 - Demo and milestones record fixture evidence separately from served-stack evidence. OIDC remains after M3; engine erasure remains outside this package.
 
@@ -39,6 +40,8 @@ Preparation base: `origin/main` at `4557176c`, branch `codex/m3-p5-browser-ci`. 
 - After-fix focused Home and Help runs each passed 10 cases without skips. The original matrix plus Models/Approvals regression runs passed 263 tests; all 44 shipped-page CSS-zoom cases passed separately. The required-browser guard passed, and the Skills/Approvals/Jobs file passed all 15 cases after the loaded-button contrast fix. Complete repaired-suite results are recorded below after that run finishes.
 - `node scripts/check-toolchain.mjs` passed. `actionlint` passed for the modified workflow; hygiene passed. TypeScript check with the 4096MiB heap passed on the local Mac after fixing the new test's DOM NodeList iteration.
 - Served-stack browser acceptance: all three tests passed with the current-branch CLI and built Core (real accounts/invite/password/disable, real transport, and CLI/media/collab surface integration), zero skips.
+- Integrated Settings/Security/Remote/Identity regression acceptance: 68 passed, zero failed/skipped/TODO (`/tmp/m3-p5-settings-acceptance.log`), including all 41 added matrix/screenshot-contract cases. Integrated lint/typecheck/hygiene and 99 tooling tests passed (`/tmp/m3-p5-integration-lint.log`).
+- Full preparation baseline: 1,940 tests, 1,934 passed, one outdated Identity test failed, zero skipped, five existing TODO. The missed test omitted the newly required explicit channel selection; it now selects the channel and asserts the exact issued request. Final integrated results follow after the last predecessor merge.
 - Hosted Ubuntu/macOS CI results and native accessibility are unverified; CI was not polled.
 
 ## Owner questions, hotspots and known gaps
