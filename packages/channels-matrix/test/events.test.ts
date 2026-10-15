@@ -40,7 +40,7 @@ test("config: allowlist policy with a userAllowlist is accepted", () => {
 
 test("sync filter limits event types to what the channel reads", () => {
   const f = JSON.parse(SYNC_FILTER);
-  assert.deepEqual(f.room.timeline.types, ["m.room.message", "m.reaction", "m.room.encrypted"]);
+  assert.deepEqual(f.room.timeline.types, ["m.room.message", "m.reaction", "m.room.encrypted", "m.room.encryption"]);
   assert.deepEqual(f.account_data.types, ["m.direct"]);
 });
 

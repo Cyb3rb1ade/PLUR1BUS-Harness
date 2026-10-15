@@ -4273,6 +4273,53 @@
               "additionalProperties": false,
               "default": {},
               "properties": {
+                "e2ee": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "description": "Experimental E2EE. Memory mode is NOT persistent: restart loses keys and requires device verification again.",
+                  "x-restart": "module:matrix",
+                  "x-tier": "advanced",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true,
+                  "properties": {
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "off",
+                        "memory"
+                      ],
+                      "default": "off",
+                      "description": "Disabled by default. Memory is experimental and loses keys after restart.",
+                      "x-restart": "module:matrix",
+                      "x-tier": "advanced",
+                      "x-write-roles": [
+                        "owner",
+                        "admin"
+                      ],
+                      "x-audit": true
+                    },
+                    "unverifiedDevices": {
+                      "type": "string",
+                      "enum": [
+                        "reject",
+                        "allow"
+                      ],
+                      "default": "reject",
+                      "description": "Reject and report unverified devices by default. Allow is an explicit owner experiment.",
+                      "x-restart": "module:matrix",
+                      "x-tier": "advanced",
+                      "x-write-roles": [
+                        "owner",
+                        "admin"
+                      ],
+                      "x-audit": true
+                    }
+                  }
+                },
                 "enabled": {
                   "description": "Whether the matrix channel is started. Off by default; nothing connects until this is true.",
                   "type": "boolean",

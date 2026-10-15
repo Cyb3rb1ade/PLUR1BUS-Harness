@@ -205,6 +205,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -642,6 +646,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -1092,6 +1100,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -1531,6 +1543,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -1981,6 +1997,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -2422,6 +2442,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -2878,6 +2902,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -3315,6 +3343,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -3771,6 +3803,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -4212,6 +4248,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -4666,6 +4706,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -5107,6 +5151,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -5559,6 +5607,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -5996,6 +6048,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -6449,6 +6505,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -6891,6 +6951,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -7348,6 +7412,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
@@ -7785,6 +7853,10 @@
           "locale": "en"
         },
         "matrix": {
+          "e2ee": {
+            "mode": "off",
+            "unverifiedDevices": "reject"
+          },
           "enabled": false,
           "accessTokenSecret": "channels.matrix.access-token",
           "autoJoin": "allowlist",
