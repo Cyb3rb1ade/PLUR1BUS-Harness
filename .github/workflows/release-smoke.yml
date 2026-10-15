@@ -58,6 +58,14 @@ jobs:
         env:
           PLUR1BUS_CI_RECALL_HARD_MS: '3000'
       - run: node --experimental-strip-types --test tests/system/helpers.test.ts
+      - name: encrypted full-state and vault round trip
+        shell: bash
+        run: |
+          exe=''; [ "$RUNNER_OS" != 'Windows' ] || exe='.exe'
+          export PLUR1BUS_BIN="$GITHUB_WORKSPACE/target/release/plur1bus$exe"
+          node --experimental-strip-types --conditions=source --test --test-timeout=180000 tests/system/portable-backup.test.ts
+        env:
+          PLUR1BUS_CI_RECALL_HARD_MS: '3000'
       - name: installer launcher contract (no administrator operation)
         run: node --experimental-strip-types --test --test-timeout=120000 tests/system/install-scripts.test.ts
       - name: setup, service unit and archive contracts
