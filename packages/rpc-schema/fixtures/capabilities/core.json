@@ -336,6 +336,22 @@
       "stability": "experimental",
       "since": "1.1.0"
     },
+    "model.embedding.select": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "model.licence.confirm": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "model.licence.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "model.licence.check": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "agent.create": {
       "stability": "experimental",
       "since": "1.6.0"

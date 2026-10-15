@@ -4826,6 +4826,231 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 }
 ```
 
+### `model.embedding.select`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Make the Memory wizard embedding selection effective via the existing validated migration; refuses unsupported models and unavailable engine validation instead of silently retaining a different model.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "model"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "type": "string"
+    },
+    "effective": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "model",
+    "effective"
+  ]
+}
+```
+
+### `model.licence.confirm`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Persisted audited model licence confirm; authenticated Owner/Admin only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "type": "string",
+      "enum": [
+        "jinaai/jina-embeddings-v3",
+        "jinaai/jina-embeddings-v5-text-nano",
+        "jinaai/jina-embeddings-v5-text-nano-retrieval",
+        "jinaai/jina-reranker-v2-base-multilingual"
+      ]
+    },
+    "accepted": {
+      "const": true
+    }
+  },
+  "required": [
+    "model",
+    "accepted"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "who": {
+          "type": "string"
+        },
+        "at": {
+          "type": "string"
+        },
+        "licence": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "who",
+        "at",
+        "licence",
+        "model",
+        "revision",
+        "source"
+      ]
+    }
+  },
+  "required": [
+    "acceptance"
+  ]
+}
+```
+
+### `model.licence.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Persisted audited model licence list; authenticated Owner/Admin only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "acceptances": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  "required": [
+    "acceptances"
+  ]
+}
+```
+
+### `model.licence.check`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Persisted audited model licence check; authenticated Owner/Admin only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "changes": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {}
+        },
+        "required": [
+          "key",
+          "value"
+        ]
+      }
+    }
+  },
+  "required": [
+    "changes"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "ok"
+  ]
+}
+```
+
 ### `agent.create`
 
 **Stability:** experimental · since 1.6.0
@@ -4841,6 +5066,14 @@ Create an agent using Config Schema validation; Owner/Admin people only.
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "displayName": {},
+    "skills": {},
     "name": {},
     "persona": {},
     "model": {},
@@ -4861,6 +5094,9 @@ Create an agent using Config Schema validation; Owner/Admin people only.
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "replayed": {
+      "type": "boolean"
+    },
     "agentId": {
       "$ref": "#/$defs/AgentId"
     }
@@ -4886,6 +5122,14 @@ Dry-run the create payload; field errors grouped by wizard step without mutation
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "displayName": {},
+    "skills": {},
     "name": {},
     "persona": {},
     "model": {},

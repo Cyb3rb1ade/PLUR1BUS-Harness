@@ -4705,6 +4705,153 @@
         "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "proposalId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "proposalId": { "$ref": "#/$defs/MemoryId" }, "note": { "type": "string", "maxLength": 500 } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["proposalId", "status"], "properties": { "proposalId": { "type": "string" }, "status": { "const": "rejected" } } }
       },
+      "model.embedding.select": {
+        "description": "Make the Memory wizard embedding selection effective via the existing validated migration; refuses unsupported models and unavailable engine validation instead of silently retaining a different model.",
+        "x-server": "core", "x-stability": "experimental", "x-since": "1.6.0",
+        "params": { "type": "object", "additionalProperties": false, "properties": { "model": { "type": "string", "minLength": 1, "maxLength": 256 } }, "required": ["model"] },
+        "result": { "type": "object", "additionalProperties": false, "properties": { "model": { "type": "string" }, "effective": { "type": "boolean" } }, "required": ["model", "effective"] }
+      },
+      "model.licence.confirm": {
+        "description": "Persisted audited model licence confirm; authenticated Owner/Admin only.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "model": {
+              "type": "string",
+              "enum": [
+                "jinaai/jina-embeddings-v3",
+                "jinaai/jina-embeddings-v5-text-nano",
+                "jinaai/jina-embeddings-v5-text-nano-retrieval",
+                "jinaai/jina-reranker-v2-base-multilingual"
+              ]
+            },
+            "accepted": {
+              "const": true
+            }
+          },
+          "required": [
+            "model",
+            "accepted"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "acceptance": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "who": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "string"
+                },
+                "licence": {
+                  "type": "string"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "who",
+                "at",
+                "licence",
+                "model",
+                "revision",
+                "source"
+              ]
+            }
+          },
+          "required": [
+            "acceptance"
+          ]
+        }
+      },
+      "model.licence.list": {
+        "description": "Persisted audited model licence list; authenticated Owner/Admin only.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {},
+          "required": []
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "acceptances": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            }
+          },
+          "required": [
+            "acceptances"
+          ]
+        }
+      },
+      "model.licence.check": {
+        "description": "Persisted audited model licence check; authenticated Owner/Admin only.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "changes": {
+              "type": "array",
+              "maxItems": 200,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "value": {}
+                },
+                "required": [
+                  "key",
+                  "value"
+                ]
+              }
+            }
+          },
+          "required": [
+            "changes"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "ok"
+          ]
+        }
+      },
       "agent.create": {
         "description": "Create an agent using Config Schema validation; Owner/Admin people only.",
         "x-server": "core",
@@ -4714,6 +4861,9 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "idempotencyKey": { "type": "string", "minLength": 16, "maxLength": 128, "pattern": "^[A-Za-z0-9_-]+$" },
+            "displayName": {},
+            "skills": {},
             "name": {},
             "persona": {},
             "model": {},
@@ -4729,6 +4879,7 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "replayed": { "type": "boolean" },
             "agentId": {
               "$ref": "#/$defs/AgentId"
             }
@@ -4747,6 +4898,9 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "idempotencyKey": { "type": "string", "minLength": 16, "maxLength": 128, "pattern": "^[A-Za-z0-9_-]+$" },
+            "displayName": {},
+            "skills": {},
             "name": {},
             "persona": {},
             "model": {},
