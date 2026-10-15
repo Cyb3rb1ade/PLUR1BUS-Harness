@@ -38,6 +38,7 @@ export const getDistDir = (): string => { if (!distDir) throw new Error("setup()
 export type AppOptions = {
   width?: number;
   height?: number;
+  deviceScaleFactor?: number;
   colorScheme?: "light" | "dark" | "no-preference";
   locale?: string;
   reducedMotion?: "reduce" | "no-preference";
@@ -56,6 +57,7 @@ export async function withApp(opts: AppOptions, run: (app: App) => Promise<void>
   const baseUrl = await server.start();
   const context = await browser.newContext({
     viewport: { width: opts.width ?? 1440, height: opts.height ?? 900 },
+    deviceScaleFactor: opts.deviceScaleFactor ?? 1,
     colorScheme: opts.colorScheme ?? "no-preference",
     locale: opts.locale ?? "en-US",
     reducedMotion: opts.reducedMotion ?? "no-preference",

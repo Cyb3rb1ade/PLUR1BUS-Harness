@@ -70,7 +70,7 @@ function Shell({ r }: { r: Route }): View {
     h(Sidebar, {}),
     h("div", { class: "content", inert: menuOpen.value, onKeyDown: (e: KeyboardEvent) => { if (e.key === "Escape") closeMenu(); } },
       h("header", { class: "topbar" }, h(HeaderActions, {})),
-      h("main", { id: "main", ref: main, class: "page" }, h(Routed, { r }))),
+      h("main", { id: "main", "data-page": key, ref: main, class: "page" }, h(Routed, { r }))),
     h(Palette, {}));
 }
 

@@ -98,3 +98,11 @@ actionlint -shellcheck= -config-file scripts/release/actionlint.yaml .github/wor
 ```
 
 To collect file timings locally, set `TEST_TIMING_DIR` and `NODE_OPTIONS` to the absolute file URL of `scripts/release/timing-reporter.mjs` with `--test-reporter-destination=stdout`, run `pnpm test`, then `node scripts/release/timing-summary.mjs <directory>`. The source reporter does not change test outcomes. WSL setup reproduction requires a Windows host with the corresponding Ubuntu distribution; offline Linux/macOS tests are not evidence for that platform.
+
+## M3 web browser checks
+
+`web-browser` in `ci.yml` runs on Ubuntu with Node 24.21.0 and frozen workspace dependencies. Its package-local Playwright CLI installs Chromium plus Linux libraries; this selects the browser revision belonging to the lockfile's exact Playwright version. `PLUR1BUS_WEB_E2E_REQUIRED=1` refuses a missing matching browser and disables the system-Chrome fallback. The complete web suite runs, including axe, keyboard, token contrast, four responsive widths and zoom. The job starts informational; a separate commit activates its gate after repairing and verifying the baseline.
+
+The registry-driven `shipped-conformance.test.ts` includes every shipped page automatically. Browser reflow at 200% uses 720 CSS px and device scale 2 for the equivalent 1440 physical-pixel window; CSS `zoom` alone leaves media queries unchanged. The shipped-page matrix also checks enlarged text with CSS zoom at 200%; the existing pattern cases remain. Target measurements use the WCAG 2.5.5 inline-prose exception, while standalone links and controls remain measured ([W3C target-size explanation](https://www.w3.org/WAI/WCAG22/Understanding/target-size-enhanced.html)). Browser fixture tests establish UI accessibility and layout, while served-stack acceptance is recorded independently in `docs/demos/m3.md`.
+
+The macOS unit lint step uses a 4096 MiB V8 heap. This increases the available memory without reducing the checked files or changing the gate. Verification on the local Mac does not prove a hosted runner's memory behavior; CI is not polled.
