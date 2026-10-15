@@ -97,6 +97,18 @@ describe("surfaces tell the truth and stay readable", opts, () => {
     });
   });
 
+  test("identity removal names distinguish users sharing one channel account", async () => {
+    await withApp({}, async ({ page, server }) => {
+      identities(server, { humanId: "owner", links: [
+        { id: "first", channel: "matrix", accountId: "shared", userId: "person-one" },
+        { id: "second", channel: "matrix", accountId: "shared", userId: "person-two" },
+      ], pairings: [] });
+      await openRoute(page, "#/identities");
+      await page.getByRole("button", { name: "Remove matrix account shared identity person-one", exact: true }).waitFor();
+      await page.getByRole("button", { name: "Remove matrix account shared identity person-two", exact: true }).waitFor();
+    });
+  });
+
   test("the page sets no inline style: pictures, rows and dialogs are styled by classes", async () => {
     await withApp({}, async ({ page, server }) => {
       media(server); await openRoute(page, "#/media"); await page.getByText("Synthetic scene 1").first().waitFor(); await page.locator("main img").first().waitFor({ state: "attached" });
