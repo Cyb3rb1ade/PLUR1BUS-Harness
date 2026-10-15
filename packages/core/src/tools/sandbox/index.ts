@@ -25,7 +25,7 @@ export async function sandboxSpawn(argv: readonly string[], policy: SandboxPolic
   const started = Date.now();
   const capture = () => {
     const chunks: Uint8Array[] = []; let bytes = 0, truncated = false;
-    return { push(c: Uint8Array) { const take = c.subarray(0, Math.max(0, p.limits.maxOutputBytes - bytes)); bytes += take.length; if (take.length < c.length) truncated = true; chunks.push(take); }, text: () => Buffer.concat(chunks).toString('utf8'), truncated: () => truncated };
+    return { push(c: Uint8Array) { const room = p.limits.maxOutputBytes - bytes; if (room <= 0) { if (c.length) truncated = true; return; } const take = c.subarray(0, room); bytes += take.length; if (take.length < c.length) truncated = true; chunks.push(Buffer.from(take)); }, text: () => Buffer.concat(chunks).toString('utf8'), truncated: () => truncated };
   };
   const out = capture(), err = capture();
   let timedOut = false, aborted = false;

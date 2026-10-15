@@ -20,7 +20,7 @@ export async function preparePolicy(p: SandboxPolicy): Promise<PreparedPolicy> {
   for (const n of Object.values(p.limits)) if (!Number.isSafeInteger(n) || n <= 0) throw new SandboxFailure('sandbox limits must be positive safe integers');
   if (p.limits.maxOutputBytes > 4 * 1024 * 1024 || p.limits.timeoutMs > 600000) throw new SandboxFailure('sandbox limits exceed hard caps');
   const home = await absolute(p.home), userHome = await absolute(p.userHome);
-  const denied: DenyEntry[] = [...denyEntriesFor(userHome, process.env, process.platform), { path: join(home, 'run') }, { path: join(home, 'state') }, { path: join(home, 'secrets') }, ...(p.deny ?? [])];
+  const denied: DenyEntry[] = [...denyEntriesFor(userHome, process.env, process.platform), { path: join(home, 'run') }, { path: join(home, 'state') }, { path: join(home, 'secrets') }, { path: join(home, 'config.json') }, { path: join(home, 'bin') }, { path: join(home, 'runtime') }, ...(p.deny ?? [])];
   if (denied.some(d => 'name' in d && !/^[a-z0-9_.-]+$/i.test(d.name))) throw new SandboxFailure('credential deny names require ASCII path segments');
   // Resolve protected aliases too (notably /var -> /private/var on macOS).
   for (const d of [...denied]) if ('path' in d) { const r = await realpath(d.path).catch(() => null); if (r) denied.push({ path: r }); }

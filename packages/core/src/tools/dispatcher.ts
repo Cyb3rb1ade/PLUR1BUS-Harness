@@ -88,6 +88,9 @@ const clip = (s: string): string => (s.length > MAX_MESSAGE ? `${s.slice(0, MAX_
 const errMsg = (e: unknown): string => clip(e instanceof Error ? e.message : String(e));
 
 export class ToolDispatcher {
+  readonly #taintedTurns = new Set<string>();
+  #turnKey(ctx: DispatchContext): string { return JSON.stringify([ctx.principal, ctx.agentId, ctx.sessionId, ctx.turnId ?? ctx.sessionId]); }
+
   readonly #d: ToolDispatcherDeps;
   constructor(d: ToolDispatcherDeps) { this.#d = d; }
 
@@ -171,6 +174,8 @@ export class ToolDispatcher {
       if (ran.kind === "aborted") return out(fail("aborted", `${tool.name} was aborted`, via, {}, true));
       if (ran.kind === "failed") return out(fail("tool-failed", `${tool.name} failed: ${ran.message}`, via, ran.sourceCode ? { sourceCode: ran.sourceCode } : {}, true));
 
+      // Central taint producer: trust comes from registration/classification, never result payload claims.
+      if (tool.trust === 'untrusted' || /^(?:web\.|mcp\.|peer\.)/.test(tool.name) || (tool.capability === 'fs.read' && call.flags?.outsideRoots)) this.#taintedTurns.add(this.#turnKey(ctx));
       // 4. bounded, serialisable result. RULING: over the limit is an error, never a cut-off JSON value.
       let json: string | undefined;
       try { json = JSON.stringify(ran.value === undefined ? null : ran.value); } catch { json = undefined; }
@@ -213,7 +218,7 @@ export class ToolDispatcher {
     };
     try {
       // The hook is inside the guard: a hook that throws (a broken approval chain, an unwritable audit line) is a refusal, never an allow.
-      const context: Context = { ...baseCtx, ...(this.#d.policyContext?.(ctx) ?? {}) };
+      const context: Context = { ...baseCtx, ...(this.#d.policyContext?.(ctx) ?? {}), ...(this.#taintedTurns.has(this.#turnKey(ctx)) ? { taint: { tainted: true, readPrivate: true } } : {}) };
       try { return { decision: headlessGate(decide(call, context, { grants: this.#d.grants, clock: this.#d.clock }), context), context }; } // D5: a headless ask is a refusal, never a wait
       catch { return { decision: { kind: "deny", reason: "policy-never", rule: "evaluator-error" }, context }; } // fail closed
     } catch {

@@ -30,6 +30,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "remote", type: "object", tier: "advanced", help: "Remote exposure configuration (listener integration is separate)." },
   { key: "remote.publish", type: "string", tier: "advanced", help: "Requested exposure mode; never makes a listener public. Applying the remote-access listener plan is a separate integration." },
   { key: "activity.maxEntries", type: "integer", tier: "advanced", help: "Maximum retained agent activity transitions." },
+  { key: "tools.sandbox.required", type: "boolean", tier: "advanced", help: "Require OS sandbox for agent processes. Owner-only false explicitly permits unsandboxed execution, audited before each spawn." },
   { key: "tools.hostctl.enabled", type: "boolean", tier: "advanced", help: "Register local hostctl tools." },
   { key: "tools.hostctl.shell.allowed", type: "boolean", tier: "advanced", help: "Allow proc.shell after normal D109 approval." },
   { key: "tools.hostctl.shell.default", type: "string", tier: "advanced", help: "Shell executable; set pwsh on Windows." },
