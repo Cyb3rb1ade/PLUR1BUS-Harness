@@ -37,8 +37,6 @@ jobs:
           export GIT_CONFIG_COUNT=$n
           unset GH_ENGINE_READ_TOKEN base
           pnpm install --frozen-lockfile
-      - name: advisory gate (proposed owner threshold high)
-        run: pnpm audit --audit-level high
       - run: node scripts/release/third-party.mjs --check
       - run: pnpm gen
       - run: pnpm build
@@ -46,4 +44,7 @@ jobs:
         run: pnpm lint
         env:
           NODE_OPTIONS: --max-old-space-size=4096
-      - run: node --test scripts/release/test/portable-backup.test.mjs scripts/release/test/source-quality.test.mjs
+      - run: node --test scripts/release/test/portable-backup.test.mjs scripts/release/test/source-quality.test.mjs scripts/release/test/check-checklist.test.mjs
+      - run: node scripts/release/check-checklist.mjs --run-local
+      - name: advisory gate (proposed owner threshold high)
+        run: pnpm audit --audit-level high
