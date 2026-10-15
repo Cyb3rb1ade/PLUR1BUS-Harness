@@ -488,7 +488,7 @@ jobs:
           git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
       - run: pnpm install --frozen-lockfile
       - run: pnpm gen && pnpm --filter @plur1bus/documents build
-      - name: golden set visual diff (threshold: sha256-exact)
+      - name: "golden set visual diff (threshold: sha256-exact)"
         shell: bash
         env:
           PLUR1BUS_CHROMIUM_BIN: ${{ steps.chrome.outputs.chrome-path }}
