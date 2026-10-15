@@ -30,3 +30,7 @@ Local environment: macOS arm64, verified Node 24.21.0 tarball, pnpm frozen lockf
 - Phase 2 must establish native Linux arm64 and Windows arm64 smoke coverage; phase 1's unit matrix currently covers Linux x64, macOS arm64, Windows x64 only. Runner availability is not established by local tests.
 - Real Windows execution (including six mandatory named-pipe tests), Rust unit/clippy/docs gates and remaining downstream failures must be read from the PR's run. Do not infer them from these repairs.
 - Conflict hotspots: the unit lint/toolchain steps in `ci.yml`, toolchain entry-point guard, Python conformance fixtures. Keep D1's desktop workflow independent.
+
+## First own PR results (single read, 2026-10-15)
+
+Run 38761885193: Python Linux 3.11/3.13 and macOS 3.13 passed. Windows client offline and mandatory named-pipe gate now passed; the next provider-offline step exposed three native-path test assumptions on x64 and ARM. Fix only the tests: a Windows PATH fixture uses `.exe`; explicit-home resolution expects the native absolute path; native filesystem agent classification uses the actual platform/default-root convention. Shared synthetic POSIX/Windows vectors remain intact. Unit jobs were still running at that read; no success or three-run evidence inferred.
