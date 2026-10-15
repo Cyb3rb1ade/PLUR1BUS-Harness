@@ -44,7 +44,12 @@ test('MSIX stages actual inputs with required declarations and unsigned MakeAppx
 });
 
 test('Flatpak exports protocol/file associations and Tauri resource and helper layout', async () => {
-  const options = await fixture('flatpak'), plan = await stagePackageFormat(options);
+  const options = await fixture('flatpak');
+  options.hicolorDir=join(options.root,'hicolor');
+  await mkdir(join(options.hicolorDir,'scalable/apps'),{recursive:true});
+  await writeFile(join(options.hicolorDir,'scalable/apps/app.plur1bus.desktop.svg'),'<svg/>');
+  const plan = await stagePackageFormat(options);
+  assert.equal(await readFile(join(options.outDir,'payload/exports/hicolor/scalable/apps/app.plur1bus.desktop.svg'),'utf8'),'<svg/>');
   const manifest = JSON.parse(await readFile(plan.manifestPath, 'utf8'));
   assert.equal(manifest.runtime, 'org.gnome.Platform');
   assert.equal(manifest.sdk, 'org.gnome.Sdk');

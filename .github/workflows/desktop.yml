@@ -100,10 +100,12 @@ jobs:
         run: echo "PLUR1BUS_LIFECYCLE_REPORT=$RUNNER_TEMP/lifecycle-report.json" >> "$GITHUB_ENV"
       - name: Install UI test browser (Linux)
         if: runner.os == 'Linux'
-        run: pnpm --filter @plur1bus/desktop-ui exec playwright install --with-deps chromium --only-shell
+        run: node apps/desktop/scripts/ui-browser.mjs install --with-deps
       - name: Install UI test browser (macOS and Windows)
         if: runner.os != 'Linux'
-        run: pnpm --filter @plur1bus/desktop-ui exec playwright install chromium --only-shell
+        run: node apps/desktop/scripts/ui-browser.mjs install
+      - name: Verify pinned UI browser
+        run: node apps/desktop/scripts/ui-browser.mjs verify
       - run: pnpm --filter @plur1bus/desktop-ui build
       - run: pnpm --filter @plur1bus/desktop-ui test
       - run: cargo fmt --all -- --check
@@ -148,6 +150,16 @@ jobs:
         if: runner.os != 'Linux' && (success() || (failure() && steps.native-diagnostics.outcome == 'failure'))
         timeout-minutes: 10
         run: node apps/desktop/scripts/transport-spike.mjs
+      - name: Native deep-link startup and second-instance delivery (Linux)
+        if: runner.os == 'Linux'
+        timeout-minutes: 8
+        run: xvfb-run -a node apps/desktop/scripts/native-deeplink.mjs
+      - name: Native deep-link startup and second-instance delivery (macOS and Windows)
+        if: runner.os != 'Linux'
+        timeout-minutes: 8
+        run: node apps/desktop/scripts/native-deeplink.mjs
+      - name: Packaging script unit tests
+        run: node --test apps/desktop/scripts/test/*.test.mjs
       - name: Native transport observations
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0

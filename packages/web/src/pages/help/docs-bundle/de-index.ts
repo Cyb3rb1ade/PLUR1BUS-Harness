@@ -21,6 +21,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Container"
   },
   {
+    "slug": "desktop",
+    "title": "Desktop-Pakete und Migration"
+  },
+  {
     "slug": "einladungen",
     "title": "Personen einladen"
   },
@@ -81,6 +85,7 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "budgets": return import("./de/budgets.ts").then(m => m.doc);
     case "channels": return import("./de/channels.ts").then(m => m.doc);
     case "container": return import("./de/container.ts").then(m => m.doc);
+    case "desktop": return import("./de/desktop.ts").then(m => m.doc);
     case "einladungen": return import("./de/einladungen.ts").then(m => m.doc);
     case "extensions": return import("./de/extensions.ts").then(m => m.doc);
     case "freigaben": return import("./de/freigaben.ts").then(m => m.doc);
