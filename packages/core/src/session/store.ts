@@ -101,10 +101,13 @@ export class SessionStore {
     return (this.#db.prepare("SELECT memory FROM prompt_snapshots WHERE session_id=?").get(sessionId) as { memory: string }).memory;
   }
 
+  #transactionDepth = 0;
   #tx<T>(fn: () => T): T {
-    this.#db.exec("BEGIN IMMEDIATE");
-    try { const r = fn(); this.#db.exec("COMMIT"); return r; }
+    if (this.#transactionDepth) return fn();
+    this.#transactionDepth++;
+    try { this.#db.exec("BEGIN IMMEDIATE"); const r = fn(); this.#db.exec("COMMIT"); return r; }
     catch (e) { try { this.#db.exec("ROLLBACK"); } catch { /* already rolled back */ } throw mapSqlite(e); }
+    finally { this.#transactionDepth--; }
   }
   #get(sql: string, ...args: (string | number | null)[]): Row | undefined { return this.#db.prepare(sql).get(...args) as Row | undefined; }
   #all(sql: string, ...args: (string | number | null)[]): Row[] { return this.#db.prepare(sql).all(...args) as Row[]; }
@@ -258,6 +261,25 @@ export class SessionStore {
     });
     if (changed) this.#archived(id);
     return result;
+  }
+
+  restoreSession(id: string): SessionRecord {
+    const session = this.getSession(id);
+    if (!session) throw new SessionError("not-found", "session not found");
+    if (session.kind !== "direct") throw new SessionError("invalid", "only direct chats can be restored");
+    this.#run("UPDATE sessions SET archived_at=NULL,updated_at=? WHERE id=?",this.#clock(),id);
+    return this.getSession(id)!;
+  }
+
+  /** Fork messages in one transaction; replayed historical messages never capture memory again. */
+  forkSession(id: string, o: {title?: string; beforeSeq?: number} = {}): SessionRecord {
+    return this.#tx(() => {
+      const source=this.getSession(id);if(!source)throw new SessionError("not-found","session not found");
+      if(source.kind!=="direct")throw new SessionError("invalid","only direct chats can be forked");
+      const next=this.createSession({kind:"direct",agentId:source.agentId,owner:source.owner,title:o.title ?? source.title,memoryMode:source.memoryMode});
+      for(const message of this.listMessages(id).filter(m=>o.beforeSeq===undefined||m.seq<=o.beforeSeq))this.#insertMessage(next.id,null,message.role,message.text,message.tokens);
+      return this.getSession(next.id)!;
+    });
   }
 
   /** The explicit erasure path (stub, no RPC): refuses a session that is not archived, removes everything of it and
