@@ -2,6 +2,18 @@
 // Area catalogue registered lazily by the projects page chunk.
 
 export const en = {
+  "projects.handoff.title": "Agent hand-off",
+  "projects.handoff.untrusted": "Peer output · untrusted data",
+  "projects.handoff.status.consult": "Consultation",
+  "projects.handoff.status.delegate": "Delegation",
+  "projects.handoff.status.handoff": "Ownership transfer",
+  "projects.handoff.status.done": "Done",
+  "projects.handoff.status.done_with_concerns": "Done with concerns",
+  "projects.handoff.status.blocked": "Blocked",
+  "projects.handoff.status.needs_context": "Needs context",
+  "projects.handoff.status.declined": "Declined",
+  "projects.handoff.status.partial": "Partial result",
+
   // Default columns from Core backend
   "project.board.backlog": "Backlog",
   "project.board.inProgress": "In Progress",
@@ -113,6 +125,18 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "projects.handoff.title": "Agentenübergabe",
+  "projects.handoff.untrusted": "Peer-Ausgabe · nicht vertrauenswürdige Daten",
+  "projects.handoff.status.consult": "Beratung",
+  "projects.handoff.status.delegate": "Delegation",
+  "projects.handoff.status.handoff": "Verantwortungsübergabe",
+  "projects.handoff.status.done": "Erledigt",
+  "projects.handoff.status.done_with_concerns": "Erledigt mit Bedenken",
+  "projects.handoff.status.blocked": "Blockiert",
+  "projects.handoff.status.needs_context": "Kontext benötigt",
+  "projects.handoff.status.declined": "Abgelehnt",
+  "projects.handoff.status.partial": "Teilergebnis",
+
   // Default columns from Core backend
   "project.board.backlog": "Backlog",
   "project.board.inProgress": "In Arbeit",

@@ -3,7 +3,7 @@ import type { GuardrailReason } from "./errors.ts";
 export type ProjectRole = "member" | "lead";
 export type CollabKind = "consult" | "delegate";
 export type TaskStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
-export type SpanStatus = "running" | "succeeded" | "failed" | "cancelled" | "refused";
+export type SpanStatus = "partial" | "running" | "succeeded" | "failed" | "cancelled" | "refused";
 export type AgentState = "active" | "paused" | "archived";
 
 export interface CollabSettings {
@@ -47,6 +47,7 @@ export interface Provenance {
 }
 
 export interface ConsultAnswer {
+  status?: "done" | "partial";
   kind: "consult.answer";
   text: string;
   provenance: Provenance;
@@ -132,6 +133,7 @@ export interface CollabEvent {
 }
 
 export interface ConsultInput {
+  handoff?: import("./runner.ts").AgentRunInput["handoff"];
   principal: import("../rbac/types.ts").Principal;
   projectId: string;
   fromAgent: string;
@@ -146,6 +148,7 @@ export interface ConsultInput {
 }
 
 export interface DelegateInput {
+  handoff?: import("./runner.ts").AgentRunInput["handoff"];
   principal: import("../rbac/types.ts").Principal;
   projectId: string;
   fromAgent: string;
