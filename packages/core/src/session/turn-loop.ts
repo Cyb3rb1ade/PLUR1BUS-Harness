@@ -1,3 +1,4 @@
+import { runWithAgentScope, scopeFor } from "../agents/scope.ts";
 // The submit/event turn loop (ADR-010 L2): `submit` records the user's message and a running turn atomically and returns
 // at once; the turn then runs in the background, every step persisted as an ordered per-session event and relayed to
 // subscribers. recall once before, capture once after (acceptance 4); no memory loop of its own.
@@ -18,6 +19,7 @@ export interface TurnLoopLogger { info(msg: string, f?: Record<string, unknown>)
 
 export interface TurnRunnerDeps {
   catalog?: ReadCatalog;
+  workspace?: (agentId: string) => string;
   store: SessionStore; compactor: Compactor; memory: TurnMemory;
   /** null: no provider is configured (`submit` then fails with `no-provider` before anything is written). */
   provider: () => ChatProvider | null;
@@ -56,7 +58,7 @@ export class TurnRunner {
     this.#emit(event, a.session);
     const cancel = new AbortController();
     this.#cancels.set(turn.id, cancel);
-    const execute = () => withTrace(currentTrace() ?? newTrace(), () => this.#run(a.session, a.caller, a.text, turn.id, turn.incognito, provider, cancel.signal, a.approver, a.turnProfile, a.recurring));
+    const execute = () => runWithAgentScope(scopeFor(a.session.agentId, this.#d.workspace?.(a.session.agentId) ?? `agents/${a.session.agentId}/workspace`), () => withTrace(currentTrace() ?? newTrace(), () => this.#run(a.session, a.caller, a.text, turn.id, turn.incognito, provider, cancel.signal, a.approver, a.turnProfile, a.recurring)));
     const run = a.turnProfile ? voiceTurnContext.run(a.turnProfile, execute) : execute();
     this.#inflight.add(run); void run.finally(() => { this.#inflight.delete(run); this.#cancels.delete(turn.id); });
     return { turnId: turn.id, sessionId: a.session.id, messageId: message.id, done: run };
