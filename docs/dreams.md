@@ -36,7 +36,7 @@ by `hash(agentId, phase) % 1800 s` so many agents do not start together; at most
 | Circuit breaker | 3 LLM sessions per agent per UTC day across rem and deep; the 4th is not started, the run is `aborted`, the breaker stays open to the next UTC midnight | `breaker_sessions`, then `breaker_open` |
 | Minimum corpus | see Triggers | `min_corpus` |
 | Concurrency | 3 phase runs at once; a second run of the same agent and phase is refused | `already_running` |
-| Candidates | dedupe by content hash, 72 h expiry, utility gate (never `recalls = 0`; ≥ 3 recalls, ≥ 3 queries, score ≥ 0.75) with a gate-by-gate decision record. Inert until a candidate producer is wired (the pinned engine has none) | `no_candidates` |
+| Candidates | dedupe by content hash, 72 h expiry, utility gate (never `recalls = 0`; ≥ 3 recalls, ≥ 3 queries, score ≥ 0.75) with a gate-by-gate decision record. Producer: `packages/core/src/dreams/producer.ts` (`createCandidateSource`), driven by `Engine.memory.list` in production (content + optional score; never invents recalls/uniqueQueries). Pinned engine 1.12.0 has no recall/query stats API — KNOWN GAP, see Open points. Test: `packages/core/test/dreams/producer.test.ts` "Producer yields candidates against a fake engine." | `no_candidates` |
 | No LLM route | the engine's `no_llm_*` skip | `no_llm_route` |
 
 An engine job that fails, comes back `incomplete` or `abandoned`, or a diary the engine says it did not write, is recorded
@@ -48,7 +48,7 @@ price table exists).
 
 * Ledger: `<home>/state/dreams/dreams.db` (`node:sqlite`; tables `dream_run`, `dream_schedule`, `dream_candidate`; versioned
   migrations). Per-run logs: `<home>/state/dreams/<agentId>/<phase>/<runId>.log`. Retention: ledger rows 365 days, logs 30 days.
-* Code: `packages/core/src/dreams/` (`cron.ts`, `store.ts`, `candidates.ts`, `scheduler.ts`, `methods.ts`, `index.ts`).
+* Code: `packages/core/src/dreams/` (`cron.ts`, `store.ts`, `candidates.ts`, `producer.ts`, `scheduler.ts`, `methods.ts`, `index.ts`).
 
 ## CLI and RPC
 
@@ -59,10 +59,12 @@ plur1bus dreams log --agent A [--phase P]     the phase ledger; --run ID shows o
 plur1bus dreams schedule get --agent A
 plur1bus dreams schedule set <phase> --agent A [--cron "…"] [--timezone Z] [--enabled true|false]
 plur1bus dreams enable|disable <phase> --agent A
+plur1bus dreams diary --agent A               private diary (`dreaming.md`); owner or agent.manage; `--json`
 ```
 
 `dreams run <job>` with an engine job name (for example `gc-run`) and `dreams log --job` keep working as before. The RPC
-methods are `dreams.status|log|run|schedule.get|schedule.set|enable|disable` (experimental, `docs/rpc.md`).
+methods are `dreams.status|log|run|schedule.get|schedule.set|enable|disable|diary` (experimental, `docs/rpc.md`). `dreams.diary`
+is `agent.manage` on the agent; a viewer is denied. Test: `packages/core/test/dreams/methods.test.ts` "Diary only with the right (viewer sees nothing foreign)."
 
 ## Testing
 
@@ -147,24 +149,31 @@ input. Inner whitespace is **not** collapsed: `"a  b"`, `"a\nb"` and `"a b"` are
 * A run left open by a killed process is closed at the next start as `aborted / crashed`, including one of an agent that
   has left the registry. The in-flight marker is memory only, so `status` does not report such a run as running.
 * A crashed window is **retried once**, at the next start (cap `RETRY_CAP = 1`, `types.ts`): a crashed run that had a
-  scheduled instant (`cron` or `catchup`) of an agent that is still registered, whose phase is still enabled, and for which
-  no other run for that instant exists, is re-run with the **same `scheduledFor`** and `trigger = catchup` (no new trigger
-  value; the retry is recognised by sharing the instant with an `aborted / crashed` run). If the retry crashes as well, it is
-  not retried again; the corpus stays eligible for the next window, an importance trigger or a manual run. Crashed manual or
-  importance runs have no window and are not retried, nor are runs of removed agents or disabled phases. A phase that is
-  catching up anyway at that start covers the retry. The normal guards apply to the retry (idempotency, minimum corpus).
+  scheduled instant (`cron` or `catchup`) of an agent that is still registered, whose phase is still enabled, whose
+  `scheduledFor` is not older than `RETRY_MAX_AGE_MS` (24 h; `clock.now() - scheduledFor > bound` refuses, so exactly 24 h
+  still retries), and for which no other run for that instant exists, is re-run with the **same `scheduledFor`** and
+  `trigger = catchup` (no new trigger value; the retry is recognised by sharing the instant with an `aborted / crashed`
+  run). If the retry crashes as well, it is not retried again; the corpus stays eligible for the next window, an importance
+  trigger or a manual run. Crashed manual or importance runs have no window and are not retried, nor are runs of removed
+  agents or disabled phases, nor a window older than the age bound. A phase that is catching up anyway at that start covers
+  the retry. The normal guards apply to the retry (idempotency, minimum corpus). Clock is injected (no sleeps).
   Tests: `scheduler-time.test.ts > a crashed window is retried once at the next start ...`,
-  `> the retry is capped at one ...`, `> a crashed manual or importance run ... is not retried ...`;
+  `> the retry is capped at one ...`, `> a crashed window older than RETRY_MAX_AGE_MS is not retried`,
+  `> a crashed manual or importance run ... is not retried ...`;
   `store.test.ts > windowRuns lists the runs of one agent, phase and scheduled instant ...`.
 * A disabled phase has no next run, gets no cron run and no catch-up; enabling it recomputes the next run from now (no
   burst of missed runs). Enabling an enabled phase keeps its stored next run.
-* RPC (`methods.ts`): `dreams.run`, `dreams.schedule.*`, `dreams.enable` and `dreams.disable` check the registry through
+* RPC (`methods.ts`): `dreams.run`, `dreams.schedule.*`, `dreams.enable`, `dreams.disable` and `dreams.diary` check the registry through
   `requireAgent` first and have no effect on an unregistered agent; `dreams.status` and `dreams.log` do the same only when
   an `agentId` is given. A stopped scheduler answers `E_NOT_AVAILABLE`
   (`reason: "dreams-unavailable"`, plus `detail` when a cause is known). `dreams.schedule.set` validates before writing and
   maps a bad cron or timezone to `E_INVALID_PARAMS` with `detail: "cron"` or `"timezone"`; the row stays unchanged.
   `dreams.log` with an unknown `runId` is `E_NOT_FOUND`. A failing engine job is an answered run (`failed`), not an RPC
-  error. `dryRun` writes no ledger row and calls no engine job. Tests: `methods.test.ts` (all `describe` blocks).
+  error. `dryRun` writes no ledger row and calls no engine job. `dreams.diary` reads `dreaming.md` (capped at 262 144 bytes,
+  redacted); unlimited diary retention is unchanged. Tests: `methods.test.ts` (all `describe` blocks).
+* Doctor (`1staid check` id `dreams.last-runs`, append-only after `models.roles`): last run per phase and agent, error
+  state, missed windows (`enabled && nextRunAt <= now`). Injectable clock (`Env.now`). Test: `doctor_reports_a_missed_window`
+  in `crates/plur1bus/src/commands/firstaid.rs`.
 
 ### Open points (Offene Punkte)
 
@@ -178,7 +187,14 @@ Fixed in the 2026-10-14 consistency wave (test references above):
 4. **A returning agent fires its stale window as `catchup`**: fixed.
 5. **Schedule rows of removed agents** are deleted at the next start (and by `forgetAgent`): fixed.
 6. **`finishRun` UNIQUE conflict** is a defined `E_CONFLICT`: fixed.
-7. **Crashed window** is retried once (`RETRY_CAP = 1`): fixed.
+7. **Crashed window** is retried once (`RETRY_CAP = 1`): fixed. Age bound `RETRY_MAX_AGE_MS` (24 h) added:
+   `scheduler-time.test.ts > a crashed window older than RETRY_MAX_AGE_MS is not retried`.
+8. **Candidate producer** ships (`packages/core/src/dreams/producer.ts`); test
+   `packages/core/test/dreams/producer.test.ts` "Producer yields candidates against a fake engine." Production wiring maps
+   `Engine.memory.list` content (+ optional score) and never invents recalls/uniqueQueries.
+9. **`plur1bus dreams diary`** / RPC `dreams.diary` (agent.manage, redacted, `--json`):
+   `methods.test.ts` "Diary only with the right (viewer sees nothing foreign)."
+10. **Doctor check** `dreams.last-runs`: `doctor_reports_a_missed_window` in `crates/plur1bus/src/commands/firstaid.rs`.
 
 Still open (deliberately):
 
@@ -186,3 +202,7 @@ Still open (deliberately):
   the next start. Wiring needs the composition root, which this change did not touch.
 * The retry is not distinguishable from a normal catch-up in the ledger's trigger column (it shares `scheduledFor` with the
   crashed run). A dedicated trigger value would need a schema, wire-format and web-string change.
+* **KNOWN GAP (engine):** pinned engine contract 1.12.0 `Engine.memory.list` yields `MemoryCard` text and an optional
+  topic-search score, not recall counts or unique-query stats. The producer does not fake scoring. Owner question: attach
+  the content-only producer now (deep then skip/`no_candidates`, fail closed) — done on this branch — or wait for an engine
+  stats API before wiring production? The module is driven by a fake engine in tests either way.
