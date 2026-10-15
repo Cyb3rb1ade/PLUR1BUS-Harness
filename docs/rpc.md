@@ -6495,6 +6495,86 @@ Stages the consistent, engine-owned part of a backup (plur1bus backup create): t
 }
 ```
 
+### `logs.levels`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Reads or updates the live per-source log-level snapshot (D111). Takes effect immediately; does not persist to config.json (a restart restores core.logLevel). Owner/Admin only (RBAC action logs.query). Empty params return the current snapshot. A provided levels map is merged into the live overrides; unset removes named overrides and restores inheritance. Any trace level needs a future traceUntil at most 24 hours ahead (E_INVALID_PARAMS reason=invalid-level).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "defaultLevel": {
+      "$ref": "#/$defs/LogLevel",
+      "description": "Live global default (core.logLevel in this process). Omitted: unchanged."
+    },
+    "levels": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/LogLevel"
+      },
+      "maxProperties": 256,
+      "description": "Per-source live overrides to merge. Keys are source keys (`kind` or `kind:id`)."
+    },
+    "unset": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LogSourceKey"
+      },
+      "maxItems": 256,
+      "description": "Source keys whose live override is removed."
+    },
+    "traceUntil": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 40,
+      "description": "RFC 3339 UTC expiry for any trace level; null clears it. E_INVALID_PARAMS reason=bad-timestamp when set and malformed."
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "defaultLevel",
+    "levels",
+    "traceUntil"
+  ],
+  "properties": {
+    "defaultLevel": {
+      "$ref": "#/$defs/LogLevel"
+    },
+    "levels": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/LogLevel"
+      },
+      "maxProperties": 256
+    },
+    "traceUntil": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "RFC 3339 UTC; null when no trace expiry is armed."
+    }
+  }
+}
+```
+
 ### `logs.query`
 
 **Stability:** experimental · since 1.5.0
@@ -19368,6 +19448,16 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "error",
     "fatal"
   ]
+}
+```
+
+### `LogSourceKey`
+
+```json
+{
+  "type": "string",
+  "pattern": "^(harness|extension|provider|model|cli|channel|host|desktop|os)(:[a-z0-9][a-z0-9._@/-]{0,127})?$",
+  "description": "`<kind>` or `<kind>:<id>` for logs.levels and filters."
 }
 ```
 
