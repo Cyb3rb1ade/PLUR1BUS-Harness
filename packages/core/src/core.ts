@@ -600,7 +600,7 @@ export function createCore(o: CoreOptions): Core {
         present: () => existsSync(approvalsDbPath(l.home)),
         verify: async () => (await perms.open()).service.verify(),
       }));
-      void systemJobs.run("approvals.integrity", {}, { trigger: "harness" }).catch(err => logger.warn("approvals.integrity at start failed", { err }));
+      void systemJobs.run("approvals.integrity", {}, { trigger: "harness" }).catch(err => log.warn("approvals.integrity at start failed", { err }));
       try { turnComposition = await openTurnComposition({ home: l.home, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
         voiceConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal, secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
         // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or
