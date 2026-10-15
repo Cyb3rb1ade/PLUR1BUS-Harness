@@ -4,6 +4,7 @@
 import type { BreakGlassNotice } from "../rbac/break-glass.ts";
 import { breakglassDraft } from "./migrate.ts";
 import type { InboxPort } from "./service.ts";
+import { DEFAULTS } from "../policy/capabilities.ts";
 
 import { looksLikeToken } from "../rpc/channel-surface.ts";
 
@@ -65,4 +66,21 @@ export function channelToInbox(port: InboxPort, message: string, fields: unknown
 export function breakglassToInbox(port: InboxPort, n: BreakGlassNotice): void {
   const { userId, ...rest } = breakglassDraft(n);
   port.publish({ userId, ...rest });
+}
+
+/** Always-grants older than 90 days: one system inbox item for that person, never audience all. A second run is a no-op (dedupeKey). */
+export function alwaysGrantsToInbox(
+  port: InboxPort,
+  grants: readonly { id: string; person: string; agent: string; capability: string; scope: string; createdAt: number }[],
+  now: number,
+): void {
+  for (const g of grants) {
+    if (g.scope !== "always" || now - g.createdAt < DEFAULTS.reviewNudgeAgeMs) continue;
+    if (typeof g.person !== "string" || g.person === "") continue;
+    port.publish({
+      userId: g.person, kind: "system", severity: "info", titleKey: "inbox.grant.alwaysReview",
+      params: { capability: param(g.capability), agent: param(g.agent) },
+      ref: { route: "/grants", objectId: g.id }, dedupeKey: `grant-always:${g.id}`,
+    });
+  }
 }

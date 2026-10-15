@@ -7,7 +7,7 @@ import { createD111Events } from "./discovery/events-logger.ts";
 import { createPinnedClient } from "./discovery/http.ts";
 import type { DiscoveryProviderDefinition } from "./discovery/real-adapters.ts";
 import { randomBytes, randomUUID } from "node:crypto";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
 import type { Engine, EngineStatus, HostServices, ModelsStatus } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import type { HarnessConfig } from "@plur1bus/config-schema";
@@ -54,7 +54,7 @@ import { agentExportSigner, exportSecretCanaries } from "./agents/signing.ts";
 import { buildAdminSurface } from "./rpc/admin-surface.ts";
 import { deliverBreakglassNotice } from "./rpc/breakglass-notices.ts";
 import { openInbox, lateInboxPort, type InboxComposition } from "./composition/inbox.ts";
-import { approvalToInbox, jobFailedToInbox, pairingToInbox, channelToInbox, breakglassToInbox, buildInboxSurface, deliverInboxChange } from "./inbox/index.ts";
+import { alwaysGrantsToInbox, approvalToInbox, jobFailedToInbox, pairingToInbox, channelToInbox, breakglassToInbox, buildInboxSurface, deliverInboxChange } from "./inbox/index.ts";
 import { sessionUsage } from "./rpc/session-usage.ts";
 import { breakglassMemory } from "./rpc/breakglass-memory.ts";
 import { sessionWriteAccess } from "./rpc/session-access.ts";
@@ -91,8 +91,10 @@ import { createAuditWriter } from "./identity/audit.ts";
 import { createAuditChain, teeAuditSinks, type AuditChain } from "./audit/chain.ts";
 import { createIdentityService, type IdentityService } from "./identity/service.ts";
 import { approvalsDbPath } from "./approvals/db.ts";
-import { secretStoreKeySource } from "./approvals/keys.ts";
+import { secretStoreKeySource, secretStoreSigningKeySource } from "./approvals/keys.ts";
+import { armApprovalsIntegrity, createApprovalsIntegrityJob } from "./approvals/integrity-job.ts";
 import { createPermissionNotifier, type PermissionNotifier } from "./approvals/notify.ts";
+import { grantRecordOf } from "./approvals/wire.ts";
 import { openChannelSwitchboard } from "./channels/core-host.ts";
 import type { Switchboard } from "./channels/switchboard.ts";
 import { createPermissionRuntime, type PermissionRuntime } from "./approvals/runtime.ts";
@@ -585,10 +587,34 @@ export function createCore(o: CoreOptions): Core {
       permissions = createPermissionRuntime({
         maxGrantDays: () => cfg().approvals?.maxGrantDays ?? 90,
         // The switchboard sees approval requests next to the RPC notifier: a channel chat shows its own prompt.
-        dbPath: approvalsDbPath(l.home), keys: secretStoreKeySource(secretStore), clock: { now: clock }, events: { emit: (n, p) => { notifier.events.emit(n, p); board.approvalEvents.emit(n, p); approvalToInbox(inboxPort, n, p); } },
+        dbPath: approvalsDbPath(l.home), keys: secretStoreKeySource(secretStore), signing: secretStoreSigningKeySource(secretStore), clock: { now: clock }, events: { emit: (n, p) => { notifier.events.emit(n, p); board.approvalEvents.emit(n, p); approvalToInbox(inboxPort, n, p); } },
         audit: createPolicyAudit({ sink: rbacAudit, clock: { now: clock } }), securePath: platform.securePath,
+        onOpen: (p) => {
+          p.grants.setNotify((change, grant, state) => notifier.grantChanged(change, grantRecordOf(grant, state)));
+          alwaysGrantsToInbox(inboxPort, p.grants.inspect().map((v) => v.grant), clock());
+        },
       });
       const perms = permissions;
+      systemJobs.register(createApprovalsIntegrityJob({
+        clock: { now: clock },
+        present: () => existsSync(approvalsDbPath(l.home)),
+        verify: async () => (await perms.open()).service.verify(),
+        onOk: () => {
+          const p = perms.current();
+          if (!p) return;
+          p.grants.announceDue();
+          alwaysGrantsToInbox(inboxPort, p.grants.inspect().map(v => v.grant), clock());
+        },
+      }));
+      void systemJobs.run("approvals.integrity", {}, { trigger: "harness" }).catch(err => log.warn("approvals.integrity at start failed", { err }));
+      armApprovalsIntegrity(systemJobs, {
+        now: clock,
+        setTimer: (fn, ms) => {
+          const t = setTimeout(() => { void fn(); }, ms);
+          t.unref?.();
+          return t;
+        },
+      });
       try { turnComposition = await openTurnComposition({ home: l.home, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
         voiceConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal, secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
         // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or
@@ -735,6 +761,7 @@ export function createCore(o: CoreOptions): Core {
           requireOsConfirmation: () => cfg().approvals?.requireOsConfirmation ?? true,
           attester: o.attestation?.attester ?? createAttestationService({ helper: o.attestation?.helper !== undefined ? o.attestation.helper : helperFromEnv(process.env), audit: createPolicyAudit({ sink: rbacAudit, clock: { now: clock } }), now: clock }),
           requireAgent: (agentId) => { requireAgent(registry, agentId); }, notify: { grantChanged: notifier.grantChanged, confirmationChanged: notifier.confirmationChanged },
+          onGrantsInspected: (grants, now) => alwaysGrantsToInbox(inboxPort, grants, now),
         },
         }),
         ...(sessions?.methods ?? {}),
@@ -759,7 +786,7 @@ export function createCore(o: CoreOptions): Core {
       rawMethods["agent.status"] = async (p, ctx) => { if (lifecycle.state(p.agentId).deleted) throw new RpcError("E_NOT_FOUND", "agent not found"); return { ...await agentStatus!(p,ctx) as object, lifecycle: lifecycle.state(p.agentId) }; };
       Object.assign(rawMethods, breakglassMemory({ methods: rawMethods, engine: eng, identity: identityService, breakglass, workspace: id => registry.workspaceOf(id) }));
       let initialDoctorCheck: (() => Promise<unknown>) | undefined;
-      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, scheduleInitial: start => { initialDoctorCheck = start; } }));
+      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, sandboxRequired: () => cfg().tools.sandbox.required, scheduleInitial: start => { initialDoctorCheck = start; } }));
       Object.assign(rawMethods, attachUserJobMethods({ ...rawMethods }, userJobs, resolvePrincipal));
       const methods = guardMethods(apiAdmission(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: AGENT_CREATION_RULES });
       server = createRpcServer({

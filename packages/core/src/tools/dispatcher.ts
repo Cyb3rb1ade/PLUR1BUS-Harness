@@ -6,13 +6,13 @@ import type { PolicyAudit, PolicyAuditFields } from "../policy/audit.ts";
 import { headlessGate } from "../policy/headless.ts";
 import type { ApprovalAnswer, ApprovalAsk, ApprovalPort } from "./approval.ts";
 import { repairMessage, validateArgs, type RepairHook, type ValidationIssue } from "./repair.ts";
-import type { RegisteredTool, ToolRegistry, ToolTrust } from "./registry.ts";
+import type { RegisteredTool, ToolClassification, ToolRegistry, ToolTrust } from "./registry.ts";
 
 /** Arguments are bounded before they are validated or hashed. */
 export const MAX_ARGS_BYTES = 256 * 1024;
 const MAX_MESSAGE = 500;
 
-export interface ToolCallRequest { id: string; name: string; args: unknown }
+export interface ToolCallRequest { id: string; name: string; args: unknown; reason?: string; diff?: string }
 
 export interface DispatchContext {
   agentId: string;
@@ -88,6 +88,9 @@ const clip = (s: string): string => (s.length > MAX_MESSAGE ? `${s.slice(0, MAX_
 const errMsg = (e: unknown): string => clip(e instanceof Error ? e.message : String(e));
 
 export class ToolDispatcher {
+  readonly #taintedTurns = new Set<string>();
+  #turnKey(ctx: DispatchContext): string { return JSON.stringify([ctx.principal, ctx.agentId, ctx.sessionId, ctx.turnId ?? ctx.sessionId]); }
+
   readonly #d: ToolDispatcherDeps;
   constructor(d: ToolDispatcherDeps) { this.#d = d; }
 
@@ -122,8 +125,12 @@ export class ToolDispatcher {
 
       // 2. policy gate.
       let call: Call;
-      try { call = await this.#buildCall(tool, args); }
-      catch (e) { // RULING: a tool whose classify() throws is refused, never allowed
+      let classified: ToolClassification | undefined;
+      try {
+        const built = await this.#buildCall(tool, args);
+        call = built.call;
+        classified = built.classified;
+      } catch (e) { // RULING: a tool whose classify() throws is refused, never allowed
         this.#auditSoft("policy.decision", { ...this.#who(ctx, undefined), tool: tool.name, capability: tool.capability, outcome: "never", rule: "classify-failed" });
         return fail("tool-denied", `the call could not be classified: ${errMsg(e)}`, "deny");
       }
@@ -162,11 +169,13 @@ export class ToolDispatcher {
       if (ctx.signal.aborted) return out(fail("aborted", "the call was aborted before it ran", via));
 
       // 3. execute under the tool's own hard limits and the caller's abort.
-      const ran = await this.#run(tool, args, ctx);
+      const ran = await this.#run(tool, args, ctx, classified);
       if (ran.kind === "timeout") return out(fail("tool-timeout", `${tool.name} exceeded its ${tool.limits.timeoutMs} ms limit`, via, {}, true));
       if (ran.kind === "aborted") return out(fail("aborted", `${tool.name} was aborted`, via, {}, true));
       if (ran.kind === "failed") return out(fail("tool-failed", `${tool.name} failed: ${ran.message}`, via, ran.sourceCode ? { sourceCode: ran.sourceCode } : {}, true));
 
+      // Central taint producer: trust comes from registration/classification, never result payload claims.
+      if (tool.trust === 'untrusted' || /^(?:web\.|mcp\.|peer\.)/.test(tool.name) || (tool.capability === 'fs.read' && call.flags?.outsideRoots)) this.#taintedTurns.add(this.#turnKey(ctx));
       // 4. bounded, serialisable result. RULING: over the limit is an error, never a cut-off JSON value.
       let json: string | undefined;
       try { json = JSON.stringify(ran.value === undefined ? null : ran.value); } catch { json = undefined; }
@@ -182,13 +191,23 @@ export class ToolDispatcher {
     }
   }
 
-  async #buildCall(tool: RegisteredTool, args: unknown): Promise<Call> {
+  async #buildCall(tool: RegisteredTool, args: unknown): Promise<{ call: Call; classified?: ToolClassification }> {
     const c = await tool.classify?.(args);
     // RULING: absent an explicit classification the call counts as outside the roots (fail closed: approval for anything above a read).
     const flags: CallFlags = { outsideRoots: true, denyListHit: false, ...(c?.flags ?? {}) };
     const targets = c?.targets ? [...c.targets] : undefined;
-    const hash = createHash("sha256").update(canonicalJson({ capability: tool.capability, tool: tool.name, args, targets: targets ?? [] })).digest("hex");
-    return { capability: tool.capability, tool: tool.name, effect: tool.effect, flags, ...(targets ? { targets } : {}), ...(c?.access ? { access: c.access } : {}), actionHash: hash };
+    const hash = createHash("sha256").update(canonicalJson({
+      capability: tool.capability, tool: tool.name, args, targets: targets ?? [],
+      ...(c?.hashExtra ? { hashExtra: c.hashExtra } : {}),
+    })).digest("hex");
+    return {
+      call: {
+        capability: tool.capability, tool: tool.name, effect: tool.effect, flags,
+        ...(targets ? { targets } : {}), ...(c?.access ? { access: c.access } : {}),
+        actionHash: hash,
+      },
+      ...(c ? { classified: c } : {}),
+    };
   }
 
   /** The decision and the exact context it was made under (the approval request is bound to the same context). */
@@ -199,7 +218,7 @@ export class ToolDispatcher {
     };
     try {
       // The hook is inside the guard: a hook that throws (a broken approval chain, an unwritable audit line) is a refusal, never an allow.
-      const context: Context = { ...baseCtx, ...(this.#d.policyContext?.(ctx) ?? {}) };
+      const context: Context = { ...baseCtx, ...(this.#d.policyContext?.(ctx) ?? {}), ...(this.#taintedTurns.has(this.#turnKey(ctx)) ? { taint: { tainted: true, readPrivate: true } } : {}) };
       try { return { decision: headlessGate(decide(call, context, { grants: this.#d.grants, clock: this.#d.clock }), context), context }; } // D5: a headless ask is a refusal, never a wait
       catch { return { decision: { kind: "deny", reason: "policy-never", rule: "evaluator-error" }, context }; } // fail closed
     } catch {
@@ -215,6 +234,7 @@ export class ToolDispatcher {
       subjectKind: context.subject.kind, turnId: ctx.turnId ?? req.id,
       ...(context.taskId ?? ctx.taskId ? { taskId: (context.taskId ?? ctx.taskId)! } : {}), ...(context.projectId ? { projectId: context.projectId } : {}),
       ...(call.targets ? { targets: call.targets } : {}), ...(call.access ? { access: call.access } : {}),
+      ...(typeof req.reason === "string" ? { reason: req.reason } : {}), ...(typeof req.diff === "string" ? { diff: req.diff } : {}),
     };
     const pending = this.#d.approvals.request(ask).then((a) => a, (e: unknown) => ({ approved: false, reason: `approval failed: ${errMsg(e)}` } as ApprovalAnswer));
     const r = await raceAbort(pending, ctx.signal);
@@ -264,7 +284,7 @@ export class ToolDispatcher {
     return r;
   }
 
-  #run(tool: RegisteredTool, args: unknown, ctx: DispatchContext): Promise<{ kind: "ok"; value: unknown } | { kind: "timeout" } | { kind: "aborted" } | { kind: "failed"; message: string; sourceCode?: string }> {
+  #run(tool: RegisteredTool, args: unknown, ctx: DispatchContext, classified?: ToolClassification): Promise<{ kind: "ok"; value: unknown } | { kind: "timeout" } | { kind: "aborted" } | { kind: "failed"; message: string; sourceCode?: string }> {
     const timers = this.#d.timers ?? realTimers;
     const ac = new AbortController();
     return new Promise((resolve) => {
@@ -273,7 +293,7 @@ export class ToolDispatcher {
       const onAbort = (): void => { finish({ kind: "aborted" }); ac.abort(ctx.signal.reason); };
       const cancel = timers.set(() => { finish({ kind: "timeout" }); ac.abort(new Error("timeout")); }, tool.limits.timeoutMs);
       ctx.signal.addEventListener("abort", onAbort, { once: true });
-      Promise.resolve().then(() => tool.execute(args, { signal: ac.signal, agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}) }))
+      Promise.resolve().then(() => tool.execute(args, { signal: ac.signal, agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), ...(classified ? { classified } : {}) }))
         .then((value) => finish({ kind: "ok", value }), (e: unknown) => { const sourceCode = e && typeof e === "object" && "code" in e && typeof e.code === "string" && /^[a-z0-9_.-]{1,64}$/.test(e.code) ? e.code : undefined; finish({ kind: "failed", message: errMsg(e), ...(sourceCode ? { sourceCode } : {}) }); });
     });
   }

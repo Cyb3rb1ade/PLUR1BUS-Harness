@@ -281,6 +281,24 @@
       "additionalProperties": false,
       "default": {},
       "properties": {
+        "sandbox": {
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "required": {
+              "type": "boolean",
+              "default": true,
+              "description": "Require OS sandbox for agent processes. Owner-only false explicitly permits unsandboxed execution, audited before each spawn.",
+              "x-tier": "advanced",
+              "x-restart": "core",
+              "x-write-roles": [
+                "owner"
+              ],
+              "x-audit": true
+            }
+          }
+        },
         "hostctl": {
           "description": "Local computer-control tools, gated by D109. No remote listener.",
           "type": "object",
