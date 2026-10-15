@@ -67,8 +67,8 @@ test("real network TLS enforces certificate pin, socket allowlist and live stage
   try { assert.equal(denied.state.phase, "active"); await assert.rejects(pinnedGet(port, denied.state.fingerprint!)); } finally { await denied.close(); }
 });
 test("network without current notice or valid TLS never invokes bind; invalid config cannot broaden exposure", async t => {
-  for (const variant of ["notice", "http", "company", "public"] as const) {
-    let creates = 0; const c = config("network"); const runtime = await startRemoteRuntime({ home: home(t), config: variant === "company" ? { ...c, tls: "company-ca" } : c, publicOrigin: variant === "http" ? "http://localhost:9443" : "https://localhost:9443", ...(variant === "notice" ? {} : { noticeAck: ack }), localPort: 3001, hostInterfaces: [{ name: "fixture", address: variant === "public" ? "203.0.113.1" : "192.168.1.20" }], createApi: () => { creates++; throw new Error("unexpected listener"); } }); assert.equal(creates, 0); assert.equal(runtime.state.phase, "failed");
+  for (const variant of ["notice", "http", "company", "public", "port"] as const) {
+    let creates = 0; const c = { ...config("network"), ...(variant === "port" ? { bind: { port: 9555 } } : {}) }; const runtime = await startRemoteRuntime({ home: home(t), config: variant === "company" ? { ...c, tls: "company-ca" } : c, publicOrigin: variant === "http" ? "http://localhost:9443" : "https://localhost:9443", ...(variant === "notice" ? {} : { noticeAck: ack }), localPort: 3001, hostInterfaces: [{ name: "fixture", address: variant === "public" ? "203.0.113.1" : "192.168.1.20" }], createApi: () => { creates++; throw new Error("unexpected listener"); } }); assert.equal(creates, 0); assert.equal(runtime.state.phase, "failed");
   }
   await assert.rejects(startRemoteRuntime({ home: home(t), config: { ...config("network"), publish: "funnel" } as unknown as RemoteConfig, localPort: 3001, createApi: () => { throw new Error("unexpected listener"); } }), /invalid remote exposure/);
 });
@@ -77,3 +77,4 @@ test("startup config uses tailnet and remote MFA defaults; rejects unknown expos
   writeFileSync(join(dir, "config.json"), JSON.stringify({ remote: { publish: "local" }, auth: { requireSecondFactor: "always" } })); assert.equal(loadRemoteStartup(dir).requireSecondFactor, "always");
   writeFileSync(join(dir, "config.json"), JSON.stringify({ remote: { publish: "network", funnel: true } })); assert.throws(() => loadRemoteStartup(dir), /invalid remote exposure/);
 });
+test.todo("KNOWN GAP: native Tailscale Serve, CA-verified edge and desktop pairing acceptance require a disposable joined host");

@@ -1,3 +1,5 @@
+import { buildRemoteHandlers } from "../src/remote-config-routes.ts";
+import { buildRemotePairingHandlers } from "../src/remote-pairing-routes.ts";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { FakeClock } from "../src/clock.ts";
@@ -31,7 +33,7 @@ function rig(over: Partial<HandlerDeps> = {}): Rig {
   const events: Rig["events"] = [];
   const emit = audit.emit;
   d.audit = { emit: (a, actor, target, detail) => { events.push({ action: a, target, detail: { actor, ...detail } }); emit(a, actor, target, detail); } };
-  return { d, h: buildHandlers(d) as Rig["h"], clock, sessions, events, logs };
+  return { d, h: { ...buildHandlers(d), ...buildRemoteHandlers({ core: d.core, now: () => clock.now() }), ...buildRemotePairingHandlers(undefined) } as Rig["h"], clock, sessions, events, logs };
 }
 
 function inp(over: Partial<HandlerInput> = {}): HandlerInput {

@@ -141,6 +141,7 @@ export async function startRemoteRuntime(o: {
     const plan = planListeners(config, { apiPort: o.localPort, tlsPort: origin.port ? Number(origin.port) : 443, hostInterfaces: addresses, tlsReady: true, noticeAck: o.noticeAck });
     if (!plan.ok) return fail(plan.refusals[0]?.code ?? "remote.network-plan", "Network listener plan refused the configured interface, port or notice. Review the remote configuration.");
     const bind = plan.listeners.find(l => l.id === "api-tls")!;
+    if (bind.port !== (origin.port ? Number(origin.port) : 443)) return fail("remote.origin-port", "The HTTPS public origin and network listener port must match; no remote listener opened.");
     const allowed = compileAllowlist(config.allowSubnets); if (!allowed.ok) return fail("remote.allowlist-invalid", "Client subnet allowlist contains an invalid CIDR; no remote listener opened.");
     api = o.createApi({ host: bind.address, port: bind.port, tls: { key: material.key, cert: material.cert }, remote: { publish: "network", publicOrigin: origin.origin, allowSubnets: config.allowSubnets, ...(o.noticeAck ? { noticeAck: o.noticeAck } : {}) } });
     api.server.on("connection", socket => { if (!admitSocket(allowed.list, socket)) socket.destroy(); }); await api.listen();

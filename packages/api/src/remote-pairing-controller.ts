@@ -2,10 +2,10 @@ import { dirname } from "node:path";
 // Pairing bootstrap is deliberately separate from cookie authentication. It can only redeem a grant opened by an
 // authenticated Owner/Admin, over the configured TLS origin, after certificate proof or a reviewed tailnet QR tag.
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import { existsSync, readFileSync, mkdirSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { PairCodeStore, buildPairingOffer, offerTag, encodePairingLink, qrData, handlePairProof, createProofLimiter, initTrust, stageTrust, switchTrust, cancelTrust, ackTrust, announcementFor, trustProgress, trustNextEvent, trustForNewPairing, parseTrust, serializeTrust, pinsEqual, parsePin, type Pin, type Anchor, type TrustState, type SignedOffer, type TrustDevice, type PublishMode, type TlsMode, type TrustNextEvent } from "../../remote-access/src/index.ts";
 import type { Device } from "../../remote-access/src/device-store.ts";
-import { privateAtomicJson } from "./remote-certificates.ts";
+import { privateAtomicJson, readPrivateText } from "./remote-certificates.ts";
 import type { HandlerInput } from "./routes.ts";
 import type { CoreRpc } from "./core-rpc.ts";
 import { authorize, type AuditSink } from "./rbac-bridge.ts";
@@ -40,7 +40,7 @@ export class RemotePairingController {
  private receipts=new Map<string,Receipt>(); private challenges=new Map<string,Challenge>();private proofLimiter=createProofLimiter();private stored?:StoredTrust;
  private queue:Promise<unknown>=Promise.resolve();
  constructor(options:RemotePairingOptions){this.options=options;this.codes=options.codes??new PairCodeStore({});
-  if(existsSync(options.trustFile)){const raw=JSON.parse(readFileSync(options.trustFile,"utf8")) as StoredTrust;const parsed=parseTrust(serializeTrust(raw.state));if(raw.version!==1||!parsed.ok)throw new Error("remote trust state unavailable");this.stored={...raw,state:parsed.state};}
+  const privateTrust=readPrivateText(options.trustFile);if(privateTrust!==undefined){const raw=JSON.parse(privateTrust) as StoredTrust;const parsed=parseTrust(serializeTrust(raw.state));if(raw.version!==1||!parsed.ok)throw new Error("remote trust state unavailable");this.stored={...raw,state:parsed.state};}
  }
  private serial<T>(fn:()=>Promise<T>):Promise<T>{const result=this.queue.then(fn);this.queue=result.catch(()=>{});return result;}
  private audit(action:string,actor:string,detail:Record<string,unknown>={}){this.options.audit.append({at:this.options.now(),actor:{user:actor,host:"api"},action,target:"remote-pairing",detail});}

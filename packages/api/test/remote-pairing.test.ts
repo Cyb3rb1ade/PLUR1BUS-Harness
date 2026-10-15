@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, chmodSync, writeFileSync, symlinkSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { generateKeyPairSync, sign } from "node:crypto";
@@ -84,4 +84,10 @@ test("Viewer cannot write device trust even when the device belongs to that View
 });
 test("failed audit sink prevents grant opening, proof and trust mutation",async t=>{
  const f=fixture(t);f.options.audit={events:[],append:()=>{throw Error("audit unavailable");}};await assert.rejects(f.controller.offer(f.input()));assert.equal(f.controller.codes.open(f.options.now()).length,0);await assert.rejects(f.controller.rotate(f.input({operation:"stage"})));assert.equal(f.calls.length,0);
+});
+
+for(const malformed of ["symlink","public-file","oversize"] as const)test(`private trust constructor refuses ${malformed}`,{skip:process.platform==="win32"&&malformed!=="oversize"},async t=>{
+ const f=fixture(t);await f.controller.offer(f.input());const path=f.options.trustFile;
+ if(malformed==="symlink"){renameSync(path,path+".actual");symlinkSync(path+".actual",path);}else if(malformed==="public-file")chmodSync(path,0o644);else writeFileSync(path," ".repeat(256*1024+1),{mode:0o600});
+ assert.throws(()=>new RemotePairingController(f.options),/untrusted-file|remote TLS material unavailable/);
 });

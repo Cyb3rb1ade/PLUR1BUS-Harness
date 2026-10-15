@@ -1,5 +1,5 @@
-import {REMOTE_PAIRING_ROUTES} from "./remote-pairing-routes.ts";
-import {REMOTE_ROUTES} from "./remote-config-routes.ts";
+import {REMOTE_PAIRING_ROUTES,buildRemotePairingHandlers} from "./remote-pairing-routes.ts";
+import {REMOTE_ROUTES,buildRemoteHandlers} from "./remote-config-routes.ts";
 import { WS_ROUTES } from "./ws-routes.ts";
 import { CHAT_ROUTES, buildChatHandlers } from "./chat-routes.ts";
 import { ACCOUNT_ROUTES, buildAccountHandlers } from "./account-routes.ts";
@@ -334,6 +334,8 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
     ...buildAccountHandlers(d, undefined, d.core),
     ...buildTransportHandlers(d.core),
     ...buildChatHandlers(d.core,d.audit),
+    ...buildRemoteHandlers({core:d.core,now:()=>d.clock.now()}),
+    ...buildRemotePairingHandlers(undefined),
     "ws.ticket": () => ({body:{}}), "ws.reserved": () => ({body:{}}),
     "session.create": async (i) => {
       const b = loginBody(i.body);
