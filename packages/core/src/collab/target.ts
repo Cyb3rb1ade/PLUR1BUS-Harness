@@ -18,7 +18,7 @@ export function targetRunner(targets: readonly DelegationTarget[]): AgentRunner 
     const to = input.handoff.contract.to;
     if ('agent' in to && to.agent !== input.agentId) throw new CollabError('unauthorized', 'handoff target mismatch');
     const ticket = handoffTicket(input.handoff.contract, input.handoff.context);
-    if (input.handoff.contract.kind !== 'consult') ticket.ack(await target.ack(input));
+    if (input.handoff.contract.kind !== 'consult') { const ack = await target.ack(input); input.onTranscript?.({ kind: 'ack', data: ack }); ticket.ack(ack); }
     input.signal.throwIfAborted();
     return ticket.start(() => target.run(input));
   } };

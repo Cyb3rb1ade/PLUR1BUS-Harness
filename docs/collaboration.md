@@ -211,3 +211,21 @@ the ordinary dispatcher still returns its abort indication promptly; the durable
 card/trace records retain the partial result. Legacy direct library calls retain
 their existing error/abort behavior. Completed delegate reports remain explicitly
 unverified until the phase-4 external gate.
+
+## Replayable delegation sessions (M5 phase 3)
+
+When composed with the existing SessionStore, every consult/delegate creates a
+new `project` session before target execution. Its opaque owner is
+`collab-project:<projectId>`; ordinary private-session APIs cannot claim it as the
+caller's own chat. Span `sessionId` and transcript events bind it to the W3C
+trace/span, sender, receiver, usage, redacted result and D104 contract/ack. Target
+provider calls use the new session id. Partial results are retained too.
+
+`collab.session.replay { traceId, spanId }` checks current project rights and the
+persisted session/project binding on every read. It returns the same stored,
+redacted messages/events without making a model call. Redaction runs before
+persistence and again on read. Project UI renders a delegation tree, duration,
+token counts, known monetary cost (unknown stays `?`) and a keyboard-usable
+transcript link. Session shutdown follows collaboration shutdown so an in-flight
+hop cannot write into a closed transcript store. Optional channel mirroring is
+not enabled or implemented by this phase.

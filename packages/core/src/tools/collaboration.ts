@@ -24,7 +24,8 @@ interface Args { projectId: string; toAgent: string; objective: string; context?
 /** Per-turn closures share the library trace and limits across every tool call, never across people or turns. */
 export function collaborationTools(o: CollaborationTools, req: ChatRequest): ToolDef[] {
   const traces = new Map<string, string>();
-  let transferred = false;
+  let transferred = false, starts = 0;
+  const pairStarts = new Map<string, number>();
   const admitted = (ctx: ToolRunContext, projectId: string) => {
     if (transferred) throw new CollabError('conflict', 'sender already handed off ownership');
     const who = o.principal(req);
@@ -42,6 +43,9 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
     // Nested delegates never become a fresh root chain. Depth defaults to one.
     if (currentAgentScope()) throw new CollabError('guardrail', 'nested fan-out refused', { guardrail: 'depth' });
     if (!o.enabled()) throw new CollabError('guardrail', 'collaboration fan-out is disabled pending owner approval');
+    const pair = `${ctx.agentId}→${a.toAgent}`;
+    if ((pairStarts.get(pair) ?? 0) >= 2) throw new CollabError('guardrail', 'guardrail pair-limit', { guardrail: 'pair-limit' });
+    if (starts >= 3) throw new CollabError('guardrail', 'guardrail fanout', { guardrail: 'fanout' });
     const taskId = req.turnId ?? req.sessionId;
     const authority: HandoffContext = { ...o.authority, person: who.userId, taskId, sessionId: req.sessionId, fromAgent: ctx.agentId, projectId: a.projectId };
     const candidate: Handoff = {
@@ -56,6 +60,7 @@ export function collaborationTools(o: CollaborationTools, req: ChatRequest): Too
     };
     const h = await prepareHandoff(candidate, authority, o.repair);
     ctx.signal.throwIfAborted();
+    starts++; pairStarts.set(pair, (pairStarts.get(pair) ?? 0) + 1);
     const started = o.authority.now();
     let traceId = traces.get(a.projectId);
     const input = { principal: who, projectId: a.projectId, fromAgent: ctx.agentId, toAgent: a.toAgent, signal: ctx.signal, ...(traceId ? { traceId } : {}), handoff: { contract: h, context: authority } };
