@@ -48,7 +48,7 @@ Legend: "Rolle / Recht" is taken from `docs/rbac.md` and confirmed against `RPC_
 | jobs.run | jobs.run: Owner, Admin, Operator | Runs a job immediately; agentId required for agent jobs | rpc.schema.json:666 |
 | jobs.history | nicht gesichert (lokal = Owner, R8) | Past job execution records, system or per agent | rpc.schema.json:680 |
 
-## dreams (7)
+## dreams (8)
 
 | Methode | Rolle / Recht | Kurzbeschreibung | Quelle |
 |---|---|---|---|
@@ -59,6 +59,7 @@ Legend: "Rolle / Recht" is taken from `docs/rbac.md` and confirmed against `RPC_
 | dreams.schedule.set | settings.write: Owner, Admin | Edits one phase schedule: cron, IANA timezone, enabled | rpc.schema.json:730 |
 | dreams.enable | settings.write: Owner, Admin | Enables one phase schedule | rpc.schema.json:736 |
 | dreams.disable | settings.write: Owner, Admin | Disables one phase schedule; run-now still works | rpc.schema.json:742 |
+| dreams.diary | agent.manage on the agent (Owner, Admin, member with manage); viewer denied | Private dreaming.md of one agent; redacted; unlimited retention | rpc.schema.json:5437 |
 
 ## admin (11)
 
@@ -247,7 +248,7 @@ Hinweis: grant.* und approval.* sind human-only; Agent-Principals werden in jede
 | memory | 13 |
 | agent | 4 |
 | jobs | 3 |
-| dreams | 7 |
+| dreams | 8 |
 | admin | 11 |
 | logs | 2 |
 | audit | 1 |
@@ -265,7 +266,7 @@ Hinweis: grant.* und approval.* sind human-only; Agent-Principals werden in jede
 | session | 8 |
 | grant | 3 |
 | approval | 5 |
-| **Gesamt** | **111** |
+| **Gesamt** | **112** |
 
 Zählung über die Methodenschlüssel in `$defs/methods` (Zeilen 489–1592) von `packages/rpc-schema/schema/rpc.schema.json`. Notifications (ab Zeile 2038) sind nicht gezählt.
 

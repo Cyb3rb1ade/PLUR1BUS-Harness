@@ -36,7 +36,7 @@ by `hash(agentId, phase) % 1800 s` so many agents do not start together; at most
 | Circuit breaker | 3 LLM sessions per agent per UTC day across rem and deep; the 4th is not started, the run is `aborted`, the breaker stays open to the next UTC midnight | `breaker_sessions`, then `breaker_open` |
 | Minimum corpus | see Triggers | `min_corpus` |
 | Concurrency | 3 phase runs at once; a second run of the same agent and phase is refused | `already_running` |
-| Candidates | dedupe by content hash, 72 h expiry, utility gate (never `recalls = 0`; ≥ 3 recalls, ≥ 3 queries, score ≥ 0.75) with a gate-by-gate decision record. Producer: `packages/core/src/dreams/producer.ts` (`createCandidateSource`), driven by `Engine.memory.list` in production (content + optional score; never invents recalls/uniqueQueries). Pinned engine 1.12.0 has no recall/query stats API — KNOWN GAP, see Open points. Test: `packages/core/test/dreams/producer.test.ts` "Producer yields candidates against a fake engine." | `no_candidates` |
+| Candidates | dedupe by content hash, 72 h expiry, utility gate (never `recalls = 0`; ≥ 3 recalls, ≥ 3 queries, score ≥ 0.75) with a gate-by-gate decision record. Producer: `packages/core/src/dreams/producer.ts` (`createCandidateSource` / `itemsFromEngineList`), driven by `Engine.memory.list` in production (agent-private cards only, ADR-009 Q5; content + optional score; never invents recalls/uniqueQueries; a truncated listing fails closed). Pinned engine 1.12.0 has no recall/query stats API — KNOWN GAP, see Open points. Test: `packages/core/test/dreams/producer.test.ts` "Producer yields candidates against a fake engine." / "a workspace/user card is not ingested as agent-private" | `no_candidates` |
 | No LLM route | the engine's `no_llm_*` skip | `no_llm_route` |
 
 An engine job that fails, comes back `incomplete` or `abandoned`, or a diary the engine says it did not write, is recorded
@@ -64,7 +64,8 @@ plur1bus dreams diary --agent A               private diary (`dreaming.md`); own
 
 `dreams run <job>` with an engine job name (for example `gc-run`) and `dreams log --job` keep working as before. The RPC
 methods are `dreams.status|log|run|schedule.get|schedule.set|enable|disable|diary` (experimental, `docs/rpc.md`). `dreams.diary`
-is `agent.manage` on the agent; a viewer is denied. Test: `packages/core/test/dreams/methods.test.ts` "Diary only with the right (viewer sees nothing foreign)."
+is `agent.manage` on the agent; a viewer is denied. HTTP `WEB_CORE_METHODS` does not include `dreams.diary` (`packages/api/**`
+was out of scope); a web `/rpc` caller is refused with `E_DENIED` / `web-method`. Test: `packages/core/test/dreams/methods.test.ts` "Diary only with the right (viewer sees nothing foreign)."
 
 ## Testing
 
@@ -191,7 +192,9 @@ Fixed in the 2026-10-14 consistency wave (test references above):
    `scheduler-time.test.ts > a crashed window older than RETRY_MAX_AGE_MS is not retried`.
 8. **Candidate producer** ships (`packages/core/src/dreams/producer.ts`); test
    `packages/core/test/dreams/producer.test.ts` "Producer yields candidates against a fake engine." Production wiring maps
-   `Engine.memory.list` content (+ optional score) and never invents recalls/uniqueQueries.
+   `Engine.memory.list` agent-private cards only (ADR-009 Q5; workspace/user cards are not ingested as `agent-private`)
+   and never invents recalls/uniqueQueries. A truncated listing throws (`failed/engineError`). Score is copied only when
+   present; a `since` listing does not include scores (no topic query).
 9. **`plur1bus dreams diary`** / RPC `dreams.diary` (agent.manage, redacted, `--json`):
    `methods.test.ts` "Diary only with the right (viewer sees nothing foreign)."
 10. **Doctor check** `dreams.last-runs`: `doctor_reports_a_missed_window` in `crates/plur1bus/src/commands/firstaid.rs`.

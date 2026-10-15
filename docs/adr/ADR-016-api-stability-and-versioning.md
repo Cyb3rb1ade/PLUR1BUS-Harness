@@ -260,6 +260,8 @@ Additive under §2, `experimental` under §4, no schema version bump (methods si
 
 **`1staid.check/1` ids stay append-only.** `dreams.last-runs` is appended after `models.roles` (`CHECK_IDS` grows from 24 to 25).
 
+**HTTP.** `packages/api/**` was out of scope for this leftover wave. `WEB_CORE_METHODS` still lists `dreams.status|log|schedule.get|schedule.set|enable|disable|run` and not `dreams.diary`; a web `/rpc` caller gets `E_DENIED` / `web-method` for diary while local RPC and the CLI work.
+
 ## Implementation record (M2 secret store)
 
 **RPC 1.5.0, additively.** The new core methods are `secret.status`, `secret.list`, `secret.set`, `secret.get` and `secret.delete`, all `experimental`, `x-server: "core"`, `x-since: "1.5.0"`; new `$defs` `SecretBackend`, `SecretMeta`, `SecretStatus`. This change makes no version bump (the task forbade one), so the methods sit in 1.5.0; if 1.5.0 has been released by the time this merges, bump to 1.6.0 and move `x-since` with it. `secret.get` is the only method that can return a secret value (`reveal: true`), owner only.
