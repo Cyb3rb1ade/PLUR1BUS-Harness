@@ -1,7 +1,7 @@
 // Generated attribution inventory for the installed target. Run on each native
 // packaging runner as well as the macOS source-drift gate; never infer missing metadata.
 import { spawnSync } from 'node:child_process';
-import { readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, writeFileSync, realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -53,4 +53,4 @@ function main() {
     else writeFileSync(path, contents);
   }
 }
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) { try { main(); } catch (e) { console.error(e.message); process.exitCode = 1; } }
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) { try { main(); } catch (e) { console.error(e.message); process.exitCode = 1; } }

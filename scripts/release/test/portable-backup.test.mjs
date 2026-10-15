@@ -84,3 +84,17 @@ test('failed vault import rolls the state and old vault back and keeps an encryp
     assert.ok(recovery); assert.equal(readFileSync(join(root, recovery)).includes('old-secret-value'), false);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+
+test('standalone CLI runs under a spaced path and native temp-directory aliases', async () => {
+  const { copyFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { spawnSync } = await import('node:child_process');
+  const root = mkdtempSync(join(tmpdir(), 'portable space '));
+  try {
+    const script = join(root, 'portable backup.mjs');
+    copyFileSync(fileURLToPath(new URL('../portable-backup.mjs', import.meta.url)), script);
+    const r = spawnSync(process.execPath, [script, 'invalid-operation'], { encoding: 'utf8' });
+    assert.equal(r.status, 1); assert.match(r.stderr, /portable-backup-failed/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});

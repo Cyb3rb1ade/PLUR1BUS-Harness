@@ -1,7 +1,7 @@
 // Portable M8 backup: the ordinary verified backup and owner-readable vault values
 // share one authenticated encrypted stream. No secret value is an argv or log field.
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
-import { createReadStream, openSync, closeSync, writeSync, readSync, fstatSync, fsyncSync, lstatSync, readFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { createReadStream, openSync, closeSync, writeSync, readSync, fstatSync, fsyncSync, lstatSync, readFileSync, mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { Readable } from 'node:stream';
 import { tmpdir } from 'node:os';
@@ -165,4 +165,4 @@ async function main() {
   const password = readPassword(o.passwordFile);
   try { console.log(JSON.stringify(await runPortable({ ...o, password }))); } finally { password.fill(0); }
 }
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch(error => { console.error(JSON.stringify({ error: 'portable-backup-failed', ...(error instanceof RestoreFailure ? { rollback: error.rollback, rolledBack: error.rolledBack } : {}) })); process.exitCode = 1; });
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) main().catch(error => { console.error(JSON.stringify({ error: 'portable-backup-failed', ...(error instanceof RestoreFailure ? { rollback: error.rollback, rolledBack: error.rolledBack } : {}) })); process.exitCode = 1; });

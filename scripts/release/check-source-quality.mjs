@@ -1,5 +1,5 @@
 import ts from 'typescript';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -26,6 +26,6 @@ export function checkQuality() {
   }
   return errors;
 }
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   const errors = checkQuality(); for (const e of errors) console.error(e); process.exitCode = errors.length ? 1 : 0;
 }
