@@ -34,6 +34,16 @@ export interface EnginePortDeps {
 export function engineTurnMemory(d: EnginePortDeps): TurnMemory {
   const identity = (caller: CallerIdentity, agentId: string, authenticatedPerson?: string) => {
     const result = callerToPrincipal(caller, agentId, requireAgent(d.agents, agentId));
+    const origin = channelOrigin.getStore();
+    if (origin) {
+      const linked = origin.accountId && origin.senderId ? d.identity?.resolve({ channel: origin.channel, accountId: origin.accountId, userId: origin.senderId }) : null;
+      if (!linked || linked.humanId !== origin.humanId) throw new Error('channel identity no longer linked');
+      result.principal.channel = origin.channel;
+      result.principal.accountId = origin.accountId!;
+      result.principal.chat = { id: origin.chatId, kind: origin.chatKind === 'direct' ? 'direct' : 'group' };
+      result.principal.user = deriveUserPrincipal(linked.humanId);
+      return result;
+    }
     const linked = d.identity?.resolve(caller);
     if (authenticatedPerson) result.principal.user = deriveUserPrincipal(authenticatedPerson);
     else if (linked) result.principal.user = deriveUserPrincipal(linked.humanId);

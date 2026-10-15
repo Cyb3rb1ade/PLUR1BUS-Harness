@@ -639,6 +639,7 @@ export class SignalChannel implements Channel {
         if (!this.#groupHears(member, addressed)) return this.#drop("group-policy");
       }
       const rich: RichInbound = {
+      accountId: this.#o.account,
         channel: this.name,
         chatId,
         chatKind,
@@ -700,6 +701,7 @@ export class SignalChannel implements Channel {
 
     this.#remember(this.#quotes, String(ts), senderId);
     const rich: RichInbound = {
+      accountId: this.#o.account,
       channel: this.name,
       chatId,
       chatKind,

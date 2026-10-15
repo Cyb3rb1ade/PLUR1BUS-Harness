@@ -1,3 +1,6 @@
+import { DeliveryTargets } from "./delivery/service.ts";
+import { deliveryMethods } from "./delivery/rpc.ts";
+import { deliveryAllowed } from "./delivery/policy.ts";
 import { apiAdmission } from "./rpc/api-admission.ts";
 import { apiIdentities } from "./rpc/api-identity.ts";
 import { buildDoctorMethods } from "./doctor-report.ts";
@@ -245,6 +248,7 @@ export function createCore(o: CoreOptions): Core {
   let webSearch: SearxngWebSearch | null = null;
   let metricsHttp: MetricsServer | null = null;
   let userJobs: UserJobs | null = null;
+  let delivery: DeliveryTargets | null = null;
   let userJobsTimer: ReturnType<typeof setInterval> | null = null;
   let sessions: SessionService | null = null;
   let turnComposition: TurnComposition | null = null;
@@ -524,6 +528,7 @@ export function createCore(o: CoreOptions): Core {
         logger,
         engineHasJob: (name) => eng.jobs.list().some((j) => j.name === name),
         onFailed: run => jobFailedToInbox(inboxPort, run),
+        onRecorded: run => { void delivery?.notify("system", run.job, undefined, run.outcome); },
       });
       systemJobs.register(createModelsScanJob(discovery, discSettings));
 
@@ -579,6 +584,8 @@ export function createCore(o: CoreOptions): Core {
       });
       permissionNotifier = notifier;
       const board = switchboard = openChannelSwitchboard({
+        command: async (msg, person) => delivery?.confirmMessage(msg, person) ?? false,
+        personActive: person => !people.person(person)?.disabled,
         layout: l, config: cs, secrets: secretStore, identity: () => identity, sessions: () => sessions, agents: registry, permissions: () => permissions,
         clock, log: { info: (m, f) => log.info(m, f), warn: (m, f) => { channelToInbox(inboxPort, m, f); log.warn(m, f); }, error: (m, f) => log.error(m, f) },
       });
@@ -669,7 +676,19 @@ export function createCore(o: CoreOptions): Core {
         },
         // No `erase`: the pinned engine has no hard-erasure API. The handler records/refuses before any mutation.
       });
+      delivery = new DeliveryTargets({
+        path: path.join(l.state, 'delivery.sqlite'), clock, audit: rbacAudit, identity: () => identity,
+        resolve: id => {
+          if (people.person(id)?.disabled) return null;
+          const current = o.rbac?.resolvePerson ? o.rbac.resolvePerson(id) : id === LOCAL_OWNER.userId || identityService.list({}).humans.some(h => h.id === id) ? { kind: 'person' as const, userId: id, role: people.role(id, id === LOCAL_OWNER.userId ? 'owner' : 'member') } : null;
+          return current?.kind === 'person' && current.userId === id ? people.resolve(current) : null;
+        },
+        allowed: who => deliveryAllowed(cfg(), who),
+        target: who => { if (!switchboard) throw new Error('channel unavailable'); return switchboard.view.ownerTarget!(who.channel, { userId: who.userId, accountId: who.accountId }); },
+        send: async (channel, chatId, text) => await switchboard?.view.sendTo(channel, { chatId, text }) ?? false,
+      });
       userJobs = new UserJobs({
+        validateDelivery: (id, person, agentId) => { if (!delivery) throw new Error("delivery unavailable"); delivery.validate(id, person, agentId); },
         path: path.join(l.state, "user-jobs.sqlite"), clock, audit: rbacAudit,
         isStopping: () => shutdown.signal.aborted,
         agentExists: id => registry.has(id) && !lifecycle.state(id).deleted, agents: () => registry.list().filter(id => !lifecycle.state(id).deleted),
@@ -690,14 +709,20 @@ export function createCore(o: CoreOptions): Core {
         submitTurn: async (job, person) => {
           if (!sessions) return "failed";
           if (!executionRegistry.has(job.agentId)) return "skipped_agent_inactive";
+          if (job.deliveryTarget) delivery!.validate(job.deliveryTarget, person.userId, job.agentId);
           const session = sessions.store.createSession({ kind: "direct", agentId: job.agentId, owner: deriveUserPrincipal(person.userId), scope: "user", title: job.name });
           const handle = sessions.runner.submit({ session, caller: { channel: "cli", accountId: "recurring", userId: person.userId }, text: job.prompt, approver: { person: person.userId, surface: 0 }, recurring: { jobId: job.id, jobName: job.name, runAs: person.userId, trigger: "recurring" } });
           const result = await handle.done;
           const outcome = result.error === "approval-timeout" ? "approval_timeout" : result.state === "completed" ? "completed" : result.error === "budget-exceeded" ? "skipped_budget" : "failed";
+          if (outcome === 'completed' && job.deliveryTarget) {
+            const reply = sessions.store.listMessages(session.id).filter(m => m.role === 'assistant').at(-1)?.text;
+            if (reply) await delivery!.deliver(job.deliveryTarget, person.userId, job.agentId, reply);
+          }
           return outcome;
         },
       });
       const rawMethods = {
+        ...deliveryMethods(() => delivery),
         ...buildMethods({
         engine: eng, config: cfg, agents: registry, activity, logger, status, clock, journalBacklog: () => journalBacklog, captureSignal: shutdown.signal,
         isStopping: () => state.state === "stopping" || state.state === "stopped",
@@ -794,7 +819,7 @@ export function createCore(o: CoreOptions): Core {
       try {
         dreams = createDreams({
           engine: eng, layout: l, clock: o.dreams?.clock ?? discClock, logger, agents: executionRegistry, securePath: platform.securePath,
-          ...(o.dreams?.defaultTimezone ? { scheduler: { defaultTimezone: o.dreams.defaultTimezone } } : {}),
+          scheduler: { ...(o.dreams?.defaultTimezone ? { defaultTimezone: o.dreams.defaultTimezone } : {}), onEvent: event => { if (event.name === 'run.finished') void delivery?.notify('dreams', event.phase ?? 'unknown', event.agentId, String(event.outcome)); } },
         });
         if (o.dreams?.scheduler ?? o.testInternals === undefined) void dreams.start().catch((err) => logger?.error("dreaming scheduler failed to start", { err }));
       } catch (err) { dreams = null; dreamsError = String((err as Error)?.message ?? err).slice(0, 300); logger.error("dreaming scheduler unavailable", { err }); }
@@ -843,7 +868,7 @@ export function createCore(o: CoreOptions): Core {
       await step(log, "channels stop", async () => { await switchboard?.stop(); }); switchboard = null;
       if (userJobsTimer) { clearInterval(userJobsTimer); userJobsTimer = null; }
       await step(log, "sessions close", async () => { await turnComposition?.close(); turnComposition = null; }); sessions = null;
-      await userJobs?.drain(); userJobs?.close(); userJobs = null;
+      await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null;
       await step(log, "permissions close", async () => { permissionNotifier?.close(); await permissions?.close(); }); permissions = null; permissionNotifier = null;
       await step(log, "budget close", () => { budget?.close(); budget = null; });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
@@ -930,7 +955,7 @@ export function createCore(o: CoreOptions): Core {
       await step(logger, "re-embedding run", async () => { await reembed?.stop(Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
       await step(logger, "admin stores close", () => { inbox?.close(); inbox = null; adminPeople?.close(); adminPeople = null; agentLifecycle?.close(); agentLifecycle = null; }, errors);
-      await userJobs?.drain(); userJobs?.close(); userJobs = null;
+      await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null;
       await step(logger, "identity close", () => { identity?.close(); identity = null; }, errors);
       await step(logger, "budget close", () => { budget?.close(); budget = null; }, errors);
       await step(logger, "rpc drain", async () => {

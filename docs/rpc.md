@@ -74,6 +74,213 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ## Methods
 
+### `delivery.target.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `delivery.target.add`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "channel",
+        "accountId",
+        "userId"
+      ],
+      "properties": {
+        "channel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "accountId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    }
+  },
+  "required": [
+    "identity"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `delivery.target.confirm`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "maxLength": 64
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `delivery.target.remove`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "maxLength": 64
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `delivery.target.subscribe`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Own principal-bound delivery targets. Confirm sends a new challenge into the target DM; only a reply in that DM validates it. Current links, allowlists and runAs rights are checked per send.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "system",
+        "dreams"
+      ]
+    },
+    "job": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  },
+  "required": [
+    "id",
+    "source",
+    "job",
+    "agentId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
 ### `jobs.create`
 
 **Stability:** experimental · since 1.6.0
@@ -124,6 +331,11 @@ Human-only user-job create. Current agent.manage rights are required; system and
     },
     "enabled": {
       "type": "boolean"
+    },
+    "deliveryTarget": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "Own validated delivery target; empty disables delivery."
     }
   },
   "required": [
@@ -208,6 +420,11 @@ Human-only user-job update. Current agent.manage rights are required; system and
       "type": "string",
       "minLength": 1,
       "maxLength": 128
+    },
+    "deliveryTarget": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "Own validated delivery target; empty disables delivery."
     }
   },
   "required": [
@@ -15379,6 +15596,11 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "skipped_no_rights",
         "skipped_agent_missing"
       ]
+    },
+    "deliveryTarget": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "Own validated delivery target; empty disables delivery."
     }
   }
 }
