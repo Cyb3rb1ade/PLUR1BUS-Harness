@@ -526,6 +526,79 @@ Voice V3: voice.agent.override.clear. Reads are available to all five human role
 }
 ```
 
+### `voice.session.create`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+D110 server-side voice session broker. Requires a person with agent use rights and an authenticated T2+ surface. Parent kind, billing path, region and provider terms acceptance come from providers.openaiVoice. Returns no credential. Delegation defaults to client.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "provider": {
+      "enum": [
+        "openai:realtime",
+        "openai:gpt-live"
+      ]
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "transport": {
+      "enum": [
+        "webrtc",
+        "websocket",
+        "sip"
+      ]
+    },
+    "sdp": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 131072
+    }
+  },
+  "required": [
+    "agentId",
+    "provider",
+    "model",
+    "transport"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sdpAnswer": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
 ### `voice.realtime.start`
 
 **Stability:** experimental · since 1.6.0
