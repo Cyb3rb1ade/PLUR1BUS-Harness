@@ -81,3 +81,19 @@ Fresh noninteractive **full-profile** setup persists E5 only without an existing
 The final Rust workspace command `cargo test --workspace` completed successfully: 2,091 passed, 0 failed, 9 platform/explicit acceptance cases ignored across 116 result groups (`/tmp/m3-stack-rust-all-green.log`). `cargo fmt --all -- --check` and `cargo clippy --workspace --all-targets -- -D warnings` passed. Earlier full runs exposed stale type-inventory tables and a fake HTTP fixture that could answer success to an incomplete request; the inventories and fixture were corrected, without suppressing assertions. Every new method has a concrete typed fixture, including four model/licence fixtures. All three Rust type tables include all 20 new methods and the trust notification. The generative suite retains its seed and 200 instances per type, now correctly intersects pattern and length constraints, and adds a 3,000-case regression. Whole RPC crate: 88 passed, 0 failed. RPC-schema suite: 55 passed, 0 failed (`/tmp/m3-stack-rpc-fixtures-typescript.log`). Required `nextCursor: null` round-trips unchanged.
 
 Final integrated lint/typecheck/hygiene, all 99 tooling tests, schema/docs regeneration and docs checks passed. CI remains unpolled. The Phase-5 handoff records the final browser command and independently visible gate-enabling commit; none of these local results establishes hosted-runner, physical authenticator or native Tailscale acceptance.
+
+
+### Final K5 budget-write boundary
+
+Commit `0c7209e9` adds only the previously missing `budget.set` RPC rule: `settings.write`, system resource and `humanOnly: true`. Existing rules and the policy table remain unchanged. `packages/core/test/rbac/agent-principals.test.ts` pins the exact explicit human-only RPC inventory and proves all agent roles are refused before mutation, Viewer/Member/Operator cannot write, narrowed Owner token scopes cannot write, and Owner/Admin with the required authority can write.
+
+The named real-HTTP test `M3 K5 real HTTP budget.set allows Owner/Admin only; Viewer/Member/Operator cannot set or clear, scoped tokens cannot exceed live role` in `packages/api/test/m3-budget-authorization-http.test.ts` starts the actual Core, budget store, account resolver and HTTP server. Owner/Admin can set and clear limits; Viewer/Member/Operator cannot set, clear or change the time zone, and denied requests leave persisted budget state unchanged. A real Admin-to-Viewer demotion removes budget-write authority on a fresh cookie. The existing `/rpc` transport remains cookie-only: Bearer-only requests, including Owner/Admin tokens, receive 401 before RPC dispatch. Separate real Core-guard checks establish the role/scope intersection; this test does not claim Bearer access to `/rpc`.
+
+Final validation on the frozen budget source, with Node 24.21, source conditions and canonical `TMPDIR=/private/tmp`:
+
+- Focused Core/HTTP suite: 44 passed, 0 failed (`/tmp/m3-p4-budget-focused.log`).
+- Whole Core: 8,686 tests; 8,619 passed, 0 failed, 19 existing skips and 48 TODOs (`/tmp/m3-p4-budget-core-full.log`).
+- Whole API: 797 tests; 787 passed, 0 failed, 4 existing skips and 6 TODOs (`/tmp/m3-p4-budget-api-full-repeat.log`). The first full run encountered an `EPIPE` in the existing OpenAPI socket fixture and its dependent coverage assertion; both the isolated file and the unchanged whole-suite repeat passed.
+- Core build, final `pnpm lint` and `pnpm docs:check` passed (`/tmp/m3-p4-budget-build.log`, `/tmp/m3-p4-budget-lint-final.log`, `/tmp/m3-p4-budget-docs-check.log`).
+
+No engine or dependency changes were made. These local results do not close the model/inference, hosted-runner, physical-authenticator or native-Tailscale acceptance gaps recorded above; CI remains unpolled.
