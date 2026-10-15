@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -41,11 +41,14 @@ test('portable backup restores stores, vault, config, identities, API accounts, 
     const created = portable('create');
     for (const unit of ['state/lancedb', 'config.json', 'state/identity.sqlite', 'state/admin.sqlite', 'state/api/accounts.db', 'state/sessions.sqlite', 'state/dreams/dreams.db']) assert.ok(created.plan.units.includes(unit), unit);
     assert.deepEqual(created.plan.secrets, ['provider/test']);
+    assert.equal(JSON.stringify(created).includes(secret), false);
     assert.equal(readFileSync(file).includes(secret), false);
     const dry = portable('restore', ['--dry-run']);
     assert.equal(call(target, ['secret', 'get', 'target/old', '--reveal']).value, 'old-target-value');
     const restored = portable('restore');
     assert.deepEqual(restored.plan, dry.plan);
+    assert.equal(JSON.stringify(dry).includes(secret), false);
+    assert.equal(JSON.stringify(restored).includes(secret), false);
     assert.equal(call(target, ['secret', 'get', 'provider/test', '--reveal']).value, secret);
     assert.deepEqual(call(target, ['secret', 'ls']).secrets.map((s: any) => s.name), ['provider/test']);
     assert.equal(call(target, ['session', 'show', turn.sessionId]).session.turnCount, 1);
@@ -57,6 +60,12 @@ test('portable backup restores stores, vault, config, identities, API accounts, 
       ['api/accounts.db', 'SELECT password_hash AS value FROM accounts WHERE person_id=\'backup-user\'', 'stored-test-password-hash'],
       ['dreams/dreams.db', 'SELECT outcome AS value FROM dream_run WHERE run_id=\'backup-dream\'', 'completed'],
     ]) db(join(target, 'state', path!), d => assert.equal(d.prepare(sql!).get()!.value, expected));
+    stopDaemon(source);
+    for (const h of [source, target]) {
+      for (const entry of readdirSync(join(h, 'logs'), { withFileTypes: true })) {
+        if (entry.isFile()) assert.equal(readFileSync(join(h, 'logs', entry.name)).includes(secret), false, 'vault value must not enter logs');
+      }
+    }
   } finally {
     for (const h of [source, target]) { try { stopDaemon(h); } catch { /* cleanup */ } await reapHome(h); rmSync(h, { recursive: true, force: true }); }
     rmSync(scratch, { recursive: true, force: true });
