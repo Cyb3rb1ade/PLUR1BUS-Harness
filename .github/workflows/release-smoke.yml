@@ -81,6 +81,20 @@ jobs:
         run: node --experimental-strip-types --test --test-timeout=120000 tests/system/install-scripts.test.ts
       - name: setup, service unit and archive contracts
         run: cargo test --release -p plur1bus --test setup --test setup_profile --test service --test install_archive -- --test-threads=1
+      - name: require Linux user service manager
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          uid="$(id -u)"
+          sudo loginctl enable-linger "$USER"
+          for _ in $(seq 1 50); do [ -S "/run/user/$uid/bus" ] && break; sleep 0.2; done
+          test -S "/run/user/$uid/bus"
+          XDG_RUNTIME_DIR="/run/user/$uid" systemctl --user list-units >/dev/null
+          echo "XDG_RUNTIME_DIR=/run/user/$uid" >> "$GITHUB_ENV"
+      - name: native OS service registration and removal
+        run: cargo test --release -p plur1bus --test service_real -- --test-threads=1
+        env:
+          PLUR1BUS_SERVICE_TEST: '1'
       - name: injected native update rollback
         run: cargo test --release -p plur1bus --test update_apply -- --test-threads=1
       # Remaining uninstall/reboot fixtures use POSIX processes/signals.
