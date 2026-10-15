@@ -5434,6 +5434,22 @@
         "params": { "type": "object", "additionalProperties": false, "required": ["agentId", "phase"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" }, "phase": { "$ref": "#/$defs/DreamPhase" } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["schedule"], "properties": { "schedule": { "$ref": "#/$defs/DreamSchedule" } } }
       },
+      "dreams.diary": {
+        "x-stability": "experimental", "x-since": "1.6.0", "x-server": "core",
+        "description": "The private dreaming diary (dreaming.md, D15) of one agent. Owner or agent.manage; a viewer is denied. Text is redacted. Unlimited diary retention (ADR-009 Q7) is unchanged; this is a read.",
+        "params": { "type": "object", "additionalProperties": false, "required": ["agentId"], "properties": { "agentId": { "$ref": "#/$defs/AgentId" } } },
+        "result": {
+          "type": "object", "additionalProperties": false, "required": ["agentId", "path", "exists", "bytes", "text", "truncated"],
+          "properties": {
+            "agentId": { "$ref": "#/$defs/AgentId" },
+            "path": { "oneOf": [{ "type": "string" }, { "type": "null" }] },
+            "exists": { "type": "boolean" },
+            "bytes": { "type": "integer" },
+            "text": { "type": "string" },
+            "truncated": { "type": "boolean" }
+          }
+        }
+      },
       "admin.obsidian.detect": {
         "x-stability": "experimental", "x-since": "1.3.0", "x-server": "core",
         "description": "Obsidian vaults the agent may use (engine AdminOps.obsidian.detect, read-only): the configured vaults, the agent workspace and the caller's candidates (a proved principal only). isVault: .obsidian/workspace.json or .obsidian/app.json exists; confirmed: a confirmation receipt for this agent, workspace and vault exists.",
