@@ -1,0 +1,15 @@
+{
+  "params": {},
+  "result": {
+    "acceptances": [
+      {
+        "who": "fixture-owner",
+        "at": "2026-10-15T00:00:00.000Z",
+        "licence": "CC BY-NC-4.0",
+        "model": "jinaai/jina-embeddings-v3",
+        "revision": "68ed94909d564380f954be27ae2e133214c1adc9",
+        "source": "memory"
+      }
+    ]
+  }
+}
