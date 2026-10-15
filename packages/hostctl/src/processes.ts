@@ -8,8 +8,8 @@ export type Spawn = (program: string, args: string[], options: SpawnOptions) => 
 export interface ProcessOptions { spawn?: Spawn; killTree?: (child: ChildProcess) => Promise<void>; baseEnv?: NodeJS.ProcessEnv }
 interface Job { id: string; owner: string; session: string; child: ChildProcess; output: Buffer; truncated: boolean; timedOut: boolean; terminating: boolean; done: boolean; exitCode: number | null; timer: ReturnType<typeof setTimeout>; finished: Promise<void>; abort: () => void; signal: AbortSignal }
 const owner = (c: RunContext) => JSON.stringify([c.agentId, c.principal, c.sessionId ?? '']);
-const blockedEnv = /secret|token|password|credential|private|^NODE_OPTIONS$|^LD_|^DYLD_|^PYTHONPATH$|^BASH_ENV$|^ENV$|^PSModulePath$/i;
-const dangerous = /(?:^|[\s/\\])(?:format(?:\.com)?|diskpart(?:\.exe)?|mkfs(?:\.[\w]+)?|sudo|doas|pkexec|runas)(?:\s|$)|\brm\s+[^\n]*-[a-z]*r[a-z]*f[a-z]*\s+["']?\/(?:["']?(?:\s|$))|\breg(?:\.exe)?\s+(?:delete|load|restore)\b|HKEY_LOCAL_MACHINE|\\Device\\|\\\\\.\\/i;
+const blockedEnv = /^SUDO_|^SSH_ASKPASS$|secret|token|password|credential|private|^NODE_OPTIONS$|^LD_|^DYLD_|^PYTHONPATH$|^BASH_ENV$|^ENV$|^PSModulePath$/i;
+const dangerous = /(?:^|[\s/\\])(?:format(?:\.com)?|diskpart(?:\.exe)?|mkfs(?:\.[\w]+)?|sudo(?:\.exe)?|doas|pkexec|su|runas(?:\.exe)?|gsudo|expect|sshpass)(?:\s|$)|\brm\s+[^\n]*-[a-z]*r[a-z]*f[a-z]*\s+["']?\/(?:["']?(?:\s|$))|\breg(?:\.exe)?\s+(?:delete|load|restore)\b|HKEY_LOCAL_MACHINE|\\Device\\|\\\\\.\\/i;
 export async function killTree(child: ChildProcess): Promise<void> {
   if (!child.pid) return;
   if (process.platform === 'win32') await new Promise<void>((resolve, reject) => { const killer = nodeSpawn('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], { shell: false, windowsHide: true, stdio: 'ignore' }); killer.once('error', reject); killer.once('close', () => resolve()); });

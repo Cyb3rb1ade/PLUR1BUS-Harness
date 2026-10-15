@@ -1,3 +1,4 @@
+import { classifyHostTool } from '../host-tools/classify.ts';
 import { createSandboxProcessPort, createSandboxHostExec, type SandboxOptions } from '../tools/sandbox/ports.ts';
 import type { createHostctlPool } from '../../../hostctl/src/pool.ts';
 import { randomUUID } from 'node:crypto';
@@ -75,7 +76,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
   const host = { ...(o.host ?? createNodeHostContext()), exec: createSandboxHostExec(sandboxOptions) };
   for (const tool of HOST_TOOLS) {
     const cap = CAPABILITIES.get(tool.capability)!;
-    registry.register({ name: tool.name, description: tool.description, inputSchema: tool.schema.input, capability: tool.capability, effect: cap.intrinsicEffect, risk: tool.riskClass, trust: 'first-party', classify: () => ({ flags: { outsideRoots: true } }), execute: async (args, ctx) => tool.run(args, { ...host, signal: ctx.signal }) });
+    registry.register({ name: tool.name, description: tool.description, inputSchema: tool.schema.input, capability: tool.capability, effect: cap.intrinsicEffect, risk: tool.riskClass, trust: 'first-party', classify: args => classifyHostTool(tool, args, { roots: o.roots, deny }), execute: async (args, ctx) => tool.run(args, { ...host, signal: ctx.signal }) });
   }
   // Only ToolDispatcher invokes this closure after a recorded D109 authorization. The inner exec gate is narrowed
   // to that already-authorized invocation; it still enforces config.mode, roots, deny paths, arguments and env.
