@@ -34,6 +34,8 @@ import { composeTools, type ToolCompositionOptions } from './tools.ts';
 import { createTurnProvider, type TurnProviderOptions } from './provider.ts';
 import { ToolRegistry } from '../tools/registry.ts';
 import { createCollab, alsAgentScopePort, type Collab } from '../collab/index.ts';
+import { liveLogsRedactionPort } from '../collab/ports.ts';
+import { ChatPromotion, promotionMethods } from '../collab/chat-promotion.ts';
 import { CodingGate } from '../collab/coding-gate.ts';
 import { codingMethods, reviewHooks, type CodingCompletion } from '../collab/coding-surface.ts';
 import { composedAgentRunner } from './collaboration.ts';
@@ -188,7 +190,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       const id = randomUUID(); await writeFile(join(dir, `${id}.json`), JSON.stringify(value), { flag: 'wx', mode: 0o600 }); return `tool-result:${id}`;
     } } }) : null;
     voice.setDelegate(provider);
-    collab = budget ? isolated('collaboration', () => createCollab({ path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock, sessions: () => sessions.store,
+    collab = budget ? isolated('collaboration', () => createCollab({ path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock, sessions: () => sessions.store, redact: liveLogsRedactionPort(() => registered),
       runner: provider ? composedAgentRunner(provider, alsAgentScopePort(), d.home, options.delegationTargets) : { async run() { throw new Error('no-provider'); } }, directory: { get: id => d.agents.has(id) || options.delegationTargets?.some(t => t.accepts(id)) ? { id, state: 'active' } : null },
       emit: { emit: event => d.logger.info(event.type, { projectId: event.projectId, traceId: event.traceId }) },
       budget: { check(estimate) {
@@ -205,9 +207,11 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       coding = { collab, gate, worktrees: options.projectWorktrees ?? { root: agentId => d.agents.workspaceOf(agentId) ?? null } };
     }
     sessions = openSessionService({ ...maintenance, dbPath: join(d.home, 'state', 'sessions.sqlite'), clock: d.clock, logger: d.logger, agents: d.agents, isStopping: d.isStopping, memory, provider: () => provider, notify: d.notify, signal: d.signal, onSessionEnd: id => { void hostctl.endSession(id).catch(err => d.logger.warn('hostctl session cleanup failed', { err })); }, ...(d.approver ? { approver: d.approver } : {}) });
+    const promotions = collab ? new ChatPromotion({ path: join(d.home, 'state', 'chat-promotions.sqlite'), sessions: () => sessions, collab, now: d.clock, audit: event => { d.audit.append({ at: d.clock(), actor: { user: String(event.person), host: 'core' }, action: 'chat.promoted', target: 'project', detail: event }); } }) : null;
+    if (promotions) disposers.push(() => promotions.close());
     let closed = false;
     const opened = sessions;
-    return { discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, surfaceMethods: { ...(coding ? codingMethods(coding) : {}), ...mediaSurface.methods, ...mediaSearchMethods({ home: d.home, config: d.config, agents: d.agents }, mediaSearch) }, async close() {
+    return { discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, surfaceMethods: { ...(promotions ? promotionMethods(promotions) : {}), ...(coding ? codingMethods(coding) : {}), ...mediaSurface.methods, ...mediaSearchMethods({ home: d.home, config: d.config, agents: d.agents }, mediaSearch) }, async close() {
       if (closed) return; closed = true;
       await collab?.shutdown();
       await opened.close();

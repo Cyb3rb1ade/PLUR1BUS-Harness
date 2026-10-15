@@ -121,6 +121,7 @@ export const MIGRATIONS: readonly string[] = [
       'cards',json_array(),'activity',json_array(),'comments',json_array()) FROM projects;
   `,
   `ALTER TABLE spans ADD COLUMN session_id TEXT;`,
+  `ALTER TABLE spans ADD COLUMN target_kind TEXT; ALTER TABLE tasks ADD COLUMN target_kind TEXT;`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

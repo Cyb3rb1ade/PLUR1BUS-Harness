@@ -1,5 +1,6 @@
 // D104: sender validation/one repair, receiver authority check, then an explicit ack before execution.
-import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
+import { createHash, randomUUID } from 'node:crypto';
 import handoffSchema from './schemas/handoff.schema.json' with { type: 'json' };
 import returnSchema from './schemas/return.schema.json' with { type: 'json' };
 import ackSchema from './schemas/ack.schema.json' with { type: 'json' };
@@ -32,6 +33,9 @@ export interface HandoffContext {
   hasHistory?: boolean;
   /** Supervisor-bound review checkout; never accepted from model arguments. */
   readOnlyWorktree?: string;
+  /** Immutable authority/behavior boundaries across sender repair. */
+  expected?: Pick<Handoff, 'kind' | 'from' | 'to' | 'task' | 'constraints' | 'authority' | 'budget' | 'returnContract' | 'doneWhen'>;
+  onAccepted?: () => void;
 }
 export type HandoffRepair = (input: unknown, issues: readonly string[]) => Promise<unknown>;
 export interface HandoffAck { schema: 'plur1bus.ack/1'; inReplyTo: string; objective: string; status: 'ok' | 'blocked'; blockingQuestions: string[] }
@@ -63,6 +67,7 @@ function refuse(ctx: HandoffContext, reason: string): never {
 }
 /** Approval ids and derived grant ids are both verified through their chain-backed stores. No capability is minted or consumed here. */
 export function verifyHandoffAuthority(h: Handoff, ctx: HandoffContext): void {
+  if (ctx.expected && Object.keys(ctx.expected).some(key => !isDeepStrictEqual(h[key as keyof Handoff], ctx.expected![key as keyof NonNullable<HandoffContext['expected']>]))) refuse(ctx, 'handoff-contract-mismatch');
   if (h.task.id !== ctx.taskId || h.task.project !== ctx.projectId || h.from.agent !== ctx.fromAgent || h.from.session !== ctx.sessionId) refuse(ctx, 'handoff-binding');
   if (Date.parse(h.budget.deadline) <= ctx.now()) refuse(ctx, 'handoff-expired');
   for (const id of h.authority.approvalsHeld) {
@@ -124,4 +129,27 @@ export function validateReturn(input: unknown, h: Handoff): ReturnEnvelope {
     if (validateArguments(h.returnContract.outputSchema, r.output ?? null).length) throw new CollabError('invalid', 'return output schema mismatch');
   }
   return structuredClone(r);
+}
+
+/** One sender-side repair for a malformed/oversized return, with the original contract kept authoritative. */
+export async function prepareReturn(input: unknown, handoff: Handoff, repair?: HandoffRepair): Promise<ReturnEnvelope> {
+  let value = input;
+  for (let round = 0; round < 2; round++) {
+    try { return validateReturn(value, handoff); }
+    catch (e) {
+      if (round !== 0 || !repair || !(e instanceof CollabError)) throw e;
+      value = await repair(structuredClone(value), [e.message]);
+    }
+  }
+  throw new Error('unreachable');
+}
+export function boundedExcerpt(text: string, maxBytes: number): string {
+  let out = '', bytes = 0;
+  for (const char of text) { const n = Buffer.byteLength(char); if (bytes + n > maxBytes) break; out += char; bytes += n; }
+  return out;
+}
+/** Adapter-authored report for plain-text peers; claims remain unverified and full output can be referenced. */
+export function returnFromText(h: Handoff, text: string, usage: ReturnEnvelope['usage'], status: ReturnEnvelope['status'] = 'done_with_concerns', artifacts: ReturnEnvelope['artifacts'] = []): ReturnEnvelope {
+  const clipped = Buffer.byteLength(text) > 600;
+  return { schema: 'plur1bus.return/1', id: `rt_${randomUUID()}`, inReplyTo: h.id, status, summary: boundedExcerpt(text, 200), doneWhen: [], changes: [], artifacts, concerns: [status === 'partial' ? 'Interrupted; available output only' : 'Delegate report; external verification required', ...(clipped ? ['Excerpt; see referenced full output or delegation transcript.'] : [])], blockedBy: null, needs: [], assumptionsChecked: [], learned: [], suggestedNext: [], usage, output: boundedExcerpt(text, 600) + (clipped ? '\n[excerpt]' : '') };
 }

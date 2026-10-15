@@ -41,6 +41,9 @@ export function authenticatedPrincipal(ctx: CallContext): Principal {
 }
 
 export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
+  "chat.promote.links": { ...rule("chat:read", system), humanOnly: true },
+  "chat.promote.preview": { ...rule("chat:write", system), humanOnly: true },
+  "chat.promote.commit": { ...rule("chat:write", system), humanOnly: true },
   "chat.create": rule("chat:write", system),
   "chat.list": rule("chat:read", system),
   "chat.get": rule("chat:read", system),
