@@ -14,6 +14,8 @@ export interface TurnApprover { person: string | null; surface: 0 | 1 | 2 | 3 }
 export interface RecurringOrigin { jobId: string; jobName: string; runAs: string; trigger: "recurring" }
 
 export interface ChatRequest {
+  /** Derived from the stored mode; large tool results must not be spooled to disk. */
+  incognito?: boolean;
   /** Trusted internal origin, never accepted as session.submit params. */
   recurring?: RecurringOrigin;
   turnProfile?: import("../voice/turn-profile.ts").TurnProfile;
