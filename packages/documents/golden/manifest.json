@@ -1,0 +1,14 @@
+{
+  "threshold": "sha256-exact",
+  "hashes": {
+    "report": "f818f4d0b69b9a183157063bf7ac19455cd26b38c2f16952df41f4003193048b",
+    "essay": "c475c86c38f6012db62c2bccee863ce10bc2cfe7c4acc39b0da8ad9326b218a0",
+    "white-paper": "8d07fa14a5ef29840bd6c860fa179b7f5701cc0a824f84f907145f4da7899193",
+    "proposal": "eac8b8e979e17fbb0419282f72d71f99df41e971d6d89518c41a366e632b46fd",
+    "one-pager": "3f277f2775ed519194e4ea49ca57620984c7531df83f6ecfc8a9198506ee941b",
+    "letter": "cd629d382e037efedb28e084bb7715888cd5bd0ea685d260809ee669d9f39176",
+    "invoice": "d3d4c0bb3a52922e4c9c7ff9ec10d6b77d41b0b546d1d126acefbfe56c541a39",
+    "cv": "cdbe40a079832d1c23c2a1894e98446a32960ebbcc4c46a0c78adb9566b62ebc",
+    "slides": "c8f643ffea56da3afd56f58a9cedfa7b7b2ebf233e722689980f4d8fdb844813"
+  }
+}
