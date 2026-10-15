@@ -54,7 +54,7 @@ export async function wrapOutput(
   const start = o.setInterval ?? setInterval;
   const stop = o.clearInterval ?? clearInterval;
   await Promise.all(Object.entries(streams).map(async ([stream, input]) => {
-    if (!input) return; const lines = new OutputLines(writer, stream as "stdout" | "stderr", { now: o.now });
+    if (!input) return; const lines = new OutputLines(writer, stream as "stdout" | "stderr", o.now ? { now: o.now } : {});
     const timer = start(() => lines.tick(), 1000);
     if (typeof (timer as { unref?: () => void }).unref === "function") (timer as { unref: () => void }).unref();
     try { for await (const chunk of input) lines.push(chunk); } finally { stop(timer); lines.close(); }
