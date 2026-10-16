@@ -72,7 +72,7 @@ With no user id and no chat id on a non-local platform there is no safe identity
 
 - **No group/private setting (plan Q4, accepted).** Hermes turns carry no D22 setting, and the engine does not filter by setting today either; it lands with E7 and a later RPC minor. Until then a memory captured in a group chat is recalled for that user everywhere the same `accountId`/`userId` pair appears. The alternative (disable capture for gateway chats whose `chat_id` differs from `user_id`) was rejected because it loses memories in groups.
 - When a later RPC minor adds a host channel, the user-principal hash changes; the engine's user aliases (D24/E7) are for that.
-- The provider holds a full-surface core token (HM2-R7): a scoped per-agent client token is HM4/M3.
+- The legacy HM2 host-mode path uses the local core token; the HM4 existing-full-Harness path below requires a separate per-agent token and never falls back.
 
 ## Binding file and agent naming
 
@@ -188,3 +188,35 @@ Tests never touch a real service manager, a real Hermes or a real home: every te
 ## Release and artefacts
 
 A harness release carries `plur1bus-hermes-provider-<version>.tar.gz` (deterministic ustar with `MANIFEST.json`, HM2-R21), the client wheel and sdist (attached, not uploaded to PyPI; plan Q2), and `hermes-sidecar.lock.json`, all in `SHA256SUMS` and attested. Provider and client carry the harness version (HM2-R22). The plugin feed's `hosts.hermes` is generated from the lock after a harness release; the order of steps is in `docs/manual-release.md` §7.
+
+## HM4: existing full Harness and profile upgrade (2026-10-16)
+
+The owner approves an independent personal token named exactly after the derived `hermes-*` agent id (up to 64 characters, within the normal token-name limit). It uses the existing account/token database, expiry and revocation. Scope examples: `agent.use`, `agent.read`, `doctor.read`; `memory.forget` is opt-in. The transport restricts this token to the named agent and the explicit Hermes recall/capture/checkpoint/status methods. Cross-agent sharing, subscriptions, configuration, secrets, shutdown and administrative methods are denied. Rights/expiry/revocation are checked on **every** call. As an approved host adapter, the token may carry Hermes' mapped users within that one agent; this is host authority, not an anonymous caller identity.
+
+Owner provisioning from an already built checkout (runs as the owner, never inside the plugin):
+
+```sh
+node --experimental-strip-types --conditions=source scripts/hermes/approve-client.mjs \
+  --home /absolute/harness-home --agent hermes-default --hermes-home /absolute/hermes-home
+hermes plur1bus bind --existing --home /absolute/harness-home --json
+hermes plur1bus selftest --json
+```
+
+Use the agent id from the binding rule in this document (`hermes-home-<hash8>` for a custom home), not `hermes-default` for every home. Provisioning refuses to overwrite a credential, writes `plur1bus-client.token` owner-only and prints only its id/expiry. Revoke through the normal personal-token API/UI; re-provision explicitly after removing an old revoked file. The owner utility uses the normal owner/service IPC credentials to create the agent and issue a personal token. **The Hermes provider and `bind --existing` do not read those credentials.**
+
+The provider discovers the existing IPC address and checks its OS peer/pid as before. A full manifest requires a separate `plur1bus-client.token`; missing, invalid or revoked credentials never fall back to `run/core.token`. `bind --existing` authenticates and checks the pre-approved agent; it never starts a supervisor, creates an agent or invokes the importer. The legacy host-mode path remains compatible until a scoped token is provisioned.
+
+Upgrade on the **same** home:
+
+```sh
+plur1bus --home /absolute/harness-home setup --profile full --dry-run --json
+plur1bus --home /absolute/harness-home setup --profile full --non-interactive
+```
+
+First update the host-mode runtime to an HM4-capable release through its normal update path; the `hermes.scoped-client` capability is required and provisioning refuses older cores before changing credentials. Then provision scoped tokens for all recorded Hermes bindings. Host-Addons must carry this runtime/provider compatibility prerequisite; that installer change is an owner task. The upgrade snapshots installed runtime/modules/skills, configuration and install manifest; **never `state/` or the memory store**. It stops the existing daemon, runs setup in a child so even a child exit is caught, checks health and each recorded Hermes credential, and rolls back installed files/restarts the previous daemon on failure. Existing service registration is retained: the child uses `--no-service` and the existing daemon/service path; it does not replace OS service definitions. If no service existed, upgrade does not register a new one (use the existing service command separately). Symlinked install trees or stores overlapping code directories are refused before copying.
+
+An interrupted parent preserves `.profile-upgrade/`; a later setup refuses to overwrite it. Recover explicitly with `plur1bus --home ... setup --recover-profile`. Recovery refuses a live transaction owner, stops the daemon, verifies snapshot checksums, restores files and restarts only if the old daemon had been running. This is **explicit recovery**, not an automatic daemon-start/reboot recovery hook. Store files and new runtime state are preserved; rollback does not erase new agent workspaces/captures. Automatic crash recovery and native service-manager/platform acceptance remain KNOWN-GAP HM4-RECOVERY/HM4-NATIVE.
+
+Tests: `packages/core/test/hermes/scoped-client.test.ts` includes an actual Python fake Hermes client against a running Core after the core-token file is removed, rejection/cross-agent checks and live revocation. `crates/plur1bus/tests/setup_profile.rs` covers successful upgrade, injected-failure rollback and read-only dry-run; `install::profile_upgrade` unit tests preserve store bytes and the POSIX inode. The additive `hm4-contract` job in `hermes-host.yml` runs the affected suites on three OS. Local macOS evidence does not claim Windows/Linux native service acceptance.
+
+Catalog files: [`../hosts/hermes/catalog/README.md`](../hosts/hermes/catalog/README.md). No submission; the owner supplies the stable SHA/artifact and submits. Host-Addons installer/catalog packaging changes remain an owner task in that repository.
