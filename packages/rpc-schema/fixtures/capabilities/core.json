@@ -1,5 +1,53 @@
 {
   "methods": {
+    "chat.create": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.get": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.events": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.submit": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.update": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.archive": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.restore": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.cancel": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.fork": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.delete": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.export": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "jobs.create": {
       "stability": "experimental",
       "since": "1.6.0"
@@ -420,6 +468,10 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "dreams.diary": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "admin.obsidian.detect": {
       "stability": "experimental",
       "since": "1.3.0"
@@ -439,6 +491,10 @@
     "admin.backup.snapshot": {
       "stability": "experimental",
       "since": "1.5.0"
+    },
+    "logs.levels": {
+      "stability": "experimental",
+      "since": "1.6.0"
     },
     "logs.query": {
       "stability": "experimental",
@@ -784,6 +840,10 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "grant.get": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "grant.create": {
       "stability": "experimental",
       "since": "1.5.0"
@@ -809,6 +869,10 @@
       "since": "1.5.0"
     },
     "approval.verify": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "approval.audit": {
       "stability": "experimental",
       "since": "1.5.0"
     }
@@ -920,6 +984,10 @@
       "since": "1.5.0"
     },
     "approval.resolved": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "approval.parked": {
       "stability": "experimental",
       "since": "1.5.0"
     },

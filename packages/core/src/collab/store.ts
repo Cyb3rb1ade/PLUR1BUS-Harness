@@ -14,7 +14,10 @@ export { SCHEMA_VERSION };
 
 type Row = Record<string, unknown>;
 
-export interface StoreOptions { path: string; clock?: () => number; newId?: (prefix: string) => string }
+/** Ends task-scoped grants when a collab task reaches a terminal status (D109 §9.9). */
+export interface TaskGrantEnd { endTask(taskId: string, by?: string): number | void | Promise<number | void> }
+
+export interface StoreOptions { path: string; clock?: () => number; newId?: (prefix: string) => string; grants?: TaskGrantEnd; logWarn?: (msg: string, fields?: { err?: unknown }) => void }
 
 function mergeSettings(raw: unknown): CollabSettings {
   const o = (raw && typeof raw === "object" ? raw : {}) as Partial<CollabSettings>;
@@ -40,10 +43,14 @@ export class CollabStore {
   readonly #db: DatabaseSync;
   readonly #clock: () => number;
   readonly #newId: (prefix: string) => string;
+  readonly #grants: TaskGrantEnd | undefined;
+  readonly #logWarn: StoreOptions["logWarn"];
 
   constructor(o: StoreOptions) {
     this.#clock = o.clock ?? Date.now;
     this.#newId = o.newId ?? newId;
+    this.#grants = o.grants;
+    this.#logWarn = o.logWarn;
     this.#db = new DatabaseSync(o.path);
     try {
       this.#db.exec("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");
@@ -303,6 +310,7 @@ export class CollabStore {
       patch.status === "running" ? null : now, patch.inputTokens ?? null, patch.outputTokens ?? null,
       ...(started !== undefined ? [started, id] : [id]),
     );
+    if (patch.status === "succeeded" || patch.status === "failed" || patch.status === "cancelled") this.#endTaskGrants(id);
     return this.getTask(id)!;
   }
 
@@ -322,9 +330,21 @@ export class CollabStore {
     for (const r of open) {
       const id = r.id as string;
       this.#run("UPDATE tasks SET status='cancelled', error='aborted', ended_at=? WHERE id=?", now, id);
+      this.#endTaskGrants(id);
       ids.push(id);
     }
     return ids;
+  }
+
+  #endTaskGrants(taskId: string): void {
+    try {
+      const r = this.#grants?.endTask(taskId);
+      if (r != null && typeof r === "object" && typeof (r as Promise<unknown>).then === "function") {
+        void (r as Promise<unknown>).catch((err: unknown) => this.#logWarn?.("grant task end failed", { err }));
+      }
+    } catch (err) {
+      this.#logWarn?.("grant task end failed", { err });
+    }
   }
 }
 

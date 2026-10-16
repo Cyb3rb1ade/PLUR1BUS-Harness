@@ -232,7 +232,7 @@ not enabled or implemented by this phase.
 
 ## D98 completion and L10 verifiers (M5 phase 4)
 
-The `task.complete` agent tool is a D109 `shell.exec` operation and can complete
+The `coding_complete` agent tool is a D109 `shell.exec` operation and can complete
 only the caller agent's assigned project card. It resolves the checkout through
 `ProjectWorktreePort` (existing configured agent worktree by default; M6 can
 supply the same port). It accepts no path, commands, pass flags or override note.
