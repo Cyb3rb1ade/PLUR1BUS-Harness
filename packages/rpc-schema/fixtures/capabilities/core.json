@@ -412,6 +412,10 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "dreams.diary": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "admin.obsidian.detect": {
       "stability": "experimental",
       "since": "1.3.0"

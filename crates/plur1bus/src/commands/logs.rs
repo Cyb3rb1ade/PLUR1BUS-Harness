@@ -3,7 +3,7 @@
 //! `record.trace_id`). Invalid params are `E_INVALID_PARAMS` (exit 2);
 //! a signal while following is exit 130.
 use super::surfaces::{call, emit};
-use crate::output::{Out, EXIT_INTERRUPTED};
+use crate::output::Out;
 use crate::paths::Layout;
 use clap::Subcommand;
 use serde_json::{json, Value};
@@ -279,12 +279,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: LogsCmd) {
     params["waitMs"] = json!(1_000);
     loop {
         if interrupted.load(Ordering::Relaxed) {
-            out.fail_exit(
-                "E_CANCELLED",
-                "interrupted",
-                json!({ "reason": "signal" }),
-                EXIT_INTERRUPTED,
-            );
+            out.fail("E_CANCELLED", "interrupted", json!({ "reason": "signal" }));
         }
         let page = call(out, layout, method, params.clone());
         let text = render(&page);
@@ -417,6 +412,6 @@ mod tests {
 
     #[test]
     fn signal_exit_is_130() {
-        assert_eq!(EXIT_INTERRUPTED, 130);
+        assert_eq!(crate::output::EXIT_INTERRUPTED, 130);
     }
 }

@@ -176,6 +176,8 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "dreams.schedule.set": rule("settings.write", system),
   "dreams.enable": rule("settings.write", system),
   "dreams.disable": rule("settings.write", system),
+  // Private diary: owner or agent.manage (member with manage). Viewer is denied; not dreaming.read.
+  "dreams.diary": rule("agent.manage", agent),
   "admin.backup.snapshot": rule("admin.backup.snapshot", system),
   // D4: the protected log files, Owner/Admin.
   "logs.query": rule("logs.query", system),

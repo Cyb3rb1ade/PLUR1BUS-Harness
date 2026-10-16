@@ -263,6 +263,7 @@ fn method_fixture(name: &str, f: &Value) {
         "dreams.schedule.set" => pair::<DreamsScheduleSetParams, DreamsScheduleSetResult>(name, f),
         "dreams.enable" => pair::<DreamsEnableParams, DreamsEnableResult>(name, f),
         "dreams.disable" => pair::<DreamsDisableParams, DreamsDisableResult>(name, f),
+        "dreams.diary" => pair::<DreamsDiaryParams, DreamsDiaryResult>(name, f),
         "admin.reembed.plan" => pair::<AdminReembedPlanParams, AdminReembedPlanResult>(name, f),
         "admin.reembed.run" => pair::<AdminReembedRunParams, AdminReembedRunResult>(name, f),
         "admin.reembed.status" => {

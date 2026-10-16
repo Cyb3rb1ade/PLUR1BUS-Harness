@@ -81,6 +81,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus dreams schedule set`↴](#plur1bus-dreams-schedule-set)
 * [`plur1bus dreams enable`↴](#plur1bus-dreams-enable)
 * [`plur1bus dreams disable`↴](#plur1bus-dreams-disable)
+* [`plur1bus dreams diary`↴](#plur1bus-dreams-diary)
 * [`plur1bus config`↴](#plur1bus-config)
 * [`plur1bus config get`↴](#plur1bus-config-get)
 * [`plur1bus config set`↴](#plur1bus-config-set)
@@ -1285,6 +1286,7 @@ Dreaming: phase schedules, status, run, log
 * `schedule` — [experimental] Phase schedules: get, set
 * `enable` — [experimental] Enable one phase's schedule
 * `disable` — [experimental] Disable one phase's schedule (run now still works)
+* `diary` — [experimental] Read the private dreaming diary of an agent
 
 
 
@@ -1419,6 +1421,18 @@ Dreaming: phase schedules, status, run, log
 
   Possible values: `light`, `rem`, `deep`
 
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+
+
+## `plur1bus dreams diary`
+
+[experimental] Read the private dreaming diary of an agent
+
+**Usage:** `plur1bus dreams diary --agent <AGENT>`
 
 ###### **Options:**
 
