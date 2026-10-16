@@ -235,6 +235,7 @@ describe("provisioning results", opts, () => {
 
 describe("auto refresh", opts, () => {
   const start = async (page: Page): Promise<void> => { await page.clock.install(); };
+  const settled = (page: Page): Promise<unknown> => page.waitForFunction(() => { const b = document.querySelector<HTMLButtonElement>("main button.btn-primary"); return !!b && !b.disabled; });
 
   test("re-checks every 30 s, pauses while the tab is hidden, resumes when visible, stops after leaving the page", async () => {
     await withApp({ hash: "#/doctor" }, async ({ page, server }) => {
@@ -246,6 +247,7 @@ describe("auto refresh", opts, () => {
       await page.clock.runFor(30_000);
       await until(() => m.hits.health === 2, "second health call");
       await until(() => m.hits.agents === 2, "second agents call"); // sent in parallel with health
+      await settled(page); // the check has finished: its time is the age the tab-visible refresh measures
 
       await page.evaluate(() => {
         Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
@@ -260,6 +262,7 @@ describe("auto refresh", opts, () => {
         document.dispatchEvent(new Event("visibilitychange"));
       });
       await until(() => m.hits.health === 3, "refresh on becoming visible (data was stale)");
+      await settled(page); // the next check is scheduled when this one ends
       await page.clock.runFor(30_000);
       await until(() => m.hits.health === 4, "regular refresh after resuming");
 
