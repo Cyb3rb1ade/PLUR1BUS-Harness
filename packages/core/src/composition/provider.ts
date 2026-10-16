@@ -1,3 +1,5 @@
+import { MessageTriage, type MessageDecision } from '../triage/runtime.ts';
+import type { TriageDecision } from '../triage/index.ts';
 import { waitForVoiceConfirmation } from '../voice/turn-profile.ts';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { ProviderRouter, ProviderError, type ProfileTable, type ChatRequest as WireRequest, type ChatMessage, type ToolDefinition, type Usage, type ChatResult, type RouterConfig, type BudgetGuard, type RouterEvent } from '../../../providers/src/index.ts';
@@ -63,6 +65,11 @@ export type BillingClass = 'plan' | 'paid';
 export type TurnRouterEvent = RouterEvent
   | { type: 'provider.cross_billing_refused'; profile: string; from: Served & { billing: BillingClass }; to: Served & { billing: BillingClass } };
 export interface TurnProviderOptions {
+  requireTriage?: boolean;
+  triageTimeoutMs?: number;
+  classifyMessage?: (request: ChatRequest, signal: AbortSignal) => Promise<TriageDecision>;
+  profileForAgent?: (agent: string) => string | undefined;
+  onDecision?: (decision: MessageDecision) => void;
   capabilities?: LiveCapabilityIndex;
   skillsForAgent?: (agent: string) => SkillSelection;
   registry: ToolRegistry; budget: CallBudget; profiles: ProfileTable;
@@ -116,9 +123,11 @@ function actual(usage: Usage) {
 
 /** One provider seam for sessions and collaboration: all attempts, repair and tool execution share a turn owner. */
 export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { telemetry: ReturnType<typeof createCacheTelemetry> } {
+  const messageTriage = new MessageTriage();
   const builder = createPromptBuilder();
   const telemetry = createCacheTelemetry();
   const snapshots = new Map<string, string>();
+  const taskProfiles = new Map<string, string>();
   const retryBudget = new RetryBudget();
   interface RoutingContext { profiles: ProfileTable; guard: BudgetGuard; call: CallState; event(event: RouterEvent): void }
   const routing = new AsyncLocalStorage<RoutingContext>();
@@ -139,8 +148,31 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       return principal;
     });
     req.principal = principal;
-    const decisionWork = async (signal: AbortSignal) => stage('triage', signal, o.log, () => triage(req.messages.filter(m => m.role === 'user').at(-1)?.text ?? ''));
+    let resolved: MessageDecision | undefined;
+    const decisionWork = async (signal: AbortSignal) => stage('triage', signal, o.log, async () => {
+      if (req.role) return triage('');
+      const text = req.messages.filter(m => m.role === 'user').at(-1)?.text ?? '';
+      if (!o.classifyMessage && !o.requireTriage) return triage(text);
+      resolved = await messageTriage.decide(text, JSON.stringify([req.agentId, principal, req.sessionId]), (_message, signal) => {
+        if (!o.classifyMessage) throw Error('decision role unavailable');
+        return o.classifyMessage(req, signal);
+      }, { signal, timeoutMs: o.triageTimeoutMs ?? 200, ...(req.taskBoundary ? { task: req.taskBoundary } : {}), onFallback: () => { void stage('triage-fallback', signal, o.log, () => undefined); } });
+      try { o.onDecision?.(resolved); } catch { /* telemetry cannot invalidate an admitted decision */ } return resolved.decision;
+    });
     const decision = req.turnProfile ? await req.turnProfile.run('decisionService', decisionWork, triage(''), signal) : await decisionWork(signal);
+    let coreOnly = !!req.role || resolved?.coreOnly === true || (o.requireTriage === true && !resolved);
+    const classes = ['small', 'medium', 'large', 'frontier'];
+    const modelClass = resolved?.modelClass ?? decision.tasks.reduce<string>((chosen, task) => classes.indexOf(task.chosenClass) > classes.indexOf(chosen) ? task.chosenClass : chosen, 'small');
+    const defaultProfile = (!req.role ? o.profileForAgent?.(req.agentId) : undefined) ?? o.profile ?? 'default';
+    const taskScope = JSON.stringify([req.agentId, principal, req.sessionId]);
+    const atBoundary = req.taskBoundary?.atBoundary ?? decision.shape !== 'followup';
+    let profile = defaultProfile;
+    if (!coreOnly) {
+      if (!atBoundary && taskProfiles.has(taskScope)) profile = taskProfiles.get(taskScope)!;
+      else try { profile = o.profileForClass?.(modelClass) ?? defaultProfile; if (!o.profiles[profile]?.length) throw Error('class-profile-unavailable'); }
+      catch { coreOnly = true; profile = defaultProfile; await stage('triage-fallback', signal, o.log, () => undefined); }
+      if (!coreOnly) { taskProfiles.set(taskScope, profile); if (taskProfiles.size > 1024) taskProfiles.delete(taskProfiles.keys().next().value!); }
+    }
     await o.capabilities?.syncExtensions();
     const registry = o.toolsForTurn ? await stage('tool-registry', signal, o.log, () => o.toolsForTurn!(req)) : o.registry;
     let skillText = '';
@@ -156,7 +188,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         return decide({ capability: t.capability, tool: t.name, effect: t.effect, flags: { outsideRoots: false, denyListHit: false }, actionHash: '' }, context, { grants: o.grants, clock: { now: Date.now } }).kind !== 'deny';
       } catch { return false; }
     };
-    if (o.capabilities && req.role !== 'summarize' && !registry.get(searchName)) registry.register({
+    if (o.capabilities && !req.role && !registry.get(searchName)) registry.register({
       name: searchName, description: 'Find available capabilities by literal query; discovered tools are available on the next model round.', capability: 'fs.read', effect: 'read', risk: 'low', trust: 'first-party',
       inputSchema: { type: 'object', additionalProperties: false, properties: { query: { type: 'string', minLength: 1, maxLength: 4096 }, category: { type: 'string', maxLength: 100 } }, required: ['query'] },
       classify: () => ({ flags: { outsideRoots: false, denyListHit: false } }),
@@ -177,8 +209,8 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     });
     const selected = await stage('capability-index', signal, o.log, async () => {
       const visible = registry.entries().filter(eligible);
-      const view = req.role === 'summarize' ? undefined : o.capabilities?.view(JSON.stringify([req.agentId, principal]), visible, o.skillsForAgent?.(req.agentId), req.agentId);
-      const index = view && o.capabilities ? await o.capabilities.prepare(req.messages.filter(m => m.role === 'user').at(-1)?.text ?? '', view, signal) : new CapabilityIndex();
+      const view = req.role ? undefined : o.capabilities?.view(JSON.stringify([req.agentId, principal]), visible, o.skillsForAgent?.(req.agentId), req.agentId);
+      const index = view && o.capabilities && !coreOnly ? await o.capabilities.prepare(req.messages.filter(m => m.role === 'user').at(-1)?.text ?? '', view, signal) : view?.index ?? new CapabilityIndex();
       searchIndex = view?.discovery ?? index; searchView = view;
       for (const d of view ? [] : registry.describe().filter(d => eligible(registry.get(d.name)!))) {
         const t = registry.entries().find(t => t.name === d.name)!;
@@ -186,6 +218,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         const category = t.name.startsWith('image.') ? 'media.image' : t.name.startsWith('file.') ? 'files.manage' : t.name.startsWith('mcp.') ? 'general.chat' : 'ops.system';
         index.upsert({ id: t.name, name: t.name, description: t.description, category, kind: t.name.startsWith('mcp.') ? 'mcp-tool' : 'tool', effect: t.effect, risk: t.risk, source: t.trust, version: '1' });
       }
+      if (coreOnly) return registry.entries().filter(t => t.name === searchName && eligible(t));
       const categories: Record<string, number> = {};
       for (const task of decision.tasks) for (const [category, weight] of Object.entries(task.categories)) categories[category] = (categories[category] ?? 0) + weight;
       if (!decision.tasks.length) categories['general.chat'] = 1;
@@ -199,9 +232,6 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       if (search && eligible(search) && !tools.includes(search)) tools.push(search);
       return tools;
     });
-    const classes = ['small', 'medium', 'large', 'frontier'];
-    const modelClass = decision.tasks.reduce((chosen, task) => classes.indexOf(task.chosenClass) > classes.indexOf(chosen) ? task.chosenClass : chosen, 'small');
-    const profile = o.profileForClass?.(modelClass) ?? o.profile ?? 'default';
     const candidate = o.profiles[profile]?.[0];
     if (!candidate) throw new TurnToolError('unknown_profile', profile);
     const key = `${req.agentId}:${req.sessionId}`;
