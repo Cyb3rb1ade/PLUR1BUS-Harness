@@ -57,8 +57,21 @@ generators live in `packages/documents/src/charts.ts`; rendering them into a doc
 
 ## Golden set
 
-One document per template is rendered in CI and compared against approved reference images by a visual diff (threshold
-documented in the CI job). The fonts are embedded, so the diff is deterministic across runners.
+One document per template is rendered in CI (job `documents-golden`) and compared against approved reference images in
+`packages/documents/golden/` by a pixel diff (`packages/documents/scripts/golden.ts`, decoder and diff in `png-diff.ts`, Node
+built-ins only).
+
+- **Threshold**: a pixel differs when any channel (including alpha) deviates by more than 8/255; a page fails when more than
+  0.1 % of its pixels differ or its dimensions change. The values live in `png-diff.ts` and are recorded in `manifest.json`.
+  Byte-identical PNGs were rejected as the criterion: they are not stable across Chrome versions or machines.
+- **Pinned renderer**: the job installs one fixed Chrome (`CHROME_VERSION` in `ci.yml`) via a SHA-pinned setup action; the
+  manifest records the version that produced the references. Bump both together.
+- **Updating references**: never render them locally. Every CI run uploads its renders as artifact `golden-renders`; fetch it
+  (`gh run download <run> -n golden-renders -D /tmp/g`) and adopt it with
+  `node --experimental-strip-types --conditions=source packages/documents/scripts/golden.ts update --from /tmp/g`.
+  `check` never writes into `golden/`.
+- **Guard**: `packages/documents/test/golden-diff.test.ts` proves the diff stays strict (a box moved by 12 px fails; renderer-level
+  noise below the tolerance passes). Moves much smaller than ~0.1 % of the page area are below the threshold by design.
 
 ## Limits and known gaps
 
