@@ -151,21 +151,21 @@ test("OK-6: foreign, null, look-alike and empty Origins are refused; a missing O
 });
 
 // ---- RBAC -----------------------------------------------------------------------------------------------------------
-test("OK-7: the route table is deny-by-default and its only core calls are core.status and agent.list (no admin.*, no passthrough)", async () => {
+test("OK-7: the route table is deny-by-default and only explicit status, agent and direct-chat reads reach Core (no admin passthrough)", async () => {
   const h = await start({ rateClasses: wide });
   try {
     const { cookie } = await login(h);
     for (const r of ROUTES) {
       for (const headers of [{}, { cookie: "plur1bus_session=forged" }] as Array<Record<string, string>>) {
-        const res = await raw(h, { method: r.method, path: r.path, headers: { ...headers, ...(r.requestBody ? jsonHeaders() : {}) } });
+        const res = await raw(h, { method: r.method, path: r.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), headers: { ...headers, ...(r.requestBody ? jsonHeaders() : {}) } });
         if (r.auth !== "none") assert.equal(res.status, 401, `${r.id} anonymous`); else assert.notEqual(res.status, 200);
       }
     }
     assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id), ["invitation.redeem", "session.create", "session.totp"]);
     assert.ok(ROUTES.filter((r) => r.method !== "GET" && r.auth !== "none").every((r) => r.csrf), "every authenticated write needs CSRF");
-    for (const r of ROUTES) if (r.auth !== "none" && r.method === "GET") await raw(h, { path: r.path, headers: { cookie } });
+    for (const r of ROUTES) if (r.auth !== "none" && r.method === "GET") await raw(h, { path: r.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), headers: { cookie } });
     const called = new Set(h.core.calls.map((c) => c.method));
-    assert.deepEqual([...called].sort(), ["agent.list", "core.status"]);
+    assert.deepEqual([...called].sort(), ["agent.list", "chat.events", "chat.get", "chat.list", "core.status"]);
     for (const p of ["/api/v1/admin/migrate", "/api/v1/admin.migrate", "/api/v1/rpc", "/api/v1/admin/reembed/run", "/api/v1/users", "/api/v1/identity", "/api/v1/secrets"]) {
       const t = await csrfToken(h, cookie);
       for (const method of ["GET", "POST", "DELETE", "PUT", "PATCH"]) assert.equal((await raw(h, { method, path: p, headers: { cookie, "x-csrf-token": t, ...jsonHeaders() } })).status, 404, `${method} ${p}`);
@@ -299,11 +299,11 @@ test("Q12-2: every authenticated write on the route table needs the one-time CSR
     const { cookie } = await loginAs(h, "adam");
     for (const r of ROUTES.filter((x) => x.auth !== "none" && x.method !== "GET")) {
       assert.equal(r.csrf, true, r.id);
-      const bare = await raw(h, { method: r.method, path: r.path, headers: { cookie, ...jsonHeaders() }, body: r.requestBody ? "{}" : undefined as never });
+      const bare = await raw(h, { method: r.method, path: r.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), headers: { cookie, ...jsonHeaders() }, body: r.requestBody ? "{}" : undefined as never });
       assert.deepEqual([bare.status, bare.json.reason], [403, "csrf"], `${r.id} without a token`);
       for (const extra of [{ origin: "https://evil.example" }, { referer: "https://evil.example/x" }, { "sec-fetch-site": "cross-site" }]) {
         const t = await csrfToken(h, cookie);
-        const x = await raw(h, { method: r.method, path: r.path, headers: { cookie, "x-csrf-token": t, ...jsonHeaders(), ...extra }, body: r.requestBody ? "{}" : undefined as never });
+        const x = await raw(h, { method: r.method, path: r.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), headers: { cookie, "x-csrf-token": t, ...jsonHeaders(), ...extra }, body: r.requestBody ? "{}" : undefined as never });
         assert.equal(x.status, 403, `${r.id} ${Object.keys(extra)[0]}`); assert.notEqual(x.json.reason, undefined);
       }
     }
@@ -419,7 +419,7 @@ test("Q12-9: no route, new or old, grants CORS: a cross-origin preflight or requ
   try {
     for (const r of [...ROUTES, { method: "GET", path: "/" }, { method: "GET", path: "/main.js" }]) {
       for (const method of ["OPTIONS", r.method]) {
-        const res = await raw(h, { method, path: r.path, headers: { origin: "https://evil.example", "access-control-request-method": r.method, "access-control-request-headers": "x-csrf-token" } });
+        const res = await raw(h, { method, path: r.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), headers: { origin: "https://evil.example", "access-control-request-method": r.method, "access-control-request-headers": "x-csrf-token" } });
         assert.equal(res.status, 403, `${method} ${r.path}`);
         for (const k of Object.keys(res.headers)) assert.ok(!k.startsWith("access-control-"), `${r.path}: ${k}`);
       }

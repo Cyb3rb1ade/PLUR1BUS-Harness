@@ -8,6 +8,32 @@ interface Line { raw: string; indent: number; no: number }
 const INT = /^[-+]?\d+$/;
 const FLOAT = /^[-+]?(\d+\.\d*|\.\d+)([eE][-+]?\d+)?$/;
 
+const MAX_DEPTH = 2048;
+const TOO_DEEP = Symbol("too deep");
+const QUOTED_ENTRY = /^("(?:[^"\\]|\\.)*"|'(?:[^']|'')*')\s*:(\s+|$)(.*)$/;
+const isWs = (c: string | undefined) => c !== undefined && /\s/.test(c);
+
+/**
+ * Splits a trimmed line into a mapping key and the text after the colon, or null if it is not an entry. The plain key is
+ * found with a single linear scan (a lazy regex over a long run of whitespace backtracks quadratically). `inSeq`: the
+ * entry follows "- " and a plain key may not contain ':' (so "- a: b: c" is not read as the key "a: b").
+ */
+function entry(t: string, inSeq: boolean): { key: string; rest: string } | null {
+  if (t === "") return null;
+  const q = QUOTED_ENTRY.exec(t);
+  if (q) return { key: q[1]!, rest: q[3] ?? "" };
+  if (/[\s"'#[{]/.test(t[0]!)) return null;
+  for (let j = 1; j < t.length; j++) {
+    const c = t[j];
+    if (c === "#") return null;
+    if (c === ":") {
+      if (j + 1 === t.length || isWs(t[j + 1])) return { key: t.slice(0, j).trimEnd(), rest: t.slice(j + 1).trimStart() };
+      if (inSeq) return null;
+    }
+  }
+  return null;
+}
+
 function stripComment(s: string): string {
   let q: string | null = null;
   for (let i = 0; i < s.length; i++) {
@@ -68,22 +94,26 @@ export function readYaml(text: string): { value: unknown; unsupported: string[] 
       body.push(l.raw.slice(Math.min(ind, l.indent)));
       pos++;
     }
-    while (body.length && body[body.length - 1] === "") body.pop();
     const keep = indicator.includes("+"); const strip = indicator.includes("-");
+    // The final empty element of the split is the line terminator of the last line, not a blank line.
+    if (keep && pos >= lines.length && lines[lines.length - 1]!.raw === "" && body.length) body.pop();
+    let trailing = 0;
+    while (body.length && body[body.length - 1] === "") { body.pop(); trailing++; }
     let s: string;
     if (indicator.startsWith("|")) s = body.join("\n");
     else s = body.reduce((acc, cur, idx) => (idx === 0 ? cur : cur === "" ? `${acc}\n` : acc.endsWith("\n") ? acc + cur : `${acc} ${cur}`), "");
-    return strip ? s : keep ? `${s}\n` : `${s}\n`;
+    return strip ? s : keep && s !== "" ? `${s}\n${"\n".repeat(trailing)}` : `${s}\n`;
   };
 
   // Parses the value that follows a key or a "- " (text `rest`, on line `pos`), consuming its lines.
-  const inlineValue = (rest: string, indent: number, where: string): { ok: boolean; v?: unknown } => {
+  const inlineValue = (rest: string, indent: number, where: string, inSeq = false): { ok: boolean; v?: unknown } => {
     const r = stripComment(rest).trim();
     if (r === "") {
       const j = nextSig(pos + 1);
-      if (j < lines.length && (lines[j]!.indent > indent || (lines[j]!.indent === indent && /^-(\s|$)/.test(lines[j]!.raw.trim())))) {
+      if (j < lines.length && (lines[j]!.indent > indent || (!inSeq && lines[j]!.indent === indent && /^-(\s|$)/.test(lines[j]!.raw.trim())))) {
         pos = j;
-        return { ok: true, v: block(lines[j]!.indent) };
+        const v = block(lines[j]!.indent);
+        return v === TOO_DEEP ? { ok: false } : { ok: true, v };
       }
       pos++;
       return { ok: true, v: null };
@@ -100,7 +130,14 @@ export function readYaml(text: string): { value: unknown; unsupported: string[] 
     return { ok: true, v: scalar(r) };
   };
 
+  let depth = 0;
   const block = (indent: number): unknown => {
+    if (depth >= MAX_DEPTH) {
+      unsupported.push(`line ${lines[pos]!.no}: nesting deeper than ${MAX_DEPTH} levels`);
+      skipChildren(indent - 1);
+      return TOO_DEEP;
+    }
+    depth++;
     const first = lines[pos]!;
     const isSeq = /^-(\s|$)/.test(first.raw.trim());
     if (isSeq) {
@@ -112,15 +149,17 @@ export function readYaml(text: string): { value: unknown; unsupported: string[] 
         if (l.indent !== indent || !/^-(\s|$)/.test(l.raw.trim())) break;
         const rest = l.raw.trim().slice(1);
         const restTrim = rest.trimStart();
-        if (restTrim !== "" && /^("[^"]*"|'[^']*'|[^\s"'#[{][^:#]*?)\s*:(\s|$)/.test(restTrim) && !restTrim.startsWith("[")) {
+        if (restTrim !== "" && (/^-(\s|$)/.test(restTrim) || (!restTrim.startsWith("[") && entry(restTrim, true)))) {
           const col = indent + 1 + (rest.length - restTrim.length);
           lines[pos] = { ...l, raw: " ".repeat(col) + restTrim, indent: col };
-          arr.push(block(col));
+          const v = block(col);
+          if (v !== TOO_DEEP) arr.push(v);
         } else {
-          const r = inlineValue(rest, indent, `item ${arr.length}`);
+          const r = inlineValue(rest, indent, `item ${arr.length}`, true);
           if (r.ok) arr.push(r.v);
         }
       }
+      depth--;
       return arr;
     }
     const obj: Record<string, unknown> = {};
@@ -130,19 +169,20 @@ export function readYaml(text: string): { value: unknown; unsupported: string[] 
       const l = lines[pos]!;
       if (l.indent !== indent) { if (l.indent > indent) { unsupported.push(`line ${l.no}: unexpected indentation`); skipChildren(indent); continue; } break; }
       const t = l.raw.trim();
-      const m = /^("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^\s"'#[{][^#]*?)\s*:(\s+|$)(.*)$/.exec(t);
+      const m = entry(t, false);
       if (!m) { unsupported.push(`line ${l.no}: not a mapping entry`); skipChildren(indent); continue; }
-      const key = String(scalar(m[1]!));
-      const r = inlineValue(m[3] ?? "", indent, key);
+      const key = String(scalar(m.key));
+      const r = inlineValue(m.rest, indent, key);
       if (r.ok) Object.defineProperty(obj, key, { value: r.v, enumerable: true, writable: true, configurable: true });
     }
+    depth--;
     return obj;
   };
 
   pos = nextSig(0);
   if (pos >= lines.length) return { value: null, unsupported };
   const value = block(lines[pos]!.indent);
-  return { value, unsupported };
+  return { value: value === TOO_DEEP ? null : value, unsupported };
 }
 
 /** The YAML frontmatter of a Markdown file (between a leading `---` line and the next `---` line), or null. */

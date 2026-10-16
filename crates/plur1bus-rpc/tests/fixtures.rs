@@ -263,6 +263,19 @@ fn method_fixture(name: &str, f: &Value) {
         "dreams.schedule.set" => pair::<DreamsScheduleSetParams, DreamsScheduleSetResult>(name, f),
         "dreams.enable" => pair::<DreamsEnableParams, DreamsEnableResult>(name, f),
         "dreams.disable" => pair::<DreamsDisableParams, DreamsDisableResult>(name, f),
+        "dreams.diary" => pair::<DreamsDiaryParams, DreamsDiaryResult>(name, f),
+        "chat.create" => pair::<ChatCreateParams, ChatCreateResult>(name, f),
+        "chat.list" => pair::<ChatListParams, ChatListResult>(name, f),
+        "chat.get" => pair::<ChatGetParams, ChatGetResult>(name, f),
+        "chat.events" => pair::<ChatEventsParams, ChatEventsResult>(name, f),
+        "chat.submit" => pair::<ChatSubmitParams, ChatSubmitResult>(name, f),
+        "chat.update" => pair::<ChatUpdateParams, ChatUpdateResult>(name, f),
+        "chat.archive" => pair::<ChatArchiveParams, ChatArchiveResult>(name, f),
+        "chat.restore" => pair::<ChatRestoreParams, ChatRestoreResult>(name, f),
+        "chat.cancel" => pair::<ChatCancelParams, ChatCancelResult>(name, f),
+        "chat.fork" => pair::<ChatForkParams, ChatForkResult>(name, f),
+        "chat.delete" => pair::<ChatDeleteParams, ChatDeleteResult>(name, f),
+        "chat.export" => pair::<ChatExportParams, ChatExportResult>(name, f),
         "admin.reembed.plan" => pair::<AdminReembedPlanParams, AdminReembedPlanResult>(name, f),
         "admin.reembed.run" => pair::<AdminReembedRunParams, AdminReembedRunResult>(name, f),
         "admin.reembed.status" => {
@@ -295,6 +308,7 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<IdentityPairConfirmParams, IdentityPairConfirmResult>(name, f)
         }
         "identity.unlink" => pair::<IdentityUnlinkParams, IdentityUnlinkResult>(name, f),
+        "logs.levels" => pair::<LogsLevelsParams, LogsLevelsResult>(name, f),
         "logs.query" => pair::<LogsQueryParams, LogsQueryResult>(name, f),
         "logs.tail" => pair::<LogsTailParams, LogsTailResult>(name, f),
         "budget.status" => pair::<BudgetStatusParams, BudgetStatusResult>(name, f),
@@ -306,6 +320,7 @@ fn method_fixture(name: &str, f: &Value) {
         "secret.get" => pair::<SecretGetParams, SecretGetResult>(name, f),
         "secret.delete" => pair::<SecretDeleteParams, SecretDeleteResult>(name, f),
         "grant.list" => pair::<GrantListParams, GrantListResult>(name, f),
+        "grant.get" => pair::<GrantGetParams, GrantRecord>(name, f),
         "grant.create" => pair::<GrantCreateParams, GrantRecord>(name, f),
         "grant.revoke" => pair::<GrantRevokeParams, GrantRecord>(name, f),
         "approval.list" => pair::<ApprovalListParams, ApprovalListResult>(name, f),
@@ -313,6 +328,7 @@ fn method_fixture(name: &str, f: &Value) {
         "approval.decide" => pair::<ApprovalDecideParams, ApprovalDecideResult>(name, f),
         "approval.cancel" => pair::<ApprovalCancelParams, ApprovalRecord>(name, f),
         "approval.verify" => pair::<ApprovalVerifyParams, ApprovalVerifyResult>(name, f),
+        "approval.audit" => pair::<ApprovalAuditParams, ApprovalAuditResult>(name, f),
         "voice.status" => pair::<VoiceStatusParams, VoiceStatusResult>(name, f),
         "voice.agent.override.clear" => {
             pair::<VoiceAgentOverrideClearParams, VoiceAgentOverrideClearResult>(name, f)
@@ -530,6 +546,7 @@ fn every_notification_fixture_round_trips() {
             "session.event" => round_trip::<types::SessionEventNotification>(v, name),
             "approval.requested" => round_trip::<types::ApprovalRequestedNotification>(v, name),
             "approval.resolved" => round_trip::<types::ApprovalResolvedNotification>(v, name),
+            "approval.parked" => round_trip::<types::ApprovalParkedNotification>(v, name),
             "api.account.changed" => round_trip::<types::ApiAccountChangedNotification>(v, name),
             "grant.changed" => round_trip::<types::GrantChangedNotification>(v, name),
             "voice.download.progress" => {
