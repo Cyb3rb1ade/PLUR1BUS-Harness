@@ -329,6 +329,7 @@ fn check_json_validates_the_document_shape() {
         "extensions.revoked",
         "models.roles",
         "approvals.integrity",
+        "dreams.last-runs",
     ];
     let ids: Vec<String> = v["checks"]
         .as_array()
@@ -361,7 +362,7 @@ fn check_json_lists_the_installer_ids_after_the_first_seventeen() {
         .iter()
         .map(|c| c["id"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(ids.len(), 25, "{v}");
+    assert_eq!(ids.len(), 26, "{v}");
     assert_eq!(
         &ids[17..20],
         &["runtime.node", "runtime.core", "models.cache"],
@@ -907,7 +908,7 @@ fn check_ids_are_append_only_and_end_with_the_three_extension_rows() {
         .iter()
         .map(|c| c["id"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(ids.len(), 25, "{v}");
+    assert_eq!(ids.len(), 26, "{v}");
     assert_eq!(
         &ids[17..20],
         &["runtime.node", "runtime.core", "models.cache"]
@@ -915,6 +916,7 @@ fn check_ids_are_append_only_and_end_with_the_three_extension_rows() {
     assert_eq!(&ids[20..23], &EXT_IDS, "{v}");
     assert_eq!(&ids[23], "models.roles", "{v}");
     assert_eq!(&ids[24], "approvals.integrity", "{v}");
+    assert_eq!(&ids[25], "dreams.last-runs", "{v}");
 }
 
 #[test]

@@ -59,6 +59,7 @@ const CHECK_IDS: [&str; 25] = [
     "extensions.revoked",
     "models.roles",
     "approvals.integrity",
+    "dreams.last-runs",
 ];
 
 /// The summary of a row [`gather`] never got to before its deadline (`1staid repair` plans nothing for it).
@@ -367,6 +368,15 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
         return checks;
     }
     checks.push(check_approvals_integrity(core_client.as_mut()));
+    let core_reachable = core_status.is_some();
+    let dreams_status = core_client
+        .as_mut()
+        .and_then(|c| c.call("dreams.status", json!({})).ok());
+    checks.push(check_dreams_last_runs(
+        dreams_status.as_ref(),
+        env.now,
+        core_reachable,
+    ));
     checks
 }
 
@@ -1376,6 +1386,71 @@ fn check_jobs_from_status(jobs: &Value) -> Check {
     Check::warn(ID, parts.join("; "), Some(detail), hint)
 }
 
+// ---- dreams.last-runs ---------------------------------------------------------------------------
+
+/// Last run per phase and agent, error state, missed windows. `now` is the injectable clock
+/// (`Env.now`); a missed window is an enabled phase whose `nextRunAt` is at or before `now`.
+fn check_dreams_last_runs(status: Option<&Value>, now: u64, core_reachable: bool) -> Check {
+    const ID: &str = "dreams.last-runs";
+    if !core_reachable {
+        return Check::skip(ID, "core is not reachable");
+    }
+    let Some(agents) = status
+        .and_then(|s| s.get("agents"))
+        .and_then(Value::as_array)
+    else {
+        return Check::skip(ID, "the dreaming scheduler is not running");
+    };
+    let mut missed = Vec::new();
+    let mut errors = Vec::new();
+    for a in agents {
+        let agent_id = a["agentId"].as_str().unwrap_or("");
+        for ph in a["phases"].as_array().map(Vec::as_slice).unwrap_or(&[]) {
+            let phase = ph["phase"].as_str().unwrap_or("");
+            let enabled = ph["enabled"].as_bool().unwrap_or(false);
+            if enabled {
+                if let Some(next) = ph["nextRunAt"].as_u64() {
+                    if next <= now {
+                        missed.push(json!({
+                            "agentId": agent_id,
+                            "phase": phase,
+                            "nextRunAt": next,
+                        }));
+                    }
+                }
+            }
+            if let Some(last) = ph.get("lastRun").filter(|v| !v.is_null()) {
+                let outcome = last["outcome"].as_str().unwrap_or("");
+                if matches!(outcome, "failed" | "aborted") {
+                    errors.push(json!({
+                        "agentId": agent_id,
+                        "phase": phase,
+                        "outcome": outcome,
+                        "reason": last["reason"],
+                        "runId": last["runId"],
+                    }));
+                }
+            }
+        }
+    }
+    if missed.is_empty() && errors.is_empty() {
+        return Check::ok(ID, "every enabled phase is on schedule");
+    }
+    let mut parts = Vec::new();
+    if !missed.is_empty() {
+        parts.push(format!("{} missed window(s)", missed.len()));
+    }
+    if !errors.is_empty() {
+        parts.push(format!("{} last run(s) failed or aborted", errors.len()));
+    }
+    Check::warn(
+        ID,
+        parts.join("; "),
+        Some(json!({ "missed": missed, "errors": errors })),
+        Some("plur1bus dreams status / dreams log for detail".into()),
+    )
+}
+
 // ---- api.deprecations ---------------------------------------------------------------------------
 
 fn check_api_deprecations(core_status: Option<&Value>) -> Check {
@@ -1984,6 +2059,63 @@ mod tests {
         assert_eq!(
             check_jobs_last_runs(Some(&json!({})), None, None, deadline).status,
             Status::Skip
+        );
+    }
+
+    #[test]
+    fn doctor_reports_a_missed_window() {
+        let now = 1_000_000u64;
+        let status = json!({
+            "agents": [{
+                "agentId": "alpha",
+                "diary": null,
+                "phases": [{
+                    "phase": "deep",
+                    "enabled": true,
+                    "cron": "0 4 * * *",
+                    "timezone": "UTC",
+                    "staggerOffsetS": 0,
+                    "nextRunAt": now - 1,
+                    "running": false,
+                    "lastRun": null,
+                    "breaker": { "state": "closed", "until": null, "reason": null, "sessionsUsed": 0, "limit": 3 },
+                    "importance": { "accumulated": 0, "threshold": 450, "capturesSinceRun": 0, "minCorpus": 3 }
+                }]
+            }],
+            "counters": { "runs": {}, "skips": {}, "triggers": {}, "breakerTrips": 0, "reconciled": 0 },
+            "schemaVersion": 1
+        });
+        let check = check_dreams_last_runs(Some(&status), now, true);
+        assert_eq!(check.status, Status::Warn, "{check:?}");
+        assert_eq!(check.id, "dreams.last-runs");
+        assert!(check.summary.contains("missed"), "{check:?}");
+        assert_eq!(check.detail.as_ref().unwrap()["missed"][0]["phase"], "deep");
+        assert_eq!(
+            check.detail.as_ref().unwrap()["missed"][0]["agentId"],
+            "alpha"
+        );
+        assert_eq!(
+            check.hint.as_deref(),
+            Some("plur1bus dreams status / dreams log for detail")
+        );
+        assert_eq!(
+            check_dreams_last_runs(None, now, false).status,
+            Status::Skip
+        );
+        let on_time = json!({
+            "agents": [{
+                "agentId": "alpha",
+                "phases": [{
+                    "phase": "deep",
+                    "enabled": true,
+                    "nextRunAt": now + 1,
+                    "lastRun": { "outcome": "completed", "runId": "r1" }
+                }]
+            }]
+        });
+        assert_eq!(
+            check_dreams_last_runs(Some(&on_time), now, true).status,
+            Status::Ok
         );
     }
 

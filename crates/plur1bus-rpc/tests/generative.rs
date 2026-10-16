@@ -1867,6 +1867,8 @@ table! {
     Result "dreams.enable" DreamsEnableResult,
     Params "dreams.disable" DreamsDisableParams,
     Result "dreams.disable" DreamsDisableResult,
+    Params "dreams.diary" DreamsDiaryParams,
+    Result "dreams.diary" DreamsDiaryResult,
     Params "admin.obsidian.detect" AdminObsidianDetectParams,
     Result "admin.obsidian.detect" AdminObsidianDetectResult,
     Params "admin.obsidian.prepare" AdminObsidianPrepareParams,

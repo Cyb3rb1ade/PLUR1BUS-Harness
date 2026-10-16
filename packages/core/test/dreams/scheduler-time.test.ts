@@ -214,6 +214,21 @@ describe("dreams scheduler: orphaned runs", () => {
     await again.stop();
   });
 
+  it("a crashed window older than RETRY_MAX_AGE_MS is not retried", async () => {
+    const h = harness(dirs);
+    h.captures("alpha", 3);
+    await h.sched.start(); await h.sched.stop();
+    await h.clock.advance(2 * DAY);
+    h.store.updateSchedule("alpha", "deep", { nextRunAt: T0 + 3 * DAY + 4 * HOUR });
+    h.store.updateSchedule("alpha", "light", { nextRunAt: T0 + 2 * DAY + 4 * HOUR });
+    h.store.updateSchedule("alpha", "rem", { nextRunAt: T0 + 3 * DAY + HOUR + 15 * MIN });
+    openRow(h.store, "crash", "alpha", "deep", "k-crash", T0 + 4 * HOUR);
+    const again = h.make(); await again.start();
+    assert.equal(h.store.getRun("crash")!.reason, "crashed");
+    assert.equal(h.engine.callsOf("consolidate-daily"), 0, "too old to retry");
+    await again.stop();
+  });
+
   it("a crashed manual or importance run (no scheduled instant) is not retried; neither is one of a removed agent or a disabled phase", async () => {
     const h = harness(dirs, { agents: ["alpha"] });
     h.captures("alpha", 3);

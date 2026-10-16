@@ -6125,6 +6125,75 @@ Disables one phase schedule; cron and importance triggers stop, run-now still wo
 }
 ```
 
+### `dreams.diary`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+The private dreaming diary (dreaming.md, D15) of one agent. Owner or agent.manage; a viewer is denied. Text is redacted. Unlimited diary retention (ADR-009 Q7) is unchanged; this is a read.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "path",
+    "exists",
+    "bytes",
+    "text",
+    "truncated"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "path": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "exists": {
+      "type": "boolean"
+    },
+    "bytes": {
+      "type": "integer"
+    },
+    "text": {
+      "type": "string"
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
 ### `admin.obsidian.detect`
 
 **Stability:** experimental · since 1.3.0

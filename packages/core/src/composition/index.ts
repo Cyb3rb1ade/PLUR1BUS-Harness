@@ -49,7 +49,7 @@ export interface CompositionOptions {
   providers?: Pick<TurnProviderOptions, 'profiles' | 'family' | 'router' | 'onPrompt' | 'maxTokens' | 'topK' | 'maxRounds' | 'billing'>;
   /** Test seam: replaces the turn provider factory (e.g. to prove partial initialisation closes what it opened). */
   createTurnProvider?: typeof createTurnProvider;
-  tools?: Partial<Pick<ToolCompositionOptions, 'roots' | 'deny' | 'exec' | 'host' | 'extra' | 'mcp' | 'media'>>;
+  tools?: Partial<Pick<ToolCompositionOptions, 'roots' | 'deny' | 'exec' | 'host' | 'extra' | 'mcp' | 'media' | 'documents'>>;
 }
 export interface CompositionDeps {
   voiceConfigSource?: import("../voice/v3.ts").VoiceV3Deps["set"];

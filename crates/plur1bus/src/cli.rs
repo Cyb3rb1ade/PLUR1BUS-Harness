@@ -810,6 +810,11 @@ pub enum DreamsCmd {
         #[arg(long)]
         agent: String,
     },
+    /// [experimental] Read the private dreaming diary of an agent
+    Diary {
+        #[arg(long)]
+        agent: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]
