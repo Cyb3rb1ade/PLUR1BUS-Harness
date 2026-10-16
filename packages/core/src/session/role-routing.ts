@@ -36,10 +36,11 @@ export function createSessionRoleProvider(create: typeof createTurnProvider, opt
   };
   return { id: main.id, telemetry: main.telemetry,
     roleModels() { return (candidates ?? []).map(c => ({ provider:c.provider,model:c.model })); },
-    contextModels(text) {
+    modelProfiles() { return Object.keys(options.profiles).filter(name => options.profiles[name]?.length); },
+    contextModels(text, profile) {
       const decision = triage(text); const classes = ['small','medium','large','frontier'];
       const modelClass = decision.tasks.reduce((selected,t) => classes.indexOf(t.chosenClass) > classes.indexOf(selected) ? t.chosenClass : selected,'small');
-      const name = options.profileForClass?.(modelClass) ?? options.profile ?? 'default';
+      const name = profile ?? options.profileForClass?.(modelClass) ?? options.profile ?? 'default';
       return (options.profiles[name] ?? []).map(c => ({ provider: c.provider, model: c.model }));
     },
     async *stream(req): AsyncGenerator<ChatChunk> {

@@ -90,3 +90,24 @@ jobs:
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
       - name: fuzz the inspect pipeline (600 s)
         run: PLUR1BUS_FUZZ_SECONDS=600 cargo test -p plur1bus-ext --features testkit --test fuzz -- --ignored --nocapture
+  # M2 criterion 9: independent live prompt-cache evidence, never part of gating CI.
+  b5-provider-cache:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 24.21.0 }
+      - name: six real provider turns (skip without owner credential/model)
+        run: node --experimental-strip-types --conditions=source --test --test-timeout=300000 tests/nightly/b5-provider.test.ts
+        env:
+          PLUR1BUS_B5_LIVE: "1"
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PLUR1BUS_B5_MODEL: ${{ vars.PLUR1BUS_B5_MODEL }}
+      - name: publish redacted cache usage
+        if: ${{ always() }}
+        uses: actions/upload-artifact@6047dfe5c029f8922d350da9dd164b7d36c07a98 # v7
+        with:
+          name: b5-provider-cache
+          path: artifacts/b5-provider.json
+          if-no-files-found: error

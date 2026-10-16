@@ -187,3 +187,32 @@ test('finding 2 (wiring) + 6: a denied action re-submitted is repeat-denied with
     const audit = await readFile(join(home, 'logs', 'audit.log'), 'utf8'); assert.match(audit, /fatigue:repeat-denied/);
   } finally { await client?.close(); await core.stop(); await rm(home, { recursive: true, force: true }); if (previous === undefined) delete process.env.PLUR1BUS_SECRETS_KEYRING; else process.env.PLUR1BUS_SECRETS_KEYRING = previous; if (gate === undefined) delete process.env.PLUR1BUS_ALLOW_TEST_INTERNALS; else process.env.PLUR1BUS_ALLOW_TEST_INTERNALS = gate; }
 });
+
+test('L9: actual Core RPC refuses an unconfirmed switch, routes only confirmed selections and returns to the original prefix', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'core-model-switch-')); const cfg = defaults(); cfg.agents.bernd = {};
+  await writeFile(join(home, 'config.json'), JSON.stringify(cfg));
+  const seen: string[] = [], prompts: import('../../src/prompt/types.ts').RenderedPrompt[] = [];
+  const adapter = { async *stream(req: import('../../../providers/src/types.ts').ChatRequest) {
+    seen.push(req.model);
+    yield { type: 'done' as const, result: { text: 'ok', toolCalls: [], finishReason: 'stop' as const, rawFinishReason: 'stop', usage: { inputTokens: 10, outputTokens: 1 }, meta: {} } };
+  } };
+  const core = createCore({ home, testInternals: flatTestInternals(), composition: { providers: { profiles: { default: [{ provider: 'fixture', model: 'gpt-4.1', adapter }], second: [{ provider: 'fixture', model: 'gpt-4.1-mini', adapter }] }, onPrompt: p => { prompts.push(p); } } } });
+  let client: Awaited<ReturnType<typeof connect>> | undefined;
+  try {
+    await core.start(); client = await connect({ address: core.address, token: core.token });
+    const { session } = await client.call<any>('session.create', { caller, agentId: 'bernd' });
+    const params = { caller, sessionId: session.id };
+    await client.call('session.model.set', { ...params, profile: 'second' });
+    await client.call('session.submit', { ...params, text: 'hello', wait: true });
+    assert.deepEqual(seen, ['gpt-4.1'], 'a preview must not affect the next turn');
+    const preview = await client.call<any>('session.model.set', { ...params, profile: 'second' });
+    await client.call('session.model.set', { ...params, profile: 'second', confirmed: true, expectedRevision: preview.revision });
+    await client.call('session.submit', { ...params, text: 'again', wait: true });
+    const back = await client.call<any>('session.model.set', { ...params, profile: 'default' });
+    await client.call('session.model.set', { ...params, profile: 'default', confirmed: true, expectedRevision: back.revision });
+    await client.call('session.submit', { ...params, text: 'back', wait: true });
+    assert.deepEqual(seen, ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1']);
+    assert.equal(prompts[0]!.prefixKey, prompts.at(-1)!.prefixKey);
+    assert.equal(prompts[0]!.zoneHashes.memory, prompts.at(-1)!.zoneHashes.memory);
+  } finally { await client?.close(); await core.stop(); await rm(home, { recursive: true, force: true }); }
+});
