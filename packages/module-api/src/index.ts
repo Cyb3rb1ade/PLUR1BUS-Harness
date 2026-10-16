@@ -14,3 +14,5 @@ export * from "./adoption.ts";
 export * from "./control-server.ts";
 export * from "./runtime.ts";
 export * from "./api-principal.ts";
+
+export * from "./client-principal.ts";

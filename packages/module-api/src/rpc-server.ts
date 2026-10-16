@@ -1,3 +1,4 @@
+import { bindClientContext } from "./client-principal.ts";
 import { bindApiPrincipal, verifyApiDelegation, type ApiPrincipal } from "./api-principal.ts";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
@@ -69,7 +70,7 @@ function warnIfDeprecated(logger: HarnessLogger, role: RpcServerRole, kind: "met
 }
 
 interface Dispatch { method: string; done: Promise<void>; settled: boolean }
-interface Conn { api?: ApiPrincipal | null; id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null; closing: boolean }
+interface Conn { clientToken?: string; api?: ApiPrincipal | null; id: string; sock: Socket; authed: boolean; dec: LineDecoder; inflight: Map<string | number, AbortController>; subs: Map<string, Subscription>; authTimer: NodeJS.Timeout | null; closing: boolean }
 
 /** Endpoint, handshake, handlers, and lifecycle hooks for {@link createRpcServer}. */
 export interface RpcServerOptions {
@@ -78,6 +79,8 @@ export interface RpcServerOptions {
   server?: RpcServerRole;
   /** Credential registered for harness-api; regular endpoint tokens cannot delegate. */
   apiToken?: string;
+  /** Scoped IPC client token. Revalidated on every call (revocation/expiry/rights are live). */
+  authorizeClient?: (token: string, method: string, params: unknown) => Promise<ApiPrincipal>;
   apiPrincipalOf?: (principal: ApiPrincipal) => ApiPrincipal | null | Promise<ApiPrincipal | null>;
   onApiAuthenticated?: (id: string, principal: ApiPrincipal | null) => void;
   apiPersonOfConnection?: (id: string, principal: ApiPrincipal) => Promise<string | null>;
@@ -137,6 +140,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
   async function dispatch(c: Conn, msg: any): Promise<void> {
     let delegated: ApiPrincipal | null | undefined;
     const authDelegation = msg?.method === authMethod ? msg?.params?.api : undefined;
+    if (c.clientToken !== undefined && (msg?.api !== undefined || msg?.params?.api !== undefined)) return errorReply(c, msg?.id, new RpcError("E_DENIED", "scoped clients cannot delegate"));
     const hasApi = msg && typeof msg === "object" && (Object.hasOwn(msg, "api") || authDelegation !== undefined);
     if (hasApi) {
       try { delegated = verifyApiDelegation(msg.api ?? authDelegation, o.apiToken); }
@@ -151,9 +155,14 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
     const log = o.logger.child({ requestId: String(id), connectionId: c.id, method });
 
     if (method === authMethod) {
+      if (c.clientToken !== undefined) { replyAndClose(c, id, new RpcError("E_DENIED", "scoped identity cannot change")); return; }
       const v = validateParams(method, params);
       if (!v.ok) { replyAndClose(c, id, new RpcError("E_INVALID_PARAMS", "invalid params", { detail: v.errors.join("; ") })); return; }
-      if (!tokenMatches(params.token)) { replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "bad token", { reason: "bad-token" })); return; }
+      if (!tokenMatches(params.token)) {
+        if (hasApi || !o.authorizeClient || typeof params.token !== "string") { replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "bad token", { reason: "bad-token" })); return; }
+        try { await o.authorizeClient(params.token, method, params); c.clientToken = params.token; }
+        catch { replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "client not approved", { reason: "client-token" })); return; }
+      } else if (c.clientToken !== undefined) { replyAndClose(c, id, new RpcError("E_DENIED", "scoped identity cannot change")); return; }
       c.authed = true;
       if (hasApi) { c.api = delegated ?? null; o.onApiAuthenticated?.(c.id, c.api); }
       if (c.authTimer) { clearTimeout(c.authTimer); c.authTimer = null; }
@@ -167,6 +176,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
     if (hasApi) { c.api = delegated ?? null; o.onApiAuthenticated?.(c.id, c.api); }
     warnIfDeprecated(o.logger, role, "method", method);
 
+    if (c.clientToken !== undefined && method.startsWith("events.")) return errorReply(c, id, new RpcError("E_DENIED", "scoped client subscriptions are unavailable"));
     if (method === "events.subscribe" && served.has(method)) {
       const v = validateParams(method, params); if (!v.ok) return errorReply(c, id, new RpcError("E_INVALID_PARAMS", "invalid params", { detail: v.errors.join("; ") }));
       for (const name of new Set<string>(params.names ?? [])) warnIfDeprecated(o.logger, role, "notification", name);
@@ -192,6 +202,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
     try {
       const ctx = { requestId: String(id), connectionId: c.id, signal: ac.signal };
       if (c.api !== undefined) bindApiPrincipal(ctx, delegated ?? null);
+      if (c.clientToken !== undefined) { const principal = await o.authorizeClient!(c.clientToken, method, params); bindApiPrincipal(ctx, principal); bindClientContext(ctx); }
       const result = await handler(params, ctx);
       const rv = validateResult(method, result);
       if (!rv.ok) { log.error("result violates schema", { errors: rv.errors }); return errorReply(c, id, new RpcError("E_INTERNAL", "result violates schema", { reason: "result-schema" })); }
