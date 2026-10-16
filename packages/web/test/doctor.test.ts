@@ -245,7 +245,7 @@ describe("auto refresh", opts, () => {
       assert.equal(m.hits.health, 1);
       await page.clock.runFor(30_000);
       await until(() => m.hits.health === 2, "second health call");
-      assert.equal(m.hits.agents, 2);
+      await until(() => m.hits.agents === 2, "second agents call"); // sent in parallel with health
 
       await page.evaluate(() => {
         Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
