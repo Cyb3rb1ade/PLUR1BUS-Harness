@@ -23,10 +23,10 @@
 
 ## Phase 2 — codex/m5-p2-agent-tools
 
-- [ ] Merge fresh origin/main and Phase 1 if open; Draft depends on prior PR.
-- [ ] Add DelegationTarget port and six tools to existing composition; preserve dispatcher policy and approval signatures.
-- [ ] Bind project budget before fan-out, partial returns, user abort and real provider tool-call E2E; test real-store isolation and limits.
-- [ ] Check M6 P2 status and comment port contract on its PR when present. Commit and PR with handoff.
+- [x] Merge fresh origin/main and Phase 1 if open; Draft depends on prior PR.
+- [x] Add DelegationTarget port and six tools to existing composition; preserve dispatcher policy and approval signatures.
+- [x] Bind project budget before fan-out, partial returns, user abort and real provider tool-call E2E; test real-store isolation and limits.
+- [x] Check M6 P2 status and comment port contract on its PR when present. Commit and PR with handoff.
 
 ## Phase 3 — codex/m5-p3-trace-replay
 

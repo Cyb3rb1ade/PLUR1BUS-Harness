@@ -10,10 +10,13 @@ export interface AgentRunInput {
   context: string;
   signal: AbortSignal;
   /** Authenticated collab caller, supplied by the service to production adapters. */
+  handoff?: { contract: import('./handoff.ts').Handoff; context: import('./handoff.ts').HandoffContext };
+  onProgress?: (progress: AgentRunResult) => void;
   principal?: import("../rbac/types.ts").Principal;
 }
 
 export interface AgentRunResult {
+  partial?: boolean;
   text: string;
   inputTokens: number;
   outputTokens: number;
@@ -47,7 +50,7 @@ export function providerRunner(provider: ChatProvider, scope: AgentScopePort): A
         signal: input.signal,
       })) {
         input.signal.throwIfAborted();
-        if (chunk.type === "delta") text += chunk.text;
+        if (chunk.type === "delta") { text += chunk.text; input.onProgress?.({ text, inputTokens, outputTokens }); }
         else if (chunk.type === "usage") { inputTokens = chunk.inputTokens; outputTokens = chunk.outputTokens; }
       }
       return { text, inputTokens, outputTokens };

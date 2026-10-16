@@ -14,6 +14,9 @@ export interface TurnApprover { person: string | null; surface: 0 | 1 | 2 | 3 }
 export interface RecurringOrigin { jobId: string; jobName: string; runAs: string; trigger: "recurring" }
 
 export interface ChatRequest {
+  collaborationTier?: 'cheap' | 'standard' | 'premium';
+  /** Internal peer envelopes: persisted/rendered as tool results, never system or assistant text. */
+  peerResults?: readonly { id: string; name: string; text: string }[];
   /** Derived from the stored mode; large tool results must not be spooled to disk. */
   incognito?: boolean;
   /** Trusted internal origin, never accepted as session.submit params. */

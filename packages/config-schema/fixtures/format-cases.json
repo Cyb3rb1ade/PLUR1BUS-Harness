@@ -4,6 +4,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -449,6 +452,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -894,6 +900,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -1339,6 +1348,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -1784,6 +1796,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -2229,6 +2244,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -2674,6 +2692,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -3119,6 +3140,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -3564,6 +3588,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -4009,6 +4036,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -4454,6 +4484,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -4899,6 +4932,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -5344,6 +5380,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -5789,6 +5828,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -6234,6 +6276,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -6679,6 +6724,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -7124,6 +7172,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -7569,6 +7620,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -8014,6 +8068,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -8459,6 +8516,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -8904,6 +8964,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -9349,6 +9412,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -9794,6 +9860,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -10239,6 +10308,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -10684,6 +10756,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -11129,6 +11204,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -11574,6 +11652,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -12019,6 +12100,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -12464,6 +12548,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -12909,6 +12996,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
@@ -13351,6 +13441,9 @@
     "config": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "collaboration": {
+        "fanoutEnabled": false
+      },
       "approvals": {
         "maxGrantDays": 90,
         "requireOsConfirmation": true
