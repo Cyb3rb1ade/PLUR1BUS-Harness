@@ -595,8 +595,11 @@ export function createCore(o: CoreOptions): Core {
         },
       });
       const perms = permissions;
+      // No store yet: nothing to verify, so no start run (and no ledger row); the first scheduled run is a day away.
+      const approvalsStorePresent = existsSync(approvalsDbPath(l.home));
       systemJobs.register(createApprovalsIntegrityJob({
         clock: { now: clock },
+        deferFirstRun: !approvalsStorePresent,
         present: () => existsSync(approvalsDbPath(l.home)),
         verify: async () => (await perms.open()).service.verify(),
         onOk: () => {
@@ -606,7 +609,7 @@ export function createCore(o: CoreOptions): Core {
           alwaysGrantsToInbox(inboxPort, p.grants.inspect().map(v => v.grant), clock());
         },
       }));
-      void systemJobs.run("approvals.integrity", {}, { trigger: "harness" }).catch(err => log.warn("approvals.integrity at start failed", { err }));
+      if (approvalsStorePresent) void systemJobs.run("approvals.integrity", {}, { trigger: "harness" }).catch(err => log.warn("approvals.integrity at start failed", { err }));
       armApprovalsIntegrity(systemJobs, {
         now: clock,
         setTimer: (fn, ms) => {
