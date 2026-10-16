@@ -140,8 +140,59 @@ describe("c08: privacy pin at call time", () => {
 });
 
 describe("c08: open items", () => {
-  it("KNOWN GAP: composition passes allowedRoots (media directories) to the ffmpeg ports and caption providers", { todo: true }, () => {});
-  it("KNOWN GAP: composition passes the privacy pin callback to createCaptionService as well as to resolveCaptionProvider", { todo: true }, () => {});
+  const composeWith = async (over: Record<string, unknown>, caption: Record<string, unknown> = {}) => {
+    const { composeMediaSearch } = await import("../../src/composition/media-search.ts");
+    const { defaults } = await import("@plur1bus/config-schema");
+    const home = await mkdtemp(join(tmpdir(), "c08-comp-"));
+    const cfg = defaults(); cfg.memory.mediaEmbedding = { ...cfg.memory.mediaEmbedding, enabled: true, caption: { ...cfg.memory.mediaEmbedding.caption, source: "prompt-then-user-then-auto", ...caption } } as typeof cfg.memory.mediaEmbedding;
+    let attached: { frames: any; audio: any } | undefined;
+    const noop = async () => { throw new Error("unused"); };
+    const engine = { media: { index: noop, search: noop, remove: noop, setCaption: noop, status: noop, backfill: { start: noop, pause: noop, resume: noop, cancel: noop }, attachHost: (h: any) => { attached = h; } } };
+    const c = await composeMediaSearch({ home, config: () => cfg, engine, agents: { workspaceOf: () => home }, logger: { ...silentLogger, debug() {} } as any, store: null, budget: null, ...over } as never);
+    return { home, c, ports: () => attached! };
+  };
+  it("composition passes allowedRoots (media directories) to the ffmpeg ports and caption providers", async () => {
+    let spawned = 0;
+    const { home, c, ports } = await composeWith({ ffmpeg: { spawn: (() => { spawned++; throw new Error("no spawn"); }) as never } }, { provider: "local" });
+    try {
+      assert.equal(c.kind, "engine");
+      const outside = join(home, "elsewhere.mp4"); await writeFile(outside, Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from("ftypmp42")]));
+      await assert.rejects(async () => { for await (const _ of ports().frames.frames({ path: outside }, { intervalSec: 1, sceneDetect: false, maxFrames: 1 })) void _; }, code("E_MEDIA_UNSUPPORTED_KIND"));
+      assert.equal(spawned, 0);
+      // the local caption provider refuses the same path before it loads any model
+      await assert.rejects(c.captions.resolve({ kind: "image", mime: "image/png", source: { path: outside } }), code("E_MEDIA_UNSUPPORTED_KIND"));
+    } finally { await c.close(); await rm(home, { recursive: true, force: true }); }
+  });
+  it("composition passes the privacy pin callback to createCaptionService as well as to resolveCaptionProvider", async () => {
+    // The first read happens while the provider is chosen (not pinned), every later read is the service's own call-time check.
+    let reads = 0; const cloud = new FakeCaptionProvider("openai", false);
+    const { home, c } = await composeWith({ privacyPinned: () => ++reads > 1, cloudCaption: () => cloud }, { provider: "openai", privacyAck: { provider: "openai", acknowledgedAt: "2026-10-14T10:00:00Z", by: "u" } });
+    try {
+      await assert.rejects(c.captions.resolve({ kind: "image", mime: "image/png", source: { bytes: new Uint8Array([1]) } }), code("E_MEDIA_PRIVACY"));
+      assert.equal(cloud.calls.length, 0);
+    } finally { await c.close(); await rm(home, { recursive: true, force: true }); }
+  });
   it("KNOWN GAP: MediaIndexPort.remove and setCaption carry no scope, so the port cannot refuse a caller that does not own the medium", { todo: true }, () => {});
-  it("KNOWN GAP: a hook index job that hit the timeout may still land after a later delete; the engine port has no cancel", { todo: true }, () => {});
+  it("hook: an index job that hit the timeout does not land after a later delete (the port has no cancel, so the late result is removed again)", async () => {
+    const live = new Set<string>();
+    const port = new FakePort();
+    port.indexImpl = async (r) => { await new Promise((res) => setTimeout(res, 80)); live.add(r.mediaId); return { segments: 1, state: "indexed" }; };
+    port.remove = async (id: string) => { live.delete(id); port.removed.push(id); };
+    const hook = createMediaIndexHook({ port: () => port, captions: createCaptionService({ config: () => ({ source: "off", maxChars: 10 }), provider: () => undefined }), config: () => ({ enabled: true, provider: "local" }), scopeOf: () => fakeScope, events: recorder(), counters: { indexFailed() {} }, logger: silentLogger, timeoutMs: 10, concurrency: 2 });
+    const r: MediaRecord = { mediaId: "m1", kind: "image", mime: "image/png", source: { bytes: new Uint8Array([1]) } };
+    hook.onStored(r);
+    await new Promise((res) => setTimeout(res, 40)); // the job gave up waiting; the engine call is still running
+    hook.onDeleted("m1");
+    await hook.idle();
+    await new Promise((res) => setTimeout(res, 150)); // the late index lands
+    assert.deepEqual([...live], []);
+  });
+  it("hook: a late index result without a delete stays, and nothing is tracked once it settled", async () => {
+    const live = new Set<string>(); const port = new FakePort();
+    port.indexImpl = async (r) => { await new Promise((res) => setTimeout(res, 60)); live.add(r.mediaId); return { segments: 1, state: "indexed" }; };
+    const hook = createMediaIndexHook({ port: () => port, captions: createCaptionService({ config: () => ({ source: "off", maxChars: 10 }), provider: () => undefined }), config: () => ({ enabled: true, provider: "local" }), scopeOf: () => fakeScope, events: recorder(), counters: { indexFailed() {} }, logger: silentLogger, timeoutMs: 10, concurrency: 2 });
+    hook.onStored({ mediaId: "m2", kind: "image", mime: "image/png", source: { bytes: new Uint8Array([1]) } });
+    await hook.idle(); await new Promise((res) => setTimeout(res, 120));
+    assert.deepEqual([...live], ["m2"]); assert.deepEqual(port.removed, []);
+  });
 });
