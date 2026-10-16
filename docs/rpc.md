@@ -6564,13 +6564,93 @@ Stages the consistent, engine-owned part of a backup (plur1bus backup create): t
 }
 ```
 
+### `logs.levels`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Reads or updates the live per-source log-level snapshot (D111). Takes effect immediately; does not persist to config.json (a restart restores core.logLevel). Owner/Admin only (RBAC action logs.query). Empty params return the current snapshot. A provided levels map is merged into the live overrides; unset removes named overrides and restores inheritance. Any trace level needs a future traceUntil at most 24 hours ahead (E_INVALID_PARAMS reason=invalid-level).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "defaultLevel": {
+      "$ref": "#/$defs/LogLevel",
+      "description": "Live global default (core.logLevel in this process). Omitted: unchanged."
+    },
+    "levels": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/LogLevel"
+      },
+      "maxProperties": 256,
+      "description": "Per-source live overrides to merge. Keys are source keys (`kind` or `kind:id`)."
+    },
+    "unset": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LogSourceKey"
+      },
+      "maxItems": 256,
+      "description": "Source keys whose live override is removed."
+    },
+    "traceUntil": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 40,
+      "description": "RFC 3339 UTC expiry for any trace level; null clears it. E_INVALID_PARAMS reason=bad-timestamp when set and malformed."
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "defaultLevel",
+    "levels",
+    "traceUntil"
+  ],
+  "properties": {
+    "defaultLevel": {
+      "$ref": "#/$defs/LogLevel"
+    },
+    "levels": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/LogLevel"
+      },
+      "maxProperties": 256
+    },
+    "traceUntil": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "RFC 3339 UTC; null when no trace expiry is armed."
+    }
+  }
+}
+```
+
 ### `logs.query`
 
 **Stability:** experimental · since 1.5.0
 
 **Served by:** core
 
-Reads the protected log files under <home>/logs (rotated copies included) and returns matching records after redaction (D4, D111). Owner/Admin only (RBAC action logs.query). Files are streamed, never read whole; an unterminated last line is ignored and corrupt lines are counted in `corrupt`. Order defaults to newest first. from/to are inclusive RFC 3339 UTC bounds (E_INVALID_PARAMS reason=bad-timestamp | empty-range).
+Reads the protected log files under <home>/logs (rotated copies included) and returns matching records after redaction (D4, D111). Owner/Admin only (RBAC action logs.query). Files are streamed, never read whole; an unterminated last line is ignored and corrupt lines are counted in `corrupt`. Order defaults to newest first. from/to are inclusive RFC 3339 UTC bounds (E_INVALID_PARAMS reason=bad-timestamp | empty-range). traceId matches record.trace_id exactly; text remains a redacted-record substring.
 
 **params**
 
@@ -6597,6 +6677,11 @@ Reads the protected log files under <home>/logs (rotated copies included) and re
       "minLength": 1,
       "maxLength": 256,
       "description": "Case-insensitive substring, matched against the redacted record (so a search cannot confirm a secret)."
+    },
+    "traceId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "description": "Exact match on the record's trace_id."
     },
     "limit": {
       "type": "integer",
@@ -6641,7 +6726,7 @@ Reads the protected log files under <home>/logs (rotated copies included) and re
 
 **Served by:** core
 
-Follows the log: without a cursor the newest `limit` matches (oldest first) and a cursor anchored at the newest line; with a cursor the matches after it, in order. waitMs (default 0) makes the call wait for the first new match (a long poll, ended early by the connection closing or the core stopping). The cursor survives log rotation. Owner/Admin only (RBAC action logs.query). A push stream needs per-connection notifications the shared RPC server does not have yet; this call is the pull half.
+Follows the log: without a cursor the newest `limit` matches (oldest first) and a cursor anchored at the newest line; with a cursor the matches after it, in order. waitMs (default 0) makes the call wait for the first new match (a long poll, ended early by the connection closing or the core stopping). The cursor survives log rotation. Owner/Admin only (RBAC action logs.query). traceId matches record.trace_id exactly. A push stream needs per-connection notifications the shared RPC server does not have yet; this call is the pull half.
 
 **params**
 
@@ -6668,6 +6753,11 @@ Follows the log: without a cursor the newest `limit` matches (oldest first) and 
       "minLength": 1,
       "maxLength": 256,
       "description": "Case-insensitive substring, matched against the redacted record (so a search cannot confirm a secret)."
+    },
+    "traceId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "description": "Exact match on the record's trace_id."
     },
     "limit": {
       "type": "integer",
@@ -19437,6 +19527,16 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "error",
     "fatal"
   ]
+}
+```
+
+### `LogSourceKey`
+
+```json
+{
+  "type": "string",
+  "pattern": "^(harness|extension|provider|model|cli|channel|host|desktop|os)(:[a-z0-9][a-z0-9._@/-]{0,127})?$",
+  "description": "`<kind>` or `<kind>:<id>` for logs.levels and filters."
 }
 ```
 

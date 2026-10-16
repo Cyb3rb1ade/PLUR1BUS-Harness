@@ -107,6 +107,8 @@ enum Atom {
     Lit(char),
     Class(Vec<(char, char)>),
     Group(Vec<Item>),
+    /// A `(...|...)` alternation: one of the alternatives, each a sequence of its own.
+    Alt(Vec<Vec<Item>>),
 }
 struct Item {
     atom: Atom,
@@ -138,13 +140,17 @@ fn parse_pattern(p: &str) -> Pattern {
 
 fn parse_seq(c: &[char], mut i: usize, p: &str) -> (Vec<Item>, usize) {
     let mut items = Vec::new();
-    while i < c.len() && c[i] != ')' && c[i] != '$' {
+    while i < c.len() && c[i] != ')' && c[i] != '$' && c[i] != '|' {
         let atom = match c[i] {
             '(' => {
-                let (inner, end) = parse_seq(c, i + 1, p);
+                let (alts, end) = parse_alt(c, i + 1, p);
                 assert!(c.get(end) == Some(&')'), "pattern {p}: unclosed group");
                 i = end + 1;
-                Atom::Group(inner)
+                if alts.len() == 1 {
+                    Atom::Group(alts.into_iter().next().unwrap())
+                } else {
+                    Atom::Alt(alts)
+                }
             }
             '[' => {
                 i += 1;
@@ -178,7 +184,7 @@ fn parse_seq(c: &[char], mut i: usize, p: &str) -> (Vec<Item>, usize) {
                     other => panic!("pattern {p}: escape \\{other} not supported"),
                 }
             }
-            '.' | '|' | '*' | '+' | '?' | '{' => panic!("pattern {p}: {} not supported here", c[i]),
+            '.' | '*' | '+' | '?' | '{' => panic!("pattern {p}: {} not supported here", c[i]),
             lit => {
                 i += 1;
                 Atom::Lit(lit)
@@ -213,6 +219,21 @@ fn parse_seq(c: &[char], mut i: usize, p: &str) -> (Vec<Item>, usize) {
     (items, i)
 }
 
+/// Parses the inside of a `(...)` group as a list of `|`-separated alternatives. `i` points just
+/// past the opening `(`; the returned end points at the closing `)`.
+fn parse_alt(c: &[char], mut i: usize, p: &str) -> (Vec<Vec<Item>>, usize) {
+    let mut alts = Vec::new();
+    loop {
+        let (items, end) = parse_seq(c, i, p);
+        alts.push(items);
+        if c.get(end) == Some(&'|') {
+            i = end + 1;
+        } else {
+            return (alts, end);
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq)]
 enum Size {
     Min,
@@ -238,6 +259,10 @@ fn emit(items: &[Item], size: Size, rng: &mut Rng, out: &mut String) {
                     );
                 }
                 Atom::Group(inner) => emit(inner, size, rng, out),
+                Atom::Alt(alts) => {
+                    let alt = &alts[rng.below(alts.len())];
+                    emit(alt, size, rng, out);
+                }
             }
         }
     }
@@ -1879,6 +1904,8 @@ table! {
     Result "admin.migrate" AdminMigrateResult,
     Params "admin.backup.snapshot" AdminBackupSnapshotParams,
     Result "admin.backup.snapshot" AdminBackupSnapshotResult,
+    Params "logs.levels" LogsLevelsParams,
+    Result "logs.levels" LogsLevelsResult,
     Params "logs.query" LogsQueryParams,
     Result "logs.query" LogsQueryResult,
     Params "logs.tail" LogsTailParams,
