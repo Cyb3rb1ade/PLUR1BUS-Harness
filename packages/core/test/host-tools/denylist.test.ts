@@ -57,3 +57,25 @@ describe("credential deny-list", () => {
     if (r.isError) assert.equal(r.error.code, "denied_by_denylist");
   });
 });
+
+for (const platform of ["darwin", "linux", "win32"] as const) {
+  it(`D110: every foreign CLI credential root and override is denied on ${platform}`, async () => {
+    const { denyHit } = await import("../../src/host-tools/denylist.ts");
+    const { joinPath } = await import("../../src/host-tools/types.ts");
+    const home = platform === "win32" ? "C:\\Users\\alice" : "/home/alice";
+    const p = (...parts: string[]) => joinPath(platform, ...parts);
+    const oc = String.fromCharCode(111) + "penclaw";
+    const env: Record<string, string> = {};
+    for (const key of ["CODEX_HOME", "HERMES_HOME", "CLAUDE_CONFIG_DIR", "GEMINI_CLI_HOME", "AGY_HOME", "ANTIGRAVITY_HOME", oc.toUpperCase() + "_HOME", oc.toUpperCase() + "_STATE_DIR"]) env[key] = p(home, "overrides", key.toLowerCase());
+    const deny = denyEntriesFor(home, env, platform);
+    for (const root of [".codex", ".hermes", "." + oc, ".claude", ".gemini", ".agy"]) {
+      for (const file of ["auth.json", "credentials.json", "oauth_creds.json", "agents/main/agent/auth-profiles.json", "agents/main/agent/source.sqlite"]) {
+        assert.equal(denyHit(p(home, root, ...file.split("/")), deny), true, `${platform}: ${root}/${file}`);
+      }
+      assert.equal(denyHit(p(home, root.toUpperCase(), "arbitrary-registration-record"), deny), true);
+    }
+    for (const root of Object.values(env)) assert.equal(denyHit(p(root, "nested", "registration"), deny), true);
+    assert.equal(denyHit(p(home, "workspace", "report.md"), deny), false);
+    assert.equal(denyHit(p(home, ".codex-not-a-credential-root", "notes.md"), deny), false);
+  });
+}

@@ -184,6 +184,22 @@
       "stability": "experimental",
       "since": "1.6.0"
     },
+    "admin.api.device.pair": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.device.challenge": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.device.prove": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.device.announce": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "device.list": {
       "stability": "experimental",
       "since": "1.6.0"
@@ -832,6 +848,10 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "grant.get": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "grant.create": {
       "stability": "experimental",
       "since": "1.5.0"
@@ -859,9 +879,17 @@
     "approval.verify": {
       "stability": "experimental",
       "since": "1.5.0"
+    },
+    "approval.audit": {
+      "stability": "experimental",
+      "since": "1.5.0"
     }
   },
   "notifications": {
+    "devices.trust.next": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "api.account.changed": {
       "stability": "experimental",
       "since": "1.6.0"
@@ -968,6 +996,10 @@
       "since": "1.5.0"
     },
     "approval.resolved": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "approval.parked": {
       "stability": "experimental",
       "since": "1.5.0"
     },

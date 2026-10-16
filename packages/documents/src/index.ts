@@ -12,5 +12,6 @@ export * from "./checks.ts";
 export * from "./review.ts";
 export * from "./brand.ts";
 export * from "./charts.ts";
+export * from "./typst.ts";
 export * from "./schema.ts";
 export * from "./chromium.ts";

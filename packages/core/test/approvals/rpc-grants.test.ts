@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { AGENT_PRINCIPAL, OTHER_PERSON, PERSON, refused, rpcRig } from "./rpc-helpers.ts";
-import { HOUR, MIN } from "./service-helpers.ts";
+import { HOUR, MIN, raw, tick } from "./service-helpers.ts";
 import { abs } from "../helpers/abs.ts";
 
 const T = { timeout: 20_000 };
@@ -109,6 +109,24 @@ describe("grant.create", () => {
   });
 });
 
+describe("grant.get", () => {
+  it("returns the caller's grant; another person's grant is E_NOT_FOUND like an unknown id", T, async () => {
+    const r = await rpcRig();
+    const g = await r.call("grant.create", create({ capability: "fs.read" }));
+    const shown = await r.call("grant.get", { id: g.id });
+    assert.equal(shown.id, g.id);
+    assert.equal(shown.person, "christian");
+    assert.equal(shown.capability, "fs.read");
+    assert.equal(shown.state, "active");
+    assert.ok(!JSON.stringify(shown).includes("nonce"));
+    r.who = OTHER_PERSON;
+    const foreign = await r.call("grant.create", create({ capability: "fs.read" }));
+    r.who = PERSON;
+    assert.deepEqual(await refused(r.call("grant.get", { id: foreign.id })), { error: "E_NOT_FOUND" });
+    assert.deepEqual(await refused(r.call("grant.get", { id: "grt_unknown" })), { error: "E_NOT_FOUND" });
+  });
+});
+
 describe("grant.list and grant.revoke", () => {
   it("lists the caller's grants newest first, filtered; another person's grants are not visible", T, async () => {
     const r = await rpcRig();
@@ -167,6 +185,37 @@ describe("grant.list and grant.revoke", () => {
     assert.equal(r.stores.grants.inspect({ person: "anna" })[0]!.state, "active");
   });
 
+  it("using, expiring and suspending a grant emit grant.changed used, expired and suspended", T, async () => {
+    const r = await rpcRig();
+    const g = await r.call("grant.create", create({ capability: "fs.read", expiresAt: new Date(r.clock.now() + HOUR).toISOString() }));
+    r.stores.grants.markUsed(g.id);
+    await tick();
+    assert.ok(r.grantChanged.some((c) => c.change === "used" && c.grant.id === g.id));
+    r.clock.advance(2 * HOUR);
+    await r.call("grant.list");
+    assert.ok(r.grantChanged.some((c) => c.change === "expired" && c.grant.id === g.id));
+    const g2 = await r.call("grant.create", create({ capability: "fs.read", agent: "other" }));
+    const created = r.stores.chain.snapshot().byRef.get(g2.id)!.find((e) => e.kind === "grant.created")!;
+    const other = raw(r.path);
+    other.prepare("UPDATE approval_chain SET payload = payload || ' ' WHERE seq = ?").run(created.seq);
+    other.close();
+    await r.call("grant.list");
+    assert.ok(r.grantChanged.some((c) => c.change === "suspended" && c.grant.id === g2.id));
+  });
+
+  it("grant.list announces due grants only for the calling person", T, async () => {
+    const r = await rpcRig();
+    const g = await r.call("grant.create", create({ capability: "fs.read", expiresAt: new Date(r.clock.now() + HOUR).toISOString() }));
+    r.who = OTHER_PERSON;
+    const other = await r.call("grant.create", create({ capability: "fs.read", expiresAt: new Date(r.clock.now() + HOUR).toISOString() }));
+    r.clock.advance(2 * HOUR);
+    r.grantChanged.length = 0;
+    r.who = PERSON;
+    await r.call("grant.list");
+    assert.ok(r.grantChanged.some((c) => c.change === "expired" && c.grant.id === g.id));
+    assert.equal(r.grantChanged.some((c) => c.grant.id === other.id), false);
+  });
+
   it("a consumed once grant is returned unchanged by revoke", T, async () => {
     const r = await rpcRig();
     const { id, nonce, answer } = await r.park();
@@ -182,7 +231,7 @@ describe("grant.list and grant.revoke", () => {
 
 describe("the grant handlers refuse every non-person", () => {
   for (const [name, params] of [
-    ["grant.list", {}], ["grant.create", create()], ["grant.revoke", { id: "grt_x" }],
+    ["grant.list", {}], ["grant.get", { id: "grt_x" }], ["grant.create", create()], ["grant.revoke", { id: "grt_x" }],
   ] as const) {
     it(`${name}: an agent principal, one without a kind, and no principal`, T, async () => {
       const r = await rpcRig();

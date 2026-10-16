@@ -1,7 +1,7 @@
 // inbox area catalogue: the page and its entries. The `inbox.<kind>.<event>` title keys are the ones the core sends as `titleKey`
 // (packages/core/src/inbox/producers.ts, migrate.ts): keep them spelled exactly like that. Placeholders are {name}.
 export const en = {
-  "inbox.lead": "What the harness wants you to see: approvals waiting for you, failed jobs, media indexing, pairings and channels that need attention. Only metadata is shown.",
+  "inbox.lead": "What the harness wants you to see: approvals waiting for you, failed jobs, media indexing, pairings, channels that need attention, and always-grants due for review. Only metadata is shown.",
   "inbox.filter.kinds": "Kinds",
   "inbox.filter.all": "All kinds",
   "inbox.filter.unreadOnly": "Only unread",
@@ -32,6 +32,7 @@ export const en = {
   "inbox.notice.failed": "That did not work. Try again.",
   "inbox.breakglass.granted": "A break-glass window on your data was opened by {holderUserId}, until {expiresAt}.",
   "inbox.approval.requested": "An approval for {capability} is waiting for you.",
+  "inbox.grant.alwaysReview": "An always-grant for {capability} on {agent} is older than 90 days and needs review.",
   "inbox.jobFailed": "A system job failed: {job}.",
   "inbox.mediaIndex.failed": "Indexing a media item failed at the {stage} stage.",
   "inbox.mediaIndex.done": "Media indexing finished.",
@@ -43,7 +44,7 @@ export const en = {
 };
 
 export const de: Record<keyof typeof en, string> = {
-  "inbox.lead": "Was der Harness dir zeigen möchte: Freigaben, die auf dich warten, fehlgeschlagene Jobs, die Medienindizierung, Kopplungen und Kanäle, die Aufmerksamkeit brauchen. Es werden nur Metadaten angezeigt.",
+  "inbox.lead": "Was der Harness dir zeigen möchte: Freigaben, die auf dich warten, fehlgeschlagene Jobs, die Medienindizierung, Kopplungen, Kanäle, die Aufmerksamkeit brauchen, und Dauer-Grants zur Prüfung. Es werden nur Metadaten angezeigt.",
   "inbox.filter.kinds": "Arten",
   "inbox.filter.all": "Alle Arten",
   "inbox.filter.unreadOnly": "Nur ungelesen",
@@ -74,6 +75,7 @@ export const de: Record<keyof typeof en, string> = {
   "inbox.notice.failed": "Das hat nicht geklappt. Versuche es erneut.",
   "inbox.breakglass.granted": "Ein Break-Glass-Fenster auf deine Daten wurde von {holderUserId} geöffnet, bis {expiresAt}.",
   "inbox.approval.requested": "Eine Freigabe für {capability} wartet auf dich.",
+  "inbox.grant.alwaysReview": "Ein Dauer-Grant für {capability} bei {agent} ist älter als 90 Tage und sollte geprüft werden.",
   "inbox.jobFailed": "Ein Systemjob ist fehlgeschlagen: {job}.",
   "inbox.mediaIndex.failed": "Die Indizierung eines Medienelements ist in der Phase {stage} fehlgeschlagen.",
   "inbox.mediaIndex.done": "Die Medienindizierung ist abgeschlossen.",

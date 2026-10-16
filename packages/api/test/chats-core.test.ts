@@ -21,10 +21,10 @@ async function setup(t: import("node:test").TestContext) {
   cfg.engine={neo:{enabled:false},gc:{enabled:false},obsidianBridge:{enabled:false},merging:{enabled:false},dreaming:{enabled:false},skillMiner:{enabled:false},temporalContext:{enabled:false},reranker:{enabled:false},duplicateThreshold:1.01};
   writeFileSync(layout(home).configPath,JSON.stringify(cfg));
   const people=new AdminStore({path:join(home,"state","admin.sqlite"),ownerId:"local-owner"});
-  for(const [id,role] of [["alice","member"],["bob","member"],["viewer","viewer"]] as const){people.setRole(id,role,()=>{});people.setRight("bernd",id,"use");}people.close();
+  for(const [id,role] of [["alice","member"],["bob","member"],["viewer","viewer"],["ops","operator"],["admin","admin"]] as const){people.setRole(id,role,()=>{});people.setRight("bernd",id,"use");}people.close();
   const audit=memoryAuditSink();const core=createCore({home,testInternals:flatTestInternals(),chatProvider:new FakeChatProvider(),rbac:{audit},discovery:{scheduler:false},dreams:{scheduler:false}});await core.start();
   const link=createCoreLink(home);const users=new MemoryUserDirectory();const password="fixture-pass-not-a-real-secret";
-  for(const [id,role] of [["alice","member"],["bob","member"],["viewer","viewer"]] as const)users.add({id,username:id,role,agentRights:{bernd:"use"},passwordHash:await hashPassword(password)});
+  for(const [id,role] of [["alice","member"],["bob","member"],["viewer","viewer"],["ops","operator"],["admin","admin"]] as const)users.add({id,username:id,role,agentRights:{bernd:"use"},passwordHash:await hashPassword(password)});
   const api=createApiServer({core:link,users,ownerToken:randomBytes(32).toString("hex"),audit});const {url}=await api.listen();
   t.after(async()=>{await api.close();await link.close();await core.stop({budgetMs:5000});rmSync(home,{recursive:true,force:true});});
   const login=async(name:string)=>{const r=await fetch(url+"/api/v1/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({username:name,password})});assert.equal(r.status,200);await r.text();return r.headers.get("set-cookie")!.split(";")[0]!;};
@@ -58,11 +58,28 @@ test("incognito has no durable chat/transcript and concurrent idempotent create 
   const h=await setup(t),cookie=await h.login("alice");const key="fixture-create-once";
   const created=await Promise.all([h.call(cookie,"/api/v1/chats","POST",{agentId:"bernd"},{"idempotency-key":key}),h.call(cookie,"/api/v1/chats","POST",{agentId:"bernd"},{"idempotency-key":key})]);
   const ids=await Promise.all(created.map(async r=>{assert.equal(r.status,201);return (await r.json() as any).session.id;}));assert.equal(ids[0],ids[1]);
+  const warm=await h.call(cookie,`/api/v1/chats/${ids[0]}/messages`,"POST",{text:"Prepare persistent baseline",wait:true});assert.equal(warm.status,200);await warm.text();
+  const walk=(dir:string):string[]=>readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(join(dir,e.name)):e.isFile()?[join(dir,e.name)]:[]);
+  const before=walk(h.home).sort();
   const marker="redact-probe-incognito-alpha";
   const inc=await h.call(cookie,"/api/v1/chats","POST",{agentId:"bernd",memoryMode:"incognito",title:marker});assert.equal(inc.status,201);const id=(await inc.json() as any).session.id;
   const sent=await h.call(cookie,`/api/v1/chats/${id}/messages`,"POST",{text:marker,wait:true});assert.equal(sent.status,200,await sent.clone().text());const sentResult=await sent.json() as any;assert.equal(sentResult.state,"completed",JSON.stringify(sentResult));
-  const walk=(dir:string):string[]=>readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(join(dir,e.name)):e.isFile()?[join(dir,e.name)]:[]);
+  assert.deepEqual(walk(h.home).sort(),before,"incognito creates no durable files after the ordinary-chat baseline");
   for(const file of walk(h.home))assert.ok(!readFileSync(file).includes(Buffer.from(marker)),`incognito marker leaked into ${file}`);
+});
+
+test("real HTTP Operator sees direct-chat metadata only; Break-glass grants read access and immediately notifies target",{timeout:30000},async t=>{
+ const h=await setup(t),alice=await h.login("alice"),ops=await h.login("ops"),admin=await h.login("admin");
+ const create=await h.call(alice,"/api/v1/chats","POST",{agentId:"bernd",title:"confidential title"});const id=(await create.json() as any).session.id;
+ const send=await h.call(alice,`/api/v1/chats/${id}/messages`,"POST",{text:"confidential transcript",wait:true});assert.equal(send.status,200);await send.text();
+ const rpc=async(cookie:string,method:string,params:object)=>{const r=await h.call(cookie,"/rpc","POST",{jsonrpc:"2.0",id:1,method,params});assert.equal(r.status,200);return r.json() as Promise<any>;};
+ const overview=await rpc(ops,"session.list",{allOwners:true});assert.ok(overview.result,JSON.stringify(overview));const row=overview.result.sessions.find((s:any)=>s.id===id);assert.ok(row);assert.equal(row.title,"");assert.ok(!JSON.stringify(row).includes("confidential"));
+ const params={caller:{channel:"cli",accountId:"harness-api",userId:"admin"},sessionId:id,messages:10};
+ const refused=await rpc(admin,"session.get",params);assert.equal(refused.error.data.error,"E_NOT_FOUND");
+ const grant=await rpc(admin,"breakglass.request",{targetUserId:"alice",reason:"Investigate an explicit incident",windowMinutes:5});assert.ok(grant.result,JSON.stringify(grant));
+ const notice=await rpc(alice,"breakglass.notices",{});assert.ok(notice.result.notices.some((n:any)=>n.holderUserId==="admin"),JSON.stringify(notice));
+ const transcript=await rpc(admin,"session.get",params);assert.ok(transcript.result.messages.some((m:any)=>m.text==="confidential transcript"),JSON.stringify(transcript));
+ const deniedWrite=await h.call(admin,`/api/v1/chats/${id}/archive`,"POST",{});assert.equal(deniedWrite.status,404);await deniedWrite.text();
 });
 test("real HTTP keyset pagination merges persistent and RAM chats, binds owner and filters, and reports truncation",{timeout:30000},async t=>{
  const h=await setup(t),alice=await h.login("alice"),bob=await h.login("bob"),ids:string[]=[];

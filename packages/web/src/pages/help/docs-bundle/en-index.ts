@@ -69,6 +69,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Recurring tasks"
   },
   {
+    "slug": "remote-access",
+    "title": "Remote access"
+  },
+  {
     "slug": "voice",
     "title": "Voice features"
   }
@@ -93,6 +97,7 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "providers": return import("./en/providers.ts").then(m => m.doc);
     case "quickstart": return import("./en/quickstart.ts").then(m => m.doc);
     case "recurring-tasks": return import("./en/recurring-tasks.ts").then(m => m.doc);
+    case "remote-access": return import("./en/remote-access.ts").then(m => m.doc);
     case "voice": return import("./en/voice.ts").then(m => m.doc);
     default: return null;
   }
