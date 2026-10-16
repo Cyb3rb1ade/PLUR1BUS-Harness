@@ -44,6 +44,7 @@ export async function startup({ count = 30, real = false, cache, bin = resolve(p
       const env = { ...process.env, PLUR1BUS_CORE_JS: core, PLUR1BUS_NODE: process.execPath };
       delete env.PLUR1BUS_TEST_INTERNALS; delete env.PLUR1BUS_ALLOW_TEST_INTERNALS;
       if (!real) Object.assign(env, { PLUR1BUS_ALLOW_TEST_INTERNALS: '1', PLUR1BUS_TEST_INTERNALS: 'flat-embedder' });
+      const startupTimeout = real && i === -1 ? 900_000 : 120_000; // excluded first warmup may populate model files
       const t = performance.now();
       const child = spawn(bin, ['--home', home, 'core', 'run'], { env, stdio: ['ignore', 'pipe', 'pipe'] });
       let exited = false, client;
@@ -66,7 +67,7 @@ export async function startup({ count = 30, real = false, cache, bin = resolve(p
         for (;;) {
           const status = await client.call('core.status', {}, 5000);
           if (status.process.state === 'ready' && status.engine.ready && status.engine.degraded === null) break;
-          if (performance.now() - t > 120_000) throw new Error('healthy core timeout (120 s)');
+          if (performance.now() - t > startupTimeout) throw new Error('healthy core timeout');
           await pause(10);
         }
         if (i >= 0) { socket.push(socketMs); healthy.push(performance.now() - t); for (const result of series) Object.assign(result, distribution(result.samples, 1)); }
