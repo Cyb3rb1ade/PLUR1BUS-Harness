@@ -132,6 +132,6 @@ fn firstaid_check_includes_models_roles_at_end() {
 
     let checks = doc["checks"].as_array().unwrap();
     let last = checks.last().unwrap();
-    assert_eq!(last["id"], "models.roles");
+    assert_eq!(last["id"], "dreams.last-runs");
     assert_eq!(last["status"], "skip");
 }

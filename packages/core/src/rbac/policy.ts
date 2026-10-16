@@ -25,6 +25,9 @@ const catalogue = (area: string): ActionSpec[] => [
 ];
 
 export const POLICY: readonly ActionSpec[] = Object.freeze([
+  spec("chat:read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A }),
+  spec("chat:write", "system", { owner: A, admin: A, operator: A, member: A }),
+  spec("chat:delete", "system", { owner: A, admin: A, operator: A, member: A }),
   // Personal inbox: every human role, own entries only. The handlers take no user parameter, so there is no foreign inbox to ask for.
   humanOnly(spec("inbox.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A })),
   humanOnly(spec("inbox.write", "system", { owner: A, admin: A, operator: A, member: A, viewer: A })),

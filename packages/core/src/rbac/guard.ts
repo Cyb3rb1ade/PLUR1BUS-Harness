@@ -41,6 +41,19 @@ export function authenticatedPrincipal(ctx: CallContext): Principal {
 }
 
 export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
+  "chat.create": rule("chat:write", system),
+  "chat.list": rule("chat:read", system),
+  "chat.get": rule("chat:read", system),
+  "chat.events": rule("chat:read", system),
+  "chat.submit": rule("chat:write", system),
+  "chat.update": rule("chat:write", system),
+  "chat.archive": rule("chat:write", system),
+  "chat.restore": rule("chat:write", system),
+  "chat.cancel": rule("chat:write", system),
+  "chat.fork": rule("chat:write", system),
+  "chat.delete": rule("chat:delete", system),
+  "chat.export": rule("chat:read", system),
+
   "jobs.create": { ...rule("agent.manage", agent), humanOnly: true },
   "jobs.update": { ...rule("agent.list", system), humanOnly: true },
   "jobs.delete": { ...rule("agent.list", system), humanOnly: true },
@@ -176,10 +189,13 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "dreams.schedule.set": rule("settings.write", system),
   "dreams.enable": rule("settings.write", system),
   "dreams.disable": rule("settings.write", system),
+  // Private diary: owner or agent.manage (member with manage). Viewer is denied; not dreaming.read.
+  "dreams.diary": rule("agent.manage", agent),
   "admin.backup.snapshot": rule("admin.backup.snapshot", system),
   // D4: the protected log files, Owner/Admin.
   "logs.query": rule("logs.query", system),
   "logs.tail": rule("logs.query", system),
+  "logs.levels": rule("logs.query", system),
   "audit.verify": rule("audit.read", system),
   // M3 identity (humans, linked channel identities, pairing): classified by the nearest existing pattern, `users.*` on the system resource.
   "identity.list": { ...rule("users.read", system), humanOnly: true },
@@ -191,11 +207,13 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "identity.pair.confirm": { ...rule("users.manage", system), humanOnly: true },
   // D109 grants and approvals (spec 2026-09-28 §4): human-only actions, so an agent principal is refused in every state.
   "grant.list": rule("grant.read", system),
+  "grant.get": rule("grant.read", system),
   "grant.create": rule("grant.write", system),
   "grant.revoke": rule("grant.write", system),
   "approval.list": rule("approval.read", system),
   "approval.get": rule("approval.read", system),
   "approval.verify": rule("approval.read", system),
+  "approval.audit": rule("approval.read", system),
   "approval.decide": rule("approval.decide", system),
   "approval.cancel": rule("approval.decide", system),
 });

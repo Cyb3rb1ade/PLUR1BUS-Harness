@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { serializeError } from "@plur1bus/module-api";
 import { createRedactor } from "./redact.ts";
 import { LevelPolicy, type LevelSettings, type Source } from "./levels.ts";
+export type { LevelSettings, Source };
 import { currentTrace, newTrace } from "./trace.ts";
 import { createSink } from "./sink.ts";
 export interface WriteFields { source?: Source; level?: Level; stream?: "stdout" | "stderr"; bypassRate?: boolean }
@@ -131,7 +132,14 @@ export function createWriter(o: WriterOptions) {
         pending.push(`${line}\n`); flush(level !== "info" && level !== "debug");
       } catch { emit("log.redaction.failed", { attempted_event: "log.unregistered" }, {}, true); }
     },
-    registerSecret(value: string) { secrets.add(value); redactor = createRedactor({ pii: o.redactPii ?? false, secrets }); },
+    registerSecret(value: string) {
+      secrets.delete(value); secrets.add(value);
+      if (secrets.size > 256) secrets.delete(secrets.values().next().value!);
+      redactor = createRedactor({ pii: o.redactPii ?? false, secrets });
+    },
+    currentLevels(): LevelSettings {
+      return { defaultLevel: levelSettings.defaultLevel ?? "info", levels: { ...levelSettings.levels }, ...(levelSettings.traceUntil !== undefined ? { traceUntil: levelSettings.traceUntil } : {}) };
+    },
     updateLevels(settings: LevelSettings) {
       policy.update(settings);
       const previous: Record<string, Level> = { [o.source.kind]: levelSettings.defaultLevel ?? "info", ...levelSettings.levels };
