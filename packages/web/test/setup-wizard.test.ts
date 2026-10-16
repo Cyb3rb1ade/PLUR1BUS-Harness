@@ -15,6 +15,7 @@ describe("setup wizard: flow", opts, () => {
       seed(app.server.rpc); await open(app);
       const { page } = app;
       await stepHeading(page, "Your account").waitFor();
+      await page.locator("main").getByText(/signed in as owner/i).waitFor(); // the session loads after the heading appears
       assert.match((await page.locator("main").textContent()) ?? "", /signed in as owner/i);
       assert.equal(await page.locator("ol.setup-progress li").count(), 8);
       assert.equal(await page.locator("ol.setup-progress li[aria-current=step]").count(), 1);

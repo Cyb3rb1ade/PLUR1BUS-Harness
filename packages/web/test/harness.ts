@@ -33,6 +33,8 @@ export type AppOptions = {
   deviceScaleFactor?: number;
   colorScheme?: "light" | "dark" | "no-preference";
   locale?: string;
+  /** IANA zone of the browser context; default is the machine's own (CI runs in UTC). */
+  timezoneId?: string;
   reducedMotion?: "reduce" | "no-preference";
   server?: Partial<MockOptions>;
   /** Navigate here (hash) instead of the root. */
@@ -52,6 +54,7 @@ export async function withApp(opts: AppOptions, run: (app: App) => Promise<void>
     deviceScaleFactor: opts.deviceScaleFactor ?? 1,
     colorScheme: opts.colorScheme ?? "no-preference",
     locale: opts.locale ?? "en-US",
+    ...(opts.timezoneId ? { timezoneId: opts.timezoneId } : {}),
     reducedMotion: opts.reducedMotion ?? "no-preference",
   });
   const page = await context.newPage();
