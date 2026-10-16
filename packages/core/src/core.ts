@@ -70,6 +70,7 @@ import type { ChatProvider } from "./session/provider.ts";
 import { createLogsMethods } from "./logs/index.ts";
 import { type SessionService } from "./session/service.ts";
 import { LOCAL_OWNER, createJsonlAuditSink, guardMethods, type AuditSink, type PrincipalResolver } from "./rbac/index.ts";
+import { authenticatedPrincipal } from "./rbac/guard.ts";
 import { createRpcServer, type CallContext, type RpcServer } from "./rpc/server.ts";
 import { sharedMemoryStatus } from "./shared-memory.ts";
 import { projectModels, startWarmup, type Warmup } from "./warmup.ts";
@@ -236,6 +237,7 @@ export function createCore(o: CoreOptions): Core {
   let warmup: Warmup | null = null;
   let scanScheduler: ScanScheduler | null = null;
   let discoveryWriter: ReturnType<typeof createWriter> | null = null;
+  let coreWriter: Pick<ReturnType<typeof createWriter>, "updateLevels" | "currentLevels"> | null = null;
   let dreams: Dreams | null = null;
   let dreamsError: string | undefined;
   let inbox: InboxComposition | null = null; const inboxPort = lateInboxPort(() => inbox?.service ?? null);
@@ -334,7 +336,9 @@ export function createCore(o: CoreOptions): Core {
     source = cs;
     const config = cs.current(); // the configuration the engine is built from (core-class keys)
     const cfg = () => cs.current();
-    logger = o.logger ?? (await import("./logs/bootstrap.ts")).createCoreLog({ dir: l.logs, role: "core", source: { kind: "harness", id: "core", version: "0.1.0" }, levels: { defaultLevel: config.core.logLevel }, maxBytes: config.logs.maxBytes, keep: config.logs.keep, now: clock });
+    const createdLog = o.logger ? null : (await import("./logs/bootstrap.ts")).createCoreLog({ dir: l.logs, role: "core", source: { kind: "harness", id: "core", version: "0.1.0" }, levels: { defaultLevel: config.core.logLevel }, maxBytes: config.logs.maxBytes, keep: config.logs.keep, now: clock });
+    logger = o.logger ?? createdLog!;
+    if (createdLog) coreWriter = createdLog;
     const log = logger;
     for (const [lvl, msg, fields] of early.splice(0)) log[lvl](msg, fields);
     // S11: run/ holds the tokens; on Windows chmod is no permission, so the user-SID ACL goes on through icacls.
@@ -400,7 +404,7 @@ export function createCore(o: CoreOptions): Core {
       if (next.logs.maxBytes !== prev.logs.maxBytes || next.logs.keep !== prev.logs.keep) log.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
       if (next.supervisor.graceMs !== prev.supervisor.graceMs) watchedOrphans.setGraceMs(next.supervisor.graceMs);
       if (plan.changed.some((k) => k.startsWith("models.scan.") || k === "providers" || k.startsWith("providers."))) scanScheduler?.replan();
-      discoveryWriter?.updateLevels({ defaultLevel: next.core.logLevel });
+      if (discoveryWriter) discoveryWriter.updateLevels({ ...discoveryWriter.currentLevels(), defaultLevel: next.core.logLevel });
       discoveryWriter?.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
       log.info("configuration changed", { revision: cs.revision(), changed: plan.changed, restartPending: cs.restartPending() });
       log.debug("live keys applied", { keys: plan.restart.live });
@@ -780,8 +784,16 @@ export function createCore(o: CoreOptions): Core {
         ...buildAuthSurface(() => turnComposition?.openai.auth ?? null),
         ...buildAgentCreationSurface(creation),
         ...buildChannelSurface({ config: cfg, source: cs, secrets: secretStore, identity: () => identity, registry: () => switchboard?.view ?? null, audit: rbacAudit, clock }),
-        // D4: logs.query / logs.tail over <home>/logs; RBAC-guarded below (RPC_RULES).
-        ...createLogsMethods({ dir: l.logs, signal: shutdown.signal }),
+        // D4 / D111: logs.query / logs.tail / logs.levels over <home>/logs; RBAC-guarded below (RPC_RULES).
+        ...createLogsMethods({
+          dir: l.logs, signal: shutdown.signal,
+          ...(coreWriter ? { writer: {
+            currentLevels: () => coreWriter!.currentLevels(),
+            updateLevels(s) { coreWriter?.updateLevels(s); discoveryWriter?.updateLevels(s); },
+          } } : {}),
+          audit: rbacAudit, now: clock,
+          actor: (ctx) => { try { const p = authenticatedPrincipal(ctx); return { user: p.userId, host: "rpc" }; } catch { return { user: "unknown", host: "rpc" }; } },
+        }),
       };
       Object.assign(rawMethods, sessionWriteAccess({ methods: rawMethods, sessions: () => sessions?.store ?? null, ownership, validateCaller: true }));
       const listAgents = rawMethods["agent.list"], agentStatus = rawMethods["agent.status"];

@@ -77,6 +77,8 @@ export interface ExecDeps {
   host?: string;
   /** Spend a once grant at execution start. Absent, a grant-allowed call is not consumed here. */
   consumeOnce?(id: string, b: { person: string; agent: string; actionHash: string }): boolean;
+  /** When set, child stdout/stderr are wrapped as untrusted `process.output.line` records. */
+  output?: import("../../logs/writer.ts").LogWriter;
 }
 
 export interface ExecRequest {

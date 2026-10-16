@@ -182,6 +182,7 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   // D4: the protected log files, Owner/Admin.
   "logs.query": rule("logs.query", system),
   "logs.tail": rule("logs.query", system),
+  "logs.levels": rule("logs.query", system),
   "audit.verify": rule("audit.read", system),
   // M3 identity (humans, linked channel identities, pairing): classified by the nearest existing pattern, `users.*` on the system resource.
   "identity.list": { ...rule("users.read", system), humanOnly: true },
