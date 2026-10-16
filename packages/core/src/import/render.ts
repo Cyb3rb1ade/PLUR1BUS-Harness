@@ -112,6 +112,14 @@ export function renderOpenclaw(r: OpenclawImportReport): string {
       L.push(`    ${f.targetFile.padEnd(28)} ${f.action}${f.reason ? ` (${f.reason})` : ""} (${f.bytes} B)`);
     }
   }
+  if (r.stores.length > 0) {
+    L.push("", `PLUR1BUS stores (${r.stores.length}):`);
+    for (const st of r.stores) {
+      const rows = st.rows === null ? "" : ` ${st.rows} rows`;
+      L.push(`  ${st.storeId} ${st.action}${rows}${st.reasons.length ? ` (${st.reasons.join(", ")})` : ""}`);
+      if (st.nextStep) L.push(`    next: ${st.nextStep}`);
+    }
+  }
   if (r.channels.length > 0) {
     L.push("", `Channels (${r.channels.length}):`);
     for (const ch of r.channels) {
@@ -136,7 +144,7 @@ export function renderOpenclaw(r: OpenclawImportReport): string {
     L.push("", `Report: ${r.reportPath}`);
   }
   const c = r.counts;
-  L.push("", `Summary: ${c.agentsCreated} agents created, ${c.agentsMatched} matched${c.agentsRejected ? `, ${c.agentsRejected} rejected` : ""}; ${c.filesCreated} files created, ${c.filesMatched} matched${c.filesConflicted ? `, ${c.filesConflicted} conflicted` : ""}; ${c.channelsDeferred ?? c.channelsImported} channels deferred; ${c.cronJobsDeferred} cron jobs deferred.`);
+  L.push("", `Summary: ${c.agentsCreated} agents created, ${c.agentsMatched} matched${c.agentsRejected ? `, ${c.agentsRejected} rejected` : ""}; ${c.filesCreated} files created, ${c.filesMatched} matched${c.filesConflicted ? `, ${c.filesConflicted} conflicted` : ""}; ${c.channelsDeferred ?? c.channelsImported} channels deferred; ${c.cronJobsDeferred} cron jobs deferred; stores: ${c.storesTakenOver} taken over, ${c.storesMatched} matched, ${c.storesReembedMigration} to re-embedding migration${c.storesSkipped ? `, ${c.storesSkipped} skipped` : ""}.`);
   return L.join("\n");
 }
 
