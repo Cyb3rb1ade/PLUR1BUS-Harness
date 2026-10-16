@@ -26,6 +26,7 @@ const rank = (role: string) => ROLES.length - ROLES.indexOf(role as (typeof ROLE
 
 /** The lowest role the policy table lets through for a route's action (a role-level answer: ownership and object rights come on top). */
 const MIN_ROLE: Record<string, string> = {
+  "passkeys.list": "viewer", "passkeys.options": "member", "passkeys.register": "member", "passkeys.change": "member",
   "chats.list": "viewer", "chats.create": "member", "chats.create-agent": "member", "chats.get": "viewer", "chats.update": "member",
   "chats.messages": "viewer", "chats.submit": "member", "chats.events": "viewer", "chats.cancel": "member", "chats.archive": "member",
   "chats.restore": "member", "chats.fork": "member", "chats.export": "viewer", "chats.delete": "member", "ws.ticket": "admin", "ws.reserved": "admin",
@@ -35,8 +36,8 @@ const MIN_ROLE: Record<string, string> = {
   "totp.status": "viewer", "totp.setup": "member", "totp.confirm": "member", "totp.disable": "member",
   "breakglass.request": "admin", "breakglass.list": "admin", "breakglass.revoke": "admin", "notices.list": "viewer",
 };
-const PUBLIC = ["invitation.redeem", "session.create", "session.totp", "remote.pair-proof", "remote.device.pair"];
-const SELF_SERVICE = ["account.bootstrap", "csrf.issue", "session.delete", "sessions.revoke-all", "whoami"];
+const PUBLIC = ["invitation.redeem", "session.create", "session.totp", "account.bootstrap", "passkeys.login.options", "passkeys.login", "remote.pair-proof", "remote.device.pair"];
+const SELF_SERVICE = ["csrf.issue", "session.delete", "sessions.revoke-all", "whoami"];
 
 function minRoleOf(action: string): string | undefined {
   const spec = policyFor(action); if (!spec) return undefined;

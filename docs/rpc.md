@@ -4264,6 +4264,48 @@ Authenticated project agent.remove using ADR-007 object rights.
 }
 ```
 
+### `collab.session.replay`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Replay a redacted delegation session; current project membership is required.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "traceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "spanId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "traceId",
+    "spanId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
 ### `collab.trace.get`
 
 **Stability:** experimental · since 1.5.0

@@ -162,7 +162,7 @@ test("OK-7: the route table is deny-by-default and only explicit status, agent a
         if (r.auth !== "none") assert.equal(res.status, 401, `${r.id} anonymous`); else assert.notEqual(res.status, 200);
       }
     }
-    assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id).sort(), [...REMOTE_PAIRING_BOOTSTRAP_IDS, "invitation.redeem", "session.create", "session.totp"].sort());
+    assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id).sort(), [...REMOTE_PAIRING_BOOTSTRAP_IDS, "invitation.redeem", "account.bootstrap", "passkeys.login.options", "passkeys.login", "session.create", "session.totp"].sort());
     assert.ok(ROUTES.filter((r) => r.method !== "GET" && r.auth !== "none").every((r) => r.csrf), "every authenticated write needs CSRF");
     for (const r of ROUTES) if (r.auth !== "none" && r.method === "GET") await raw(h, { path: r.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), headers: { cookie } });
     const called = new Set(h.core.calls.map((c) => c.method));

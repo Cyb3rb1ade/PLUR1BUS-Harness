@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
+import { bootstrapHash } from "../src/bootstrap.ts";
 import { AccountStore } from "../src/account-store.ts";
 import { fakeCore, start, raw, jsonHeaders, login, write, OWNER_TOKEN } from "./helpers.ts";
 
@@ -16,13 +17,13 @@ test("failed consumption cleans pending credentials; collision is disclosed only
   assert.equal((await redeem(code)).status, 409);
   const leak = JSON.stringify(h.audit.events) + h.logs.join("\n"); assert.equal(leak.includes(password), false); assert.equal(leak.includes(code), false);
 });
-test("bootstrap account requires current proof, CSRF and bootstrap session and can be linked only once", async t => {
+test("bootstrap account requires one-time local proof and can be linked only once", async t => {
   const accounts = new AccountStore({ path: ":memory:", resolve: async userId => ({ userId, kind: "person", role: "owner", disabled: false, version: 1 }) }); const h = await start({ accounts }); t.after(async () => { await h.close(); accounts.close(); });
-  const { cookie } = await login(h); const password = randomBytes(24).toString("base64url"); const body = { username: "christian", password, proof: OWNER_TOKEN };
-  assert.equal((await raw(h, { method: "POST", path: "/api/v1/accounts/bootstrap", headers: { ...jsonHeaders(), cookie }, body: JSON.stringify(body) })).status, 403);
+  const { cookie } = await login(h); const password = randomBytes(24).toString("base64url"); const proof = randomBytes(32).toString("base64url"); accounts.initializeBootstrap(bootstrapHash(proof)); const body = { username: "christian", password, proof };
+  assert.equal((await raw(h, { method: "POST", path: "/api/v1/accounts/bootstrap", headers: { ...jsonHeaders(), cookie }, body: JSON.stringify({ ...body, proof: OWNER_TOKEN }) })).status, 403);
   assert.equal((await write(h, cookie, { path: "/api/v1/accounts/bootstrap", body: { ...body, proof: randomBytes(32).toString("hex") } })).status, 403);
   assert.equal((await write(h, cookie, { path: "/api/v1/accounts/bootstrap", body })).status, 201);
-  assert.equal((await write(h, cookie, { path: "/api/v1/accounts/bootstrap", body })).status, 409);
+  assert.equal((await write(h, cookie, { path: "/api/v1/accounts/bootstrap", body })).status, 404);
   assert.equal((await accounts.findById("local-owner"))?.username, "christian");
 });
 test("registration uses Origin/Fetch-Site checks and both global and IP authentication limits", async t => {

@@ -147,6 +147,9 @@ fn method_fixture(name: &str, f: &Value) {
         "project.agent.remove" => {
             pair::<ProjectAgentRemoveParams, ProjectAgentRemoveResult>(name, f)
         }
+        "collab.session.replay" => {
+            pair::<CollabSessionReplayParams, CollabSessionReplayResult>(name, f)
+        }
         "collab.trace.get" => pair::<CollabTraceGetParams, CollabTraceGetResult>(name, f),
         "collab.trace.list" => pair::<CollabTraceListParams, CollabTraceListResult>(name, f),
         "collab.chain.cancel" => pair::<CollabChainCancelParams, CollabChainCancelResult>(name, f),

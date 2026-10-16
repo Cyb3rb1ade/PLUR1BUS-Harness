@@ -53,6 +53,10 @@ export const DOCS_INDEX: readonly { slug: string; title: string }[] = [
     "title": "Confirmation by the operating system"
   },
   {
+    "slug": "passkeys",
+    "title": "Your account and passkeys"
+  },
+  {
     "slug": "projects",
     "title": "Projects & Board"
   },
@@ -93,6 +97,7 @@ export async function loadDoc(slug: string): Promise<{ slug: string; title: stri
     case "media": return import("./en/media.ts").then(m => m.doc);
     case "operations": return import("./en/operations.ts").then(m => m.doc);
     case "os-confirmation": return import("./en/os-confirmation.ts").then(m => m.doc);
+    case "passkeys": return import("./en/passkeys.ts").then(m => m.doc);
     case "projects": return import("./en/projects.ts").then(m => m.doc);
     case "providers": return import("./en/providers.ts").then(m => m.doc);
     case "quickstart": return import("./en/quickstart.ts").then(m => m.doc);
