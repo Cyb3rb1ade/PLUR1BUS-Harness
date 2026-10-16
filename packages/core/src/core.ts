@@ -34,7 +34,7 @@ import { type HarnessLogger, type Level } from "./logger.ts";
 import { MEMORY_OP_METHODS, requireAgent } from "./memory-ops.ts";
 import { coreAddress, layout, resolveHome, type Layout } from "./paths.ts";
 import { createPlatformCapabilities } from "./platform.ts";
-import { callerToPrincipal } from "./principal.ts";
+import { AGENT_CONTEXT_CLI, callerToPrincipal } from "./principal.ts";
 import { startJournalReplay, type JournalReplay } from "./replay.ts";
 import { RpcError } from "./rpc/errors.ts";
 import { buildMethods } from "./rpc/methods.ts";
@@ -85,7 +85,7 @@ import { createModelsScanJob } from "./discovery/job.ts";
 import { loadMetadataTable, reenrichCatalog } from "./discovery/metadata.ts";
 import { createScanScheduler, type ScanScheduler } from "./discovery/scheduler.ts";
 import { createDiscoveryService, type DiscoveryService } from "./discovery/service.ts";
-import { createDreams, type Dreams } from "./dreams/index.ts";
+import { createDreams, itemsFromEngineList, type Dreams } from "./dreams/index.ts";
 import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
 import { createMetrics, createMetricsServer, loadOrCreateMetricsToken, type Metrics, type MetricsServer } from "./metrics/index.ts";
 import { createAuditWriter } from "./identity/audit.ts";
@@ -801,6 +801,17 @@ export function createCore(o: CoreOptions): Core {
       try {
         dreams = createDreams({
           engine: eng, layout: l, clock: o.dreams?.clock ?? discClock, logger, agents: executionRegistry, securePath: platform.securePath,
+          // Content-only producer: Engine.memory.list yields text (+ optional score on a topic query, not on `since`).
+          // Agent-private cards only (ADR-009 Q5). A truncated page throws; the scheduler maps that to engineError.
+          // Gates keep a content-only card from promoting; a deep run then skip/no_candidates (fail closed).
+          candidateMemory: {
+            async list(agentId) {
+              const ws = executionRegistry.workspaceOf(agentId);
+              if (!ws) return [];
+              const { principal } = callerToPrincipal(cliCaller(), agentId, ws);
+              return itemsFromEngineList(await eng.memory.list({ since: 0, limit: 100 }, principal, AGENT_CONTEXT_CLI));
+            },
+          },
           ...(o.dreams?.defaultTimezone ? { scheduler: { defaultTimezone: o.dreams.defaultTimezone } } : {}),
         });
         if (o.dreams?.scheduler ?? o.testInternals === undefined) void dreams.start().catch((err) => logger?.error("dreaming scheduler failed to start", { err }));

@@ -1,7 +1,7 @@
 import type { createHostctlPool } from '../../../hostctl/src/pool.ts';
 import { randomUUID } from 'node:crypto';
-import { join } from 'node:path';
-import { readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { CallBudgetExceededError, type CallBudget } from '../budget/index.ts';
 import { homedir } from 'node:os';
 import { ToolRegistry, type ToolDef } from '../tools/registry.ts';
@@ -21,6 +21,7 @@ import type { ChatRequest } from '../session/provider.ts';
 import { WebFailure } from '../tools/web/failure.ts';
 import type { WebSearch } from '../tools/web/search.ts';
 import { WEB_SEARCH_DESCRIPTION, WEB_SEARCH_SCHEMA } from '../tools/web/tools.ts';
+import { DOCUMENT_RENDER_DESCRIPTION, DOCUMENT_RENDER_SCHEMA, reviewDocument, type DocumentRenderArgs, type ReviewBrowser, type TemplateId } from '../../../documents/src/index.ts';
 
 export interface ToolCompositionOptions {
   home: string; budget?: CallBudget; degraded?: (service: string, error: unknown) => void; roots: readonly PathRoot[]; deny?: readonly DenyEntry[];
@@ -31,6 +32,8 @@ export interface ToolCompositionOptions {
   hostctl?: ReturnType<typeof createHostctlPool>;
   /** web.search over the configured SearXNG sidecar. Absent, the tool is not offered. */
   webSearch?: WebSearch;
+  /** document.render (D100) over a headless Chromium. Absent, the tool is not offered. */
+  documents?: { browser: ReviewBrowser };
 }
 function unwrap(value: unknown): unknown {
   if (value && typeof value === 'object' && 'isError' in value) {
@@ -120,6 +123,34 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
     } });
   }
   for (const tool of o.roots.length ? (o.hostctl?.forRoots(o.roots, deny).definitions() ?? []) : []) registry.register(tool);
+  if (o.documents) {
+    const browser = o.documents.browser;
+    // Output is confined to the granted roots only: `requireRoot: true` refuses a path outside every root (no approval path).
+    const resolveOutput = async (raw: string) => {
+      const resolved = await canonicalisePath(raw, { roots: o.roots, deny, access: 'write', requireRoot: true, ...(o.roots[0] ? { cwd: o.roots[0].path } : {}) });
+      if (!resolved.ok) return { refusal: resolved.reason };
+      return { canonical: resolved.canonical };
+    };
+    registry.register({
+      name: 'document.render', description: DOCUMENT_RENDER_DESCRIPTION, inputSchema: DOCUMENT_RENDER_SCHEMA as Record<string, unknown>,
+      capability: 'fs.write', effect: 'local-write', risk: 'low', trust: 'first-party',
+      classify: async (args) => {
+        const raw = (args as DocumentRenderArgs).outputPath;
+        const hit = await resolveOutput(raw);
+        if ('refusal' in hit) return { flags: { outsideRoots: true, denyListHit: true }, targets: [raw], access: 'write' as const };
+        return { flags: { outsideRoots: false, denyListHit: false }, targets: [hit.canonical], access: 'write' as const };
+      },
+      execute: async (args, ctx) => {
+        const a = args as DocumentRenderArgs;
+        const hit = await resolveOutput(a.outputPath); // re-check, fail closed, independent of the gate
+        if ('refusal' in hit) throw new Error(`output path refused: ${hit.refusal}`);
+        const { pdf, report } = await reviewDocument({ template: a.template as TemplateId, content: a.content, title: a.title, ...(a.subtitle ? { subtitle: a.subtitle } : {}), ...(a.meta ? { meta: a.meta } : {}) }, browser, {}, ctx.signal);
+        await mkdir(dirname(hit.canonical), { recursive: true });
+        await writeFile(hit.canonical, pdf);
+        return { path: hit.canonical, bytes: pdf.byteLength, review: { checked: report.checked, findings: report.findings.map((f) => `${f.severity}:${f.check}:${f.message}`), vision: report.vision } };
+      },
+    });
+  }
   for (const tool of o.extra ?? []) registry.register(tool);
   if (o.mcp) for (const server of o.mcp.servers) {
     req.signal.throwIfAborted();
