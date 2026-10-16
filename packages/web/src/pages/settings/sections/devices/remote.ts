@@ -5,6 +5,9 @@ import { Card } from "../../../../components/card.ts";
 import { t, type Key } from "../../../../i18n.ts";
 import { getApi } from "../../../common/load.ts";
 
+/** Wire codes are kebab-case; i18n segments are camelCase. */
+const camel = (code: string): string => code.replace(/-([a-z])/g, (_m, c: string) => c.toUpperCase());
+
 export interface RemoteStatus {
   publish: "local" | "tailnet" | "network"; tls: "self-signed" | "company-ca"; publicOrigin?: string;
   bind: { address?: string; port?: number; allowPublicInterface?: boolean }; allowSubnets: string[];
@@ -55,7 +58,7 @@ export function RemoteControls({ remote, onSaved, certificateActivated = false }
     h("span", { class: "field-label", id: `${id}-label` }, t(key)), h("input", { id, "aria-labelledby": `${id}-label`, class: "input", value, disabled: busy, ...attrs, onInput: (e: Event) => update((e.target as HTMLInputElement).value) }));
   const check = (key: Key, checked: boolean, toggle: () => void) => h("button", { type: "button", role: "checkbox", class: "btn", "aria-checked": String(checked), "aria-disabled": String(busy), onClick: () => { if (!lock.current) toggle(); } }, t(key));
   return h(Card, { title: t("devices.remote.configure"), level: 3 },
-    h("p", { role: "status" }, t(`devices.remote.status.${remote.status.state}` as Key)),
+    h("p", { role: "status" }, t(`devices.remote.status.${camel(remote.status.state)}` as Key)),
     h("form", { class: "devices-pair-form", onSubmit: (e: Event) => { void submit(e); } },
       h("label", { class: "field", for: "remote-publish" }, h("span", { class: "field-label", id: "remote-publish-label" }, t("devices.remote.publish")),
         h("select", { id: "remote-publish", "aria-labelledby": "remote-publish-label", value: publish, disabled: busy, onChange: (e: Event) => { setPublish((e.target as HTMLSelectElement).value as RemoteStatus["publish"]); setAck(false); } },
@@ -72,12 +75,12 @@ export function RemoteControls({ remote, onSaved, certificateActivated = false }
           certificateNotice ? h("p", { role: "status" }, certificateNotice) : null) : null,
         field("remote-bind", "devices.remote.bind", address, setAddress, { maxLength: 128, required: true }),
         field("remote-port", "devices.remote.port", port, setPort, { type: "number", min: 1024, max: 65535, required: true }),
-        field("remote-origin", "devices.remote.origin", origin, setOrigin, { type: "url", placeholder: "https://harness.example", maxLength: 512 }),
+        field("remote-origin", "devices.remote.origin", origin, setOrigin, { type: "url", placeholder: "harness.example", maxLength: 512 }),
         h("label", { class: "field", for: "remote-subnets" }, h("span", { class: "field-label", id: "remote-subnets-label" }, t("devices.remote.subnets")), h("textarea", { id: "remote-subnets", "aria-labelledby": "remote-subnets-label", class: "input", rows: 3, value: subnets, disabled: busy, onInput: (e: Event) => setSubnets((e.target as HTMLTextAreaElement).value) })),
         unrestricted ? check("devices.remote.publicBind", publicBind, () => setPublicBind(!publicBind)) : null,
         h("div", { role: "region", "aria-label": t("devices.remote.notice") },
           h("p", {}, t("devices.remote.notice.body")),
-          h("ul", {}, remote.noticeItems.map(item => h("li", { key: item.code }, t((`devices.remote.notice.${item.code}`) as Key)))),
+          h("ul", {}, remote.noticeItems.map(item => h("li", { key: item.code }, t((`devices.remote.notice.${camel(item.code)}`) as Key)))),
           check("devices.remote.ack", ack, () => setAck(!ack)))) : null,
       error ? h("p", { class: "form-error", role: "alert" }, error) : null,
       h("button", { type: "submit", class: "btn btn-primary", disabled: blocked, "aria-disabled": String(busy || blocked) }, t("devices.remote.save"))));
