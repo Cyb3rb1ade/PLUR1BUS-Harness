@@ -2066,6 +2066,14 @@ table! {
     Result "admin.api.person.resolve" AdminApiPersonResolveResult,
     Params "admin.api.invite.validate" AdminApiInviteValidateParams,
     Result "admin.api.invite.validate" AdminApiInviteValidateResult,
+    Params "admin.api.device.announce" AdminApiDeviceAnnounceParams,
+    Result "admin.api.device.announce" AdminApiDeviceAnnounceResult,
+    Params "admin.api.device.challenge" AdminApiDeviceChallengeParams,
+    Result "admin.api.device.challenge" AdminApiDeviceChallengeResult,
+    Params "admin.api.device.pair" AdminApiDevicePairParams,
+    Result "admin.api.device.pair" AdminApiDevicePairResult,
+    Params "admin.api.device.prove" AdminApiDeviceProveParams,
+    Result "admin.api.device.prove" AdminApiDeviceProveResult,
     Params "user.role.set" UserRoleSetParams,
     Result "user.role.set" UserRoleSetResult,
     Params "user.invite.create" UserInviteCreateParams,
@@ -2212,6 +2220,7 @@ table! {
     Notification "approval.resolved" ApprovalResolvedNotification,
     Notification "approval.parked" ApprovalParkedNotification,
     Notification "api.account.changed" ApiAccountChangedNotification,
+    Notification "devices.trust.next" DevicesTrustNextNotification,
     Notification "grant.changed" GrantChangedNotification,
 }
 

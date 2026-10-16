@@ -330,6 +330,7 @@ fn check_json_validates_the_document_shape() {
         "models.roles",
         "approvals.integrity",
         "dreams.last-runs",
+        "remote.exposure",
     ];
     let ids: Vec<String> = v["checks"]
         .as_array()
