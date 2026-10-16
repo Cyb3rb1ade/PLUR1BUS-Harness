@@ -320,6 +320,7 @@ fn method_fixture(name: &str, f: &Value) {
         "secret.get" => pair::<SecretGetParams, SecretGetResult>(name, f),
         "secret.delete" => pair::<SecretDeleteParams, SecretDeleteResult>(name, f),
         "grant.list" => pair::<GrantListParams, GrantListResult>(name, f),
+        "grant.get" => pair::<GrantGetParams, GrantRecord>(name, f),
         "grant.create" => pair::<GrantCreateParams, GrantRecord>(name, f),
         "grant.revoke" => pair::<GrantRevokeParams, GrantRecord>(name, f),
         "approval.list" => pair::<ApprovalListParams, ApprovalListResult>(name, f),
@@ -327,6 +328,7 @@ fn method_fixture(name: &str, f: &Value) {
         "approval.decide" => pair::<ApprovalDecideParams, ApprovalDecideResult>(name, f),
         "approval.cancel" => pair::<ApprovalCancelParams, ApprovalRecord>(name, f),
         "approval.verify" => pair::<ApprovalVerifyParams, ApprovalVerifyResult>(name, f),
+        "approval.audit" => pair::<ApprovalAuditParams, ApprovalAuditResult>(name, f),
         "voice.status" => pair::<VoiceStatusParams, VoiceStatusResult>(name, f),
         "voice.agent.override.clear" => {
             pair::<VoiceAgentOverrideClearParams, VoiceAgentOverrideClearResult>(name, f)
@@ -544,6 +546,7 @@ fn every_notification_fixture_round_trips() {
             "session.event" => round_trip::<types::SessionEventNotification>(v, name),
             "approval.requested" => round_trip::<types::ApprovalRequestedNotification>(v, name),
             "approval.resolved" => round_trip::<types::ApprovalResolvedNotification>(v, name),
+            "approval.parked" => round_trip::<types::ApprovalParkedNotification>(v, name),
             "api.account.changed" => round_trip::<types::ApiAccountChangedNotification>(v, name),
             "grant.changed" => round_trip::<types::GrantChangedNotification>(v, name),
             "voice.download.progress" => {

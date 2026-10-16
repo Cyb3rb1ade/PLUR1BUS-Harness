@@ -832,6 +832,10 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "grant.get": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "grant.create": {
       "stability": "experimental",
       "since": "1.5.0"
@@ -857,6 +861,10 @@
       "since": "1.5.0"
     },
     "approval.verify": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "approval.audit": {
       "stability": "experimental",
       "since": "1.5.0"
     }
@@ -968,6 +976,10 @@
       "since": "1.5.0"
     },
     "approval.resolved": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "approval.parked": {
       "stability": "experimental",
       "since": "1.5.0"
     },

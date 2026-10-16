@@ -13,7 +13,7 @@ import {
 } from "./ports.ts";
 import { providerRunner, type AgentRunner } from "./runner.ts";
 import { alsAgentScopePort, scopeFor } from "./scope.ts";
-import { CollabStore } from "./store.ts";
+import { CollabStore, type TaskGrantEnd } from "./store.ts";
 import type {
   CollabEvent, CollabSettings, CollabTrace, ConsultAnswer, ConsultInput, DelegateHandle, DelegateInput,
   DelegateTask, Project, ProjectRole, SpanStatus,
@@ -32,6 +32,9 @@ export interface CollabOptions {
   runner?: AgentRunner;
   scope?: AgentScopePort;
   directory?: AgentDirectoryPort;
+  /** Ends task-scoped grants when a delegate task reaches a terminal status (D109 §9.9). */
+  grants?: TaskGrantEnd;
+  logWarn?: (msg: string, fields?: { err?: unknown }) => void;
 }
 
 interface Chain {
@@ -75,7 +78,7 @@ export interface Collab {
 }
 
 export function createCollab(o: CollabOptions): Collab {
-  const store = new CollabStore({ path: o.path, ...(o.clock ? { clock: o.clock } : {}), ...(o.newId ? { newId: o.newId } : {}) });
+  const store = new CollabStore({ path: o.path, ...(o.clock ? { clock: o.clock } : {}), ...(o.newId ? { newId: o.newId } : {}), ...(o.grants ? { grants: o.grants } : {}), ...(o.logWarn ? { logWarn: o.logWarn } : {}) });
   const authorize = o.authorize ?? rbacAuthorizePort;
   const budget = o.budget ?? unlimitedBudget();
   const redact = o.redact ?? logsRedactionPort();

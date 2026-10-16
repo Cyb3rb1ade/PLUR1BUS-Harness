@@ -14464,6 +14464,39 @@ D109 §4: the grants in the approval store, newest first, optionally filtered. O
 }
 ```
 
+### `grant.get`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+D109 §4: one grant of the calling person. Owner/Admin only (RBAC action grant.read); refused for every agent principal. E_NOT_FOUND for an unknown id or another person's grant. A broken approval chain returns the grant as suspended.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/GrantId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/GrantRecord"
+}
+```
+
 ### `grant.create`
 
 **Stability:** experimental · since 1.5.0
@@ -14786,7 +14819,7 @@ D109 §5: withdraws a pending request (status cancelled); the waiting call recei
 
 **Served by:** core
 
-D109 §6: verifies the HMAC-SHA256 chain of the approval store (the `1staid check approvals.integrity` check, on demand). Read-only. A broken chain is a finding (ok false, brokenAt, reason), never an RPC error; a broken chain suspends every grant after the break. Owner/Admin/Operator (RBAC action approval.read); refused for every agent principal.
+D109 §6/§9.7: verifies the HMAC-SHA256 chain of the approval store and additive Ed25519 signatures on decisions (the `1staid check approvals.integrity` check, on demand). Read-only. A broken chain is a finding (ok false, brokenAt, reason), never an RPC error; a broken chain suspends every grant after the break. Unsigned legacy entries remain valid. Owner/Admin/Operator (RBAC action approval.read); refused for every agent principal.
 
 **params**
 
@@ -14858,9 +14891,130 @@ D109 §6: verifies the HMAC-SHA256 chain of the approval store (the `1staid chec
         "malformed",
         "nonce-reuse",
         "binding-mismatch",
-        "duplicate"
+        "duplicate",
+        "signature-mismatch"
       ],
       "description": "Present only when ok is false."
+    },
+    "signatures": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unsignedLegacy",
+        "signedOk",
+        "signedBad",
+        "report"
+      ],
+      "properties": {
+        "unsignedLegacy": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "signedOk": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "signedBad": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "report": {
+          "enum": [
+            "unsigned (legacy)",
+            "signed-ok",
+            "signed-bad"
+          ]
+        }
+      },
+      "description": "Additive Ed25519 status. Unsigned legacy entries remain valid."
+    }
+  }
+}
+```
+
+### `approval.audit`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+D109 §9.10: approval-related HMAC-chain entries of the calling person, newest first, redacted (no nonce, no raw payload). Owner/Admin/Operator (RBAC action approval.read); refused for every agent principal. limit defaults to 100. This is a view of the existing approval chain, not a second audit log.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "entries"
+  ],
+  "properties": {
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "seq",
+          "ts",
+          "kind",
+          "refId"
+        ],
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "ts": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "refId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "capability": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "person": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      }
+    },
+    "nextCursor": {
+      "type": "string"
     }
   }
 }
@@ -16043,13 +16197,13 @@ D109 §5: a request left pending (approved, denied, expired or cancelled). The f
 }
 ```
 
-### `grant.changed`
+### `approval.parked`
 
 **Stability:** experimental · since 1.5.0
 
 **Served by:** core
 
-D109 §4: a grant was created or revoked (use, expiry and suspension are not notified in this version). Opt-in (a subscription must name grant.changed in names) and delivered only to subscriptions of person principals with grant.read; never to an agent.
+D109 §5: the foreground wait ended and the request stays open until TTL. Opt-in (a subscription must name approval.parked in names) and delivered only to subscriptions of person principals with approval.read; never to an agent. The record carries no nonce.
 
 ```json
 {
@@ -16058,7 +16212,34 @@ D109 §4: a grant was created or revoked (use, expiry and suspension are not not
   "x-server": "core",
   "type": "object",
   "additionalProperties": false,
-  "description": "D109 §4: a grant was created or revoked (use, expiry and suspension are not notified in this version). Opt-in (a subscription must name grant.changed in names) and delivered only to subscriptions of person principals with grant.read; never to an agent.",
+  "description": "D109 §5: the foreground wait ended and the request stays open until TTL. Opt-in (a subscription must name approval.parked in names) and delivered only to subscriptions of person principals with approval.read; never to an agent. The record carries no nonce.",
+  "required": [
+    "approval"
+  ],
+  "properties": {
+    "approval": {
+      "$ref": "#/$defs/ApprovalRecord"
+    }
+  }
+}
+```
+
+### `grant.changed`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+D109 §4: a grant was created, used, revoked, expired or suspended. Opt-in (a subscription must name grant.changed in names) and delivered only to subscriptions of person principals with grant.read; never to an agent.
+
+```json
+{
+  "x-stability": "experimental",
+  "x-since": "1.5.0",
+  "x-server": "core",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "D109 §4: a grant was created, used, revoked, expired or suspended. Opt-in (a subscription must name grant.changed in names) and delivered only to subscriptions of person principals with grant.read; never to an agent.",
   "required": [
     "change",
     "grant"
@@ -22749,6 +22930,11 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "type": "string",
       "maxLength": 2048,
       "description": "The model's own `why`. Unverified; clients label it so."
+    },
+    "diff": {
+      "type": "string",
+      "maxLength": 8192,
+      "description": "A redacted unified-diff or patch the model supplied with the request. Unverified; clients label it so."
     },
     "createdAt": {
       "type": "string"

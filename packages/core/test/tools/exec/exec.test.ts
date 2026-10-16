@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { execRun, createExecTool, ExecFailure, buildEnv, DEFAULT_ENV_ALLOW } from "../../../src/tools/exec/index.ts";
+import { ctx } from "../../policy/helpers.ts";
 import { FakeProcess, mk, tmpRoot } from "./helpers.ts";
 
 const fails = (p: Promise<unknown>, code: string) =>
@@ -213,6 +214,17 @@ describe("exec.run: policy, approval, audit", () => {
     const broken = mk({ root }, { audit: { append() { throw new Error("disk full"); } } });
     await fails(execRun({ program: "git", cwd: sub }, broken.deps), "audit-failed");
     assert.equal(broken.port.spawned.length, 0);
+  });
+
+  it("an already-authorized override path does not record decision/via on exec.run", async () => {
+    const { root, sub } = tmpRoot();
+    const m = mk({ root }, { policyContext: { ...ctx(), overrides: { "shell.exec": "allowed" } } });
+    m.port.onSpawn = (p) => p.exit(0);
+    await execRun({ program: "git", cwd: sub }, m.deps);
+    const line = m.audit.events.find((e) => e.action === "exec.run")!;
+    assert.ok(line);
+    assert.equal("decision" in line.detail, false);
+    assert.equal("via" in line.detail, false);
   });
 });
 

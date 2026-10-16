@@ -33,7 +33,7 @@ pub(crate) const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 25] = [
+const CHECK_IDS: [&str; 26] = [
     "config.valid",
     "config.store-path",
     "host_mode_coexistence",
@@ -58,6 +58,7 @@ const CHECK_IDS: [&str; 25] = [
     "extensions.consistency",
     "extensions.revoked",
     "models.roles",
+    "approvals.integrity",
     "dreams.last-runs",
 ];
 
@@ -366,6 +367,10 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
     if out_of_budget(deadline, &mut checks) {
         return checks;
     }
+    checks.push(check_approvals_integrity(layout, core_client.as_mut()));
+    if out_of_budget(deadline, &mut checks) {
+        return checks;
+    }
     let core_reachable = core_status.is_some();
     let dreams_status = core_client
         .as_mut()
@@ -376,6 +381,52 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
         core_reachable,
     ));
     checks
+}
+
+// ---- approvals.integrity ------------------------------------------------------------------------
+
+/// D109 §9.7: calls `approval.verify` (HMAC chain + Ed25519 signatures). Skip when the core is down;
+/// warn when the call fails; fail when the chain or a signature does not verify. Unsigned legacy is ok.
+fn check_approvals_integrity(layout: &Layout, core_client: Option<&mut Client>) -> Check {
+    const ID: &str = "approvals.integrity";
+    let Some(client) = core_client else {
+        return Check::skip(ID, "core is not reachable");
+    };
+    // No store yet (a fresh or host-profile home nobody has asked a permission of): there is no chain to verify, and
+    // `approval.verify` would create the store as a side effect of this read-only check. Nothing recorded, nothing broken.
+    if !layout.state().join("approvals.sqlite").exists() {
+        return Check::ok(ID, "no approval store yet (nothing to verify)");
+    }
+    match client.call("approval.verify", json!({})) {
+        Ok(v) => check_approvals_from_verify(&v),
+        Err(_) => Check::warn(
+            ID,
+            "approval.verify did not answer",
+            None,
+            Some("core is up but approval.verify failed".to_string()),
+        ),
+    }
+}
+
+fn check_approvals_from_verify(v: &Value) -> Check {
+    const ID: &str = "approvals.integrity";
+    if v["ok"].as_bool() == Some(true) {
+        let report = v["signatures"]["report"].as_str().unwrap_or("");
+        let summary = if report == "unsigned (legacy)" {
+            "approval chain intact (unsigned (legacy))"
+        } else {
+            "approval chain intact"
+        };
+        Check::ok(ID, summary)
+    } else {
+        let reason = v["reason"].as_str().unwrap_or("unknown");
+        Check::fail(
+            ID,
+            format!("approval chain broken ({reason})"),
+            Some(v.clone()),
+            Some("see `plur1bus approval verify`".to_string()),
+        )
+    }
 }
 
 // ---- config.valid ---------------------------------------------------------------------------
@@ -2242,6 +2293,47 @@ mod tests {
             &mut untouched
         ));
         assert_eq!(untouched.len(), 1);
+    }
+
+    #[test]
+    fn approvals_integrity_skips_when_core_is_down() {
+        let dir = tempfile::tempdir().unwrap();
+        let check = check_approvals_integrity(&Layout::new(dir.path().to_path_buf()), None);
+        assert_eq!(check.status, Status::Skip);
+        assert_eq!(check.id, "approvals.integrity");
+        assert_eq!(check.summary, "core is not reachable");
+    }
+
+    #[test]
+    fn approvals_integrity_unsigned_legacy_is_ok_and_tampered_signed_fails() {
+        let ok = check_approvals_from_verify(&json!({
+            "ok": true,
+            "entries": 1,
+            "head": null,
+            "signatures": { "unsignedLegacy": 1, "signedOk": 0, "signedBad": 0, "report": "unsigned (legacy)" }
+        }));
+        assert_eq!(ok.status, Status::Ok);
+        assert_eq!(ok.summary, "approval chain intact (unsigned (legacy))");
+
+        let signed = check_approvals_from_verify(&json!({
+            "ok": true,
+            "entries": 2,
+            "head": { "seq": 2, "mac": "aa" },
+            "signatures": { "unsignedLegacy": 1, "signedOk": 1, "signedBad": 0, "report": "signed-ok" }
+        }));
+        assert_eq!(signed.status, Status::Ok);
+        assert_eq!(signed.summary, "approval chain intact");
+
+        let bad = check_approvals_from_verify(&json!({
+            "ok": false,
+            "entries": 2,
+            "head": null,
+            "brokenAt": 2,
+            "reason": "signature-mismatch",
+            "signatures": { "unsignedLegacy": 1, "signedOk": 0, "signedBad": 1, "report": "signed-bad" }
+        }));
+        assert_eq!(bad.status, Status::Fail);
+        assert!(bad.summary.contains("signature-mismatch"), "{bad:?}");
     }
 
     #[test]
