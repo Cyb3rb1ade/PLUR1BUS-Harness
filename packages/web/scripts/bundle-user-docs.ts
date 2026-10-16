@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -83,7 +83,7 @@ export function bundleDocs({ userDocsDir = defaultUserDocsDir, outDir = defaultO
   console.log("Bundled docs/user into packages/web/src/pages/help/docs-bundle/{de,en}/*");
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(resolve(process.argv[1])) === realpathSync(fileURLToPath(import.meta.url))) {
   if (process.argv.includes("--check")) {
     const problems = checkBundle();
     if (problems.length > 0) {
