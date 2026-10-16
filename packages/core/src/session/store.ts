@@ -101,10 +101,13 @@ export class SessionStore {
     return (this.#db.prepare("SELECT memory FROM prompt_snapshots WHERE session_id=?").get(sessionId) as { memory: string }).memory;
   }
 
+  #transactionDepth = 0;
   #tx<T>(fn: () => T): T {
-    this.#db.exec("BEGIN IMMEDIATE");
-    try { const r = fn(); this.#db.exec("COMMIT"); return r; }
+    if (this.#transactionDepth) return fn();
+    this.#transactionDepth++;
+    try { this.#db.exec("BEGIN IMMEDIATE"); const r = fn(); this.#db.exec("COMMIT"); return r; }
     catch (e) { try { this.#db.exec("ROLLBACK"); } catch { /* already rolled back */ } throw mapSqlite(e); }
+    finally { this.#transactionDepth--; }
   }
   #get(sql: string, ...args: (string | number | null)[]): Row | undefined { return this.#db.prepare(sql).get(...args) as Row | undefined; }
   #all(sql: string, ...args: (string | number | null)[]): Row[] { return this.#db.prepare(sql).all(...args) as Row[]; }
@@ -175,6 +178,28 @@ export class SessionStore {
       `SELECT s.* FROM sessions s WHERE ${where.join(" AND ")} ORDER BY s.pinned DESC, COALESCE(s.last_turn_at, s.created_at) DESC, s.created_at DESC, s.id LIMIT ?`,
       ...args, limit + 1,
     );
+    return { sessions: rows.slice(0, limit).map(toSession), truncated: rows.length > limit };
+  }
+
+  /** Direct-chat keyset page. Both SQLite stores (persistent and RAM) use precisely this order.
+   * Visibility is filtered before LIMIT so a hidden agent cannot truncate or starve a page. */
+  listChatSessions(f: ListFilter & { allowedAgents: readonly string[]; after?: { pinned: boolean; updatedAt: number; id: string } }): { sessions: SessionRecord[]; truncated: boolean } {
+    const limit = Math.min(Math.max(f.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT + 1);
+    if (!f.allowedAgents.length) return { sessions: [], truncated: false };
+    const where = ["s.owner=?", "s.kind='direct'", `s.agent_id IN (${f.allowedAgents.map(() => "?").join(",")})`];
+    const args: (string | number | null)[] = [f.owner, ...f.allowedAgents];
+    if (f.agentId) { where.push("s.agent_id=?"); args.push(f.agentId); }
+    const archived = f.archived ?? "exclude";
+    if (archived === "exclude") where.push("s.archived_at IS NULL"); else if (archived === "only") where.push("s.archived_at IS NOT NULL");
+    if (f.search !== undefined) {
+      const q = ftsQuery(f.search);
+      where.push("(s.rowid IN (SELECT rowid FROM sessions_fts WHERE sessions_fts MATCH ?) OR s.id IN (SELECT m.session_id FROM messages m WHERE m.rowid IN (SELECT rowid FROM messages_fts WHERE messages_fts MATCH ?)))"); args.push(q, q);
+    }
+    if (f.after) {
+      where.push("(s.pinned < ? OR (s.pinned = ? AND s.updated_at < ?) OR (s.pinned = ? AND s.updated_at = ? AND s.id > ?))");
+      const pinned = Number(f.after.pinned); args.push(pinned, pinned, f.after.updatedAt, pinned, f.after.updatedAt, f.after.id);
+    }
+    const rows = this.#all(`SELECT s.* FROM sessions s WHERE ${where.join(" AND ")} ORDER BY s.pinned DESC, s.updated_at DESC, s.id ASC LIMIT ?`, ...args, limit + 1);
     return { sessions: rows.slice(0, limit).map(toSession), truncated: rows.length > limit };
   }
 
@@ -258,6 +283,25 @@ export class SessionStore {
     });
     if (changed) this.#archived(id);
     return result;
+  }
+
+  restoreSession(id: string): SessionRecord {
+    const session = this.getSession(id);
+    if (!session) throw new SessionError("not-found", "session not found");
+    if (session.kind !== "direct") throw new SessionError("invalid", "only direct chats can be restored");
+    this.#run("UPDATE sessions SET archived_at=NULL,updated_at=? WHERE id=?",this.#clock(),id);
+    return this.getSession(id)!;
+  }
+
+  /** Fork messages in one transaction; replayed historical messages never capture memory again. */
+  forkSession(id: string, o: {title?: string; beforeSeq?: number} = {}): SessionRecord {
+    return this.#tx(() => {
+      const source=this.getSession(id);if(!source)throw new SessionError("not-found","session not found");
+      if(source.kind!=="direct")throw new SessionError("invalid","only direct chats can be forked");
+      const next=this.createSession({kind:"direct",agentId:source.agentId,owner:source.owner,title:o.title ?? source.title,memoryMode:source.memoryMode});
+      for(const message of this.listMessages(id).filter(m=>o.beforeSeq===undefined||m.seq<=o.beforeSeq))this.#insertMessage(next.id,null,message.role,message.text,message.tokens);
+      return this.getSession(next.id)!;
+    });
   }
 
   /** The explicit erasure path (stub, no RPC): refuses a session that is not archived, removes everything of it and
@@ -378,8 +422,10 @@ export class SessionStore {
     return this.#all("SELECT * FROM events WHERE session_id = ? AND seq > ? ORDER BY seq LIMIT ?", sessionId, afterSeq, Math.min(Math.max(limit, 1), 2000)).map(toEvent);
   }
 
-  listMessages(sessionId: string, o: { afterSeq?: number; limit?: number } = {}): MessageRecord[] {
-    return this.#all("SELECT * FROM messages WHERE session_id = ? AND seq > ? ORDER BY seq LIMIT ?", sessionId, o.afterSeq ?? 0, Math.min(Math.max(o.limit ?? 10_000, 1), 100_000)).map(toMessage);
+  listMessages(sessionId: string, o: { afterSeq?: number; beforeSeq?: number; limit?: number } = {}): MessageRecord[] {
+    const limit = Math.min(Math.max(o.limit ?? 10_000, 1), 100_000);
+    if (o.beforeSeq !== undefined) return this.#all("SELECT * FROM messages WHERE session_id=? AND seq<? AND seq>? ORDER BY seq DESC LIMIT ?", sessionId, o.beforeSeq, o.afterSeq ?? 0, limit).map(toMessage).reverse();
+    return this.#all("SELECT * FROM messages WHERE session_id = ? AND seq > ? ORDER BY seq LIMIT ?", sessionId, o.afterSeq ?? 0, limit).map(toMessage);
   }
 
   tokenCalibration(model: string): number | null { return (this.#get("SELECT factor FROM token_calibration WHERE model=?", model)?.factor as number | undefined) ?? null; }
