@@ -476,6 +476,10 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "dreams.diary": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "admin.obsidian.detect": {
       "stability": "experimental",
       "since": "1.3.0"
@@ -495,6 +499,10 @@
     "admin.backup.snapshot": {
       "stability": "experimental",
       "since": "1.5.0"
+    },
+    "logs.levels": {
+      "stability": "experimental",
+      "since": "1.6.0"
     },
     "logs.query": {
       "stability": "experimental",
@@ -840,6 +848,10 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "grant.get": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "grant.create": {
       "stability": "experimental",
       "since": "1.5.0"
@@ -865,6 +877,10 @@
       "since": "1.5.0"
     },
     "approval.verify": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "approval.audit": {
       "stability": "experimental",
       "since": "1.5.0"
     }
@@ -980,6 +996,10 @@
       "since": "1.5.0"
     },
     "approval.resolved": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "approval.parked": {
       "stability": "experimental",
       "since": "1.5.0"
     },

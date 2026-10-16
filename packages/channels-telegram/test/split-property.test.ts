@@ -440,15 +440,7 @@ function clusterStarts(text: string): Set<number> {
 
 const hex = (s: string): string => [...s].map((ch) => `U+${(ch.codePointAt(0) as number).toString(16).toUpperCase()}`).join(" ");
 
-// First failing inputs (replay key): seed=20261012 index=13, hand-picked "CR|LF straddles the limit"
-// (x * 4095 + "\r\n" + "y"), cut at offset 4096 between U+000D and U+000A. First generated failure: seed=20261012
-// index=46, cut at offset 4096 inside the flag U+1F1E9 U+1F1EA. Run without `todo`, 17 of 639 inputs fail.
-const GRAPHEME_GAP =
-  "KNOWN GAP: channels-telegram splitMessage: erwartet jede Teilgrenze auf einer Grapheme-Cluster-Grenze (Intl.Segmenter), " +
-  "tatsächlich Schnitt mitten im Cluster, etwa zwischen CR und LF, in einer ZWJ-Sequenz, einer Flagge oder vor einem Kombinationszeichen " +
-  "(Code und docs/channels/telegram.md Zeile 12 versprechen nur Surrogat-Sicherheit)";
-
-test("property 3b: every part boundary falls on a grapheme boundary of the original", { todo: GRAPHEME_GAP }, () => {
+test("property 3b: every part boundary falls on a grapheme boundary of the original", () => {
   let bad = 0;
   const firstOf: { hand?: string; generated?: string } = {};
   let firstCase: Case | undefined;
