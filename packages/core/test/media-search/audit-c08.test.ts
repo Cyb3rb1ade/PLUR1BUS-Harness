@@ -153,7 +153,9 @@ describe("c08: open items", () => {
   };
   it("composition passes allowedRoots (media directories) to the ffmpeg ports and caption providers", async () => {
     let spawned = 0;
-    const { home, c, ports } = await composeWith({ ffmpeg: { spawn: (() => { spawned++; throw new Error("no spawn"); }) as never } }, { provider: "local" });
+    // A stand-in binary: the test must not depend on ffmpeg being installed (createFfmpegPorts yields no ports without it).
+    const bin = await mkdtemp(join(tmpdir(), "c08-bin-")); const fakeFfmpeg = join(bin, "ffmpeg"); await writeFile(fakeFfmpeg, "#!/bin/sh\n", { mode: 0o755 });
+    const { home, c, ports } = await composeWith({ ffmpeg: { ffmpegPath: fakeFfmpeg, spawn: (() => { spawned++; throw new Error("no spawn"); }) as never } }, { provider: "local" });
     try {
       assert.equal(c.kind, "engine");
       const outside = join(home, "elsewhere.mp4"); await writeFile(outside, Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from("ftypmp42")]));
@@ -161,7 +163,7 @@ describe("c08: open items", () => {
       assert.equal(spawned, 0);
       // the local caption provider refuses the same path before it loads any model
       await assert.rejects(c.captions.resolve({ kind: "image", mime: "image/png", source: { path: outside } }), code("E_MEDIA_UNSUPPORTED_KIND"));
-    } finally { await c.close(); await rm(home, { recursive: true, force: true }); }
+    } finally { await c.close(); await rm(home, { recursive: true, force: true }); await rm(bin, { recursive: true, force: true }); }
   });
   it("composition passes the privacy pin callback to createCaptionService as well as to resolveCaptionProvider", async () => {
     // The first read happens while the provider is chosen (not pinned), every later read is the service's own call-time check.
