@@ -39,6 +39,7 @@ The result is `{"schema":"1staid.check/1","ok":<bool>,"checks":[{"id","status","
 | `remote.exposure` | Reports configured network exposure and failed remote listener startup | `warn`: `remote.publish` is `network`, or the saved listener status is `failed` | Review the allowed subnets and TLS provisioning; use `local` or `tailnet` when network exposure is unnecessary. For failed tailnet startup, check Tailscale installation/login. This check does not change configuration or publish a fallback listener. |
 | `approvals.integrity` | The approval store HMAC chain and Ed25519 decision signatures (`approval.verify`) | The chain is broken or a signed decision was tampered with; unsigned legacy entries stay valid | `plur1bus approval verify --json`; skip when the core is not reachable |
 | `dreams.last-runs` | Each enabled dreaming phase is on schedule; last run did not fail or abort | A window was missed (`nextRunAt` ≤ now) or the last run failed/aborted | `plur1bus dreams status` / `dreams log` for detail |
+| `remote.exposure` | Remote API publishing is not on the network and the requested remote listener started | `remote.publish` is `network` (reachable from the configured subnets), or the requested listener failed and there is no network fallback | Use `remote.publish` local or tailnet when network access is unnecessary; check Tailscale installation, login and remote TLS provisioning |
 
 ## 2. Cross-check with process status and logs
 

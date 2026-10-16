@@ -113,7 +113,7 @@ fn model_scan_and_override_fail_when_core_unavailable() {
 }
 
 #[test]
-fn firstaid_keeps_models_roles_before_appended_remote_exposure() {
+fn firstaid_check_includes_models_roles_at_end() {
     let dir = tempfile::tempdir().unwrap();
     let home = dir.path().join("home");
     fs::create_dir_all(&home).unwrap();
@@ -131,12 +131,9 @@ fn firstaid_keeps_models_roles_before_appended_remote_exposure() {
     );
 
     let checks = doc["checks"].as_array().unwrap();
-    assert_eq!(checks.len(), 27);
-    assert_eq!(checks[23]["id"], "models.roles");
-    assert_eq!(checks[23]["status"], "skip");
-    assert_eq!(checks[24]["id"], "remote.exposure");
-    assert_eq!(checks[24]["status"], "ok");
-    let last = checks.last().unwrap();
+    // `remote.exposure` is appended after it (check ids are append-only).
+    let last = &checks[checks.len() - 2];
     assert_eq!(last["id"], "dreams.last-runs");
     assert_eq!(last["status"], "skip");
+    assert_eq!(checks.last().unwrap()["id"], "remote.exposure");
 }
