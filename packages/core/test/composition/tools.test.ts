@@ -354,6 +354,13 @@ describe("composition/tools composeTools: web.search", () => {
     assert.deepEqual(seen!.args, { query: "cats" }); assert.equal(seen!.signal, ctx.signal);
   });
 
+  it("tells the search service which agent and session call, so the provider can be chosen per agent (D95)", async () => {
+    let seen: { agentId?: string; sessionId?: string } | undefined;
+    const t = get(await composeTools(options({ webSearch: search(async (_args, o) => { seen = o as never; return { results: [] }; }) }), turn()), "web.search");
+    await t.execute({ query: "cats" }, run());
+    assert.equal(seen!.agentId, "a1"); assert.equal(seen!.sessionId, "s1");
+  });
+
   it("a typed web failure becomes a tool-failed error carrying the structured result", async () => {
     const t = get(await composeTools(options({ webSearch: search(async () => { throw new WebFailure("no-provider", "none configured"); }) }), turn()), "web.search");
     await assert.rejects(() => t.execute({ query: "q" }, run()), (e) => e instanceof ToolAdapterError && e.code === "tool-failed" && (e.detail as { isError: boolean; error: { code: string } }).isError === true && (e.detail as { error: { code: string } }).error.code === "no-provider");

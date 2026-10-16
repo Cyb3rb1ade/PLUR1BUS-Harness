@@ -75,7 +75,9 @@ import { sharedMemoryStatus } from "./shared-memory.ts";
 import { projectModels, startWarmup, type Warmup } from "./warmup.ts";
 import path from "node:path";
 import { createEgress } from "./egress/index.ts";
-import { createSearxngWebSearch, type SearxngWebSearch } from "./sidecars/web-search.ts";
+import type { SearxngWebSearch } from "./sidecars/web-search.ts";
+import { createConfiguredWebSearch } from "./sidecars/web-search-router.ts";
+import { WebFailure } from "./tools/web/failure.ts";
 import { createBudgetService, PriceBook, SHIPPED_PRICE_TABLES, type BudgetService } from "./budget/index.ts";
 import { createCoreSecretStore } from "./secrets/runtime.ts";
 import { createCatalogStore, type CatalogStore } from "./discovery/catalog-store.ts";
@@ -355,13 +357,19 @@ export function createCore(o: CoreOptions): Core {
     platform.securePath(l.systemJobs, { mode: 0o700 });
     // M2: the secret store. Nothing is probed or opened here (the keychain is first touched by a `secret.*` call).
     const egress = createEgress({ config: () => cs.current().egress, now: clock, ...(o.discovery?.resolver ? { resolver: o.discovery.resolver } : {}) });
-    // web.search over the SearXNG sidecar. The destination is configuration (sidecars.searxng) or the address the container layer
-    // injected; the trace carries lengths, counts and failure codes, never a query.
-    webSearch = createSearxngWebSearch({
-      config: () => cs.current().sidecars, env: process.env, now: clock, ...(o.discovery?.resolver ? { resolver: o.discovery.resolver } : {}),
-      trace: (e) => log.debug("web.search", { provider: e.provider ?? "searxng", queryChars: e.queryChars, results: e.results ?? 0, ms: e.ms, ...(e.error ? { error: e.error } : {}) }),
-    });
     const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath, fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: log });
+    // web.search (D95): the SearXNG sidecar plus the keyed providers (Brave, Tavily, Exa), chosen per agent from `modules.web-search`.
+    // The sidecar's destination is configuration (sidecars.searxng) or the address the container layer injected; the keyed
+    // providers go through the egress policy and read their key from the secret store per call. The trace carries lengths,
+    // counts and failure codes, never a query or a key.
+    webSearch = createConfiguredWebSearch({
+      config: () => { const c = cs.current(); return { sidecars: c.sidecars, modules: c.modules, egress: c.egress }; }, env: process.env, now: clock, ...(o.discovery?.resolver ? { resolver: o.discovery.resolver } : {}),
+      readSecret: async name => {
+        try { const lease = await secretStore.lease({ kind: "core" }, name, { purpose: "web-search", profileId: "web-search", ttlMs: 5000 }); try { return lease.value; } finally { secretStore.revokeLease({ kind: "core" }, lease.leaseId); } }
+        catch (e) { if (e && typeof e === "object" && "code" in e && e.code === "not-found") return null; throw new WebFailure("provider-failed", "the search API key could not be read from the secret store"); }
+      },
+      trace: (e) => log.debug("web.search", { provider: e.provider ?? "none", queryChars: e.queryChars, results: e.results ?? 0, ms: e.ms, ...(e.error ? { error: e.error } : {}) }),
+    });
     orphans = createOrphanWatch({
       graceMs: config.supervisor.graceMs, clock,
       onOrphaned: (since) => {
