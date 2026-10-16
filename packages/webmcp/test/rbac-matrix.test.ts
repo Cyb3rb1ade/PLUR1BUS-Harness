@@ -192,3 +192,9 @@ describe("C. person-only methods turn agents away", () => {
     for (const m of coreMethods.filter((n) => /^(grant|approval|identity|breakglass|user|device|secret|auth|admin|inbox)\./.test(n))) assert.ok(isForbiddenMethod(m), m);
   });
 });
+
+// D103 discovery is an in-process tool over the admitted per-turn catalogue, not an RPC/WebMCP surface.
+it('capabilities.search stays dispatcher-only and cannot bypass RPC RBAC through a colliding name', () => {
+  assert.equal(Object.hasOwn(methods, 'capabilities.search'), false);
+  assert.equal(Object.hasOwn(RPC_RULES, 'capabilities.search'), false);
+});
