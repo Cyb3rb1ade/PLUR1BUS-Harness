@@ -367,7 +367,7 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
     if out_of_budget(deadline, &mut checks) {
         return checks;
     }
-    checks.push(check_approvals_integrity(core_client.as_mut()));
+    checks.push(check_approvals_integrity(layout, core_client.as_mut()));
     if out_of_budget(deadline, &mut checks) {
         return checks;
     }
@@ -387,11 +387,16 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
 
 /// D109 §9.7: calls `approval.verify` (HMAC chain + Ed25519 signatures). Skip when the core is down;
 /// warn when the call fails; fail when the chain or a signature does not verify. Unsigned legacy is ok.
-fn check_approvals_integrity(core_client: Option<&mut Client>) -> Check {
+fn check_approvals_integrity(layout: &Layout, core_client: Option<&mut Client>) -> Check {
     const ID: &str = "approvals.integrity";
     let Some(client) = core_client else {
         return Check::skip(ID, "core is not reachable");
     };
+    // No store yet (a fresh or host-profile home nobody has asked a permission of): there is no chain to verify, and
+    // `approval.verify` would create the store as a side effect of this read-only check. Nothing recorded, nothing broken.
+    if !layout.state().join("approvals.sqlite").exists() {
+        return Check::ok(ID, "no approval store yet (nothing to verify)");
+    }
     match client.call("approval.verify", json!({})) {
         Ok(v) => check_approvals_from_verify(&v),
         Err(_) => Check::warn(
@@ -2292,7 +2297,8 @@ mod tests {
 
     #[test]
     fn approvals_integrity_skips_when_core_is_down() {
-        let check = check_approvals_integrity(None);
+        let dir = tempfile::tempdir().unwrap();
+        let check = check_approvals_integrity(&Layout::new(dir.path().to_path_buf()), None);
         assert_eq!(check.status, Status::Skip);
         assert_eq!(check.id, "approvals.integrity");
         assert_eq!(check.summary, "core is not reachable");
