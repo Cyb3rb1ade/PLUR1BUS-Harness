@@ -33,7 +33,7 @@ pub(crate) const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 26] = [
+const CHECK_IDS: [&str; 27] = [
     "config.valid",
     "config.store-path",
     "host_mode_coexistence",
@@ -60,6 +60,7 @@ const CHECK_IDS: [&str; 26] = [
     "models.roles",
     "approvals.integrity",
     "dreams.last-runs",
+    "remote.exposure",
 ];
 
 /// The summary of a row [`gather`] never got to before its deadline (`1staid repair` plans nothing for it).
@@ -380,6 +381,7 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
         env.now,
         core_reachable,
     ));
+    checks.push(check_remote_exposure(layout));
     checks
 }
 
@@ -427,6 +429,35 @@ fn check_approvals_from_verify(v: &Value) -> Check {
             Some("see `plur1bus approval verify`".to_string()),
         )
     }
+}
+
+fn check_remote_exposure(layout: &Layout) -> Check {
+    const ID: &str = "remote.exposure";
+    let config: Value = std::fs::read_to_string(layout.config_path())
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or(Value::Null);
+    if config.pointer("/remote/publish").and_then(Value::as_str) == Some("network") {
+        return Check::warn(
+            ID,
+            "Network publishing is enabled; the TLS API is reachable from the configured subnets",
+            None,
+            Some("Use remote.publish local or tailnet when network access is unnecessary".into()),
+        );
+    }
+    let status: Value = std::fs::read_to_string(layout.home.join("state/remote-status.json"))
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or(Value::Null);
+    if status.get("phase").and_then(Value::as_str) == Some("failed") {
+        return Check::warn(
+            ID,
+            "Requested remote listener is unavailable; there is no network fallback",
+            None,
+            Some("Check Tailscale installation, login and remote TLS provisioning".into()),
+        );
+    }
+    Check::ok(ID, "No network exposure warning")
 }
 
 // ---- config.valid ---------------------------------------------------------------------------
@@ -1651,6 +1682,28 @@ mod tests {
         json!({ "engine": { "ready": degraded.is_null(), "degraded": degraded, "models": {
             "embedder": embedder,
             "reranker": { "state": "ready", "warming": false, "checkedAt": 1, "id": "local-transformers" } } } })
+    }
+
+    #[test]
+    fn remote_exposure_warns_for_network_and_failed_tailnet() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        std::fs::write(layout.config_path(), r#"{"remote":{"publish":"network"}}"#).unwrap();
+        assert_eq!(check_remote_exposure(&layout).status, Status::Warn);
+        std::fs::write(layout.config_path(), r#"{"remote":{"publish":"tailnet"}}"#).unwrap();
+        std::fs::create_dir_all(layout.home.join("state")).unwrap();
+        std::fs::write(
+            layout.home.join("state/remote-status.json"),
+            r#"{"phase":"failed"}"#,
+        )
+        .unwrap();
+        assert_eq!(check_remote_exposure(&layout).status, Status::Warn);
+        std::fs::write(
+            layout.home.join("state/remote-status.json"),
+            r#"{"phase":"active"}"#,
+        )
+        .unwrap();
+        assert_eq!(check_remote_exposure(&layout).status, Status::Ok);
     }
 
     #[cfg(unix)]

@@ -3764,6 +3764,189 @@
           ]
         }
       },
+      "admin.api.device.pair": {
+        "description": "Private API-service pair operation over the core device store; never exposed through web RPC or WebMCP.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "platform": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "publicKey": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "pairedBy": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "scope": {
+              "type": "array",
+              "maxItems": 128,
+              "items": {
+                "type": "string",
+                "maxLength": 128
+              }
+            }
+          },
+          "required": [
+            "name",
+            "platform",
+            "publicKey",
+            "pairedBy",
+            "scope"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "device": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "device"
+          ]
+        }
+      },
+      "admin.api.device.challenge": {
+        "description": "Private API-service challenge operation over the core device store; never exposed through web RPC or WebMCP.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {},
+          "required": []
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "challenge": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "challenge"
+          ]
+        }
+      },
+      "admin.api.device.prove": {
+        "description": "Private API-service prove operation over the core device store; never exposed through web RPC or WebMCP.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^dev_[a-f0-9-]{36}$"
+            },
+            "publicKey": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "challenge": {
+              "type": "string",
+              "minLength": 43,
+              "maxLength": 43,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            },
+            "signature": {
+              "type": "string",
+              "minLength": 86,
+              "maxLength": 86,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            }
+          },
+          "required": [
+            "id",
+            "publicKey",
+            "challenge",
+            "signature"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "device": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "device"
+          ]
+        }
+      },
+      "admin.api.device.announce": {
+        "description": "Private API-service announce operation over the core device store; never exposed through web RPC or WebMCP.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "next": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "cert",
+                    "ca"
+                  ]
+                },
+                "pin": {
+                  "type": "string",
+                  "pattern": "^sha256:[A-Za-z0-9_-]{43}$"
+                }
+              },
+              "required": [
+                "kind",
+                "pin"
+              ]
+            },
+            "stagedAt": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "next",
+            "stagedAt"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "announced": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "announced"
+          ]
+        }
+      },
       "device.list": {
         "x-stability": "experimental",
         "x-since": "1.6.0",
@@ -5341,6 +5524,153 @@
         "params": { "type": "object", "additionalProperties": false, "required": ["caller", "agentId", "proposalId"], "properties": { "caller": { "$ref": "#/$defs/CallerIdentity" }, "agentId": { "$ref": "#/$defs/AgentId" }, "proposalId": { "$ref": "#/$defs/MemoryId" }, "note": { "type": "string", "maxLength": 500 } } },
         "result": { "type": "object", "additionalProperties": false, "required": ["proposalId", "status"], "properties": { "proposalId": { "type": "string" }, "status": { "const": "rejected" } } }
       },
+      "model.embedding.select": {
+        "description": "Make the Memory wizard embedding selection effective via the existing validated migration; refuses unsupported models and unavailable engine validation instead of silently retaining a different model.",
+        "x-server": "core", "x-stability": "experimental", "x-since": "1.6.0",
+        "params": { "type": "object", "additionalProperties": false, "properties": { "model": { "type": "string", "minLength": 1, "maxLength": 256 } }, "required": ["model"] },
+        "result": { "type": "object", "additionalProperties": false, "properties": { "model": { "type": "string" }, "effective": { "type": "boolean" } }, "required": ["model", "effective"] }
+      },
+      "model.licence.confirm": {
+        "description": "Persisted audited model licence confirm; authenticated Owner/Admin only.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "model": {
+              "type": "string",
+              "enum": [
+                "jinaai/jina-embeddings-v3",
+                "jinaai/jina-embeddings-v5-text-nano",
+                "jinaai/jina-embeddings-v5-text-nano-retrieval",
+                "jinaai/jina-reranker-v2-base-multilingual"
+              ]
+            },
+            "accepted": {
+              "const": true
+            }
+          },
+          "required": [
+            "model",
+            "accepted"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "acceptance": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "who": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "string"
+                },
+                "licence": {
+                  "type": "string"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "who",
+                "at",
+                "licence",
+                "model",
+                "revision",
+                "source"
+              ]
+            }
+          },
+          "required": [
+            "acceptance"
+          ]
+        }
+      },
+      "model.licence.list": {
+        "description": "Persisted audited model licence list; authenticated Owner/Admin only.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {},
+          "required": []
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "acceptances": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            }
+          },
+          "required": [
+            "acceptances"
+          ]
+        }
+      },
+      "model.licence.check": {
+        "description": "Persisted audited model licence check; authenticated Owner/Admin only.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "changes": {
+              "type": "array",
+              "maxItems": 200,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "value": {}
+                },
+                "required": [
+                  "key",
+                  "value"
+                ]
+              }
+            }
+          },
+          "required": [
+            "changes"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "ok"
+          ]
+        }
+      },
       "agent.create": {
         "description": "Create an agent using Config Schema validation; Owner/Admin people only.",
         "x-server": "core",
@@ -5350,6 +5680,9 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "idempotencyKey": { "type": "string", "minLength": 16, "maxLength": 128, "pattern": "^[A-Za-z0-9_-]+$" },
+            "displayName": {},
+            "skills": {},
             "name": {},
             "persona": {},
             "model": {},
@@ -5365,6 +5698,7 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "replayed": { "type": "boolean" },
             "agentId": {
               "$ref": "#/$defs/AgentId"
             }
@@ -5383,6 +5717,9 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "idempotencyKey": { "type": "string", "minLength": 16, "maxLength": 128, "pattern": "^[A-Za-z0-9_-]+$" },
+            "displayName": {},
+            "skills": {},
             "name": {},
             "persona": {},
             "model": {},
@@ -9501,6 +9838,48 @@
     },
 
     "notifications": {
+      "devices.trust.next": {
+        "description": "Staged next certificate trust over authenticated current-trust connections; addressed only to paired device owners.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.6.0",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "devices.trust.next"
+          },
+          "next": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "cert",
+                  "ca"
+                ]
+              },
+              "pin": {
+                "type": "string",
+                "pattern": "^sha256:[A-Za-z0-9_-]{43}$"
+              }
+            },
+            "required": [
+              "kind",
+              "pin"
+            ]
+          },
+          "stagedAt": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "type",
+          "next",
+          "stagedAt"
+        ]
+      },
       "api.account.changed": {"x-server": "core", "x-stability": "experimental", "x-since": "1.6.0", "type": "object", "additionalProperties": false, "required": ["userId"], "properties": {"userId": {"type": "string"}}, "description": "Core person authority changed; connection-targeted to authenticated API service listeners only."},
       "voice.realtime.state": {
         "type": "object",

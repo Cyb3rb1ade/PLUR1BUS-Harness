@@ -1,3 +1,7 @@
+import { buildEmbeddingSelectionSurface } from "./rpc/embedding-selection-surface.ts";
+import { creationDigest } from "./agents/saga.ts";
+import { LicenceLedger } from "./licences/ledger.ts";
+import { buildLicenceSurface, LICENCE_RULES } from "./rpc/licence-surface.ts";
 import { buildChatSurface } from "./rpc/chat-surface.ts";
 import { apiAdmission } from "./rpc/api-admission.ts";
 import { apiIdentities } from "./rpc/api-identity.ts";
@@ -26,7 +30,7 @@ import { createAgentRegistry, type AgentRegistry } from "./agents.ts";
 import { CORE_FEATURES } from "./capabilities.ts";
 import { flattenPatch, openConfigSource, type ConfigSource } from "./config-source.ts";
 import { assertEngineContract, bindEngine } from "./engine.ts";
-import { buildEngineConfig } from "./engine-config.ts";
+import { buildEngineConfig, checkEngineConfigLicences } from "./engine-config.ts";
 import { mapEngineEvent } from "./events-map.ts";
 import { createHarnessHost } from "./host.ts";
 import { acquireCoreLock } from "./lock.ts";
@@ -45,7 +49,7 @@ import { AdminStore } from "./identity/admin-store.ts";
 import { deriveUserPrincipal } from "./identity/principals.ts";
 import { AgentLifecycle } from "./agents/lifecycle.ts";
 import { activeAgents, lifecycleAdmission, lifecycleEngine } from "./agents/admission.ts";
-import { registerAgentConfig } from "./agents/config.ts";
+import { registerAgentConfig, unregisterAgentConfig } from "./agents/config.ts";
 import { readConfigFile, writeConfigAtomic } from "./config-load.ts";
 import { agentCreation, agentReferenceErrors } from "./agents/create.ts";
 import { agentRequiredSecrets } from "./agents/secrets.ts";
@@ -242,6 +246,7 @@ export function createCore(o: CoreOptions): Core {
   let dreams: Dreams | null = null;
   let dreamsError: string | undefined;
   let inbox: InboxComposition | null = null; const inboxPort = lateInboxPort(() => inbox?.service ?? null);
+  let modelLicences: LicenceLedger | null = null;
   let adminPeople: AdminStore | null = null; let agentLifecycle: AgentLifecycle | null = null;
   let identity: IdentityService | null = null; // M3: humans, linked channel identities and pairing (`state/identity.sqlite`)
   let budget: BudgetService | null = null;
@@ -429,6 +434,7 @@ export function createCore(o: CoreOptions): Core {
       agents = registry;
       registry.list(); // trigger scaffold of initial agents via refresh()
       const engineConfig = buildEngineConfig(config, l);
+      checkEngineConfigLicences(engineConfig,l);
       const unmapped = new Set<string>();
       const events = (name: string, payload: unknown) => {
         // ADR-016 §6: the harness-owned notification, projected onto its schema.
@@ -641,8 +647,9 @@ export function createCore(o: CoreOptions): Core {
 
 
       // M2: the re-embedding migration (plan/run/status/abort); its switch is one config.set on the supervisor.
+      const reembedEnginePort = createEnginePort(eng);
       const migration = createMigrationDriver({
-        engine: createEnginePort(eng), store: createStateStore(l.state), logger: log,
+        engine: reembedEnginePort, store: createStateStore(l.state), logger: log,
         switchPort: createConfigSwitchPort({ layout: l, config: { current: () => cs.current(), set: (c) => cs.set(c) } }),
       });
       reembed = migration;
@@ -668,9 +675,27 @@ export function createCore(o: CoreOptions): Core {
         },
       });
       const signer = agentExportSigner(secretStore);
+      const licenceLedger = modelLicences = new LicenceLedger(path.join(l.state, "model-licences.sqlite"), rbacAudit, clock);
+      const reservedAgents = new Map<string, Awaited<ReturnType<typeof eng.open>>>();
       const creation = agentCreation({ config: cfg, layout: l, clock, audit: rbacAudit,
         people: () => [...new Set([LOCAL_OWNER.userId, ...people.users().map(u => u.id), ...identityService.list({}).humans.map(h => h.id)])],
         setRight: (id, userId, right) => people.setRight(id, userId, right),
+        clearRights: id => { for (const { userId } of people.rights(id)) people.setRight(id, userId, null); },
+        ready: id => { lifecycle.set(id,{ paused:false }); },
+        reserve: async id => { lifecycle.set(id,{ paused:true }); const store = await eng.open(id); reservedAgents.set(id, store); },
+        release: async id => { const store = reservedAgents.get(id); if (store) { await store.close(); reservedAgents.delete(id); } },
+        removeConfig: async (id, expected) => {
+          if (o.supervisorConfig !== undefined) {
+            if (cs.source !== "supervisor") throw new RpcError("E_NOT_AVAILABLE", "supervisor configuration unavailable");
+            await unregisterAgentConfig(l, id, expected);
+          } else {
+            const latest = readConfigFile(l.configPath), agents = { ...latest.agents };
+            if (agents[id] && creationDigest(agents[id]) !== creationDigest(expected)) throw new RpcError("E_CONFLICT", "agent config changed during provisioning");
+            delete agents[id];
+            writeConfigAtomic(l.configPath, { ...latest, agents });
+          }
+          await cs.resubscribe();
+        },
         secrets: async () => (await secretStore.list({ kind: "owner", id: "core" })).map(s => s.name),
         requiredSecrets: agent => agentRequiredSecrets(cfg(), agent),
         pause: id => { lifecycle.set(id, { paused: true }); },
@@ -695,6 +720,7 @@ export function createCore(o: CoreOptions): Core {
           if (result.rejected) throw new RpcError("E_STORAGE", "memory cards were rejected");
         },
       });
+      await creation.recover();
       const adminSurface = buildAdminSurface({ rightsChanged: userId => { server?.notify("api.account.changed", { userId }, { audience: apiIdentity.services().map(connectionId => ({ connectionId })) }); }, people, lifecycle, identity: identityService, sessions: () => sessions?.store ?? null, breakglass, ownership, clock, audit: rbacAudit, sessionUsage: ids => sessionUsage(path.join(l.state, "budget.sqlite"), ids),
         agents: () => cfg().agents,
         export: async (id, who) => {
@@ -784,8 +810,10 @@ export function createCore(o: CoreOptions): Core {
         ...buildProjectBoardSurface(() => turnComposition?.collab ?? null, event => { void deliverBoardChange(event, () => turnComposition?.collab ?? null, { subscriptions: () => server?.subscriptions() ?? [], resolve: async connectionId => resolvePrincipal({ requestId: "board-event", connectionId, signal: shutdown.signal }, "project.card.list", {}), notify: (m, p, opts) => { if (!shutdown.signal.aborted) server?.notify(m, p, opts); } }).catch(() => { log.debug("project board event withheld"); }); }),
         ...buildCollabSurface(() => turnComposition?.collab ?? null, id => registry.has(id)),
         ...buildIdentitySurface(() => identity),
-        ...(await import("./rpc/device-surface.ts")).createDeviceSurface({ state: l.state, clock, audit: rbacAudit, securePath: p => platform.securePath(p) }),
+        ...(await import("./rpc/device-surface.ts")).createDeviceSurface({ state: l.state, clock, audit: rbacAudit, securePath: p => platform.securePath(p), notifyTrust: (event,owners) => server?.notify("devices.trust.next",event,{audience:owners.map(personId=>({personId}))}) }),
         ...adminSurface,
+        ...buildLicenceSurface(licenceLedger,cfg),
+        ...buildEmbeddingSelectionSurface({ ledger:licenceLedger, currentModel:() => String((engineConfig.embedding as any).local.model), migration, port:reembedEnginePort, audit:rbacAudit, clock }),
         ...sessionTranscriptSurface({ sessions: () => sessions?.store ?? null, breakglass, ownership, personOf }),
         ...buildAuthSurface(() => turnComposition?.openai.auth ?? null),
         ...buildAgentCreationSurface(creation),
@@ -810,7 +838,7 @@ export function createCore(o: CoreOptions): Core {
       let initialDoctorCheck: (() => Promise<unknown>) | undefined;
       Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, scheduleInitial: start => { initialDoctorCheck = start; } }));
       Object.assign(rawMethods, attachUserJobMethods({ ...rawMethods }, userJobs, resolvePrincipal));
-      const methods = guardMethods(apiAdmission(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: AGENT_CREATION_RULES });
+      const methods = guardMethods(apiAdmission(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
       server = createRpcServer({
         address, token, apiToken, apiPrincipalOf: apiIdentity.forwarded, onApiAuthenticated: apiIdentity.authenticated, apiPersonOfConnection: async (connectionId, p) => { const who = apiIdentity.resolve({ requestId: "audience", connectionId, signal: shutdown.signal }); return who?.kind === "person" && who.userId === p.userId ? who.userId : null; }, personOfConnection: async connectionId => { const p = await resolvePrincipal({ requestId: "audience", connectionId, signal: shutdown.signal }, "events.subscribe", {}); return p?.kind === "person" ? p.userId : null; }, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
         onConnectionClosed: (id) => { apiIdentity.closed(id); orphans?.connectionClosed(id); void turnComposition?.voice.v3.connectionClosed(id); },
@@ -908,7 +936,7 @@ export function createCore(o: CoreOptions): Core {
       await step(log, "budget close", () => { budget?.close(); budget = null; });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
       await step(log, "metrics close", async () => { await metricsHttp?.close(); }); metricsHttp = null;
-      await step(log, "admin stores close", () => { inbox?.close(); inbox = null; adminPeople?.close(); adminPeople = null; agentLifecycle?.close(); agentLifecycle = null; });
+      await step(log, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; agentLifecycle?.close(); agentLifecycle = null; });
       await step(log, "identity close", () => { identity?.close(); identity = null; });
       await step(log, "server close", async () => { await server?.close({ graceMs: 1000 }); }); server = null;
       await step(log, "lock release", () => { lock?.release(); }); lock = null;
@@ -989,7 +1017,7 @@ export function createCore(o: CoreOptions): Core {
       // A re-embedding run in flight ends at its next batch boundary (aborted, resumable) before the engine closes under it.
       await step(logger, "re-embedding run", async () => { await reembed?.stop(Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
-      await step(logger, "admin stores close", () => { inbox?.close(); inbox = null; adminPeople?.close(); adminPeople = null; agentLifecycle?.close(); agentLifecycle = null; }, errors);
+      await step(logger, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; agentLifecycle?.close(); agentLifecycle = null; }, errors);
       await userJobs?.drain(); userJobs?.close(); userJobs = null;
       await step(logger, "identity close", () => { identity?.close(); identity = null; }, errors);
       await step(logger, "budget close", () => { budget?.close(); budget = null; }, errors);

@@ -41,6 +41,7 @@ export function authenticatedPrincipal(ctx: CallContext): Principal {
 }
 
 export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
+  "budget.set": { ...rule("settings.write", system), humanOnly: true },
   "chat.create": rule("chat:write", system),
   "chat.list": rule("chat:read", system),
   "chat.get": rule("chat:read", system),
@@ -165,6 +166,10 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "session.cancel": rule("admin.sessions.write", system),
   "session.archive": rule("admin.sessions.write", system),
   "session.list": rule("admin.sessions.read", system),
+  "admin.api.device.pair": { ...rule("admin.pairing.read", system), apiServiceOnly: true },
+  "admin.api.device.challenge": { ...rule("admin.pairing.read", system), apiServiceOnly: true },
+  "admin.api.device.prove": { ...rule("admin.pairing.read", system), apiServiceOnly: true },
+  "admin.api.device.announce": { ...rule("admin.pairing.read", system), apiServiceOnly: true },
   "device.list": rule("device.list", system),
   "device.revoke": rule("device.revoke", system),
   "device.rename": rule("device.rename", system),
@@ -207,6 +212,10 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "identity.pair.claim": { ...rule("users.manage", system), humanOnly: true },
   "identity.pair.confirm": { ...rule("users.manage", system), humanOnly: true },
   // D109 grants and approvals (spec 2026-09-28 §4): human-only actions, so an agent principal is refused in every state.
+  "model.embedding.select": { ...rule("settings.write", system), humanOnly: true },
+  "model.licence.confirm": { ...rule("settings.write", system), humanOnly: true },
+  "model.licence.list": { ...rule("settings.write", system), humanOnly: true },
+  "model.licence.check": { ...rule("settings.write", system), humanOnly: true },
   "grant.list": rule("grant.read", system),
   "grant.get": rule("grant.read", system),
   "grant.create": rule("grant.write", system),
