@@ -2,58 +2,95 @@
 
 ## Deutsch
 
-Der Owner benennt die Geräte und liefert die Zahlen. Aktuell: **wartet auf Owner-Messung**. Der Collector installiert nichts, ändert keine Dienste und verwendet frische temporäre Harness-Homes mit synthetischen Daten. Er speichert CPU-Modell, logische Kerne, RAM, OS-Version, Architektur und nach Möglichkeit den Speichertyp. Keine Hostnamen, Benutzernamen, Seriennummern, IP-Adressen oder Umgebungsvariablen. Ein unbekannter Speichertyp bleibt `null`.
+**Hardwaredaten werden ausschließlich aus dem vom Messwerkzeug erzeugten Report übernommen.** Modell/CPU, Kerne, RAM, OS-Produktversion und Kernel-/Build-Version, Architektur, Speichertyp (soweit ermittelbar), Node-Laufzeit und Gesamtdauer werden auf dem gemessenen Gerät erhoben. Keine manuellen Hardwarezahlen, keine Werte vom Host für einen VM-Gast. Keine Hostnamen, Benutzernamen, Seriennummern, IP-Adressen oder Umgebungsvariablen werden gespeichert. Nicht ermittelbare Werte bleiben `null`.
 
-Voraussetzung: vorhandener Checkout mit Node **24.21.0**, pnpm **10.28.0**, Rust **1.95**, installierten gepinnten Workspace-Abhängigkeiten sowie `pnpm prep` und `cargo build --release -p plur1bus`. Der Collector selbst baut/installiert nichts. Terminalausgaben können lokale Pfade enthalten; für die Weitergabe sind nur die erzeugten JSON/Markdown-Berichte vorgesehen.
+Die Geräterollen stammen vom Owner; sie sind keine Hardwaremessungen:
 
-### macOS arm64
+| Rolle | Ausführung | Host-Rolle | Verfügbarkeit | Ergebnis |
+|---|---|---|---|---|
+| `owner-mac` | Owner-Mac, Apple Silicon, macOS arm64 | physisches Gerät | Owner-Gerät | wartet auf Owner-Messung |
+| `nas-windows-x64` | Windows 11 x64 VM | NAS | läuft dauerhaft | wartet auf Owner-Messung |
+| `parallels-windows-arm64` | Windows 11 arm64 Parallels-VM | Owner-Mac | externe Platte muss angeschlossen sein | wartet auf Owner-Messung |
+| `nas-ubuntu-x64` | Ubuntu x64 VM | NAS | Owner-VM | wartet auf Owner-Messung |
+
+VM-Reports sind ausdrücklich als VM gekennzeichnet und nennen die Host-Rolle **NAS** bzw. **Owner-Mac**, keinen persönlichen Hostnamen. Gemessene logische Kerne sind dort **vCPUs**, der RAM ist der dem Gast sichtbare RAM. Host-Hardware wird nicht aus Gastdaten abgeleitet. Budgetgrenzen bleiben unverändert sichtbar, VM-Ergebnisse sind jedoch diagnostisch und **keine Bare-Metal-Abnahme**. Ein Vergleich muss diesen Unterschied ausdrücklich nennen. Die ausgewählte Rolle wird vor dem Start mit dem tatsächlich erkannten OS und der Architektur abgeglichen; eine unpassende Rolle wird abgewiesen.
+
+Voraussetzung: vorbereiteter Checkout mit Node **24.21.0**, pnpm **10.28.0**, Rust **1.95**, den gepinnten Workspace-Abhängigkeiten sowie ausgeführtem `pnpm prep` und `cargo build --release -p plur1bus`. Die folgenden Befehle werden jeweils **im Repository-Verzeichnis auf dem betreffenden Gerät** ausgeführt. Der Collector installiert nichts und ändert keine Dienste.
+
+### 1. Owner-Mac — macOS arm64
 
 ```sh
-node scripts/bench/reference-hardware.mjs --out /tmp/o6-macos
-# Mit bereits vorhandenem Default-Modellcache, keine Download-Zeit als Startzeit ausgeben:
-node scripts/bench/reference-hardware.mjs --real-models --models-cache /absoluter/pfad/zum/modellcache --out /tmp/o6-macos-models
+node scripts/bench/reference-hardware.mjs --device-role owner-mac --all-scenarios --out /tmp/o6-owner-mac
 ```
 
-### Linux x64 / arm64
-
-```sh
-node scripts/bench/reference-hardware.mjs --out /tmp/o6-linux
-node scripts/bench/reference-hardware.mjs --real-models --models-cache /absoluter/pfad/zum/modellcache --out /tmp/o6-linux-models
-```
-
-### Windows x64 / arm64 (PowerShell)
+### 2. NAS-VM — Windows 11 x64 (PowerShell)
 
 ```powershell
-node scripts/bench/reference-hardware.mjs --out "$env:TEMP/o6-windows"
-node scripts/bench/reference-hardware.mjs --real-models --models-cache 'C:/absoluter/pfad/modellcache' --out "$env:TEMP/o6-windows-models"
+node scripts/bench/reference-hardware.mjs --device-role nas-windows-x64 --all-scenarios --out "$env:TEMP/o6-nas-windows-x64"
 ```
 
-Der echte Modelllauf initialisiert den Default-Embedder und Reranker je Prozess. Der erste Lauf ist ausdrücklich ein ungewerteter Warmup (kann fehlende Dateien herunterladen); danach mindestens **30** gewertete Starts. Flat- und Modelllauf getrennt aufbewahren. Keine privilegierte Cache-Leerung; „kalt“ bedeutet neuer Prozess/Home bei unkontrolliertem OS-Dateicache. Kein Ausreißer wird verworfen. B4 enthält 500 feste Abfragen und 10 Warmups; B2/B3 30 Messungen und 3 Warmups; B11 200 Messungen und 20 Warmups.
+### 3. Parallels — Windows 11 arm64 (PowerShell)
 
-JSON und Markdown entstehen unter `<out>.json`/`<out>.md`. Für den B7-Vergleich `--baseline /pfad/zum/vorherigen.json` ergänzen (gleicher Corpus). **Exit 2 bedeutet unvollständige Abdeckung**, insbesondere B10; das ist kein erfolgreicher Abnahmenachweis. B5 kann das Ziel verfehlen. Das Skript ersetzt keine LRU-Soak-Messung, echten Provider-Tokenzähler oder nativen Syscall-Trace. B2 beginnt beim RPC-Submit und schließt den CLI-Prozessstart aus. Mock-Cache-/Tokenwerte sind als synthetisch markiert.
+Externe Platte anschließen und die VM starten, dann **in der VM**:
 
-Geräte während der Messung nicht anderweitig belasten; Last/VM/Antivirus-Umstände im Begleittext dokumentieren. Owner/Controller prüft die Reports und legt sie später mit Gerätebezeichnung (ohne Seriennummer) unter `docs/reports/` ab. Windows-ARM-Policy und Gate-Promotion erfolgen separat nach drei grünen Läufen.
+```powershell
+node scripts/bench/reference-hardware.mjs --device-role parallels-windows-arm64 --all-scenarios --out "$env:TEMP/o6-parallels-windows-arm64"
+```
+
+### 4. NAS-VM — Ubuntu x64
+
+```sh
+node scripts/bench/reference-hardware.mjs --device-role nas-ubuntu-x64 --all-scenarios --out /tmp/o6-nas-ubuntu-x64
+```
+
+Jeder Befehl erzeugt `<out>.json` und `<out>.md`, mit Hardware-/VM-Kontext, Laufzeit, Gesamtdauer, Rohwerten, Warmups und bekannten Lücken. `--all-scenarios` misst B1/B8/B11 ohne lokale Modelle, anschließend mit echten Default-Modellen und die Runtime-Probes mit echten Embeddings. Das Werkzeug legt einen temporären Modellcache an, lädt bei Bedarf die gepinnten Default-Modelldateien und entfernt diesen Cache anschließend mit den temporären Homes. Kein systemweiter Model-Install. Eine Internetverbindung und ausreichend temporärer Speicher sind dafür nötig. Optional kann `--models-cache /absoluter/cache` einen bereits vorhandenen Cache wiederverwenden; die vier Standardbefehle benötigen keinen einzutragenden Cachepfad.
+
+Der erste Modellstart ist ausdrücklich ein ungewerteter Warmup einschließlich eines möglichen Downloads; danach mindestens **30** gewertete Starts. Die Gesamtdauer im Report umfasst auch Vorbereitung/Download und ist nicht die B8-Latenz. Keine privilegierte Cache-Leerung: „kalt“ bedeutet neuer Prozess/Home bei unkontrolliertem OS-Dateicache. Kein Ausreißer wird verworfen. B4: 500 feste Abfragen/10 Warmups; B2/B3: 30 Messungen/3 Warmups; B11: 200 Messungen/20 Warmups. B6/B9 sind Invarianten, keine Zeitperzentile.
+
+Für B7 kann `--baseline /pfad/zum/vorherigen.json` mit gleichem Corpus ergänzt werden. **Exit 2 bedeutet unvollständige Abdeckung**, insbesondere B10; der Report wird trotzdem geschrieben. Exit 1 meldet einen Ausführungsfehler. B5 kann das Ziel verfehlen. B10-LRU-Soak, echte Provider-Tokenzähler und native Syscall-Traces werden nicht durch Ersatzwerte als erfüllt ausgegeben. B2 beginnt beim RPC-Submit und schließt den CLI-Prozessstart aus. Mock-Cache-/Tokenwerte bleiben synthetisch gekennzeichnet.
+
+Während des Laufs andere Last möglichst ruhig halten; zusätzliche VM-/Antivirus-/Lastumstände im Begleittext dokumentieren. Der Owner/Controller übernimmt die Gerätewerte **aus den Reports**, prüft sie und legt sie später unter `docs/reports/` ab. Solange ein Geräte-Report fehlt: **wartet auf Owner-Messung**. Windows-ARM-Policy und Gate-Promotion erfolgen separat nach den geforderten drei grünen Läufen. Terminalfehler können lokale Pfade enthalten; zum Weitergeben sind die erzeugten JSON-/Markdown-Dateien vorgesehen.
 
 ## English
 
-The owner selects reference devices and supplies the measurements: **awaiting owner measurement**. The collector uses fresh temporary Harness homes and synthetic data, installs nothing, changes no services, and stores only an allowlist of hardware fields (CPU model, logical cores, RAM, OS version, architecture, best-effort storage type). Unknown media stay `null`; no usernames, hostnames, serials, addresses or environment dumps are retained.
+**Hardware specifications come only from the generated device report**, never from manually entered numbers. The collector records the device/guest model, CPU, logical cores, RAM, OS product and kernel/build versions, architecture, best-effort storage type, Node runtime and elapsed measurement duration. Unknown values remain `null`. No hostnames, usernames, serials, addresses or environment dumps are retained.
 
-Use an already prepared checkout: Node **24.21.0**, pnpm **10.28.0**, Rust **1.95**, pinned dependencies installed, `pnpm prep`, `cargo build --release -p plur1bus`. The collector does not perform setup. Terminal errors may show local paths; share the generated JSON/Markdown files.
+Owner-designated roles: Apple Silicon owner Mac (`owner-mac`); always-running Windows 11 x64 VM on the NAS (`nas-windows-x64`); Windows 11 arm64 Parallels VM on the owner Mac, available only with the external drive connected (`parallels-windows-arm64`); Ubuntu x64 VM on the NAS (`nas-ubuntu-x64`). All device results are **awaiting owner measurement** until their reports exist. These role labels are owner-provided provenance, not measured hardware specifications.
 
-### macOS arm64
+VM reports identify the VM, its host role (**NAS** or **Owner-Mac**) and guest-visible vCPU/RAM. They never infer host hardware from guest values. Unchanged budget limits are diagnostic for VMs; a VM result is **not bare-metal acceptance**. Any comparison must explicitly state that distinction. The supplied role must match the detected OS/architecture.
 
-Run `node scripts/bench/reference-hardware.mjs --out /tmp/o6-macos`. Add `--real-models --models-cache /absolute/model/cache` for the model run and use a separate output prefix.
+Use an already prepared checkout: Node **24.21.0**, pnpm **10.28.0**, Rust **1.95**, pinned dependencies installed, `pnpm prep` and `cargo build --release -p plur1bus` completed. Run the single command inside the repository **on the named device/guest**. The collector installs no system software and changes no services.
 
-### Linux x64 / arm64
+### 1. Owner Mac — macOS arm64
 
-Run `node scripts/bench/reference-hardware.mjs --out /tmp/o6-linux`. Repeat with `--real-models --models-cache /absolute/model/cache` and a separate output prefix.
+```sh
+node scripts/bench/reference-hardware.mjs --device-role owner-mac --all-scenarios --out /tmp/o6-owner-mac
+```
 
-### Windows x64 / arm64
+### 2. NAS VM — Windows 11 x64 (PowerShell)
 
-In PowerShell: `node scripts/bench/reference-hardware.mjs --out "$env:TEMP/o6-windows"`. Repeat with `--real-models --models-cache 'C:/absolute/model/cache'` and a separate output prefix.
+```powershell
+node scripts/bench/reference-hardware.mjs --device-role nas-windows-x64 --all-scenarios --out "$env:TEMP/o6-nas-windows-x64"
+```
 
-Startup uses 30 samples minimum. Cold means fresh process/home, not flushed OS caches. Warm B1 has 3 warmups; B8 has 1 untimed warmup, including any initial model download. Every model process loads from the shared disk cache afresh. No outliers are discarded. B4 uses a fixed 500-query corpus and 10 warmups; B2/B3 use 30 samples/3 warmups; B11 uses 200/20.
+### 3. Parallels VM — Windows 11 arm64 (PowerShell)
 
-Outputs are `<out>.json` and `<out>.md`. Supply `--baseline previous.json` for the B7 >10% regression alert with the same corpus. **Exit 2 means incomplete coverage**, particularly the missing B10 LRU soak; it is not acceptance. A B5 target miss is retained. Mock token/cache counts are synthetic; B2 starts at RPC submit, excluding CLI launch. B9 uses the existing JS proxy and does not claim native syscall coverage.
+Connect the external drive and start the VM first. Inside the guest:
 
-Keep other load quiet and describe VM/antivirus/load conditions alongside the report. The owner/controller later commits reviewed reports under `docs/reports/` with a non-identifying device label. Windows ARM advisory policy and three-run gate promotion remain separate owner/controller tasks.
+```powershell
+node scripts/bench/reference-hardware.mjs --device-role parallels-windows-arm64 --all-scenarios --out "$env:TEMP/o6-parallels-windows-arm64"
+```
+
+### 4. NAS VM — Ubuntu x64
+
+```sh
+node scripts/bench/reference-hardware.mjs --device-role nas-ubuntu-x64 --all-scenarios --out /tmp/o6-nas-ubuntu-x64
+```
+
+Each command writes `<out>.json` and `<out>.md`. `--all-scenarios` runs startup without models, startup with the actual default models, then runtime probes with real embeddings. A temporary model cache is populated if needed and removed afterward with the temporary homes. Internet access and temporary disk space are required; no global installation occurs. Optionally supply `--models-cache /absolute/cache` to reuse a populated cache; the standard commands need no placeholder paths.
+
+There are at least 30 startup samples. Cold means fresh process/home, not flushed OS caches. Warm B1: 3 warmups; B8: 1 excluded warmup, including any initial download. Total measurement duration includes download/preparation and is distinct from B8 latency. No outliers are discarded. B4: 500 fixed queries/10 warmups; B2/B3: 30 samples/3 warmups; B11: 200/20. B6/B9 are invariant checks.
+
+`--baseline previous.json` enables the B7 comparison for the same corpus. **Exit 2 means incomplete coverage**, especially the missing B10 soak; files are still written. Exit 1 denotes execution failure. B5 misses are retained. Mock usage remains synthetic; B2 excludes CLI launch; B9 does not claim full native syscall coverage.
+
+Keep competing load quiet and describe VM/antivirus/load circumstances alongside the reports. The owner/controller copies hardware figures **from those reports** and later commits reviewed files under `docs/reports/`. Until then: **awaiting owner measurement**. Windows ARM policy and three-run gate promotion remain separate decisions. Share generated JSON/Markdown, since terminal errors may contain local paths.

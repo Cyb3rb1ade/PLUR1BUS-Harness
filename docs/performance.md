@@ -26,7 +26,7 @@ The first local runtime probe (Node 24.21, macOS arm64, flat embeddings, 30 late
 
 ## Owner tasks and known gaps
 
-See [DE/EN reference instructions](performance-reference-hardware.md). Reference devices and results: **wartet auf Owner-Messung**. Owner/controller must decide the Windows ARM advisory policy after collecting results. No gate is silently removed or relaxed. A noisy gate requires an explicit reason and change commit.
+See [DE/EN reference instructions](performance-reference-hardware.md). Device roles are designated: the Apple Silicon owner Mac, Windows 11 x64 NAS VM, Windows 11 arm64 Parallels VM (external drive required) and Ubuntu x64 NAS VM. Hardware figures must come from each generated report, never manual entries. All device reports/results: **wartet auf Owner-Messung**. VM reports name the host role and guest vCPU/RAM; they cannot establish bare-metal acceptance. Owner/controller must decide the Windows ARM advisory policy after collecting results. No gate is silently removed or relaxed. A noisy gate requires an explicit reason and change commit.
 
 Missing acceptance: O6-B10 soak; B5 supported-breakpoint/vendor-equivalent cache model and investigation of the observed mock miss; B2 CLI timestamp coverage; native B9 traces; actual five-target runtime data; three-run gate-promotion evidence. No milestone is marked fulfilled by this catalogue.
 
