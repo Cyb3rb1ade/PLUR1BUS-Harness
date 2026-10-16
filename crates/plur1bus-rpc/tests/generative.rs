@@ -1802,6 +1802,8 @@ table! {
     Result "project.agent.add" ProjectAgentAddResult,
     Params "project.agent.remove" ProjectAgentRemoveParams,
     Result "project.agent.remove" ProjectAgentRemoveResult,
+    Params "collab.session.replay" CollabSessionReplayParams,
+    Result "collab.session.replay" CollabSessionReplayResult,
     Params "collab.trace.get" CollabTraceGetParams,
     Result "collab.trace.get" CollabTraceGetResult,
     Params "collab.trace.list" CollabTraceListParams,
