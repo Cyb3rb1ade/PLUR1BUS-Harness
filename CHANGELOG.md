@@ -8,6 +8,18 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Added
 
+- **`web.fetch` golden corpus and gate (M2 acceptance 12, D94).** 127 synthetic fixtures (70 extraction goldens, 57 typed
+  failures) served by an offline fixture server; the gate requires at least 95 % of each golden's main-text tokens and every
+  heading and table, covers every typed failure the tool can produce through an enum test, and a new SSRF suite drives
+  private, loopback, link-local, metadata, redirect, DNS-rebinding and IPv4-mapped IPv6 cases through the production tool.
+  Behaviour changes found by the corpus: a new typed failure `captcha`; CAPTCHA, sign-in and paywall pages are reported as
+  such instead of `needs-render` or as articles; short and CJK pages with an analytics script are no longer `needs-render`;
+  page furniture (sidebars, share bars, pagers, related boxes) is dropped; table spans, captions and layout tables are
+  handled; broken HTML (unclosed headings, bold, unterminated attribute quotes) no longer swallows the rest of a page;
+  undeclared Latin-1 is decoded correctly; HTML labelled `text/plain` or `application/octet-stream` is read and binary files
+  under any label are refused; `sectionsTotal` reports a table of contents longer than the 200 listed entries; the Azure host
+  endpoint `168.63.129.16` is refused. See `docs/web-fetch.md`.
+
 - **Session store and turn loop (M1b-2c, part 1):** the core keeps chat sessions in `<home>/state/sessions.sqlite`
   (`node:sqlite` + FTS5) and runs a submit/event turn loop with one engine `recall` before and one `capture` after each
   turn. New experimental RPC: `session.create|list|get|resume|archive|submit|events` and the opt-in `session.event`
