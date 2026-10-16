@@ -9,3 +9,6 @@ is a recommendation only.
 |---|---|---|---|---|
 | M1 (harness share; engine share not checkable here) | [m1-m1b2b-p6-2026-10.md](m1-m1b2b-p6-2026-10.md) | acceptable with conditions | `3859b949` | 2026-10-16 |
 | M1b-2b additions (D109, D106, D111, ADR-014) | [m1-m1b2b-p6-2026-10.md](m1-m1b2b-p6-2026-10.md) | not acceptable (1 blocker, 3 major) | `3859b949` | 2026-10-16 |
+| M2 | [m2-m3-m4-p6-2026-10.md](m2-m3-m4-p6-2026-10.md) | not acceptable (no blocker; major M1–M4) | `3859b949` | 2026-10-16 |
+| M3 | [m2-m3-m4-p6-2026-10.md](m2-m3-m4-p6-2026-10.md) | not acceptable (no blocker; major M2, M4, M6) | `3859b949` | 2026-10-16 |
+| M4 | [m2-m3-m4-p6-2026-10.md](m2-m3-m4-p6-2026-10.md) | not acceptable (no blocker; major M5) | `3859b949` | 2026-10-16 |
