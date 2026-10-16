@@ -51,6 +51,9 @@ const owner = cells("yes", "none", "none", "none", "none"); // ADR-007 role tabl
 const ownerAdmin = cells("yes", "yes", "none", "none", "none");
 
 export const ENTRIES: readonly Entry[] = [
+  { action: "chat:read", page: "My area, Projects", verb: "read" },
+  { action: "chat:write", page: "My area, Projects", verb: "write" },
+  { action: "chat:delete", page: "My area, Projects", verb: "write" },
   ...["inbox.read", "inbox.write"].map(action => ({ action, page: "My area, Projects" as const, verb: action === "inbox.read" ? "read" as const : "write" as const, cells: cells("yes", "yes", "yes", "yes", "yes") })),
   { action: "project.board.read", page: "My area, Projects", verb: "read" },
   ...["project.board.write", "project.board.manage", "project.board.move", "project.board.comment"].map(action => ({ action, page: "My area, Projects" as const, verb: "write" as const })),
@@ -83,7 +86,7 @@ export const ENTRIES: readonly Entry[] = [
   { action: "sessions.read", page: "Dreaming, Cron, Sessions/Logs", verb: "read" },
   { action: "logs.read", page: "Dreaming, Cron, Sessions/Logs", verb: "read" },
   { action: "audit.read", page: "Users & roles", verb: "read" }, // R7: audit trail with the users page, not the operator's logs
-  { action: "logs.query", page: "Users & roles", verb: "read", cells: ownerAdmin }, // D4: logs.query/logs.tail, Owner/Admin only (narrower than logs.read)
+  { action: "logs.query", page: "Users & roles", verb: "read", cells: ownerAdmin }, // D4/D111: logs.query/logs.tail/logs.levels, Owner/Admin only (narrower than logs.read)
   // D109 grants and approvals (spec 2026-09-28 §4): people only. Deciding and changing grants is Owner/Admin; Operator may read the queue and verify the chain.
   { action: "grant.read", page: "Users & roles", verb: "read", cells: ownerAdmin },
   { action: "grant.write", page: "Users & roles", verb: "write", cells: ownerAdmin },
