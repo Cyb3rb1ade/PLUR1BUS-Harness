@@ -3,7 +3,7 @@
     "channelTolerance": 8,
     "maxDiffRatio": 0.001
   },
-  "chrome": "unset (awaiting references from the pinned CI Chrome)",
+  "chrome": "Google Chrome for Testing 141.0.7390.54",
   "templates": [
     "report",
     "essay",
