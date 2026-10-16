@@ -9,7 +9,7 @@ import {
   type MapResult, type SourceLocation,
 } from "../../src/import/paths.ts";
 import { ImportError } from "../../src/import/types.ts";
-import { gap, mulberry32 } from "./helpers.ts";
+import { mulberry32 } from "./helpers.ts";
 
 const show = (r: MapResult) => (r.path === null ? `unmapped:${r.reason}` : `${r.how}:${r.path}`);
 const posixLoc = (home: string | null = "/home/u") => locateSource({ accessRoot: "/home/u/.openclaw", platform: "linux", env: {}, home });
@@ -58,7 +58,7 @@ describe("expandVars", () => {
   it("text without variables, and a lone '$', are unchanged", () => {
     for (const s of ["", "plain", "a$", "$", "${", "${}", "50%", "%%"]) assert.equal(expandVars(s, env, "linux"), s, JSON.stringify(s));
   });
-  it(gap("expandVars", "an unknown name is left as written, also when it is the name of an Object.prototype member ($constructor, ${toString})", "the inherited function is substituted: '$constructor' becomes 'function Object() { [native code] }'"), { todo: gap("expandVars", "an unknown name is left as written, also when it is the name of an Object.prototype member ($constructor, ${toString})", "the inherited function is substituted: '$constructor' becomes 'function Object() { [native code] }'") }, () => {
+  it("expandVars: an unknown name is left as written, also when it is the name of an Object.prototype member ($constructor, ${toString})", () => {
     assert.equal(expandVars("$constructor/x ${toString}", {}, "linux"), "$constructor/x ${toString}");
     assert.equal(expandVars("%valueOf%", {}, "win32"), "%valueOf%");
   });
@@ -149,7 +149,7 @@ describe("'..' and other odd segments (path traversal out of the source root)", 
     const snap: SourceLocation = { ...posixLoc(), snapshot: true, accessRoot: "/home/h/import/r1/snapshot", sourceRoot: "/home/u/.openclaw", mounts: [] };
     const m = new SourcePathMapper(snap);
     assert.equal(show(m.map("/home/u/.openclaw/../../../etc/passwd", "k")), "unmapped:outside-source-root");
-    assert.equal(show(m.map("../../etc/passwd", "k")), "root:/home/h/import/r1/snapshot/etc/passwd", "relative: clamped inside the snapshot (same behaviour as for a native root)");
+    assert.equal(show(m.map("../../etc/passwd", "k")), "unmapped:outside-source-root", "relative: never re-rooted inside the snapshot (same behaviour as for a native root)");
   });
 
   it("characterization: Ist-Verhalten, nicht spezifiziert - empty and blank values map to the root itself; '~user/x' is an ordinary relative name; a NUL byte is carried through", () => {
@@ -172,8 +172,8 @@ describe("'..' and other odd segments (path traversal out of the source root)", 
     ];
     for (let i = 0; i < 4000; i++) {
       const [name, mapper, P] = cases[i % cases.length]!;
-      // a POSIX source names files with "/" only; its backslash case is the KNOWN GAP below
-      const sep = name === "posix" || name === "wsl-from-windows" ? "/" : rnd() < 0.5 ? "/" : "\\";
+      // backslashes too: for a POSIX (WSL) source read from Windows they are separators on the host, so such a value must stay inside the root or be unmapped
+      const sep = rnd() < 0.5 ? "/" : "\\";
       const parts = Array.from({ length: 1 + Math.floor(rnd() * 8) }, () => frag[Math.floor(rnd() * frag.length)]!);
       if (parts[0] === "") parts[0] = "first"; // a leading empty segment would make the value absolute, which is not what this property is about
       const value = parts.join(sep);
@@ -181,11 +181,11 @@ describe("'..' and other odd segments (path traversal out of the source root)", 
       const ctx = `seed=0x${SEED.toString(16)} case=${i} ${name} value=${JSON.stringify(value)}`;
       if (r.path === null) { assert.ok(["drive-relative", "foreign-path", "outside-source-root"].includes(r.reason), `${ctx}: ${r.reason}`); continue; }
       const rel = P.relative(mapper.loc.accessRoot, r.path);
-      assert.ok(rel === "" || (rel.split(/[\\/]/)[0] !== ".." && !P.isAbsolute(rel)), `${ctx}: ${r.path} is outside ${mapper.loc.accessRoot}`);
+      assert.ok(rel === "" || (rel.split(P === path.posix ? "/" : /[\\/]/)[0] !== ".." && !P.isAbsolute(rel)), `${ctx}: ${r.path} is outside ${mapper.loc.accessRoot}`);
     }
   });
 
-  it(gap("SourcePathMapper.map (WSL source read from Windows)", "a value from a POSIX (WSL) source that contains backslashes stays below the source root or is unmapped: on Linux '..\\b' is one file name, not a parent reference", "the Windows host joins it with '\\' as separator, so '..\\..\\..\\.ssh\\id_rsa' maps to \\\\wsl.localhost\\Ubuntu\\.ssh\\id_rsa, outside the root (relative, absolute-below-root and '~' forms alike)"), { todo: gap("SourcePathMapper.map (WSL source read from Windows)", "a value from a POSIX (WSL) source that contains backslashes stays below the source root or is unmapped: on Linux '..\\b' is one file name, not a parent reference", "the Windows host joins it with '\\' as separator, so '..\\..\\..\\.ssh\\id_rsa' maps to \\\\wsl.localhost\\Ubuntu\\.ssh\\id_rsa, outside the root (relative, absolute-below-root and '~' forms alike)") }, () => {
+  it("SourcePathMapper.map (WSL source read from Windows): a value from a POSIX (WSL) source that contains backslashes stays below the source root or is unmapped: on Linux '..\\b' is one file name, not a parent reference", () => {
     const root = "\\\\wsl.localhost\\Ubuntu\\home\\u\\.openclaw";
     const m = new SourcePathMapper(locateSource({ accessRoot: root, platform: "win32", env: {}, home: "C:\\Users\\U" }));
     const inside = (p: string) => { const rel = path.win32.relative(root, p); return rel === "" || (rel.split("\\")[0] !== ".." && !path.win32.isAbsolute(rel)); };
@@ -195,12 +195,12 @@ describe("'..' and other odd segments (path traversal out of the source root)", 
     }
   });
 
-  it(gap("SourcePathMapper.map", "a relative value that climbs above the source root is not silently re-rooted ('../../etc/passwd' is unmapped, as 'never guessed' promises)", "it maps to <root>/etc/passwd with how 'native'"), { todo: gap("SourcePathMapper.map", "a relative value that climbs above the source root is not silently re-rooted ('../../etc/passwd' is unmapped, as 'never guessed' promises)", "it maps to <root>/etc/passwd with how 'native'") }, () => {
+  it("SourcePathMapper.map: a relative value that climbs above the source root is not silently re-rooted ('../../etc/passwd' is unmapped, as 'never guessed' promises)", () => {
     const r = new SourcePathMapper(posixLoc()).map("../../etc/passwd", "k");
     assert.equal(r.path, null, show(r));
   });
 
-  it(gap("SourcePathMapper.map", "${NAME} that is not in `vars` is unmapped:env-var, also for names that exist on Object.prototype (${constructor}, ${__proto__}, ${toString})", "the inherited member is substituted: '${constructor}/x' maps to '<root>/function Object() { [native code] }/x'"), { todo: gap("SourcePathMapper.map", "${NAME} that is not in `vars` is unmapped:env-var, also for names that exist on Object.prototype (${constructor}, ${__proto__}, ${toString})", "the inherited member is substituted: '${constructor}/x' maps to '<root>/function Object() { [native code] }/x'") }, () => {
+  it("SourcePathMapper.map: ${NAME} that is not in `vars` is unmapped:env-var, also for names that exist on Object.prototype (${constructor}, ${__proto__}, ${toString})", () => {
     const m = new SourcePathMapper(posixLoc());
     for (const name of ["constructor", "__proto__", "toString", "hasOwnProperty"]) assert.equal(show(m.map(`\${${name}}/x`, "k")), "unmapped:env-var", name);
   });

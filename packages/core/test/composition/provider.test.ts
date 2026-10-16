@@ -162,6 +162,24 @@ describe("composition/provider createTurnProvider: streaming", () => {
 });
 
 describe("composition/provider createTurnProvider: tool calls", () => {
+  it("ChatResult.reasoning is passed as the approval request reason", async () => {
+    const token = `password=${["hunter2", "test", "secret"].join("-")}`;
+    const asks: { reason?: string }[] = [];
+    const { provider, registry, close } = await setup(
+      [{ calls: [call("c1", "file.write")], reasoning: `need to write ${token}` }],
+      { approval: { request: async (ask) => { asks.push(typeof ask.reason === "string" ? { reason: ask.reason } : {}); return { approved: false }; } } },
+    );
+    registry.register(readTool("file.write", async () => "ok", {
+      capability: "fs.write", effect: "local-write", risk: "medium",
+      classify: () => ({ flags: { outsideRoots: true, denyListHit: false } }),
+    }));
+    try {
+      await assert.rejects(() => collect(provider));
+      assert.equal(asks.length, 1);
+      assert.equal(asks[0]!.reason, `need to write ${token}`);
+    } finally { close(); }
+  });
+
   it("several calls in one response run in the order the model gave them, one after the other, with their ids", async () => {
     const order: string[] = [];
     const { provider, registry, requests, close } = await setup([

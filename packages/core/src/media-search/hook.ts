@@ -57,10 +57,11 @@ export function createMediaIndexHook(o: MediaIndexHookOptions): MediaIndexHook {
       o.logger.warn("media index failed", { mediaId, stage, message });
     } catch { /* reporting must not throw into the queue */ }
   };
+  class IndexTimeout extends Error { constructor() { super("media index timed out"); } }
   const withTimeout = <T>(p: Promise<T>): Promise<T> => {
     if (!timeoutMs) return p;
     let t: ReturnType<typeof setTimeout>;
-    const timeout = new Promise<never>((_, rej) => { t = setTimeout(() => rej(new Error("media index timed out")), timeoutMs); t.unref?.(); });
+    const timeout = new Promise<never>((_, rej) => { t = setTimeout(() => rej(new IndexTimeout()), timeoutMs); t.unref?.(); });
     return Promise.race([p, timeout]).finally(() => clearTimeout(t));
   };
 
@@ -79,11 +80,13 @@ export function createMediaIndexHook(o: MediaIndexHookOptions): MediaIndexHook {
 
   // A delete must win against an index job of the same medium that is still running (concurrency > 1 lets them overlap).
   // Entries live only while such a job exists.
-  const jobs = new Map<string, { pending: number; removed: number }>();
+  // `late` counts index calls that gave up waiting on the timeout but are still running in the port (it has no cancel).
+  const jobs = new Map<string, { pending: number; removed: number; late: number }>();
 
   const index = (record: MediaRecord, withPrompt: boolean) => {
-    const st = jobs.get(record.mediaId) ?? { pending: 0, removed: 0 };
+    const st = jobs.get(record.mediaId) ?? { pending: 0, removed: 0, late: 0 };
     jobs.set(record.mediaId, st);
+    const release = () => { if (st.pending === 0 && st.late === 0 && jobs.get(record.mediaId) === st) jobs.delete(record.mediaId); };
     st.pending++;
     enqueue(async () => {
     try {
@@ -95,12 +98,26 @@ export function createMediaIndexHook(o: MediaIndexHookOptions): MediaIndexHook {
       } catch (e) { fail("caption", record.mediaId, record.kind, e); }
       const scope = await o.scopeOf(record);
       const removedBefore = st.removed;
-      const res = await withTimeout(port.index({ mediaId: record.mediaId, kind: record.kind, mime: record.mime, source: record.source, scope, ...(caption ? { caption: caption.text, captionSource: caption.source } : {}) }));
+      const call = port.index({ mediaId: record.mediaId, kind: record.kind, mime: record.mime, source: record.source, scope, ...(caption ? { caption: caption.text, captionSource: caption.source } : {}) });
+      let res: Awaited<typeof call>;
+      try { res = await withTimeout(call); }
+      catch (e) {
+        if (e instanceof IndexTimeout) {
+          // The call is still running and may land after a delete that happens from now on: remove again when it settles.
+          st.late++;
+          void call.then(async () => {
+            if (st.removed === removedBefore) return;
+            try { await withTimeout(port.remove(record.mediaId)); } catch (err) { fail("remove", record.mediaId, record.kind, err); }
+          }, () => { /* a failed late call stored nothing; the timeout was already reported */ })
+            .finally(() => { st.late--; release(); });
+        }
+        throw e;
+      }
       // The jobs are FIFO, so a delete job starts after this one; if its remove finished while we were indexing, our result landed after it.
       if (st.removed !== removedBefore) { await withTimeout(port.remove(record.mediaId)); return; }
       if (res.state === "failed") fail("index", record.mediaId, record.kind, new Error("index state failed"));
     } catch (e) { fail("index", record.mediaId, record.kind, e); }
-    finally { if (--st.pending === 0 && jobs.get(record.mediaId) === st) jobs.delete(record.mediaId); }
+    finally { st.pending--; release(); }
   });
   };
 

@@ -8,7 +8,7 @@ import { createD111Events } from "./discovery/events-logger.ts";
 import { createPinnedClient } from "./discovery/http.ts";
 import type { DiscoveryProviderDefinition } from "./discovery/real-adapters.ts";
 import { randomBytes, randomUUID } from "node:crypto";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
 import type { Engine, EngineStatus, HostServices, ModelsStatus } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import type { HarnessConfig } from "@plur1bus/config-schema";
@@ -34,7 +34,7 @@ import { type HarnessLogger, type Level } from "./logger.ts";
 import { MEMORY_OP_METHODS, requireAgent } from "./memory-ops.ts";
 import { coreAddress, layout, resolveHome, type Layout } from "./paths.ts";
 import { createPlatformCapabilities } from "./platform.ts";
-import { callerToPrincipal } from "./principal.ts";
+import { AGENT_CONTEXT_CLI, callerToPrincipal } from "./principal.ts";
 import { startJournalReplay, type JournalReplay } from "./replay.ts";
 import { RpcError } from "./rpc/errors.ts";
 import { buildMethods } from "./rpc/methods.ts";
@@ -55,7 +55,7 @@ import { agentExportSigner, exportSecretCanaries } from "./agents/signing.ts";
 import { buildAdminSurface } from "./rpc/admin-surface.ts";
 import { deliverBreakglassNotice } from "./rpc/breakglass-notices.ts";
 import { openInbox, lateInboxPort, type InboxComposition } from "./composition/inbox.ts";
-import { approvalToInbox, jobFailedToInbox, pairingToInbox, channelToInbox, breakglassToInbox, buildInboxSurface, deliverInboxChange } from "./inbox/index.ts";
+import { alwaysGrantsToInbox, approvalToInbox, jobFailedToInbox, pairingToInbox, channelToInbox, breakglassToInbox, buildInboxSurface, deliverInboxChange } from "./inbox/index.ts";
 import { sessionUsage } from "./rpc/session-usage.ts";
 import { breakglassMemory } from "./rpc/breakglass-memory.ts";
 import { sessionWriteAccess } from "./rpc/session-access.ts";
@@ -71,6 +71,7 @@ import type { ChatProvider } from "./session/provider.ts";
 import { createLogsMethods } from "./logs/index.ts";
 import { type SessionService } from "./session/service.ts";
 import { LOCAL_OWNER, createJsonlAuditSink, guardMethods, type AuditSink, type PrincipalResolver } from "./rbac/index.ts";
+import { authenticatedPrincipal } from "./rbac/guard.ts";
 import { createRpcServer, type CallContext, type RpcServer } from "./rpc/server.ts";
 import { sharedMemoryStatus } from "./shared-memory.ts";
 import { projectModels, startWarmup, type Warmup } from "./warmup.ts";
@@ -85,15 +86,17 @@ import { createModelsScanJob } from "./discovery/job.ts";
 import { loadMetadataTable, reenrichCatalog } from "./discovery/metadata.ts";
 import { createScanScheduler, type ScanScheduler } from "./discovery/scheduler.ts";
 import { createDiscoveryService, type DiscoveryService } from "./discovery/service.ts";
-import { createDreams, type Dreams } from "./dreams/index.ts";
+import { createDreams, itemsFromEngineList, type Dreams } from "./dreams/index.ts";
 import { createSystemJobs, type SystemJobs } from "./system-jobs/index.ts";
 import { createMetrics, createMetricsServer, loadOrCreateMetricsToken, type Metrics, type MetricsServer } from "./metrics/index.ts";
 import { createAuditWriter } from "./identity/audit.ts";
 import { createAuditChain, teeAuditSinks, type AuditChain } from "./audit/chain.ts";
 import { createIdentityService, type IdentityService } from "./identity/service.ts";
 import { approvalsDbPath } from "./approvals/db.ts";
-import { secretStoreKeySource } from "./approvals/keys.ts";
+import { secretStoreKeySource, secretStoreSigningKeySource } from "./approvals/keys.ts";
+import { armApprovalsIntegrity, createApprovalsIntegrityJob } from "./approvals/integrity-job.ts";
 import { createPermissionNotifier, type PermissionNotifier } from "./approvals/notify.ts";
+import { grantRecordOf } from "./approvals/wire.ts";
 import { openChannelSwitchboard } from "./channels/core-host.ts";
 import type { Switchboard } from "./channels/switchboard.ts";
 import { createPermissionRuntime, type PermissionRuntime } from "./approvals/runtime.ts";
@@ -235,6 +238,7 @@ export function createCore(o: CoreOptions): Core {
   let warmup: Warmup | null = null;
   let scanScheduler: ScanScheduler | null = null;
   let discoveryWriter: ReturnType<typeof createWriter> | null = null;
+  let coreWriter: Pick<ReturnType<typeof createWriter>, "updateLevels" | "currentLevels"> | null = null;
   let dreams: Dreams | null = null;
   let dreamsError: string | undefined;
   let inbox: InboxComposition | null = null; const inboxPort = lateInboxPort(() => inbox?.service ?? null);
@@ -333,7 +337,9 @@ export function createCore(o: CoreOptions): Core {
     source = cs;
     const config = cs.current(); // the configuration the engine is built from (core-class keys)
     const cfg = () => cs.current();
-    logger = o.logger ?? (await import("./logs/bootstrap.ts")).createCoreLog({ dir: l.logs, role: "core", source: { kind: "harness", id: "core", version: "0.1.0" }, levels: { defaultLevel: config.core.logLevel }, maxBytes: config.logs.maxBytes, keep: config.logs.keep, now: clock });
+    const createdLog = o.logger ? null : (await import("./logs/bootstrap.ts")).createCoreLog({ dir: l.logs, role: "core", source: { kind: "harness", id: "core", version: "0.1.0" }, levels: { defaultLevel: config.core.logLevel }, maxBytes: config.logs.maxBytes, keep: config.logs.keep, now: clock });
+    logger = o.logger ?? createdLog!;
+    if (createdLog) coreWriter = createdLog;
     const log = logger;
     for (const [lvl, msg, fields] of early.splice(0)) log[lvl](msg, fields);
     // S11: run/ holds the tokens; on Windows chmod is no permission, so the user-SID ACL goes on through icacls.
@@ -399,7 +405,7 @@ export function createCore(o: CoreOptions): Core {
       if (next.logs.maxBytes !== prev.logs.maxBytes || next.logs.keep !== prev.logs.keep) log.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
       if (next.supervisor.graceMs !== prev.supervisor.graceMs) watchedOrphans.setGraceMs(next.supervisor.graceMs);
       if (plan.changed.some((k) => k.startsWith("models.scan.") || k === "providers" || k.startsWith("providers."))) scanScheduler?.replan();
-      discoveryWriter?.updateLevels({ defaultLevel: next.core.logLevel });
+      if (discoveryWriter) discoveryWriter.updateLevels({ ...discoveryWriter.currentLevels(), defaultLevel: next.core.logLevel });
       discoveryWriter?.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
       log.info("configuration changed", { revision: cs.revision(), changed: plan.changed, restartPending: cs.restartPending() });
       log.debug("live keys applied", { keys: plan.restart.live });
@@ -586,12 +592,39 @@ export function createCore(o: CoreOptions): Core {
       permissions = createPermissionRuntime({
         maxGrantDays: () => cfg().approvals?.maxGrantDays ?? 90,
         // The switchboard sees approval requests next to the RPC notifier: a channel chat shows its own prompt.
-        dbPath: approvalsDbPath(l.home), keys: secretStoreKeySource(secretStore), clock: { now: clock }, events: { emit: (n, p) => { notifier.events.emit(n, p); board.approvalEvents.emit(n, p); approvalToInbox(inboxPort, n, p); } },
+        dbPath: approvalsDbPath(l.home), keys: secretStoreKeySource(secretStore), signing: secretStoreSigningKeySource(secretStore), clock: { now: clock }, events: { emit: (n, p) => { notifier.events.emit(n, p); board.approvalEvents.emit(n, p); approvalToInbox(inboxPort, n, p); } },
         audit: createPolicyAudit({ sink: rbacAudit, clock: { now: clock } }), securePath: platform.securePath,
+        onOpen: (p) => {
+          p.grants.setNotify((change, grant, state) => notifier.grantChanged(change, grantRecordOf(grant, state)));
+          alwaysGrantsToInbox(inboxPort, p.grants.inspect().map((v) => v.grant), clock());
+        },
       });
       const perms = permissions;
+      // No store yet: nothing to verify, so no start run (and no ledger row); the first scheduled run is a day away.
+      const approvalsStorePresent = existsSync(approvalsDbPath(l.home));
+      systemJobs.register(createApprovalsIntegrityJob({
+        clock: { now: clock },
+        deferFirstRun: !approvalsStorePresent,
+        present: () => existsSync(approvalsDbPath(l.home)),
+        verify: async () => (await perms.open()).service.verify(),
+        onOk: () => {
+          const p = perms.current();
+          if (!p) return;
+          p.grants.announceDue();
+          alwaysGrantsToInbox(inboxPort, p.grants.inspect().map(v => v.grant), clock());
+        },
+      }));
+      if (approvalsStorePresent) void systemJobs.run("approvals.integrity", {}, { trigger: "harness" }).catch(err => log.warn("approvals.integrity at start failed", { err }));
+      armApprovalsIntegrity(systemJobs, {
+        now: clock,
+        setTimer: (fn, ms) => {
+          const t = setTimeout(() => { void fn(); }, ms);
+          t.unref?.();
+          return t;
+        },
+      });
       try { turnComposition = await openTurnComposition({ home: l.home, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
-        voiceConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal, secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
+        voiceConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal, resolveCollaborationPerson: id => people.resolvePerson(id), secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
         // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or
         // grant-covered turns) and is refused with a typed error only when a call needs a person's approval.
         approver: async (ctx, params) => { const principal = await resolvePrincipal(ctx, "session.submit", params); return { person: principal && principal.kind === "person" ? principal.userId : null, surface: connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }; },
@@ -741,6 +774,7 @@ export function createCore(o: CoreOptions): Core {
           requireOsConfirmation: () => cfg().approvals?.requireOsConfirmation ?? true,
           attester: o.attestation?.attester ?? createAttestationService({ helper: o.attestation?.helper !== undefined ? o.attestation.helper : helperFromEnv(process.env), audit: createPolicyAudit({ sink: rbacAudit, clock: { now: clock } }), now: clock }),
           requireAgent: (agentId) => { requireAgent(registry, agentId); }, notify: { grantChanged: notifier.grantChanged, confirmationChanged: notifier.confirmationChanged },
+          onGrantsInspected: (grants, now) => alwaysGrantsToInbox(inboxPort, grants, now),
         },
         }),
         ...(sessions?.methods ?? {}),
@@ -756,8 +790,16 @@ export function createCore(o: CoreOptions): Core {
         ...buildAuthSurface(() => turnComposition?.openai.auth ?? null),
         ...buildAgentCreationSurface(creation),
         ...buildChannelSurface({ config: cfg, source: cs, secrets: secretStore, identity: () => identity, registry: () => switchboard?.view ?? null, audit: rbacAudit, clock }),
-        // D4: logs.query / logs.tail over <home>/logs; RBAC-guarded below (RPC_RULES).
-        ...createLogsMethods({ dir: l.logs, signal: shutdown.signal }),
+        // D4 / D111: logs.query / logs.tail / logs.levels over <home>/logs; RBAC-guarded below (RPC_RULES).
+        ...createLogsMethods({
+          dir: l.logs, signal: shutdown.signal,
+          ...(coreWriter ? { writer: {
+            currentLevels: () => coreWriter!.currentLevels(),
+            updateLevels(s) { coreWriter?.updateLevels(s); discoveryWriter?.updateLevels(s); },
+          } } : {}),
+          audit: rbacAudit, now: clock,
+          actor: (ctx) => { try { const p = authenticatedPrincipal(ctx); return { user: p.userId, host: "rpc" }; } catch { return { user: "unknown", host: "rpc" }; } },
+        }),
       };
       Object.assign(rawMethods, buildChatSurface({ sessions: () => sessions, agents: executionRegistry, audit: rbacAudit, now: clock, approver: async (ctx,p) => { const who = await resolvePrincipal(ctx,"chat.submit",p); return { person: who?.kind === "person" ? who.userId : null, surface: connectionSurface({ principal: who, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }; } }));
       Object.assign(rawMethods, sessionWriteAccess({ methods: rawMethods, sessions: () => sessions?.store ?? null, ownership, validateCaller: true }));
@@ -801,6 +843,17 @@ export function createCore(o: CoreOptions): Core {
       try {
         dreams = createDreams({
           engine: eng, layout: l, clock: o.dreams?.clock ?? discClock, logger, agents: executionRegistry, securePath: platform.securePath,
+          // Content-only producer: Engine.memory.list yields text (+ optional score on a topic query, not on `since`).
+          // Agent-private cards only (ADR-009 Q5). A truncated page throws; the scheduler maps that to engineError.
+          // Gates keep a content-only card from promoting; a deep run then skip/no_candidates (fail closed).
+          candidateMemory: {
+            async list(agentId) {
+              const ws = executionRegistry.workspaceOf(agentId);
+              if (!ws) return [];
+              const { principal } = callerToPrincipal(cliCaller(), agentId, ws);
+              return itemsFromEngineList(await eng.memory.list({ since: 0, limit: 100 }, principal, AGENT_CONTEXT_CLI));
+            },
+          },
           ...(o.dreams?.defaultTimezone ? { scheduler: { defaultTimezone: o.dreams.defaultTimezone } } : {}),
         });
         if (o.dreams?.scheduler ?? o.testInternals === undefined) void dreams.start().catch((err) => logger?.error("dreaming scheduler failed to start", { err }));
