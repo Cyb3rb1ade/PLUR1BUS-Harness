@@ -60,6 +60,7 @@ export const en = {
   "identity.unlinkBody":
     "Unlink this channel identity? Its old channel memories leave your union; canonical user memories remain.",
   "identity.principals": "My principal union",
+  "identity.removeLabel": "Remove {name}",
 } as const;
 export const de: Record<keyof typeof en, string> = {
   "nav.media": "Medien",
@@ -123,4 +124,5 @@ export const de: Record<keyof typeof en, string> = {
   "identity.unlinkBody":
     "Diese Kanalidentität lösen? Ihre alten Kanal-Erinnerungen verlassen deine Union; kanonische Nutzer-Erinnerungen bleiben.",
   "identity.principals": "Meine Principal-Union",
+  "identity.removeLabel": "Entfernen: {name}",
 };

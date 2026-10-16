@@ -110,6 +110,7 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "project.member.role": rule("project.surface.write", system),
   "project.agent.add": rule("project.surface.write", system),
   "project.agent.remove": rule("project.surface.write", system),
+  "collab.session.replay": rule("project.surface.read", system),
   "collab.trace.get": rule("project.surface.read", system),
   "collab.trace.list": rule("project.surface.read", system),
   "collab.chain.cancel": rule("project.surface.write", system),
@@ -194,10 +195,13 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "dreams.schedule.set": rule("settings.write", system),
   "dreams.enable": rule("settings.write", system),
   "dreams.disable": rule("settings.write", system),
+  // Private diary: owner or agent.manage (member with manage). Viewer is denied; not dreaming.read.
+  "dreams.diary": rule("agent.manage", agent),
   "admin.backup.snapshot": rule("admin.backup.snapshot", system),
   // D4: the protected log files, Owner/Admin.
   "logs.query": rule("logs.query", system),
   "logs.tail": rule("logs.query", system),
+  "logs.levels": rule("logs.query", system),
   "audit.verify": rule("audit.read", system),
   // M3 identity (humans, linked channel identities, pairing): classified by the nearest existing pattern, `users.*` on the system resource.
   "identity.list": { ...rule("users.read", system), humanOnly: true },
@@ -213,11 +217,13 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "model.licence.list": { ...rule("settings.write", system), humanOnly: true },
   "model.licence.check": { ...rule("settings.write", system), humanOnly: true },
   "grant.list": rule("grant.read", system),
+  "grant.get": rule("grant.read", system),
   "grant.create": rule("grant.write", system),
   "grant.revoke": rule("grant.write", system),
   "approval.list": rule("approval.read", system),
   "approval.get": rule("approval.read", system),
   "approval.verify": rule("approval.read", system),
+  "approval.audit": rule("approval.read", system),
   "approval.decide": rule("approval.decide", system),
   "approval.cancel": rule("approval.decide", system),
 });

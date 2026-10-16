@@ -15,7 +15,7 @@ function seeded(n = 5) {
 describe("approval chain: HMAC-SHA256 linkage (D109 §6)", () => {
   it("an empty chain verifies", T, () => {
     const { chain } = openChain(dbFile());
-    assert.deepEqual(chain.verify(), { ok: true, entries: 0, head: null });
+    assert.deepEqual(chain.verify(), { ok: true, entries: 0, head: null, signatures: { unsignedLegacy: 0, signedOk: 0, signedBad: 0, report: "unsigned (legacy)" } });
   });
 
   it("every entry carries the HMAC of its predecessor; the first carries the genesis value", T, () => {

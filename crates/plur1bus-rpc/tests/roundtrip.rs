@@ -480,6 +480,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::ProjectAgentRemoveParams,
                 types::ProjectAgentRemoveResult,
             >(name, fixture, &root_schema),
+            "collab.session.replay" => check_pair::<
+                types::CollabSessionReplayParams,
+                types::CollabSessionReplayResult,
+            >(name, fixture, &root_schema),
             "collab.trace.get" => check_pair::<
                 types::CollabTraceGetParams,
                 types::CollabTraceGetResult,
@@ -914,6 +918,11 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                     &root_schema,
                 )
             }
+            "dreams.diary" => check_pair::<types::DreamsDiaryParams, types::DreamsDiaryResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "admin.reembed.plan" => check_pair::<
                 types::AdminReembedPlanParams,
                 types::AdminReembedPlanResult,
@@ -1031,6 +1040,11 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::IdentityUnlinkParams,
                 types::IdentityUnlinkResult,
             >(name, fixture, &root_schema),
+            "logs.levels" => check_pair::<types::LogsLevelsParams, types::LogsLevelsResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "logs.query" => check_pair::<types::LogsQueryParams, types::LogsQueryResult>(
                 name,
                 fixture,
@@ -1084,6 +1098,9 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "grant.get" => {
+                check_pair::<types::GrantGetParams, types::GrantRecord>(name, fixture, &root_schema)
+            }
             "grant.create" => check_pair::<types::GrantCreateParams, types::GrantRecord>(
                 name,
                 fixture,
@@ -1117,6 +1134,13 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::ApprovalVerifyParams,
                 types::ApprovalVerifyResult,
             >(name, fixture, &root_schema),
+            "approval.audit" => {
+                check_pair::<types::ApprovalAuditParams, types::ApprovalAuditResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
             "project.column.list" => check_pair::<
                 types::ProjectColumnListParams,
                 types::ProjectColumnListResult,

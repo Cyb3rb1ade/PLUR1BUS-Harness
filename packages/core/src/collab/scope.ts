@@ -14,7 +14,9 @@ export interface AgentScopeValue {
 
 
 export function currentAgentScope(): AgentScopeValue | undefined {
-  return processScope.currentAgentScope() as AgentScopeValue | undefined;
+  // A turn's own process-wide scope (agents/scope.ts) carries no project; only a scope entered through a collaboration run does.
+  const scope = processScope.currentAgentScope() as (Partial<AgentScopeValue> & { agentId: string }) | undefined;
+  return scope?.projectId === undefined ? undefined : (scope as AgentScopeValue);
 }
 
 export function requireAgentScope(): AgentScopeValue {

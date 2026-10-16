@@ -7,6 +7,14 @@
   "additionalProperties": false,
   "required": ["schemaVersion"],
   "properties": {
+    "collaboration": {
+      "description": "Agent collaboration and owner-controlled fan-out.",
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "fanoutEnabled": { "type": "boolean", "default": false, "x-restart": "live", "x-tier": "advanced", "description": "Enable collaboration fan-out only after owner review of the equal-token-budget evaluation." }
+      },
+      "default": {}
+    },
     "approvals": {
       "description": "Approval policy limits; transport-enforced writes require owner or admin and audit.",
       "type": "object",

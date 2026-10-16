@@ -22,15 +22,15 @@ const SCHEMA = JSON.parse(readFileSync(fileURLToPath(new URL("../../../rpc-schem
 const SCHEMA_METHODS = Object.keys(SCHEMA.$defs.methods) as string[];
 const NOTIFICATIONS = Object.keys(SCHEMA.$defs.notifications) as string[];
 
-const METHODS = ["grant.list", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.decide", "approval.cancel", "approval.verify"] as const;
+const METHODS = ["grant.list", "grant.get", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.decide", "approval.cancel", "approval.verify", "approval.audit"] as const;
 const ACTIONS = ["grant.read", "grant.write", "approval.read", "approval.decide"] as const;
 const PERSON_ROLES: Record<(typeof ACTIONS)[number], readonly Role[]> = {
   "grant.read": ["owner", "admin"], "grant.write": ["owner", "admin"], "approval.read": ["owner", "admin", "operator"], "approval.decide": ["owner", "admin"],
 };
 const PARAMS: Record<(typeof METHODS)[number], unknown> = {
-  "grant.list": {}, "grant.create": { capability: "fs.write", agent: "bernd", scope: "always" }, "grant.revoke": { id: "grt_1" },
+  "grant.list": {}, "grant.get": { id: "grt_1" }, "grant.create": { capability: "fs.write", agent: "bernd", scope: "always" }, "grant.revoke": { id: "grt_1" },
   "approval.list": { status: "pending" }, "approval.get": { id: "apr_1" }, "approval.decide": { id: "apr_1", decision: "approve" },
-  "approval.cancel": { id: "apr_1" }, "approval.verify": {},
+  "approval.cancel": { id: "apr_1" }, "approval.verify": {}, "approval.audit": {},
 };
 
 const ctx: CallContext = { requestId: "r1", connectionId: "c1", signal: new AbortController().signal };

@@ -55,7 +55,7 @@ export function RemoteControls({ remote, onSaved, certificateActivated = false }
     h("span", { class: "field-label", id: `${id}-label` }, t(key)), h("input", { id, "aria-labelledby": `${id}-label`, class: "input", value, disabled: busy, ...attrs, onInput: (e: Event) => update((e.target as HTMLInputElement).value) }));
   const check = (key: Key, checked: boolean, toggle: () => void) => h("button", { type: "button", role: "checkbox", class: "btn", "aria-checked": String(checked), "aria-disabled": String(busy), onClick: () => { if (!lock.current) toggle(); } }, t(key));
   return h(Card, { title: t("devices.remote.configure"), level: 3 },
-    h("p", { role: "status" }, t(`devices.remote.status.${remote.status.state.replaceAll("-", ".")}` as Key)),
+    h("p", { role: "status" }, t(`devices.remote.status.${remote.status.state === "not-started" ? "notStarted" : remote.status.state}` as Key)),
     h("form", { class: "devices-pair-form", onSubmit: (e: Event) => { void submit(e); } },
       h("label", { class: "field", for: "remote-publish" }, h("span", { class: "field-label", id: "remote-publish-label" }, t("devices.remote.publish")),
         h("select", { id: "remote-publish", "aria-labelledby": "remote-publish-label", value: publish, disabled: busy, onChange: (e: Event) => { setPublish((e.target as HTMLSelectElement).value as RemoteStatus["publish"]); setAck(false); } },
@@ -77,7 +77,7 @@ export function RemoteControls({ remote, onSaved, certificateActivated = false }
         unrestricted ? check("devices.remote.publicBind", publicBind, () => setPublicBind(!publicBind)) : null,
         h("div", { role: "region", "aria-label": t("devices.remote.notice") },
           h("p", {}, t("devices.remote.notice.body")),
-          h("ul", {}, remote.noticeItems.map(item => h("li", { key: item.code }, t((`devices.remote.notice.${item.code.replaceAll("-", ".")}`) as Key)))),
+          h("ul", {}, remote.noticeItems.map(item => h("li", { key: item.code }, t((`devices.remote.notice.${item.code.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase())}`) as Key)))),
           check("devices.remote.ack", ack, () => setAck(!ack)))) : null,
       error ? h("p", { class: "form-error", role: "alert" }, error) : null,
       h("button", { type: "submit", class: "btn btn-primary", disabled: blocked, "aria-disabled": String(busy || blocked) }, t("devices.remote.save"))));
