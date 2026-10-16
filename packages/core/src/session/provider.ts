@@ -18,7 +18,8 @@ export interface ChatRequest {
   recurring?: RecurringOrigin;
   turnProfile?: import("../voice/turn-profile.ts").TurnProfile;
   /** Internal background role: the same router/budget, with no tool execution. */
-  role?: "summarize"; maxOutputTokens?: number;
+  role?: "summarize" | "decision";
+  taskBoundary?: import("../triage/runtime.ts").TaskBoundary; maxOutputTokens?: number;
   sessionId: string; agentId: string;
   turnId?: string; projectId?: string; headlessJobId?: string; toolView?: readonly string[]; principal?: string; authenticatedPerson?: string; caller?: import("@plur1bus/rpc-schema").CallerIdentity;
   /** The RPC connection's resolved approver (D109 §5): `person` null for a non-person principal; `surface` its derived trust level. */

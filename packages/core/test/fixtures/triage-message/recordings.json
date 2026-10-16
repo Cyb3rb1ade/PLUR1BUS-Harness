@@ -1,0 +1,2189 @@
+{
+  "source": "Recorded deterministic rule-classifier baseline on 2026-10-16; not vendor-model answers.",
+  "decisions": {
+    "triage-001": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Search laptop reviews",
+          "start": 0,
+          "end": 21,
+          "categories": {
+            "web.research": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:web.research; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-002": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Suche Bewertungen zum Laptop",
+          "start": 0,
+          "end": 28,
+          "categories": {
+            "web.research": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:web.research; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-003": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Browse website and scroll to the table",
+          "start": 0,
+          "end": 38,
+          "categories": {
+            "web.browse": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:web.browse; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-004": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Scrolle die Webseite zum Ende",
+          "start": 0,
+          "end": 29,
+          "categories": {
+            "web.browse": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:web.browse; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-005": {
+      "schema": "plur1bus.triage/1",
+      "shape": "multi",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Write a PDF report",
+          "start": 0,
+          "end": 18,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        },
+        {
+          "id": "k2",
+          "summary": "Write a PDF report",
+          "start": 25,
+          "end": 43,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [
+            "k1"
+          ],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-006": {
+      "schema": "plur1bus.triage/1",
+      "shape": "multi",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Erstelle einen Bericht",
+          "start": 0,
+          "end": 22,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        },
+        {
+          "id": "k2",
+          "summary": "Erstelle einen Bericht",
+          "start": 31,
+          "end": 53,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [
+            "k1"
+          ],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-007": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Debug the failing parser test",
+          "start": 0,
+          "end": 29,
+          "categories": {
+            "code.edit": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:code.edit; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-008": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Programmiere den Parser für Dateien",
+          "start": 0,
+          "end": 35,
+          "categories": {
+            "code.edit": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:code.edit; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-009": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Review security architecture",
+          "start": 0,
+          "end": 28,
+          "categories": {
+            "code.review": 1
+          },
+          "modelClass": {
+            "small": 0,
+            "medium": 0.1,
+            "large": 0.85,
+            "frontier": 0.05
+          },
+          "chosenClass": "large",
+          "effort": "high",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:code.review; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-010": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Prüfe die Sicherheit der Architektur",
+          "start": 0,
+          "end": 36,
+          "categories": {
+            "code.review": 1
+          },
+          "modelClass": {
+            "small": 0,
+            "medium": 0.1,
+            "large": 0.85,
+            "frontier": 0.05
+          },
+          "chosenClass": "large",
+          "effort": "high",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:code.review; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-011": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Move files to the archive folder",
+          "start": 0,
+          "end": 32,
+          "categories": {
+            "files.manage": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:files.manage; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-012": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Verschiebe Dateien in den Ordner",
+          "start": 0,
+          "end": 32,
+          "categories": {
+            "files.manage": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:files.manage; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-013": {
+      "schema": "plur1bus.triage/1",
+      "shape": "multi",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "List system processes and disk usage",
+          "start": 0,
+          "end": 36,
+          "categories": {
+            "ops.system": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:ops.system; smallest class above-tail <= 0.2"
+        },
+        {
+          "id": "k2",
+          "summary": "Write a PDF report",
+          "start": 43,
+          "end": 61,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [
+            "k1"
+          ],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-014": {
+      "schema": "plur1bus.triage/1",
+      "shape": "multi",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Prüfe Prozesse im System",
+          "start": 0,
+          "end": 24,
+          "categories": {
+            "code.review": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:code.review; smallest class above-tail <= 0.2"
+        },
+        {
+          "id": "k2",
+          "summary": "Erstelle einen Bericht",
+          "start": 33,
+          "end": 55,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [
+            "k1"
+          ],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-015": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Analyze data from the CSV",
+          "start": 0,
+          "end": 25,
+          "categories": {
+            "data.analyse": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:data.analyse; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-016": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Analysiere Daten aus der Tabelle",
+          "start": 0,
+          "end": 32,
+          "categories": {
+            "data.analyse": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:data.analyse; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-017": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Send email to the team",
+          "start": 0,
+          "end": 22,
+          "categories": {
+            "comm.email": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:comm.email; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-018": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Schreibe einen Bericht als PDF",
+          "start": 0,
+          "end": 30,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-019": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Create image of a mountain",
+          "start": 0,
+          "end": 26,
+          "categories": {
+            "media.image": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:media.image; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-020": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Foto vom Wald als Bild erstellen",
+          "start": 0,
+          "end": 32,
+          "categories": {
+            "media.image": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:media.image; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-021": {
+      "schema": "plur1bus.triage/1",
+      "shape": "multi",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Recall memory about the project",
+          "start": 0,
+          "end": 31,
+          "categories": {
+            "memory.manage": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:memory.manage; smallest class above-tail <= 0.2"
+        },
+        {
+          "id": "k2",
+          "summary": "Write a PDF report",
+          "start": 38,
+          "end": 56,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [
+            "k1"
+          ],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-022": {
+      "schema": "plur1bus.triage/1",
+      "shape": "multi",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Erinnere mich an den Projektnamen",
+          "start": 0,
+          "end": 33,
+          "categories": {
+            "memory.manage": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:memory.manage; smallest class above-tail <= 0.2"
+        },
+        {
+          "id": "k2",
+          "summary": "Erstelle einen Bericht",
+          "start": 42,
+          "end": 64,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [
+            "k1"
+          ],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-023": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Write a PDF report",
+          "start": 0,
+          "end": 18,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-024": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Erstelle einen Bericht",
+          "start": 0,
+          "end": 22,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-025": {
+      "schema": "plur1bus.triage/1",
+      "shape": "multi",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Debug the failing parser test",
+          "start": 0,
+          "end": 29,
+          "categories": {
+            "code.edit": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:code.edit; smallest class above-tail <= 0.2"
+        },
+        {
+          "id": "k2",
+          "summary": "Write a PDF report",
+          "start": 36,
+          "end": 54,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [
+            "k1"
+          ],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-026": {
+      "schema": "plur1bus.triage/1",
+      "shape": "multi",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Programmiere den Parser für Dateien",
+          "start": 0,
+          "end": 35,
+          "categories": {
+            "code.edit": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:code.edit; smallest class above-tail <= 0.2"
+        },
+        {
+          "id": "k2",
+          "summary": "Erstelle einen Bericht",
+          "start": 44,
+          "end": 66,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [
+            "k1"
+          ],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-027": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "List system processes and disk usage",
+          "start": 0,
+          "end": 36,
+          "categories": {
+            "ops.system": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:ops.system; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-028": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Prüfe Prozesse im System",
+          "start": 0,
+          "end": 24,
+          "categories": {
+            "code.review": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:code.review; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-029": {
+      "schema": "plur1bus.triage/1",
+      "shape": "multi",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Analyze data from the CSV",
+          "start": 0,
+          "end": 25,
+          "categories": {
+            "data.analyse": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:data.analyse; smallest class above-tail <= 0.2"
+        },
+        {
+          "id": "k2",
+          "summary": "Write a PDF report",
+          "start": 32,
+          "end": 50,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [
+            "k1"
+          ],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-030": {
+      "schema": "plur1bus.triage/1",
+      "shape": "multi",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Analysiere Daten aus der Tabelle",
+          "start": 0,
+          "end": 32,
+          "categories": {
+            "data.analyse": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:data.analyse; smallest class above-tail <= 0.2"
+        },
+        {
+          "id": "k2",
+          "summary": "Erstelle einen Bericht",
+          "start": 41,
+          "end": 63,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [
+            "k1"
+          ],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-031": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Recall memory about the project",
+          "start": 0,
+          "end": 31,
+          "categories": {
+            "memory.manage": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:memory.manage; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-032": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Erinnere mich an den Projektnamen",
+          "start": 0,
+          "end": 33,
+          "categories": {
+            "memory.manage": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:memory.manage; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-033": {
+      "schema": "plur1bus.triage/1",
+      "shape": "multi",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Search laptop reviews",
+          "start": 0,
+          "end": 21,
+          "categories": {
+            "web.research": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:web.research; smallest class above-tail <= 0.2"
+        },
+        {
+          "id": "k2",
+          "summary": "Write a PDF report",
+          "start": 28,
+          "end": 46,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [
+            "k1"
+          ],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-034": {
+      "schema": "plur1bus.triage/1",
+      "shape": "multi",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Suche Bewertungen zum Laptop",
+          "start": 0,
+          "end": 28,
+          "categories": {
+            "web.research": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:web.research; smallest class above-tail <= 0.2"
+        },
+        {
+          "id": "k2",
+          "summary": "Erstelle einen Bericht",
+          "start": 37,
+          "end": 59,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [
+            "k1"
+          ],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-035": {
+      "schema": "plur1bus.triage/1",
+      "shape": "multi",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Review security architecture",
+          "start": 0,
+          "end": 28,
+          "categories": {
+            "code.review": 1
+          },
+          "modelClass": {
+            "small": 0,
+            "medium": 0.1,
+            "large": 0.85,
+            "frontier": 0.05
+          },
+          "chosenClass": "large",
+          "effort": "high",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:code.review; smallest class above-tail <= 0.2"
+        },
+        {
+          "id": "k2",
+          "summary": "Write a PDF report",
+          "start": 35,
+          "end": 53,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [
+            "k1"
+          ],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-036": {
+      "schema": "plur1bus.triage/1",
+      "shape": "multi",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Prüfe die Sicherheit der Architektur",
+          "start": 0,
+          "end": 36,
+          "categories": {
+            "code.review": 1
+          },
+          "modelClass": {
+            "small": 0,
+            "medium": 0.1,
+            "large": 0.85,
+            "frontier": 0.05
+          },
+          "chosenClass": "large",
+          "effort": "high",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:code.review; smallest class above-tail <= 0.2"
+        },
+        {
+          "id": "k2",
+          "summary": "Erstelle einen Bericht",
+          "start": 45,
+          "end": 67,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [
+            "k1"
+          ],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-037": {
+      "schema": "plur1bus.triage/1",
+      "shape": "multi",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Send email to the team",
+          "start": 0,
+          "end": 22,
+          "categories": {
+            "comm.email": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:comm.email; smallest class above-tail <= 0.2"
+        },
+        {
+          "id": "k2",
+          "summary": "Write a PDF report",
+          "start": 29,
+          "end": 47,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [
+            "k1"
+          ],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-038": {
+      "schema": "plur1bus.triage/1",
+      "shape": "multi",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Schreibe einen Bericht als PDF",
+          "start": 0,
+          "end": 30,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        },
+        {
+          "id": "k2",
+          "summary": "Erstelle einen Bericht",
+          "start": 39,
+          "end": 61,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [
+            "k1"
+          ],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-039": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Search electric bicycle reviews",
+          "start": 0,
+          "end": 31,
+          "categories": {
+            "web.research": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:web.research; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-040": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Suche Testberichte zu Monitoren",
+          "start": 0,
+          "end": 31,
+          "categories": {
+            "web.research": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:web.research; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-041": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Browse the documentation website",
+          "start": 0,
+          "end": 32,
+          "categories": {
+            "web.browse": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:web.browse; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-042": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Navigiere zur Webseite des Projekts",
+          "start": 0,
+          "end": 35,
+          "categories": {
+            "web.browse": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:web.browse; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-043": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Write a release report",
+          "start": 0,
+          "end": 22,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-044": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Erstelle eine Zusammenfassung als Dokument",
+          "start": 0,
+          "end": 42,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-045": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Debug the cache invalidation test",
+          "start": 0,
+          "end": 33,
+          "categories": {
+            "code.edit": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:code.edit; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-046": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Programmiere einen sicheren Parser",
+          "start": 0,
+          "end": 34,
+          "categories": {
+            "code.edit": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:code.edit; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-047": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Review the authentication architecture",
+          "start": 0,
+          "end": 38,
+          "categories": {
+            "code.review": 1
+          },
+          "modelClass": {
+            "small": 0,
+            "medium": 0.1,
+            "large": 0.85,
+            "frontier": 0.05
+          },
+          "chosenClass": "large",
+          "effort": "high",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:code.review; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-048": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Prüfe die Sicherheit des Backends",
+          "start": 0,
+          "end": 33,
+          "categories": {
+            "code.review": 1
+          },
+          "modelClass": {
+            "small": 0,
+            "medium": 0.1,
+            "large": 0.85,
+            "frontier": 0.05
+          },
+          "chosenClass": "large",
+          "effort": "high",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:code.review; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-049": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Move files into the reports folder",
+          "start": 0,
+          "end": 34,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-050": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Verschiebe Dateien ins Archiv",
+          "start": 0,
+          "end": 29,
+          "categories": {
+            "files.manage": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:files.manage; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-051": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "List system services",
+          "start": 0,
+          "end": 20,
+          "categories": {
+            "ops.system": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:ops.system; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-052": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "System Prozesse auflisten",
+          "start": 0,
+          "end": 25,
+          "categories": {
+            "ops.system": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:ops.system; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-053": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Analyze the sales data",
+          "start": 0,
+          "end": 22,
+          "categories": {
+            "data.analyse": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:data.analyse; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-054": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Analysiere Daten zum Umsatz",
+          "start": 0,
+          "end": 27,
+          "categories": {
+            "data.analyse": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:data.analyse; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-055": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Send email with the meeting notes",
+          "start": 0,
+          "end": 33,
+          "categories": {
+            "comm.email": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:comm.email; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-056": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Email an das Projektteam senden",
+          "start": 0,
+          "end": 31,
+          "categories": {
+            "comm.email": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:comm.email; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-057": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Create image of a red bicycle",
+          "start": 0,
+          "end": 29,
+          "categories": {
+            "media.image": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:media.image; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-058": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Ein Bild vom Garten erstellen",
+          "start": 0,
+          "end": 29,
+          "categories": {
+            "media.image": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:media.image; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-059": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Recall memory of the workshop",
+          "start": 0,
+          "end": 29,
+          "categories": {
+            "memory.manage": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:memory.manage; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-060": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Erinnere mich an das Projektziel",
+          "start": 0,
+          "end": 32,
+          "categories": {
+            "memory.manage": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:memory.manage; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-061": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Write a PDF report about the experiment",
+          "start": 0,
+          "end": 39,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-062": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Dokument zum Experiment erstellen",
+          "start": 0,
+          "end": 33,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-063": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Debug the distributed transaction protocol",
+          "start": 0,
+          "end": 42,
+          "categories": {
+            "code.edit": 1
+          },
+          "modelClass": {
+            "small": 0,
+            "medium": 0.1,
+            "large": 0.85,
+            "frontier": 0.05
+          },
+          "chosenClass": "large",
+          "effort": "high",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:code.edit; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-064": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Programmiere die Architektur der Warteschlange",
+          "start": 0,
+          "end": 46,
+          "categories": {
+            "code.edit": 1
+          },
+          "modelClass": {
+            "small": 0,
+            "medium": 0.1,
+            "large": 0.85,
+            "frontier": 0.05
+          },
+          "chosenClass": "large",
+          "effort": "high",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:code.edit; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-065": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Search reviews for quiet keyboards",
+          "start": 0,
+          "end": 34,
+          "categories": {
+            "web.research": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:web.research; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-066": {
+      "schema": "plur1bus.triage/1",
+      "shape": "single",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Recherchiere Bewertungen zu Kameras",
+          "start": 0,
+          "end": 35,
+          "categories": {
+            "web.research": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:web.research; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-067": {
+      "schema": "plur1bus.triage/1",
+      "shape": "multi",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Browse the website",
+          "start": 0,
+          "end": 18,
+          "categories": {
+            "web.browse": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:web.browse; smallest class above-tail <= 0.2"
+        },
+        {
+          "id": "k2",
+          "summary": "Write a document",
+          "start": 25,
+          "end": 41,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [
+            "k1"
+          ],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-068": {
+      "schema": "plur1bus.triage/1",
+      "shape": "multi",
+      "tasks": [
+        {
+          "id": "k1",
+          "summary": "Analysiere Daten",
+          "start": 0,
+          "end": 16,
+          "categories": {
+            "data.analyse": 1
+          },
+          "modelClass": {
+            "small": 0.1,
+            "medium": 0.75,
+            "large": 0.12,
+            "frontier": 0.03
+          },
+          "chosenClass": "medium",
+          "effort": "medium",
+          "dependsOn": [],
+          "confidence": 0.85,
+          "reason": "rule:data.analyse; smallest class above-tail <= 0.2"
+        },
+        {
+          "id": "k2",
+          "summary": "Erstelle einen Bericht",
+          "start": 25,
+          "end": 47,
+          "categories": {
+            "docs.create": 1
+          },
+          "modelClass": {
+            "small": 0.85,
+            "medium": 0.1,
+            "large": 0.04,
+            "frontier": 0.01
+          },
+          "chosenClass": "small",
+          "effort": "low",
+          "dependsOn": [
+            "k1"
+          ],
+          "confidence": 0.85,
+          "reason": "rule:docs.create; smallest class above-tail <= 0.2"
+        }
+      ]
+    },
+    "triage-069": {
+      "schema": "plur1bus.triage/1",
+      "shape": "chat",
+      "tasks": []
+    },
+    "triage-070": {
+      "schema": "plur1bus.triage/1",
+      "shape": "chat",
+      "tasks": []
+    },
+    "triage-071": {
+      "schema": "plur1bus.triage/1",
+      "shape": "chat",
+      "tasks": []
+    },
+    "triage-072": {
+      "schema": "plur1bus.triage/1",
+      "shape": "chat",
+      "tasks": []
+    }
+  }
+}

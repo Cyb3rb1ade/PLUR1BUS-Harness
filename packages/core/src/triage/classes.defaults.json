@@ -1,0 +1,42 @@
+{
+  "openai": {
+    "small": "fast",
+    "medium": "general",
+    "large": "reasoning",
+    "frontier": "frontier"
+  },
+  "anthropic": {
+    "small": "haiku",
+    "medium": "sonnet",
+    "large": "opus",
+    "frontier": "frontier"
+  },
+  "google": {
+    "small": "flash-lite",
+    "medium": "flash",
+    "large": "pro",
+    "frontier": "frontier"
+  },
+  "xai": {
+    "small": "fast",
+    "medium": "general",
+    "large": "reasoning",
+    "frontier": "frontier"
+  },
+  "deepseek": {
+    "small": "fast",
+    "medium": "chat",
+    "large": "reasoner"
+  },
+  "openrouter": {
+    "small": "fast",
+    "medium": "general",
+    "large": "reasoning",
+    "frontier": "frontier"
+  },
+  "local": {
+    "small": "3-8b",
+    "medium": "14-32b",
+    "large": "70b-plus"
+  }
+}
