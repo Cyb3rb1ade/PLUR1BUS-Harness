@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { createCandidateSource, itemsFromEngineList } from "../../src/dreams/producer.ts";
 import type { DreamJobRun } from "../../src/dreams/types.ts";
 import { DAY, harness, HOUR, T0, useTempDirs } from "./helpers.ts";
 
@@ -336,6 +337,25 @@ describe("dreams scheduler: candidate guards", () => {
   it("the light phase ingests candidates but never requires one", async () => {
     const h = harness(dirs, { over: { candidates: src([]) } }); h.sched = h.make(); h.captures("alpha", 1);
     assert.equal((await manual(h, "light")).outcome, "completed");
+  });
+
+  it("a workspace/user card is not ingested as agent-private", async () => {
+    const source = createCandidateSource({
+      list: () => itemsFromEngineList({
+        truncated: false,
+        items: [
+          { text: "same text", scope: "workspace" },
+          { text: "same text", scope: "user" },
+          { text: "same text", scope: "agent-private" },
+        ],
+      }),
+    });
+    const h = harness(dirs, { over: { candidates: source } }); h.sched = h.make(); h.captures("alpha", 1);
+    assert.equal((await manual(h, "light")).outcome, "completed");
+    const cs = h.store.listCandidates("alpha");
+    assert.equal(cs.length, 1);
+    assert.equal(cs[0]!.partition, "agent-private");
+    assert.equal(cs[0]!.recalls, 0);
   });
 });
 

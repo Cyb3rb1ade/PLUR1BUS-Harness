@@ -1,0 +1,13 @@
+{
+  "params": {
+    "traceId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "spanId": "bbbbbbbbbbbbbbbb"
+  },
+  "result": {
+    "sessionId": "s1",
+    "traceId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "spanId": "bbbbbbbbbbbbbbbb",
+    "messages": [],
+    "events": []
+  }
+}

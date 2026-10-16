@@ -25,6 +25,7 @@ pub mod import;
 pub mod inbox;
 pub mod jobs;
 pub mod login;
+pub mod logs;
 pub mod media;
 pub mod media_search;
 pub mod memory;

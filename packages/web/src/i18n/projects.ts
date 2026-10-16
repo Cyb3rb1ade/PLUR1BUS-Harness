@@ -2,6 +2,22 @@
 // Area catalogue registered lazily by the projects page chunk.
 
 export const en = {
+  "projects.trace.duration": "Duration",
+  "projects.trace.transcript": "Open transcript",
+  "projects.trace.unavailable": "Transcript unavailable or access refused.",
+
+  "projects.handoff.title": "Agent hand-off",
+  "projects.handoff.untrusted": "Peer output · untrusted data",
+  "projects.handoff.status.consult": "Consultation",
+  "projects.handoff.status.delegate": "Delegation",
+  "projects.handoff.status.handoff": "Ownership transfer",
+  "projects.handoff.status.done": "Done",
+  "projects.handoff.status.doneWithConcerns": "Done with concerns",
+  "projects.handoff.status.blocked": "Blocked",
+  "projects.handoff.status.needsContext": "Needs context",
+  "projects.handoff.status.declined": "Declined",
+  "projects.handoff.status.partial": "Partial result",
+
   // Default columns from Core backend
   "project.board.backlog": "Backlog",
   "project.board.inProgress": "In Progress",
@@ -113,6 +129,22 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "projects.trace.duration": "Dauer",
+  "projects.trace.transcript": "Transcript öffnen",
+  "projects.trace.unavailable": "Transcript nicht verfügbar oder Zugriff verweigert.",
+
+  "projects.handoff.title": "Agentenübergabe",
+  "projects.handoff.untrusted": "Peer-Ausgabe · nicht vertrauenswürdige Daten",
+  "projects.handoff.status.consult": "Beratung",
+  "projects.handoff.status.delegate": "Delegation",
+  "projects.handoff.status.handoff": "Verantwortungsübergabe",
+  "projects.handoff.status.done": "Erledigt",
+  "projects.handoff.status.doneWithConcerns": "Erledigt mit Bedenken",
+  "projects.handoff.status.blocked": "Blockiert",
+  "projects.handoff.status.needsContext": "Kontext benötigt",
+  "projects.handoff.status.declined": "Abgelehnt",
+  "projects.handoff.status.partial": "Teilergebnis",
+
   // Default columns from Core backend
   "project.board.backlog": "Backlog",
   "project.board.inProgress": "In Arbeit",

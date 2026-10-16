@@ -79,6 +79,7 @@ describe("users: identities tab", opts, () => {
     await withApp({}, async (app) => {
       play(app);
       await openRoute(app.page, "#/settings/users?tab=identities");
+      await app.page.locator("#identity-channel").fill("telegram");
       await app.page.getByRole("button", { name: "Issue pairing code" }).click();
       await app.page.getByText("One-time code: ABCDEFGH", { exact: false }).waitFor();
       await app.page.getByRole("button", { name: "Approve link" }).click();

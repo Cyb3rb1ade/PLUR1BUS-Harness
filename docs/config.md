@@ -18,6 +18,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 
 | Key | Type | Default | Restart | Description |
 |---|---|---|---|---|
+| `collaboration.fanoutEnabled` | boolean | `false` | live | Enable collaboration fan-out only after owner review of the equal-token-budget evaluation. |
 | `approvals.maxGrantDays` | integer | `90` | core | Always-grant idle lifetime in days. Explicit shorter expiries still apply. |
 | `approvals.requireOsConfirmation` | boolean | `true` | core | Allow the required OS confirmation for an otherwise untrusted local decision. False disables this lift; it never bypasses surface trust. |
 | `breakglass.reasonMinChars` | integer | `10` | core | Minimum trimmed break-glass reason length. |

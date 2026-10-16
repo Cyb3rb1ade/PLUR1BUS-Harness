@@ -131,9 +131,12 @@ fn firstaid_keeps_models_roles_before_appended_remote_exposure() {
     );
 
     let checks = doc["checks"].as_array().unwrap();
-    assert_eq!(checks.len(), 25);
+    assert_eq!(checks.len(), 27);
     assert_eq!(checks[23]["id"], "models.roles");
     assert_eq!(checks[23]["status"], "skip");
     assert_eq!(checks[24]["id"], "remote.exposure");
     assert_eq!(checks[24]["status"], "ok");
+    let last = checks.last().unwrap();
+    assert_eq!(last["id"], "dreams.last-runs");
+    assert_eq!(last["status"], "skip");
 }

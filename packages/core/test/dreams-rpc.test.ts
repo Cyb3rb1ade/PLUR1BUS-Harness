@@ -54,6 +54,11 @@ describe("dreams.* handlers", () => {
     assert.equal(set.schedule.cron, "30 2 * * *");
     const get = await call("dreams.schedule.get", { agentId: "bernd" });
     assert.deepEqual(get.schedules.map((s: any) => s.phase), ["light", "rem", "deep"]);
+    const diary = await call("dreams.diary", { agentId: "bernd" });
+    assert.equal(diary.agentId, "bernd");
+    assert.equal(diary.exists, false);
+    assert.equal(diary.text, "");
+    assert.equal(diary.truncated, false);
   });
 
   it("refuses an unknown agent, a bad cron, a bad timezone, an unknown run, and an empty edit", async () => {
@@ -89,7 +94,7 @@ describe("dreams over a real core and engine", () => {
   after(async () => { await c?.close(); await core?.stop({ budgetMs: 5000 }); });
 
   it("lists the dreams methods in core.auth, and status shows three scheduled phases", async () => {
-    for (const n of ["dreams.status", "dreams.log", "dreams.run", "dreams.schedule.get", "dreams.schedule.set", "dreams.enable", "dreams.disable"]) assert.ok(c.hello.capabilities?.methods[n], n);
+    for (const n of ["dreams.status", "dreams.log", "dreams.run", "dreams.schedule.get", "dreams.schedule.set", "dreams.enable", "dreams.disable", "dreams.diary"]) assert.ok(c.hello.capabilities?.methods[n], n);
     const st = await c.call<any>("dreams.status", { agentId: "bernd" });
     assert.deepEqual(st.agents[0].phases.map((p: any) => [p.phase, p.enabled, p.cron, p.timezone]), [["light", true, "0 */4 * * *", "UTC"], ["rem", true, "15 1 * * *", "UTC"], ["deep", true, "0 4 * * *", "UTC"]]);
     assert.ok(st.agents[0].phases.every((p: any) => p.nextRunAt > T0));
