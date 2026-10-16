@@ -381,9 +381,6 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
         env.now,
         core_reachable,
     ));
-    if out_of_budget(deadline, &mut checks) {
-        return checks;
-    }
     checks.push(check_remote_exposure(layout));
     checks
 }

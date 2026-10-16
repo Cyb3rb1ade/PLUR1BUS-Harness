@@ -91,17 +91,17 @@ fn method_fixture(name: &str, f: &Value) {
         "admin.api.invite.validate" => {
             pair::<AdminApiInviteValidateParams, AdminApiInviteValidateResult>(name, f)
         }
-        "admin.api.device.pair" => {
-            pair::<AdminApiDevicePairParams, AdminApiDevicePairResult>(name, f)
+        "admin.api.device.announce" => {
+            pair::<AdminApiDeviceAnnounceParams, AdminApiDeviceAnnounceResult>(name, f)
         }
         "admin.api.device.challenge" => {
             pair::<AdminApiDeviceChallengeParams, AdminApiDeviceChallengeResult>(name, f)
         }
+        "admin.api.device.pair" => {
+            pair::<AdminApiDevicePairParams, AdminApiDevicePairResult>(name, f)
+        }
         "admin.api.device.prove" => {
             pair::<AdminApiDeviceProveParams, AdminApiDeviceProveResult>(name, f)
-        }
-        "admin.api.device.announce" => {
-            pair::<AdminApiDeviceAnnounceParams, AdminApiDeviceAnnounceResult>(name, f)
         }
         "user.list" => pair::<UserListParams, UserListResult>(name, f),
         "user.role.set" => pair::<UserRoleSetParams, UserRoleSetResult>(name, f),
@@ -564,6 +564,7 @@ fn every_notification_fixture_round_trips() {
             "approval.parked" => round_trip::<types::ApprovalParkedNotification>(v, name),
             "api.account.changed" => round_trip::<types::ApiAccountChangedNotification>(v, name),
             "grant.changed" => round_trip::<types::GrantChangedNotification>(v, name),
+            "devices.trust.next" => round_trip::<types::DevicesTrustNextNotification>(v, name),
             "voice.download.progress" => {
                 round_trip::<types::VoiceDownloadProgressNotification>(v, name)
             }
