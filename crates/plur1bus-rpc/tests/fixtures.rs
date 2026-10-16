@@ -91,10 +91,18 @@ fn method_fixture(name: &str, f: &Value) {
         "admin.api.invite.validate" => {
             pair::<AdminApiInviteValidateParams, AdminApiInviteValidateResult>(name, f)
         }
-        "admin.api.device.announce" => pair::<AdminApiDeviceAnnounceParams, AdminApiDeviceAnnounceResult>(name, f),
-        "admin.api.device.challenge" => pair::<AdminApiDeviceChallengeParams, AdminApiDeviceChallengeResult>(name, f),
-        "admin.api.device.pair" => pair::<AdminApiDevicePairParams, AdminApiDevicePairResult>(name, f),
-        "admin.api.device.prove" => pair::<AdminApiDeviceProveParams, AdminApiDeviceProveResult>(name, f),
+        "admin.api.device.announce" => {
+            pair::<AdminApiDeviceAnnounceParams, AdminApiDeviceAnnounceResult>(name, f)
+        }
+        "admin.api.device.challenge" => {
+            pair::<AdminApiDeviceChallengeParams, AdminApiDeviceChallengeResult>(name, f)
+        }
+        "admin.api.device.pair" => {
+            pair::<AdminApiDevicePairParams, AdminApiDevicePairResult>(name, f)
+        }
+        "admin.api.device.prove" => {
+            pair::<AdminApiDeviceProveParams, AdminApiDeviceProveResult>(name, f)
+        }
         "user.list" => pair::<UserListParams, UserListResult>(name, f),
         "user.role.set" => pair::<UserRoleSetParams, UserRoleSetResult>(name, f),
         "user.invite.create" => pair::<UserInviteCreateParams, UserInviteCreateResult>(name, f),
