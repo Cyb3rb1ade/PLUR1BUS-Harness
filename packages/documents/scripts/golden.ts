@@ -41,6 +41,11 @@ function findChromium(): string {
   throw new Error("no Chromium binary; set PLUR1BUS_CHROMIUM_BIN");
 }
 
+function sizeOf(file: string): string {
+  const p = decodePng(readFileSync(file));
+  return `${p.width}x${p.height}`;
+}
+
 function chromeVersion(bin: string): string {
   const r = spawnSync(bin, ["--version"], { encoding: "utf8" });
   return (r.stdout ?? "").trim() || "unknown";
@@ -93,7 +98,7 @@ if (mode === "update" && opt("--from")) {
   const failures: string[] = [];
   for (const template of TEMPLATE_IDS) {
     const r = diffPng(readFileSync(join(GOLDEN_DIR, `${template}.png`)), readFileSync(join(out, `${template}.png`)), { tolerance: manifest.threshold.channelTolerance, maxRatio: manifest.threshold.maxDiffRatio });
-    console.log(`${r.ok ? "ok  " : "FAIL"} ${template}: ${r.sizeMismatch ? "size changed" : `${r.differing}/${r.total} px differ (${(r.ratio * 100).toFixed(4)} %)`}`);
+    console.log(`${r.ok ? "ok  " : "FAIL"} ${template}: ${r.sizeMismatch ? `size changed (${sizeOf(join(GOLDEN_DIR, `${template}.png`))} -> ${sizeOf(join(out, `${template}.png`))})` : `${r.differing}/${r.total} px differ (${(r.ratio * 100).toFixed(4)} %)`}`);
     if (!r.ok) failures.push(template);
   }
   const t = `tolerance ${manifest.threshold.channelTolerance}/255 per channel, max ${manifest.threshold.maxDiffRatio * 100} % differing pixels per page`;
