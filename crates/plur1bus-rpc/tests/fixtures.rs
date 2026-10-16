@@ -123,18 +123,6 @@ fn method_fixture(name: &str, f: &Value) {
         "admin.api.invite.validate" => {
             pair::<AdminApiInviteValidateParams, AdminApiInviteValidateResult>(name, f)
         }
-        "admin.api.device.announce" => {
-            pair::<AdminApiDeviceAnnounceParams, AdminApiDeviceAnnounceResult>(name, f)
-        }
-        "admin.api.device.challenge" => {
-            pair::<AdminApiDeviceChallengeParams, AdminApiDeviceChallengeResult>(name, f)
-        }
-        "admin.api.device.pair" => {
-            pair::<AdminApiDevicePairParams, AdminApiDevicePairResult>(name, f)
-        }
-        "admin.api.device.prove" => {
-            pair::<AdminApiDeviceProveParams, AdminApiDeviceProveResult>(name, f)
-        }
         "user.list" => pair::<UserListParams, UserListResult>(name, f),
         "user.role.set" => pair::<UserRoleSetParams, UserRoleSetResult>(name, f),
         "user.invite.create" => pair::<UserInviteCreateParams, UserInviteCreateResult>(name, f),
@@ -311,18 +299,6 @@ fn method_fixture(name: &str, f: &Value) {
         "dreams.enable" => pair::<DreamsEnableParams, DreamsEnableResult>(name, f),
         "dreams.disable" => pair::<DreamsDisableParams, DreamsDisableResult>(name, f),
         "dreams.diary" => pair::<DreamsDiaryParams, DreamsDiaryResult>(name, f),
-        "chat.create" => pair::<ChatCreateParams, ChatCreateResult>(name, f),
-        "chat.list" => pair::<ChatListParams, ChatListResult>(name, f),
-        "chat.get" => pair::<ChatGetParams, ChatGetResult>(name, f),
-        "chat.events" => pair::<ChatEventsParams, ChatEventsResult>(name, f),
-        "chat.submit" => pair::<ChatSubmitParams, ChatSubmitResult>(name, f),
-        "chat.update" => pair::<ChatUpdateParams, ChatUpdateResult>(name, f),
-        "chat.archive" => pair::<ChatArchiveParams, ChatArchiveResult>(name, f),
-        "chat.restore" => pair::<ChatRestoreParams, ChatRestoreResult>(name, f),
-        "chat.cancel" => pair::<ChatCancelParams, ChatCancelResult>(name, f),
-        "chat.fork" => pair::<ChatForkParams, ChatForkResult>(name, f),
-        "chat.delete" => pair::<ChatDeleteParams, ChatDeleteResult>(name, f),
-        "chat.export" => pair::<ChatExportParams, ChatExportResult>(name, f),
         "admin.reembed.plan" => pair::<AdminReembedPlanParams, AdminReembedPlanResult>(name, f),
         "admin.reembed.run" => pair::<AdminReembedRunParams, AdminReembedRunResult>(name, f),
         "admin.reembed.status" => {
@@ -617,7 +593,6 @@ fn every_notification_fixture_round_trips() {
             "approval.parked" => round_trip::<types::ApprovalParkedNotification>(v, name),
             "api.account.changed" => round_trip::<types::ApiAccountChangedNotification>(v, name),
             "grant.changed" => round_trip::<types::GrantChangedNotification>(v, name),
-            "devices.trust.next" => round_trip::<types::DevicesTrustNextNotification>(v, name),
             "voice.download.progress" => {
                 round_trip::<types::VoiceDownloadProgressNotification>(v, name)
             }
