@@ -114,6 +114,8 @@ struct Item {
     atom: Atom,
     min: usize,
     max: usize,
+    /// `*` or `+`: unbounded in the pattern, so it can be stretched to reach a `minLength`.
+    open: bool,
 }
 struct Pattern {
     items: Vec<Item>,
@@ -190,6 +192,7 @@ fn parse_seq(c: &[char], mut i: usize, p: &str) -> (Vec<Item>, usize) {
                 Atom::Lit(lit)
             }
         };
+        let mut open = false;
         let (min, max) = match c.get(i) {
             Some('{') => {
                 let close = c[i..].iter().position(|&x| x == '}').unwrap() + i;
@@ -206,15 +209,22 @@ fn parse_seq(c: &[char], mut i: usize, p: &str) -> (Vec<Item>, usize) {
             }
             Some('*') => {
                 i += 1;
+                open = true;
                 (0, 4)
             }
             Some('+') => {
                 i += 1;
+                open = true;
                 (1, 4)
             }
             _ => (1, 1),
         };
-        items.push(Item { atom, min, max });
+        items.push(Item {
+            atom,
+            min,
+            max,
+            open,
+        });
     }
     (items, i)
 }
@@ -239,6 +249,8 @@ enum Size {
     Min,
     Max,
     Random,
+    /// The minimum, with every open-ended (`*`, `+`) item repeated this many extra times.
+    Fill(usize),
 }
 
 fn emit(items: &[Item], size: Size, rng: &mut Rng, out: &mut String) {
@@ -247,6 +259,7 @@ fn emit(items: &[Item], size: Size, rng: &mut Rng, out: &mut String) {
             Size::Min => item.min,
             Size::Max => item.max,
             Size::Random => rng.range(item.min, item.max),
+            Size::Fill(extra) => item.min + if item.open { extra } else { 0 },
         };
         for _ in 0..n {
             match &item.atom {
@@ -497,6 +510,11 @@ impl Gen<'_> {
             }
             if s.chars().count() < min {
                 s = from_pattern(pattern, Size::Max, self.rng);
+            }
+            if s.chars().count() < min {
+                // Open-ended `+` / `*` quantifiers cap at a few repeats; stretch them to the minimum.
+                let base = from_pattern(pattern, Size::Min, self.rng).chars().count();
+                s = from_pattern(pattern, Size::Fill(min.saturating_sub(base)), self.rng);
             }
             return Value::String(s);
         }
