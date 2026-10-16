@@ -63,3 +63,21 @@ it('an exact summarize model keeps its profile fallback order and measured serve
   const p=createSessionRoleProvider(createTurnProvider,{...f.options,profiles,billing:{first:'paid',second:'paid'},router:{retry:{maxRetries:0},clock:{now:Date.now,sleep:async()=>{}}}},{summarize:'first/gpt-4.1-mini'},40);
   try {let served=''; for await(const c of p.stream(request())) if(c.type==='usage') served=c.model??''; assert.equal(fallback,1); assert.equal(served,'second/gpt-4.1');} finally{f.close();}
 });
+it('L7/L9: selected profile reaches the real router; returning to a model keeps stable-zone hashes and fresh recall stays in the tail', async () => {
+  const f = fixture();
+  const renders: import('../../src/prompt/types.ts').RenderedPrompt[] = [];
+  const provider = createSessionRoleProvider(createTurnProvider, { ...f.options, onPrompt: p => { renders.push(p); } }, {}, 40);
+  const { role: _role, ...foreground } = request();
+  try {
+    assert.deepEqual(provider.modelProfiles?.(), ['default', 'cheap']);
+    assert.deepEqual(provider.contextModels?.('chat', 'cheap'), [{ provider: 'fixture', model: 'gpt-4.1-mini' }]);
+    for (const [i, profile] of ['default', 'cheap', 'default'].entries()) {
+      for await (const chunk of provider.stream({ ...foreground, modelProfile: profile, turnId: `t${i}`, memory: i === 0 ? 'frozen memory' : `fresh fact ${i}` })) void chunk;
+    }
+    assert.deepEqual(f.calls.map(c => c.model), ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1']);
+    assert.deepEqual(renders[0]!.prefixHashes, renders[2]!.prefixHashes);
+    assert.equal(renders[0]!.zoneHashes.memory, renders[2]!.zoneHashes.memory);
+    assert.ok(renders[2]!.segments.some(s => s.zone === 'volatile' && s.text.includes('fresh fact 2')));
+    assert.ok(!renders[2]!.segments.some(s => s.zone === 'memory' && s.text.includes('fresh fact')));
+  } finally { f.close(); }
+});

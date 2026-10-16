@@ -907,6 +907,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                     &root_schema,
                 )
             }
+            "session.model.set" => check_pair::<
+                types::SessionModelSetParams,
+                types::SessionModelSetResult,
+            >(name, fixture, &root_schema),
             "session.cancel" => {
                 check_pair::<types::SessionCancelParams, types::SessionCancelResult>(
                     name,

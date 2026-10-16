@@ -69,7 +69,7 @@ export function openSessionService(d: SessionServiceDeps): SessionService {
     logger: { info: (m, f) => d.logger.info(m, f), warn: (m, f) => d.logger.warn(m, f) },
     notify: (e, s) => d.notify("session.event", { agentId: s.agentId, event: toWireEvent(e) }, { optIn: true }),
   });
-  const methods = buildSessionMethods({ store, runner, compactor, agents: d.agents, isStopping: d.isStopping, ...(d.approver ? { approver: d.approver } : {}) });
+  const methods = buildSessionMethods({ modelProfiles: () => d.provider()?.modelProfiles?.() ?? [], store, runner, compactor, agents: d.agents, isStopping: d.isStopping, ...(d.approver ? { approver: d.approver } : {}) });
   return {
     store, runner, compactor, pruner, methods, recovered,
     // A turn that ignores the shutdown abort is not waited for beyond the budget: it stays `running` in the file and the

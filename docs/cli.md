@@ -1189,6 +1189,8 @@ Chat sessions: list, show, archive
 
 ###### **Options:**
 
+* `--model <PROFILE>` — Configured model profile for this session; warns and asks before switching
+* `--yes` — Confirm the model switch for scripts (including --json)
 * `--agent <AGENT>` — The agent to talk to (default: the only registered agent)
 * `--session <SESSION>` — Continue this session instead of starting a new one
 * `--no-memory` — Start the chat incognito: nothing of it is remembered
