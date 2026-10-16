@@ -49,6 +49,7 @@ Interfaces: `LiveCapabilityIndex.view(scope, tools, selection, agent) -> Capabil
 
 - [x] Inventory session records and engine proposal APIs: public memory-correction queue cannot accept skill artifacts.
 - [x] Prepare proven same-scope workflow candidates, inactive payloads and rejection-hash orchestration with test ports. Production queue adapter remains blocked.
+- [x] Prepare an in-process owner/admin review facade using existing ApprovalService, with content-bound once grants and explicit `engine-unavailable`.
 - [ ] Bind review-only RPC/CLI/library component with owner/admin RBAC and audit, preserving engine queue ownership and disabled X1 installation.
 - [ ] Enforce artifact provenance and default approval for self-knowledge without modifying Dreams or bypassing existing approvals.
 - [x] Add scope/marker/provenance/rejection tests; update milestones/tool reliability with named evidence and open lifecycle gaps.

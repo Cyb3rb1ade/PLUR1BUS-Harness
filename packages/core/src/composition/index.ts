@@ -1,4 +1,5 @@
 import { SkillMining } from '../skill-mining/miner.ts';
+import { SkillReview, UnavailableSkillProposals } from '../skill-mining/review.ts';
 import { WorkflowEvidence } from '../skill-mining/evidence.ts';
 import { toolEntry } from '../toolcall/live-index.ts';
 import { loadClassProfiles } from '../triage/classes.ts';
@@ -76,7 +77,7 @@ export interface CompositionDeps {
   /** web.search over the SearXNG sidecar (`sidecars/web-search.ts`); absent, no search tool is registered. */
   webSearch?: import('../tools/web/search.ts').WebSearch;
 }
-export interface TurnComposition { mining: SkillMining; capabilities: LiveCapabilityIndex; discoveryCredentials: (definition: ProviderDefinition) => import("../auth/credentials.ts").CredentialsProvider | undefined; voice: VoiceRuntime; openai: OpenAIRuntime; sessions: SessionService; collab: Collab | null; surfaceMethods: Record<string, Handler>; close(): Promise<void> }
+export interface TurnComposition { skillReview: SkillReview; mining: SkillMining; capabilities: LiveCapabilityIndex; discoveryCredentials: (definition: ProviderDefinition) => import("../auth/credentials.ts").CredentialsProvider | undefined; voice: VoiceRuntime; openai: OpenAIRuntime; sessions: SessionService; collab: Collab | null; surfaceMethods: Record<string, Handler>; close(): Promise<void> }
 /**
  * D109: the approval service's repeat-denied / prompt-cap context for one dispatched call. The permission stores are opened by
  * `beforeTools` before any dispatch; if they are not, this throws and the dispatcher refuses the call (fail closed).
@@ -200,14 +201,16 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     })) : null;
     if (collab) disposers.push(() => collab.shutdown());
     sessions = openSessionService({ ...maintenance, dbPath: join(d.home, 'state', 'sessions.sqlite'), clock: d.clock, logger: d.logger, agents: d.agents, isStopping: d.isStopping, memory, provider: () => provider, notify: d.notify, signal: d.signal, onSessionEnd: id => { void hostctl.endSession(id).catch(err => d.logger.warn('hostctl session cleanup failed', { err })); }, ...(d.approver ? { approver: d.approver } : {}) });
+    const skillProposals = new UnavailableSkillProposals();
+    const skillReview = new SkillReview(skillProposals, { request: async ask => (await d.permissions.open()).service.request(ask), begin: (answer, ask) => d.permissions.current()?.service.begin(answer, ask) ?? false });
     const mining = new SkillMining(sessions.store, async scope => {
       if (!d.agents.has(scope.agentId)) throw new RpcError('E_AGENT_UNKNOWN', 'mining agent is not registered');
       const registry = await toolsForTurn({ sessionId: 'skill-mining-catalogue', agentId: scope.agentId, principal: scope.owner, summaries: [], memory: '', messages: [], signal: d.signal });
       return registry.entries().map(t => ({ name: t.name, version: toolEntry(t, JSON.stringify([scope.agentId, scope.owner])).version }));
-    }, workflowEvidence);
+    }, workflowEvidence, skillProposals);
     let closed = false;
     const opened = sessions;
-    return { mining, capabilities, discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, surfaceMethods: { ...mediaSurface.methods, ...mediaSearchMethods({ home: d.home, config: d.config, agents: d.agents }, mediaSearch) }, async close() {
+    return { skillReview, mining, capabilities, discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, surfaceMethods: { ...mediaSurface.methods, ...mediaSearchMethods({ home: d.home, config: d.config, agents: d.agents }, mediaSearch) }, async close() {
       if (closed) return; closed = true;
       await opened.close();
       for (const close of disposers.reverse()) try { await close(); } catch (e) { d.logger.warn('turn service shutdown failed', { err: e }); }

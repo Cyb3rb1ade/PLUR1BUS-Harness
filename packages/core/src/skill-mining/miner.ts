@@ -5,6 +5,7 @@ import type { SessionStore } from '../session/store.ts';
 import type { SessionRecord, EventRecord } from '../session/types.ts';
 import { RpcError } from '../rpc/errors.ts';
 import type { SystemJobHandler } from '../system-jobs/index.ts';
+import { UnavailableSkillProposals } from './review.ts';
 export interface MiningScope { owner: string; agentId: string; scope: string }
 export interface ExecutionProof { verified(scope: MiningScope, sessionId: string, turnId: string, callId: string, tool: string, version: string): boolean }
 export interface MiningTool { name: string; version: string }
@@ -17,6 +18,7 @@ export interface SkillCandidate {
 export interface SkillProposalQueue {
   /** Only an engine-owned additive artifact proposal API may implement this port; memory correction is insufficient. */
   readonly supportsSkillArtifacts: true;
+  readonly state?: 'ready' | 'engine-unavailable';
   find(scope: MiningScope, workflowHash: string): Promise<{ id: string; status: 'pending' | 'accepted' | 'rejected' } | null>;
   propose(scope: MiningScope, candidate: SkillCandidate): Promise<{ id: string; status: 'pending' }>;
 }
@@ -83,9 +85,9 @@ export function mineSessionWorkflows(store: MiningSessions, scope: MiningScope, 
 /** Proposal-only orchestration: no filesystem writer, installer, enabling hook, or fallback local queue exists here. */
 export class SkillMining {
   readonly #running = new Map<string, Promise<{ ids: string[]; duplicates: number }>>();
-  readonly #source: MiningSessions; readonly #tools: (scope: MiningScope) => readonly MiningTool[] | Promise<readonly MiningTool[]>; readonly #proof: ExecutionProof; readonly #queue: SkillProposalQueue | undefined;
-  constructor(source: MiningSessions, tools: (scope: MiningScope) => readonly MiningTool[] | Promise<readonly MiningTool[]>, proof: ExecutionProof, queue?: SkillProposalQueue) { this.#source = source; this.#tools = tools; this.#proof = proof; this.#queue = queue; }
-  status() { return { available: this.#queue?.supportsSkillArtifacts === true, activeByDefault: false, humanReviewRequired: true }; }
+  readonly #source: MiningSessions; readonly #tools: (scope: MiningScope) => readonly MiningTool[] | Promise<readonly MiningTool[]>; readonly #proof: ExecutionProof; readonly #queue: SkillProposalQueue;
+  constructor(source: MiningSessions, tools: (scope: MiningScope) => readonly MiningTool[] | Promise<readonly MiningTool[]>, proof: ExecutionProof, queue: SkillProposalQueue = new UnavailableSkillProposals()) { this.#source = source; this.#tools = tools; this.#proof = proof; this.#queue = queue; }
+  status() { const available = this.#queue.supportsSkillArtifacts === true && this.#queue.state !== 'engine-unavailable'; return { available, state: available ? 'ready' as const : 'engine-unavailable' as const, activeByDefault: false, humanReviewRequired: true }; }
   async preview(scope: MiningScope): Promise<SkillCandidate[]> { const bound = boundScope(scope); return mineSessionWorkflows(this.#source, bound, await this.#tools(bound), this.#proof); }
   propose(scope: MiningScope): Promise<{ ids: string[]; duplicates: number }> {
     const bound = boundScope(scope), key = canonicalJson(bound);
@@ -94,7 +96,7 @@ export class SkillMining {
     return running;
   }
   async #propose(scope: MiningScope): Promise<{ ids: string[]; duplicates: number }> {
-    if (!this.#queue?.supportsSkillArtifacts) throw new RpcError('E_NOT_AVAILABLE', 'the engine has no skill-artifact proposal contract', { reason: 'skill-proposal-contract-unavailable' });
+    if (!this.status().available) throw new RpcError('E_NOT_AVAILABLE', 'the engine has no skill-artifact proposal contract', { reason: 'skill-proposal-contract-unavailable' });
     const ids: string[] = []; let duplicates = 0;
     for (const candidate of await this.preview(scope)) {
       if (await this.#queue.find(scope, candidate.workflowHash)) { duplicates++; continue; }
