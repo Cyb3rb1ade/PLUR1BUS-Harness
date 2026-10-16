@@ -1,0 +1,27 @@
+import assert from 'node:assert/strict';
+import { before, after, test } from 'node:test';
+import { setup, teardown, withApp, openRoute, browserSkip } from './harness.ts';
+before(setup); after(teardown);
+for (const lang of ['en', 'de'] as const) test(`D104 board card and comment render escaped peer content (${lang})`, { skip: browserSkip }, async () => {
+  await withApp({ locale: lang === 'de' ? 'de-DE' : 'en-US' }, async app => {
+    const project = { id: 'p1', name: 'D104', owner: 'owner', members: [{ userId: 'owner', role: 'lead' }], agents: [], archivedAt: null };
+    const body = JSON.stringify({ schema: 'plur1bus.handoff/1', id: 'ho_one', kind: 'delegate', objective: '<script>injected()</script>', doneWhen: ['green tests'] });
+    const card = { id: 'c1', projectId: 'p1', title: 'Handoff fixture', description: body, columnId: 'col1', position: 0, labels: [], priority: 'normal', dueAt: null, assignees: [], links: [], createdBy: { kind: 'person', id: 'owner' }, updatedBy: { kind: 'person', id: 'owner' }, createdAt: 1, updatedAt: 1, archived: false };
+    const rpc = app.server.rpc;
+    rpc.handle('project.list', () => ({ projects: [project] }), { write: false });
+    rpc.handle('project.get', () => project, { write: false });
+    rpc.handle('project.column.list', () => ({ columns: [{ id: 'col1', title: 'Backlog', titleKey: null, position: 0, wipLimit: null }] }), { write: false });
+    rpc.handle('project.card.list', () => ({ cards: [card], nextCursor: null }), { write: false });
+    rpc.handle('project.card.get', () => card, { write: false });
+    rpc.handle('project.card.comment.list', () => ({ items: [{ id: 'cm1', cardId: 'c1', author: { kind: 'agent', id: 'forge' }, text: body, createdAt: 1 }], nextCursor: null }), { write: false });
+    rpc.handle('project.card.activity.list', () => ({ items: [], nextCursor: null }), { write: false });
+    await openRoute(app.page, '#/projects/p1', lang);
+    await app.page.getByText('Handoff fixture', { exact: true }).click();
+    await app.page.locator('.comments-feed .handoff-card').waitFor();
+    assert.equal(await app.page.locator('.handoff-card').count(), 2);
+    assert.equal(await app.page.locator('.handoff-card script').count(), 0);
+    assert.match(await app.page.locator('.handoff-card').first().textContent() ?? '', /<script>injected\(\)<\/script>/);
+    assert.match(await app.page.locator('.handoff-card').first().textContent() ?? '', lang === 'de' ? /Agentenübergabe/ : /Agent hand-off/);
+    assert.deepEqual(app.problems, []);
+  });
+});

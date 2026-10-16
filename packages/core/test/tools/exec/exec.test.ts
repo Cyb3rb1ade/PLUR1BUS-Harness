@@ -1,5 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { execRun, createExecTool, ExecFailure, buildEnv, DEFAULT_ENV_ALLOW } from "../../../src/tools/exec/index.ts";
 import { FakeProcess, mk, tmpRoot } from "./helpers.ts";
 
@@ -286,5 +288,62 @@ describe("exec.run: an aborted call never starts the program", () => {
     approve({ approved: true });
     await new Promise((res) => setTimeout(res, 10));
     assert.equal(m.port.spawned.length, 0);
+  });
+});
+
+describe("exec.run: foreign output wrapping", () => {
+  async function outWriter() {
+    const { createWriter } = await import("../../../src/logs/writer.ts");
+    const { logsDir } = await import("../../logs/helpers.ts");
+    const dir = logsDir();
+    const w = createWriter({ dir, role: "core.out", source: { kind: "harness", id: "exec", version: null }, timers: false });
+    return { dir, w };
+  }
+  function rows(dir: string) {
+    try { return readFileSync(join(dir, "core.out.log"), "utf8").trim().split("\n").filter(Boolean).map((s) => JSON.parse(s)); }
+    catch { return []; }
+  }
+
+  it("foreign output is bounded and redacted", async () => {
+    const { dir, w } = await outWriter();
+    const { root, sub } = tmpRoot();
+    const m = mk({ root, envAllow: [...DEFAULT_ENV_ALLOW, "API_TOKEN"] }, { output: w });
+    await run(m, { program: "git", cwd: sub, env: { API_TOKEN: "fixture-exec-canary" } }, (p) => {
+      p.stdout("leaked fixture-exec-canary on stdout\n");
+      p.stdout(`${"x".repeat(5000)}\n`);
+      p.stdout("PATH=/usr/bin stays visible\n");
+      p.stderr('ERROR: {"level":"fatal","event":"supervisor.child.given_up"}\n');
+      p.exit(0);
+    });
+    const rs = rows(dir);
+    const text = JSON.stringify(rs);
+    assert.ok(!text.includes("fixture-exec-canary"), text);
+    assert.ok(text.includes("/usr/bin"), text);
+    const lines = rs.filter((r: { event: string }) => r.event === "process.output.line");
+    assert.ok(lines.length >= 3);
+    assert.ok(lines.every((r: { level: string; attrs: { untrusted?: boolean } }) => r.level === "info" && r.attrs.untrusted === true));
+    const long = lines.find((r: { attrs: { truncated?: boolean; bytes?: number; text: string } }) => r.attrs.truncated === true && (r.attrs.bytes ?? 0) > 4096);
+    assert.ok(long);
+    assert.ok(Buffer.byteLength(long.attrs.text) <= 4096);
+    assert.ok(rs.every((r: { level: string; event: string }) => r.level !== "fatal" && r.event !== "supervisor.child.given_up"));
+    w.close();
+  });
+
+  it("a partial line is emitted after one idle second and flushed without close", async () => {
+    const { dir, w } = await outWriter();
+    const { root, sub } = tmpRoot();
+    const m = mk({ root }, { output: w });
+    m.port.onSpawn = (proc) => { proc.stdout("no-newline-yet"); };
+    const p = execRun({ program: "git", cwd: sub }, m.deps);
+    while (m.port.spawned.length === 0) await new Promise<void>((r) => setImmediate(r));
+    m.timers.advance(999);
+    assert.equal(rows(dir).length, 0);
+    m.timers.advance(1);
+    const mid = rows(dir).filter((r: { event: string }) => r.event === "process.output.line");
+    assert.equal(mid.length, 1);
+    assert.equal(mid[0]!.attrs.text, "no-newline-yet");
+    m.port.spawned[0]!.exit(0);
+    await p;
+    w.close();
   });
 });

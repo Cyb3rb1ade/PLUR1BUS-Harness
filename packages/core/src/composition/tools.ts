@@ -13,6 +13,7 @@ import { createExecTool } from '../tools/exec/tool.ts';
 import { createNodeProcessPort, systemTimers } from '../tools/exec/node-process.ts';
 import { scopedMcpPort } from '../mcp/index.ts';
 import type { ExecConfig } from '../tools/exec/types.ts';
+import type { LogWriter } from '../logs/writer.ts';
 import type { AuditSink } from '../rbac/audit.ts';
 import type { GrantSource } from '../policy/index.ts';
 import { mcpToolDefs, type McpToolPort } from '../tools/mcp-bridge.ts';
@@ -32,6 +33,8 @@ export interface ToolCompositionOptions {
   hostctl?: ReturnType<typeof createHostctlPool>;
   /** web.search over the configured SearXNG sidecar. Absent, the tool is not offered. */
   webSearch?: WebSearch;
+  /** When set, exec.run child stdout/stderr are wrapped as untrusted `process.output.line` records. */
+  output?: LogWriter;
   /** document.render (D100) over a headless Chromium. Absent, the tool is not offered. */
   documents?: { browser: ReviewBrowser };
 }
@@ -70,7 +73,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
   // Only ToolDispatcher invokes this closure after a recorded D109 authorization. The inner exec gate is narrowed
   // to that already-authorized invocation; it still enforces config.mode, roots, deny paths, arguments and env.
   registry.register({ name: 'exec.run', description: 'Run an enabled, allowlisted program inside a granted root without a shell.', inputSchema: (await import('../tools/exec/tool.ts')).EXEC_RUN_SCHEMA, capability: 'shell.exec', effect: 'local-write', risk: 'medium', trust: 'first-party', execute: async (args, ctx) => {
-    const tool = createExecTool({ config: { ...o.exec, mode: o.exec?.mode ?? 'deny', roots: o.roots, deny }, process: createNodeProcessPort(), timers: systemTimers, audit: o.audit, policy: { grants: o.grants, clock: { now: Date.now } }, policyContext: { principal: { person: ctx.principal }, subject: { kind: 'agent', agentId: ctx.agentId }, surface: ctx.surface ?? 0, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), overrides: { 'shell.exec': 'allowed' } } });
+    const tool = createExecTool({ config: { ...o.exec, mode: o.exec?.mode ?? 'deny', roots: o.roots, deny }, process: createNodeProcessPort(), timers: systemTimers, audit: o.audit, policy: { grants: o.grants, clock: { now: Date.now } }, policyContext: { principal: { person: ctx.principal }, subject: { kind: 'agent', agentId: ctx.agentId }, surface: ctx.surface ?? 0, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), overrides: { 'shell.exec': 'allowed' } }, ...(o.output ? { output: o.output } : {}) });
     const run = tool.execute; return unwrap(await run(args, ctx));
   } });
   if (o.media) for (const name of ['image.generate', 'image.edit', 'media.generate', 'media.edit'] as const) {

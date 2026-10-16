@@ -484,6 +484,10 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "logs.levels": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "logs.query": {
       "stability": "experimental",
       "since": "1.5.0"
