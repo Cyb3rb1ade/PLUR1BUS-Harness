@@ -168,6 +168,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       ]),
       ...req.messages.map((m): ChatMessage => m.role === 'tool' ? { role: 'user', content: m.text } : { role: m.role, content: m.text }),
     ];
+    let totalCostMicros: number | null = 0;
     let fatal: unknown;
     const turn = { sessionId: req.sessionId, turnId, agentId: req.agentId };
     const emitEvent = (event: TurnRouterEvent) => { try { o.onRouterEvent?.(event, turn); } catch { /* a faulty sink never changes routing */ } };
@@ -251,6 +252,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
               const settled = counts;
               try { await stage('usage', new AbortController().signal, o.log, () => {
                 const s = o.budget.settle(admitted.reservationId, settled);
+                totalCostMicros = totalCostMicros === null || s.costMicros === null ? null : totalCostMicros + s.costMicros;
                 if (ticket !== undefined && s.costMicros !== null) retryBudget.settle(ticket, s.costMicros);
                 if (rendered && !estimated) { const cacheRecord = telemetry.record(rendered, { cache_read: settled.cacheReadTokens, cache_creation: settled.cacheWriteTokens, input: Math.max(0, settled.inputTokens - settled.cacheReadTokens - settled.cacheWriteTokens) }); o.onUsage?.(cacheRecord); }
               }); } catch (e) { fatal = e; throw e; }
@@ -309,7 +311,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         if (fatal) throw fatal;
         if (!done) throw new ProviderError('unknown', 'provider stream ended without result');
         if (done.text.startsWith(roundText) && done.text.length > roundText.length) yield { type: 'delta', text: done.text.slice(roundText.length) };
-        if (done.usage?.inputTokens !== undefined && done.usage.outputTokens !== undefined) { totalInputTokens += done.usage.inputTokens; totalOutputTokens += done.usage.outputTokens; yield { type: 'usage', inputTokens: totalInputTokens, outputTokens: totalOutputTokens }; }
+        if (done.usage?.inputTokens !== undefined && done.usage.outputTokens !== undefined) { totalInputTokens += done.usage.inputTokens; totalOutputTokens += done.usage.outputTokens; yield { type: 'usage', inputTokens: totalInputTokens, outputTokens: totalOutputTokens, ...(req.projectId ? { costMicros: totalCostMicros } : {}) }; }
         if (!done.toolCalls.length) return;
         const calls = uniqueToolCallIds(done.toolCalls);
         const toolCalls = calls.map(c => ({ id: c.id, name: c.name, arguments: c.argumentsRaw }));

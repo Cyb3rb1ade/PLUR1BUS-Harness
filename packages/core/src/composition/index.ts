@@ -186,7 +186,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       const id = randomUUID(); await writeFile(join(dir, `${id}.json`), JSON.stringify(value), { flag: 'wx', mode: 0o600 }); return `tool-result:${id}`;
     } } }) : null;
     voice.setDelegate(provider);
-    collab = budget ? isolated('collaboration', () => createCollab({ path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock,
+    collab = budget ? isolated('collaboration', () => createCollab({ path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock, sessions: () => sessions.store,
       runner: provider ? composedAgentRunner(provider, alsAgentScopePort(), d.home, options.delegationTargets) : { async run() { throw new Error('no-provider'); } }, directory: { get: id => d.agents.has(id) || options.delegationTargets?.some(t => t.accepts(id)) ? { id, state: 'active' } : null },
       emit: { emit: event => d.logger.info(event.type, { projectId: event.projectId, traceId: event.traceId }) },
       logWarn: (msg, fields) => d.logger.warn(msg, fields),
@@ -217,6 +217,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     const opened = sessions;
     return { discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, surfaceMethods: { ...mediaSurface.methods, ...mediaSearchMethods({ home: d.home, config: d.config, agents: d.agents }, mediaSearch) }, async close() {
       if (closed) return; closed = true;
+      await collab?.shutdown();
       await opened.close();
       for (const close of disposers.reverse()) try { await close(); } catch (e) { d.logger.warn('turn service shutdown failed', { err: e }); }
     } };

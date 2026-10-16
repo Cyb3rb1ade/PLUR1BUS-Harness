@@ -30,9 +30,9 @@
 
 ## Phase 3 — codex/m5-p3-trace-replay
 
-- [ ] Merge dependencies; persist redacted per-hop sessions linked to W3C trace; verify replay and membership.
-- [ ] Project trace tree with costs/duration/status/transcript links, DE/EN and keyboard support. Optional mirroring remains off.
-- [ ] Commit and PR with handoff.
+- [x] Merge dependencies; persist redacted per-hop sessions linked to W3C trace; verify replay and membership.
+- [x] Project trace tree with costs/duration/status/transcript links, DE/EN and keyboard support. Optional mirroring remains off.
+- [x] Commit and PR with handoff.
 
 ## Phase 4 — codex/m5-p4-coding-gate-eval
 

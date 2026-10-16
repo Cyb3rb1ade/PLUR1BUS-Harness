@@ -5,17 +5,20 @@ import type { AgentScopePort } from "./ports.ts";
 import { requireAgentScope, type AgentScopeValue } from "./scope.ts";
 
 export interface AgentRunInput {
+  sessionId?: string;
   agentId: string;
   question: string;
   context: string;
   signal: AbortSignal;
   /** Authenticated collab caller, supplied by the service to production adapters. */
   handoff?: { contract: import('./handoff.ts').Handoff; context: import('./handoff.ts').HandoffContext };
+  onTranscript?: (entry: { kind: string; data: unknown }) => void;
   onProgress?: (progress: AgentRunResult) => void;
   principal?: import("../rbac/types.ts").Principal;
 }
 
 export interface AgentRunResult {
+  costEstimate?: number | null;
   partial?: boolean;
   text: string;
   inputTokens: number;
@@ -42,7 +45,7 @@ export function providerRunner(provider: ChatProvider, scope: AgentScopePort): A
       let inputTokens = 0;
       let outputTokens = 0;
       for await (const chunk of provider.stream({
-        sessionId: `collab:${held.projectId}`,
+        sessionId: input.sessionId ?? `collab:${held.projectId}`,
         agentId: input.agentId,
         summaries: [],
         memory: "",

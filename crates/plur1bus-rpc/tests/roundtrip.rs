@@ -388,6 +388,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::ProjectAgentRemoveParams,
                 types::ProjectAgentRemoveResult,
             >(name, fixture, &root_schema),
+            "collab.session.replay" => check_pair::<
+                types::CollabSessionReplayParams,
+                types::CollabSessionReplayResult,
+            >(name, fixture, &root_schema),
             "collab.trace.get" => check_pair::<
                 types::CollabTraceGetParams,
                 types::CollabTraceGetResult,

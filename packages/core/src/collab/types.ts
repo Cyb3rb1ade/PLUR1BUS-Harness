@@ -85,6 +85,7 @@ export interface DelegateHandle {
 }
 
 export interface CollabSpan {
+  sessionId?: string;
   spanId: string;
   traceId: string;
   parentSpanId: string | null;
