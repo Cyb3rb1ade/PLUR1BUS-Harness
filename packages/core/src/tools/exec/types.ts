@@ -70,6 +70,8 @@ export interface ExecDeps {
   /** Who is calling; built by the dispatcher, never from tool arguments. */
   policyContext: Context;
   host?: string;
+  /** When set, child stdout/stderr are wrapped as untrusted `process.output.line` records. */
+  output?: import("../../logs/writer.ts").LogWriter;
 }
 
 export interface ExecRequest {

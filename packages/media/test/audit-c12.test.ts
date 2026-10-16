@@ -83,7 +83,8 @@ async function setup(adapter: ImageAdapter) {
 }
 const waiting: ImageAdapter = {
   id: 'fake', capabilities: () => ({ generate: true, edit: true, inpaint: false }),
-  generate: (_r, c) => new Promise((_resolve, reject) => { c!.signal!.addEventListener('abort', () => reject(c!.signal!.reason), { once: true }); }), edit: async () => result,
+  // A signal that is already aborted when generate() is called never fires 'abort' again: reject at once, as a real adapter's fetch does.
+  generate: (_r, c) => new Promise((_resolve, reject) => { const signal = c!.signal!; if (signal.aborted) return reject(signal.reason); signal.addEventListener('abort', () => reject(signal.reason), { once: true }); }), edit: async () => result,
 };
 
 test('cancel() issued while run() is still starting up is not lost', async () => {
@@ -95,8 +96,11 @@ test('cancel() issued while run() is still starting up is not lost', async () =>
 });
 
 test('a second run() of a job that is already running in this process is refused without touching its controller', async () => {
-  const s = await setup(waiting); const job = await s.runner.enqueue('fake', { prompt: 'x' });
-  const first = s.runner.run(job.id); await new Promise(r => setTimeout(r, 50));
+  // Wait for the adapter to be entered (the job is really running), not for a fixed 50 ms: under load the first run() can still be
+  // starting then, and the cancel() below would land before generate() is called.
+  let entered!: () => void; const started = new Promise<void>(r => { entered = r; });
+  const s = await setup({ ...waiting, generate: (r, c) => { entered(); return waiting.generate(r, c); } }); const job = await s.runner.enqueue('fake', { prompt: 'x' });
+  const first = s.runner.run(job.id); await started;
   await assert.rejects(s.runner.run(job.id), code('backend_unavailable'));
   await s.runner.cancel(job.id); await first; assert.equal((await s.persistence.get(job.id))!.state, 'cancelled');
 });

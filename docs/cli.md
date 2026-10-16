@@ -160,6 +160,9 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus budget set`↴](#plur1bus-budget-set)
 * [`plur1bus audit`↴](#plur1bus-audit)
 * [`plur1bus audit verify`↴](#plur1bus-audit-verify)
+* [`plur1bus logs`↴](#plur1bus-logs)
+* [`plur1bus logs query`↴](#plur1bus-logs-query)
+* [`plur1bus logs tail`↴](#plur1bus-logs-tail)
 * [`plur1bus secret`↴](#plur1bus-secret)
 * [`plur1bus secret status`↴](#plur1bus-secret-status)
 * [`plur1bus secret set`↴](#plur1bus-secret-set)
@@ -310,6 +313,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `voice` — [experimental] Voice: language profiles, realtime features, agent overrides and licensed models
 * `budget` — [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
 * `audit` — [experimental] Audit trail: verify the hash-chained audit file (B5)
+* `logs` — [experimental] Diagnostic logs: query and tail through the core
 * `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
 * `device` — [experimental] Paired devices: list, revoke and rename (F44)
 * `grant` — [experimental] Standing permissions: list, add and revoke grants (D109)
@@ -2539,6 +2543,70 @@ A limit needs `--global` or `--agent`, `--period` and `--metric`, and at least o
 Every line of the chained audit file must carry the SHA-256 of the line before it, sequence numbers must be gapless across rotated files, and the anchor file must match the newest line. Asks the core (`audit.verify`, Owner and Admin only); the CLI does not read the files itself.
 
 **Usage:** `plur1bus audit verify`
+
+
+
+## `plur1bus logs`
+
+[experimental] Diagnostic logs: query and tail through the core
+
+**Usage:** `plur1bus logs <COMMAND>`
+
+###### **Subcommands:**
+
+* `query` — [experimental] Query diagnostic logs (newest first)
+* `tail` — [experimental] Tail diagnostic logs (oldest of the newest page first)
+
+
+
+## `plur1bus logs query`
+
+[experimental] Query diagnostic logs (newest first)
+
+**Usage:** `plur1bus logs query [OPTIONS]`
+
+###### **Options:**
+
+* `--level <LEVEL>` — Minimum level
+
+  Possible values: `trace`, `debug`, `info`, `warn`, `error`, `fatal`
+
+* `--component <COMPONENT>` — File role, source.id or source.kind
+* `--trace <TRACE>` — 32-hex trace id (exact match on the record's trace_id)
+* `--from <TS>` — Inclusive lower bound
+* `--to <TS>` — Inclusive upper bound
+* `--limit <LIMIT>`
+
+  Default value: `100`
+* `--stream <STREAM>`
+
+  Possible values: `diagnostic`, `audit`
+
+
+
+
+## `plur1bus logs tail`
+
+[experimental] Tail diagnostic logs (oldest of the newest page first)
+
+**Usage:** `plur1bus logs tail [OPTIONS]`
+
+###### **Options:**
+
+* `--level <LEVEL>` — Minimum level
+
+  Possible values: `trace`, `debug`, `info`, `warn`, `error`, `fatal`
+
+* `--component <COMPONENT>` — File role, source.id or source.kind
+* `--trace <TRACE>` — 32-hex trace id (exact match on the record's trace_id)
+* `--follow` — Keep polling until interrupted
+* `--limit <LIMIT>`
+
+  Default value: `50`
+* `--stream <STREAM>`
+
+  Possible values: `diagnostic`, `audit`
+
 
 
 

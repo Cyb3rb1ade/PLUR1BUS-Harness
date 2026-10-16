@@ -185,6 +185,11 @@ pub enum Cmd {
         #[command(subcommand)]
         sub: AuditCmd,
     },
+    /// [experimental] Diagnostic logs: query and tail through the core
+    Logs {
+        #[command(subcommand)]
+        sub: crate::commands::logs::LogsCmd,
+    },
     /// [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
     ///
     /// Values are read from stdin, never from arguments, and are printed only by `get --reveal`.

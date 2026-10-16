@@ -1,3 +1,4 @@
+import { buildChatSurface } from "./rpc/chat-surface.ts";
 import { apiAdmission } from "./rpc/api-admission.ts";
 import { apiIdentities } from "./rpc/api-identity.ts";
 import { buildDoctorMethods } from "./doctor-report.ts";
@@ -70,6 +71,7 @@ import type { ChatProvider } from "./session/provider.ts";
 import { createLogsMethods } from "./logs/index.ts";
 import { type SessionService } from "./session/service.ts";
 import { LOCAL_OWNER, createJsonlAuditSink, guardMethods, type AuditSink, type PrincipalResolver } from "./rbac/index.ts";
+import { authenticatedPrincipal } from "./rbac/guard.ts";
 import { createRpcServer, type CallContext, type RpcServer } from "./rpc/server.ts";
 import { sharedMemoryStatus } from "./shared-memory.ts";
 import { projectModels, startWarmup, type Warmup } from "./warmup.ts";
@@ -234,6 +236,7 @@ export function createCore(o: CoreOptions): Core {
   let warmup: Warmup | null = null;
   let scanScheduler: ScanScheduler | null = null;
   let discoveryWriter: ReturnType<typeof createWriter> | null = null;
+  let coreWriter: Pick<ReturnType<typeof createWriter>, "updateLevels" | "currentLevels"> | null = null;
   let dreams: Dreams | null = null;
   let dreamsError: string | undefined;
   let inbox: InboxComposition | null = null; const inboxPort = lateInboxPort(() => inbox?.service ?? null);
@@ -332,7 +335,9 @@ export function createCore(o: CoreOptions): Core {
     source = cs;
     const config = cs.current(); // the configuration the engine is built from (core-class keys)
     const cfg = () => cs.current();
-    logger = o.logger ?? (await import("./logs/bootstrap.ts")).createCoreLog({ dir: l.logs, role: "core", source: { kind: "harness", id: "core", version: "0.1.0" }, levels: { defaultLevel: config.core.logLevel }, maxBytes: config.logs.maxBytes, keep: config.logs.keep, now: clock });
+    const createdLog = o.logger ? null : (await import("./logs/bootstrap.ts")).createCoreLog({ dir: l.logs, role: "core", source: { kind: "harness", id: "core", version: "0.1.0" }, levels: { defaultLevel: config.core.logLevel }, maxBytes: config.logs.maxBytes, keep: config.logs.keep, now: clock });
+    logger = o.logger ?? createdLog!;
+    if (createdLog) coreWriter = createdLog;
     const log = logger;
     for (const [lvl, msg, fields] of early.splice(0)) log[lvl](msg, fields);
     // S11: run/ holds the tokens; on Windows chmod is no permission, so the user-SID ACL goes on through icacls.
@@ -398,7 +403,7 @@ export function createCore(o: CoreOptions): Core {
       if (next.logs.maxBytes !== prev.logs.maxBytes || next.logs.keep !== prev.logs.keep) log.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
       if (next.supervisor.graceMs !== prev.supervisor.graceMs) watchedOrphans.setGraceMs(next.supervisor.graceMs);
       if (plan.changed.some((k) => k.startsWith("models.scan.") || k === "providers" || k.startsWith("providers."))) scanScheduler?.replan();
-      discoveryWriter?.updateLevels({ defaultLevel: next.core.logLevel });
+      if (discoveryWriter) discoveryWriter.updateLevels({ ...discoveryWriter.currentLevels(), defaultLevel: next.core.logLevel });
       discoveryWriter?.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
       log.info("configuration changed", { revision: cs.revision(), changed: plan.changed, restartPending: cs.restartPending() });
       log.debug("live keys applied", { keys: plan.restart.live });
@@ -594,7 +599,12 @@ export function createCore(o: CoreOptions): Core {
         // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or
         // grant-covered turns) and is refused with a typed error only when a call needs a person's approval.
         approver: async (ctx, params) => { const principal = await resolvePrincipal(ctx, "session.submit", params); return { person: principal && principal.kind === "person" ? principal.userId : null, surface: connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }; },
-        isStopping: () => state.state === "stopping" || state.state === "stopped", notify: (method, params, opts) => server?.notify(method, params, opts),
+        isStopping: () => state.state === "stopping" || state.state === "stopped", notify: (method, params, opts) => {
+          const event=(params as {event?:{sessionId?:string}}).event;
+          const session=event?.sessionId?sessions?.forSession(event.sessionId).store.getSession(event.sessionId):null;
+          const person=session?personOf(session.owner):undefined;
+          server?.notify(method,params,person?{...opts,audience:[{personId:person}]}:opts);
+        },
         onStoredCapture: agentId => dreams?.scheduler.recordCapture(agentId), ...(o.chatProvider ? { provider: o.chatProvider } : {}),
         ...(o.composition ? { options: o.composition } : {}), ...(o.budget?.prices ? { prices: o.budget.prices } : {}),
       });
@@ -750,9 +760,18 @@ export function createCore(o: CoreOptions): Core {
         ...buildAuthSurface(() => turnComposition?.openai.auth ?? null),
         ...buildAgentCreationSurface(creation),
         ...buildChannelSurface({ config: cfg, source: cs, secrets: secretStore, identity: () => identity, registry: () => switchboard?.view ?? null, audit: rbacAudit, clock }),
-        // D4: logs.query / logs.tail over <home>/logs; RBAC-guarded below (RPC_RULES).
-        ...createLogsMethods({ dir: l.logs, signal: shutdown.signal }),
+        // D4 / D111: logs.query / logs.tail / logs.levels over <home>/logs; RBAC-guarded below (RPC_RULES).
+        ...createLogsMethods({
+          dir: l.logs, signal: shutdown.signal,
+          ...(coreWriter ? { writer: {
+            currentLevels: () => coreWriter!.currentLevels(),
+            updateLevels(s) { coreWriter?.updateLevels(s); discoveryWriter?.updateLevels(s); },
+          } } : {}),
+          audit: rbacAudit, now: clock,
+          actor: (ctx) => { try { const p = authenticatedPrincipal(ctx); return { user: p.userId, host: "rpc" }; } catch { return { user: "unknown", host: "rpc" }; } },
+        }),
       };
+      Object.assign(rawMethods, buildChatSurface({ sessions: () => sessions, agents: executionRegistry, audit: rbacAudit, now: clock, approver: async (ctx,p) => { const who = await resolvePrincipal(ctx,"chat.submit",p); return { person: who?.kind === "person" ? who.userId : null, surface: connectionSurface({ principal: who, now: clock(), attestation: o.rbac?.attest?.(ctx) }) }; } }));
       Object.assign(rawMethods, sessionWriteAccess({ methods: rawMethods, sessions: () => sessions?.store ?? null, ownership, validateCaller: true }));
       const listAgents = rawMethods["agent.list"], agentStatus = rawMethods["agent.status"];
       rawMethods["agent.list"] = async (p, ctx) => { const r = await listAgents!(p,ctx) as { agents: { agentId: string }[] }; return { ...r, agents: r.agents.filter(a => !lifecycle.state(a.agentId).deleted).map(a => ({ ...a, lifecycle: lifecycle.state(a.agentId) })) }; };

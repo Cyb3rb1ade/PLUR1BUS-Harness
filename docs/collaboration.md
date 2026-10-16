@@ -150,3 +150,32 @@ association has no authorized mutation port, and this work package excludes new
 session behavior. The existing `/rpc` Web transport still needs the API-layer
 principal binding described in the media surface notes; browser mock tests are
 local UI evidence only.
+
+## D104 hand-off contract (M5 phase 1, 2026-10-15)
+
+Closed schemas live in `packages/core/src/collab/schemas/`: `plur1bus.handoff/1`,
+`plur1bus.return/1` and the receiver's `plur1bus.ack/1`. `prepareHandoff` validates
+both structure and the 2,000-token bound, returning issues to the **sender** for
+at most one repair. The bound uses a UTF-8-byte upper bound for byte-level tokenizers, deliberately stricter
+than an estimate when a model tokenizer is unavailable; it is not billed usage. Large content
+belongs in artifact references. Contracts contain output schema and citation
+requirements, model tier/deadline, scope and forbidden actions, and authority.
+
+`HandoffContext` must come from the authenticated dispatcher, not model arguments.
+`verifyHandoffAuthority` checks approval/grant references against the chain-backed
+stores for person, originating agent, task, session (approval), expiry and
+explicit delegation. A mismatch is an audited refusal, never a repair request.
+This is validation, not a new grant: each receiver tool call must still pass D109
+for action hash/path, capability scope and single use. Approval and grant stores
+remain the only authorities; `decide()` and `begin()` signatures are unchanged.
+
+`handoffTicket` snapshots a validated contract and requires a receiver ack before
+`delegate` or `handoff` work. Blocked/wrong-reply acks do not unlock it. Start is
+single use and checks authority again, including expiry/consumption since ack.
+Consultations do not require an ack. `validateReturn` checks reply binding, size,
+output schema and citations for completed results; `partial` is representable.
+Board card descriptions and comments containing these JSON envelopes render as
+DE/EN cards with an untrusted-data label; all peer strings are escaped text.
+
+Phase 1 exposes these ports; phase 2 must bind them to the sole `delegate_task`
+and normal dispatcher. No existing runner is silently opted into delegation.
