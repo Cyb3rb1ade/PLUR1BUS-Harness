@@ -88,8 +88,8 @@ describe("devices: gate", opts, () => {
   test("a link too long for the QR generator shows a hint and the link instead of a broken code", async () => {
     await withApp({}, async (app) => {
       publish(app, "tailnet");
-      const long = `plur1bus://pair?origin=https%3A%2F%2Foffline.invalid&code=ABCD-EFGH&pad=${"x".repeat(300)}`;
-      app.server.rpc.handle("pairing.qr", (p) => ({ link: (p as any).link, qr: { text: (p as any).link, mode: "byte", errorCorrection: "M", length: 400, maxLength: 2331, fits: true }, expiresAt: Date.now() + 3600000 }), { write: false });
+      const long = `plur1bus://pair?origin=https%3A%2F%2Foffline.invalid&code=ABCD-EFGH&pad=${"x".repeat(2400)}`;
+      app.server.rpc.handle("pairing.qr", (p) => ({ link: (p as any).link, qr: { text: (p as any).link, mode: "byte", errorCorrection: "M", length: 2500, maxLength: 2331, fits: false }, expiresAt: Date.now() + 3600000 }), { write: false });
       await open(app);
       const pairGroup = app.page.getByRole("group", { name: "Pair a device" });
       await pairGroup.getByLabel("Pairing link").fill(long);

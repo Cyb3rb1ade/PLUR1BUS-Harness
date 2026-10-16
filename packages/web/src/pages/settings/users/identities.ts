@@ -15,7 +15,7 @@ import "../../../styles/identities.css";
 
 export function IdentitiesPanel(): View {
   const { state, reload } = useLoad((signal) => rpc<IdentityList>("identity.link.list", {}, signal), []);
-  const [channel, setChannel] = useState("telegram");
+  const [channel, setChannel] = useState("");
   const [code, setCode] = useState<{ code: string; expiresAt: number } | null>(null);
   const [remove, setRemove] = useState<string | null>(null);
   const [error, setError] = useState(false);
@@ -41,13 +41,14 @@ export function IdentitiesPanel(): View {
       state.data.links.length
         ? h("ul", { class: "plain-list" }, state.data.links.map((link) =>
           h("li", { key: link.id }, `${link.channel} · ${link.accountId} · ${link.userId}`,
-            write ? h("button", { type: "button", class: "btn btn-danger", onClick: () => { setRemove(link.id); } }, t("surfaces.remove")) : null)))
+            write ? h("button", { type: "button", class: "btn btn-danger", "aria-label": t("identity.removeLabel", { name: `${link.channel} · ${link.accountId}` }), onClick: () => { setRemove(link.id); } }, t("surfaces.remove")) : null)))
         : h(PageState, { state: "empty", title: t("surfaces.empty") }),
       write
         ? h("form", {
           onSubmit: async (e: Event) => {
             e.preventDefault();
             setCode(null);
+            setError(false);
             try {
               setCode(await rpc("identity.link.request", { channel }, undefined, true));
               reload();
@@ -57,7 +58,8 @@ export function IdentitiesPanel(): View {
           },
         },
           h(Field, { id: "identity-channel", label: t("identity.channel") },
-            h("input", { id: "identity-channel", value: channel, required: true, onInput: (e: Event) => { setChannel((e.currentTarget as HTMLInputElement).value); } })),
+            h("input", { id: "identity-channel", list: "identity-channels", value: channel, required: true, onInput: (e: Event) => { setChannel((e.currentTarget as HTMLInputElement).value); } })),
+          h("datalist", { id: "identity-channels" }, [...new Set(state.data.links.map((l) => l.channel))].map((c) => h("option", { key: c, value: c }))),
           h("button", { class: "btn btn-primary", type: "submit" }, t("identity.request")))
         : null,
       code ? h("p", { role: "status" }, t("identity.code", { code: code.code }), " · ", t("identity.expires", { at: new Date(code.expiresAt).toLocaleString() })) : null,
