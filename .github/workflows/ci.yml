@@ -470,7 +470,6 @@ jobs:
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
       CHROME_VERSION: 141.0.7390.54
-      PLUR1BUS_GOLDEN_OUT: ${{ runner.temp }}/golden-renders
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
@@ -497,6 +496,7 @@ jobs:
         shell: bash
         env:
           PLUR1BUS_CHROMIUM_BIN: ${{ steps.chrome.outputs.chrome-path }}
+          PLUR1BUS_GOLDEN_OUT: ${{ runner.temp }}/golden-renders
         run: |
           export PLUR1BUS_CHROMIUM_BIN="${PLUR1BUS_CHROMIUM_BIN:-$(command -v chrome || command -v google-chrome || command -v chromium || true)}"
           node --experimental-strip-types --conditions=source packages/documents/scripts/golden.ts check
