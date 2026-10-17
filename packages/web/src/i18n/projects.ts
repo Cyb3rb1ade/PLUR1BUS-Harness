@@ -2,6 +2,10 @@
 // Area catalogue registered lazily by the projects page chunk.
 
 export const en = {
+  "projects.trace.duration": "Duration",
+  "projects.trace.transcript": "Open transcript",
+  "projects.trace.unavailable": "Transcript unavailable or access refused.",
+
   "projects.handoff.title": "Agent hand-off",
   "projects.handoff.untrusted": "Peer output · untrusted data",
   "projects.handoff.status.consult": "Consultation",
@@ -125,6 +129,10 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "projects.trace.duration": "Dauer",
+  "projects.trace.transcript": "Transcript öffnen",
+  "projects.trace.unavailable": "Transcript nicht verfügbar oder Zugriff verweigert.",
+
   "projects.handoff.title": "Agentenübergabe",
   "projects.handoff.untrusted": "Peer-Ausgabe · nicht vertrauenswürdige Daten",
   "projects.handoff.status.consult": "Beratung",

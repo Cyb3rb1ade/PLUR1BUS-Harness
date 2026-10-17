@@ -19,6 +19,7 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
   undeclared Latin-1 is decoded correctly; HTML labelled `text/plain` or `application/octet-stream` is read and binary files
   under any label are refused; `sectionsTotal` reports a table of contents longer than the 200 listed entries; the Azure host
   endpoint `168.63.129.16` is refused. See `docs/web-fetch.md`.
+- **M3 browser acceptance:** Linux CI installs the lockfile-matched Chromium and runs the complete web suite, including the served CLI/Core stack. Registry pages and loaded Security/Remote controls are checked in both themes, at compact/normal/wide widths and enlarged text. Touch targets, dark-theme extension contrast, immediate decision-focus restoration, recurring-job initialization and explicit identity-channel selection are repaired. Model-generation validation, physical authenticator acceptance and engine erasure retain their documented gaps.
 
 - **Session store and turn loop (M1b-2c, part 1):** the core keeps chat sessions in `<home>/state/sessions.sqlite`
   (`node:sqlite` + FTS5) and runs a submit/event turn loop with one engine `recall` before and one `capture` after each

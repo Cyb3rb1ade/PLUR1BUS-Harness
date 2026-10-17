@@ -24,6 +24,7 @@ import type {
 import { lazySection } from "../common/lazy-section.ts";
 import type { CardDrawerProps } from "./card-drawer.ts";
 import { ColumnDialog } from "./column-dialog.ts";
+import { DelegationTrace } from "./delegation-trace.ts";
 import { CardDialog } from "./card-dialog.ts";
 
 const CardDrawer = lazySection<CardDrawerProps>(() =>
@@ -81,10 +82,11 @@ export function BoardView({
   // Toast / error banner
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
 
-  // Collaboration traces for test compatibility
+  // Current-project delegation traces; replay always reauthorizes on the server.
   const [traces, setTraces] = useState<any[]>([]);
   useEffect(() => {
     let active = true;
+    setTraces([]);
     const loadTraces = async () => {
       try {
         const api = getApi();
@@ -643,38 +645,7 @@ export function BoardView({
           "section",
           { class: "traces-section" },
           h("h2", {}, t("projects.traces")),
-          traces.map((trace) =>
-            h(
-              "details",
-              { key: trace.traceId },
-              h("summary", {}, trace.traceId, " · ", trace.status),
-              h(
-                "ol",
-                { class: "trace-timeline" },
-                (trace.spans ?? []).map((span: any) =>
-                  h(
-                    "li",
-                    {
-                      key: span.spanId,
-                      "data-parent": span.parentSpanId ?? "",
-                    },
-                    h("strong", {}, span.agentId, " · ", span.status),
-                    h(
-                      "p",
-                      {},
-                      t("projects.tokens"),
-                      ": ",
-                      (span.inputTokens ?? 0) + (span.outputTokens ?? 0),
-                      " · ",
-                      t("projects.cost"),
-                      ": ",
-                      span.costEstimate === null ? "?" : span.costEstimate,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
+          traces.map((trace) => h(DelegationTrace, { key: trace.traceId, trace: { ...trace, projectId: project.id } })),
         )
       : null,
 

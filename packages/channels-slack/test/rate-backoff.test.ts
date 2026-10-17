@@ -924,7 +924,6 @@ test(
   "an inbound file download retries a transient 503 like any other 5xx",
   {
     ...T,
-    todo: 'KNOWN GAP: channels-slack SlackApi.download: erwartet Wiederholung nach HTTP 503 (docs/channels/slack.md Abschnitt 10: 5xx wird wiederholt), tatsächlich 1 Versuch, weil download() jeden Nicht-2xx als kind "protocol" meldet (api.ts:181) und SlackChannel.#retry nur rate-limited, network, timeout und http wiederholt (channel.ts:782); die Nachricht mit Anhang wird verworfen',
   },
   async () => {
     const r = await up();
@@ -943,7 +942,6 @@ test(
   "an inbound file download waits the Retry-After of a 429 and retries",
   {
     ...T,
-    todo: 'KNOWN GAP: channels-slack SlackApi.download: erwartet Wartezeit aus Retry-After und zweiten Versuch nach HTTP 429 (docs/channels/slack.md Abschnitt 10), tatsächlich 1 Versuch ohne Wartezeit, weil download() jeden Nicht-2xx als kind "protocol" meldet (api.ts:181) und nicht als rate-limited; die Nachricht mit Anhang wird verworfen',
   },
   async () => {
     const r = await up();
@@ -963,7 +961,6 @@ test(
   "the server error codes api.ts lists as retryable are retried when Slack sends them on HTTP 200",
   {
     ...T,
-    todo: "KNOWN GAP: channels-slack SlackChannel.#retry: erwartet Wiederholung bei ok:false mit internal_error, service_unavailable, fatal_error, request_timeout oder team_added_to_org auch bei HTTP 200 (api.ts:36 und api.ts:137 stufen sie als retryable kind http ein), tatsächlich genau 1 Anfrage, weil #retry kind http nur bei status >= 500 wiederholt (channel.ts:782)",
   },
   async () => {
     const r = await up();

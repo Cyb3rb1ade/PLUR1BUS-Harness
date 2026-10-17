@@ -304,11 +304,11 @@ export const AUDIT_ROWS: E2ERow[] = [
     attack: async (w) => {
       await w.probe("fs.read", w.f.wsA);
       await w.probe("fs.read", w.f.wsKey);
-      await w.probeCall("grant.create", { capability: "fs.write" });
+      await w.probeCall("perm.grant", { capability: "fs.write" });
       await w.approvedCall("fs.write", w.f.otherB, { extra: WRITE });
       const missing: string[] = [];
       const decisions = w.audit.filter((e) => e.action === "policy.decision").map((e) => `${String(e.detail.tool)}:${String(e.detail.outcome)}`);
-      const want = ["fs.read:allowed", "fs.read:never", "grant.create:never", "fs.write:approval"];
+      const want = ["fs.read:allowed", "fs.read:never", "perm.grant:never", "fs.write:approval"];
       if (JSON.stringify(decisions) !== JSON.stringify(want)) missing.push(`decisions ${JSON.stringify(decisions)}`);
       for (const a of ["approval.requested", "approval.decided", "grant.created", "approval.consumed", "grant.consumed", "policy.outcome"]) if (!w.actions().includes(a)) missing.push(a);
       if (missing.length > 0) console.error(missing);

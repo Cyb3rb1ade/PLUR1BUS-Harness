@@ -237,7 +237,10 @@ export class DiscordChannel implements Channel {
       const gate = new Promise<"ready" | "fatal">((resolve) => (this.#gate = resolve));
       this.#loop = gateway.run().catch(() => this.#log("error", "channel.discord.gateway-crashed", {}));
       const timer = new AbortController();
+      const onStop = (): void => timer.abort();
+      signal.addEventListener("abort", onStop, { once: true });
       const outcome = await Promise.race([gate, this.#sleep(READY_WAIT_MS, timer.signal).then(() => "timeout" as const)]);
+      signal.removeEventListener("abort", onStop);
       timer.abort();
       signal.throwIfAborted();
       if (outcome === "fatal") throw new DiscordApiError("unauthorized", "discord gateway refused the connection");

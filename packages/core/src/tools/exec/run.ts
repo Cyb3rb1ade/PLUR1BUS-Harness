@@ -3,8 +3,10 @@ import { createHash } from "node:crypto";
 import { stat } from "node:fs/promises";
 import { decide, type Call } from "../../policy/index.ts";
 import { canonicalisePath } from "../../policy/paths.ts";
+import type { ApprovalAsk } from "../approval.ts";
 import { argsMatchPattern, findAllowed, validateArgs, validateProgram } from "./args.ts";
-import { buildEnv, DEFAULT_ENV_ALLOW, isSecretishName } from "./env.ts";
+import { buildEnv, DEFAULT_ENV_ALLOW, envFingerprint, isSecretishName } from "./env.ts";
+import type { ToolClassification } from "../registry.ts";
 import { OutputLines } from "../../logs/output.ts";
 import { ExecFailure, type ExecDeps, type ExecRequest, type ExecResult } from "./types.ts";
 
@@ -55,7 +57,7 @@ class Capture {
   text(): string { return Buffer.concat(this.chunks).toString("utf8"); }
 }
 
-export async function execRun(req: ExecRequest, deps: ExecDeps, signal?: AbortSignal): Promise<ExecResult> {
+export async function execRun(req: ExecRequest, deps: ExecDeps, signal?: AbortSignal, classified?: ToolClassification): Promise<ExecResult> {
   const { config } = deps;
   const platform = deps.platform ?? process.platform;
   const windows = platform === "win32";
@@ -123,7 +125,6 @@ export async function execRun(req: ExecRequest, deps: ExecDeps, signal?: AbortSi
     capability: "shell.exec", tool: "exec.run", effect: "local-write", targets: [cwd.canonical], access: "write", actionHash,
     flags: { outsideRoots: false, denyListHit: false, shellAllowlisted: allowlisted, sandboxed: false },
   };
-  const decision = decide(call, deps.policyContext, deps.policy);
   const base = { argc: args.length, argsSha256: createHash("sha256").update(JSON.stringify(args)).digest("hex"), cwd: cwd.canonical, envNames, mode: config.mode, actionHash };
 
   const notStarted = (): ExecResult => {
@@ -132,20 +133,59 @@ export async function execRun(req: ExecRequest, deps: ExecDeps, signal?: AbortSi
   };
 
   let via: string;
-  if (decision.kind === "deny") {
-    return refuse("policy-denied", `policy refused: ${decision.rule}`, { ...base, rule: decision.rule });
-  } else if (decision.kind === "ask") {
-    // RULING: a parked (headless) or unanswerable request is a refusal, never a wait.
-    const answer = decision.park || !deps.approvals ? { approved: false } : await raceAbort(deps.approvals.request(decision.request).catch(() => ({ approved: false })), signal);
-    if (answer === "aborted") return notStarted();
-    if (answer.approved !== true) return refuse("approval-denied", "approval was not given", { ...base, why: decision.why });
-    via = "approval";
+  // Dispatcher already gated this invocation; do not decide or consume again.
+  if (deps.policyContext.overrides?.["shell.exec"] === "allowed") {
+    via = "override";
   } else {
-    via = decision.via;
+    const decision = decide(call, deps.policyContext, deps.policy);
+    if (decision.kind === "deny") {
+      return refuse("policy-denied", `policy refused: ${decision.rule}`, { ...base, rule: decision.rule });
+    } else if (decision.kind === "ask") {
+      // RULING: a parked (headless) or unanswerable request is a refusal, never a wait.
+      const answer = decision.park || !deps.approvals ? { approved: false } : await raceAbort(deps.approvals.request(decision.request).catch(() => ({ approved: false })), signal);
+      if (answer === "aborted") return notStarted();
+      if (answer.approved !== true) return refuse("approval-denied", "approval was not given", { ...base, why: decision.why });
+      if (deps.approvals?.begin) {
+        const ctx = deps.policyContext;
+        const ask: ApprovalAsk = {
+          request: decision.request, callId: actionHash, tool: "exec.run", args: req,
+          agentId: ctx.subject.agentId, principal: ctx.principal.person, park: decision.park,
+          signal: signal ?? new AbortController().signal,
+          subjectKind: ctx.subject.kind,
+          ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}),
+          ...(ctx.taskId ? { taskId: ctx.taskId } : {}),
+          ...(ctx.projectId ? { projectId: ctx.projectId } : {}),
+          ...(call.targets ? { targets: call.targets } : {}),
+          ...(call.access ? { access: call.access } : {}),
+        };
+        let began = false;
+        try { began = deps.approvals.begin(answer, ask) === true; } catch { began = false; }
+        if (!began) return refuse("approval-denied", "the approval could not be used (already used, expired or bound to another action)", { ...base, why: decision.why });
+      }
+      via = "approval";
+    } else {
+      via = decision.via;
+      if (via === "grant" && decision.grantId && deps.consumeOnce) {
+        const g = deps.policy.grants.get(decision.grantId);
+        if (!g || (g.scope === "once" && !deps.consumeOnce(decision.grantId, { person: g.person, agent: g.agent, actionHash: g.actionHash ?? actionHash }))) {
+          return refuse("policy-denied", "the one-time grant was already used", { ...base, grantId: decision.grantId });
+        }
+      }
+    }
+  }
+
+  if (classified) {
+    const liveFp = envFingerprint(env);
+    if (classified.targets?.[0] !== undefined && classified.targets[0] !== cwd.canonical) {
+      return refuse("cwd-refused", "cwd no longer matches the classified call");
+    }
+    if (classified.hashExtra !== undefined && classified.hashExtra !== liveFp) {
+      return refuse("env-refused", "environment no longer matches the classified call");
+    }
   }
 
   if (signal?.aborted) return notStarted(); // nothing is started for a call that was cancelled while it waited
-  audit("exec.run", program, { ...base, decision: "allow", via });
+  audit("exec.run", program, via === "override" ? { ...base } : { ...base, decision: "allow", via });
 
   const started = deps.timers.now();
   const out = new Capture(maxOut);

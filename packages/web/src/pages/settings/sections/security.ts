@@ -1,3 +1,4 @@
+import { PasskeysPanel } from "../security/passkeys.ts";
 // Settings > Security & Permissions: a read-only overview of the rules, taken from the running configuration (`config.get`).
 // Running approvals stay under Control > Approvals. Nothing is changed here; a key is edited only where a section already owns
 // it (the link says where). Values come from the wire only as booleans or one of three known words, never as free text.
@@ -64,5 +65,5 @@ export function SecuritySection({ section }: SectionProps): View {
   return h("section", { "data-section": section.id, "aria-labelledby": "sec-h" },
     h("h2", { id: "sec-h" }, t("settings.section.security")),
     h("p", { class: "field-hint" }, t("settings.security.intro")),
-    allowed ? h(Loaded, {}) : h(PageState, { state: "forbidden" }));
+    h(PasskeysPanel, {}), allowed ? h(Loaded, {}) : h(PageState, { state: "forbidden" }));
 }

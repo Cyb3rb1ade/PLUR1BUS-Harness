@@ -237,10 +237,15 @@ describe("models: detail states", opts, () => {
       assert.deepEqual(await rowNames(app.page), ALL, "the list is untouched");
       assert.equal(await app.page.locator(".model-list [aria-current]").count(), 0);
 
-      for (const bad of ["#/models/only-one-part", "#/models/%E0%A4%A/x", "#/models/a/b/c"]) {
+      for (const bad of ["#/models/only-one-part", "#/models/a/b/c"]) {
         await app.page.evaluate((h) => { location.hash = h; }, bad);
         await detailOf(app.page).getByText("Select an item to see its details.").waitFor();
       }
+      // Invalid URI escapes are rejected by the router before Models ever receives a selection.
+      await app.page.evaluate(() => { location.hash = "#/models/%E0%A4%A/x"; });
+      await app.page.getByRole("heading", { name: "Page not found", level: 1 }).waitFor();
+      assert.equal(await detailOf(app.page).count(), 0, "malformed encoding must not reach the model surface");
+      assert.equal(await app.page.getByRole("button", { name: "Edit overrides" }).count(), 0);
     });
   });
 

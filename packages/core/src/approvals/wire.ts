@@ -39,6 +39,8 @@ export function approvalRecordOf(v: ApprovalView): ApprovalRecord {
   if (v.tainted !== undefined) out.tainted = v.tainted;
   if (v.targets !== undefined) out.targets = v.targets.slice(0, MAX_TARGETS);
   if (v.summary !== undefined) out.summary = v.summary.slice(0, MAX_SUMMARY);
+  if (v.agentReason !== undefined) out.agentReason = v.agentReason.slice(0, 2048);
+  if (v.diff !== undefined) out.diff = v.diff.slice(0, MAX_SUMMARY);
   if (v.decidedAt !== undefined) out.decidedAt = iso(v.decidedAt);
   if (v.decidedBy !== undefined) out.decidedBy = v.decidedBy;
   if (v.decisionSurface !== undefined) out.decisionSurface = v.decisionSurface;

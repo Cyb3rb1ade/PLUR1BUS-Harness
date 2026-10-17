@@ -15,7 +15,7 @@ export const handoffTokenBound = (text: string): number => Buffer.byteLength(tex
 export interface Handoff {
   schema: 'plur1bus.handoff/1'; id: string; kind: 'consult' | 'delegate' | 'handoff';
   from: { agent: string; session: string }; to: { agent: string } | { role: string };
-  task: { id: string; project: string; card?: string }; objective: string; doneWhen?: string[];
+  task: { id: string; project: string; card?: string }; objective: string; why?: string; doneWhen?: string[];
   constraints: { must: string[]; mustNot: string[]; scope: { paths: string[]; tools: string[] } };
   authority: { mayDecide: string[]; mustAsk: string[]; approvalsHeld: string[] };
   budget: { tokens: number; toolCalls: number; deadline: string; modelTier: 'cheap' | 'standard' | 'premium' };
