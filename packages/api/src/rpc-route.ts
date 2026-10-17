@@ -5,6 +5,7 @@ import type { CoreRpc } from "./core-rpc.ts";
 /** Explicit exposure, not a prefix match: additions require review and a test. Unsafe unguarded memory/caller paths,
  * lifecycle internals, subscriptions, admin backup/import and secret reveal are deliberately absent. */
 export const WEB_CORE_METHODS = new Set([
+  "model.embedding.select", "model.licence.confirm", "model.licence.list", "model.licence.check", "agent.create", "agent.validate", "agent.import",
   "core.status", "agent.list", "agent.status", "agent.activity.list", "agent.pause", "agent.resume", "agent.archive", "agent.unarchive", "agent.export", "agent.delete", "agent.rights.get", "agent.rights.set",
   "inbox.count", "inbox.list", "inbox.markRead", "inbox.dismiss", "session.list", "session.get", "session.create", "session.submit", "session.cancel", "session.archive", "session.resume", "session.events",
   "project.list", "project.get", "project.create", "project.update", "project.card.list", "project.card.create", "project.card.update", "project.card.move",
@@ -43,6 +44,8 @@ export async function rpcRoute(core: CoreRpc, body: unknown, principal: ApiPrinc
   delete params.principal; delete params.actAs;
   if (!validateParams(b.method, params).ok) return rpcFailure(id, { error: "E_INVALID_PARAMS" });
   if (!core.callAs) return rpcFailure(id, { error: "E_NOT_AVAILABLE", reason: "api-delegation-unavailable" });
-  try { return { jsonrpc: "2.0", id, result: await core.callAs(b.method, params, principal, endpoint, connectionKey) }; }
+  try {
+    if (b.method === "config.set") await core.callAs("model.licence.check", { changes: params.changes }, principal, "core", connectionKey);
+    return { jsonrpc: "2.0", id, result: await core.callAs(b.method, params, principal, endpoint, connectionKey) }; }
   catch (e) { return rpcFailure(id, e); }
 }

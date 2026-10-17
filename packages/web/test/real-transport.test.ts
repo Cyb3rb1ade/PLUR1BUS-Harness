@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { findChromium } from "./browser-runtime.ts";
 import { defaults } from "@plur1bus/config-schema";
 import { buildWeb } from "../build.ts";
 import { createApiServer } from "../../api/src/server.ts";
@@ -16,7 +17,7 @@ import { createCoreLink } from "../../api/src/core-link.ts";
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const bin = resolve(process.env.PLUR1BUS_BIN ?? join(root, "target/debug/plur1bus"));
 const coreJs = join(root, "packages/core/dist/core.js");
-const executablePath = [process.env.PLUR1BUS_CHROMIUM, chromium.executablePath(), "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/opt/pw-browsers/chromium"].find(p => p && existsSync(p));
+const executablePath = findChromium();
 const unavailable = !executablePath || !existsSync(bin) || !existsSync(coreJs);
 if (unavailable && process.env.PLUR1BUS_WEB_TRANSPORT_REQUIRED === "1") throw new Error("real transport smoke requires a built CLI/core and Chromium");
 
@@ -38,15 +39,19 @@ test("Chromium with real API/Core/Supervisor: Inbox, Chat list, Settings read", 
   const errors: string[] = []; page.on("pageerror", e => errors.push(e.message));
   const answers = new Map<string, any[]>();
   page.on("response", response => { if (!response.url().endsWith("/rpc")) return; void response.json().then(body => { const request = response.request().postDataJSON(); const list = answers.get(request.method) ?? []; list.push(body); answers.set(request.method, list); }).catch(() => {}); });
+  const chatList = page.waitForResponse(response => new URL(response.url()).pathname === "/api/v1/chats" && response.request().method() === "GET");
   await page.goto(url + "/#/login");
   await page.getByLabel("Owner token", { exact: true }).fill(ownerToken); await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page.getByRole("heading", { name: "Chat", level: 1 }).waitFor();
+  const chats = await chatList;
+  assert.equal(chats.status(), 200, "Chat list succeeds over authenticated REST");
+  assert.ok(Array.isArray((await chats.json()).sessions), "REST returns the session-shaped list consumed by Chat");
   await page.waitForFunction(() => !document.querySelector('.page-state[data-state="loading"]'));
   await page.evaluate(() => { location.hash = "#/inbox"; }); await page.getByRole("heading", { name: "Inbox", level: 1 }).waitFor();
   await page.getByText("Nothing here", { exact: true }).waitFor();
   await page.evaluate(() => { location.hash = "#/settings/general"; }); await page.getByRole("heading", { name: "General", level: 2 }).waitFor();
   await page.locator('.cfg-field[data-key="core.recall.softBudgetMs"]').waitFor();
-  for (const method of ["session.list", "inbox.list", "config.get"]) {
+  for (const method of ["inbox.list", "config.get"]) {
     assert.ok(answers.get(method)?.some(answer => "result" in answer && !answer.error), `${method} succeeded over real /rpc`);
   }
   assert.deepEqual(errors, []);

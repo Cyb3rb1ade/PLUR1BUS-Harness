@@ -2,7 +2,7 @@
 // stores behind it. Every handler starts with `callerOf`, before any store is touched: an agent never causes the stores to open.
 import type { GrantRecord } from "@plur1bus/rpc-schema";
 import type { Attester } from "../attestation/index.ts";
-import type { GrantStore } from "../grants/store.ts";
+import type { GrantStore, StoredGrant } from "../grants/store.ts";
 import type { PrincipalResolver } from "../rbac/guard.ts";
 import type { SurfaceTrustLevel } from "../rbac/surface.ts";
 import type { Principal } from "../rbac/types.ts";
@@ -29,7 +29,9 @@ export interface ApprovalMethodDeps {
   attester?: Attester;
   requireOsConfirmation?: () => boolean;
   /** `grant.changed` for grants this file creates or revokes (the service announces the ones a decision creates). */
-  notify?: { grantChanged(change: "created" | "revoked", grant: GrantRecord): void; confirmationChanged?(approval: import("@plur1bus/rpc-schema").ApprovalRecord): void };
+  notify?: { grantChanged(change: "created" | "used" | "revoked" | "expired" | "suspended", grant: GrantRecord): void; confirmationChanged?(approval: import("@plur1bus/rpc-schema").ApprovalRecord): void };
+  /** After grant.list / grant.get inspects the store (always-grant inbox nudge). */
+  onGrantsInspected?: (grants: readonly StoredGrant[], now: number) => void;
 }
 
 export interface Caller { principal: Principal; person: string; surface: SurfaceTrustLevel }

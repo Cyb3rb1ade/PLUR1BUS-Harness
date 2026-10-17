@@ -517,16 +517,10 @@ test("g) stop while an inbound attachment download is in flight settles without 
 });
 
 // The gateway never answers, so start() is parked waiting for the first READY. stop() must not have to wait for that: it aborts the
-// connection and should settle at once. It does not: #start() races READY against a sleep on its own `timer.signal` (channel.ts:239-240),
-// which stop()'s abort does not reach, and stop() awaits the pending start (channel.ts:262). So stop() blocks until READY_WAIT_MS
-// (30 s) has elapsed; on the fake clock, which only moves when the test advances it, it never settles. The test lets the clock run
+// connection and settles at once: #start() links its READY-wait timer to the stop signal. The test lets the fake clock run
 // afterwards so nothing is left pending. The 1 s guard only fires on the failing path.
 test(
   "g) stop while start waits for the first READY settles promptly instead of waiting out READY_WAIT_MS",
-  {
-    todo:
-      "KNOWN GAP: channels-discord DiscordChannel.stop: erwartet, dass stop() während start() auf das erste READY wartet sofort abschließt, tatsächlich blockiert es, bis READY_WAIT_MS (30 s) abgelaufen ist (channel.ts:239-240 wartet auf timer.signal statt auf das Stop-Signal)",
-  },
   async () => {
     const e = await makeEnv();
     e.gateway.auto = false; // the scripted server never answers HELLO

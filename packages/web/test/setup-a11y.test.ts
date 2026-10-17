@@ -44,9 +44,9 @@ describe("setup wizard: a11y", opts, () => {
       await next(page); await page.getByText("Enter a display name.").waitFor();
       await expectAxeClean(page, "persona error");
       await page.getByLabel("Display name").fill("Hal");
-      app.server.rpc.scenario("config.set", "error"); await next(page);
+      app.server.rpc.scenario("agent.create", "error"); await next(page);
       await page.getByRole("alert").waitFor(); await expectAxeClean(page, "save failed");
-      app.server.rpc.scenario("config.set", "success"); await next(page);
+      app.server.rpc.scenario("agent.create", "success"); await next(page);
       await stepHeading(page, /Main model/).waitFor(); await next(page);
       await page.getByText("Choose a model, or skip this step.").waitFor(); await expectAxeClean(page, "model error");
       await skip(page); await skip(page);
