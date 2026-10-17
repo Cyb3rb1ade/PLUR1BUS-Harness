@@ -25,11 +25,13 @@ Settings → Secrets → *Rotate* (`secret.set`, owner only, audited).
 
 1. Type the new value into the masked field. The field is never prefilled and a password manager is not asked to fill it.
 2. *Save* only validates and shows the question *Replace the value of …?* The value stays in the read-only masked field; *Back* returns to editing.
-3. *Rotate now* sends the value once. The field is emptied before the request is awaited; the old value stops working and its leases are revoked.
+3. *Rotate now* sends the value once. The field is emptied before the request is awaited; the old value stops working, its leases are revoked, and a copy of the old value in the other backend (OS keyring or encrypted file) is removed too.
 4. The page then says only `<name>: updated on <time>` (the `updatedAt` of the answer). `secret.status` carries no per-secret time.
 
 A value is never shown, never put in a URL, `localStorage`, `sessionStorage` or a log line, and never repeated in an error text (the
-page shows fixed sentences). Deleting a secret still needs the typed name.
+page shows fixed sentences). Deleting a secret still needs the typed name; it removes the secret from both backends, including the encrypted file when the
+file fallback is switched off. A lease object printed or serialised (log line, JSON, debugger) shows `[redacted]` in place of the value, and every file error from
+the encrypted store is reduced to a code, so no file path leaves the store.
 
 ## The rules overview
 
@@ -112,6 +114,19 @@ Today only stable methods and the memory reads are tools by default, so the expe
 
 The API credential narrows ordinary local-client capabilities, but cannot isolate hostile processes of the same OS user. A cookie authenticates an account; it is not proof of physical human intent. Browser delegation preserves current surface trust and never performs automatic OS confirmation. Stronger broker/OS separation, durable account provisioning and the production active-person source remain Owner decisions; details in the [transport handoff](handoff/2026-10-14-web-transport.md).
 
+### Known boundary: same OS user
+
+`run/api-delegation.token` is private (0600) and rotated when the Core restarts, including configuration restarts. A process running as the same OS user can read it and impersonate the API. This is the same trust boundary as the existing local IPC credentials. Today, service installations can use a separate OS user to isolate them from interactive applications; strict API/Core separation through different users, a broker or attestation is planned, and is not implemented.
+
+The durable account database holds credentials only; Core person status and rights are authoritative. Disabled/missing people cannot log in, use sessions/tokens, or retain a stream. Core revisions prevent revoked tokens or sessions from returning after enable. Cookie authentication does not prove a human or raise browser trust; the WebMCP exclusions and OS confirmation requirements remain.
+
+| Boundary | Check | Remaining limit |
+|---|---|---|
+| Invite → account | Validate before collision disclosure; pending credentials before atomic consumption | Activation failure after consumption requires a new invitation; audited |
+| Account → Core person | Current Core role, rights, status and revision per use | Same OS-user delegation credential boundary |
+| Disable → credential lifetime | Session/SSE invalidation; permanent token revocation by issuance revision | Dedicated API service notification; five-second synchronization or next request/heartbeat after disconnect |
+| Channel inbound → person | Deferred to switchboard owner | KNOWN GAP: channel inbound ignores person.disabled |
+
 ## Secret status metadata
 
 `secret.status` optionally includes `secrets`, a names-only metadata snapshot from the available backends. Creation and rotation persist timestamps with the existing metadata index; `updatedBy` identifies the authenticated person when known. Status never reads or decrypts values. Older entries without writer metadata remain readable. Settings displays timestamps from this snapshot and “Unknown” when metadata is unavailable. Owner-only access remains the existing ADR-005 rule.
@@ -123,3 +138,28 @@ The API credential narrows ordinary local-client capabilities, but cannot isolat
 `breakglass.reasonMinChars` / `reasonMaxChars` default to 10 / 500 trimmed characters; both are 1–10000 and minimum must not exceed maximum. `breakglass.maxWindowMinutes` defaults to 60, accepts 1–1440, and also caps the default 15-minute window. Trigger roles remain unchanged.
 
 All five keys declare `x-write-roles: [owner, admin]` and `x-audit: true`. These annotations are enforced by the web transport in the supervisor: the authenticated transport must supply a trusted person principal on the supervisor's `server.rs` / `config.rs` write path, enforce roles and write `audit.config.set` with old/new values. Settings continues to expose these limits read only; the authenticated transport enforces them for direct RPC writes.
+
+## M3 account bootstrap and passkeys
+
+| Attack | Protection | Evidence |
+|---|---|---|
+| Reuse startup proof after Owner creation | Account insertion and durable proof consumption in one SQLite transaction; startup cannot reset consumed marker; Owner-token login disabled afterward | `webauthn-http.test.ts`, `account-store.test.ts`, real browser `bootstrap-account.test.ts` |
+| Read bootstrap proof as another OS user | Checked private run directory, regular file, owner check and mode 0600 / secure-path ACL; logs contain only a redacted notice | `bootstrap.test.ts` |
+| Replay or substitute WebAuthn ceremony | One-use five-minute bounded challenges, account revision and exact configured/allowlisted origin, RP hash, mandatory UP and UV | `webauthn.test.ts`, `webauthn-http.test.ts` |
+| Clone credential | Verify signature before evaluating counter; repeated/decreasing non-zero counter rejected and audited | `webauthn.test.ts`, HTTP counter rollback |
+| CBOR/COSE denial of service | Maximum 16 KiB, eight nesting levels, 256 items, definite canonical lengths, duplicate-map-key rejection, only ES256/Ed25519 | Deterministic 5,000-input parser corpus and bounded-invalid cases |
+| Credential mutation leaves old authority usable | Registration/rename/revoke transaction bumps account session version; counters use compare-and-swap | `account-store.test.ts`, browser enrollment/session expiry |
+
+No private passkey material or attestation certificate chain is persisted. Credential identifiers, COSE public keys and counters are stored with account/key names. Attestation is `none` or packed self attestation; hardware provenance is not claimed. The accepted same-OS-user boundary is unchanged. OIDC remains deferred until after M3.
+## M3 remote listener enforcement
+
+| Attack | Enforcement | Named verification |
+|---|---|---|
+| Expose HTTP on a non-loopback address | Network requires TLS plus current notice acknowledgement; tailnet backend binds loopback only | `remote-policy.test.ts` |
+| Reuse a local password-only Owner/Admin cookie remotely | Remote factor gate checks each request; tokens carry no factor proof | `remote-policy.test.ts` |
+| Enable network without reviewing the notice or forge its actor | Closed REST body, authenticated actor/time, audit and supervisor revision CAS | `remote-config.test.ts` |
+| Spoof a proxy client address/Host/Origin | No forwarded-header trust; exact configured remote origin; socket CIDR gate | Remote policy/runtime tests |
+| Steal a typed pairing code with a changed certificate | Nonce-only proof before disclosure; client compares MAC with actual leaf/origin; one-use receipt and code | Remote pairing HTTP/TLS tests |
+| Switch certificate before devices learn the new trust | Durable staged announcement, registered-key acknowledgements, missed-device repair | Remote pairing rollover tests |
+
+Pair-proof and code redemption are reviewed bootstrap exceptions to cookie authentication: a device cannot already have a paired identity. They are closed without an Owner-opened ephemeral code, bounded and rate limited, and never mint a password session. The MAC is not an authority to accept arbitrary TLS: the client must compare its own certificate and configured origin. No remote change strengthens the accepted same-OS-user boundary.

@@ -8,6 +8,7 @@ export function apiIdentities(resolve: (p: ApiPrincipal) => Principal | null) {
   return {
     forwarded(principal: ApiPrincipal): ApiPrincipal | null { const p = resolve(principal); return p ? { ...p, kind: principal.kind } : null; },
     authenticated(id: string, principal: ApiPrincipal | null) { connections.set(id, principal); },
+    services(): string[] { return [...connections].filter(([, p]) => p === null).map(([id]) => id); },
     closed(id: string) { connections.delete(id); },
     resolve(ctx: CallContext): Principal | null | undefined {
       const forwarded = apiPrincipal(ctx);

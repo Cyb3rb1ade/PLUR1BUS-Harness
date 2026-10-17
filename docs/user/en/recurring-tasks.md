@@ -24,7 +24,7 @@ Clicking **Run now** prompts for confirmation before invoking the job execution 
 
 ## Create and edit a task
 
-Use **Create recurring task** to choose a manageable agent, enter a prompt, a five-field cron expression and an IANA timezone. The dialog previews the next three runs. You can enable or disable the task and delete it after confirmation. System and engine jobs stay read only.
+Use **Create recurring task** to choose a manageable agent, enter a prompt, a five-field cron expression and an IANA timezone. The dialog previews the next three runs. A schedule that can never fire, such as `0 0 30 2 *` (30 February), is refused. Times are evaluated in the task's own timezone: a time that does not exist on the day the clocks go forward (for example 02:30 in Berlin on the last Sunday in March) is skipped for that day, and a time that occurs twice when the clocks go back runs once, at its first occurrence. You can enable or disable the task and delete it after confirmation. System and engine jobs stay read only.
 
 A task runs under its creator's identity, with current rights checked each time. Editing someone else's task switches it to your identity; the dialog warns before saving. Task history shows the execution person's display name. Lost rights or an inactive person disable the task and create an inbox notice. Hard budgets skip the run. Tool approvals and OS confirmations follow the normal approval flow; the task never confirms them automatically.
 

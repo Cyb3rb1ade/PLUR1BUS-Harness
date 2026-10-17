@@ -5,6 +5,9 @@ import type { AuditSink } from "./rbac-bridge.ts";
 
 /** The auth events the API writes (ADR-004 *Audit*, ADR-007 *Authentication*). Names are stable: `docs/api.md` lists them. */
 export const AUDIT_ACTIONS = [
+  "account.bootstrap.consumed", "auth.passkey.registered", "auth.passkey.changed", "auth.passkey.failure", "auth.passkey.clone-warning",
+  "transport.ws.opened", "transport.ws.closed", "chat.call",
+  "invitation.redeemed", "invitation.account.failed",
   "auth.login.success", "auth.login.failure", "auth.logout", "auth.logout-all", "auth.session.rotated",
   "auth.token.created", "auth.token.revoked", "auth.token.used-denied",
   "auth.totp.enabled", "auth.totp.disabled", "auth.totp.failure", "auth.totp.backup-used",
@@ -49,7 +52,7 @@ export function createAuditEmitter(o: AuditEmitterOptions): AuditEmitter {
         lastNoisy.delete(k); lastNoisy.set(k, now);
         while (lastNoisy.size > MAX_NOISY_KEYS) { const first = lastNoisy.keys().next(); if (first.done) break; lastNoisy.delete(first.value); }
       }
-      try { sink.append({ at: now, actor: { user: actor, host }, action, target, detail: redactFields(detail) as Record<string, unknown> }); }
+      try { sink.append({ at: now, actor: { user: action.startsWith("invitation.") ? nameHandle(actor) : actor, host }, action, target, detail: redactFields(detail) as Record<string, unknown> }); }
       catch (e) { o.log.error("audit append failed", { action, error: e instanceof Error ? e.name : "non-error thrown" }); }
     },
   };

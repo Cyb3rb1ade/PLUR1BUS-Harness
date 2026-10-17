@@ -43,7 +43,8 @@ const FORCED = new Map([
 // G16 — the engine node declares its own x-tier and nothing under it overrides it), so this
 // column is "advanced" on every row rather than derived per-key.
 const rows = [];
-for (const [k, s] of Object.entries(props).sort(([a], [b]) => a.localeCompare(b))) {
+// Code-point order: localeCompare follows the machine's locale, so the generated table could differ between machines.
+for (const [k, s] of Object.entries(props).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
   if (s.readAt !== "construction") {
     throw new Error(`gen-engine-keys: engine key ${k} is live; classify it in config.schema.json`);
   }

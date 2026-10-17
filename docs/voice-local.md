@@ -41,7 +41,7 @@ Licences as recorded in the catalog (from the model cards and the packages):
 | Pocket TTS en | CC-BY-4.0 file, but the package README says non-commercial | unconfirmed |
 | Martin de | unknown | unconfirmed, no package |
 
-Open questions for the owner: Martin (package and licence), Kroko (exact terms, share-alike), Pocket TTS (conflicting statements). The English fast voice (Piper Lessac) is research-only; use another voice for commercial use.
+Open questions for the owner: Martin (package and licence), Kroko (exact terms, share-alike), Pocket TTS (conflicting statements). The English fast voice (Piper Lessac) is research-only; use another voice for commercial use. The built-in catalog (`loadCatalog` without profiles) still preselects `piper-en-lessac-low` as the English `tts.fast`; "no research-only model is ever a default" is not yet enforced there. The core's own voice catalog replaces that choice, and the licence gate refuses the model until it is confirmed per model.
 
 **Decision (owner, 2026-10-14):** Piper Lessac low (`piper-en-lessac-low`) stays the preselected English `tts.fast` voice of the built-in catalog. Its licence record is `Blizzard-2013-Lessac-research` with `commercial: false`: **research only, no commercial use.** Preselection does not skip the licence confirmation: installing or using it still fails with `licence_required` until `piper-en-lessac-low@Blizzard-2013-Lessac-research` was confirmed for exactly this model and licence id (or the declared fallback is used, when the tier has one). The core's own V3 profiles (`voiceV3Catalog`) keep their commercial defaults and keep the declared fallback tier of `de` and `en`.
 

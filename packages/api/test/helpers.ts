@@ -32,7 +32,9 @@ export interface Harness {
 }
 
 export interface StartOptions {
+  remotePairing?: ApiServerOptions["remotePairing"]; remoteCertificates?: ApiServerOptions["remoteCertificates"];
   limits?: Partial<ApiLimits>; rateClasses?: RateClasses; sessionLimits?: SessionLimits; core?: FakeCore;
+  accounts?: import("../src/account-store.ts").AccountStore;
   users?: MemoryUserDirectory; lockout?: Partial<LockoutPolicy>; extraRoutes?: ApiServerOptions["extraRoutes"]; webRoot?: string;
   /** Break-glass writes here instead of the shared sink; `noAudit` configures no sink at all. */
   breakGlassAudit?: AuditSink; auditSink?: AuditSink; notifyBreakGlass?: ApiServerOptions["notifyBreakGlass"]; noAudit?: boolean;
@@ -43,7 +45,8 @@ export async function start(o: StartOptions = {}): Promise<Harness> {
   const audit = memoryAuditSink(); const users = o.users ?? new MemoryUserDirectory();
   const sink = (level: string) => (msg: string, fields?: Record<string, unknown>) => { logs.push(JSON.stringify({ level, msg, ...fields })); };
   const api = createApiServer({
-    core, ownerToken: OWNER_TOKEN, clock, users, ...(o.noAudit ? {} : { audit: o.auditSink ?? audit }), logger: { debug: sink("debug"), info: sink("info"), warn: sink("warn"), error: sink("error") },
+    ...(o.remotePairing ? { remotePairing: o.remotePairing } : {}), ...(o.remoteCertificates ? { remoteCertificates: o.remoteCertificates } : {}),
+    core, ownerToken: OWNER_TOKEN, clock, users, ...(o.accounts ? { accounts: o.accounts } : {}), ...(o.noAudit ? {} : { audit: o.auditSink ?? audit }), logger: { debug: sink("debug"), info: sink("info"), warn: sink("warn"), error: sink("error") },
     ...(o.limits ? { limits: o.limits } : {}), ...(o.rateClasses ? { rateClasses: o.rateClasses } : {}), ...(o.sessionLimits ? { sessionLimits: o.sessionLimits } : {}),
     ...(o.lockout ? { lockout: o.lockout } : {}), ...(o.extraRoutes ? { extraRoutes: o.extraRoutes } : {}), ...(o.webRoot ? { webRoot: o.webRoot } : {}),
     ...(o.breakGlassAudit ? { breakGlassAudit: o.breakGlassAudit } : {}), ...(o.notifyBreakGlass ? { notifyBreakGlass: o.notifyBreakGlass } : {}),
@@ -73,7 +76,7 @@ export interface Res { status: number; headers: IncomingHttpHeaders; text: strin
 /** One request over a plain socket; the `Host` header is the server's own unless a test overrides it. */
 export function raw(h: Harness, o: { method?: string; path: string; headers?: Record<string, string>; body?: string | Buffer }): Promise<Res> {
   return new Promise((resolve, reject) => {
-    const req = request({ host: "127.0.0.1", port: h.port, method: o.method ?? "GET", path: o.path, headers: o.headers ?? {}, agent: false, timeout: 5000 }, (res) => {
+    const req = request({ host: "127.0.0.1", port: h.port, method: o.method ?? "GET", path: o.path, headers: { ...(o.body !== undefined && !Object.keys(o.headers ?? {}).some(k => ["content-length", "transfer-encoding"].includes(k.toLowerCase())) ? { "content-length": String(Buffer.byteLength(o.body)) } : {}), ...o.headers }, agent: false, timeout: 5000 }, (res) => {
       if (String(res.headers["content-type"]).startsWith("text/event-stream")) {
         res.once("data", (chunk: Buffer) => { resolve({ status: res.statusCode ?? 0, headers: res.headers, text: chunk.toString("utf8"), json: undefined }); res.destroy(); req.destroy(); });
         return;

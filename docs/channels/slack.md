@@ -153,7 +153,7 @@ The slash command replies are ephemeral: only the person who typed the command s
 - Markdown from the model is converted to Slack mrkdwn: bold, italic, strike, inline and fenced code, links, lists, quotes, headings (as bold lines), rules, and tables (as code blocks).
 - `&`, `<` and `>` are escaped, so `<!channel>`, `<!here>`, `<@U…>`, `<#C…>` and any raw link token in model or user text are shown literally. Only validated `http(s)` and `mailto` links from markdown become Slack links.
 - Links are sent with unfurling off and `link_names` off. Nothing pings a channel or a user unless the host asks for it through an approval text, which names the decider.
-- Long text is split at 3500 characters (buttons: 2900 per section) without tearing a code fence, a surrogate pair, or an angle-bracket token.
+- Long text is split at 3500 characters (buttons: 2900 per section) without tearing a code fence, a grapheme cluster (including surrogate pairs), or an angle-bracket token.
 
 ## 9. Files
 
@@ -163,7 +163,7 @@ The slash command replies are ephemeral: only the person who typed the command s
 ## 10. Rate limits and retries
 
 - Per-channel pacing: about one `chat.postMessage` or `chat.update` per second per conversation, plus a global cap of 20 requests per second.
-- `429` with `Retry-After` waits the server hint, clamped to 1 s to 5 min. Network, timeout and `5xx` failures retry with exponential backoff and jitter, up to three retries. Other `4xx` responses are not retried.
+- `429` with `Retry-After` waits the server hint, clamped to 1 s to 5 min. Network, timeout and `5xx` failures retry with exponential backoff and jitter, up to three retries. Other `4xx` responses are not retried. Not yet enforced (`KNOWN GAP` todo tests in `rate-backoff.test.ts`): a file download that gets `503` or `429` is not retried and ignores `Retry-After` (the message with the attachment is dropped), and an `ok: false` answer with `internal_error`, `service_unavailable`, `fatal_error`, `request_timeout` or `team_added_to_org` on HTTP 200 is not retried either.
 - A `not_in_channel`, `channel_not_found`, `is_archived` or `user_not_in_channel` answer marks the conversation inactive for this process. Fix membership and restart.
 - Ambiguous network failures may duplicate a `chat.postMessage`. A retry after a dropped response can post twice.
 

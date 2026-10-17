@@ -2,6 +2,7 @@
 // directories with an injected command runner (no installs, no network, no real pnpm/cargo/python).
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -295,5 +296,27 @@ describe("CLI on a fixture tree", () => {
       assert.match(text(), /pnpm audit: x: bad \[high\]/);
       assert.match(text(), /cargo audit \(apps\/desktop\)\s+ok/);
     });
+  });
+});
+
+describe("input validation and determinism", () => {
+  it("rejects an empty --only list instead of auditing nothing and reporting OK", () => {
+    assert.throws(() => parseArgs(["--only", ""]), /at least one ecosystem/);
+    assert.throws(() => parseArgs(["--only", " , "]), /at least one ecosystem/);
+  });
+  it("renders the same report under every locale (code-point order, not localeCompare)", () => {
+    const script = [
+      'import { renderReport } from "' + new URL("../audit-deps.mjs", import.meta.url).href + '";',
+      'const rows = ["z", "\u00e4", "Zeta", "alpha"].map((name) => ({ ecosystem: "pnpm", name, version: "1.0.0", license: "GPL-3.0-only", direct: true, verdict: "forbidden", note: "" }));',
+      'process.stdout.write(renderReport({ rows, stale: [], incomplete: [], notes: [] }));',
+    ].join("\n");
+    const run = (locale) => {
+      const r = spawnSync(process.execPath, ["--input-type=module", "-e", script], { encoding: "utf8", env: { PATH: process.env.PATH ?? "", LC_ALL: locale, LANG: locale } });
+      assert.equal(r.status, 0, r.stderr);
+      return r.stdout;
+    };
+    const c = run("C");
+    assert.equal(run("sv_SE.UTF-8"), c);
+    assert.ok(c.indexOf(" Zeta ") < c.indexOf(" alpha ") && c.indexOf(" alpha ") < c.indexOf(" z ") && c.indexOf(" z ") < c.indexOf(" \u00e4 "), c);
   });
 });

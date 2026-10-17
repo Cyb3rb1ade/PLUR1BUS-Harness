@@ -32,6 +32,8 @@ export class FakeImap {
   authenticated = 0;
   /** Next N SELECTs drop the connection without answering (reconnect tests). */
   dropOnSelect = 0;
+  /** UID FETCH answers NO (poison message / broken server). */
+  failFetch = false;
   #server: Server | undefined;
   #sockets = new Set<Socket>();
   #conns = new Set<Conn>();
@@ -215,6 +217,7 @@ class Conn {
           return ok("SEARCH completed");
         }
         if (sub === "FETCH") {
+          if (f.failFetch) return no("fetch failed");
           const r = /^(\d+) \((.*)\)$/.exec(args);
           const msg = r ? f.messages.find((x) => x.uid === Number(r[1])) : undefined;
           if (!msg || !r) return no("no such message");

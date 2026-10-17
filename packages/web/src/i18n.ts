@@ -22,11 +22,14 @@ export function setLangPref(p: LangPref): void {
   setPref("lang", p);
 }
 
-/** Translate; reads the language signal, so a component calling it re-renders on a language change. */
+/** Translate; reads the language signal, so a component calling it re-renders on a language change. A key the active language
+ *  lacks falls back to English, then to the key itself (a lazy area whose chunk has not registered yet must not render
+ *  "undefined" or throw). `{name}` placeholders are replaced in one pass and literally: a value is never scanned again and
+ *  `$&`-style replacement patterns have no meaning; a placeholder without a parameter stays visible. */
 export function t(key: Key, params?: Record<string, string | number>): string {
-  let s: string = catalogues[lang.value][key];
-  if (params) for (const [k, v] of Object.entries(params)) s = s.replaceAll(`{${k}}`, String(v));
-  return s;
+  const s: string = catalogues[lang.value][key] ?? catalogues.en[key] ?? key;
+  if (!params) return s;
+  return s.replace(/\{(\w+)\}/g, (m, name: string) => (Object.hasOwn(params, name) ? String(params[name]) : m));
 }
 
 export function formatNumber(n: number): string { return new Intl.NumberFormat(lang.value).format(n); }

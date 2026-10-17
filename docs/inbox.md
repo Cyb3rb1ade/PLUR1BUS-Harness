@@ -27,7 +27,8 @@ Per person, the newest 1000 entries and nothing older than 90 days are kept. Bot
 person gets a new entry. Configure `inbox.retention.days` (default 90, range 1–3650) and
 `inbox.retention.maxEntries` (default 1000, range 10–100000). Both are advanced settings and require a core restart.
 `CoreOptions.inbox.maxAgeDays` / `maxEntries` remain per-field overrides for tests. A dismissed entry stays in the
-table until it ages out, so a repeated event cannot bring it back.
+table until it ages out, so a repeated event cannot bring it back. Retention runs before the dedupe check: an entry that is already past its age
+no longer hides a repeat of the same event behind its dedupe key, so the repeat creates a new entry.
 
 ## Who gets what
 
@@ -47,6 +48,12 @@ table until it ages out, so a repeated event cannot bring it back.
 Every producer calls an `InboxPort` (`publish`, `settle`). The call is synchronous and never throws: a failing inbox is
 logged and the source module carries on unchanged. Each entry has a dedupe key (`kind:objectId`), so a repeated event
 for the same person produces no second entry.
+
+Producer text is cleaned before it becomes a parameter. Every string a producer passes (capability, job name, failure reason, media stage,
+channel name) has its whitespace folded and trimmed, is cut to **200 characters** (the store's limit; the cut ends in `…`, so a long text no longer
+costs the whole notification), and has token-shaped words replaced by `[redacted]`. The check looks at every piece between separators, so a token hidden in a URL
+or a `key=value` pair is masked as well, and so is a bot token (`<digits>:<secret>`) glued to a path segment. The per-entry kinds reported to listeners by
+`markRead` and `dismiss` come from the person's whole inbox, not from the first page of 200 entries.
 
 ### Break-Glass
 

@@ -59,3 +59,34 @@ test("every write failure has a non-empty text in en and de", () => {
   for (const [k, texts] of seen) assert.equal(texts.size, 2, `${k}: en and de differ`);
   setLangPref("en");
 });
+
+test("a logout that rejects still signs the UI out (the interface promises it never rejects, a double may not)", async () => {
+  configureSession(fake({ logout: async () => { throw new Error("down"); } }));
+  await signIn("x".repeat(40));
+  assert.equal(sessionState.value.status, "authenticated");
+  await signOut();
+  assert.equal((sessionState.value as { status: string }).status, "anonymous");
+  assert.equal(sessionNotice.value, null);
+});
+
+test("a rate-limited write names the wait when the server gave one and it is sensible", () => {
+  for (const lang of ["en", "de"] as const) {
+    setLangPref(lang);
+    const generic = writeFailureText({ kind: "rate-limited", retryAfterSeconds: null });
+    const waited = writeFailureText({ kind: "rate-limited", retryAfterSeconds: 42 });
+    assert.ok(waited.includes("42"), `${lang}: ${waited}`);
+    assert.ok(!waited.includes("{"), waited);
+    assert.equal(writeFailureText({ kind: "rate-limited", retryAfterSeconds: 86_400 }), generic, "an absurd wait is not shown");
+    assert.equal(writeFailureText({ kind: "rate-limited", retryAfterSeconds: 0 }), generic);
+  }
+  setLangPref("en");
+});
+
+test("concurrent expiries leave one consistent state", async () => {
+  configureSession(fake({ write: async () => ({ ok: false, failure: { kind: "session-expired" } }) }));
+  await signIn("x".repeat(40));
+  await Promise.all([sessionWrite("POST", "/a"), sessionWrite("PUT", "/b"), sessionWrite("DELETE", "/c")]);
+  assert.equal(sessionState.value.status, "anonymous");
+  assert.equal(sessionNotice.value, "expired");
+});
+

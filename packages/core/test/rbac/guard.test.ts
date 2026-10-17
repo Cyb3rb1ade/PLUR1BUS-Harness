@@ -64,9 +64,9 @@ const params: Record<string, unknown> = {
   "models.removeManual": { provider: "p", model: "m" },
   "admin.migrate": {}, "admin.obsidian.detect": {}, "admin.obsidian.prepare": {}, "admin.obsidian.confirm": {},
   "admin.embedding.probe": {}, "admin.embedding.serve": {},
-  "admin.reembed.plan": {}, "admin.reembed.run": {}, "admin.reembed.status": {}, "admin.reembed.abort": {}, "admin.backup.snapshot": {}, "audit.verify": {}, "logs.query": {}, "logs.tail": {}, "identity.list": {}, "identity.human.create": {}, "identity.link": {}, "identity.unlink": {}, "identity.pair.start": {}, "identity.pair.claim": {}, "identity.pair.confirm": {}, "dreams.run": {}, "dreams.schedule.set": {}, "dreams.enable": {}, "dreams.disable": {},
-  "grant.list": {}, "grant.create": { capability: "fs.write", agent: "bernd", scope: "always" }, "grant.revoke": { id: "grt_1" },
-  "approval.list": {}, "approval.get": { id: "apr_1" }, "approval.decide": { id: "apr_1", decision: "approve" }, "approval.cancel": { id: "apr_1" }, "approval.verify": {},
+  "admin.reembed.plan": {}, "admin.reembed.run": {}, "admin.reembed.status": {}, "admin.reembed.abort": {}, "admin.backup.snapshot": {}, "audit.verify": {}, "logs.query": {}, "logs.tail": {}, "logs.levels": {}, "identity.list": {}, "identity.human.create": {}, "identity.link": {}, "identity.unlink": {}, "identity.pair.start": {}, "identity.pair.claim": {}, "identity.pair.confirm": {}, "dreams.run": {}, "dreams.schedule.set": {}, "dreams.enable": {}, "dreams.disable": {}, "dreams.diary": { agentId: "bernd" },
+  "grant.list": {}, "grant.get": { id: "grt_1" }, "grant.create": { capability: "fs.write", agent: "bernd", scope: "always" }, "grant.revoke": { id: "grt_1" },
+  "approval.list": {}, "approval.get": { id: "apr_1" }, "approval.decide": { id: "apr_1", decision: "approve" }, "approval.cancel": { id: "apr_1" }, "approval.verify": {}, "approval.audit": {},
 };
 
 /** Stub handlers for every guarded method; they record that they ran. */
@@ -120,7 +120,7 @@ describe("rpc guard: decisions", () => {
     for (const role of ["operator", "member", "viewer"] as const) {
       const { guarded, ran } = wrap(asRole(role));
       for (const m of Object.keys(RPC_RULES).filter((x) => x.startsWith("admin."))) {
-        assert.deepEqual(await code(guarded, m), { error: "E_DENIED", reason: "role-denied" }, `${role} ${m}`);
+        assert.deepEqual(await code(guarded, m), { error: "E_DENIED", reason: RPC_RULES[m]?.apiServiceOnly ? "api-service-only" : "role-denied" }, `${role} ${m}`);
       }
       assert.deepEqual(ran, []);
     }
@@ -211,8 +211,11 @@ describe("rpc guard: audit and default resolver", () => {
   });
   it("the local-owner default lets every guarded method through, as before RBAC", async () => {
     const { guarded, ran } = wrap(() => LOCAL_OWNER);
-    for (const m of Object.keys(RPC_RULES)) await call(guarded, m);
-    assert.equal(ran.length, Object.keys(RPC_RULES).length);
+    for (const m of Object.keys(RPC_RULES)) {
+      if (RPC_RULES[m]?.apiServiceOnly) assert.deepEqual(await code(guarded, m), { error: "E_DENIED", reason: "api-service-only" });
+      else await call(guarded, m);
+    }
+    assert.equal(ran.length, Object.values(RPC_RULES).filter(r => !r.apiServiceOnly).length);
   });
 });
 

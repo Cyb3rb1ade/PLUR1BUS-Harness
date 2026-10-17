@@ -63,6 +63,7 @@ describe("logs axe", opts, () => {
       installLogsMocks(app.server, { lines: makeLines(20), tail: false });
       await openRoute(app.page, "#/logs", "de");
       await rows(app.page).first().waitFor();
+      await app.page.waitForFunction(() => !document.querySelector('[data-state="loading"]'));
       await expectAxeClean(app.page, "de dark");
     });
   });

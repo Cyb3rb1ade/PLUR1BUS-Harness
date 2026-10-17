@@ -4,7 +4,7 @@ import { element, append } from "../components/dom.ts";
 import { button } from "../components/button.ts";
 import { chip } from "../components/chip.ts";
 import { banner } from "../components/banner.ts";
-import { addRemote, type Translate } from "./add-remote.ts";
+import { addRemote, resetPairing, type Translate } from "./add-remote.ts";
 import { pairingFailure } from "../models/pairing-model.ts";
 export function connectionsView(transport: DesktopTransport, translate: Translate, snapshot: () => ConnectionSnapshot, refresh: () => Promise<void>): () => HTMLElement {
     let data: ConnectionList = { connections: [], active: null, tokenStore: null };
@@ -14,11 +14,13 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
     let selected: string | null = null;
     let opened = false;
     let mount: HTMLElement | null = null;
+    // Guards live here, not in a rendered button: the shell rebuilds this view on every late load.
+    let nativeBusy = false, openBusy = false, removeBusy = false;
     let t = translate;
     function paired(result: Paired) { mode = "list"; repair = undefined; selected = result.connection.id; error = null; void refresh(); paint(); }
     function fail(e: unknown) { opened = false; error = e; void refresh(); paint(); }
     function formFocus() { queueMicrotask(() => mount?.querySelector<HTMLInputElement>("input:not([readonly])")?.focus()); }
-    function startAdd(row?: Connection) { opened = false; mode = "add"; repair = row; error = null; paint(); formFocus(); }
+    function startAdd(row?: Connection) { resetPairing(); opened = false; mode = "add"; repair = row; error = null; paint(); formFocus(); }
     function paint() {
         if (!mount)
             return;
@@ -52,11 +54,15 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
             form.append(label);
             const submit = button(t("pair.native"), () => { }, "primary");
             submit.type = "submit";
+            submit.disabled = nativeBusy;
             append(form, submit, button(t("pair.cancel"), () => { mode = "list"; paint(); }));
-            form.addEventListener("submit", async (e) => { e.preventDefault(); submit.disabled = true; try {
-                paired(await transport.pairLocal(input.value));
+            form.addEventListener("submit", async (e) => { e.preventDefault(); if (nativeBusy) return; nativeBusy = true; submit.disabled = true; try {
+                const result = await transport.pairLocal(input.value);
+                nativeBusy = false;
+                paired(result);
             }
             catch (e) {
+                nativeBusy = false;
                 const failure = pairingFailure(e);
                 error = e;
                 mode = failure.retry === "code" ? "add" : "native";
@@ -101,15 +107,19 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
             if (row.nextCertPin || row.nextCaPin)
                 main.append(banner(t("connections.trustNext")));
             const buttons = element("div", "connection-actions");
-            append(buttons, button(t("connections.open"), async () => { opened = false; try {
+            const openButton = button(t("connections.open"), async () => { if (openBusy) return; openBusy = true; openButton.disabled = true; opened = false; try {
                 const result = await transport.openConnection(row.id);
                 opened = result.selected && !result.spa_available;
                 error = null;
+                openBusy = false;
                 await refresh();
             }
             catch (e) {
+                openBusy = false;
                 fail(e);
-            } }, "primary"), button(t("pair.repair"), () => startAdd(row)), button(t("connections.rename"), () => rename(row)), button(t("connections.remove"), () => remove(row)));
+            } }, "primary");
+            openButton.disabled = openBusy;
+            append(buttons, openButton, button(t("pair.repair"), () => startAdd(row)), button(t("connections.rename"), () => rename(row)), button(t("connections.remove"), () => remove(row)));
             main.append(buttons);
             append(detail, element("p", undefined, t(data.tokenStore === null ? "connections.unchecked" : data.tokenStore === "memory-only" ? "connections.memory" : "connections.keychain")), element("p", undefined, `${t("connections.device")}: ${row.tokenHint}`));
             for (const [label, value] of [["connections.currentPin", row.certPin ?? row.caPin], ["connections.observedPin", row.observedCertPin], ["connections.nextPin", row.nextCertPin ?? row.nextCaPin]] as const) {
@@ -145,12 +155,14 @@ export function connectionsView(transport: DesktopTransport, translate: Translat
         fail(e);
     } }); mount.replaceChildren(form); formFocus(); }
     function remove(row: Connection) { opened = false; if (!mount)
-        return; const card = element("section", "page-card"); append(card, element("h2", undefined, t("connections.remove")), element("p", undefined, t("connections.removeConfirm", { name: row.name })), button(t("pair.cancel"), paint), button(t("connections.remove"), async () => { try {
+        return; const card = element("section", "page-card"); append(card, element("h2", undefined, t("connections.remove")), element("p", undefined, t("connections.removeConfirm", { name: row.name })), button(t("pair.cancel"), paint), button(t("connections.remove"), async () => { if (removeBusy) return; removeBusy = true; try {
         await transport.connectionsRemove(row.id);
         selected = null;
+        removeBusy = false;
         await refresh();
     }
     catch (e) {
+        removeBusy = false;
         fail(e);
     } }, "primary")); mount.replaceChildren(card); queueMicrotask(() => card.querySelector<HTMLButtonElement>("button")?.focus()); }
     return () => { t = translate; mount = element("div", "connections-workspace"); paint(); mount.querySelectorAll<HTMLElement>("button").forEach((node, index) => { node.dataset.focusKey = `connections-${index}`; }); return mount; };

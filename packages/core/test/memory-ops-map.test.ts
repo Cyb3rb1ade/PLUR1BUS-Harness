@@ -4,8 +4,9 @@ import assert from "node:assert/strict";
 import { validateResult } from "@plur1bus/rpc-schema";
 import type { AgentRegistry } from "../src/agents.ts";
 import type { HarnessLogger } from "../src/logger.ts";
-import { buildMemoryOpMethods, mapMemoryOpError, projectCard, projectProposal, type MemoryOpDeps } from "../src/memory-ops.ts";
+import { buildMemoryOpMethods, mapMemoryOpError, MEMORY_OP_METHODS, projectCard, projectProposal, type MemoryOpDeps } from "../src/memory-ops.ts";
 import { AGENT_CONTEXT_CLI } from "../src/principal.ts";
+import { join } from "node:path";
 import { tempDir } from "./helpers/temp-dir.ts";
 
 const opError = (code: string, detail?: Record<string, string>) =>
@@ -161,5 +162,111 @@ describe("buildMemoryOpMethods (fake engine)", () => {
     await assert.rejects(d["memory.forget"]({ caller, agentId: "bernd", id: "m1" }, ctx), (e: any) => e.error === "E_CORE_UNAVAILABLE" && e.reason === "core-stopping");
     const boom = new TypeError("boom");
     await assert.rejects(fixture({ fail: boom }).methods["memory.forget"]({ caller, agentId: "bernd", id: "m1" }, ctx), (e: any) => e === boom);
+  });
+});
+
+describe("memory ops audit c13 (fake engine)", () => {
+  const caller = { channel: "cli" as const, accountId: "macbooker", userId: "cyberblade" };
+  const workspace = tempDir("p1b-memops-c13-");
+  const agents: AgentRegistry = {
+    list: () => ["bernd", "ghosty"], has: (id) => id === "bernd" || id === "ghosty", scaffold: () => {},
+    workspaceOf: (id) => (id === "bernd" ? workspace : id === "ghosty" ? join(workspace, "does", "not", "exist") : undefined),
+  };
+  const logger = { debug() {}, info() {}, warn() {}, error() {}, child() { return logger; }, setLevel() {}, setRotation() {}, close: async () => {} } as HarnessLogger;
+  const ctx = { signal: new AbortController().signal } as any;
+  const card = { id: "m1", scope: "agent-private", text: "t", summary: "s", createdAt: 1, origin: "user", epistemicStatus: null };
+
+  function fixture() {
+    const calls: Array<{ op: string; args: unknown[] }> = [];
+    const rec = (op: string, result: unknown) => async (...args: unknown[]) => { calls.push({ op, args }); return result; };
+    const memory = {
+      list: rec("list", { agentId: "bernd", items: [{ ...card, score: Number.NaN }, { ...card, id: "m2", score: Infinity }, { ...card, id: "m3", score: 0.5 }], truncated: false }),
+      show: rec("show", card),
+      correct: rec("correct", { id: "m9", archived: true }),
+      propose: rec("propose", { proposalId: "p1", sharedId: "m2", sharerAgentId: "bernd" }),
+      proposals: { list: rec("plist", { agentId: "bernd", items: [], truncated: false, unreadable: 0 }) },
+    };
+    const d: MemoryOpDeps = { engine: { memory } as unknown as MemoryOpDeps["engine"], agents, logger, isStopping: () => false };
+    return { calls, methods: buildMemoryOpMethods(d) };
+  }
+  const invalid = (reason?: string) => (e: any) => e.error === "E_INVALID_PARAMS" && (reason === undefined || e.reason === reason);
+
+  it("a non-finite score never reaches the wire: one NaN card must not turn the whole listing into a result-schema failure", async () => {
+    const c = projectCard({ ...card, score: Number.NaN } as unknown as Parameters<typeof projectCard>[0]);
+    assert.equal("score" in c, false);
+    assert.equal("score" in projectCard({ ...card, score: -Infinity } as unknown as Parameters<typeof projectCard>[0]), false);
+    const { methods } = fixture();
+    const r = await methods["memory.list"]({ caller, agentId: "bernd", topic: "x" }, ctx);
+    const v = validateResult("memory.list", r);
+    assert.ok(v.ok, JSON.stringify(v));
+    assert.deepEqual((r as any).items.map((i: any) => i.score), [undefined, undefined, 0.5]);
+  });
+
+  it("list refuses until before since instead of passing an empty-by-construction window to the engine", async () => {
+    const { calls, methods } = fixture();
+    await assert.rejects(methods["memory.list"]({ caller, agentId: "bernd", since: 100, until: 50 }, ctx), invalid("until-before-since"));
+    assert.equal(calls.length, 0);
+    await methods["memory.list"]({ caller, agentId: "bernd", since: 100, until: 100 }, ctx); // equal bounds stay allowed
+    assert.equal(calls.length, 1);
+  });
+
+  it("blank text or topic is refused before the engine: correct archives the old card first, so a blank replacement must never get that far", async () => {
+    const { calls, methods } = fixture();
+    for (const text of [" ", "\n\t ", "​", "  "]) {
+      await assert.rejects(methods["memory.correct"]({ caller, agentId: "bernd", id: "m1", text }, ctx), invalid("blank-text"), JSON.stringify(text));
+      await assert.rejects(methods["memory.propose"]({ caller, agentId: "bernd", sharedId: "m2", text }, ctx), invalid("blank-text"), JSON.stringify(text));
+    }
+    await assert.rejects(methods["memory.list"]({ caller, agentId: "bernd", topic: "   " }, ctx), invalid("blank-text"));
+    assert.equal(calls.length, 0);
+    await methods["memory.correct"]({ caller, agentId: "bernd", id: "m1", text: "Lunch is on Wednesday." }, ctx);
+    assert.equal(calls.length, 1);
+  });
+
+  it("an agent whose workspace directory is gone answers E_STORAGE without the path, not a raw ENOENT", async () => {
+    const { calls, methods } = fixture();
+    for (const m of ["memory.list", "memory.state"] as const) {
+      await assert.rejects(methods[m]({ caller, agentId: "ghosty", since: 0 }, ctx), (e: any) => {
+        assert.ok(e && e.name === "RpcError" || e?.error !== undefined, `raw error escaped: ${String(e)}`);
+        assert.equal(e.error, "E_STORAGE"); assert.equal(e.reason, "workspace-unavailable");
+        assert.equal(String(e.message).includes("does"), false, e.message);
+        return true;
+      });
+    }
+    await assert.rejects(methods["memory.correct"]({ caller, agentId: "ghosty", id: "m1", text: "x" }, ctx), (e: any) => e.error === "E_STORAGE");
+    assert.equal(calls.length, 0);
+  });
+
+  it("an unknown agent is E_AGENT_UNKNOWN on every method and never reaches the engine", async () => {
+    const { calls, methods } = fixture();
+    const params: Record<string, Record<string, unknown>> = {
+      "memory.list": { since: 0 }, "memory.show": { id: "m1" }, "memory.forget": { id: "m1" }, "memory.correct": { id: "m1", text: "x" },
+      "memory.share": { id: "m1", target: "user" }, "memory.state": {}, "memory.propose": { sharedId: "m1", text: "x" },
+      "memory.proposals.list": {}, "memory.proposals.accept": { proposalId: "p1" }, "memory.proposals.reject": { proposalId: "p1" },
+    };
+    for (const m of MEMORY_OP_METHODS) {
+      await assert.rejects(methods[m]({ caller, agentId: "intruder", ...params[m] } as any, ctx), (e: any) => e.error === "E_AGENT_UNKNOWN", m);
+    }
+    assert.equal(calls.length, 0);
+  });
+
+  it("a read with an invalid identity proceeds with an inferred principal and says so; the same caller cannot write", async () => {
+    const { calls, methods } = fixture();
+    const bad = { ...caller, userId: "u".repeat(129) };
+    const r: any = await methods["memory.show"]({ caller: bad, agentId: "bernd", id: "m1" }, ctx);
+    assert.equal(r.degraded.reason, "principal-invalid");
+    const principal = calls[0]!.args[1] as any;
+    assert.equal(principal.trust, "inferred"); assert.equal("user" in principal, false);
+    const l: any = await methods["memory.proposals.list"]({ caller: bad, agentId: "bernd" }, ctx);
+    assert.equal(l.degraded.reason, "principal-invalid");
+    await assert.rejects(methods["memory.propose"]({ caller: bad, agentId: "bernd", sharedId: "m2", text: "x" }, ctx), (e: any) => e.error === "E_DENIED");
+    assert.equal(calls.length, 2);
+  });
+
+  it("list checks run before the engine: topic xor since, until only with since", async () => {
+    const { calls, methods } = fixture();
+    await assert.rejects(methods["memory.list"]({ caller, agentId: "bernd" }, ctx), invalid("topic-xor-since"));
+    await assert.rejects(methods["memory.list"]({ caller, agentId: "bernd", topic: "a", since: 1 }, ctx), invalid("topic-xor-since"));
+    await assert.rejects(methods["memory.list"]({ caller, agentId: "bernd", topic: "a", until: 1 }, ctx), invalid("topic-xor-since"));
+    assert.equal(calls.length, 0);
   });
 });

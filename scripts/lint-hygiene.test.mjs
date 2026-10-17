@@ -1,9 +1,10 @@
 // Unit tests for scripts/lint-hygiene.mjs (run by `pnpm lint`), including fixture-backed positive and negative cases
 // for every rule.
+import "./never-list.test.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,7 +18,7 @@ function fixture(id, kind) {
   return id === "HYG-013" && kind === "reject" ? JSON.parse(text).join(" ") : text;
 }
 
-function lintTree(files) {
+function lintTree(files, { links = {}, cwd = "" } = {}) {
   const root = mkdtempSync(join(tmpdir(), "p1b-hygiene-"));
   try {
     for (const [rel, text] of Object.entries(files)) {
@@ -25,11 +26,12 @@ function lintTree(files) {
       mkdirSync(join(p, ".."), { recursive: true });
       writeFileSync(p, text);
     }
+    for (const [rel, target] of Object.entries(links)) symlinkSync(target, join(root, ...rel.split("/")));
     for (const args of [["init", "--quiet"], ["add", "--all"]]) {
       const git = spawnSync("git", args, { cwd: root, encoding: "utf8" });
       assert.equal(git.status, 0, git.stderr);
     }
-    return spawnSync(process.execPath, [script], { cwd: root, encoding: "utf8" });
+    return spawnSync(process.execPath, [script], { cwd: join(root, cwd), encoding: "utf8" });
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -215,4 +217,43 @@ test("allows the plan's quoted header example but still rejects a key in that fi
   const header = "untrusted comment: " + "minisign secret key";
   assert.equal(lintTree({ [path]: `Example: \`${header}\`` }).status, 0);
   assert.equal(lintTree({ [path]: `Example: \`${header}\`\n${header}` }).status, 1);
+});
+
+const HOST_NAME = ["Open", "Claw"].join("");
+test("a dangling symlink does not end the walk early (files after it are still scanned)", () => {
+  // "a-dangling.ts" sorts before "z.ts" and before "packages/zz"; the walk used to throw on it and silently skip the rest.
+  const r = lintTree(
+    { "packages/s/z.ts": `const a = "${HOST_NAME}";\n`, "packages/zz/y.ts": `const b = "${HOST_NAME}";\n` },
+    { links: { "packages/s/a-dangling.ts": "/nonexistent-target" } },
+  );
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stderr, /packages\/s\/z\.ts:1:/);
+  assert.match(r.stderr, /packages\/zz\/y\.ts:1:/);
+});
+
+test("run from a subdirectory it still scans the whole repository", () => {
+  const r = lintTree({ "packages/s/z.ts": `const a = "${HOST_NAME}";\n`, "tests/keep.txt": "x\n" }, { cwd: "tests" });
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stderr, /packages\/s\/z\.ts:1:/);
+});
+
+test("paths with spaces are scanned and reported, and many files share one blob read", () => {
+  const files = { "packages/a b/c d.ts": `const a = "${HOST_NAME}";\n` };
+  for (let i = 0; i < 300; i++) files[`packages/bulk/f${i}.ts`] = "export const same = 1;\n";
+  const r = lintTree(files);
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stderr, /packages\/a b\/c d\.ts:1:/);
+  assert.match(r.stderr, /hygiene: 1 violation/);
+});
+
+test("D110 foreign-client lint applies before importer exemptions and scans desktop TSX", () => {
+  for (const path of ["packages/core/src/import/probe.ts", "desktop/src/probe.tsx", "apps/desktop/ui/src/probe.tsx"]) {
+    const r = lintTree({ [path]: 'const forbidden = "CODEX_' + 'APP_SERVER_LOGIN_CLIENT_ID";\n' });
+    assert.equal(r.status, 1); assert.match(r.stderr, /HYG-014/);
+    assert.doesNotMatch(r.stderr, /APP_SERVER_LOGIN_CLIENT_ID/);
+  }
+});
+test("D110 workflow lint rejects an offline job using a provider credential", () => {
+  const r = lintTree({ ".github/workflows/ci.yml": 'jobs:\n  offline:\n    env:\n      KEY: ${{ secrets.OPENAI_API_KEY }}\n' });
+  assert.equal(r.status, 1); assert.match(r.stderr, /HYG-015/);
 });

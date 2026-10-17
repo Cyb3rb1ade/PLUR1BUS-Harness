@@ -103,6 +103,98 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
 
     for (name, fixture) in &fixtures {
         match name.as_str() {
+            "chat.create" => check_pair::<types::ChatCreateParams, types::ChatCreateResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.list" => check_pair::<types::ChatListParams, types::ChatListResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.get" => check_pair::<types::ChatGetParams, types::ChatGetResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.events" => check_pair::<types::ChatEventsParams, types::ChatEventsResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.submit" => check_pair::<types::ChatSubmitParams, types::ChatSubmitResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.update" => check_pair::<types::ChatUpdateParams, types::ChatUpdateResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.archive" => check_pair::<types::ChatArchiveParams, types::ChatArchiveResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.restore" => check_pair::<types::ChatRestoreParams, types::ChatRestoreResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.cancel" => check_pair::<types::ChatCancelParams, types::ChatCancelResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.fork" => check_pair::<types::ChatForkParams, types::ChatForkResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.delete" => check_pair::<types::ChatDeleteParams, types::ChatDeleteResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.export" => check_pair::<types::ChatExportParams, types::ChatExportResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "admin.api.device.pair" => check_pair::<
+                types::AdminApiDevicePairParams,
+                types::AdminApiDevicePairResult,
+            >(name, fixture, &root_schema),
+            "admin.api.device.challenge" => check_pair::<
+                types::AdminApiDeviceChallengeParams,
+                types::AdminApiDeviceChallengeResult,
+            >(name, fixture, &root_schema),
+            "admin.api.device.prove" => check_pair::<
+                types::AdminApiDeviceProveParams,
+                types::AdminApiDeviceProveResult,
+            >(name, fixture, &root_schema),
+            "admin.api.device.announce" => check_pair::<
+                types::AdminApiDeviceAnnounceParams,
+                types::AdminApiDeviceAnnounceResult,
+            >(name, fixture, &root_schema),
+            "model.embedding.select" => check_pair::<
+                types::ModelEmbeddingSelectParams,
+                types::ModelEmbeddingSelectResult,
+            >(name, fixture, &root_schema),
+            "model.licence.confirm" => check_pair::<
+                types::ModelLicenceConfirmParams,
+                types::ModelLicenceConfirmResult,
+            >(name, fixture, &root_schema),
+            "model.licence.list" => check_pair::<
+                types::ModelLicenceListParams,
+                types::ModelLicenceListResult,
+            >(name, fixture, &root_schema),
+            "model.licence.check" => check_pair::<
+                types::ModelLicenceCheckParams,
+                types::ModelLicenceCheckResult,
+            >(name, fixture, &root_schema),
             "device.list" => check_pair::<types::DeviceListParams, types::DeviceListResult>(
                 name,
                 fixture,
@@ -167,6 +259,24 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
             "agent.rights.set" => check_pair::<
                 types::AgentRightsSetParams,
                 types::AgentRightsSetResult,
+            >(name, fixture, &root_schema),
+            "user.disable" => check_pair::<types::UserDisableParams, types::UserDisableResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "user.enable" => check_pair::<types::UserEnableParams, types::UserEnableResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "admin.api.person.resolve" => check_pair::<
+                types::AdminApiPersonResolveParams,
+                types::AdminApiPersonResolveResult,
+            >(name, fixture, &root_schema),
+            "admin.api.invite.validate" => check_pair::<
+                types::AdminApiInviteValidateParams,
+                types::AdminApiInviteValidateResult,
             >(name, fixture, &root_schema),
             "user.list" => check_pair::<types::UserListParams, types::UserListResult>(
                 name,
@@ -369,6 +479,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
             "project.agent.remove" => check_pair::<
                 types::ProjectAgentRemoveParams,
                 types::ProjectAgentRemoveResult,
+            >(name, fixture, &root_schema),
+            "collab.session.replay" => check_pair::<
+                types::CollabSessionReplayParams,
+                types::CollabSessionReplayResult,
             >(name, fixture, &root_schema),
             "collab.trace.get" => check_pair::<
                 types::CollabTraceGetParams,
@@ -804,6 +918,11 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                     &root_schema,
                 )
             }
+            "dreams.diary" => check_pair::<types::DreamsDiaryParams, types::DreamsDiaryResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "admin.reembed.plan" => check_pair::<
                 types::AdminReembedPlanParams,
                 types::AdminReembedPlanResult,
@@ -921,6 +1040,11 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::IdentityUnlinkParams,
                 types::IdentityUnlinkResult,
             >(name, fixture, &root_schema),
+            "logs.levels" => check_pair::<types::LogsLevelsParams, types::LogsLevelsResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "logs.query" => check_pair::<types::LogsQueryParams, types::LogsQueryResult>(
                 name,
                 fixture,
@@ -974,6 +1098,9 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "grant.get" => {
+                check_pair::<types::GrantGetParams, types::GrantRecord>(name, fixture, &root_schema)
+            }
             "grant.create" => check_pair::<types::GrantCreateParams, types::GrantRecord>(
                 name,
                 fixture,
@@ -1007,6 +1134,13 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::ApprovalVerifyParams,
                 types::ApprovalVerifyResult,
             >(name, fixture, &root_schema),
+            "approval.audit" => {
+                check_pair::<types::ApprovalAuditParams, types::ApprovalAuditResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
             "project.column.list" => check_pair::<
                 types::ProjectColumnListParams,
                 types::ProjectColumnListResult,

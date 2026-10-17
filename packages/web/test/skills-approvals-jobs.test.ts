@@ -11,6 +11,11 @@ const opts = { skip: browserSkip };
 const calls = (app: App, method: string): { params: unknown; csrf: string | null }[] =>
   app.server.rpc.calls.filter((c) => c.method === method);
 
+/** A fixed 50 ms wait was too short on a loaded machine: wait until the call has reached the mock. */
+async function waitForCalls(app: App, method: string, n: number): Promise<void> {
+  for (let i = 0; i < 400 && calls(app, method).length < n; i++) await new Promise((r) => setTimeout(r, 10));
+}
+
 describe("Skills & Plugins (Extensions) page", opts, () => {
   test("lists extensions, filters by kind and search", async () => {
     await withApp({}, async (app) => {
@@ -83,8 +88,8 @@ describe("Skills & Plugins (Extensions) page", opts, () => {
     });
   });
 
-  test("German translation & a11y clean", async () => {
-    await withApp({ locale: "de-DE" }, async (app) => {
+  for (const colorScheme of ["light", "dark"] as const) test(`German translation & a11y clean (${colorScheme})`, async () => {
+    await withApp({ locale: "de-DE", colorScheme }, async (app) => {
       seedExtensions(app.server.rpc);
       await openRoute(app.page, "#/skills", "de");
       await app.page.getByRole("heading", { name: /Skills & Plugins/i }).waitFor();
@@ -130,7 +135,7 @@ describe("Approvals page", opts, () => {
       // Test approve click
       const approveBtn = app.page.getByRole("button", { name: /^Approve$|^Freigeben$/i });
       await approveBtn.click();
-      await app.page.waitForTimeout(50);
+      await waitForCalls(app, "approval.decide", 1);
       assert.equal(calls(app, "approval.decide").length, 1);
     });
   });
@@ -148,7 +153,7 @@ describe("Approvals page", opts, () => {
       const revokeBtn = app.page.getByRole("button", { name: /Revoke grant|Grant widerrufen/i });
       await revokeBtn.waitFor();
       await revokeBtn.click();
-      await app.page.waitForTimeout(50);
+      await waitForCalls(app, "grant.revoke", 1);
       assert.equal(calls(app, "grant.revoke").length, 1);
     });
   });

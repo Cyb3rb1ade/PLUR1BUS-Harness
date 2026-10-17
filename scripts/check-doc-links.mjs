@@ -1,13 +1,25 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-function markdownFiles(dir) {
-  const files = [];
-  for (const name of readdirSync(dir)) {
+/** Markdown files under `dir`, sorted by name (directory order is filesystem-dependent, and so would be the report).
+ *  A dangling symlink is reported in `problems` instead of aborting the run; symlinked directories are not followed
+ *  (a link cycle would never end). */
+function markdownFiles(dir, root, problems, files = []) {
+  if (!existsSync(dir)) return files;
+  for (const name of readdirSync(dir).sort()) {
     const path = join(dir, name);
-    if (statSync(path).isDirectory()) files.push(...markdownFiles(path));
-    else if (name.endsWith(".md")) files.push(path);
+    let st;
+    try {
+      st = statSync(path);
+    } catch (err) {
+      if (err.code !== "ENOENT") throw err;
+      if (name.endsWith(".md")) problems.push(`${relative(root, path).split("\\").join("/")}: dangling symlink`);
+      continue;
+    }
+    if (st.isDirectory()) {
+      if (!lstatSync(path).isSymbolicLink()) markdownFiles(path, root, problems, files);
+    } else if (name.endsWith(".md")) files.push(path);
   }
   return files;
 }
@@ -70,7 +82,8 @@ function destinations(text) {
     i = end;
   }
 
-  for (const match of masked.matchAll(/^\s{0,3}\[[^\]]+\]:\s*(<[^>\r\n]*>|[^\s]+).*$/gm)) {
+  // `[^1]: text` is a footnote definition, not a link reference definition: its "destination" is prose.
+  for (const match of masked.matchAll(/^\s{0,3}\[(?!\^)[^\]]+\]:\s*(<[^>\r\n]*>|[^\s]+).*$/gm)) {
     const destination = match[1].startsWith("<") ? match[1].slice(1, -1) : match[1];
     found.push({ destination, offset: match.index });
   }
@@ -119,13 +132,13 @@ function decoded(value) {
 export function checkDocLinks(root) {
   root = resolve(root);
   const docsDir = join(root, "docs");
+  const problems = [];
   const files = [
-    ...readdirSync(root).filter((name) => name.endsWith(".md")).map((name) => join(root, name)),
-    ...markdownFiles(docsDir),
+    ...readdirSync(root).sort().filter((name) => name.endsWith(".md") && statSync(join(root, name), { throwIfNoEntry: false })?.isFile()).map((name) => join(root, name)),
+    ...markdownFiles(docsDir, root, problems),
   ];
   const markdown = new Map(files.map((file) => [resolve(file), readFileSync(file, "utf8")]));
   const anchors = new Map([...markdown].map(([file, text]) => [file, headingAnchors(text)]));
-  const problems = [];
 
   for (const [file, text] of markdown) {
     const rel = relative(root, file).split("\\").join("/");

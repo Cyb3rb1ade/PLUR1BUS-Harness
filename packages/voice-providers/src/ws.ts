@@ -32,6 +32,10 @@ export interface WsLimits {
   pingIntervalMs?: number;
   /** How long a ping may stay unanswered (no bytes at all from the peer) before the peer counts as dead. Default 10000. */
   pongTimeoutMs?: number;
+  /** How long the HTTP upgrade may take (connect, TLS and the 101 response) before the connect fails with `timeout`. 0 turns it off. Default 15000. */
+  connectTimeoutMs?: number;
+  /** Largest backlog of bytes handed to the socket but not yet flushed. Past it `send` throws `overloaded` instead of buffering without bound. Default 4 MiB. */
+  maxBufferedBytes?: number;
 }
 export interface WsTimers {
   setTimeout(fn: () => void, ms: number): unknown;
@@ -53,12 +57,12 @@ export type WsFactory = (url: string, init: WsInit) => Promise<WsLike>;
 export const WS_OPEN = 1;
 export const WS_CLOSING = 2;
 export const WS_CLOSED = 3;
-const DEFAULT_LIMITS = { maxMessageBytes: 4 * 1024 * 1024, closeTimeoutMs: 5000, pingIntervalMs: 20_000, pongTimeoutMs: 10_000 } as const;
+const DEFAULT_LIMITS = { maxMessageBytes: 4 * 1024 * 1024, closeTimeoutMs: 5000, pingIntervalMs: 20_000, pongTimeoutMs: 10_000, connectTimeoutMs: 15_000, maxBufferedBytes: 4 * 1024 * 1024 } as const;
 const GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const MAX_CONTROL_PAYLOAD = 125;
 const RESERVED_HEADERS = new Set(["connection", "upgrade", "host", "content-length"]);
 
-const realTimers: WsTimers = {
+export const realTimers: WsTimers = {
   setTimeout: (fn, ms) => { const t = setTimeout(fn, ms); t.unref?.(); return t; },
   clearTimeout: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
 };
@@ -122,6 +126,9 @@ class NodeWebSocket implements WsLike {
 
   send(data: string | Uint8Array): void {
     if (this.readyState !== WS_OPEN) throw new VoiceProviderError("closed", "websocket is closed");
+    // Backpressure: a peer that reads slower than the caller writes (live audio) must not make us queue without bound.
+    // The caller decides whether to drop the chunk or wait; control frames (pong, close) are not subject to the cap.
+    if (this.sock.writableLength > this.lim.maxBufferedBytes) throw new VoiceProviderError("overloaded", "websocket send buffer is full: the peer is not reading fast enough");
     this.frame(typeof data === "string" ? 1 : 2, typeof data === "string" ? Buffer.from(data) : Buffer.from(data.buffer, data.byteOffset, data.byteLength));
   }
 
@@ -359,7 +366,11 @@ export const defaultWsFactory: WsFactory = (url, init) => {
       protocol: secure ? "https:" : "http:", hostname: u.hostname.replace(/^\[|\]$/g, ""), port: u.port || (secure ? 443 : 80), path: `${u.pathname}${u.search}`, method: "GET", headers, ...(init.lookup ? { lookup: init.lookup } : {}),
     });
     let settled = false;
-    const done = (fn: () => void) => { if (settled) return; settled = true; init.signal?.removeEventListener("abort", onAbort); fn(); };
+    const timers = init.timers ?? realTimers;
+    const connectMs = init.limits?.connectTimeoutMs ?? DEFAULT_LIMITS.connectTimeoutMs;
+    let connectTimer: unknown;
+    const done = (fn: () => void) => { if (settled) return; settled = true; if (connectTimer !== undefined) timers.clearTimeout(connectTimer); init.signal?.removeEventListener("abort", onAbort); fn(); };
+    if (connectMs > 0) connectTimer = timers.setTimeout(() => { req.destroy(); done(() => reject(new VoiceProviderError("timeout", `${provider}: websocket handshake timed out`, { provider }))); }, connectMs);
     const onAbort = () => { req.destroy(); done(() => reject(abortedError(provider))); };
     init.signal?.addEventListener("abort", onAbort, { once: true });
     req.on("upgrade", (res: IncomingMessage, sock: Duplex, head: Buffer) => {

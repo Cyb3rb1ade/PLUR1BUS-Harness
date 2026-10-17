@@ -56,3 +56,17 @@ test("a delegated handshake has its own short deadline despite a long method bud
   await assert.rejects(connect({ address, token, handshakeTimeoutMs: 30, callTimeoutMs: 300_000, api: { clientId: "harness-api", token: apiToken, principal: { userId: "alice", role: "member", kind: "person" } } }), e => (e as any).reason === "call-timeout");
   assert.ok(Date.now() - started < 1000);
 });
+
+test("API authority-change notifications reach only the credential-authenticated service connection", async t => {
+  const dir = mkdtempSync(join(tmpdir(), "api-service-notify-")), address = join(dir, "rpc.sock"); const token = randomBytes(32).toString("hex"), apiToken = randomBytes(32).toString("hex");
+  const logger = createLogger({ file: join(dir, "test.log"), role: "core", level: "error" }); const serviceIds: string[] = [];
+  const server = createRpcServer({ address, token, apiToken, methods: {}, logger, hello: () => ({ rpc: "1.6.0", instanceId: "test", pid: process.pid }), onApiAuthenticated: (id, p) => { if (p === null && !serviceIds.includes(id)) serviceIds.push(id); }, apiPersonOfConnection: async (_id, p) => p.kind === "person" ? p.userId : null });
+  await server.listen(); t.after(async () => { await server.close(); await logger.close(); rmSync(dir, { recursive: true, force: true }); });
+  const service = await connect({ address, token, api: { clientId: "harness-api", token: apiToken } }); const browser = await connect({ address, token, api: { clientId: "harness-api", token: apiToken, principal: { userId: "alice", kind: "person", role: "owner" } } }); const local = await connect({ address, token });
+  t.after(async () => { await service.close(); await browser.close(); await local.close(); });
+  const seen: string[] = []; service.onNotification(() => seen.push("service")); browser.onNotification(() => seen.push("browser")); local.onNotification(() => seen.push("local"));
+  for (const c of [service, browser, local]) await c.call("events.subscribe", { names: ["api.account.changed"] });
+  server.notify("api.account.changed", { userId: "alice" }, { audience: serviceIds.map(connectionId => ({ connectionId })) });
+  const end = Date.now() + 2000; while (!seen.length && Date.now() < end) await new Promise(r => setTimeout(r, 10));
+  assert.deepEqual(seen, ["service"]);
+});

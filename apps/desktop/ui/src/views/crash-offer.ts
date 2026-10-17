@@ -1,19 +1,21 @@
 import {element, append, restoreFocus,trapDialogFocus} from "../components/dom.ts";
 import {button} from "../components/button.ts";
 import {translate,type MessageKey} from "../i18n.ts";
+import {redactDiagnostics} from "../models/redact.ts";
 export type CrashOffer = {id:string; details:string};
 export async function showCrashOffers(offers:CrashOffer[], handled:(id:string)=>Promise<void>, copy:(text:string)=>Promise<void> = text => navigator.clipboard.writeText(text), actions?: {open:()=>Promise<void>; restart:()=>Promise<void>}):Promise<void> {
   const t=(key:MessageKey)=>translate(document.documentElement.lang.startsWith("de")?"de":"en",key);
   for (const offer of offers) {
+    const text = redactDiagnostics(offer.details);
     await new Promise<void>(resolve => {
       const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       const dialog = element("dialog", "app-dialog"); dialog.dataset.crashOffer = "true";
       const title = element("h2", undefined, t("crash.title"));
       title.id = `crash-${crypto.randomUUID()}`; dialog.setAttribute("aria-labelledby", title.id);
-      const details = element("pre", "crash-details", offer.details);
+      const details = element("pre", "crash-details", text);
       const error = element("p"); error.setAttribute("role", "alert");
       const copyButton = button(t("crash.copy"), async () => {
-        try { await copy(offer.details); error.textContent = t("crash.copied"); }
+        try { await copy(text); error.textContent = t("crash.copied"); }
         catch { error.textContent = t("crash.copyFailed"); }
       }, "secondary");
       const open = actions ? button(t("crash.open"), async () => {

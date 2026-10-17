@@ -302,6 +302,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
             writeToSocket(c, line); break; // one delivery per connection
           }
         };
+        if (c.api === null && method === "api.account.changed" && audience?.some(t => typeof t === "object" && "connectionId" in t && t.connectionId === c.id)) { deliver(); continue; }
         if (c.api !== undefined || audience?.some(t => typeof t === "object" && "personId" in t)) {
           // API connection audiences also require a currently active person; a stale socket is no authority.
           void Promise.resolve().then(() => c.api !== undefined ? (c.api ? o.apiPersonOfConnection?.(c.id, c.api) : null) : o.personOfConnection?.(c.id)).then(person => { if (c.api !== undefined && !person) return; deliver(person); }).catch(() => {});

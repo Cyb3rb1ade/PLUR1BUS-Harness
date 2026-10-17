@@ -143,10 +143,26 @@ from any of them end the call (`test/router/mixed-wires.test.ts`). `params.maxTo
 Anthropic wire and `max_output_tokens` on Responses; Anthropic needs a value, so its adapter falls back to
 `defaultMaxTokens` (4096).
 
+## Timeouts and limits
+
+- **Timeouts** (`timeouts`: `headersMs`, `idleMs`, `totalMs`, per adapter and per call via `CallOptions.timeouts`). Defaults
+  60 s / 60 s / 600 s. A bound is a positive number of milliseconds, or `null` / `Infinity`, which both switch it off.
+  `NaN`, zero and negative values (and non-numbers) are an `invalid_request` thrown before any I/O. Values above the
+  timer range (2^31-1 ms) are clamped to it. Non-stream calls default `headersMs` to `totalMs` unless it is set.
+- **An explicit `undefined` keeps the default.** In `timeouts` and `limits`, at adapter level and per call, a key set to
+  `undefined` means "not set" (it neither overrides the default nor disables the bound).
+- **Limits** (`limits`): `maxEventBytes` 4 MiB per SSE event, `maxToolArgumentBytes` 1 MiB per tool call,
+  `maxBodyBytes` 16 MiB. `maxBodyBytes` bounds a non-stream body, an error body read for classification, and also
+  **everything one streamed response may send**: the stream is cut when the total exceeds it and the call fails with a
+  `protocol` error (`unknown` kind, `code: "protocol"`), carrying what had arrived in `partial`. This holds for
+  chat_completions, Anthropic Messages, Gemini and Responses.
+- Profile and error-type names are looked up as own properties only, so a name such as `constructor` or `__proto__` is unknown, not a hit on `Object.prototype`.
+
 ## Local models (Ollama, LM Studio)
 
 - `discoverLocalEndpoints()` probes `127.0.0.1:11434` (Ollama) and `127.0.0.1:1234` (LM Studio) with a short per-request
-  timeout (1.5 s) and an overall deadline (3 s). Unreachable or empty servers are reported as **unavailable**
+  timeout (1.5 s) and an overall deadline (3 s). The probe never throws on bad bounds: for `timeoutMs` and `deadlineMs`, unset, `NaN`, zero or negative
+  selects the default and `Infinity` selects the longest timer bound (2^31-1 ms). (This differs from the adapter timeouts above, where those values are an `invalid_request`.) Unreachable or empty servers are reported as **unavailable**
   (`availabilityOf`), never thrown.
 - `LocalEndpointMonitor.snapshot()` is synchronous and never touches the network; `refresh()` is de-duplicated and
   `refreshInBackground()` is fire-and-forget.
@@ -224,7 +240,11 @@ expect numbers; bridging them is a follow-up).
 ## Streaming contract
 
 Every adapter emits content events (text/reasoning deltas, tool-call start/delta) → exactly one `finish` → at most one
-`usage` → exactly one `done`, last. Failures are thrown, never events. `test/contract/` runs the same scenarios over
+`usage` → exactly one `done`, last. Failures are thrown, never events.
+For chat_completions the `usage` event is emitted by the adapter, not forwarded from the chunks: the figure is cumulative
+and some servers repeat it or send it before the content, so the adapter keeps the last non-empty usage it saw and sends
+exactly one `usage` event after `finish` (none when the server reported none; an empty usage object never erases a known
+one). `test/contract/` runs the same scenarios over
 every adapter against recorded, **synthetic** wire fixtures with no network.
 
 ## Public exports

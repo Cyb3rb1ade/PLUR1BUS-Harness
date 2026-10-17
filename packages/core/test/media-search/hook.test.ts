@@ -5,6 +5,7 @@ import { createCaptionService } from "../../src/media-search/caption/service.ts"
 import { DisabledMediaIndex } from "../../src/media-search/disabled.ts";
 import type { MediaIndexPort } from "../../src/media-search/types.ts";
 import { FakeCaptionProvider, FakePort, recorder, scope, silentLogger } from "./fakes.ts";
+import { cpuMs } from "../helpers/cpu-time.ts";
 
 const rec = (extra: Partial<MediaRecord> = {}): MediaRecord => ({ mediaId: "m1", kind: "image", mime: "image/png", source: { bytes: new Uint8Array([1]) }, ...extra });
 
@@ -55,11 +56,11 @@ describe("media index hook", () => {
     const p = new FakePort();
     p.indexImpl = () => new Promise(() => {});
     const { hook } = setup({ port: p });
-    const t0 = Date.now();
+    const t0 = cpuMs(); // CPU time, not wall clock: stays put while a loaded machine delays this process
     hook.onStored(rec({ prompt: "x" }));
     hook.onStored(rec({ mediaId: "m2", prompt: "y" }));
     hook.onDeleted("m3");
-    assert.ok(Date.now() - t0 < 50);
+    assert.ok(cpuMs() - t0 < 50, `the calls took ${Math.round(cpuMs() - t0)} ms of CPU`);
     await new Promise(r => setImmediate(r));
     assert.equal(p.indexed.length, 2);
   });

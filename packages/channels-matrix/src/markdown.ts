@@ -55,7 +55,12 @@ export function safeHref(raw: string): string | undefined {
 
 // ---------------------------------------------------------------- inline
 
-function parseInline(s: string): Inline[] {
+/** Nesting of blocks (quotes, lists) and of inline spans (emphasis, links) is bounded; deeper input is kept as literal text.
+ *  Without a bound a few kilobytes of `> > > ...` overflow the stack and the whole send fails. */
+const MAX_DEPTH = 24;
+
+function parseInline(s: string, depth = 0): Inline[] {
+  if (depth > MAX_DEPTH) return s.split("\n").flatMap((l, k): Inline[] => (k === 0 ? [{ t: "text", v: l }] : [{ t: "br" }, { t: "text", v: l }]));
   const out: Inline[] = [];
   let buf = "";
   const flush = (): void => {
@@ -105,7 +110,7 @@ function parseInline(s: string): Inline[] {
       continue;
     }
     if (ch === "!" && s[i + 1] === "[") {
-      const link = tryLink(s, i + 1);
+      const link = tryLink(s, i + 1, depth);
       if (link) {
         flush();
         out.push(link.node);
@@ -117,7 +122,7 @@ function parseInline(s: string): Inline[] {
       continue;
     }
     if (ch === "[") {
-      const link = tryLink(s, i);
+      const link = tryLink(s, i, depth);
       if (link) {
         flush();
         out.push(link.node);
@@ -143,7 +148,7 @@ function parseInline(s: string): Inline[] {
     if (ch === "*" || ch === "_" || ch === "~") {
       let n = 1;
       while (s[i + n] === ch) n++;
-      const parsed = tryEmphasis(s, i, ch, n);
+      const parsed = tryEmphasis(s, i, ch, n, depth);
       if (parsed) {
         flush();
         out.push(parsed.node);
@@ -176,7 +181,7 @@ function findBacktickRun(s: string, from: number, n: number): number {
   return -1;
 }
 
-function tryEmphasis(s: string, i: number, ch: string, run: number): { node: Inline; end: number } | undefined {
+function tryEmphasis(s: string, i: number, ch: string, run: number, depth: number): { node: Inline; end: number } | undefined {
   const len = ch === "~" ? (run === 2 ? 2 : 0) : run >= 3 ? 3 : run;
   if (len === 0) return undefined;
   const after = s[i + len];
@@ -206,7 +211,7 @@ function tryEmphasis(s: string, i: number, ch: string, run: number): { node: Inl
       const closes =
         m === len && !/\s/.test(prev) && !(ch === "_" && next !== undefined && /[A-Za-z0-9]/.test(next));
       if (closes && j > i + len) {
-        const inner = parseInline(s.slice(i + len, j));
+        const inner = parseInline(s.slice(i + len, j), depth + 1);
         const node: Inline =
           len === 3
             ? { t: "strong", c: [{ t: "em", c: inner }] }
@@ -223,7 +228,7 @@ function tryEmphasis(s: string, i: number, ch: string, run: number): { node: Inl
   return undefined;
 }
 
-function tryLink(s: string, i: number): { node: Inline; end: number } | undefined {
+function tryLink(s: string, i: number, nest: number): { node: Inline; end: number } | undefined {
   // s[i] === "["; find the matching "]".
   let depth = 0;
   let j = i;
@@ -279,7 +284,7 @@ function tryLink(s: string, i: number): { node: Inline; end: number } | undefine
     while (s[k] === " " || s[k] === "\t") k++;
   }
   if (s[k] !== ")") return undefined;
-  return { node: { t: "link", href: safeHref(dest), c: parseInline(text) }, end: k + 1 };
+  return { node: { t: "link", href: safeHref(dest), c: parseInline(text, nest + 1) }, end: k + 1 };
 }
 
 // ---------------------------------------------------------------- blocks
@@ -310,7 +315,8 @@ function startsBlock(l: string): boolean {
   return FENCE.test(l) || HEADING.test(l) || HR.test(l) || QUOTE.test(l) || ITEM.test(l);
 }
 
-function parseBlocks(lines: string[]): Block[] {
+function parseBlocks(lines: string[], depth = 0): Block[] {
+  if (depth > MAX_DEPTH) return [{ t: "p", c: parseInline(lines.join("\n").trim(), MAX_DEPTH) }];
   const out: Block[] = [];
   let i = 0;
   while (i < lines.length) {
@@ -350,7 +356,7 @@ function parseBlocks(lines: string[]): Block[] {
     if (QUOTE.test(line)) {
       const inner: string[] = [];
       while (i < lines.length && QUOTE.test(lines[i]!)) inner.push(lines[i]!.replace(QUOTE, "")), i++;
-      out.push({ t: "quote", c: parseBlocks(inner) });
+      out.push({ t: "quote", c: parseBlocks(inner, depth + 1) });
       continue;
     }
     const item = ITEM.exec(line);
@@ -383,7 +389,7 @@ function parseBlocks(lines: string[]): Block[] {
             i++;
           } else break;
         }
-        items.push(parseBlocks(body));
+        items.push(parseBlocks(body, depth + 1));
         let j = i;
         while (j < lines.length && isBlank(lines[j]!)) j++;
         const nx = j < lines.length ? ITEM.exec(lines[j]!) : null;
@@ -532,12 +538,17 @@ function blocksText(blocks: Block[]): string {
     .join("\n\n");
 }
 
+/** body + formatted_body budget of one event. The homeserver caps a whole event at 64 KiB; escaping can make the HTML several
+ *  times larger than its source (`"` becomes `&quot;`), so a message over budget is sent as plain text instead of failing. */
+export const MAX_EVENT_TEXT_BYTES = 60_000;
+const utf8 = new TextEncoder();
+
 /** Convert model-written Markdown into a Matrix `m.room.message` text body + optional `org.matrix.custom.html`. */
-export function toMatrixText(markdown: string): MatrixText {
+export function toMatrixText(markdown: string, maxBytes: number = MAX_EVENT_TEXT_BYTES): MatrixText {
   const blocks = parseBlocks(markdown.replace(/\r\n?/g, "\n").replace(/\u0000/g, "").split("\n"));
   const body = blocksText(blocks);
   const html = blocksHtml(blocks, true);
-  const hasMarkup = /<[a-z]/.test(html);
+  const hasMarkup = /<[a-z]/.test(html) && utf8.encode(body).length + utf8.encode(html).length <= maxBytes;
   return { body, ...(hasMarkup ? { formattedBody: html } : {}) };
 }
 export { toMatrixText as toPlatformMarkdown };

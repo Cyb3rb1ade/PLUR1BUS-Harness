@@ -31,7 +31,7 @@ export class LiveHandles {
     } catch (e) { entry.state = 'revoked'; throw e instanceof OpenAIError ? e : new OpenAIError('transport-failed'); }
   }
   async #revoke(entry: Entry) { entry.state = 'revoked'; await entry.channel?.close(); this.#o.audit({ kind: 'handle-revoked' }); }
-  async revokeSession(session: string, person: string) { for (const entry of this.#entries.values()) if (entry.binding.session === session && entry.binding.person === person) await this.#revoke(entry); }
-  async sweep() { for (const [key, entry] of this.#entries) if (entry.expiresAt <= this.#o.clock() && entry.state !== 'used' && entry.state !== 'opening') { await this.#revoke(entry); this.#entries.delete(key); } }
-  async close() { for (const entry of this.#entries.values()) await this.#revoke(entry); this.#entries.clear(); }
+  async revokeSession(session: string, person: string) { const errors: unknown[] = []; for (const entry of [...this.#entries.values()]) if (entry.binding.session === session && entry.binding.person === person) await this.#revoke(entry).catch(e => { errors.push(e); }); if (errors.length) throw errors[0]; }
+  async sweep() { const errors: unknown[] = []; for (const [key, entry] of [...this.#entries]) if (entry.expiresAt <= this.#o.clock() && entry.state !== 'used' && entry.state !== 'opening') { try { await this.#revoke(entry); this.#entries.delete(key); } catch (e) { errors.push(e); } } if (errors.length) throw errors[0]; }
+  async close() { const errors: unknown[] = []; const entries = [...this.#entries.values()]; this.#entries.clear(); for (const entry of entries) await this.#revoke(entry).catch(e => { errors.push(e); }); if (errors.length) throw errors[0]; }
 }

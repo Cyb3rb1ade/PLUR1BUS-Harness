@@ -1,10 +1,10 @@
 // xAI Grok Voice: full-duplex realtime over a WebSocket in an OpenAI-realtime-shaped protocol (VERIFY, see
 // constants.ts). The session lives on the server side of the harness; the provider key is used for the handshake
 // header only and never appears in any event, error or log field handed to a client.
-import { XAI } from "../constants.ts";
+import { AUDIO_LIMITS, XAI } from "../constants.ts";
 import { VoiceProviderError } from "../errors.ts";
 import type { AudioChunk, RealtimeConnectOptions, RealtimeEvent, RealtimeProvider, RealtimeSession, UsageReport } from "../types.ts";
-import { fromBase64, toBase64 } from "../util.ts";
+import { countOf, fromBase64, toBase64 } from "../util.ts";
 import { openSocket } from "../ws.ts";
 import { KeyHolder, frameError, httpToWs, makeHttp, trimBase, type CloudDeps } from "./common.ts";
 import { startRealtimeSession, type RealtimeCodec } from "./realtime-base.ts";
@@ -85,6 +85,8 @@ function grokCodec(model: string, opt: RealtimeConnectOptions, secrets: readonly
       }
       if (t === "response.audio_transcript.delta" || t === "response.output_audio_transcript.delta") {
         transcript += String(f["delta"] ?? "");
+        // A service that never ends the transcript must not grow it, and every event repeats it whole, without bound.
+        if (transcript.length > AUDIO_LIMITS.maxTranscriptChars) throw new RangeError("transcript too long");
         return [{ type: "transcript", role: "assistant", text: transcript, final: false }];
       }
       if (t === "response.audio_transcript.done" || t === "response.output_audio_transcript.done") {
@@ -104,7 +106,7 @@ function grokCodec(model: string, opt: RealtimeConnectOptions, secrets: readonly
         const u = resp?.["usage"];
         const out: RealtimeEvent[] = [];
         if (u && typeof u === "object") {
-          const report: UsageReport = { provider: ID, operation: "realtime", model, ...(typeof resp?.["id"] === "string" && resp["id"] !== "" ? { eventId: `${ID}:${resp["id"]}` } : {}), ...(Number.isFinite(u.input_tokens) ? { inputTokens: Number(u.input_tokens) } : {}), ...(Number.isFinite(u.output_tokens) ? { outputTokens: Number(u.output_tokens) } : {}) };
+          const report: UsageReport = { provider: ID, operation: "realtime", model, ...(typeof resp?.["id"] === "string" && resp["id"] !== "" ? { eventId: `${ID}:${resp["id"]}` } : {}), ...(countOf(u.input_tokens) !== undefined ? { inputTokens: countOf(u.input_tokens)! } : {}), ...(countOf(u.output_tokens) !== undefined ? { outputTokens: countOf(u.output_tokens)! } : {}) };
           out.push({ type: "usage", report });
         }
         out.push({ type: "turn.done" });

@@ -10,6 +10,10 @@ license: MIT
 contents:
   - src: bin/plur1bus
     dst: /usr/bin/plur1bus
+    file_info:
+      mode: 0755
+      owner: root
+      group: root
   - src: bin/plur1bus-attest
     dst: /usr/bin/plur1bus-attest
     file_info:
@@ -24,15 +28,43 @@ contents:
       group: root
   - src: licenses/LICENSE
     dst: /usr/share/licenses/plur1bus/LICENSE
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
   - src: runtime/core.tar.gz
     dst: /usr/share/plur1bus/core.tar.gz
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
   - src: README.txt
     dst: /usr/share/doc/plur1bus/README.txt
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
   - src: completions/plur1bus.bash
     dst: /usr/share/bash-completion/completions/plur1bus
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
   - src: completions/_plur1bus
     dst: /usr/share/zsh/vendor-completions/_plur1bus
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
   - src: completions/plur1bus.fish
     dst: /usr/share/fish/vendor_completions.d/plur1bus.fish
+    file_info:
+      mode: 0644
+      owner: root
+      group: root
   - src: man/man1/*.1
     dst: /usr/share/man/man1/
+    file_info:
+      mode: 0644
+      owner: root
+      group: root

@@ -21,3 +21,9 @@ The list under **Open invitations** shows each open invitation with its expiry t
 ## Next
 
 - Break-glass access to a person's data: [breakglass.md](breakglass.md)
+
+## Create a web account
+
+Open the invitation link (or `#/join`) and enter a username, a password of at least 12 characters, and the repeated password. The link grants only the invited person's access. After account creation, sign in separately with **Use username and password**. If TOTP is enabled through the existing API enrollment flow, sign-in asks for a TOTP or backup code.
+
+In **Settings → Users & roles**, Owner can disable or enable a person; Admin can do this for Members and Viewers. Disabled people show a badge. Disabling ends web sessions and streams and permanently revokes their old tokens. Enabling preserves role and rights but requires a new login. The last active Owner cannot be disabled.

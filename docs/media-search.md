@@ -34,7 +34,8 @@ reference with defaults is [config.md](config.md).
 Validation (`packages/core/src/media-search/validate.ts`) checks capability, licence, the runtime privacy pin, function-specific privacy acknowledgments and availability.
 There are no lists of allowed provider combinations. Failures use the `E_MEDIA_*` codes in [errors.md](errors.md).
 The privacy pin forces local processing: a cloud embedding or caption provider together with the pin fails with `E_MEDIA_PRIVACY`
-before any request is sent. The config schema has no pin key yet; the composition takes it as a callback that defaults to "not pinned".
+before any request is sent. The config schema has no pin key yet; the composition takes it as a callback that defaults to "not pinned" and hands it both to the provider choice and to the caption service, which checks it again on every call.
+An index call that hit the hook timeout cannot be cancelled in the port; if the medium is deleted afterwards, the hook removes it again once the late call settles.
 
 ## Ports and engine independence
 
@@ -75,10 +76,16 @@ to `<home>/media/tmp` and removed afterwards, also on errors.
 
 Default rule: local embedding gives a local caption provider; with a cloud embedding there is no preselection.
 
+## Search bounds and isolation
+
+The reference index (`InMemoryMediaIndex`) shows the rules every `MediaIndexPort` must keep: `limit` is an integer from 1 to 200, `text` is 1 to 4096 characters and not blank, `kinds` are known kinds, `minScore` is finite (otherwise `E_INVALID_PARAMS`). A medium is visible only inside its own workspace, to the same agent or to the same non-empty user; the same agent id in another workspace sees nothing, also not through `likeMediaId`.
+
+Paths: `createFfmpegPorts({ allowedRoots })` and the caption providers (`allowedRoots`) refuse media paths outside the given directories (symlinks and `..` resolved) with `E_MEDIA_UNSUPPORTED_KIND`; without the option nothing is restricted; the composition passes `<home>/media` and the store root to the ffmpeg ports and the local caption provider. Media above 64 MiB are not captioned (checked before reading).
+
 ## Index hook and backfill
 
 After a result is stored in the `OutputStore` the hook captions the medium and calls `MediaIndexPort.index(...)` asynchronously;
-the reply never waits for it. Deleting calls `remove`. An error produces a `media.index.failed` event and a counter, nothing else.
+the reply never waits for it. Deleting calls `remove`; a delete that finishes while an index job of the same medium is still running makes that job remove the medium again, so a deleted medium does not come back. An error produces a `media.index.failed` event and a counter, nothing else.
 There is no inbound upload path in the repository yet; `hook.onUploaded` exists for it.
 
 The backfill job starts by itself on activation and when the index fingerprint changes (`backfill = auto`), resumes after a restart
@@ -105,7 +112,7 @@ modalities, captioning. The step can be skipped; every choice also has a flag fo
 
 Text embedding currently uses `local-transformers` only. `memory.embedding.privacyAck` is optional preparation for a future cloud-text decision; its cloud validation is unit-tested with synthetic choices. Setup has no cloud-text selection and `buildEngineConfig` still forces the local provider.
 
-Media embedding currently remains local only. A future cloud media embedding choice would require `memory.mediaEmbedding.privacyAck`; cloud captioning separately requires `memory.mediaEmbedding.caption.privacyAck`. Each record contains `{ provider, acknowledgedAt, by }` and, where an actual configurable endpoint exists, `endpoint`. Confirmations never transfer between functions. The admitted provider and endpoint must match exactly. Local providers ignore these records. A runtime privacy pin takes precedence and blocks cloud calls even with a valid acknowledgment (`E_MEDIA_PRIVACY`). No installation-wide pin configuration is introduced.
+Media embedding currently remains local only. A future cloud media embedding choice would require `memory.mediaEmbedding.privacyAck`; cloud captioning separately requires `memory.mediaEmbedding.caption.privacyAck`. Each record contains `{ provider, acknowledgedAt, by }` and, where an actual configurable endpoint exists, `endpoint`. Confirmations never transfer between functions. The admitted provider and endpoint must match exactly. Local providers ignore these records. A runtime privacy pin takes precedence and blocks cloud calls even with a valid acknowledgment (`E_MEDIA_PRIVACY`); `createCaptionService` also accepts a `pinned` callback and then refuses any non-local provider at call time. No installation-wide pin configuration is introduced.
 
 Setup requires a separate checkbox naming each supported cloud function's provider. Changing the provider clears the checkbox; saving replaces the affected config parent, removes previous acknowledgment metadata and checks the config revision. Confirmation identity comes from the current signed-in person, not restored browser state. General `config.set` authorization, audit and automatic removal after provider/endpoint changes require the future authenticated supervisor transport. The schema declares owner/admin writes and audit; those annotations alone do not enforce them.
 

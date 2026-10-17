@@ -22,8 +22,8 @@ async function fail(p: Promise<unknown>): Promise<RpcError | Error> {
 const reasonOf = async (p: Promise<unknown>): Promise<string | undefined> => { const e = await fail(p); assert.ok(e instanceof RpcError, String(e)); assert.equal(e.error, "E_INVALID_PARAMS"); return e.reason; };
 
 describe("logs methods: handler registry", () => {
-  it("exposes exactly logs.query and logs.tail", () => {
-    assert.deepEqual(Object.keys(createLogsMethods({ dir })).sort(), ["logs.query", "logs.tail"]);
+  it("exposes logs.query, logs.tail and logs.levels", () => {
+    assert.deepEqual(Object.keys(createLogsMethods({ dir })).sort(), ["logs.levels", "logs.query", "logs.tail"]);
   });
 });
 

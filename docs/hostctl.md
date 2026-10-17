@@ -82,7 +82,7 @@ Desktop Commander is an external MCP server with its own transport and lifecycle
 ## Härtung und Testabdeckung
 
 Tests of the hardening sweep: `packages/hostctl/test/hardening-hostctl.test.ts` (vitest; `pnpm --filter @plur1bus/hostctl test`, which
-needs `pnpm build` once for `log-schema`). `it.todo` marks a `KNOWN GAP`, with an `it.fails` case beside it that shows the weakness.
+needs `pnpm build` once for `log-schema`). A weakness not yet closed would be an `it.todo` marked `KNOWN GAP` with an `it.fails` case beside it; none is open at present.
 
 What is pinned:
 
@@ -95,19 +95,18 @@ What is pinned:
 - **Configuration.** `NaN`, `Infinity` and strings where numbers belong are clamped to a default or a bound; a string where a list belongs
   is one entry, not a list of its characters.
 
-### Known gaps
+### Closed gaps
 
-- **Environment blocklist.** The text above says secret and injection names stay blocked even when added to the allowlist. The code blocks
-  names containing `secret`, `token`, `password`, `credential` or `private`, and `NODE_OPTIONS`, `LD_*`, `DYLD_*`, `PYTHONPATH`, `BASH_ENV`,
-  `ENV`, `PSModulePath`. Not blocked: `PERL5OPT`, `PERL5LIB`, `RUBYOPT`, `RUBYLIB`, `PYTHONSTARTUP`, `PYTHONHOME`, `NODE_PATH`,
-  `JAVA_TOOL_OPTIONS`, `_JAVA_OPTIONS`, `JDK_JAVA_OPTIONS`, `CLASSPATH`, `GIT_SSH_COMMAND`, `GIT_EXTERNAL_DIFF`, `LESSOPEN`, `PROMPT_COMMAND`,
-  `GCONV_PATH`. The default allowlist has none of them; the risk is an operator adding one.
-- **`proc.kill_foreign` and the supervisor.** It refuses PID 0, 1 and the harness process, but not `process.ppid` or the own process group. An
-  approval shows only a number, so a request for the supervisor's PID is easy to approve by mistake (outage, no data loss).
-- **The harness's own credential files.** The default deny list covers `.ssh`, `.aws`, `.gnupg` and browser stores, not `<home>/run/api-owner.token`,
-  `run/core.token` or `run/supervisor.token`. If the harness home lies under a configured root, `fs.read` (allowed inside roots without
-  approval) can read the owner token, which logs in as owner at `POST /api/v1/session`. The composition should add `<home>/run`, `state` and
-  `secrets` to the deny list.
+- **Environment blocklist.** Besides names containing `secret`, `token`, `password`, `credential` or `private`, and `NODE_OPTIONS`, `LD_*`, `DYLD_*`,
+  `PYTHONPATH`, `BASH_ENV`, `ENV`, `PSModulePath`, the following are blocked even when allowlisted: `PERL5OPT`, `PERL5LIB`, `RUBYOPT`, `RUBYLIB`,
+  `PYTHONSTARTUP`, `PYTHONHOME`, `NODE_PATH`, `JAVA_TOOL_OPTIONS`, `_JAVA_OPTIONS`, `JDK_JAVA_OPTIONS`, `CLASSPATH`, `GIT_SSH_COMMAND`,
+  `GIT_EXTERNAL_DIFF`, `LESSOPEN`, `PROMPT_COMMAND`, `GCONV_PATH`. The list is still a list of names, not a general rule.
+- **`proc.kill_foreign` and the supervisor.** It refuses PID 0, 1, the harness process, its parent (`process.ppid`, normally the supervisor) and the
+  leader of its own process group (`DENIED`). The group id is read from `/proc/self/stat` on Linux and `ps` elsewhere; where it cannot be
+  determined only the parent check applies. Windows has no process groups here.
+- **The harness's own credential files.** The default deny list contains the names `api-owner.token`, `core.token` and `supervisor.token`, in any
+  directory, so `fs.read`, `fs.search` and `fs.list` refuse them inside a root. Other files under `<home>/run`, `state` and `secrets` are not
+  covered by this rule; the composition should still keep the harness home out of the roots and may add those directories to the deny list.
 
 Observations: a crash between staging and rename can leave `.hostctl-<uuid>.tmp` (no clean-up at start); copy and new-file use `link()`, which fails
 with `IO_ERROR` on file systems without hard links and gives new files mode 0600; the 32-process and 128-record limits are per pool, not per

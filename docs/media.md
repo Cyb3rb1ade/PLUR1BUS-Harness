@@ -130,7 +130,11 @@ reference/mask hashes, seed and cost (null when unknown), duration, origin and
 partial-result flag. Reference bytes and mask bytes are not duplicated into the
 manifest. Job persistence retains request bytes to enable polling recovery.
 Quota includes images and manifest bytes and is checked under an exclusive store
-lock. Quota refusal leaves no output directory. `prune()` removes expired jobs;
+lock. Quota refusal leaves no output directory. A put that finds the lock held fails fast with `backend_unavailable`
+instead of waiting, so two jobs finishing at the same moment may not both publish (not yet enforced: waiting for the lock). Only
+stable error codes leave the store; raw file-system or parse errors are mapped to one. With metadata embedding off, `put()` stores the
+bytes after checking that they start with the magic bytes of the declared image format (`invalid_response` otherwise; the adapters also
+check provider output themselves). A job runner never waits on an adapter that missed the abort: the caller's signal wins and the job ends as `timeout` or `cancelled`. `prune()` removes expired jobs;
 the host must schedule it. No background scheduler is installed.
 
 Embedding precedence is **call > agent > global > false**. The global setting is

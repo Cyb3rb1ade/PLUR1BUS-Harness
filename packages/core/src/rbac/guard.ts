@@ -1,6 +1,7 @@
 // The integration point for core RPC methods: wraps the handlers named in `RPC_RULES` with principal resolution and
 // `authorize`. Methods without a rule pass through untouched. Only a representative set is secured so far
 // (docs/rbac.md lists the rest): grant.* and approval.* (human-only), memory.forget, agent.status, jobs.run, the models.* writes and the admin.* family.
+import { apiPrincipal } from "@plur1bus/module-api";
 import { RpcError } from "../rpc/errors.ts";
 import type { CallContext, Handler } from "../rpc/server.ts";
 import type { AuditSink } from "./audit.ts";
@@ -16,6 +17,8 @@ export type PrincipalResolver = (ctx: CallContext, method: string, params: unkno
 export interface RpcRule {
   action: string;
   humanOnly?: boolean;
+  /** Only the credential-authenticated API service, without a browser/agent principal. */
+  apiServiceOnly?: boolean;
   /** Builds the resource from the params. Whatever is missing or mistyped becomes "" and `authorize` denies it. */
   resource: (params: unknown) => Resource;
 }
@@ -38,6 +41,20 @@ export function authenticatedPrincipal(ctx: CallContext): Principal {
 }
 
 export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
+  "budget.set": { ...rule("settings.write", system), humanOnly: true },
+  "chat.create": rule("chat:write", system),
+  "chat.list": rule("chat:read", system),
+  "chat.get": rule("chat:read", system),
+  "chat.events": rule("chat:read", system),
+  "chat.submit": rule("chat:write", system),
+  "chat.update": rule("chat:write", system),
+  "chat.archive": rule("chat:write", system),
+  "chat.restore": rule("chat:write", system),
+  "chat.cancel": rule("chat:write", system),
+  "chat.fork": rule("chat:write", system),
+  "chat.delete": rule("chat:delete", system),
+  "chat.export": rule("chat:read", system),
+
   "jobs.create": { ...rule("agent.manage", agent), humanOnly: true },
   "jobs.update": { ...rule("agent.list", system), humanOnly: true },
   "jobs.delete": { ...rule("agent.list", system), humanOnly: true },
@@ -93,6 +110,7 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "project.member.role": rule("project.surface.write", system),
   "project.agent.add": rule("project.surface.write", system),
   "project.agent.remove": rule("project.surface.write", system),
+  "collab.session.replay": rule("project.surface.read", system),
   "collab.trace.get": rule("project.surface.read", system),
   "collab.trace.list": rule("project.surface.read", system),
   "collab.chain.cancel": rule("project.surface.write", system),
@@ -125,6 +143,10 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "agent.delete": rule("admin.agent.delete", agent),
   "user.list": rule("admin.users.read", system),
   "user.role.set": rule("admin.users.write", system),
+  "admin.api.person.resolve": { ...rule("admin.users.read", system), apiServiceOnly: true },
+  "admin.api.invite.validate": { ...rule("admin.users.read", system), apiServiceOnly: true },
+  "user.disable": { ...rule("admin.users.write", system), humanOnly: true },
+  "user.enable": { ...rule("admin.users.write", system), humanOnly: true },
   "user.invite.create": rule("admin.users.write", system),
   "user.invite.list": rule("admin.users.read", system),
   "user.invite.revoke": rule("admin.users.write", system),
@@ -144,6 +166,10 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "session.cancel": rule("admin.sessions.write", system),
   "session.archive": rule("admin.sessions.write", system),
   "session.list": rule("admin.sessions.read", system),
+  "admin.api.device.pair": { ...rule("admin.pairing.read", system), apiServiceOnly: true },
+  "admin.api.device.challenge": { ...rule("admin.pairing.read", system), apiServiceOnly: true },
+  "admin.api.device.prove": { ...rule("admin.pairing.read", system), apiServiceOnly: true },
+  "admin.api.device.announce": { ...rule("admin.pairing.read", system), apiServiceOnly: true },
   "device.list": rule("device.list", system),
   "device.revoke": rule("device.revoke", system),
   "device.rename": rule("device.rename", system),
@@ -169,10 +195,13 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "dreams.schedule.set": rule("settings.write", system),
   "dreams.enable": rule("settings.write", system),
   "dreams.disable": rule("settings.write", system),
+  // Private diary: owner or agent.manage (member with manage). Viewer is denied; not dreaming.read.
+  "dreams.diary": rule("agent.manage", agent),
   "admin.backup.snapshot": rule("admin.backup.snapshot", system),
   // D4: the protected log files, Owner/Admin.
   "logs.query": rule("logs.query", system),
   "logs.tail": rule("logs.query", system),
+  "logs.levels": rule("logs.query", system),
   "audit.verify": rule("audit.read", system),
   // M3 identity (humans, linked channel identities, pairing): classified by the nearest existing pattern, `users.*` on the system resource.
   "identity.list": { ...rule("users.read", system), humanOnly: true },
@@ -183,12 +212,18 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "identity.pair.claim": { ...rule("users.manage", system), humanOnly: true },
   "identity.pair.confirm": { ...rule("users.manage", system), humanOnly: true },
   // D109 grants and approvals (spec 2026-09-28 §4): human-only actions, so an agent principal is refused in every state.
+  "model.embedding.select": { ...rule("settings.write", system), humanOnly: true },
+  "model.licence.confirm": { ...rule("settings.write", system), humanOnly: true },
+  "model.licence.list": { ...rule("settings.write", system), humanOnly: true },
+  "model.licence.check": { ...rule("settings.write", system), humanOnly: true },
   "grant.list": rule("grant.read", system),
+  "grant.get": rule("grant.read", system),
   "grant.create": rule("grant.write", system),
   "grant.revoke": rule("grant.write", system),
   "approval.list": rule("approval.read", system),
   "approval.get": rule("approval.read", system),
   "approval.verify": rule("approval.read", system),
+  "approval.audit": rule("approval.read", system),
   "approval.decide": rule("approval.decide", system),
   "approval.cancel": rule("approval.decide", system),
 });
@@ -213,9 +248,14 @@ export function guardMethods(handlers: Record<string, Handler>, o: GuardOptions)
     const inner = handlers[method];
     if (!inner) continue;
     out[method] = async (params, ctx) => {
+      if (r.apiServiceOnly) {
+        if (apiPrincipal(ctx) !== null) throw new RpcError("E_DENIED", "API service credential required", { reason: "api-service-only" });
+        return inner(params, ctx);
+      }
       let principal: Principal | null | undefined;
       try { principal = await o.resolve(ctx, method, params); }
-      catch {
+      catch (e) {
+        if (e instanceof RpcError && e.error === "E_DENIED" && e.reason === "person-disabled") throw e;
         record("rbac.unauthenticated", "anonymous", method, { action: r.action, reason: "resolver-failed" });
         throw new RpcError("E_UNAUTHORIZED", "authentication required", { reason: "resolver-failed" });
       }

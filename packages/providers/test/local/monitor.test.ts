@@ -102,7 +102,8 @@ describe("LocalEndpointMonitor", () => {
     const { monitor, st } = setup();
     st.up = false;
     monitor.refreshInBackground();
-    await new Promise((ok) => setTimeout(ok, 30));
+    // Wait for the event (the status leaving "unknown"), not for a fixed time: the fake fetch settles within a few ticks.
+    while (monitor.status("lm")?.status === "unknown") await new Promise<void>((ok) => setImmediate(ok));
     assert.equal(monitor.status("lm")?.status, "unavailable");
   });
 

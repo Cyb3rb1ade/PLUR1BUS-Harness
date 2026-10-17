@@ -1,0 +1,36 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
+import { AccountStore } from "../src/account-store.ts";
+import { bootstrapHash } from "../src/bootstrap.ts";
+import { createApiServer } from "../src/server.ts";
+import { fakeCore } from "./helpers.ts";
+import { vector } from "./webauthn-vectors.ts";
+const credentials = () => ({ proof: randomBytes(32).toString("base64url"), username: "christian", password: randomBytes(24).toString("base64url") });
+test("HTTP bootstrap consumes once atomically and durable credentials survive restart", async t => {
+  const store = new AccountStore({ path: ":memory:", resolve: async userId => ({ userId, kind: "person", role: "owner", disabled: false, version: 1 }) }); t.after(() => store.close());
+  const c = credentials(); store.initializeBootstrap(bootstrapHash(c.proof)); const api = createApiServer({ core: fakeCore(), ownerToken: randomBytes(32).toString("hex"), accounts: store, users: store }); t.after(() => api.close()); const { url } = await api.listen();
+  const send = (b: unknown) => fetch(url + "/api/v1/accounts/bootstrap", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) });
+  assert.equal((await send({ ...c, proof: randomBytes(32).toString("base64url") })).status, 403);
+  const responses = await Promise.all([send(c), send(c)]); assert.deepEqual(responses.map(r => r.status).sort(), [201, 404]); assert.equal((await send(c)).status, 404);
+  assert.equal(store.bootstrapState()?.hash, null); assert.equal((await store.findByUsername(c.username))?.role, "owner");
+});
+test("HTTP passkey assertion creates a session, spends challenge and denies forged/unknown assertions", async t => {
+  const store = new AccountStore({ path: ":memory:", resolve: async userId => ({ userId, kind: "person", role: "member", disabled: false, version: 1 }) }); t.after(() => store.close());
+  await store.createPending("alice", "alice", "unused"); await store.activate("alice");
+  const api = createApiServer({ core: fakeCore(), ownerToken: randomBytes(32).toString("hex"), accounts: store, users: store, rateClasses: { auth: { capacity: 100, refillPerSec: 100 }, read: { capacity: 100, refillPerSec: 100 }, write: { capacity: 100, refillPerSec: 100 } }, webauthnOrigin: "https://harness.example" }); t.after(() => api.close()); const { url } = await api.listen();
+  const send = (path: string, body: unknown) => fetch(url + "/api/v1" + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  assert.equal((await send("/me/passkeys/options", {})).status, 401);
+  assert.equal((await send("/session/passkey/options", { username: "alice", role: "owner" })).status, 400);
+  const v = vector();
+  const { registerCredential } = await import("../src/webauthn.ts"); const stored = registerCredential(v.registration, v.context); store.putPasskey("alice", { ...stored, name: "Test" });
+  const options = await (await send("/session/passkey/options", { username: "alice" })).json() as { challenge: string };
+  v.context.challenge = options.challenge;
+  const good = { ...v.assertion(), challenge: options.challenge };
+  const success = await send("/session/passkey", good); assert.equal(success.status, 200); assert.ok(success.headers.get("set-cookie"));
+  assert.equal((await send("/session/passkey", good)).status, 401);
+  const next = await (await send("/session/passkey/options", { username: "alice" })).json() as { challenge: string }; v.context.challenge = next.challenge;
+  assert.equal((await send("/session/passkey", { ...v.assertion(1), challenge: next.challenge })).status, 401);
+  assert.equal((await send("/session/passkey/options", { username: "missing" })).status, 200);
+  assert.equal((await fetch(url + "/api/v1/me/passkeys")).status, 401);
+});

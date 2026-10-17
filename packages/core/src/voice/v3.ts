@@ -13,6 +13,7 @@ import { voiceV3Catalog } from './v3-catalog.ts';
 export const VOICE_FEATURES = VOICE_V3_FEATURES;
 export interface VoiceV3Deps {
   config(): HarnessConfig;
+  confirmLicence?: (who: string, model: CatalogModel) => void;
   set(changes: { key: string; value: unknown }[]): Promise<void> | null;
   modelsDir: string; resolve: PrincipalResolver; hasAgent(id: string): boolean;
   notify(method: string, params: object, options: NotifyOptions): void;
@@ -100,6 +101,11 @@ export function createVoiceV3(d: VoiceV3Deps) {
       throw new RpcError('E_VOICE_UNAVAILABLE', 'Voice model download unavailable', { ids: { modelId: m.id } });
     }
   };
+  /** Same gate as voice.language.set, for paths that cannot carry an acceptance: the confirmation must already be stored. */
+  const requireStoredConfirmation = (language: 'de' | 'en', profile: 'fast' | 'quality') => {
+    const selected = modelsFor(catalog, language, profile), stored = d.config().voice.local.acceptedLicences;
+    for (const m of [selected.stt, selected.tts, selected.vad]) if (needsLicenceConfirmation(m) && !Object.hasOwn(stored, licenceKey(m))) throw new RpcError('E_VOICE_LICENCE', 'Explicit model licence acceptance required', { detail: m.licence.id, ids: { modelId: m.id } });
+  };
   const overrideResult = (id: string) => ({ agentId: id, override: override(id), effective: effective(id) });
   const stop = async (id: string) => {
     const s = sessions.get(id); if (!s) return;
@@ -111,10 +117,12 @@ export function createVoiceV3(d: VoiceV3Deps) {
   const raw: Record<string, Handler> = {
     'voice.status': async () => ({ available: !!d.audio && !closed && !signal.aborted, language: config().language, profile: config().profile, activeSessions: sessions.size, budgetMs: config().budgetMs }),
     'voice.agent.override.get': async p => overrideResult(p.agentId),
-    'voice.agent.override.set': async p => serialize(async () => { requireAgent(p.agentId); const base = effectiveInput(); validateVoiceBudget(Object.fromEntries(VOICE_FEATURES.map(k => [k, { ...base.features[k], ...p.override.features?.[k] }])) as unknown as VoiceFeatures, config().budgetMs); await save([{ key: `agents.${p.agentId}.voice`, value: { ...p.override, ...(p.override.language ? { language: languageKey(p.override.language) } : {}) } }]); return overrideResult(p.agentId); }),
+    'voice.agent.override.set': async p => serialize(async () => { requireAgent(p.agentId); const base = effectiveInput(); validateVoiceBudget(Object.fromEntries(VOICE_FEATURES.map(k => [k, { ...base.features[k], ...p.override.features?.[k] }])) as unknown as VoiceFeatures, config().budgetMs);
+      if (p.override.language !== undefined || p.override.profile !== undefined) { const language = languageKey(p.override.language ?? config().language); requireStoredConfirmation(language, p.override.profile ?? config().selectedProfiles[language]); }
+      await save([{ key: `agents.${p.agentId}.voice`, value: { ...p.override, ...(p.override.language ? { language: languageKey(p.override.language) } : {}) } }]); return overrideResult(p.agentId); }),
     'voice.agent.override.clear': async p => serialize(async () => { requireAgent(p.agentId); await save([{ key: `agents.${p.agentId}.voice`, value: {} }]); return overrideResult(p.agentId); }),
     'voice.models.list': async () => ({ models: await Promise.all(Object.values(catalog.models).map(summarize)) }),
-    'voice.models.install': async (p, ctx) => serialize(async () => { const m = model(p.modelId); await install(m, p.licenseAccepted === true, ctx.connectionId, ctx.signal); return { model: await summarize(m) }; }),
+    'voice.models.install': async (p, ctx) => serialize(async () => { const m = model(p.modelId); if (p.licenseAccepted === true && d.confirmLicence) { const who = await authorize(ctx, 'voice.models.install', p, true); d.confirmLicence(who.userId, m); } await install(m, p.licenseAccepted === true, ctx.connectionId, ctx.signal); return { model: await summarize(m) }; }),
     'voice.language.list': async p => { if (p?.agentId) requireAgent(p.agentId); return { languages: await Promise.all((['de','en'] as const).map(async language => ({ language, profiles: Object.fromEntries(await Promise.all((['fast','quality'] as const).map(async profile => { const m = modelsFor(catalog, language, profile); return [profile, { models: await Promise.all([m.stt, m.tts, m.vad].map(summarize)) }]; }))) }))) }; },
     'voice.language.get': async p => { const o = override(p?.agentId); const language = languageKey(o?.language ?? config().language); const profile = o?.profile ?? config().selectedProfiles[language]; return { language, profile }; },
     'voice.language.set': async (p, ctx) => serialize(async () => {
@@ -122,6 +130,7 @@ export function createVoiceV3(d: VoiceV3Deps) {
       if (p.agentId) requireAgent(p.agentId);
       const selected = modelsFor(catalog, languageKey(p.language), p.profile); const models = [selected.stt, selected.tts, selected.vad]; const accepted = new Set<string>(p.acceptLicences ?? []);
       for (const m of models) if (needsLicenceConfirmation(m) && !accepted.has(licenceKey(m))) throw new RpcError('E_VOICE_LICENCE', 'Explicit model licence acceptance required', { detail: m.licence.id, ids: { modelId: m.id } });
+      if (d.confirmLicence) { const who = await authorize(ctx, 'voice.language.set', p, true); for (const m of models) if (accepted.has(licenceKey(m))) d.confirmLicence(who.userId,m); }
       for (const m of models) await install(m, accepted.has(licenceKey(m)), ctx.connectionId, ctx.signal);
       const profile = p.profile;
       const licenceChanges = models.filter(m => accepted.has(licenceKey(m))).map(m => ({ key: `voice.local.acceptedLicences.${licenceKey(m)}`, value: new Date(d.clock()).toISOString() }));

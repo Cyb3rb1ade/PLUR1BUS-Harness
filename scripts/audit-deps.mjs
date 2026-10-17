@@ -424,6 +424,9 @@ export function runAdvisories({ root, run = defaultRun }) {
 // ---------------------------------------------------------------------------------------------------------------------
 // Output
 
+/** Locale-independent order: `localeCompare` follows the process locale, so the report would differ between machines. */
+const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
 function table(headers, rows) {
   const w = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => String(r[i]).length)));
   const line = (r) => r.map((c, i) => String(c).padEnd(w[i])).join("  ").trimEnd();
@@ -439,11 +442,11 @@ export function renderReport({ rows, stale, incomplete, notes }, { verbose = fal
   const shown = rows.filter((r) => verbose || r.verdict !== "ok" || r.note);
   if (shown.length) {
     out.push("", table(["ecosystem", "package", "version", "dep", "licence", "verdict", "note"],
-      shown.sort((a, b) => a.ecosystem.localeCompare(b.ecosystem) || a.name.localeCompare(b.name)).map((r) => [r.ecosystem, r.name, r.version, r.direct ? "direct" : "trans.", r.license ?? "(none)", r.verdict.toUpperCase(), r.note])));
+      shown.sort((a, b) => byCodePoint(a.ecosystem, b.ecosystem) || byCodePoint(a.name, b.name) || byCodePoint(a.version, b.version)).map((r) => [r.ecosystem, r.name, r.version, r.direct ? "direct" : "trans.", r.license ?? "(none)", r.verdict.toUpperCase(), r.note])));
   }
   const byLicense = new Map();
   for (const r of rows) byLicense.set(r.license ?? "(none)", (byLicense.get(r.license ?? "(none)") ?? 0) + 1);
-  out.push("", "licences: " + [...byLicense].sort((a, b) => b[1] - a[1]).map(([l, n]) => `${l} x${n}`).join(", "));
+  out.push("", "licences: " + [...byLicense].sort((a, b) => b[1] - a[1] || byCodePoint(a[0], b[0])).map(([l, n]) => `${l} x${n}`).join(", "));
   for (const s of stale) out.push(`warning: exception for ${s.ecosystem}/${s.name}${s.version ? `@${s.version}` : ""} matches no dependency (stale?)`);
   for (const n of notes ?? []) out.push(`note: ${n}`);
   for (const i of incomplete) out.push(`INCOMPLETE ${i.ecosystem}: ${i.reason}`);
@@ -469,6 +472,7 @@ export function parseArgs(argv) {
     else if (a === "--allow-incomplete") o.allowIncomplete = true;
     else if (a === "--only") {
       o.only = val().split(",").map((s) => s.trim()).filter(Boolean);
+      if (o.only.length === 0) throw new Error("--only needs at least one ecosystem"); // an empty list audited nothing and printed OK
       const bad = o.only.filter((e) => !ECOSYSTEMS.includes(e));
       if (bad.length) throw new Error(`unknown ecosystem: ${bad.join(", ")}`);
     } else if (a === "--root") o.root = val();

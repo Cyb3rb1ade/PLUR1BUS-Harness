@@ -15,6 +15,7 @@ export function resolveLocale(choice: LocaleChoice, systemLanguage: string): Loc
 }
 
 export function translate(locale: Locale, key: MessageKey, values?: Record<string, string>): string {
-  const message = (locale === "de" ? de : en)[key];
+  // Keys built from native strings (states, kinds) can miss a catalogue: fall back instead of throwing mid-render.
+  const message = ((locale === "de" ? de : en) as Record<string, string | undefined>)[key] ?? (en as Record<string, string | undefined>)[key] ?? key;
   return message.replace(/\{(\w+)\}/g, (_, name: string) => values?.[name] ?? "");
 }

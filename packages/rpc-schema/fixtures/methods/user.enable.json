@@ -1,0 +1,9 @@
+{
+  "params": {
+    "userId": "person-fixture"
+  },
+  "result": {
+    "userId": "person-fixture",
+    "disabled": false
+  }
+}

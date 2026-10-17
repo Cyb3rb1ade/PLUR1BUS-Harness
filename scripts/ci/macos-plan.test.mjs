@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { plan, matchesAny, SENSITIVE, pythonMatrix } from "./macos-plan.mjs";
+import { spawnSync } from "node:child_process";
+import { copyFileSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { plan, matchesAny, SENSITIVE, pythonMatrix, changedFiles } from "./macos-plan.mjs";
 
 const pr = (files, labels = [], extra = []) => plan({ event: "pull_request", action: "synchronize", labelName: "", labels, files, extra });
 
@@ -33,4 +38,48 @@ test("python matrix", () => {
   assert.equal(pythonMatrix(false).some((e) => e.os === "macos-15"), false);
   assert.equal(pythonMatrix(true).some((e) => e.os === "macos-15"), true);
   assert.ok(matchesAny(["Cargo.lock"], SENSITIVE));
+});
+
+const script = fileURLToPath(new URL("./macos-plan.mjs", import.meta.url));
+const git = (cwd, ...args) => {
+  const r = spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "core.quotePath=true", ...args], { cwd, encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  return r.stdout.trim();
+};
+
+test("the command line runs from a path with spaces (the entry guard used to compare against a raw file:// string)", () => {
+  const root = mkdtempSync(join(tmpdir(), "p1b-macos-plan-"));
+  try {
+    const dir = join(root, "with space");
+    mkdirSync(dir);
+    copyFileSync(script, join(dir, "macos-plan.mjs"));
+    const r = spawnSync(process.execPath, [join(dir, "macos-plan.mjs")], { encoding: "utf8", env: { PATH: process.env.PATH ?? "", EVENT_NAME: "push" } });
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /^proceed=true\nmacos=true\n/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("changedFiles lists non-ASCII paths verbatim and both sides of a rename", () => {
+  const root = mkdtempSync(join(tmpdir(), "p1b-macos-diff-"));
+  try {
+    git(root, "init", "--quiet", "-b", "main");
+    mkdirSync(join(root, "crates/x"), { recursive: true });
+    mkdirSync(join(root, "docs"));
+    writeFileSync(join(root, "crates/x/lib.rs"), "fn main() {}\n".repeat(20));
+    git(root, "add", "-A");
+    git(root, "commit", "--quiet", "-m", "base");
+    const base = git(root, "rev-parse", "HEAD");
+    // The same bytes move out of crates/**: with rename detection only the new path would be listed.
+    renameSync(join(root, "crates/x/lib.rs"), join(root, "docs/lib-moved.md"));
+    writeFileSync(join(root, "crates/x/ä.rs"), "// umlaut\n");
+    git(root, "add", "-A");
+    git(root, "commit", "--quiet", "-m", "head");
+    const files = changedFiles(base, git(root, "rev-parse", "HEAD"), root);
+    assert.deepEqual([...files].sort(), ["crates/x/lib.rs", "crates/x/ä.rs", "docs/lib-moved.md"]);
+    assert.equal(plan({ event: "pull_request", action: "synchronize", labelName: "", labels: [], files }).macos, true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

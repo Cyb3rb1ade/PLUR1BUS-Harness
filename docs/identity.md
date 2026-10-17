@@ -24,7 +24,7 @@ Paths in the table are relative to `packages/core/` unless prefixed `docs/`.
 | N:1 durable approved links, provenance, confirmer, archive unlink | Yes | `src/identity/store.ts`, `service.ts`; `test/identity/service.test.ts` |
 | Pending → claimed → confirmed/declined/expired | Partial | `service.ts`, `store.ts`; existing tests; move proofs out of durable storage |
 | Eight-symbol hashed code, single use, channel binding | Yes | `codes.ts`, `service.ts`; service/RPC tests |
-| One-hour expiry, pending cap including claims | Partial | Main uses 10 minutes and counts only unclaimed codes; update service/tests |
+| One-hour expiry, pending cap including claims | Yes | `DEFAULT_CODE_TTL_MS` is 60 minutes (`ttlMs` accepts 1 to 60 minutes) and the cap of 3 counts unexpired pending and claimed pairings per person and channel (`service.ts`). The generated `identity.pair.start` text in `rpc.md` still says "valid 10 minutes"; the code and this page say one hour |
 | Channel/global lockouts, restart persistence | Yes | `ratelimit.ts`, `service.ts`; service/RPC tests |
 | User and global issuance limits; user claim limit | No | Add to service; `test/identity/v2.test.ts` |
 | Union v2 ∪ active v1 without vector writes (M3 acceptance 6) | Partial | `linkedV1Principals` exists; add `recall.ts` / `resolvePrincipals` and fake recall acceptance |

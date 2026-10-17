@@ -44,6 +44,7 @@ __all__ = [
     "Binding",
     "BindingConflict",
     "BindingInvalid",
+    "HomeUnresolvable",
     "agent_id_for",
     "atomic_write_text",
     "binding_path",
@@ -69,6 +70,7 @@ RECALL_HARD_MS_RANGE = (50, 10000)
 AGENT_ID_MAX = 64
 AGENT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _PREFIX = "hermes-"
+_NO_HOME = "cannot determine the Hermes home: no home directory is known; set HERMES_HOME or pass --hermes-home"
 _FOLD_KEEP = frozenset("abcdefghijklmnopqrstuvwxyz0123456789_-")
 
 
@@ -78,6 +80,11 @@ class BindingInvalid(ValueError):
     def __init__(self, path: str, reason: str) -> None:
         self.path, self.reason = path, reason
         super().__init__(f"{path}: {reason}")
+
+
+class HomeUnresolvable(OSError):
+    """No home directory is known (no ``HOME``/``USERPROFILE``/``LOCALAPPDATA``, no passwd entry) and nothing named
+    the Hermes home, so a default root would be a path relative to the current directory."""
 
 
 class BindingConflict(Exception):
@@ -171,8 +178,13 @@ def default_hermes_root(
     if platform == "win32":
         user = (env.get("USERPROFILE") or "").strip() or homedir or os.path.expanduser("~")
         local = (env.get("LOCALAPPDATA") or "").strip()
-        return ntpath.join(local or ntpath.join(user, "AppData", "Local"), "hermes")
+        base = local or ntpath.join(user, "AppData", "Local")
+        if not ntpath.isabs(base):
+            raise HomeUnresolvable(_NO_HOME)
+        return ntpath.join(base, "hermes")
     home = (env.get("HOME") or "").strip() or homedir or os.path.expanduser("~")
+    if not posixpath.isabs(home):  # expanduser leaves "~" as it is when no home is known
+        raise HomeUnresolvable(_NO_HOME)
     return posixpath.join(home, ".hermes")
 
 
@@ -187,7 +199,8 @@ def fold_profile(profile: str) -> str:
 
 
 def home_hash8(real_home: str) -> str:
-    return hashlib.sha256(real_home.encode("utf-8")).hexdigest()[:8]
+    # surrogateescape: a path with bytes that are not UTF-8 (POSIX) holds lone surrogates, and hashes as its raw bytes
+    return hashlib.sha256(real_home.encode("utf-8", "surrogateescape")).hexdigest()[:8]
 
 
 def _real(path: str) -> str:
@@ -253,7 +266,10 @@ def resolve_hermes_home(
     env = os.environ if env is None else env
     configured = (env.get("HERMES_HOME") or "").strip()
     if configured:
-        return os.path.abspath(os.path.expanduser(configured))
+        expanded = os.path.expanduser(configured)
+        if expanded.startswith("~"):  # "~" or "~user" that could not be expanded: not a path under the cwd
+            raise HomeUnresolvable(_NO_HOME)
+        return os.path.abspath(expanded)
     return default_hermes_root(env, platform)
 
 
@@ -333,7 +349,7 @@ def read_binding(hermes_home: str) -> Binding | None:
         raise BindingInvalid(path, f"unreadable ({type(e).__name__})") from None
     try:
         doc = json.loads(text)
-    except ValueError:
+    except (ValueError, RecursionError):  # RecursionError: nesting deeper than the interpreter allows
         raise BindingInvalid(path, "not valid JSON") from None
     return Binding.from_json(doc, path)
 
@@ -356,7 +372,7 @@ def read_registry(plur1bus_home: str) -> dict[str, str]:
             doc = json.load(f)
     except FileNotFoundError:
         return {}
-    except (OSError, ValueError):
+    except (OSError, ValueError, RecursionError):
         raise BindingInvalid(path, "unreadable or not valid JSON") from None
     if not isinstance(doc, dict) or doc.get("schema") != REGISTRY_SCHEMA or not isinstance(doc.get("bindings"), dict):
         raise BindingInvalid(path, f"not a {REGISTRY_SCHEMA} document")

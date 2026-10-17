@@ -1,6 +1,8 @@
 // users area catalogue (Settings > Users & roles): keys `users.<topic>`; en and de have the same keys and {placeholders}.
 // The preset texts restate docs/rbac.md (roles, action table) in plain language.
 export const en = {
+  "users.status.lastOwner": "The last active Owner cannot be disabled.", "users.status.failed": "Access status could not be changed. Nothing was changed.",
+  "users.status.disabled": "Disabled", "users.disable": "Disable person", "users.enable": "Enable person", "users.status.confirm": "Change access for {name}? Disabled access ends sessions and revokes tokens. Enabling requires a new login.",
   "users.title": "Users & roles",
   "users.lead": "Who can use this harness, and what each role may do.",
   "users.forbidden.title": "Only Owner and Admin manage users",
@@ -42,6 +44,10 @@ export const en = {
   "users.rights.draft": "Draft only. Saving rights is not available on this harness yet.",
   "users.rights.save": "Save rights",
   "users.rights.saved": "Rights saved.",
+  "users.rights.person": "Rights for person",
+  "users.rights.failed": "Rights could not be saved. Reload to see what is stored.",
+  "users.rights.noPeople": "No person here can hold agent rights yet.",
+  "users.rights.loadingHeld": "Loading rights",
   "users.rights.byRole": "Owner and Admin hold Manage on every agent through their role. A Viewer only reads, whatever rights are set.",
   "users.invite.title": "Invite person",
   "users.invite.lead": "Create a person with a role and, for a Member or Operator, rights on single agents.",
@@ -132,6 +138,8 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "users.status.lastOwner": "Der letzte aktive Owner kann nicht deaktiviert werden.", "users.status.failed": "Der Zugangsstatus konnte nicht geändert werden. Es wurde nichts geändert.",
+  "users.status.disabled": "Deaktiviert", "users.disable": "Person deaktivieren", "users.enable": "Person aktivieren", "users.status.confirm": "Zugang für {name} ändern? Deaktivieren beendet Sitzungen und widerruft Tokens. Aktivieren erfordert eine neue Anmeldung.",
   "users.title": "Nutzer & Rollen",
   "users.lead": "Wer dieses Harness nutzen darf und was jede Rolle darf.",
   "users.forbidden.title": "Nur Owner und Admin verwalten Nutzer",
@@ -173,6 +181,10 @@ export const de: Record<keyof typeof en, string> = {
   "users.rights.draft": "Nur ein Entwurf. Rechte zu speichern ist auf diesem Harness noch nicht möglich.",
   "users.rights.save": "Rechte speichern",
   "users.rights.saved": "Rechte gespeichert.",
+  "users.rights.person": "Rechte für Person",
+  "users.rights.failed": "Die Rechte konnten nicht gespeichert werden. Neu laden zeigt, was gespeichert ist.",
+  "users.rights.noPeople": "Hier kann noch keine Person Agent-Rechte haben.",
+  "users.rights.loadingHeld": "Rechte werden geladen",
   "users.rights.byRole": "Owner und Admin haben „Verwalten“ auf jedem Agenten durch ihre Rolle. Ein Viewer liest nur, egal welche Rechte gesetzt sind.",
   "users.invite.title": "Person einladen",
   "users.invite.lead": "Eine Person mit Rolle anlegen und, für Member oder Operator, Rechte auf einzelne Agenten festlegen.",

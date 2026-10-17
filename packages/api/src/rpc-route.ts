@@ -5,11 +5,12 @@ import type { CoreRpc } from "./core-rpc.ts";
 /** Explicit exposure, not a prefix match: additions require review and a test. Unsafe unguarded memory/caller paths,
  * lifecycle internals, subscriptions, admin backup/import and secret reveal are deliberately absent. */
 export const WEB_CORE_METHODS = new Set([
+  "model.embedding.select", "model.licence.confirm", "model.licence.list", "model.licence.check", "agent.create", "agent.validate", "agent.import",
   "core.status", "agent.list", "agent.status", "agent.activity.list", "agent.pause", "agent.resume", "agent.archive", "agent.unarchive", "agent.export", "agent.delete", "agent.rights.get", "agent.rights.set",
   "inbox.count", "inbox.list", "inbox.markRead", "inbox.dismiss", "session.list", "session.get", "session.create", "session.submit", "session.cancel", "session.archive", "session.resume", "session.events",
   "project.list", "project.get", "project.create", "project.update", "project.card.list", "project.card.create", "project.card.update", "project.card.move",
   "memory.list", "memory.show", "memory.forget", "grant.list", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.verify", "approval.decide", "approval.cancel",
-  "breakglass.list", "breakglass.notices", "breakglass.request", "breakglass.revoke", "identity.list", "identity.link.request", "identity.link.remove", "user.list", "user.role.set", "user.invite.create", "user.invite.list", "user.invite.revoke",
+  "breakglass.list", "breakglass.notices", "breakglass.request", "breakglass.revoke", "identity.list", "identity.link.request", "identity.link.remove", "user.list", "user.role.set", "user.disable", "user.enable", "user.invite.create", "user.invite.list", "user.invite.revoke",
   "device.list", "device.rename", "device.revoke", "pairing.qr", "media.search", "media.index.status", "media.index.reindex", "media.caption.set", "media.output.get",
   "channel.list", "channel.get", "channel.set", "channel.enable", "channel.disable", "channel.test", "logs.query", "logs.tail", "audit.verify",
   "dreams.status", "dreams.log", "dreams.schedule.get", "dreams.schedule.set", "dreams.enable", "dreams.disable", "dreams.run", "jobs.list", "jobs.history", "jobs.run", "jobs.create", "jobs.update", "jobs.delete", "doctor.report",
@@ -43,6 +44,8 @@ export async function rpcRoute(core: CoreRpc, body: unknown, principal: ApiPrinc
   delete params.principal; delete params.actAs;
   if (!validateParams(b.method, params).ok) return rpcFailure(id, { error: "E_INVALID_PARAMS" });
   if (!core.callAs) return rpcFailure(id, { error: "E_NOT_AVAILABLE", reason: "api-delegation-unavailable" });
-  try { return { jsonrpc: "2.0", id, result: await core.callAs(b.method, params, principal, endpoint, connectionKey) }; }
+  try {
+    if (b.method === "config.set") await core.callAs("model.licence.check", { changes: params.changes }, principal, "core", connectionKey);
+    return { jsonrpc: "2.0", id, result: await core.callAs(b.method, params, principal, endpoint, connectionKey) }; }
   catch (e) { return rpcFailure(id, e); }
 }

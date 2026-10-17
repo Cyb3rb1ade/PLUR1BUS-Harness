@@ -129,9 +129,9 @@ through untouched. A refusal is `E_DENIED` with the reason code, a missing or fa
 the installation owner (RULING R8), so today's behaviour is unchanged until the M3 Harness API supplies sessions.
 
 Secured now: `memory.forget` (→ `memory.forget` on the agent), `agent.status` (→ `agent.read`), `jobs.run`,
-`models.setOverride` and `models.removeManual` (→ `models.write`), `logs.query` and `logs.tail` (→ `logs.query`, Owner/Admin only, D4), `egress.status` (→ `egress.read`, Owner/Admin; B4, `docs/egress.md`), and the whole `admin.*` family (`admin.obsidian.*`,
+`models.setOverride` and `models.removeManual` (→ `models.write`), `logs.query`, `logs.tail` and `logs.levels` (→ `logs.query`, Owner/Admin only, D4/D111), `egress.status` (→ `egress.read`, Owner/Admin; B4, `docs/egress.md`), and the whole `admin.*` family (`admin.obsidian.*`,
 `admin.migrate`, `admin.embedding.*`, `admin.reembed.*`). A test pins that every `admin.*` method in the schema has a rule.
-The M1b-3 `dreams.*` methods follow the nearest existing pattern: `dreams.run` → `jobs.run` (Owner, Admin, Operator), `dreams.schedule.set|enable|disable` → `settings.write` (Owner, Admin); the reads `dreams.status|log|schedule.get` stay open like `jobs.list|history`.
+The M1b-3 `dreams.*` methods follow the nearest existing pattern: `dreams.run` → `jobs.run` (Owner, Admin, Operator), `dreams.schedule.set|enable|disable` → `settings.write` (Owner, Admin); the reads `dreams.status|log|schedule.get` stay open like `jobs.list|history`. `dreams.diary` → `agent.manage` on the agent resource (Owner, Admin, member with manage); a viewer is denied and does not see a foreign agent's diary.
 
 The M3 `identity.*` methods are secured by the nearest existing pattern: `identity.list` → `users.read`, and `identity.human.create`, `identity.link`, `identity.unlink`, `identity.pair.start|claim|confirm` → `users.manage` (system resource, Owner and Admin). Their descriptions say "Owner only"; today every connection is the owner, so nothing changes, and whether these should be Owner-only is for the roles ruling (R4/R5 open).
 
@@ -425,3 +425,15 @@ Person-bound SSE is independent of WebMCP. An event requires a matching person/c
 New human-only rules: `jobs.create` → `agent.manage` on params.agentId; `jobs.update` and `jobs.delete` → `agent.list` for the initial authenticated read, followed by handler-level `agent.manage` checks on the stored and proposed targets. These require the corresponding token scopes as well as roles/rights. `jobs.list/history` user paths resolve a person and apply `agent.list` plus visibility filtering; legacy engine/system paths retain their existing classification.
 
 The existing `agent.manage` policy grants owner/admin and member-with-manage, and excludes operator/viewer. The existing `jobs.run` rule remains owner/admin/operator; user runs additionally need use rights and execute as stored `runAs`, never the triggering caller. Existing approval roles and surface requirements remain unchanged. The new create/update/delete methods, `doctor.report` and `agent.activity.list` are explicitly excluded from WebMCP exposure.
+
+The internal `admin.api.person.resolve` and `admin.api.invite.validate` methods carry `admin.users.read` rules (Owner/Admin policy), but require the separate API service credential with **no delegated principal**. Ordinary IPC, browser persons, and agents are refused. They are absent from the Web RPC allowlist and the `admin.` WebMCP exclusion applies.
+
+| `admin.api.person.resolve` | `admin.users.read` | ✔ | ✔ | – | – | – | API service credential only; role policy does not admit ordinary clients |
+| `admin.api.invite.validate` | `admin.users.read` | ✔ | ✔ | – | – | – | API service credential only; role policy does not admit ordinary clients |
+
+Remote trust challenge and acknowledgement use the additive human-only `remote.device.write` action (Owner/Admin/Operator/Member; Viewer denied) and cookie sessions with CSRF. Nonce-only pairing proof and one-use code redemption are reviewed bootstrap exceptions: no delegated identity or normal session is manufactured. All four private device services use the existing DeviceStore and a separately authenticated API service credential without a delegated principal.
+
+| `admin.api.device.pair` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
+| `admin.api.device.challenge` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
+| `admin.api.device.prove` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |
+| `admin.api.device.announce` | `admin.pairing.read` | ✔ | ✔ | – | – | – | API service credential only; ordinary IPC, persons and agents denied |

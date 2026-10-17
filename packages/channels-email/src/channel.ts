@@ -93,6 +93,9 @@ const MAX_ATTACHMENTS = 10;
 const APPROVAL_DEFAULT_TTL = 5 * 60 * 1000;
 const APPROVAL_MAX_TTL = 24 * 60 * 60 * 1000;
 const MAX_PENDING_APPROVALS = 1000;
+const MAX_ADDRESS_CHARS = 254;
+const MESSAGE_ID_TOKEN = /^[^<>\s\x00-\x1f\x7f]{1,998}$/;
+const MAX_STORED_SUBJECT_CHARS = 500;
 
 interface PendingApproval {
   promptId: string;
@@ -101,6 +104,15 @@ interface PendingApproval {
   approverIds: readonly string[];
   expires: number;
   used: boolean;
+}
+
+/** Stored thread subjects are bounded (the store refuses long ones); never cuts a surrogate pair. */
+function clampSubject(s: string): string {
+  if (s.length <= MAX_STORED_SUBJECT_CHARS) return s;
+  let cut = MAX_STORED_SUBJECT_CHARS;
+  const c = s.charCodeAt(cut - 1);
+  if (c >= 0xd800 && c <= 0xdbff) cut -= 1;
+  return s.slice(0, cut);
 }
 
 export class EmailChannel implements Channel {
@@ -141,6 +153,8 @@ export class EmailChannel implements Channel {
   #password: string | undefined;
   #secretValues: string[] = [];
   #healthy = false;
+  /** Consecutive failed sessions. Reset only by a completed sync, so a server that logs in and then fails keeps backing off. */
+  #failures = 0;
   #smtpOk: boolean | undefined;
   #smtpCheckedAt = -Infinity;
 
@@ -304,7 +318,9 @@ export class EmailChannel implements Channel {
     if (who.accountId !== undefined && who.accountId.toLowerCase() !== this.#cfg.address) throw new Error("identity belongs to another mailbox");
     if (!senderMatches(this.#cfg.dmAllowlist, peer)) throw new Error("email address is not on the allowlist");
     const key = threadKey(`owner-target:${peer}`);
-    if (!(await this.#threads.get(key))) await this.#threads.put(key, { peer, subject: "PLUR1BUS", chain: [] });
+    // The key is derived from a string an inbound References header can also produce, so an existing record is only
+    // trusted when it belongs to this very person; anything else is replaced.
+    if ((await this.#threads.get(key))?.peer !== peer) await this.#threads.put(key, { peer, subject: "PLUR1BUS", chain: [] });
     return key;
   }
 
@@ -390,7 +406,7 @@ export class EmailChannel implements Channel {
   #caps: Set<string> = new Set();
 
   async #run(signal: AbortSignal): Promise<void> {
-    let failures = 0;
+    this.#failures = 0;
     let conn: ImapConnection | undefined = this.#conn;
     while (!signal.aborted) {
       try {
@@ -398,7 +414,6 @@ export class EmailChannel implements Channel {
           conn = await this.#open();
           this.#conn = conn;
           this.#healthy = true;
-          failures = 0;
         }
         await this.#pollLoop(conn, signal);
       } catch (e) {
@@ -413,8 +428,8 @@ export class EmailChannel implements Channel {
           this.#host?.fail(new Error(err.kind === "auth" ? "email authentication failed" : "email state is invalid"));
           return;
         }
-        failures++;
-        const wait = Math.round(Math.min(300_000, 1000 * 2 ** Math.min(failures - 1, 12)) * (0.75 + this.#random() * 0.5));
+        this.#failures++;
+        const wait = Math.round(Math.min(300_000, 1000 * 2 ** Math.min(this.#failures - 1, 12)) * (0.75 + this.#random() * 0.5));
         this.#log("warn", "channel.email.reconnect", { kind: err.kind, waitMs: wait });
         await this.#sleep(wait, signal);
       }
@@ -426,6 +441,7 @@ export class EmailChannel implements Channel {
     const pollMs = this.#cfg.imap.pollIntervalSec * 1000;
     while (!signal.aborted) {
       await this.#sync(conn, signal);
+      this.#failures = 0;
       if (signal.aborted) return;
       if (idle) {
         try {
@@ -513,6 +529,11 @@ export class EmailChannel implements Channel {
       return;
     }
     const from = msg.from.address;
+    if (from.length > MAX_ADDRESS_CHARS) {
+      // RFC 5321 limits a path to 256 octets; longer ones cannot be stored in a thread record.
+      this.#log("warn", "channel.email.from-rejected", { reason: "too-long" });
+      return;
+    }
     const loop = loopReason(msg, this.#cfg.address);
     if (loop) {
       this.#log("info", "channel.email.loop-ignored", { reason: loop });
@@ -535,7 +556,7 @@ export class EmailChannel implements Channel {
       return;
     }
     const chain = capReferences(chainFor(msg.references, mid ?? (msg.references.length ? undefined : root)));
-    await this.#threads.put(key, { peer: from, subject: msg.subject, chain: chain.length ? chain : [root] });
+    await this.#threads.put(key, { peer: from, subject: clampSubject(msg.subject), chain: chain.length ? chain : [root] });
 
     const body = stripQuotedText(msg.text);
     const first = firstLine(body);
@@ -690,7 +711,8 @@ export class EmailChannel implements Channel {
     const body = truncateBody(text, this.#msgs.truncated).text;
     const domain = this.#cfg.address.split("@")[1]!;
     const messageId = `${randomBytes(16).toString("hex")}@${domain}`;
-    const parent = opts.replyTo?.replace(/^<|>$/g, "") ?? rec.chain.at(-1);
+    const wanted = opts.replyTo?.replace(/^<|>$/g, "");
+    const parent = wanted !== undefined && MESSAGE_ID_TOKEN.test(wanted) ? wanted : rec.chain.at(-1);
     const refs = capReferences(rec.chain);
     const raw = buildMessage({
       from: { ...(this.#cfg.displayName !== undefined ? { name: this.#cfg.displayName } : {}), address: this.#cfg.address },

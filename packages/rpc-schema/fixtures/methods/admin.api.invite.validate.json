@@ -1,0 +1,9 @@
+{
+  "params": {
+    "token": "not-a-real-value"
+  },
+  "result": {
+    "userId": "person-fixture",
+    "role": "member"
+  }
+}

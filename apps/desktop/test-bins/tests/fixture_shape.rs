@@ -50,7 +50,7 @@ fn daemon_fixture_matches_real_output_fields() {
 fn firstaid_fixture_matches_real_check_struct_and_envelope() {
     let fixture: Value =
         serde_json::from_str(include_str!("../fixtures/firstaid-check.json")).unwrap();
-    assert!(FIRSTAID.contains("&json!({ \"ok\": ok, \"checks\": checks })"));
+    assert!(FIRSTAID.contains("json!({ \"ok\": ok, \"checks\": checks })"));
     assert_eq!(
         keys(&fixture),
         ["schema", "ok", "checks"]

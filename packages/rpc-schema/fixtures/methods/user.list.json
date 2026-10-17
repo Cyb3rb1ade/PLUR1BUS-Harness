@@ -5,7 +5,8 @@
       {
         "id": "person-fixture",
         "displayName": "Alex",
-        "role": "member"
+        "role": "member",
+        "disabled": false
       }
     ]
   }

@@ -5,6 +5,11 @@ import { button } from "../components/button.ts";
 import { normalizeOrigin } from "../models/origin-input.ts";
 import { pairingFailure } from "../models/pairing-model.ts";
 export type Translate = (key: MessageKey, values?: Record<string, string>) => string;
+/** The one pairing in flight lives outside the form: the shell rebuilds views on late loads and must not unlock a
+ * code that was already sent. */
+const pairing: { busy: boolean; message: string; live: { sync(): void; failed(): void } | null } = { busy: false, message: "", live: null };
+/** A fresh "add" (from the list) starts without the previous attempt's message; a pairing still in flight is kept. */
+export function resetPairing(): void { if (!pairing.busy) pairing.message = ""; }
 export function addRemote(t: Translate, transport: DesktopTransport, done: (result: Paired) => void, cancel: () => void, repair?: Connection): HTMLElement {
     const form = element("form", "page-card pairing-form");
     append(form, element("h2", undefined, t(repair ? "pair.repair" : "pair.add")), element("p", undefined, t("pair.instructions")));
@@ -25,6 +30,8 @@ export function addRemote(t: Translate, transport: DesktopTransport, done: (resu
     const codes = element("fieldset", "code-fields");
     append(codes, element("legend", undefined, t("pair.code")));
     const first = element("input"), second = element("input");
+    first.id = "pair-code-first";
+    second.id = "pair-code-second";
     for (const [i, input] of [first, second].entries()) {
         input.maxLength = 4;
         input.minLength = 4;
@@ -44,13 +51,17 @@ export function addRemote(t: Translate, transport: DesktopTransport, done: (resu
     const footer = element("div", "connection-actions");
     const submit = button(t("pair.submit"), () => { }, "primary");
     submit.type = "submit";
-    append(footer, button(t("pair.cancel"), cancel), submit);
+    append(footer, button(t("pair.cancel"), () => { if (!pairing.busy) pairing.message = ""; cancel(); }), submit);
     form.append(footer);
     origin.addEventListener("input", () => { const normalized = normalizeOrigin(origin.value); validation.textContent = normalized ?? t("pair.error.insecure-origin"); origin.setAttribute("aria-invalid", String(!normalized)); });
-    let busy = false;
+    pairing.live = {
+        sync: () => { submit.disabled = pairing.busy; status.textContent = pairing.message; },
+        failed: () => { pairing.live?.sync(); first.value = ""; second.value = ""; first.focus(); },
+    };
+    pairing.live.sync();
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        if (busy)
+        if (pairing.busy)
             return;
         const normalized = normalizeOrigin(origin.value);
         if (!normalized) {
@@ -59,25 +70,22 @@ export function addRemote(t: Translate, transport: DesktopTransport, done: (resu
             origin.focus();
             return;
         }
-        busy = true;
-        submit.disabled = true;
-        status.textContent = t("pair.working");
+        pairing.busy = true;
+        pairing.message = t("pair.working");
+        pairing.live?.sync();
         try {
             const result = await transport.pairCode({ name: name.value, origin: normalized, code: `${first.value}-${second.value}`, repairId: repair?.id ?? null });
             first.value = "";
             second.value = "";
+            pairing.busy = false;
+            pairing.message = "";
             done(result);
         }
         catch (error) {
             const failure = pairingFailure(error);
-            status.textContent = t(`pair.error.${failure.error}`) + (failure.versions ? ` ${t("pair.apiVersions", failure.versions)}` : "");
-            first.value = "";
-            second.value = "";
-            first.focus();
-        }
-        finally {
-            busy = false;
-            submit.disabled = false;
+            pairing.busy = false;
+            pairing.message = t(`pair.error.${failure.error}`) + (failure.versions ? ` ${t("pair.apiVersions", failure.versions)}` : "");
+            pairing.live?.failed();
         }
     });
     return form;

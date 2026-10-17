@@ -21,6 +21,13 @@ export class LiveService {
   }
   redeem(handle: Sensitive, client: LiveClient) { return this.#handles.redeem(handle, this.#binding(client)); }
   endSession(session: string, client: LiveClient) { this.#binding(client); if (client.session !== session) throw new OpenAIError('handle-binding'); return this.#handles.revokeSession(session, client.person); }
-  async sweep() { await this.#handles.sweep(); await this.#broker.sweep(); }
-  async close() { await this.#handles.close(); await this.#broker.dispose(); }
+  /** A failing handle sweep or close must not keep the broker from sweeping or disposing (provider sessions bill until closed). */
+  async sweep() { await both(() => this.#handles.sweep(), () => this.#broker.sweep()); }
+  async close() { await both(() => this.#handles.close(), () => this.#broker.dispose()); }
+}
+async function both(first: () => Promise<void>, second: () => Promise<void>): Promise<void> {
+  const errors: unknown[] = [];
+  try { await first(); } catch (e) { errors.push(e); }
+  try { await second(); } catch (e) { errors.push(e); }
+  if (errors.length) throw errors[0];
 }

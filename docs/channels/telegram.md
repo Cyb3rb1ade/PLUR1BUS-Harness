@@ -9,7 +9,7 @@ Baseline: `origin/main` at `5685974e` (includes #157 and #161). This table recor
 | Text long polling | Yes | `src/api.ts`, `src/channel.ts`; `test/channel.test.ts` |
 | Chat allowlist, secret redaction | Yes | `src/channel.ts`, `src/redact.ts`; `test/channel.test.ts` |
 | Offset resume and atomic file replacement | Yes | `src/offset.ts`; `test/channel.test.ts` |
-| Text splitting, surrogate safety | Yes | `src/split.ts`; `test/split.test.ts` |
+| Text splitting, surrogate and grapheme-cluster safety | Yes | `src/split.ts`; `test/split.test.ts` |
 | 429 retry_after | Yes | `src/api.ts`, `src/channel.ts`; `test/channel.test.ts` |
 | Current framework Channel contract / manifest | No (old local port only) | `src/channel.ts`, `channel.json`; `test/production.test.ts` |
 | Group/supergroup policy, topics, user filter, migration | No | `src/channel.ts`; `test/production.test.ts` |
@@ -70,13 +70,15 @@ Options take effect on channel restart (restart class `module:telegram`).
 | `botId`, `botUsername` | Normally discovered with `getMe`; explicit overrides available |
 | `groupPolicy` | `addressed`; `all` accepts all delivered group messages |
 | `maxMediaBytes` | 20 MiB maximum; checked before and during download and before upload |
-| `maxSendRetries` | 3 for send/media-fetch 429/network/timeout retries |
+| `maxSendRetries` | 3 for send/media-fetch 429/5xx/network/timeout retries |
 | `pollTimeoutSec` | 30 seconds |
 | `commands` | Additional existing command-set entries to advertise; execution belongs to the host |
 | `commandScopes` | Private and group chat scopes, each in de/en; explicit chat scopes supported |
 | `webLinkProvider` | Omitted: `/web nicht konfiguriert` |
 | `logger` | Optional structured, content-free log sink |
 | `baseUrl`, `fetch`, `sleep`, `now`, `random` | Host transport / deterministic test seams; never derive these from inbound input |
+
+Send retries: `429`, network errors, timeouts and `5xx` answers are retried with backoff up to `maxSendRetries`; other `4xx` answers are final. A `getUpdates` answer of `400` ends polling (host `fail`, error log `channel.telegram.poll-rejected`) instead of retrying; `401` and `403` do the same as before, while `409` is still retried with backoff. `health()` is false while polling fails at transport or server level (a `429` does not count) and turns true again after the next successful poll; sends are not gated by it. Error messages and logs never contain the bot token, the part of it after the bot id, their percent-encoded forms or the webhook secret, even when Telegram's `description` echoes them.
 
 `start()` obtains bot identity, registers commands and selects transport. Polling calls `deleteWebhook` with `drop_pending_updates: false`; webhook mode calls `setWebhook` with `secret_token` and accepts messages/callback queries. The package never starts a public server. Mount the Fetch-compatible handler in the host:
 

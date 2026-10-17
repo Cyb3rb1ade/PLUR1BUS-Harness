@@ -389,10 +389,17 @@ function splitMultipart(body: Buffer, boundary: string, maxParts: number): Buffe
       break;
     }
     const atLineStart = idx === 0 || text[idx - 1] === "\n";
+    if (!atLineStart) {
+      pos = idx + delim.length;
+      continue;
+    }
     const closing = text.slice(idx + delim.length, idx + delim.length + 2) === "--";
-    const eol = text.indexOf("\n", idx);
-    const lineRest = text.slice(idx + delim.length, eol < 0 ? text.length : eol);
-    if (!atLineStart || (!closing && !/^[ \t]*\r?$/.test(lineRest))) {
+    // Only delimiter candidates at a line start look for their line end, and only a bounded stretch of it: a flood of
+    // "--b" without line breaks used to rescan the rest of the body for every candidate (quadratic).
+    const eolAt = text.indexOf("\n", idx);
+    const eol = eolAt < 0 ? -1 : eolAt;
+    const lineRest = text.slice(idx + delim.length, eol < 0 ? Math.min(text.length, idx + delim.length + 1024) : eol);
+    if (!closing && !/^[ \t]*\r?$/.test(lineRest)) {
       pos = idx + delim.length;
       continue;
     }

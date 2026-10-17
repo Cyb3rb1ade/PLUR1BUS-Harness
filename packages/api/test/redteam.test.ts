@@ -1,3 +1,4 @@
+import { REMOTE_PAIRING_BOOTSTRAP_IDS } from "../src/remote-pairing-routes.ts";
 // Red-team regression tests for docs/security/http-api-review-2026-10.md. Every test names the finding (F<n>) or the
 // non-finding (OK-<n>) it pins. In-process server, fake core, fake clock; real timers only where Node's own socket
 // timeouts are the thing under test (short limits, event-driven waits, no sleeps).
@@ -7,6 +8,7 @@ import { connect } from "node:net";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { RPC_RULES } from "../../core/src/rbac/guard.ts";
 import { METHODS } from "@plur1bus/rpc-schema";
 import { ROUTES } from "../src/routes.ts";
 import { ownerTokenVerifier } from "../src/session.ts";
@@ -150,21 +152,21 @@ test("OK-6: foreign, null, look-alike and empty Origins are refused; a missing O
 });
 
 // ---- RBAC -----------------------------------------------------------------------------------------------------------
-test("OK-7: the route table is deny-by-default and its only core calls are core.status and agent.list (no admin.*, no passthrough)", async () => {
+test("OK-7: the route table is deny-by-default and only explicit status, agent and direct-chat reads reach Core (no admin passthrough)", async () => {
   const h = await start({ rateClasses: wide });
   try {
     const { cookie } = await login(h);
     for (const r of ROUTES) {
       for (const headers of [{}, { cookie: "plur1bus_session=forged" }] as Array<Record<string, string>>) {
-        const res = await raw(h, { method: r.method, path: r.path, headers: { ...headers, ...(r.requestBody ? jsonHeaders() : {}) } });
+        const res = await raw(h, { method: r.method, path: r.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), headers: { ...headers, ...(r.requestBody ? jsonHeaders() : {}) } });
         if (r.auth !== "none") assert.equal(res.status, 401, `${r.id} anonymous`); else assert.notEqual(res.status, 200);
       }
     }
-    assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id), ["session.create", "session.totp"]);
+    assert.deepEqual(ROUTES.filter((r) => r.auth === "none").map((r) => r.id).sort(), [...REMOTE_PAIRING_BOOTSTRAP_IDS, "invitation.redeem", "account.bootstrap", "passkeys.login.options", "passkeys.login", "session.create", "session.totp"].sort());
     assert.ok(ROUTES.filter((r) => r.method !== "GET" && r.auth !== "none").every((r) => r.csrf), "every authenticated write needs CSRF");
-    for (const r of ROUTES) if (r.auth !== "none" && r.method === "GET") await raw(h, { path: r.path, headers: { cookie } });
+    for (const r of ROUTES) if (r.auth !== "none" && r.method === "GET") await raw(h, { path: r.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), headers: { cookie } });
     const called = new Set(h.core.calls.map((c) => c.method));
-    assert.deepEqual([...called].sort(), ["agent.list", "core.status"]);
+    assert.deepEqual([...called].sort(), ["agent.list", "chat.events", "chat.get", "chat.list", "config.get", "core.status"]);
     for (const p of ["/api/v1/admin/migrate", "/api/v1/admin.migrate", "/api/v1/rpc", "/api/v1/admin/reembed/run", "/api/v1/users", "/api/v1/identity", "/api/v1/secrets"]) {
       const t = await csrfToken(h, cookie);
       for (const method of ["GET", "POST", "DELETE", "PUT", "PATCH"]) assert.equal((await raw(h, { method, path: p, headers: { cookie, "x-csrf-token": t, ...jsonHeaders() } })).status, 404, `${method} ${p}`);
@@ -177,7 +179,7 @@ test("OK-8: routes, RPC_RULES (core guard) and docs/rbac.md agree: every admin.*
   const methods = METHODS;
   const text = readFileSync(path.join(repo, "docs/rbac.md"), "utf8");
   const guard = readFileSync(path.join(repo, "packages/core/src/rbac/guard.ts"), "utf8");
-  const admin = new Set([...guard.matchAll(/"(admin\.[A-Za-z.]+)": rule\(/g)].map((m) => m[1]!));
+  const admin = new Set(Object.keys(RPC_RULES).filter(m => m.startsWith("admin.")));
   assert.ok(admin.size >= 11, "guard.ts lists the admin.* family");
   assert.ok(methods.some((m) => m.startsWith("admin.")), "the schema's method map was found");
   for (const m of methods.filter((n) => n.startsWith("admin."))) assert.ok(admin.has(m), `RPC_RULES lacks ${m}`);
@@ -298,11 +300,11 @@ test("Q12-2: every authenticated write on the route table needs the one-time CSR
     const { cookie } = await loginAs(h, "adam");
     for (const r of ROUTES.filter((x) => x.auth !== "none" && x.method !== "GET")) {
       assert.equal(r.csrf, true, r.id);
-      const bare = await raw(h, { method: r.method, path: r.path, headers: { cookie, ...jsonHeaders() }, body: r.requestBody ? "{}" : undefined as never });
+      const bare = await raw(h, { method: r.method, path: r.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), headers: { cookie, ...jsonHeaders() }, body: r.requestBody ? "{}" : undefined as never });
       assert.deepEqual([bare.status, bare.json.reason], [403, "csrf"], `${r.id} without a token`);
       for (const extra of [{ origin: "https://evil.example" }, { referer: "https://evil.example/x" }, { "sec-fetch-site": "cross-site" }]) {
         const t = await csrfToken(h, cookie);
-        const x = await raw(h, { method: r.method, path: r.path, headers: { cookie, "x-csrf-token": t, ...jsonHeaders(), ...extra }, body: r.requestBody ? "{}" : undefined as never });
+        const x = await raw(h, { method: r.method, path: r.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), headers: { cookie, "x-csrf-token": t, ...jsonHeaders(), ...extra }, body: r.requestBody ? "{}" : undefined as never });
         assert.equal(x.status, 403, `${r.id} ${Object.keys(extra)[0]}`); assert.notEqual(x.json.reason, undefined);
       }
     }
@@ -418,7 +420,7 @@ test("Q12-9: no route, new or old, grants CORS: a cross-origin preflight or requ
   try {
     for (const r of [...ROUTES, { method: "GET", path: "/" }, { method: "GET", path: "/main.js" }]) {
       for (const method of ["OPTIONS", r.method]) {
-        const res = await raw(h, { method, path: r.path, headers: { origin: "https://evil.example", "access-control-request-method": r.method, "access-control-request-headers": "x-csrf-token" } });
+        const res = await raw(h, { method, path: r.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat"), headers: { origin: "https://evil.example", "access-control-request-method": r.method, "access-control-request-headers": "x-csrf-token" } });
         assert.equal(res.status, 403, `${method} ${r.path}`);
         for (const k of Object.keys(res.headers)) assert.ok(!k.startsWith("access-control-"), `${r.path}: ${k}`);
       }

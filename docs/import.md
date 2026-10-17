@@ -116,6 +116,16 @@ Embedding identity = model + revision/artefact hash + quantization + dimension +
 - **Mismatch (or target has no compatible provider configured yet):** the importer routes the store through PLUR1BUS's guided re-embedding migration — prepare target generation → dry-run → copy into new generation → separate switch → old generation retained for rollback (plur1bus-crons-embedding-portability.md §2, auftrag §6.2) — never a silent re-embed and never a mixed-vector-space table.
 - A store whose embedding identity cannot be determined at all (e.g. missing/corrupt provider metadata) is treated as a mismatch, never as an assumed match.
 
+**As built (OpenClaw, `import/importers/openclaw-stores.ts`).** The decision is made per partition (one per agent, one per shared pool), never for the store as a whole, and always on a copy: the source is only read (when it is a source snapshot, §12, its manifest is verified first) and stays byte-identical, content and permission bits.
+
+1. The partition is copied (the Hermes copy routine of `hermes-stores.ts`: no links, no special files) into a one-partition probe root next to `state/lancedb.adopt-<runId>` (dry run: the OS temp dir), together with the store's `_schema.json`.
+2. `Engine.stores.adopt` (dry run) checks that copy: schema marker of the current version, dimension, and, for stores without a generation manifest, the sample cosine probe that re-embeds a few stored texts and compares. This is what catches a store of the same dimension written by another model, which the recorded evidence (config, cache) cannot.
+3. Verdict `ok`: the copy joins the staging dir; after the snapshot and ledger exist, the staging dir is swapped into `state/lancedb` in one rename (`commitStoreAdopt`, ledger entity `store`, action `adopted`; rollback removes it). Nothing is embedded outside the probe.
+4. Identity mismatch, dimension mismatch, or an identity that cannot be proven: the partition is **not copied**. The report entry has `action: "re-embedding-migration"`, the reasons, and a `nextStep`: make the harness embed with the store's model, re-run the import, then `plur1bus memory reembed --plan --model <harness model>` (the guided migration of M2: plan, throttled copy into a new generation, validation, separate switch; its checkpoint checks are untouched by the import).
+5. A store without a readable current schema marker is `skipped` (`schema-mismatch`/`schema-unreadable`): the import never migrates or writes a source.
+6. Namespaced and generation layouts are `skipped` (`layout-unsupported`); only the flat layout (`<root>/<agent>/memories.lance`, `<root>/.plur1bus-shared/<kind>/<key>`) is mapped onto the harness store.
+7. An existing `state/lancedb` is never merged into: partitions already present byte-for-byte are `matched-existing`; otherwise `--conflict skip` reports `store-exists-skipped`, `rename` reports `store-rename-unsupported`, and `replace` swaps the store whole (the old one is kept under `imports/<runId>/replaced/lancedb`; rollback restores it). A second run on an unchanged source and target therefore writes nothing outside `imports/`.
+
 #### 2.3.2 Reranker (added 2026-09-27)
 
 The reranker was missing from this document. It touches **no stored vector** (ADR-006 §"Rerankers": switchable at runtime without migration), so a reranker difference is never a reason to re-embed or to block a take-over.
@@ -354,6 +364,16 @@ Extended for the harness's own provider matrix (ADR-006) with the equivalent env
       }
     }
   ],
+  "stores": [
+    {
+      "storeId": "agent:alpha | shared:workspaces:<key>",
+      "plannedAction": "take-over | re-embedding-migration",
+      "action": "taken-over | preview-ok | matched-existing | re-embedding-migration | skipped",
+      "rows": 0,
+      "reasons": ["identity-mismatch"],
+      "nextStep": "string | null"
+    }
+  ],
   "secrets": {
     "opted_in": false,
     "allowlistedKeysImported": ["TELEGRAM_BOT_TOKEN"],
@@ -374,6 +394,10 @@ Extended for the harness's own provider matrix (ADR-006) with the equivalent env
     "filesSkipped": 0,
     "channelsDeferred": 0,
     "cronJobsDeferred": 0,
+    "storesTakenOver": 0,
+    "storesMatched": 0,
+    "storesReembedMigration": 0,
+    "storesSkipped": 0,
     "corruptLedgerLines": 0
   },
   "errors": [ { "sourceRef": "string", "reason": "string" } ]
@@ -524,8 +548,8 @@ Added 2026-09-28 (HM3; design: `docs/superpowers/specs/2026-09-28-plugin-distrib
 
 **Paths inside the source's config** (`agents.*.workspace`, `agents.*.agentDir`, `agents.defaults.workspace`, the plugin's `baseDbPath` and `embedding.local.cacheDir`, `skills.load.extraDirs`, Hermes `skills.external_dirs`) go through one mapper instead of the host's `path` module:
 
-1. Parsed with the **source's** flavour. A drive-letter or `\\server\share` path is Windows syntax, a leading `/` POSIX syntax, whatever the host: a POSIX path in a config read on Windows is never read as `C:\home\…`, a Windows path read on Linux is never resolved under the root. `\x` and `C:x` are `drive-relative` and unmapped.
-2. `~` expands against the source-side home; `${OPENCLAW_HOME}` against the source-side root; Hermes also expands `$VAR`/`${VAR}` (and `%VAR%` for a Windows source) from the environment — only for a native source, whose environment is the host's; any other variable is unmapped (`env-var`). Relative paths resolve against the root (Hermes: against the profile directory).
+1. Parsed with the **source's** flavour. A drive-letter or `\\server\share` path is Windows syntax, a leading `/` POSIX syntax, whatever the host: a POSIX path in a config read on Windows is never read as `C:\home\…`, a Windows path read on Linux is never resolved under the root. (Not yet enforced: a value from a POSIX WSL source that contains backslashes is joined with `\` when the host is Windows, so `..\..\x` can map outside the distro root.) `\x` and `C:x` are `drive-relative` and unmapped.
+2. `~` expands against the source-side home; `${OPENCLAW_HOME}` against the source-side root; Hermes also expands `$VAR`/`${VAR}` (and `%VAR%` for a Windows source) from the environment — only for a native source, whose environment is the host's; any other variable is unmapped (`env-var`; not yet enforced for names that exist on `Object.prototype`, such as `${constructor}` or `$toString`, which are currently substituted with the inherited member). Relative paths resolve against the root (Hermes: against the profile directory; not yet enforced: a relative value that climbs above the root with `..` is re-rooted below it instead of being unmapped).
 3. Mapped, in order: a `--map <source-prefix>=<local-prefix>` rule (repeatable, longest prefix first, whole segments, case-insensitive for Windows syntax); a path under the source-side root → the same relative path under the root as read; a path through a **same-named root in a home directory** (`/home/<u>/.openclaw/…`, `C:\Users\<u>\.openclaw\…`, `…\AppData\Local\hermes\…`) that is not the root being read → **rebased** onto it (the state dir was copied or moved; reported in `portability.movedFrom` with a warning); a path under the source-side home → under that home as read (unmapped `outside-source-root` when the host cannot reach it); the origin's mounts (WSL: `/mnt/<x>/…` → `<X>:\…`, anything else → `\\wsl.localhost\<distro>\…`; from WSL: `<X>:\…` → `/mnt/<x>/…`); a native source's own-syntax path as written. Anything else is **unmapped** with a reason (`foreign-path`, `drive-relative`, `env-var`, `home-unknown`, `outside-source-root`) and the config key, never guessed; a store root that cannot be mapped falls back to the default path with a warning.
 4. Host environment variables that describe the host's installation (`$OPENCLAW_BUNDLED_SKILLS_DIR`, `$HERMES_OPTIONAL_SKILLS`) are read for a native source only. The personal skills root (`~/.agents/skills`) is the source-side user's home (over WSL, the distro user's).
 
@@ -714,3 +738,4 @@ Follow-ups outside this change:
 - Explicit CLI snapshot production/transport and D2 host bridge RPC `host.importSnapshot` for remote host-to-container sources. Existing library production and `--source` consumption work; automatic CLI orchestration is not claimed.
 - Native Windows/WSL infrastructure acceptance stays separate from mocked unit coverage. A WSL infrastructure failure does not establish a Windows unit failure.
 - Unrelated M7 store takeover, guided re-embedding, identity back-fill and secret migration gaps in §11.3 remain separate work.
+- Parser limits recorded as `KNOWN GAP` todo tests (`packages/core/test/import/`) and not yet enforced: the JSON5 reader accepts a leading-zero number (`010` reads as 10), does not treat the Unicode space separators (U+1680, U+2000 to U+200A, U+202F, U+205F, U+3000) as whitespace, does not end a `//` comment at U+2028 or U+2029, and reads U+FEFF, U+2028 and U+2029 as identifier characters. The YAML-lite reader keeps one newline for the `|+` block scalar, swallows the siblings that follow a bare `-` item, turns `- - x` into the string `- x` without an `unsupported` note, raises a `RangeError` on a mapping nested several thousand levels deep, and takes quadratic time on a line with a very long run of spaces (about 1 s at 30,000).

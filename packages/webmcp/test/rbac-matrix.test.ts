@@ -172,7 +172,7 @@ describe("C. person-only methods turn agents away", () => {
       const guarded = guardMethods({ [m]: async () => { ran = true; return {}; } }, {
         resolve: () => ({ userId: "agent-x", role: "owner", kind: "agent" } as any), now: () => 0,
       });
-      await assert.rejects(() => guarded[m]!({}, {} as any), (e: any) => e?.data?.reason === "agent-principal" || /agent-principal/.test(JSON.stringify(e?.data ?? e)));
+      await assert.rejects(() => guarded[m]!({}, {} as any), (e: any) => (e?.reason ?? e?.data?.reason) === (RPC_RULES[m]?.apiServiceOnly ? "api-service-only" : "agent-principal"));
       assert.equal(ran, false);
     });
     it(`${m}: refuses a principal without kind`, async () => {
