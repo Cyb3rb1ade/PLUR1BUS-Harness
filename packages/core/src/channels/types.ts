@@ -65,7 +65,11 @@ export interface IdentityPort {
 
 /** The session store as the channel layer needs it (D21: one active session per channel chat). */
 export interface SessionPort {
-  findActive(chat: ChatKey): Promise<string | null>;
+  /**
+   * The chat's active session. With `forOwner` the session must belong to that person: a session of someone else (a handle
+   * unlinked from A and linked to B keeps the same chat key) is archived and `null` comes back, so the caller starts a fresh one.
+   */
+  findActive(chat: ChatKey, forOwner?: { userId: string }): Promise<string | null>;
   create(chat: ChatKey, owner: { userId: string }): Promise<string>;
   archive(sessionId: string): Promise<void>;
   /** `session.submit`: one turn in, the agent's reply out. */
