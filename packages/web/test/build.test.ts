@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
@@ -65,19 +65,19 @@ test("the bundles use no eval, Function constructor, javascript: URL or remote o
   }
 });
 
-// Size budgets (gzip -9). ADR-004 asked for a small shipped bundle: 25 KiB for main.js when there was one page. With real pages
-// the budget is split: main.js itself (shell, sign-in, palette, registry, loader) keeps its own small budget, the start-up
-// closure (main.js plus the chunks it imports statically: Preact, signals, the API client, the i18n catalogues of every area,
-// shared components) has a ceiling, and every lazily loaded page chunk has its own. styles.css (one file for the shell and every
-// page, 6 KiB when there was one page) is allowed 9 KiB. The catalogues are the largest part of the
-// start-up closure (~28 KiB gzip for de+en of all areas); loading them per page would take it near the old 25 KiB (follow-up F18).
-// M3 part 2 added ten areas (wizard, agents, settings, users, secrets, logs, activity, sessions, devices, shared) and raised the
-// ceiling from 46 to 54 KiB (measured about 51 after the palette dialog became a lazy chunk) and styles from 8 to 9 KiB (measured 8.6).
-// The media search area (src/i18n/mediasearch.ts, de and en, ~5.5 KiB gzip on its own) is in every start-up closure, so the start-up
-// ceiling goes from 54 to 57 KiB (measured 56.6). Lazy catalogues are follow-up F18; this is the first step past 54 since M3 part 2.
-// M3 P4: the setup wizard chunk (one-time Owner account, agent saga on the persona step, pinned model licence revisions) measures 12.5,
-// so the per-page ceiling goes from 12 to 13 KiB; every other page stays under 12.
-const BUDGET_KIB = { main: 10, startup: 52, page: 13, styles: 7 } as const;
+// Size budgets (gzip -9). History: ADR-004 asked for a small shipped bundle (25 KiB main.js when there was one page); the
+// ceilings were later split into main.js, the start-up closure, each lazy page chunk and styles.css and raised step by step
+// (start-up 46 -> 54 -> 57 KiB, page 12 -> 13 KiB). Owner decision 2026-10-17: the ceilings are a tripwire against accidental bloat
+// (a large library pulled in by mistake), not a minimum-size target. Bandwidth is not the constraint; JavaScript parse and execute
+// time on weak devices (an old phone over remote access, the desktop webview, a small host) is. So the hard ceilings below leave
+// years of headroom, and growth is watched separately: every run compares the totals with test/bundle-baseline.json and prints a
+// GitHub Actions warning (not a failure) when one of them grew by more than BASELINE_WARN_PCT. Refresh the baseline on purpose with
+// PLUR1BUS_WEB_BUNDLE_BASELINE_WRITE=1 after a deliberate growth step and commit the file with the reason in the message.
+const BUDGET_KIB = { main: 25, startup: 150, page: 40, styles: 20 } as const;
+const BASELINE_WARN_PCT = 20;
+const BASELINE_FILE = new URL("./bundle-baseline.json", import.meta.url);
+
+type BundleTotals = { main: number; startup: number; pageMax: number; pagesTotal: number; styles: number };
 
 test("size budgets: main.js, the start-up closure, each lazy page chunk, styles.css", async () => {
   const { initial, lazy } = await graph();
@@ -86,11 +86,34 @@ test("size budgets: main.js, the start-up closure, each lazy page chunk, styles.
   for (const f of [...initial, ...lazy]) rows.push([`${initial.includes(f) ? "start" : "lazy "} ${f}`, await gz(f)]);
   rows.push(["styles.css", await gz("styles.css")]);
   const startup = (await Promise.all(initial.map((f) => gz(f)))).reduce((a, b) => a + b, 0);
+  const pageSizes = await Promise.all(lazy.map((f) => gz(f)));
+  const totals: BundleTotals = {
+    main: await gz("main.js"),
+    startup,
+    pageMax: Math.max(...pageSizes),
+    pagesTotal: pageSizes.reduce((a, b) => a + b, 0),
+    styles: await gz("styles.css"),
+  };
   console.log(["# bundle gzip (KiB)", ...rows.map(([n, b]) => `#   ${n.padEnd(34)} ${(b / 1024).toFixed(1)}`), `#   start-up closure                   ${(startup / 1024).toFixed(1)}`].join("\n"));
-  assert.ok(await gz("main.js") <= BUDGET_KIB.main * 1024, `main.js over ${BUDGET_KIB.main} KiB gzip`);
+  assert.ok(totals.main <= BUDGET_KIB.main * 1024, `main.js over ${BUDGET_KIB.main} KiB gzip`);
   assert.ok(startup <= BUDGET_KIB.startup * 1024, `start-up closure ${startup} B over ${BUDGET_KIB.startup} KiB gzip`);
-  for (const f of lazy) assert.ok((await gz(f)) <= BUDGET_KIB.page * 1024, `${f} over ${BUDGET_KIB.page} KiB gzip`);
-  assert.ok((await gz("styles.css")) <= BUDGET_KIB.styles * 1024, `styles.css over ${BUDGET_KIB.styles} KiB gzip`);
+  for (const [i, f] of lazy.entries()) assert.ok(pageSizes[i]! <= BUDGET_KIB.page * 1024, `${f} over ${BUDGET_KIB.page} KiB gzip`);
+  assert.ok(totals.styles <= BUDGET_KIB.styles * 1024, `styles.css over ${BUDGET_KIB.styles} KiB gzip`);
+
+  if (process.env.PLUR1BUS_WEB_BUNDLE_BASELINE_WRITE === "1") {
+    await writeFile(BASELINE_FILE, `${JSON.stringify(totals, null, 2)}\n`);
+    console.log("# bundle baseline written");
+    return;
+  }
+  const baseline = JSON.parse(await readFile(BASELINE_FILE, "utf8")) as BundleTotals;
+  for (const key of Object.keys(totals) as (keyof BundleTotals)[]) {
+    const was = baseline[key];
+    const now = totals[key];
+    assert.ok(typeof was === "number" && was > 0, `bundle-baseline.json lacks ${key}`);
+    const pct = ((now - was) / was) * 100;
+    console.log(`# bundle ${key.padEnd(10)} ${(now / 1024).toFixed(1)} KiB (baseline ${(was / 1024).toFixed(1)}, ${pct >= 0 ? "+" : ""}${pct.toFixed(1)} %)`);
+    if (pct > BASELINE_WARN_PCT) console.log(`::warning title=Web bundle growth::${key} grew ${pct.toFixed(1)} % over test/bundle-baseline.json (${(was / 1024).toFixed(1)} -> ${(now / 1024).toFixed(1)} KiB gzip)`);
+  }
 });
 
 test("every lazy chunk brings its own CSS", async () => {
