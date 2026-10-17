@@ -168,6 +168,10 @@
     ],
     "allowLoopback": false
   },
+  "privacy": {
+    "localOnly": false,
+    "localEndpoints": []
+  },
   "session": {
     "compaction": {
       "softRatio": 0.65,

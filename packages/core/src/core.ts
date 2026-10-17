@@ -30,7 +30,7 @@ import { createAgentRegistry, type AgentRegistry } from "./agents.ts";
 import { CORE_FEATURES } from "./capabilities.ts";
 import { flattenPatch, openConfigSource, type ConfigSource } from "./config-source.ts";
 import { assertEngineContract, bindEngine } from "./engine.ts";
-import { buildEngineConfig, checkEngineConfigLicences } from "./engine-config.ts";
+import { buildEngineConfig, checkEngineConfigLicences, checkEngineEgress } from "./engine-config.ts";
 import { mapEngineEvent } from "./events-map.ts";
 import { createHarnessHost } from "./host.ts";
 import { acquireCoreLock } from "./lock.ts";
@@ -443,6 +443,8 @@ export function createCore(o: CoreOptions): Core {
       registry.list(); // trigger scaffold of initial agents via refresh()
       const engineConfig = buildEngineConfig(config, l);
       checkEngineConfigLicences(engineConfig,l);
+      // Until the engine has a fetch port, its model endpoints are judged by the harness egress policy before it is built.
+      await checkEngineEgress(engineConfig, egress, (message, fields) => log.warn(message, fields));
       const unmapped = new Set<string>();
       const events = (name: string, payload: unknown) => {
         // ADR-016 §6: the harness-owned notification, projected onto its schema.
