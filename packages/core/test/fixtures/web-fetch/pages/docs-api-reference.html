@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quillstone API: queue.push</title>
+
+<style>body{font-family:serif}.hide{display:none}</style>
+</head>
+<body>
+<main>
+<h1>queue.push</h1>
+<p>Adds a job to a queue and returns its identifier.</p>
+<h2>Parameters</h2>
+<table>
+<thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>queue</code></td><td>string</td><td>yes</td><td>Name of the target queue.</td></tr>
+<tr><td><code>payload</code></td><td>object</td><td>yes</td><td>Arbitrary JSON delivered to the worker.</td></tr>
+<tr><td><code>priority</code></td><td>integer</td><td>no</td><td>0 to 9, default 5.</td></tr>
+<tr><td><code>delay_ms</code></td><td>integer</td><td>no</td><td>Wait before the job becomes runnable.</td></tr>
+</tbody></table>
+<h2>Errors</h2>
+<dl>
+<dt>queue_full</dt><dd>The queue holds its maximum number of waiting jobs.</dd>
+<dt>payload_too_large</dt><dd>The payload exceeds 256 KiB after serialisation.</dd>
+<dt>unknown_queue</dt><dd>No queue with that name exists in the workspace.</dd>
+</dl>
+<h2>Example response</h2>
+<pre><code class="language-json">{
+  "id": "job_8f2c1a",
+  "queue": "emails",
+  "state": "waiting"
+}</code></pre>
+</main>
+<script>window.dataLayer=window.dataLayer||[];function t(){dataLayer.push(arguments)}</script>
+</body>
+</html>

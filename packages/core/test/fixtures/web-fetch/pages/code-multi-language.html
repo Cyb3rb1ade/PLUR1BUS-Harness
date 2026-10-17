@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snippets</title>
+
+<style>body{font-family:serif}.hide{display:none}</style>
+</head>
+<body>
+<main><h1>Snippets</h1>
+<h2>Python</h2>
+<pre><code class="language-python">def moving_average(xs, n):
+    out = []
+    for i in range(len(xs) - n + 1):
+        out.append(sum(xs[i:i+n]) / n)
+
+    return out</code></pre>
+<h2>YAML</h2>
+<pre class="highlight"><code class="lang-yaml">services:
+  web:
+    image: example/web:2
+    ports:
+      - "8080:80"</code></pre>
+<h2>Makefile</h2>
+<pre><code>all:
+	gcc -o app main.c
+
+clean:
+	rm -f app</code></pre></main>
+<script>window.dataLayer=window.dataLayer||[];function t(){dataLayer.push(arguments)}</script>
+</body>
+</html>

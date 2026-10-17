@@ -44,15 +44,61 @@
     ],
     "windows": {
       "nsis": {
-        "installMode": "currentUser"
+        "installMode": "currentUser",
+        "template": "windows/nsis/installer.nsi",
+        "languages": [
+          "English",
+          "German"
+        ],
+        "installerHooks": "windows/nsis/hooks.nsh",
+        "installerIcon": "icons/icon.ico",
+        "sidebarImage": "packaging-assets/nsis-sidebar.bmp",
+        "headerImage": "packaging-assets/nsis-header.bmp"
       }
     },
     "macOS": {
-      "signingIdentity": "-"
+      "signingIdentity": "-",
+      "dmg": {
+        "background": "packaging-assets/dmg-background.tiff",
+        "windowSize": {
+          "width": 660,
+          "height": 400
+        },
+        "appPosition": {
+          "x": 180,
+          "y": 170
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 170
+        }
+      }
     },
     "externalBin": [
       "binaries/plur1bus-host"
-    ]
+    ],
+    "fileAssociations": [
+      {
+        "ext": [
+          "p1x"
+        ],
+        "name": "PLUR1BUS extension",
+        "role": "Viewer",
+        "mimeType": "application/x-plur1bus-extension"
+      }
+    ],
+    "linux": {
+      "deb": {
+        "recommends": [
+          "podman | docker.io"
+        ]
+      },
+      "rpm": {
+        "recommends": [
+          "podman"
+        ]
+      }
+    }
   },
   "plugins": {
     "updater": {
@@ -60,6 +106,13 @@
         "installMode": "passive"
       },
       "pubkey": "PLACEHOLDER: selected channel updater key is supplied from Rust"
+    },
+    "deep-link": {
+      "desktop": {
+        "schemes": [
+          "plur1bus"
+        ]
+      }
     }
   }
 }

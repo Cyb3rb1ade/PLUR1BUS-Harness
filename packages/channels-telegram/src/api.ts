@@ -79,6 +79,8 @@ export interface TelegramUpdate {
 
 export interface ApiOptions {
   token: string;
+  /** Further credentials (e.g. the webhook secret) that must be scrubbed from echoed Telegram descriptions. */
+  extraSecrets?: readonly string[];
   baseUrl?: string;
   fetch?: typeof fetch;
 }
@@ -89,10 +91,12 @@ export const MAX_RETRY_AFTER_MS = 300_000;
 
 export class TelegramApi {
   readonly #token: string;
+  readonly #secrets: readonly string[];
   readonly #base: string;
   readonly #fetch: typeof fetch;
   constructor(opts: ApiOptions) {
     this.#token = opts.token;
+    this.#secrets = [opts.token, ...(opts.extraSecrets ?? [])];
     this.#base = (opts.baseUrl ?? "https://api.telegram.org").replace(/\/+$/, "");
     this.#fetch = opts.fetch ?? fetch;
   }
@@ -221,7 +225,7 @@ export class TelegramApi {
     }
     if (res.ok && payload?.ok === true) return payload.result as T;
     const desc =
-      typeof payload?.description === "string" ? redactString(payload.description, this.#token).slice(0, 200) : "";
+      typeof payload?.description === "string" ? redactString(payload.description, this.#secrets).slice(0, 200) : "";
     const status = res.status;
     if (status === 429) {
       const raw = Number(payload?.parameters?.retry_after ?? res.headers.get("retry-after"));

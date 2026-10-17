@@ -1,0 +1,9 @@
+{
+  "params": {
+    "model": "intfloat/multilingual-e5-small"
+  },
+  "result": {
+    "model": "intfloat/multilingual-e5-small",
+    "effective": true
+  }
+}

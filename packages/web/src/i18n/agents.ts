@@ -1,5 +1,11 @@
 // agents area catalogue (Agents page, `/agents`): keys `agents.<topic>`; en and de have the same keys and {placeholders}.
 export const en = {
+  "agents.isolation.title": "Agent isolation",
+  "agents.isolation.agent": "Per agent",
+  "agents.isolation.global": "Shared process",
+  "agents.isolation.private": "Config, persona, sessions, memory pools, scoped secrets, tool views, MCP selection, terminal environment and budget counters",
+  "agents.isolation.shared": "Embedding/rerank model cache, HTTP listener, process lock, OS process and native runtime",
+  "agents.isolation.boundary": "AgentScope fails closed without a context. The same OS user remains a trusted boundary; this is not process separation.",
   "agents.list.label": "Agents",
   "agents.detail.label": "Agent details",
   "agents.create": "Create agent",
@@ -41,7 +47,7 @@ export const en = {
   "agents.delete.exportFirst": "Export a bundle first. It holds the configuration and skills, without secrets.",
   "agents.delete.confirm": "Delete agent",
   "agents.delete.unavailable": "Deleting an agent is not available on this harness yet. Nothing was deleted.",
-  "agents.delete.engineErasureUnavailable": "Engine erasure is unavailable on this harness.",
+  "agents.delete.engineErasureUnavailable": "Engine erasure API unavailable. Archive and export remain available.",
   "agents.flash.paused": "Agent {name} was paused.",
   "agents.flash.resumed": "Agent {name} was resumed.",
   "agents.flash.archived": "Agent {name} was archived.",
@@ -82,6 +88,12 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "agents.isolation.title": "Agentenisolation",
+  "agents.isolation.agent": "Pro Agent",
+  "agents.isolation.global": "Prozessglobal",
+  "agents.isolation.private": "Config, Persona, Sessions, Memory-Pools, Secret-Scope, Tool-Sichten, MCP-Auswahl, Terminal-Umgebung und Budgetzähler",
+  "agents.isolation.shared": "Embedding-/Rerank-Modellcache, HTTP-Listener, Prozess-Lock, OS-Prozess und native Laufzeit",
+  "agents.isolation.boundary": "AgentScope verweigert Zugriff ohne Kontext. Derselbe OS-Nutzer bleibt eine akzeptierte Vertrauensgrenze; es gibt keine Prozesstrennung.",
   "agents.list.label": "Agenten",
   "agents.detail.label": "Agent-Details",
   "agents.create": "Agent anlegen",
@@ -123,7 +135,7 @@ export const de: Record<keyof typeof en, string> = {
   "agents.delete.exportFirst": "Exportiere zuerst ein Bundle. Es enthält Konfiguration und Skills, ohne Geheimnisse.",
   "agents.delete.confirm": "Agent löschen",
   "agents.delete.unavailable": "Das Löschen eines Agenten ist auf diesem Harness noch nicht verfügbar. Es wurde nichts gelöscht.",
-  "agents.delete.engineErasureUnavailable": "Vollständiges Löschen im Engine-Speicher wird noch nicht unterstützt.",
+  "agents.delete.engineErasureUnavailable": "Erasure-API fehlt. Archivieren und Exportieren bleiben verfügbar.",
   "agents.flash.paused": "Agent {name} wurde pausiert.",
   "agents.flash.resumed": "Agent {name} wurde fortgesetzt.",
   "agents.flash.archived": "Agent {name} wurde archiviert.",

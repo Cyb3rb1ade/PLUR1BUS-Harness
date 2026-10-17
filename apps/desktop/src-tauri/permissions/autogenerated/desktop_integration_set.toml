@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-desktop-integration-set"
+description = "Enables the desktop_integration_set command without any pre-configured scope."
+commands.allow = ["desktop_integration_set"]
+
+[[permission]]
+identifier = "deny-desktop-integration-set"
+description = "Denies the desktop_integration_set command without any pre-configured scope."
+commands.deny = ["desktop_integration_set"]
