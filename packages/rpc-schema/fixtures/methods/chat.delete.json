@@ -1,0 +1,11 @@
+{
+  "params": {
+    "sessionId": "ses_1"
+  },
+  "result": {
+    "confirmation": {
+      "nonce": "fixture-confirmation",
+      "expiresAt": 2000
+    }
+  }
+}

@@ -1,3 +1,4 @@
+import { makePng, makeJpeg } from './adapters-fixtures.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readdir, rm, writeFile, readFile } from 'node:fs/promises';
@@ -9,8 +10,8 @@ import type { ImageRequest, ImageResult } from '../src/index.ts';
 
 const code = (c: string) => (e: unknown) => e instanceof MediaError && e.code === c;
 const sha = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
-const PNG = Buffer.from('png-bytes-for-store-tests');
-const JPEG = Buffer.from('jpeg-bytes-for-store-tests');
+const PNG = makePng(); // real magic bytes: put() refuses payloads that are not the declared format
+const JPEG = makeJpeg();
 
 async function withRoot<T>(fn: (root: string) => Promise<T>): Promise<T> {
   const root = await mkdtemp(join(tmpdir(), 'media-store-cov-'));

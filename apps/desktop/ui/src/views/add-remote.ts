@@ -1,4 +1,4 @@
-import type { Connection, DesktopTransport, Paired } from "../ipc.ts";
+import type { Connection, DesktopTransport, Paired, PairPrefill } from "../ipc.ts";
 import type { MessageKey } from "../i18n.ts";
 import { element, append } from "../components/dom.ts";
 import { button } from "../components/button.ts";
@@ -10,16 +10,20 @@ export type Translate = (key: MessageKey, values?: Record<string, string>) => st
 const pairing: { busy: boolean; message: string; live: { sync(): void; failed(): void } | null } = { busy: false, message: "", live: null };
 /** A fresh "add" (from the list) starts without the previous attempt's message; a pairing still in flight is kept. */
 export function resetPairing(): void { if (!pairing.busy) pairing.message = ""; }
-export function addRemote(t: Translate, transport: DesktopTransport, done: (result: Paired) => void, cancel: () => void, repair?: Connection): HTMLElement {
+export function addRemote(t: Translate, transport: DesktopTransport, done: (result: Paired) => void, cancel: () => void, repair?: Connection, prefill?: PairPrefill): HTMLElement {
     const form = element("form", "page-card pairing-form");
     append(form, element("h2", undefined, t(repair ? "pair.repair" : "pair.add")), element("p", undefined, t("pair.instructions")));
     function field(label: string, value: string, id: string) { const row = element("label", "field"); row.htmlFor = id; const input = element("input"); input.id = id; input.value = value; input.required = true; append(row, element("span", undefined, label), input); form.append(row); return input; }
     const name = field(t("pair.name"), repair?.name ?? "", "pair-name");
     name.maxLength = 120;
     name.readOnly = !!repair;
-    const origin = field(t("pair.origin"), repair?.origin ?? "", "pair-origin");
+    const origin = field(t("pair.origin"), repair?.origin ?? prefill?.origin ?? "", "pair-origin");
     origin.maxLength = 2048;
-    origin.readOnly = !!repair;
+    origin.readOnly = !!repair || !!prefill;
+    if (prefill) {
+        append(form, element("p", "eyebrow", t("link.origin")), element("h3", "connection-origin", prefill.origin));
+        for (const pin of [prefill.pin, prefill.ca]) if (pin) append(form, element("p", undefined, t("link.pin")), element("code", "connection-pin", pin));
+    }
     origin.autocomplete = "off";
     origin.spellcheck = false;
     const validation = element("p", "field-note");
@@ -43,6 +47,10 @@ export function addRemote(t: Translate, transport: DesktopTransport, done: (resu
         input.addEventListener("input", () => { input.value = input.value.toUpperCase(); });
         codes.append(input);
     }
+    if (prefill) {
+        const [a, b] = prefill.code.split("-"); first.value = a ?? ""; second.value = b ?? "";
+        first.readOnly = second.readOnly = true;
+    }
     form.append(codes, element("p", "field-note", t("pair.once")));
     const status = element("p", "pair-status");
     status.setAttribute("role", "status");
@@ -56,7 +64,10 @@ export function addRemote(t: Translate, transport: DesktopTransport, done: (resu
     origin.addEventListener("input", () => { const normalized = normalizeOrigin(origin.value); validation.textContent = normalized ?? t("pair.error.insecure-origin"); origin.setAttribute("aria-invalid", String(!normalized)); });
     pairing.live = {
         sync: () => { submit.disabled = pairing.busy; status.textContent = pairing.message; },
-        failed: () => { pairing.live?.sync(); first.value = ""; second.value = ""; first.focus(); },
+        failed: () => { pairing.live?.sync();
+            if (!prefill) { first.value = ""; second.value = ""; first.focus(); }
+            else submit.focus();
+        },
     };
     pairing.live.sync();
     form.addEventListener("submit", async (event) => {
@@ -74,7 +85,7 @@ export function addRemote(t: Translate, transport: DesktopTransport, done: (resu
         pairing.message = t("pair.working");
         pairing.live?.sync();
         try {
-            const result = await transport.pairCode({ name: name.value, origin: normalized, code: `${first.value}-${second.value}`, repairId: repair?.id ?? null });
+            const result = await transport.pairCode({ name: name.value, origin: normalized, code: `${first.value}-${second.value}`, repairId: repair?.id ?? null, linkId: prefill?.linkId ?? null });
             first.value = "";
             second.value = "";
             pairing.busy = false;

@@ -1,0 +1,32 @@
+{
+  "query": "harness memory benchmarks",
+  "follow_up_questions": null,
+  "answer": null,
+  "images": [],
+  "results": [
+    {
+      "url": "https://docs.example.org/guides/memory-benchmarks",
+      "title": "Memory benchmarks for agent harnesses",
+      "content": "How a harness is measured: recall at k, latency and cost, with a worked example. <b>Bold</b> markup is stripped.",
+      "score": 0.91234,
+      "raw_content": null,
+      "published_date": "Tue, 30 Sep 2026 08:15:00 GMT"
+    },
+    {
+      "url": "https://blog.example.net/recall-quality",
+      "title": "Recall quality in practice",
+      "content": "A short field report.",
+      "score": 0.77,
+      "raw_content": null
+    },
+    {
+      "url": "ftp://files.example.net/benchmarks.csv",
+      "title": "Not a web page",
+      "content": "dropped by the normaliser",
+      "score": 0.5,
+      "raw_content": null
+    }
+  ],
+  "response_time": 1.42,
+  "request_id": "00000000-0000-4000-8000-000000000003"
+}

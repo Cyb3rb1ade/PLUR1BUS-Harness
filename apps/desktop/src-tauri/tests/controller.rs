@@ -188,13 +188,19 @@ async fn everything_requires_the_typed_confirmation_before_any_mutation() {
     assert_eq!(before, r.state.lock().unwrap().calls.len());
 }
 #[tokio::test]
-async fn install_prefers_the_tarball_and_checks_its_digest() {
+async fn offline_variant_uses_the_bundled_tarball() {
     let d = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(d.path().join("bundled/resources/image")).unwrap();
+    std::fs::write(
+        d.path().join("bundled/resources/image/synthetic.oci.tar"),
+        b"fixture",
+    )
+    .unwrap();
     let r = Arc::new(FakeRuntime::new(RuntimeKind::Apple));
     let mut b = plur1bus_desktop::controller::bundle::embedded().clone();
     b.tarball.insert(
         plur1bus_desktop::controller::bundle::Arch::host(),
-        Some("synthetic.tar".into()),
+        Some("image/synthetic.oci.tar".into()),
     );
     let ctl = Controller::with_health(r.clone(), b, d.path().join("bundled"), Arc::new(Healthy))
         .with_test_namespace("tarball")
@@ -207,12 +213,18 @@ async fn install_prefers_the_tarball_and_checks_its_digest() {
 #[tokio::test]
 async fn a_tarball_with_the_wrong_digest_is_refused_before_anything_is_created() {
     let d = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(d.path().join("bundled/resources/image")).unwrap();
+    std::fs::write(
+        d.path().join("bundled/resources/image/synthetic.oci.tar"),
+        b"fixture",
+    )
+    .unwrap();
     let r = Arc::new(FakeRuntime::new(RuntimeKind::Apple));
     r.state.lock().unwrap().wrong_digest = true;
     let mut b = plur1bus_desktop::controller::bundle::embedded().clone();
     b.tarball.insert(
         plur1bus_desktop::controller::bundle::Arch::host(),
-        Some("synthetic.tar".into()),
+        Some("image/synthetic.oci.tar".into()),
     );
     let ctl = Controller::with_health(r.clone(), b, d.path().join("bundled"), Arc::new(Healthy))
         .with_test_namespace("wrong-digest")
@@ -432,9 +444,24 @@ async fn only_everything_removes_the_affected_bundled_token_account() {
                 &SecretString::new("synthetic-unrelated-token-p1t".into()),
             )
             .unwrap();
+        if level == UninstallLevel::Everything {
+            ctl.uninstall(UninstallLevel::AppOnly, None, &tokens, &store, |_| {})
+                .await
+                .unwrap();
+            assert!(ctl.installed().unwrap().is_none());
+            assert!(ctl.retained_installed().unwrap().is_some());
+            assert!(matches!(ctl.status().await, HarnessStatus::NotInstalled));
+            assert!(tokens.get(&token_account(row.id)).unwrap().is_some());
+        }
         ctl.uninstall(level, Some("plur1bus-state"), &tokens, &store, |_| {})
             .await
             .unwrap();
+        if level == UninstallLevel::Everything {
+            assert!(ctl.retained_installed().unwrap().is_none());
+            ctl.uninstall(level, Some("plur1bus-state"), &tokens, &store, |_| {})
+                .await
+                .unwrap();
+        }
         assert_eq!(
             tokens.get(&token_account(row.id)).unwrap().is_none(),
             level == UninstallLevel::Everything

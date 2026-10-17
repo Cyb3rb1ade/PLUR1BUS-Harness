@@ -754,3 +754,7 @@
   padding: 3px 8px;
   font-size: 0.82rem;
 }
+
+.handoff-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; overflow-wrap: anywhere; }
+
+.delegation-transcript { white-space: pre-wrap; overflow-wrap: anywhere; max-block-size: 30rem; overflow: auto; }

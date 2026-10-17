@@ -178,10 +178,17 @@ mod docker {
                     let mut header = vec![];
                     let mut byte = [0];
                     while !header.ends_with(b"\r\n\r\n") {
-                        if socket.read(&mut byte).unwrap_or(0) == 0 {
-                            break;
+                        match socket.read(&mut byte) {
+                            Ok(0) => break,
+                            Ok(_) => header.push(byte[0]),
+                            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                            Err(_) => break,
                         }
-                        header.push(byte[0]);
+                    }
+                    // EOF, timeout or the Drop wake-up are not valid HTTP requests.
+                    // Never send a success response without capturing a complete request.
+                    if !header.ends_with(b"\r\n\r\n") {
+                        continue;
                     }
                     let header = String::from_utf8(header).unwrap();
                     let mut parts = header.lines().next().unwrap_or("").split_whitespace();

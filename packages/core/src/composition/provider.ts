@@ -1,3 +1,4 @@
+import { permitsTool } from '../channels/behaviour-context.ts';
 import { waitForVoiceConfirmation } from '../voice/turn-profile.ts';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { ProviderRouter, ProviderError, type ProfileTable, type ChatRequest as WireRequest, type ChatMessage, type ToolDefinition, type Usage, type ChatResult, type RouterConfig, type BudgetGuard, type RouterEvent } from '../../../providers/src/index.ts';
@@ -182,6 +183,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       searchIndex = view?.discovery ?? index; searchView = view;
       for (const d of view ? [] : registry.describe().filter(d => eligible(registry.get(d.name)!))) {
         const t = registry.entries().find(t => t.name === d.name)!;
+        if (!permitsTool(t.name, t.capability)) continue;
         if (req.toolView && !req.toolView.includes(t.name)) continue;
         const category = t.name.startsWith('image.') ? 'media.image' : t.name.startsWith('file.') ? 'files.manage' : t.name.startsWith('mcp.') ? 'general.chat' : 'ops.system';
         index.upsert({ id: t.name, name: t.name, description: t.description, category, kind: t.name.startsWith('mcp.') ? 'mcp-tool' : 'tool', effect: t.effect, risk: t.risk, source: t.trust, version: '1' });
@@ -200,7 +202,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       return tools;
     });
     const classes = ['small', 'medium', 'large', 'frontier'];
-    const modelClass = decision.tasks.reduce((chosen, task) => classes.indexOf(task.chosenClass) > classes.indexOf(chosen) ? task.chosenClass : chosen, 'small');
+    const modelClass = (req.collaborationTier ? { cheap: 'small', standard: 'medium', premium: 'large' }[req.collaborationTier] : undefined) ?? decision.tasks.reduce((chosen, task) => classes.indexOf(task.chosenClass) > classes.indexOf(chosen) ? task.chosenClass : chosen, 'small');
     const profile = o.profileForClass?.(modelClass) ?? o.profile ?? 'default';
     const candidate = o.profiles[profile]?.[0];
     if (!candidate) throw new TurnToolError('unknown_profile', profile);
@@ -210,8 +212,13 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const snapshot = o.snapshot?.(req, req.memory) ?? snapshots.get(key)!;
     let messages: ChatMessage[] = [
       ...req.summaries.map(content => ({ role: 'system' as const, content })),
+      ...(req.peerResults ?? []).flatMap((p): ChatMessage[] => [
+        { role: 'assistant', content: null, toolCalls: [{ id: p.id, name: p.name, arguments: '{}' }] },
+        { role: 'tool', toolCallId: p.id, content: p.text },
+      ]),
       ...req.messages.map((m): ChatMessage => m.role === 'tool' ? { role: 'user', content: m.text } : { role: m.role, content: m.text }),
     ];
+    let totalCostMicros: number | null = 0;
     let fatal: unknown;
     const turn = { sessionId: req.sessionId, turnId, agentId: req.agentId };
     const emitEvent = (event: TurnRouterEvent) => { try { o.onRouterEvent?.(event, turn); } catch { /* a faulty sink never changes routing */ } };
@@ -295,6 +302,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
               const settled = counts;
               try { await stage('usage', new AbortController().signal, o.log, () => {
                 const s = o.budget.settle(admitted.reservationId, settled);
+                totalCostMicros = totalCostMicros === null || s.costMicros === null ? null : totalCostMicros + s.costMicros;
                 if (ticket !== undefined && s.costMicros !== null) retryBudget.settle(ticket, s.costMicros);
                 if (rendered && !estimated) { const cacheRecord = telemetry.record(rendered, { cache_read: settled.cacheReadTokens, cache_creation: settled.cacheWriteTokens, input: Math.max(0, settled.inputTokens - settled.cacheReadTokens - settled.cacheWriteTokens) }); o.onUsage?.(cacheRecord); }
               }); } catch (e) { fatal = e; throw e; }
@@ -318,7 +326,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     let approvalNeedsPerson = false;
     const approvals: ApprovalPort = approver && approver.person === null ? { ...o.approval, async request() { approvalNeedsPerson = true; return { approved: false, reason: 'approval requires an authenticated person' }; } } : o.approval;
     const dispatcher = new ToolDispatcher({ registry, approvals, grants: o.grants, ...(o.grantUse ? { grantUse: o.grantUse } : {}), ...(o.audit ? { audit: o.audit } : {}), clock: { now: Date.now }, policyContext: ctx => ({ ...(req.headlessJobId ? { headless: { jobId: req.headlessJobId } } : {}), ...o.policyContext?.(ctx, req) }), repair: async input => {
-      const repairRequest: WireRequest = { model: candidate.model, ...(o.maxTokens === undefined ? {} : { maxTokens: o.maxTokens }), messages: [{ role: 'user', content: `${input.message}\nInvalid arguments (data): ${JSON.stringify(input.args)}` }], tools: selected.map(t => fromRegisteredTool(t)) };
+      const repairRequest: WireRequest = { model: candidate.model, ...((req.maxOutputTokens ?? o.maxTokens) === undefined ? {} : { maxTokens: req.maxOutputTokens ?? o.maxTokens }), messages: [{ role: 'user', content: `${input.message}\nInvalid arguments (data): ${JSON.stringify(input.args)}` }], tools: selected.map(t => fromRegisteredTool(t)) };
       let repaired: ChatResult | undefined;
       await stage('tool-repair', signal, o.log, async () => { for await (const e of invoke(repairRequest, 'tool_call_invalid')) if (e.type === 'done') { repaired = e.result; if (repaired.usage?.inputTokens !== undefined && repaired.usage.outputTokens !== undefined) { totalInputTokens += repaired.usage.inputTokens; totalOutputTokens += repaired.usage.outputTokens; } } });
       if (fatal) throw fatal;
@@ -336,7 +344,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         o.onPrompt?.(rendered);
         const prefix: ChatMessage[] = rendered.segments.filter(s => s.zone === 'system' || s.zone === 'memory').map(s => ({ role: 'system', content: s.text }));
         const tail: ChatMessage[] = rendered.segments.filter(s => s.zone === 'volatile').map(s => ({ role: 'user', content: s.text }));
-        const request: WireRequest = { model: candidate.model, messages: [...prefix, ...messages, ...tail], tools: selected.map(t => fromRegisteredTool(t)), ...(o.maxTokens === undefined ? {} : { maxTokens: o.maxTokens }) };
+        const request: WireRequest = { model: candidate.model, messages: [...prefix, ...messages, ...tail], tools: selected.map(t => fromRegisteredTool(t)), ...((req.maxOutputTokens ?? o.maxTokens) === undefined ? {} : { maxTokens: req.maxOutputTokens ?? o.maxTokens }) };
         let done: ChatResult | undefined; let roundText = '';
         // Stage spans cover the stream lifetime, rather than only generator creation.
         const stream = invoke(request);
@@ -353,7 +361,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         if (fatal) throw fatal;
         if (!done) throw new ProviderError('unknown', 'provider stream ended without result');
         if (done.text.startsWith(roundText) && done.text.length > roundText.length) yield { type: 'delta', text: done.text.slice(roundText.length) };
-        if (done.usage?.inputTokens !== undefined && done.usage.outputTokens !== undefined) { totalInputTokens += done.usage.inputTokens; totalOutputTokens += done.usage.outputTokens; yield { type: 'usage', inputTokens: totalInputTokens, outputTokens: totalOutputTokens }; }
+        if (done.usage?.inputTokens !== undefined && done.usage.outputTokens !== undefined) { totalInputTokens += done.usage.inputTokens; totalOutputTokens += done.usage.outputTokens; yield { type: 'usage', inputTokens: totalInputTokens, outputTokens: totalOutputTokens, ...(req.projectId ? { costMicros: totalCostMicros } : {}) }; }
         if (!done.toolCalls.length) return;
         const calls = uniqueToolCallIds(done.toolCalls);
         const toolCalls = calls.map(c => ({ id: c.id, name: c.name, arguments: c.argumentsRaw }));
@@ -369,7 +377,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           signal.throwIfAborted();
           const capabilityId = toolEntry(tool, JSON.stringify([req.agentId, principal])).id;
           if (o.capabilities?.registry.hash(capabilityId)) o.capabilities.registry.record(capabilityId, req.agentId, 'used');
-          const output = await stage('tool-dispatch', signal, o.log, () => dispatcher.call({ id: call.id, name: call.name, args }, { ...(req.recurring ? { recurring: req.recurring } : {}), agentId: req.agentId, principal: approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface, signal }));
+          const output = await stage('tool-dispatch', signal, o.log, () => dispatcher.call({ id: call.id, name: call.name, args, ...(typeof done.reasoning === 'string' && done.reasoning ? { reason: done.reasoning } : {}) }, { ...(req.recurring ? { recurring: req.recurring } : {}), agentId: req.agentId, principal: approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface, signal }));
           if (o.capabilities?.registry.hash(capabilityId) && !output.isError) o.capabilities.registry.record(capabilityId, req.agentId, 'succeeded');
           if (fatal) throw fatal;
           if (output.isError && approvalNeedsPerson) throw new TurnToolError('approval-requires-person', toolErrorDetail(output, o.secrets?.() ?? []));
@@ -379,10 +387,11 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
             if (assistant?.role === 'assistant') { const executed = assistant.toolCalls?.find(c => c.id === call.id); if (executed) executed.arguments = JSON.stringify(repairs.get(call.name)); }
             repairs.delete(call.name);
           }
-          const capped = await stage('result-cap', signal, o.log, () => capResult(output.value, o.resultStore));
+          const capped = await stage('result-cap', signal, o.log, () => capResult(output.value, req.incognito ? { async put() { throw new Error("incognito-tool-result-too-large"); } } : o.resultStore));
           const text = JSON.stringify(capped);
           yield { type: 'tool.result', id: call.id, output: text };
           messages.push({ role: 'tool', toolCallId: call.id, content: text });
+          if (call.name === 'handoff' && output.value && typeof output.value === 'object' && (output.value as { ownershipTransferred?: unknown }).ownershipTransferred === true) return;
         }
       }
       throw new TurnToolError('turn-round-limit', o.maxRounds ?? 25);
