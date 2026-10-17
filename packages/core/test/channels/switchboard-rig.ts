@@ -99,7 +99,7 @@ export class FakeAdapter implements HostedChannel {
   async decide(d: { promptId: string; chatId: string; senderId: string; choiceId: string }): Promise<void> {
     for (const h of [...this.#decisions]) await h({ ...d, at: 0 });
   }
-  inbound(o: Partial<{ chatId: string; chatKind: "direct" | "group"; senderId: string; text: string; messageId: string; accountId: string }> = {}): Promise<void> {
+  inbound(o: Partial<{ chatId: string; chatKind: "direct" | "group"; addressed: boolean; senderId: string; text: string; messageId: string; accountId: string }> = {}): Promise<void> {
     return this.host!.receive({ channel: this.name, chatId: "chat-1", chatKind: "direct", senderId: "sender-1", text: "hello", ...o });
   }
 }

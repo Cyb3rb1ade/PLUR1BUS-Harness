@@ -1,12 +1,13 @@
 // web.fetch (D94): the pipeline from URL to a provenance-stamped, sectioned Markdown result. Every network hop goes
 // through `guardedRequest` (SSRF guard, pinned connect, size and time caps). Out of scope for this module and
 // reported as typed failures instead: PDF/Office/image content (`unsupported-type`), the headless render fallback
-// (`needs-render`).
+// (`needs-render`). Pages that are only a wall (CAPTCHA, sign-in form, paywall prompt) are reported as such, with the
+// evidence taken from the page itself.
 import { randomBytes } from "node:crypto";
 import { WebFailure, type WebFailureCode } from "./failure.ts";
 import { guardedRequest, DEFAULT_MAX_BYTES, DEFAULT_TIMEOUT_MS, type HttpOptions, type HttpResponse } from "./http.ts";
 import { makeAddressPolicy, systemResolver, type Resolver } from "./guard.ts";
-import { decodeBody, estimateTokens, htmlToMarkdown, splitSections, type Section } from "./html.ts";
+import { decodeBody, estimateTokens, htmlToMarkdown, splitSections, type PageSignals, type Section } from "./html.ts";
 import { HostPacer, parseRobots, robotsAllows, type Robots } from "./robots.ts";
 
 export interface WebFetchArgs {
@@ -41,7 +42,10 @@ export interface WebFetchMeta {
   lang?: string;
   publishedAt?: string;
   canonicalUrl?: string;
+  /** The table of contents, at most 200 entries; ids beyond the list stay valid. */
   sections: SectionRef[];
+  /** Present only when the document has more sections than `sections` lists. */
+  sectionsTotal?: number;
   fetchedAt: string;
   provenance: Provenance;
 }
@@ -151,6 +155,27 @@ function kindOf(mime: string): Kind | null {
   return null;
 }
 
+/** Labels servers put on anything they cannot classify; the body decides what it is. */
+const UNKNOWN_TYPES = new Set(["application/octet-stream", "binary/octet-stream", "application/x-unknown", "application/unknown", "application/download"]);
+
+/** Magic numbers of binary formats. Long enough that ordinary text cannot start with them ("GIF89a", not "GIF8"). */
+const SIGNATURES: Array<[name: string, test: (b: Buffer) => boolean]> = [
+  ["PDF", (b) => b.subarray(0, 5).toString("latin1") === "%PDF-" && b[5]! >= 0x31 && b[5]! <= 0x39],
+  ["ZIP or Office", (b) => b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04],
+  ["PNG image", (b) => b[0] === 0x89 && b.subarray(1, 4).toString("latin1") === "PNG"],
+  ["GIF image", (b) => /^GIF8[79]a/.test(b.subarray(0, 6).toString("latin1"))],
+  ["JPEG image", (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff],
+  ["gzip", (b) => b[0] === 0x1f && b[1] === 0x8b],
+  ["executable", (b) => b[0] === 0x7f && b.subarray(1, 4).toString("latin1") === "ELF"],
+];
+
+/** The kind of binary file a body is, whatever its Content-Type says; undefined for anything that may be text. */
+function binarySignature(body: Buffer): string | undefined {
+  return SIGNATURES.find(([, test]) => test(body))?.[0];
+}
+
+const looksLikeHtml = (body: Buffer): boolean => /^\s*(<!doctype html|<html)/i.test(body.subarray(0, 256).toString("latin1").replace(/^\u00ef\u00bb\u00bf/, ""));
+
 const MAX_TOKENS_LIMIT = 100_000;
 /** The table of contents travels with every chunk; a page with thousands of headings must not inflate each result. Ids stay valid beyond the list. */
 const MAX_LISTED_SECTIONS = 200;
@@ -178,7 +203,11 @@ function chunk(text: string, offset: number, maxChars: number): { part: string; 
   if (text.length - offset <= maxChars) return { part: text.slice(offset) };
   let cut = text.lastIndexOf("\n\n", offset + maxChars);
   if (cut > offset + maxChars / 4) return { part: text.slice(offset, cut), next: cut + 2 };
-  cut = offset + maxChars;
+  // No paragraph break in reach: a line or word boundary in the second half of the window, so words are not cut in two.
+  const limit = offset + maxChars;
+  const ws = Math.max(text.lastIndexOf("\n", limit), text.lastIndexOf(" ", limit));
+  if (ws > offset + maxChars / 2) return { part: text.slice(offset, ws), next: ws + 1 };
+  cut = limit;
   const code = text.charCodeAt(cut - 1);
   if (code >= 0xd800 && code <= 0xdbff) cut--; // do not split a surrogate pair
   return { part: text.slice(offset, cut), next: cut };
@@ -192,10 +221,28 @@ function retryAfterSeconds(h: string | string[] | undefined, now: number): numbe
   return Number.isNaN(at) ? undefined : Math.max(0, Math.round((at - now) / 1000));
 }
 
+/** A page that is only a wall says so itself: the first piece of evidence wins (CAPTCHA, then sign-in, then paywall). */
+function wallFailure(sig: PageSignals, url: string, status: number): WebFailure | null {
+  const extra = { status, url };
+  if (sig.captcha) return new WebFailure("captcha", "the page is a CAPTCHA challenge", extra);
+  if (sig.passwordForm) return new WebFailure("auth-required", "the page is a sign-in form", extra);
+  if (sig.paywall) return new WebFailure("paywall", "the page shows a paywall prompt instead of the full text", extra);
+  return null;
+}
+
+function signalsOfErrorPage(r: HttpResponse): PageSignals | undefined {
+  if (r.body.length === 0) return undefined;
+  const mime = mimeOf(r.headers["content-type"]);
+  if (mime !== undefined && mime !== "text/html" && mime !== "application/xhtml+xml" && mime !== "text/plain") return undefined;
+  return htmlToMarkdown(decodeBody(r.body, r.headers["content-type"]), r.url).signals;
+}
+
 function statusFailure(r: HttpResponse, now: number): WebFailure | null {
   const s = r.status;
   if (s >= 200 && s < 300) return null;
   const extra = { status: s, url: r.url };
+  const sig = signalsOfErrorPage(r);
+  if (sig?.captcha) return new WebFailure("captcha", `the site answered ${s} with a CAPTCHA challenge`, { ...extra, ...(s === 429 ? { retryAfterSeconds: retryAfterSeconds(r.headers["retry-after"], now) } : {}) });
   if (s === 404) return new WebFailure("not-found", "the page was not found (404)", extra);
   if (s === 410) return new WebFailure("gone", "the page is gone (410)", extra);
   if (s === 401 || s === 403 || s === 407) return new WebFailure("auth-required", `the page needs authentication (${s})`, extra);
@@ -281,9 +328,10 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
       ...base(ctx.signal),
       maxBytes: cfg.maxBytes ?? DEFAULT_MAX_BYTES,
       timeoutMs: cfg.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+      errorBodyBytes: 128 * 1024,
       acceptType: (ct) => {
         const mime = mimeOf(ct);
-        return mime === undefined || kindOf(mime) !== null;
+        return mime === undefined || kindOf(mime) !== null || UNKNOWN_TYPES.has(mime);
       },
     });
     probe.finalUrl = r.url;
@@ -294,11 +342,21 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
 
     let mime = mimeOf(r.headers["content-type"]);
     let kind: Kind;
+    const binary = binarySignature(r.body);
+    if (binary !== undefined) throw new WebFailure("unsupported-type", `the content is ${binary} data, whatever its content type says`, { url: r.url });
     if (mime === undefined) {
       if (r.body.subarray(0, 512).includes(0)) throw new WebFailure("unsupported-type", "the response has no content type and looks binary", { url: r.url });
-      kind = /^\s*(<!doctype html|<html)/i.test(r.body.subarray(0, 256).toString("latin1")) ? "html" : "text";
+      kind = looksLikeHtml(r.body) ? "html" : "text";
       mime = kind === "html" ? "text/html" : "text/plain";
-    } else kind = kindOf(mime)!;
+    } else if (UNKNOWN_TYPES.has(mime)) {
+      // "Any bytes" says nothing, but a body that is plainly an HTML document (object stores and download handlers label pages this way) is read as one; anything else stays unreadable.
+      if (!looksLikeHtml(r.body)) throw new WebFailure("unsupported-type", `content type ${JSON.stringify(mime)} is not readable`, { url: r.url });
+      kind = "html";
+      mime = "text/html";
+    } else {
+      kind = kindOf(mime)!;
+      if (mime === "text/plain" && looksLikeHtml(r.body)) kind = "html"; // an HTML document served as plain text: read it as the page it is
+    }
 
     const text = decodeBody(r.body, r.headers["content-type"]);
     const fetchedAt = new Date(now()).toISOString();
@@ -308,7 +366,9 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
     if (mode === "raw") markdown = text;
     else if (kind === "html") {
       const ex = htmlToMarkdown(text, r.url);
-      if (ex.markdown.trim() === "" || ex.looksClientRendered) throw new WebFailure("needs-render", "the page has no readable text without running its scripts", { url: r.url });
+      const wall = wallFailure(ex.signals, r.url, r.status);
+      if (wall) throw wall;
+      if (ex.markdown.trim() === "" || ex.looksClientRendered) throw new WebFailure("needs-render", "the page has no readable text without running its scripts", { url: r.url, status: r.status });
       markdown = ex.markdown;
       Object.assign(meta, { title: ex.title, lang: ex.lang, publishedAt: ex.publishedAt, canonicalUrl: ex.canonicalUrl });
     } else if (kind === "json") {
@@ -334,6 +394,7 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
       contentType: mime,
       ...Object.fromEntries(Object.entries(meta).filter(([, v]) => v !== undefined)),
       sections: listSections(sections),
+      ...(sections.length > MAX_LISTED_SECTIONS ? { sectionsTotal: sections.length } : {}),
       fetchedAt,
       provenance: { source: "web", url: r.url, fetchedAt, trust: "untrusted" },
     };
@@ -348,7 +409,7 @@ export function createWebFetch(cfg: WebFetchConfig = {}): WebFetch {
       try {
         return await run(args, ctx, probe);
       } catch (err) {
-        error = err instanceof WebFailure ? err.code : "network-error";
+        error = err instanceof WebFailure ? err.code : "internal-error";
         throw err;
       } finally {
         // URL, status, sizes and timing only: response bodies never reach logs or traces (D94).

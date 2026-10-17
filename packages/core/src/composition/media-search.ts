@@ -66,7 +66,9 @@ export async function composeMediaSearch(d: MediaSearchDeps): Promise<MediaSearc
   const counts: Record<string, number> = {};
   const counters = { indexFailed: (stage: string) => { counts[`index_failed_${stage}`] = (counts[`index_failed_${stage}`] ?? 0) + 1; }, snapshot: () => ({ ...counts }) };
   const budgetCallback = createBudgetCallback(d.budget);
-  const ports = createFfmpegPorts({ tempDir: join(d.home, 'media', 'tmp'), ...d.ffmpeg });
+  // Media paths (store outputs, uploads) live below <home>/media; the store root is added in case it is configured elsewhere. Nothing else is readable by ffmpeg or the caption providers.
+  const allowedRoots = [join(d.home, 'media'), ...(d.store ? [d.store.root] : [])];
+  const ports = createFfmpegPorts({ tempDir: join(d.home, 'media', 'tmp'), allowedRoots, ...d.ffmpeg });
   let port: MediaIndexPort; let kind: MediaIndexKind;
   try {
     ({ port, kind } = selectMediaIndex({ engine: d.engine, config: cfg(), ports: { frames: ports.frames, audio: ports.audio, budget: budgetCallback }, ...(d.testPort ? { test: d.testPort } : {}) }));
@@ -78,7 +80,7 @@ export async function composeMediaSearch(d: MediaSearchDeps): Promise<MediaSearc
   const maxChars = () => cfg().caption.maxChars;
   const providers: CaptionProviders = {
     local: createLocalCaptionProvider({
-      modelDir: join(d.home, 'models', 'caption', DEFAULT_CAPTION_MODEL), maxChars,
+      modelDir: join(d.home, 'models', 'caption', DEFAULT_CAPTION_MODEL), maxChars, allowedRoots,
       ...(ports.frames ? { extractor: ports.frames } : {}),
       ...(d.asr && ports.audio ? { transcribe: localTranscriber({ asr: d.asr, decoder: ports.audio, maxChars }) } : {}),
     }),
@@ -86,6 +88,8 @@ export async function composeMediaSearch(d: MediaSearchDeps): Promise<MediaSearc
   };
   const captions = createCaptionService({
     config: () => cfg().caption,
+    // Read on every call: a pin set after the provider was chosen still stops a cloud provider before it is called.
+    pinned: () => d.privacyPinned?.() ?? false,
     provider: () => {
       try { return resolveCaptionProvider({ config: cfg().caption, pinned: d.privacyPinned?.() ?? false, providers, embeddingLocal: cfg().provider.startsWith('local') || cfg().provider === 'egemma2' }); }
       catch (e) { d.logger.warn('caption provider refused', { err: e }); return undefined; }

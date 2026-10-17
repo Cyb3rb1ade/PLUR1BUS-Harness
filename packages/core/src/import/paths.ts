@@ -13,8 +13,9 @@ export const pathFor = (f: Flavour | NodeJS.Platform): PathModule => (f === "win
 
 /** An environment variable, looked up case-insensitively on Windows (as the OS does). */
 export function envGet(env: NodeJS.ProcessEnv, name: string, platform: NodeJS.Platform): string | undefined {
-  if (platform !== "win32") return env[name];
-  if (env[name] !== undefined) return env[name];
+  // Own properties only: "constructor" or "toString" is not a variable just because Object.prototype has the member.
+  if (platform !== "win32") return Object.hasOwn(env, name) ? env[name] : undefined;
+  if (Object.hasOwn(env, name) && env[name] !== undefined) return env[name];
   const k = Object.keys(env).find((x) => x.toUpperCase() === name.toUpperCase());
   return k === undefined ? undefined : env[k];
 }
@@ -221,7 +222,7 @@ function normParts(parts: readonly string[]): string[] {
 
 type Syntax = "win32" | "posix";
 interface AbsPath { syntax: Syntax; root: string; parts: string[] }
-type Classified = { kind: "abs"; path: AbsPath } | { kind: "relative"; parts: string[] } | { kind: "drive-relative" };
+type Classified = { kind: "abs"; path: AbsPath } | { kind: "relative"; parts: string[]; escapes: boolean } | { kind: "drive-relative" };
 
 /** Classifies one path string. A drive letter or `\\server\share` is Windows syntax on any source; a leading `/` is
  *  POSIX syntax (on a Windows source that makes it foreign, never `C:\…`); `\x` and `C:x` are drive-relative. */
@@ -235,7 +236,11 @@ function classify(p: string, flavour: Flavour): Classified {
   if (unc && (p.startsWith("\\\\") || flavour === "win32")) return { kind: "abs", path: { syntax: "win32", root: `\\\\${unc[1]}\\${unc[2]}`, parts: normParts(unc[3]!.split(/[\\/]+/)) } };
   if (p.startsWith("/")) return { kind: "abs", path: { syntax: "posix", root: "/", parts: normParts(p.split("/")) } };
   if (flavour === "win32" && p.startsWith("\\")) return { kind: "drive-relative" };
-  return { kind: "relative", parts: normParts(p.split(flavour === "win32" ? /[\\/]+/ : "/")) };
+  const raw = p.split(flavour === "win32" ? /[\\/]+/ : "/");
+  // A relative value whose '..' climbs above where it started is not clamped to its start: it is reported as escaping.
+  let depth = 0; let escapes = false;
+  for (const x of raw) { if (x === "" || x === ".") continue; if (x === "..") { if (depth === 0) escapes = true; else depth--; } else depth++; }
+  return { kind: "relative", parts: normParts(raw), escapes };
 }
 
 const fold = (s: string, syntax: Syntax) => (syntax === "win32" ? s.toLowerCase() : s);
@@ -344,7 +349,7 @@ export class SourcePathMapper {
 
   private resolve(input: string, relBase?: string): MapResult {
     const l = this.loc;
-    let s = input.replace(/\$\{([^}]*)\}/g, (m, n: string) => this.vars[n] ?? m);
+    let s = input.replace(/\$\{([^}]*)\}/g, (m, n: string) => (Object.hasOwn(this.vars, n) ? this.vars[n]! : m));
     if (this.env) {
       const platform = l.flavour === "win32" ? "win32" : "linux";
       s = expandVars(s, this.env, platform);
@@ -357,9 +362,15 @@ export class SourcePathMapper {
     }
     const c = classify(s, l.flavour);
     if (c.kind === "drive-relative") return { path: null, reason: "drive-relative" };
+    // A POSIX (WSL) source read from a Windows host: '\\' is part of a file name there but a separator for the host, so
+    // 'a\\..\\..\\x' could leave the root once joined. Such a name cannot be addressed safely and is not guessed at.
+    const bs = (x: Classified) => l.flavour === "posix" && l.hostFlavour === "win32" && (x.kind === "relative" ? x.parts : x.kind === "abs" && x.path.syntax === "posix" ? x.path.parts : []).some((q) => q.includes("\\"));
+    if (bs(c)) return { path: null, reason: "outside-source-root" };
+    if (c.kind === "relative" && c.escapes && relBase === undefined) return { path: null, reason: "outside-source-root" };
     if (c.kind === "relative" && relBase === undefined) return this.access(l.accessRoot, c.parts, "root", pathFor(l.flavour).join(l.sourceRoot, ...c.parts));
-    const cc = c.kind === "relative" ? classify(pathFor(l.flavour).join(relBase!, ...c.parts), l.flavour) : c;
+    const cc = c.kind === "relative" ? classify(pathFor(l.flavour).join(relBase!, s), l.flavour) : c;
     if (cc.kind !== "abs") return { path: null, reason: "drive-relative" };
+    if (bs(cc)) return { path: null, reason: "outside-source-root" };
     const a = cc.path; const src = format(a);
     for (const m of this.maps) { const rel = below(a, m.from); if (rel) return { path: rel.length ? this.H.join(m.to, ...rel) : this.H.normalize(m.to), how: "map" }; }
     if (this.root) { const rel = below(a, this.root); if (rel) return this.access(l.accessRoot, rel, "root", src); }

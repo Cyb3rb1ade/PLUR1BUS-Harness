@@ -234,7 +234,7 @@ export function buildAdminSurface(d: AdminSurfaceDeps): Record<string, Handler> 
       try {
         const r = store.listOverview({ ...(p.owner ? { owner: text(p, "owner") } : p.allOwners !== true || !operator ? { owners } : {}), ...(p.agentId ? { agentId: text(p, "agentId", 64) } : {}), ...(p.kind ? { kind: p.kind } : {}), ...(p.archived ? { archived: p.archived } : {}), ...(p.limit ? { limit: p.limit } : {}), ...(p.search ? { search: p.search } : {}) });
         const accounting = d.sessionUsage?.(r.sessions.map(s => s.id));
-        return { sessions: r.sessions.map(s => ({ ...toWireSession(s), owner: s.owner, model: accounting?.get(s.id)?.model ?? s.model, usage: accounting?.get(s.id)?.usage ?? s.usage })), truncated: r.truncated };
+        return { sessions: r.sessions.map(s => ({ ...toWireSession(s), ...(s.kind === "direct" && !owners.includes(s.owner) ? { title: "" } : {}), owner: s.owner, model: accounting?.get(s.id)?.model ?? s.model, usage: accounting?.get(s.id)?.usage ?? s.usage })), truncated: r.truncated };
       } catch (e) { return mapSessionError(e); }
     }),
     "pairing.qr": bind("admin.pairing.read", p => {

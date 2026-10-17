@@ -384,9 +384,8 @@ describe("usage: who is offered the buttons that change a budget", opts, () => {
 });
 
 describe("usage: the core's own rule for budget.set", () => {
-  // The page only decides what to show. The refusal that counts is the core's, and its RPC_RULES (guard.ts) has no entry for budget.set,
-  // so any role that gets a session may set or clear a limit by calling the method directly. Fails until the core has a rule.
-  test("budget.set has an RBAC rule in the core", { todo: "KNOWN GAP: web Budget budget.set: erwartet eine RBAC-Regel für budget.set (Owner/Admin, nur Personen) in packages/core/src/rbac/guard.ts RPC_RULES, tatsächlich keine Regel, jede Rolle darf Limits setzen oder löschen" }, () => {
+  // The page decides what to show; the additive Core rule and real HTTP authorization suite enforce the write policy.
+  test("budget.set has an RBAC rule in the core", () => {
     const guard = readFileSync(new URL("../../core/src/rbac/guard.ts", import.meta.url), "utf8");
     assert.ok(/"budget\.set"\s*:/.test(guard), "RPC_RULES has no entry for budget.set");
   });

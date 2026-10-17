@@ -41,9 +41,16 @@ function run(v: ValidateFunction, value: unknown): Validation {
   if (v(value)) return { ok: true };
   return { ok: false, errors: (v.errors ?? []).map((e) => `${e.instancePath || "/"} ${e.message ?? ""}`.trim()) };
 }
+/** D111: every params object may carry `_meta.traceparent`; it is not a method field. */
+function withoutRpcMeta(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value) || !Object.hasOwn(value, "_meta")) return value;
+  const { _meta: _ignored, ...rest } = value as Record<string, unknown>;
+  return rest;
+}
+
 export function validateParams(method: string, value: unknown): Validation {
   if (!METHODS.includes(method)) return { ok: false, errors: [`unknown method ${method}`] };
-  return run(validator(`/$defs/methods/${method}/params`), value);
+  return run(validator(`/$defs/methods/${method}/params`), withoutRpcMeta(value));
 }
 export function validateResult(method: string, value: unknown): Validation {
   if (!METHODS.includes(method)) return { ok: false, errors: [`unknown method ${method}`] };
