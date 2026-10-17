@@ -1,4 +1,4 @@
-// D109 §5/§6: approval.list | get | decide | cancel | verify, and (through buildGrantMethods) grant.list | create | revoke: the eight
+// D109 §5/§6: approval.list | get | decide | cancel | verify | audit, and (through buildGrantMethods) grant.list | get | create | revoke: the
 // methods of the permission model. All of them are for a person only (the RBAC guard says so by `humanOnly`; `callerOf` says it again).
 //
 //  - The person, `createdBy` and the surface level of a decision come from the authenticated connection (`deps.principalOf`,
@@ -8,21 +8,21 @@
 //  - Refusals: E_DENIED reason approval-mismatch | approval-used | approval-expired | surface-untrusted | policy-never | agent-principal;
 //    E_INVALID_PARAMS reason scope-unavailable | bad-cursor | ceiling-exceeded | invalid-grant; E_CONFLICT reason not-pending (cancel).
 import type {
-  ApprovalCancelParams, ApprovalDecideParams, ApprovalDecideResult, ApprovalGetParams, ApprovalListParams, ApprovalRecord, ApprovalVerifyResult,
+  ApprovalAuditParams, ApprovalCancelParams, ApprovalDecideParams, ApprovalDecideResult, ApprovalGetParams, ApprovalListParams, ApprovalRecord, ApprovalVerifyResult,
 } from "@plur1bus/rpc-schema";
 import { createHash } from "node:crypto";
 import { buildGrantMethods } from "../grants/rpc.ts";
 import { surfaceMayDecide, type GrantScope } from "../policy/index.ts";
 import { RpcError } from "../rpc/errors.ts";
 import type { Handler } from "../rpc/server.ts";
-import { grantRecordOf, page, approvalRecordOf } from "./wire.ts";
+import { grantRecordOf, page, approvalRecordOf, iso } from "./wire.ts";
 import { guarded, type ApprovalMethodDeps, type Caller, type PermissionHandles } from "./rpc-common.ts";
 import type { ApprovalView } from "./service.ts";
 
 export type { ApprovalMethodDeps, PermissionHandles } from "./rpc-common.ts";
 
 export const APPROVAL_METHODS = [
-  "grant.list", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.verify", "approval.decide", "approval.cancel",
+  "grant.list", "grant.get", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.verify", "approval.audit", "approval.decide", "approval.cancel",
 ] as const;
 export type ApprovalMethodName = (typeof APPROVAL_METHODS)[number];
 
@@ -147,7 +147,54 @@ export function buildApprovalMethods(d: ApprovalMethodDeps): Record<ApprovalMeth
     "approval.verify": guard("approval.verify", async (_p: unknown, _c: Caller, h): Promise<ApprovalVerifyResult> => {
       const v = h.service.verify();
       // A broken chain is a finding. It has no trustworthy head to pin, so `head` is null then.
-      return v.ok ? { ok: true, entries: v.entries, head: v.head } : { ok: false, entries: v.entries, head: null, brokenAt: v.brokenAt, reason: v.reason };
+      const signatures = v.signatures;
+      return v.ok
+        ? { ok: true, entries: v.entries, head: v.head, signatures }
+        : { ok: false, entries: v.entries, head: null, brokenAt: v.brokenAt, reason: v.reason, signatures };
+    }),
+
+    "approval.audit": guard("approval.audit", async (p: ApprovalAuditParams = {}, c: Caller, h) => {
+      const byId = new Map(h.grants.inspect({}).map((v) => [v.grant.id, v.grant]));
+      const rows = [];
+      for (const e of h.grants.chainEntries()) {
+        if (!e.kind.startsWith("approval.") && !e.kind.startsWith("grant.")) continue;
+        const who = personOfPayload(e.payload, e.refId, byId);
+        if (who !== c.person) continue;
+        const capability = capabilityOfPayload(e.payload, e.refId, byId);
+        rows.push({
+          seq: e.seq, ts: iso(e.ts), kind: e.kind, refId: e.refId, createdAt: e.ts, id: String(e.seq),
+          ...(capability ? { capability } : {}), ...(who ? { person: who } : {}),
+        });
+      }
+      const out = page("a", rows, { filter: {}, ...(p.limit !== undefined ? { limit: p.limit } : {}), ...(p.cursor !== undefined ? { cursor: p.cursor } : {}) });
+      return {
+        entries: out.items.map(({ seq, ts, kind, refId, capability, person }) => ({
+          seq, ts, kind, refId, ...(capability !== undefined ? { capability } : {}), ...(person !== undefined ? { person } : {}),
+        })),
+        ...(out.nextCursor ? { nextCursor: out.nextCursor } : {}),
+      };
     }),
   };
+}
+
+function personOfPayload(payload: string, refId: string, byId: Map<string, { person: string }>): string | undefined {
+  try {
+    const p = JSON.parse(payload) as Record<string, unknown>;
+    if (typeof p.person === "string") return p.person;
+    const bound = p.bound as { principal?: unknown } | undefined;
+    if (typeof bound?.principal === "string") return bound.principal;
+    const def = p.def as { person?: unknown } | undefined;
+    if (typeof def?.person === "string") return def.person;
+  } catch { /* a malformed payload is omitted */ }
+  return byId.get(refId)?.person;
+}
+
+function capabilityOfPayload(payload: string, refId: string, byId: Map<string, { capability: string }>): string | undefined {
+  try {
+    const p = JSON.parse(payload) as Record<string, unknown>;
+    if (typeof p.capability === "string") return p.capability;
+    const def = p.def as { capability?: unknown } | undefined;
+    if (typeof def?.capability === "string") return def.capability;
+  } catch { /* omitted */ }
+  return byId.get(refId)?.capability;
 }

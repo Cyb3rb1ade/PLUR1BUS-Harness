@@ -5,7 +5,7 @@ import { mkdtemp, writeFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createAdapter, CoreMLAdapter, FileJobPersistence, JobRunner, MediaError, OutputStore, adapterConfigsFromSettings, estimateCost } from '../src/index.ts';
-import type { ImageAdapter, ImageResult } from '../src/index.ts';
+import type { ImageAdapter, ImageResult, Job } from '../src/index.ts';
 import { privateHost, HttpTransport } from '../src/http.ts';
 import { sanitizeReference, stripMetadata, verifyOutput } from '../src/adapters/_shared/images.ts';
 import { fakeServer, json, b64, makePng, makeJpeg, pngChunk, riff, vp8xChunk, vp8lChunk, riffChunk } from './adapters-fixtures.ts';
@@ -83,7 +83,8 @@ async function setup(adapter: ImageAdapter) {
 }
 const waiting: ImageAdapter = {
   id: 'fake', capabilities: () => ({ generate: true, edit: true, inpaint: false }),
-  generate: (_r, c) => new Promise((_resolve, reject) => { c!.signal!.addEventListener('abort', () => reject(c!.signal!.reason), { once: true }); }), edit: async () => result,
+  // A signal that is already aborted when generate() is called never fires 'abort' again: reject at once, as a real adapter's fetch does.
+  generate: (_r, c) => new Promise((_resolve, reject) => { const signal = c!.signal!; if (signal.aborted) return reject(signal.reason); signal.addEventListener('abort', () => reject(signal.reason), { once: true }); }), edit: async () => result,
 };
 
 test('cancel() issued while run() is still starting up is not lost', async () => {
@@ -95,8 +96,11 @@ test('cancel() issued while run() is still starting up is not lost', async () =>
 });
 
 test('a second run() of a job that is already running in this process is refused without touching its controller', async () => {
-  const s = await setup(waiting); const job = await s.runner.enqueue('fake', { prompt: 'x' });
-  const first = s.runner.run(job.id); await new Promise(r => setTimeout(r, 50));
+  // Wait for the adapter to be entered (the job is really running), not for a fixed 50 ms: under load the first run() can still be
+  // starting then, and the cancel() below would land before generate() is called.
+  let entered!: () => void; const started = new Promise<void>(r => { entered = r; });
+  const s = await setup({ ...waiting, generate: (r, c) => { entered(); return waiting.generate(r, c); } }); const job = await s.runner.enqueue('fake', { prompt: 'x' });
+  const first = s.runner.run(job.id); await started;
   await assert.rejects(s.runner.run(job.id), code('backend_unavailable'));
   await s.runner.cancel(job.id); await first; assert.equal((await s.persistence.get(job.id))!.state, 'cancelled');
 });
@@ -118,6 +122,24 @@ test('a caller deadline that fires is reported as timeout, not cancelled', async
   assert.equal((await s.persistence.get(job.id))!.error, 'timeout');
   const again = await s.runner.enqueue('fake', { prompt: 'y' }); const caller = new AbortController(); const run = s.runner.run(again.id, caller.signal); await new Promise(r => setTimeout(r, 30)); caller.abort(); await run;
   assert.equal((await s.persistence.get(again.id))!.error, 'cancelled');
+});
+
+// Flake root cause (CI exit 134 after the 120 s test timeout): the deadline can fire after run() checked the signal but before the adapter registered its abort listener
+// (the 'running' save sits in between). A signal that is already aborted never emits 'abort' again, so an adapter waiting on the event never settled and run() hung.
+test('an adapter that never settles cannot hang run(): a deadline that fires while the adapter is already running ends the job as timeout', async () => {
+  const stuck: ImageAdapter = { ...waiting, generate: () => new Promise<ImageResult>(() => {}) };
+  const s = await setup(stuck); const job = await s.runner.enqueue('fake', { prompt: 'x' });
+  await s.runner.run(job.id, AbortSignal.timeout(30));
+  const saved = (await s.persistence.get(job.id))!; assert.equal(saved.state, 'failed'); assert.equal(saved.error, 'timeout');
+});
+
+test('a caller abort that lands between the signal check and the adapter call (during the running save) still ends the job', async () => {
+  const caller = new AbortController(); const s = await setup(waiting);
+  const put = s.persistence.put.bind(s.persistence);
+  s.persistence.put = async (j: Job) => { await put(j); if (j.state === 'running') caller.abort(); };
+  const job = await s.runner.enqueue('fake', { prompt: 'x' });
+  await s.runner.run(job.id, caller.signal);
+  assert.equal((await s.persistence.get(job.id))!.error, 'cancelled');
 });
 
 // --- store: no raw error text leaves put() -----------------------------------------------------------------------------
@@ -156,14 +178,14 @@ test('a Core ML model name cannot point outside the models directory', async () 
   assert.doesNotThrow(() => new CoreMLAdapter({ id: 'coreml-local', model: 'sd-split_einsum.v2', helperPath: '/bin/helper' }));
 });
 
-// --- known gaps (need changes outside what the audit may touch or conflict with an existing test) -------------------
+// --- known gaps (conflict with an existing test) -------------------
 test('KNOWN GAP: two jobs finishing at the same moment both publish (put() fails fast on a held lock instead of waiting)', { todo: 'tests/lifecycle "quota concurrency cannot overcommit" asserts exactly one of two unlimited-quota puts succeeds; the lock needs an in-process queue plus bounded retry, which contradicts that test' }, async () => {
   const root = await mkdtemp(join(tmpdir(), 'media-audit-lock-')); const store = new OutputStore(root);
   const outcomes = await Promise.allSettled([store.put('a', { prompt: 'x' }, result), store.put('b', { prompt: 'x' }, result)]);
   assert.equal(outcomes.filter(o => o.status === 'fulfilled').length, 2);
 });
 
-test('KNOWN GAP: put() stores bytes that are not the declared image format when metadata embedding is off', { todo: 'store.coverage tests publish fake "png-bytes-for-store-tests" payloads; magic-byte verification in put() would break them' }, async () => {
+test('put() refuses bytes that are not the declared image format when metadata embedding is off', async () => {
   const root = await mkdtemp(join(tmpdir(), 'media-audit-magic-')); const store = new OutputStore(root);
   await assert.rejects(store.put('fake', { prompt: 'x' }, { ...result, files: [{ bytes: Buffer.from('<html>not a png</html>'), format: 'png' }] }), code('invalid_response'));
   assert.equal((await readFile(join(root, 'fake', '0.png'), 'utf8').catch(() => '')), '');

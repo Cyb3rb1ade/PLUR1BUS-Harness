@@ -7,6 +7,7 @@ import { RegistryError, type ToolDef, type ToolRegistry, type ToolRunContext } f
 import { CallBudgetExceededError } from "../../src/budget/index.ts";
 import { WebFailure } from "../../src/tools/web/failure.ts";
 import { OutputStore, MediaError } from "../../../media/src/index.ts";
+import { makePng } from "../../../media/test/adapters-fixtures.ts";
 import type { ChatRequest } from "../../src/session/provider.ts";
 import { useTempDirs } from "./helpers.ts";
 
@@ -234,8 +235,8 @@ describe("composition/tools composeTools: media generate and edit", () => {
     const calls: { op: string; request: unknown }[] = [];
     const adapter = {
       id: "fixture", model: "synthetic-1", capabilities: () => ({ generate: true, edit: true, inpaint: false }),
-      generate: async (request: unknown) => { calls.push({ op: "generate", request }); return { files: [{ bytes: new Uint8Array([1, 2, 3]), format: "png" }], metadata: { adapter: "fixture", model: "synthetic-1", durationMs: 1 } }; },
-      edit: async (request: unknown) => { calls.push({ op: "edit", request }); return { files: [{ bytes: new Uint8Array([4, 5, 6]), format: "png" }], metadata: { adapter: "fixture", model: "synthetic-1", durationMs: 1 } }; },
+      generate: async (request: unknown) => { calls.push({ op: "generate", request }); return { files: [{ bytes: makePng(), format: "png" }], metadata: { adapter: "fixture", model: "synthetic-1", durationMs: 1 } }; },
+      edit: async (request: unknown) => { calls.push({ op: "edit", request }); return { files: [{ bytes: makePng(), format: "png" }], metadata: { adapter: "fixture", model: "synthetic-1", durationMs: 1 } }; },
       ...over,
     };
     return { adapter: adapter as never, calls };
@@ -326,7 +327,7 @@ describe("composition/tools composeTools: media generate and edit", () => {
     const edited = await get(reg, "image.edit").execute({ prompt: "variation", referenceIds: [made.id] }, run()) as { id: string };
     assert.notEqual(edited.id, made.id);
     assert.deepEqual(calls.map((c) => c.op), ["generate", "edit"]);
-    assert.equal((calls[1]!.request as { referenceImages: { bytes: Uint8Array }[] }).referenceImages[0]!.bytes.length, 3);
+    assert.equal((calls[1]!.request as { referenceImages: { bytes: Uint8Array }[] }).referenceImages[0]!.bytes.length, makePng().length);
   });
 
   it("without a budget the tool still works (the budget is optional in composition)", async () => {
