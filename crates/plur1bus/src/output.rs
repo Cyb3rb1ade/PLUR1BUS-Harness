@@ -438,9 +438,16 @@ mod tests {
         assert_eq!(v["error"]["error"], "E_STORAGE");
         assert_eq!(v["error"]["message"], "did not verify");
         assert_eq!(v["error"]["reason"], "audit-verify-failed");
-        // a result that already has an `error` keeps it
-        let kept = with_failure(json!({ "error": "mine" }), &f);
-        assert_eq!(kept["error"], "mine");
+        // a result that already has an `error` object keeps it
+        let kept = with_failure(
+            json!({ "error": { "schema": "error/1", "error": "E_DENIED" } }),
+            &f,
+        );
+        assert_eq!(kept["error"]["error"], "E_DENIED");
+        // a plain string `error` of the result (`admin embedding probe`, `chat`) gives the key up to the object
+        let replaced = with_failure(json!({ "error": "provider-failed" }), &f);
+        assert_eq!(replaced["error"]["schema"], "error/1");
+        assert_eq!(replaced["error"]["error"], "E_STORAGE");
     }
 
     #[cfg(unix)]
