@@ -24,6 +24,10 @@ export interface ApprovalAsk {
   /** Canonical resolved targets and access of the call: what a path grant is narrowed to. */
   targets?: readonly string[];
   access?: "read" | "write";
+  /** The model's own why, when the call site supplied one. Unverified; redacted before it is stored. */
+  reason?: string;
+  /** A unified-diff or patch the model supplied with the request. Unverified; redacted before it is stored. */
+  diff?: string;
 }
 
 export interface ApprovalAnswer {

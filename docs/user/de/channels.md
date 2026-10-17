@@ -102,7 +102,7 @@ Damit der Assistent weiß, wer du bist, verknüpfst du dein Konto auf dem Kanal 
    `plur1bus identity decline <id>` ab. Die Meldung im Kanal nennt die ID nicht; sie fordert nur auf, die Verknüpfung in der
    Weboberfläche unter „Meine Identitäten“ zu bestätigen. Bestehende Verknüpfungen stehen in derselben Ausgabe unter `links`.
 
-Der Code gilt nur kurz und ist nur einmal verwendbar. Hast du keinen Code mehr, erzeuge einen neuen.
+Der Code gilt 10 Minuten und ist nur einmal verwendbar. Hast du keinen Code mehr, erzeuge einen neuen.
 
 Eine Kanalnachricht, die doppelt eintrifft (zum Beispiel nach einem Wiederverbinden), wird nur einmal beantwortet. Nachrichten, die nur aus Leerzeichen bestehen, werden ignoriert. Sendet ein Chat mehr als 20 Nachrichten, während eine frühere noch beantwortet wird, werden die überzähligen verworfen.
 

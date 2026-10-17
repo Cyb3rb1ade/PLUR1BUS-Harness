@@ -34,7 +34,8 @@ reference with defaults is [config.md](config.md).
 Validation (`packages/core/src/media-search/validate.ts`) checks capability, licence, the runtime privacy pin, function-specific privacy acknowledgments and availability.
 There are no lists of allowed provider combinations. Failures use the `E_MEDIA_*` codes in [errors.md](errors.md).
 The privacy pin forces local processing: a cloud embedding or caption provider together with the pin fails with `E_MEDIA_PRIVACY`
-before any request is sent. The config schema has no pin key yet; the composition takes it as a callback that defaults to "not pinned".
+before any request is sent. The config schema has no pin key yet; the composition takes it as a callback that defaults to "not pinned" and hands it both to the provider choice and to the caption service, which checks it again on every call.
+An index call that hit the hook timeout cannot be cancelled in the port; if the medium is deleted afterwards, the hook removes it again once the late call settles.
 
 ## Ports and engine independence
 
@@ -79,7 +80,7 @@ Default rule: local embedding gives a local caption provider; with a cloud embed
 
 The reference index (`InMemoryMediaIndex`) shows the rules every `MediaIndexPort` must keep: `limit` is an integer from 1 to 200, `text` is 1 to 4096 characters and not blank, `kinds` are known kinds, `minScore` is finite (otherwise `E_INVALID_PARAMS`). A medium is visible only inside its own workspace, to the same agent or to the same non-empty user; the same agent id in another workspace sees nothing, also not through `likeMediaId`.
 
-Paths: `createFfmpegPorts({ allowedRoots })` and the caption providers (`allowedRoots`) refuse media paths outside the given directories (symlinks and `..` resolved) with `E_MEDIA_UNSUPPORTED_KIND`; without the option nothing is restricted, so the composition should pass the media directories. Media above 64 MiB are not captioned (checked before reading).
+Paths: `createFfmpegPorts({ allowedRoots })` and the caption providers (`allowedRoots`) refuse media paths outside the given directories (symlinks and `..` resolved) with `E_MEDIA_UNSUPPORTED_KIND`; without the option nothing is restricted; the composition passes `<home>/media` and the store root to the ffmpeg ports and the local caption provider. Media above 64 MiB are not captioned (checked before reading).
 
 ## Index hook and backfill
 

@@ -704,6 +704,16 @@ pub fn validate_line(line: &str) -> Result<&'static Entry, Invalid> {
     if let Some(e) = attrs_validator(hit).iter_errors(attrs).next() {
         return fail(Code::AttrsInvalid, format!("attrs{} {e}", e.instance_path));
     }
+    if hit.streamed {
+        if let Some(text) = attrs.get("text").and_then(Value::as_str) {
+            if text.len() > lim.line_bytes {
+                return fail(
+                    Code::AttrsInvalid,
+                    format!("attrs/text exceeds {} bytes", lim.line_bytes),
+                );
+            }
+        }
+    }
     Ok(hit)
 }
 

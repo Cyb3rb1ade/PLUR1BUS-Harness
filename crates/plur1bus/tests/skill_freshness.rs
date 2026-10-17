@@ -287,6 +287,10 @@ fn skill_names_only_real_json_commands_and_covers_every_check_crash_reason_error
         );
     }
 
+    // Every RPC `ErrorCode` must be named by the skill or a playbook itself. `docs/operations.md` is deliberately
+    // left out here: it names the voice codes, so checking the whole corpus hid five codes the operator skill never
+    // mentioned (#396). Codes are matched as whole tokens, so a code that is only a prefix of a longer name does not
+    // count as named. Read from the schema, so a new code in `ErrorCode` fails this test until the skill names it.
     let error_codes: Vec<String> = defs["ErrorCode"]["enum"]
         .as_array()
         .expect("$defs/ErrorCode enum")
@@ -294,12 +298,19 @@ fn skill_names_only_real_json_commands_and_covers_every_check_crash_reason_error
         .map(|v| v.as_str().unwrap().to_string())
         .collect();
     assert!(!error_codes.is_empty());
-    for code in &error_codes {
-        assert!(
-            corpus.contains(code.as_str()),
-            "RPC error code {code:?} is not named in the skill or a playbook"
-        );
-    }
+    let skill_tokens: BTreeSet<&str> = files
+        .iter()
+        .filter(|(name, _)| name.starts_with("skills/"))
+        .flat_map(|(_, text)| text.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')))
+        .collect();
+    let unnamed: Vec<&String> = error_codes
+        .iter()
+        .filter(|code| !skill_tokens.contains(code.as_str()))
+        .collect();
+    assert!(
+        unnamed.is_empty(),
+        "RPC error codes not named in the skill or its playbooks (add them to SKILL.md's error section): {unnamed:?}"
+    );
 
     // (e) every repair `STEP_ORDER` id appears in `playbooks/repair.md`. Task 7/8 (`crates/plur1bus/src/repair/`)
     // are not merged into this branch yet, so there is no live constant to read; this list is the literal

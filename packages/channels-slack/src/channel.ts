@@ -781,7 +781,7 @@ export class SlackChannel implements Channel {
       } catch (e) {
         if (
           !(e instanceof SlackApiError) ||
-          !(["rate-limited", "network", "timeout"].includes(e.kind) || (e.kind === "http" && (e.status ?? 0) >= 500)) ||
+          !(["rate-limited", "network", "timeout"].includes(e.kind) || e.kind === "http") ||
           attempt >= MAX_SEND_RETRIES ||
           signal.aborted
         )

@@ -20,6 +20,8 @@ import { AGENT_CONTEXT_CLI } from "./principal.ts";
 
 /** Per-agent budget of the recall-path warm-up. */
 export const RECALL_WARMUP_TIMEOUT_MS = 30_000;
+/** Overall budget of the whole recall-path pass: N hung agents must not hold the engine at models-warming N times the per-agent budget. */
+export const RECALL_WARMUP_OVERALL_TIMEOUT_MS = 120_000;
 /** The fixed, neutral query of the recall-path warm-up. */
 export const WARMUP_QUERY = "plur1bus recall warm-up";
 /** The neutral documents of the warm-up rerank. */
@@ -50,6 +52,8 @@ export interface WarmupOptions {
   onRecallDone?(): void;
   /** Per-agent timeout of the recall pass (default RECALL_WARMUP_TIMEOUT_MS). */
   recallTimeoutMs?: number;
+  /** Overall timeout of the whole recall pass, agents and rerank together (default RECALL_WARMUP_OVERALL_TIMEOUT_MS). */
+  recallOverallTimeoutMs?: number;
 }
 
 export function startWarmup(o: WarmupOptions): Warmup {
@@ -81,11 +85,13 @@ export function startWarmup(o: WarmupOptions): Warmup {
    *  remote reranker bills per call). A failure or a timeout is logged and the pass goes on; the shutdown ends it. */
   async function warmRecallPath(r: RecallPathWarmup, rerank: boolean, shutdown: AbortSignal): Promise<void> {
     const memory = o.engine.memory; const embedding = o.engine.embedding;
-    const deadline = () => AbortSignal.any([shutdown, AbortSignal.timeout(o.recallTimeoutMs ?? RECALL_WARMUP_TIMEOUT_MS)]);
+    const overall = AbortSignal.timeout(o.recallOverallTimeoutMs ?? RECALL_WARMUP_OVERALL_TIMEOUT_MS);
+    const deadline = () => AbortSignal.any([shutdown, overall, AbortSignal.timeout(o.recallTimeoutMs ?? RECALL_WARMUP_TIMEOUT_MS)]);
     let ids: string[] = [];
     try { ids = r.agents(); } catch (err) { o.logger.debug("recall warm-up: no agent list", { err }); return; }
     for (const agentId of ids) {
       if (shutdown.aborted) return;
+      if (overall.aborted) { o.logger.info("recall warm-up overall budget spent", { skipped: ids.length - ids.indexOf(agentId) }); return; }
       const t1 = performance.now();
       try {
         const principal = r.principal(agentId);
@@ -100,7 +106,7 @@ export function startWarmup(o: WarmupOptions): Warmup {
         o.logger.debug("recall warm-up failed", { agentId, err, ms: Math.round(performance.now() - t1) });
       }
     }
-    if (!rerank || !embedding || shutdown.aborted) return;
+    if (!rerank || !embedding || shutdown.aborted || overall.aborted) return;
     const t2 = performance.now();
     try {
       const signal = deadline();

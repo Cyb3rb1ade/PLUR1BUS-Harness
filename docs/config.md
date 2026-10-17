@@ -18,6 +18,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 
 | Key | Type | Default | Restart | Description |
 |---|---|---|---|---|
+| `collaboration.fanoutEnabled` | boolean | `false` | live | Enable collaboration fan-out only after owner review of the equal-token-budget evaluation. |
 | `approvals.maxGrantDays` | integer | `90` | core | Always-grant idle lifetime in days. Explicit shorter expiries still apply. |
 | `approvals.requireOsConfirmation` | boolean | `true` | core | Allow the required OS confirmation for an otherwise untrusted local decision. False disables this lift; it never bypasses surface trust. |
 | `breakglass.reasonMinChars` | integer | `10` | core | Minimum trimmed break-glass reason length. |
@@ -27,7 +28,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `inbox.retention.maxEntries` | integer | `1000` | core | Maximum number of inbox entries retained per person. |
 | `containers` | object |  | live | Container distribution library settings. Installer/runtime wiring is separate from the core. |
 | `sidecars` | object |  | live | Optional sidecars keyed by id. Core consumers read configuration only; runtime wiring is separate. |
-| `remote` | object | `{}` | core | Remote exposure configuration (listener integration is separate). |
+| `remote` | object | `{}` | core | Remote listeners: tailnet by default, network requires TLS and an audited notice acknowledgment. |
 | `$schema` | string |  | live | URI identifying the JSON Schema used to validate this configuration. |
 | `activity.maxEntries` | integer | `1000` | core | Maximum retained agent activity transitions. |
 | `schemaVersion` | const |  | core | Configuration format version; this schema supports version 1. |
@@ -59,6 +60,7 @@ annotations — do not edit by hand; run `pnpm docs:gen`. `config schema --tier 
 | `embedding.acceptedNcLicenceAt` | string |  | core | Date-time when the non-commercial licence was accepted. |
 | `memory.embedding.privacyAck` | object |  | core | Privacy acknowledgment for this function and selected provider; does not override the runtime privacy pin. Writes require a trusted person and audit in the authenticated transport. |
 | `engine` | object | `{}` | core | Pass-through to the engine's EngineConfig — [57 engine keys, all advanced and core](config-engine-keys.md). |
+| `auth.requireSecondFactor` | string | `"remote"` | core | Require TOTP or WebAuthn for Owner and Admin on remote listeners by default; always or never are explicit overrides. |
 | `auth.openai.loopbackTimeoutMs` | integer | `600000` | core | Loopback login deadline. |
 | `auth.openai.httpTimeoutMs` | integer | `30000` | core | Bounded OpenAI HTTP deadline. |
 | `auth.openai.refreshSkewSeconds` | integer | `120` | core | Refresh before expiration, plus up to 15 seconds of jitter. |

@@ -1,0 +1,22 @@
+{
+  "params": {
+    "agentId": "bernd"
+  },
+  "result": {
+    "session": {
+      "id": "ses_1",
+      "kind": "direct",
+      "agentId": "bernd",
+      "scope": "user",
+      "chatKey": null,
+      "title": "Planning",
+      "pinned": false,
+      "memoryMode": "remember",
+      "createdAt": 1000,
+      "updatedAt": 2000,
+      "lastTurnAt": 2000,
+      "archivedAt": null,
+      "turnCount": 1
+    }
+  }
+}
