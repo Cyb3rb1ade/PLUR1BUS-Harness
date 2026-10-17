@@ -1,3 +1,4 @@
+import { channelMessageAllowed, channelOutputText } from "../../core/src/channels/behaviour.ts";
 // DUPLICATE: candidate for shared package (the lifecycle, bucket and retry shape mirrors channels-telegram).
 import { randomBytes } from "node:crypto";
 import type { IdentityService } from "../../core/src/identity/service.ts";
@@ -286,6 +287,7 @@ export class MatrixChannel implements Channel {
   }
 
   async sendTurn(turn: OutboundTurn): Promise<SentRef[]> {
+    turn = { ...turn, text: channelOutputText(this.#host, this.name, turn.chatId, "reply", turn.text) };
     if (!this.#api || !this.#ac) throw new Error("matrix channel is not started");
     const target = this.#target(turn.chatId);
     if (turn.threadId !== undefined && target.thread !== undefined && turn.threadId !== target.thread)
@@ -373,6 +375,7 @@ export class MatrixChannel implements Channel {
 
   /** Streaming edit (`m.replace`). The new text must fit one event. Only the bot's own events can be edited. */
   async edit(ref: SentRef, text: string): Promise<void> {
+    text = channelOutputText(this.#host, this.name, ref.chatId, "edit", text);
     if (!this.#api || !this.#ac) throw new Error("matrix channel is not started");
     const target = this.#target(ref.chatId);
     if (!isEventId(ref.messageId)) throw new RangeError("invalid message reference");
@@ -652,13 +655,7 @@ export class MatrixChannel implements Channel {
     const body = isMedia ? (isCaptioned ? rawBody : "") : stripReplyFallback(rawBody, content);
     const mentioned = mentionsBot(content, body, { userId: this.#cfg.userId, displayName: this.#botName });
     const addressed = direct || mentioned || (replyTo !== undefined && this.#sentIds.has(replyTo));
-    if (!direct) {
-      const pass =
-        this.#cfg.replyPolicy === "always" ||
-        (this.#cfg.replyPolicy === "allowlist" && this.#cfg.users?.has(senderId) === true) ||
-        addressed;
-      if (!pass) return this.#drop(roomId, "not-addressed");
-    }
+    if (!channelMessageAllowed(this.#host, { channel: this.name, chatId: formatChatId(roomId, thread), chatKind: direct ? "direct" : "group", text: body, addressed }, this.#cfg.replyPolicy, this.#cfg.users?.has(senderId) === true)) return this.#drop(roomId, "not-addressed");
     const chatId = formatChatId(roomId, thread);
     const link = !isMedia ? LINK_COMMAND.exec(body.trim()) : null;
     if (link) {
@@ -716,6 +713,7 @@ export class MatrixChannel implements Channel {
           chatId: message.chatId,
           chatKind: message.chatKind,
           senderId: message.senderId,
+          addressed: message.addressed,
           text: message.text,
           ...(message.messageId !== undefined ? { messageId: message.messageId } : {}),
         });

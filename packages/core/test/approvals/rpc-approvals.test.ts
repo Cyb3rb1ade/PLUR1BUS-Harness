@@ -9,7 +9,9 @@ const T = { timeout: 20_000 };
 describe("approval.list and approval.get", () => {
   it("shows the pending queue with everything a person needs to decide, and never the nonce or the raw arguments", T, async () => {
     const r = await rpcRig();
-    const { id, nonce } = await r.park({ args: { path: abs("/outside/dir/a.txt"), token: "sk-live-0123456789abcdefghijkl" }, targets: [abs("/outside/dir/a.txt")] });
+    const secret = ["hunter2", "test", "secret"].join("-");
+    const token = `password=${secret}`;
+    const { id, nonce } = await r.park({ args: { path: abs("/outside/dir/a.txt"), token }, targets: [abs("/outside/dir/a.txt")] });
     const list = await r.call("approval.list", { status: "pending" });
     assert.equal(list.approvals.length, 1);
     const a = list.approvals[0];
@@ -25,9 +27,44 @@ describe("approval.list and approval.get", () => {
     assert.equal(a.delegable, false);
     assert.equal(typeof a.summary, "string");
     assert.ok(!JSON.stringify(list).includes(nonce), "the nonce must not leave the core");
-    assert.ok(!JSON.stringify(list).includes("sk-live-0123456789abcdefghijkl"), "a secret in the arguments must not leave the core");
+    assert.ok(!JSON.stringify(list).includes(secret), "a secret in the arguments must not leave the core");
     assert.ok(!("cancelledAt" in a) && !("flags" in a) && !("effect" in a));
     assert.deepEqual(await r.call("approval.get", { id }), a);
+    r.service.dispose();
+  });
+
+  it("puts the model's reason and diff on the request, masked like the argument summary", T, async () => {
+    const r = await rpcRig();
+    const secret = ["hunter2", "test", "secret"].join("-");
+    const token = `password=${secret}`;
+    const { id } = await r.park({
+      args: { path: abs("/outside/dir/a.txt") },
+      reason: `need to write token ${token}`,
+      diff: `--- a\n+++ b\n+password=${secret}`,
+    });
+    const a = await r.call("approval.get", { id });
+    assert.equal(typeof a.agentReason, "string");
+    assert.equal(typeof a.diff, "string");
+    assert.ok(!String(a.agentReason).includes(secret));
+    assert.ok(!String(a.diff).includes(secret));
+    assert.ok(!JSON.stringify(a).includes(secret));
+    r.service.dispose();
+  });
+
+  it("approval.audit lists redacted approval-related chain entries; another person's grant of the same store is invisible", T, async () => {
+    const r = await rpcRig();
+    const { id, nonce } = await r.park();
+    await r.call("approval.decide", { id, decision: "approve", nonce });
+    const page = await r.call("approval.audit", {});
+    assert.ok(Array.isArray(page.entries));
+    assert.ok(page.entries.some((e: { kind: string }) => e.kind === "approval.requested" || e.kind === "approval.decided"));
+    assert.ok(!JSON.stringify(page).includes("nonce"));
+    r.who = OTHER_PERSON;
+    const other = await r.call("approval.audit", {});
+    assert.ok(Array.isArray(other.entries));
+    assert.ok(!JSON.stringify(other).includes(id));
+    r.who = AGENT_PRINCIPAL;
+    assert.deepEqual(await refused(r.call("approval.audit", {})), { error: "E_DENIED", reason: "agent-principal" });
     r.service.dispose();
   });
 
@@ -193,7 +230,7 @@ describe("approval.cancel and approval.verify", () => {
   it("verify reports the chain; a tampered chain is a finding, not an error", T, async () => {
     const r = await rpcRig();
     const empty = await r.call("approval.verify");
-    assert.deepEqual(empty, { ok: true, entries: 0, head: null });
+    assert.deepEqual(empty, { ok: true, entries: 0, head: null, signatures: { unsignedLegacy: 0, signedOk: 0, signedBad: 0, report: "unsigned (legacy)" } });
     const { id } = await r.park();
     await r.call("approval.decide", { id, decision: "approve" });
     const ok = await r.call("approval.verify");
@@ -213,7 +250,7 @@ describe("approval.cancel and approval.verify", () => {
 
 describe("the approval handlers refuse every non-person", () => {
   for (const [name, params] of [
-    ["approval.list", {}], ["approval.get", { id: "apr_x" }], ["approval.verify", {}],
+    ["approval.list", {}], ["approval.get", { id: "apr_x" }], ["approval.verify", {}], ["approval.audit", {}],
     ["approval.decide", { id: "apr_x", decision: "approve" }], ["approval.cancel", { id: "apr_x" }],
   ] as const) {
     it(`${name}: an agent principal, one without a kind, and no principal`, T, async () => {

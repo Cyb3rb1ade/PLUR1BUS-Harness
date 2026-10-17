@@ -15,6 +15,38 @@ fn generate_tauri_build() {
 }
 
 fn main() {
+    println!("cargo:rerun-if-env-changed=PLUR1BUS_DESKTOP_BUILD_CHANNEL");
+    let channel =
+        std::env::var("PLUR1BUS_DESKTOP_BUILD_CHANNEL").unwrap_or_else(|_| "stable".into());
+    assert!(
+        ["stable", "beta", "dev"].contains(&channel.as_str()),
+        "invalid build channel"
+    );
+    assert!(
+        channel != "dev" || std::env::var("PROFILE").as_deref() != Ok("release"),
+        "dev channel requires a debug build"
+    );
+    println!("cargo:rustc-env=PLUR1BUS_DESKTOP_BUILD_CHANNEL={channel}");
+    println!("cargo:rerun-if-env-changed=PLUR1BUS_DESKTOP_BUNDLE_MANIFEST");
+    let bundle_bytes = if let Some(path) = std::env::var_os("PLUR1BUS_DESKTOP_BUNDLE_MANIFEST") {
+        let metadata = std::fs::symlink_metadata(&path).expect("staged bundle metadata");
+        assert!(
+            metadata.is_file() && !metadata.file_type().is_symlink() && metadata.len() <= 131072,
+            "staged bundle must be a bounded regular file"
+        );
+        println!(
+            "cargo:rerun-if-changed={}",
+            std::path::Path::new(&path).display()
+        );
+        std::fs::read(path).expect("staged bundle manifest")
+    } else {
+        include_bytes!("../bundle/bundle.json.tmpl").to_vec()
+    };
+    let staged_bundle: serde_json::Value =
+        serde_json::from_slice(&bundle_bytes).expect("bundle JSON");
+    let bundle_out = std::path::PathBuf::from(std::env::var_os("OUT_DIR").expect("Cargo OUT_DIR"));
+    std::fs::write(bundle_out.join("bundle.json"), &bundle_bytes)
+        .expect("write embedded bundle manifest");
     println!("cargo:rerun-if-changed=keys");
     println!("cargo:rerun-if-changed=build_keys.rs");
     build_keys::check(
@@ -33,8 +65,7 @@ fn main() {
     if std::env::var("PROFILE").as_deref() == Ok("release")
         && std::env::var("PLUR1BUS_DESKTOP_ALLOW_PLACEHOLDER_KEY").as_deref() != Ok("1")
     {
-        let bundle: serde_json::Value =
-            serde_json::from_str(include_str!("../bundle/bundle.json.tmpl")).expect("bundle JSON");
+        let bundle = &staged_bundle;
         let placeholder = bundle["images"]
             .as_object()
             .expect("bundle images")

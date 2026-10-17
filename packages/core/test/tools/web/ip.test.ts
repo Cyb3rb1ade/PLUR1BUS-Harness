@@ -124,3 +124,14 @@ describe("ip: CIDR allowlist matching", () => {
     for (const bad of ["10.0.0.0/33", "10.0.0.0/-1", "nope/8", "::/129", "10.0.0.0/8/8"]) assert.equal(parseCidr(bad), null, bad);
   });
 });
+
+describe("ip: cloud metadata endpoints that are not link-local", () => {
+  it("the Azure WireServer address is refused in every spelling", () => {
+    for (const a of ["168.63.129.16", "::ffff:168.63.129.16", "::ffff:a83f:8110", "2822734096"]) {
+      const p = parseAddress(a);
+      assert.ok(p, a);
+      assert.equal(classifyAddress(p).public, false, a);
+    }
+    assert.equal(classifyAddress(parseAddress("168.63.129.17")!).public, true, "a neighbour is an ordinary public address");
+  });
+});

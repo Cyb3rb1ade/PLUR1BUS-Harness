@@ -1,4 +1,6 @@
 import { createRedactor } from '../../core/src/logs/redact.ts';
+import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { cpus, freemem, totalmem, networkInterfaces, platform, release, arch } from 'node:os';
 import { statfs } from 'node:fs/promises';
 import type { PathRoot, DenyEntry } from '../../core/src/policy/paths-index.ts';
@@ -56,6 +58,14 @@ export const SPECS: Readonly<Record<string, Spec>> = {
   'notify': spec('os.script', 'Display a local desktop notification; no text in audit logs.', { title: { type: 'string', minLength: 1, maxLength: 200 }, body: { type: 'string', maxLength: 2000 } }, ['title']),
 };
 /** Internal executor. Production callers use definitions() behind ToolDispatcher; it never makes approval decisions. */
+/** Process group id of this process, or undefined when it cannot be determined (then only the parent is protected). */
+function ownPgid(): number | undefined {
+  try {
+    if (process.platform === 'linux') { const stat = readFileSync('/proc/self/stat', 'utf8'); const pgid = Number(stat.slice(stat.lastIndexOf(')') + 2).split(' ')[2]); return Number.isSafeInteger(pgid) ? pgid : undefined; }
+    if (process.platform !== 'win32') { const pgid = Number(execFileSync('ps', ['-o', 'pgid=', '-p', String(process.pid)], { encoding: 'utf8', timeout: 2000 }).trim()); return Number.isSafeInteger(pgid) ? pgid : undefined; }
+  } catch { /* fall through: unknown */ }
+  return undefined;
+}
 export function createHostctl(o: Options) {
   const config = configure(o.config), fs = files(o.roots, o.deny ?? [], config, o.trash ?? native.trash, o.home, o.baseEnv, o.afterStage), proc = processes(config, fs.canon, o);
   const redactor = createRedactor();
@@ -75,7 +85,7 @@ export function createHostctl(o: Options) {
       for (const key of Object.keys(a)) if (!(key in description.properties)) fail('INVALID_ARGUMENT', `Unknown argument: ${key}.`);
       ctx.signal.throwIfAborted(); let value: unknown;
       if (op.startsWith('fs.')) value = await fs.run(op.slice(3), a, ctx.signal);
-      else if (op === 'proc.kill_foreign') { const pid = a.pid; if (typeof pid !== 'number' || !Number.isSafeInteger(pid) || pid < 2 || pid === process.pid) fail('DENIED', 'Use a foreign PID greater than 1.'); (o.killForeign ?? (pid => process.kill(pid, 'SIGTERM')))(pid); value = { signalled: true }; }
+      else if (op === 'proc.kill_foreign') { const pid = a.pid; if (typeof pid !== 'number' || !Number.isSafeInteger(pid) || pid < 2 || pid === process.pid || pid === process.ppid || pid === ownPgid()) fail('DENIED', 'Use a foreign PID greater than 1 that is not the harness, its supervisor or its process group.'); (o.killForeign ?? (pid => process.kill(pid, 'SIGTERM')))(pid); value = { signalled: true }; }
       else if (op.startsWith('proc.')) value = await proc.run(op.slice(5), a, ctx);
       else if (op === 'sys.info') {
         value = { os: platform(), release: release(), arch: arch(), cpu: { model: cpus()[0]?.model, count: cpus().length }, memory: { total: totalmem(), free: freemem() }, disks: await Promise.all(o.roots.map(async root => { try { const s = await statfs(root.path); return { rootId: root.id, total: s.blocks * s.bsize, free: s.bavail * s.bsize }; } catch { return { rootId: root.id, unavailable: true }; } })), network: Object.entries(networkInterfaces()).map(([name, addresses]) => ({ name, addresses: addresses?.map(({ address, family, internal }) => ({ address, family, internal })) })) };

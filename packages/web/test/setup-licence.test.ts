@@ -53,7 +53,7 @@ describe("setup wizard: NC licence gate", opts, () => {
       assert.equal(await jina5(page).isChecked(), false, "not selected before the confirmation");
       const text = (await d.textContent()) ?? "";
       assert.match(text, /Confirmed by\s*owner/); assert.match(text, /Date and time\s*\S/); assert.match(text, /Licence\s*CC BY-NC-4\.0/);
-      assert.match(text, /jinaai\/jina-embeddings-v5-text-nano/); assert.match(text, /not pinned in the ADR-006 table/);
+      assert.match(text, /jinaai\/jina-embeddings-v5-text-nano/); assert.match(text, /ac5d898c8d382b17167c33e5c8af644a3519b47d/);
       await page.keyboard.press("Escape");
       await d.waitFor({ state: "detached" });
       assert.equal(await jina5(page).isChecked(), false);
@@ -65,7 +65,7 @@ describe("setup wizard: NC licence gate", opts, () => {
     await withApp({}, async (app) => {
       await toMemory(app); const { page } = app;
       await page.getByRole("radio", { name: /Jina embeddings v3/ }).click();
-      assert.match((await dialog(page).textContent()) ?? "", /Revision\s*68ed9490…adc9/);
+      assert.match((await dialog(page).textContent()) ?? "", /Revision\s*68ed94909d564380f954be27ae2e133214c1adc9/);
     });
   });
 

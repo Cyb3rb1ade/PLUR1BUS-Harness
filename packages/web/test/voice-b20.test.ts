@@ -57,11 +57,17 @@ describe("voice: races", opts, () => {
       await app.page.locator("#voice-language").selectOption("en");
       await app.page.locator("#voice-profile-fast").check();
       await app.page.getByRole("checkbox", { name: /blizzard-2013 for piper-en-lessac/ }).check();
+      // "Saved" renders before the refresh effect runs. Wait for that first refresh, so the late answer is the only remaining trigger.
+      const refreshed = app.page.waitForResponse(r => r.url().endsWith("/rpc") && r.request().postDataJSON()?.method === "voice.language.list");
+      const answered = app.page.waitForResponse(r => r.url().endsWith("/rpc") && r.request().postDataJSON()?.method === "voice.language.set");
       await app.page.locator("#voice-apply").click();
       await app.page.getByText("Saved: English, Fast.").waitFor();
+      await (await refreshed).finished();
       const before = voiceCalls(app.server, "voice.language.list").length;
+      assert.equal(before, 2, "the initial load and one completion refresh are required");
       g.open();
-      await app.page.waitForTimeout(400);
+      await (await answered).finished();
+      await app.page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
       assert.equal(voiceCalls(app.server, "voice.language.list").length, before, "the answer applied the same result a second time");
     });
   });

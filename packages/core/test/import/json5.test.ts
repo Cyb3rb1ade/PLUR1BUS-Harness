@@ -3,7 +3,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { parseJson5 } from "../../src/import/json5.ts";
-import { gap, prototypeFingerprint } from "./helpers.ts";
+import { prototypeFingerprint } from "./helpers.ts";
 
 const NL = "\n";
 
@@ -170,17 +170,17 @@ describe("parseJson5: prototype pollution", () => {
   });
 });
 
-describe("parseJson5: deviations from the JSON5 specification it cites", () => {
-  it(gap("parseJson5 (whitespace)", "any Unicode Space_Separator (U+1680, U+2000-U+200A, U+202F, U+205F, U+3000) is whitespace (JSON5 spec 5.1)", "SyntaxError: unexpected token"), { todo: gap("parseJson5 (whitespace)", "any Unicode Space_Separator (U+1680, U+2000-U+200A, U+202F, U+205F, U+3000) is whitespace (JSON5 spec 5.1)", "SyntaxError: unexpected token") }, () => {
+describe("parseJson5: conformance with the JSON5 specification it cites", () => {
+  it("parseJson5 (whitespace): any Unicode Space_Separator (U+1680, U+2000-U+200A, U+202F, U+205F, U+3000) is whitespace (JSON5 spec 5.1)", () => {
     for (const ws of [" ", " ", " ", " ", " ", " ", "　"]) assert.deepStrictEqual(parseJson5(`[${ws}1${ws}]`), [1], `U+${ws.charCodeAt(0).toString(16)}`);
   });
 
-  it(gap("parseJson5 (line comments)", "a // comment ends at U+2028 and U+2029 as well (they are LineTerminators in JSON5)", "the comment continues to the next LF or CR, swallowing the value on the following 'line'"), { todo: gap("parseJson5 (line comments)", "a // comment ends at U+2028 and U+2029 as well (they are LineTerminators in JSON5)", "the comment continues to the next LF or CR, swallowing the value on the following 'line'") }, () => {
+  it("parseJson5 (line comments): a // comment ends at U+2028 and U+2029 as well (they are LineTerminators in JSON5)", () => {
     assert.deepStrictEqual(parseJson5("// c  1"), 1);
     assert.deepStrictEqual(parseJson5("[// c  1]"), [1]);
   });
 
-  it(gap("parseJson5 (identifiers)", "U+FEFF, U+2028, U+2029 and the other Space_Separator characters above U+00BF end an unquoted key or a literal as whitespace (JSON5 spec 5.1: they are WhiteSpace/LineTerminator, not IdentifierPart)", "they are consumed as identifier characters: '{a<U+FEFF>:1}' yields the key 'a<U+FEFF>', and '[true<U+FEFF>]' is a SyntaxError (unexpected token)"), { todo: gap("parseJson5 (identifiers)", "U+FEFF, U+2028, U+2029 and the other Space_Separator characters above U+00BF end an unquoted key or a literal as whitespace (JSON5 spec 5.1: they are WhiteSpace/LineTerminator, not IdentifierPart)", "they are consumed as identifier characters: '{a<U+FEFF>:1}' yields the key 'a<U+FEFF>', and '[true<U+FEFF>]' is a SyntaxError (unexpected token)") }, () => {
+  it("parseJson5 (identifiers): U+FEFF, U+2028, U+2029 and the other Space_Separator characters above U+00BF end an unquoted key or a literal as whitespace (JSON5 spec 5.1: they are WhiteSpace/LineTerminator, not IdentifierPart)", () => {
     // ID_START/ID_PART in json5.ts accept the whole range U+00C0-U+FFFF, which contains the whitespace characters WS lists.
     for (const ws of ["\ufeff", "\u2028", "\u2029"].map(e => JSON.parse(`"${e}"`) as string)) {
       assert.deepStrictEqual(parseJson5(`{a${ws}:1}`), { a: 1 }, `key followed by U+${ws.charCodeAt(0).toString(16)}`);
@@ -188,15 +188,15 @@ describe("parseJson5: deviations from the JSON5 specification it cites", () => {
     }
   });
 
-  it(gap("parseJson5 (numbers)", "a number with a leading zero ('010', '00') is a SyntaxError (JSON5 grammar: DecimalIntegerLiteral is 0 or starts with 1-9)", "'010' parses as 10 and '00' as 0"), { todo: gap("parseJson5 (numbers)", "a number with a leading zero ('010', '00') is a SyntaxError (JSON5 grammar: DecimalIntegerLiteral is 0 or starts with 1-9)", "'010' parses as 10 and '00' as 0") }, () => {
+  it("parseJson5 (numbers): a number with a leading zero ('010', '00') is a SyntaxError (JSON5 grammar: DecimalIntegerLiteral is 0 or starts with 1-9)", () => {
     assert.throws(() => parseJson5("010"), SyntaxError);
     assert.throws(() => parseJson5("[00]"), SyntaxError);
   });
 
-  it("characterization: Ist-Verhalten, nicht spezifiziert - unquoted keys accept every character from U+00C0 up (including U+3000, U+2028, U+00D7), and a key ends only at a character below that range", () => {
-    assert.deepStrictEqual(parseJson5("{a　: 1}"), { "a　": 1 });
+  it("characterization: Ist-Verhalten, nicht spezifiziert - unquoted keys accept every non-whitespace character from U+00C0 up (including U+00D7), while U+3000 and U+2028 end the key as whitespace", () => {
+    assert.deepStrictEqual(parseJson5("{a　: 1}"), { a: 1 });
     assert.deepStrictEqual(parseJson5("{×: 1}"), { "×": 1 });
-    assert.deepStrictEqual(parseJson5("{a : 1}"), { "a ": 1 });
+    assert.deepStrictEqual(parseJson5("{a : 1}"), { a: 1 });
   });
 
   it("characterization: Ist-Verhalten, nicht spezifiziert - an escaped identifier is not checked to be an identifier character ('\\u0020' yields a key with a space)", () => {

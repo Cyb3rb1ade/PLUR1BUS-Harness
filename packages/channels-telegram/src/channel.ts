@@ -1,3 +1,4 @@
+import { channelMessageAllowed, channelOutputText } from "../../core/src/channels/behaviour.ts";
 import { outputAttachment, VideoOutputTooLarge, type OutputPort } from "./outputs.ts";
 import type { IdentityService } from "../../core/src/identity/service.ts";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
@@ -93,6 +94,8 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
   #botId: number | undefined;
   #botUsername: string | undefined;
   #healthy = false;
+  /** False while polling fails for transport/server reasons; only `health()` reads it, sends are not gated. */
+  #connected = true;
   #updates: Promise<void> = Promise.resolve();
   readonly #seen = new Set<number>();
   constructor(opts: TelegramChannelOptions) {
@@ -134,6 +137,7 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
   async #start(host?: ChannelHost): Promise<void> {
     const ac = new AbortController();
     this.#ac = ac;
+    this.#connected = true;
     const signal = ac.signal;
     try {
       let token: string | null;
@@ -149,6 +153,7 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
       this.#host = host;
       this.#api = new TelegramApi({
         token,
+        ...(this.#o.webhook ? { extraSecrets: [this.#o.webhook.secret] } : {}),
         ...(this.#o.baseUrl !== undefined ? { baseUrl: this.#o.baseUrl } : {}),
         ...(this.#o.fetch !== undefined ? { fetch: this.#o.fetch } : {}),
       });
@@ -217,7 +222,7 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
     this.#log("info", "channel.telegram.stopped", {});
   }
   async health(): Promise<{ ok: boolean }> {
-    return { ok: this.#healthy };
+    return { ok: this.#healthy && this.#connected };
   }
   send(msg: OutboundMessage): Promise<void>;
   send(chatId: string, text: string): Promise<readonly string[]>;
@@ -253,6 +258,7 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
     return this.#target(user).chat;
   }
   async sendTurn(turn: OutboundTurn): Promise<readonly string[]> {
+    turn = { ...turn, text: channelOutputText(this.#host, this.name, turn.chatId, "reply", turn.text) };
     if (!this.#api || !this.#ac) throw new Error("telegram channel is not started");
     const target = this.#target(turn.chatId);
     const signal = this.#ac.signal;
@@ -427,6 +433,7 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
       try {
         const updates = await this.#api!.getUpdates(this.#offset, this.#o.pollTimeoutSec ?? 30, signal);
         backoff = 0;
+        this.#connected = true;
         for (const u of updates) {
           if (signal.aborted) break;
           if (Number.isSafeInteger(u?.update_id)) await this.#serialUpdate(u, true);
@@ -440,6 +447,14 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
           this.#host?.fail(new Error("telegram authentication failed"));
           return;
         }
+        if (err.kind === "bad-request") {
+          // Retrying an identical request cannot succeed; stop instead of hammering Telegram.
+          this.#healthy = false;
+          this.#log("error", "channel.telegram.poll-rejected", { kind: err.kind });
+          this.#host?.fail(new Error("telegram polling request rejected"));
+          return;
+        }
+        if (err.kind !== "rate-limited") this.#connected = false;
         backoff = Math.min(60_000, backoff === 0 ? 1000 : backoff * 2);
         const wait =
           err.kind === "rate-limited"
@@ -492,7 +507,7 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
       } catch (e) {
         if (
           !(e instanceof TelegramApiError) ||
-          !["rate-limited", "network", "timeout"].includes(e.kind) ||
+          !(["rate-limited", "network", "timeout"].includes(e.kind) || (e.kind === "http" && (e.status ?? 0) >= 500)) ||
           attempt >= (this.#o.maxSendRetries ?? 3) ||
           signal.aborted
         )
@@ -511,7 +526,7 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
     }
   }
   #addressed(m: TelegramMessage, text: string): boolean {
-    if (m.chat.type === "private" || this.#o.groupPolicy === "all") return true;
+    if (m.chat.type === "private") return true;
     if (m.reply_to_message?.from?.id === this.#botId) return true;
     const command = /^\/[a-z0-9_]+(?:@([a-z0-9_]+))?(?:\s|$)/i.exec(text);
     if (command) return !command[1] || command[1].toLowerCase() === this.#botUsername?.toLowerCase();
@@ -550,7 +565,8 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
       return;
     if (!["private", "group", "supergroup"].includes(m.chat.type)) return;
     const text = m.text ?? m.caption ?? "";
-    if (!this.#addressed(m, text)) return;
+    const addressed = this.#addressed(m, text);
+    if (!channelMessageAllowed(this.#host, { channel: this.name, chatId: m.message_thread_id !== undefined ? `${chat}:${m.message_thread_id}` : chat, chatKind: m.chat.type === "private" ? "direct" : "group", addressed, text }, this.#o.groupPolicy === "all" ? "always" : "mention")) return;
     const chatId = m.message_thread_id !== undefined ? `${chat}:${m.message_thread_id}` : chat;
     const cmd = /^\/([a-z0-9_]+)(?:@([a-z0-9_]+))?(?:\s+([\s\S]*))?$/i.exec(text);
     if (cmd?.[2] && cmd[2].toLowerCase() !== this.#botUsername?.toLowerCase()) return;
@@ -567,6 +583,7 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
       chatId,
       chatKind: m.chat.type === "private" ? "direct" : "group",
       senderId: String(m.from.id),
+      addressed,
       text: cmd ? `/${cmd[1]!.toLowerCase()}${cmd[3] ? ` ${cmd[3]}` : ""}` : text,
       messageId: String(m.message_id),
       sentAt: m.date * 1000,
@@ -730,7 +747,7 @@ export class TelegramChannel implements Channel, ChannelPort, ConfirmPrompt {
     }
   }
   #log(level: LogLevel, event: string, attrs: Record<string, string | number | boolean>): void {
-    const safe = redactAttrs(attrs, this.#token);
+    const safe = redactAttrs(attrs, [this.#token, this.#o.webhook?.secret]);
     this.#o.logger?.log(level, event, safe);
     if (level !== "debug") this.#host?.log[level](event, safe);
   }
