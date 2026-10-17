@@ -259,7 +259,7 @@ export function UsersSection({ section }: SectionProps): View {
           h("span", null, t("users.mode.simple"))),
         h("p", { id: "users-simple-hint", class: "field-hint" }, t("users.mode.hint"))),
       h(Presets, {}),
-      simple ? null : h(RightsPanel, {}))
+      simple ? null : h(RightsPanel, { self }))
     : h(PageState, { state: "forbidden", title: t("users.forbidden.title"), detail: t("users.forbidden.detail", { role: role === undefined ? "" : presetName(role) }) });
 
   return h("section", { "data-section": section.id, "aria-labelledby": "users-h", class: "users" },

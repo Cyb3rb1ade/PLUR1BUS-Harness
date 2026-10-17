@@ -17,6 +17,8 @@ export interface HttpOptions {
   maxRedirects?: number | undefined;
   /** Cap on the decompressed body. Default 20 MB (D94). */
   maxBytes?: number | undefined;
+  /** Read up to this many (decompressed) bytes of an error response (status >= 400) so the caller can recognise a CAPTCHA or a login form. Default 0: error bodies are discarded. */
+  errorBodyBytes?: number | undefined;
   /** One deadline for the whole call, all hops and the body. Default 30 s. */
   timeoutMs?: number | undefined;
   userAgent: string;
@@ -35,7 +37,7 @@ export interface HttpResponse {
   url: string;
   status: number;
   headers: http.IncomingHttpHeaders;
-  /** Empty for status >= 400 and for 3xx. */
+  /** Empty for 3xx, and for status >= 400 unless `errorBodyBytes` asked for a (possibly cut-off) copy. */
   body: Buffer;
   /** Every URL requested before `url`, in order. */
   redirects: string[];
@@ -77,6 +79,21 @@ function decoders(encodingHeader: string | undefined): Array<Gunzip | Inflate | 
     else throw new WebFailure("unsupported-type", `content-encoding ${JSON.stringify(enc.slice(0, 32))} is not supported`);
   }
   return out;
+}
+
+/** Read at most `max` bytes and stop; a longer body is cut, never an error (used for error pages, which are only inspected). */
+async function readUpTo(stream: Readable, max: number): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of stream) {
+    chunks.push(chunk as Buffer);
+    total += (chunk as Buffer).length;
+    if (total >= max) {
+      stream.destroy();
+      break;
+    }
+  }
+  return Buffer.concat(chunks).subarray(0, max);
 }
 
 async function readCapped(stream: Readable, maxBytes: number): Promise<Buffer> {
@@ -129,8 +146,25 @@ function hop(url: URL, pin: ResolvedAddress, o: HttpOptions & { maxBytes: number
           return resolve({ status, headers, body: Buffer.alloc(0) });
         }
         if (status < 200 || status >= 400) {
-          res.destroy();
-          return resolve({ status, headers, body: Buffer.alloc(0) });
+          const peek = status >= 400 ? (o.errorBodyBytes ?? 0) : 0;
+          if (peek <= 0) {
+            res.destroy();
+            return resolve({ status, headers, body: Buffer.alloc(0) });
+          }
+          void (async () => {
+            try {
+              let stream: Readable = res;
+              for (const d of decoders(headers["content-encoding"])) {
+                stream.on("error", (e) => d.destroy(e));
+                stream = stream.pipe(d);
+              }
+              resolve({ status, headers, body: await readUpTo(stream, peek) });
+            } catch {
+              res.destroy();
+              resolve({ status, headers, body: Buffer.alloc(0) }); // an unreadable error page is still an error status
+            }
+          })();
+          return;
         }
         void (async () => {
           try {

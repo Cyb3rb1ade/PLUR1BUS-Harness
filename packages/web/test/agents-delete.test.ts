@@ -96,7 +96,7 @@ describe("agents lifecycle", opts, () => {
         throw rpcError("E_ENGINE_ERASURE_UNAVAILABLE", "engine erasure unavailable", "engine-erasure-unavailable");
       });
       await go.click();
-      await dlg.getByText("Engine erasure is unavailable on this harness.").waitFor();
+      await dlg.getByText("Engine erasure API unavailable. Archive and export remain available.").waitFor();
 
       // Now simulate successful delete
       app.server.rpc.handle("agent.delete", (p) => {

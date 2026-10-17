@@ -139,7 +139,17 @@ describe("identity backfill: run", () => {
     const ev = f.events.find((e) => e.action === "identity.backfill")!;
     assert.ok(ev); assert.equal(ev.detail.dryRun, false);
     const text = JSON.stringify(f.events);
-    for (const secret of [h.id, "bot-a", "1001", OWNER.user]) assert.equal(text.includes(secret), false, secret);
+    for (const secret of [h.id, TG.accountId, OWNER.user]) assert.equal(text.includes(secret), false, secret);
+    // The channel user id is only four digits: as a plain substring it also occurs by chance inside timestamps, UUIDs and
+    // sha256 digests in the events (flaky). Compare exactly instead: no key or value (string or number) may equal it, and no
+    // string may carry it as a token delimited by non-identifier characters (e.g. "telegram:1001"). Digits inside a longer
+    // hex digest or number are not a leak.
+    const leaves: unknown[] = [];
+    const walk = (v: unknown): void => { if (v !== null && typeof v === "object") { for (const [k, x] of Object.entries(v)) { leaves.push(k); walk(x); } } else leaves.push(v); };
+    walk(f.events);
+    assert.equal(leaves.some((x) => String(x) === TG.userId), false, "the channel user id as an exact key or value");
+    const token = new RegExp(`(^|[^0-9A-Za-z_-])${TG.userId}($|[^0-9A-Za-z_-])`);
+    assert.equal(leaves.some((x) => typeof x === "string" && token.test(x)), false, "the channel user id as a delimited token");
   });
 });
 

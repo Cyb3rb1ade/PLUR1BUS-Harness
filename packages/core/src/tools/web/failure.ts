@@ -10,6 +10,7 @@ export type WebFailureCode =
   | "gone"
   | "auth-required"
   | "paywall"
+  | "captcha"
   | "rate-limited"
   | "timeout"
   | "too-large"
@@ -37,6 +38,7 @@ const TEXTS: Record<WebFailureCode, { hint: string; userAction: string }> = {
   gone: { hint: "The page was removed on purpose. Look for a replacement with web.search.", userAction: "The page has been taken down; I will look for another source." },
   "auth-required": { hint: "The page needs a login. Do not guess credentials; look for a public source.", userAction: "The page needs a login: sign in in the browser panel and say 'continue'." },
   paywall: { hint: "The content is behind a paywall. Look for a free source with web.search; do not try to bypass it.", userAction: "That article is paywalled: forward it to me or give me access; meanwhile I will look for free sources." },
+  captcha: { hint: "The site shows a CAPTCHA. It is never solved, not even a simple one. Use another source, an official API or feed, or ask the person to continue in the browser panel.", userAction: "The site wants proof that a person is here: open it in the browser panel, complete the check yourself and say 'continue'." },
   "rate-limited": { hint: "Retry after the stated delay, or use another source.", userAction: "The site limits automated requests; I will retry later." },
   timeout: { hint: "The site was too slow. Retry once, or fetch a different page of the site.", userAction: "The site did not answer in time; I will try again or use another source." },
   "too-large": { hint: "The response exceeds the size limit. Use a more specific URL or a page of the document.", userAction: "That file is too large to read in one go." },
@@ -52,6 +54,9 @@ const TEXTS: Record<WebFailureCode, { hint: string; userAction: string }> = {
   "internal-error": { hint: "The tool failed unexpectedly. Retry once; if it persists use another approach.", userAction: "Something went wrong while reading the web; I will try another way." },
   "provider-failed": { hint: "Every configured search provider failed. Use web.fetch on a known URL.", userAction: "Web search is not answering right now." },
 };
+
+/** Every code, for exhaustiveness checks (the corpus gate asserts each one is produced by a fixture or belongs to web.search). */
+export const WEB_FAILURE_CODES = Object.keys(TEXTS) as WebFailureCode[];
 
 export interface WebFailureExtra {
   status?: number | undefined;

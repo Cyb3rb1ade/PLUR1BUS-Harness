@@ -249,7 +249,7 @@ describe("identity ratelimit: as the service applies it", () => {
 
   it("a locked handle is refused even with the right code, and the code stays pending for later", () => {
     const f = fixture(); const h = f.human(); const who = at(2);
-    const p = f.svc.startPairing({ humanId: h.id, channel: "telegram" }, OWNER);
+    const p = f.svc.startPairing({ humanId: h.id, channel: "telegram", ttlMs: 60 * MIN }, OWNER); // lives past the 15-minute lock
     for (let i = 0; i < 5; i++) wrong(f, who);
     refuses(() => f.svc.claim({ code: p.code, identity: who }), "rate-limited");
     f.advance(15 * MIN);
@@ -282,7 +282,7 @@ describe("identity ratelimit: as the service applies it", () => {
 
   it("rotating through many handles does not reset the overall counter: the 20th failure anywhere locks everybody", () => {
     const f = fixture(); const h = f.human();
-    const p = f.svc.startPairing({ humanId: h.id, channel: "telegram" }, OWNER);
+    const p = f.svc.startPairing({ humanId: h.id, channel: "telegram", ttlMs: 60 * MIN }, OWNER); // lives past the 15-minute lock
     for (let i = 0; i < 20; i++) assert.equal(wrong(f, at(`rot-${i}`)).code, "invalid-code", `failure ${i + 1}`);
     refuses(() => f.svc.claim({ code: p.code, identity: at("fresh") }), "rate-limited", undefined, "valid code from a never-seen handle");
     f.advance(15 * MIN);
@@ -361,7 +361,7 @@ describe("identity ratelimit: as the service applies it", () => {
       const c = f.svc.claim({ code: p.code, identity: at(`u${i}`) });
       f.svc.confirm({ pairingId: c.pairingId, approve: false }, OWNER);
     }
-    const p6 = f.svc.startPairing({ humanId: h.id, channel: "telegram" }, OWNER);
+    const p6 = f.svc.startPairing({ humanId: h.id, channel: "telegram", ttlMs: 60 * MIN }, OWNER); // lives past the 15-minute window
     refuses(() => f.svc.claim({ code: p6.code, identity: at("u6") }), "rate-limited");
     const other = f.human("Other"); const po = f.svc.startPairing({ humanId: other.id, channel: "telegram" }, OWNER);
     assert.equal(f.svc.claim({ code: po.code, identity: at("u7") }).state, "awaiting-confirmation", "another person's invitations are unaffected");
