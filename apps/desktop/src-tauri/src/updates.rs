@@ -88,7 +88,12 @@ pub struct UpdateSettings {
 impl Default for UpdateSettings {
     fn default() -> Self {
         Self {
-            channel: Channel::Stable,
+            channel: match env!("PLUR1BUS_DESKTOP_BUILD_CHANNEL") {
+                "beta" => Channel::Beta,
+                #[cfg(debug_assertions)]
+                "dev" => Channel::Dev,
+                _ => Channel::Stable,
+            },
             held: false,
             auto_patch: true,
             quiet_hours: (3, 5),

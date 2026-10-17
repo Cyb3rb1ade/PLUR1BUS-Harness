@@ -106,7 +106,10 @@ export class ChannelRouter {
         await this.#reply(send, msg, NEW_SESSION_TEXT);
         return;
       }
-      const sessionId = (await this.#d.sessions.findActive(chat)) ?? (await this.#d.sessions.create(chat, { userId }));
+      // A private chat belongs to one person: if the handle was relinked, the previous person's session is not carried over.
+      // A group is one shared conversation (anyone in the room continues it), so there the owner is not compared.
+      const forOwner = msg.chatKind === "direct" ? { userId } : undefined;
+      const sessionId = (await this.#d.sessions.findActive(chat, forOwner)) ?? (await this.#d.sessions.create(chat, { userId }));
       const out = await this.#d.sessions.submit(sessionId, { userId, text: msg.text });
       await this.#reply(send, msg, out.text);
     } catch (e) {

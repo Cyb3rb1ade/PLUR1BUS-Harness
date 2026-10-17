@@ -6,8 +6,8 @@ container control, host bridge, update policy and rollback run in Rust. The
 German/English shell follows the OS language by default; Settings → General
 lets you choose System, English or Deutsch and System, Light or Dark appearance.
 The separate Rust mock and stub image prove the provisional harness contract.
-Real harness integration, signed distribution and the unfinished WP12/WP13
-installer/deep-link surfaces remain prerequisites, tracked in the
+Real harness integration, signed distribution and the WP13 installer surfaces
+remain prerequisites, tracked in the
 [status report](handoff/status/desktop-shell.md).
 
 At widths below 1024 CSS px, navigation uses a 64 px rail and a 288 px overlay.
@@ -640,3 +640,34 @@ pass. Every §8 row is classified in the [final report](handoff/status/desktop-s
 ## Previous unclean exits
 
 Native startup writes a private running marker in the diagnostic directory. Orderly shutdown and the final native exit event (including updater restarts) remove it; a remaining marker on the next start produces a local `crash_last_report` with the previous session start timestamp, kind, fixed summary and diagnostic availability. `crash_dismiss` acknowledges the previous marker while keeping the current session marker. The crash dialog connects “Open diagnostics” to `diagnostics_open`, which opens only the native-owned diagnostic directory, and “Restart” to the existing native app restart mechanism through `crash_restart`. Each command requires the local shell capability and origin check and uses `try_state`. No upload is performed or exposed.
+
+## Deep links and extension file hooks
+
+Installed bundles register `plur1bus://` and `.p1x`. A pairing link prepares a
+confirmation form with its origin prominently displayed; it never pairs by
+itself or replaces an existing connection. A certificate fingerprint carried by
+the link is shown and checked for that origin before the code is sent. Submit
+explicitly to add a fresh connection. Failed attempts may be retried explicitly;
+closing the view discards the offer.
+
+`plur1bus://open?path=%2Fsettings%2Fgeneral` changes only a permitted route in the
+active connection's already-open SPA. Links cannot choose another origin, reach
+API/auth routes, traverse directories, or create a connection. Chat links,
+catalogue install links (for example `plur1bus://install?id=plur1bus/zabbix-triage`)
+and `.p1x` file opens show “not available in this version”; no file is read and
+nothing is downloaded or installed. Unknown inputs are discarded with an
+argument-free diagnostic. The same checks apply to first- and second-launch argv.
+Portable AppImage desktop integration and Flatpak exports are packaging work;
+installed-bundle and native acceptance limits are in the [phase 1 report](handoff/status/2026-10-15-d1-p1.md).
+
+## D1 packaging preview (2026-10-15)
+
+WP13 implementation and limitations: [phase 2 handoff](handoff/status/2026-10-15-d1-p2.md). Direct native bundles support online and offline content; Store and Flatpak are online-only. `node apps/desktop/scripts/build-bundle.mjs --target aarch64-apple-darwin --variant offline --ci-fixture` builds a clearly labelled preview without usable host CLI, Apple installer, harness or model weights. Other supported targets are Windows x64/arm64 and Linux x64/arm64 triples. Run on the matching native toolchain.
+
+Production inputs are explicit environment paths: `PLUR1BUS_DESKTOP_RELEASE_MANIFEST`, `PLUR1BUS_DESKTOP_HOST_CLI`, `PLUR1BUS_DESKTOP_APPLE_PKG`, `PLUR1BUS_DESKTOP_OFFLINE_IMAGE`, `PLUR1BUS_DESKTOP_OFFLINE_MODELS`. Missing inputs fail closed. Metadata checksums must describe the actual release artifacts. Staging writes a separate provenance manifest and never downloads executable payloads. Use `--channel dev|beta|stable`; it selects the initial update channel while preserving saved user choices. Dev builds are debug previews; beta/stable use their independent signed feed keys.
+
+`--distribution store|flatpak --variant online` builds without updater features and stages the native format plan. `--execute-formats` runs MakeAppx/flatpak-builder explicitly; Windows requires `PLUR1BUS_MSIX_PUBLISHER` and the SDK on PATH. Set `PLUR1BUS_MSIX_IDENTITY` only from the owner’s assigned Store identity. Unsigned MSIX cannot be treated as an installed Store release. Flatpak runtime/ABI/portal acceptance requires a native Linux environment; no broad host filesystem permission is requested.
+
+Signing: `APPLE_SIGNING_IDENTITY` selects the macOS identity, otherwise `-` uses ad-hoc. No notarization credentials are provided by the scripts. Windows `signCommand` stays empty until SignPath is configured. AppImage signing is release-operated with Tauri/linuxdeploy’s `SIGN`, `SIGN_KEY` and `APPIMAGETOOL_SIGN_PASSPHRASE`; do not store key material in this repository or treat an unsigned preview as verified publisher identity.
+
+Uninstall offers **App only** by default, **App and images**, or **Everything**. Only Everything removes owned state/models/snapshots and corresponding device credentials, and requires typing `plur1bus-state`. Review the summary first. Package-manager/NSIS app removal itself leaves harness data intact. CLI shim installation refuses an existing foreign `plur1bus`; the native CLI’s authoritative identity/location and forwarding are separate pending contracts.

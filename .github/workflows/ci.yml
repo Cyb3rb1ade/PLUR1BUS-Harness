@@ -70,6 +70,16 @@ jobs:
           fi
           git config --global --add "url.${base}.insteadOf" "git@github.com:"
           git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
+      # The coding-gate verifier and the D106 sandbox run commands under bubblewrap on Linux and fail
+      # closed without it (owner decision 2026-10-17). Ubuntu 24.04 also restricts unprivileged user
+      # namespaces through AppArmor, which bwrap needs; lift that for the test run only.
+      - name: install bubblewrap (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          bwrap --ro-bind / / --unshare-all true && echo "bwrap ok"
       - run: pnpm install --frozen-lockfile
       - run: node scripts/check-toolchain.mjs
       - name: config fixture drift (before generation)
