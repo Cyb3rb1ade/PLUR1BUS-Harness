@@ -5,6 +5,7 @@ pub mod commands;
 pub mod connections;
 pub mod controller;
 pub mod crash;
+pub mod deeplink;
 pub mod diagnostics;
 pub mod discovery;
 pub mod events;
@@ -98,7 +99,8 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     builder
         // The singleton plugin must run before other plugin/setup side effects.
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| native::focus(app)))
+        .plugin(tauri_plugin_single_instance::init(deeplink::second_instance))
+        .manage(deeplink::LinkState::default())
         .plugin(controller::autostart::plugin())
         .plugin(tauri_plugin_notification::init())
         .manage(native::NativeState::default())
@@ -117,6 +119,10 @@ pub fn run() {
             #[cfg(not(debug_assertions))]
             let fixture = false;
             if let Err(reason) = diagnostics::start(app.handle()) { eprintln!("{reason}"); }
+            // Desktop links are dispatched natively. The plugin's default runtime broadcasts raw
+            // URLs and logs foreign argv in debug builds; its bundle configuration still registers
+            // the scheme. No renderer receives plugin permissions or raw OS events.
+            deeplink::dispatch(app.handle(), std::env::args_os().map(|arg| arg.to_string_lossy().into_owned()).collect());
             if !fixture && native::build_tray(app.handle()).is_err() {
                 app.state::<native::NativeState>().tray_failed();
                 eprintln!("TRAY_SETUP_FAILED");
@@ -168,6 +174,8 @@ pub fn run() {
             update_commands::update_install,
             update_commands::update_skip,
             update_commands::update_later,
+            deeplink::deep_link_next,
+            deeplink::deep_link_open,
             commands::app_info,
             commands::settings_get,
             commands::settings_set,
@@ -220,6 +228,11 @@ pub fn run() {
         .run(move |app, event| {
             #[cfg(windows)]
             use tauri::Manager;
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { ref urls } = event {
+                let args = std::iter::once(String::new()).chain(urls.iter().map(ToString::to_string)).collect();
+                deeplink::second_instance(app, args, String::new());
+            }
             if matches!(event, tauri::RunEvent::Exit) { diagnostics::end_session(app); }
             if native::guard_exit(app, &event) { return; }
             #[cfg(target_os = "macos")]

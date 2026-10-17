@@ -185,6 +185,7 @@ pub struct PairCodeRequest {
     pub name: String,
     pub code: String,
     pub repair_id: Option<uuid::Uuid>,
+    pub link_id: Option<u64>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -258,29 +259,79 @@ pub async fn pair_code(
 ) -> Result<Paired, String> {
     check(&window, "pair_code")?;
     let store = connection_store(&window)?;
+    // A link always creates a new connection. An existing connection can never be repaired or
+    // replaced by an external offer, and the renderer cannot substitute the offer's trust.
+    let offer = match request.link_id {
+        Some(id) if request.repair_id.is_none() => Some(
+            window
+                .state::<crate::deeplink::LinkState>()
+                .0
+                .lock()
+                .unwrap()
+                .confirm_pair(id, &request.origin, &request.code)
+                .ok_or("invalid")?,
+        ),
+        Some(_) => return Err("invalid".into()),
+        None => None,
+    };
     let code = crate::secrets::SecretString::new(request.code);
     let app = window.app_handle().clone();
-    credential_action(&state, move |tokens, runtime| {
+    let result = credential_action(&state, move |tokens, runtime| {
         if let Some(id) = request.repair_id {
             crate::native::retire_connection(&app, id);
         }
         let tokens = tokens.get_or_insert_with(crate::secrets::open_default);
         let connection = runtime
-            .block_on(crate::pair::pair_code(
-                &request.origin,
-                code.expose(),
-                &request.name,
-                tokens.as_ref(),
-                &store,
-                request.repair_id,
-            ))
+            .block_on(async {
+                if let Some(crate::deeplink::DeepLink::Pair {
+                    origin, pin, ca, ..
+                }) = offer
+                {
+                    let client =
+                        crate::client::HarnessClient::from_pairing_payload(origin, pin, ca)
+                            .await
+                            .map_err(crate::pair::PairError::from)?;
+                    crate::pair::pair_using_client(
+                        client,
+                        code.expose(),
+                        &request.name,
+                        crate::connections::Kind::Remote,
+                        None,
+                        None,
+                        tokens.as_ref(),
+                        &store,
+                    )
+                    .await
+                } else {
+                    crate::pair::pair_code(
+                        &request.origin,
+                        code.expose(),
+                        &request.name,
+                        tokens.as_ref(),
+                        &store,
+                        request.repair_id,
+                    )
+                    .await
+                }
+            })
             .map_err(|e| e.public_message())?;
         Ok(Paired {
             connection,
             token_store: tokens.kind(),
         })
     })
-    .await
+    .await;
+    if result.is_ok() {
+        if let Some(id) = request.link_id {
+            window
+                .state::<crate::deeplink::LinkState>()
+                .0
+                .lock()
+                .unwrap()
+                .finish_pair(id);
+        }
+    }
+    result
 }
 #[tauri::command]
 pub async fn pair_local(

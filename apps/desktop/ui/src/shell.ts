@@ -1,3 +1,5 @@
+import { addRemote, resetPairing } from "./views/add-remote.ts";
+import type { LinkEnvelope } from "./ipc.ts";
 import {versionPage} from "./views/settings-version.ts";
 import {updatesPage} from "./views/settings-updates.ts";
 import {computerAccess} from "./views/settings-computer-access.ts";
@@ -28,6 +30,30 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   const mount = element("div", "shell-mount");
   root.append(mount);
   let wizardVisible = false;
+  let externalLink: LinkEnvelope | null = null;
+  let pullingLink = false;
+  let linkError = false;
+  /** Shared delivery point for the native pull handshake and browser fixtures. Never pairs automatically. */
+  function offerLink(link: LinkEnvelope) {
+    if (externalLink) return;
+    externalLink = link;
+    wizardVisible = false;
+    linkError = false;
+    resetPairing();
+    render(); focusPage();
+    if (link.intent.kind === "open") {
+      void transport.deepLinkOpen?.(link.intent.path).then(closeLink).catch(() => { linkError = true; render(); focusPage(); });
+    }
+  }
+  async function pullLink() {
+    if (pullingLink || externalLink || !transport.deepLinkNext) return;
+    pullingLink = true;
+    try { const link = await transport.deepLinkNext(); if (link) offerLink(link); }
+    catch { /* No unvalidated input or diagnostic crosses this boundary. */ }
+    finally { pullingLink = false; }
+  }
+  function closeLink() { externalLink = null; render(); focusPage(); void pullLink(); }
+  if (transport.deepLinkEvents) void transport.deepLinkEvents(() => { void pullLink(); }).then(pullLink).catch(() => {});
   const renderUpdates = updatesPage(transport,()=>render());
   const renderVersion = versionPage(transport,()=>render());
   const renderComputerAccess = computerAccess(transport,key=>t(key),()=>render());
@@ -238,6 +264,18 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     append(container, header, openSections, relatedButton(t("panel.open"), t("panel.body")), layout);
     return container;
   }
+  function linkPage(): HTMLElement {
+    const page = element("div", "content");
+    const link = externalLink!;
+    append(page, heading(t("link.title"), t("link.explanation")));
+    if (link.intent.kind === "pair") {
+      page.append(addRemote(t, transport, () => { closeLink(); void refreshConnections(); }, closeLink, undefined,
+        {linkId: link.id, origin: link.intent.origin, code: link.intent.code, pin: link.intent.pin, ca: link.intent.ca}));
+    } else {
+      page.append(element("p", undefined, t(linkError ? "link.noConnection" : "link.unavailable")), button(t("panel.close"), closeLink));
+    }
+    return page;
+  }
   function connections(): HTMLElement {
     const container = element("div", "content connections-content");
     const header = heading(t("connections.title"), t("connections.lead"));
@@ -269,7 +307,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     append(top, mark.node, status);
     const main = element("main", "page-main");
     main.id = "main-content";
-    main.append(wizardVisible ? bundled.wizard() : route.section === "home" ? home() : route.section === "connections" ? connections() : settingsPage());
+    main.append(externalLink ? linkPage() : wizardVisible ? bundled.wizard() : route.section === "home" ? home() : route.section === "connections" ? connections() : settingsPage());
     const footer = element("footer", "app-footer");
     append(footer, element("span", undefined, t("footer.hint")), button(t("dialog.open"), () => openDialog(t("dialog.title"), t("dialog.body"), t("dialog.cancel"), t("dialog.confirm")), "quiet"));
     append(body, top, main, footer);
@@ -299,5 +337,5 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
       notice = null;
     }
   }
-  return { setPreferences, setPlatform, navigate, refreshConnections };
+  return { offerLink, setPreferences, setPlatform, navigate, refreshConnections };
 }

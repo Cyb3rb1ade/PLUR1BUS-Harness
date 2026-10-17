@@ -9,11 +9,16 @@ export type Connection = { id: string; name: string; kind: "bundled" | "local" |
 export type TokenStoreKind = "keychain" | "memory-only";
 export type ConnectionList = { connections: Connection[]; active: string | null; tokenStore: TokenStoreKind | null };
 export type ConnectionSnapshot = { status: "loading" | "ready" | "error"; data: ConnectionList | null };
-export type PairRequest = { name: string; origin: string; code: string; repairId: string | null };
+export type LinkEnvelope = { id: number; intent: {kind: "pair"; origin: string; code: string; pin: string | null; ca: string | null} | {kind: "open"; path: string} | {kind: "chat" | "install" | "p1x" | "ignored"} };
+export type PairPrefill = { linkId: number; origin: string; code: string; pin: string | null; ca: string | null };
+export type PairRequest = { name: string; origin: string; code: string; repairId: string | null; linkId?: number | null };
 export type Paired = { connection: Connection; tokenStore: TokenStoreKind };
 export type HelperStatus={ready:boolean;restarting:boolean;capabilities:string[];grants:string[]};
 export type BridgeSettings={enabled:boolean;memoryOnly:boolean;secretsLocked:boolean;secretsState?:"locked"|"unlocked"|"unknown"};
 export type DesktopTransport = {
+  deepLinkNext?(): Promise<LinkEnvelope | null>;
+  deepLinkEvents?(ready: () => void): Promise<() => void>;
+  deepLinkOpen?(path: string): Promise<void>;
   harnessUpgradeStatus?():Promise<import("./views/settings-version.ts").UpgradeStatus>;
   harnessRollback?(confirmed:boolean):Promise<import("./views/upgrade-progress.ts").UpgradeOutcome|null>;
   upgradeProgress?(onStep:(step:string)=>void):Promise<()=>void>;
@@ -49,6 +54,9 @@ export type DesktopTransport = {
 };
 
 export const nativeTransport: DesktopTransport = {
+  deepLinkNext: () => invoke("deep_link_next"),
+  deepLinkEvents: ready => listen("desktop-link-pending", ready),
+  deepLinkOpen: path => invoke("deep_link_open", {request: {path}}),
  harnessUpgradeStatus:()=>invoke("harness_upgrade_status"),
  harnessRollback:confirmed=>invoke("harness_rollback",{confirmed}),
  upgradeProgress:onStep=>listen<string>("desktop-upgrade-progress",event=>onStep(event.payload)),

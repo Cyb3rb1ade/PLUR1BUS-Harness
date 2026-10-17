@@ -2009,3 +2009,11 @@ Open / next (no additional policy question):
 No new feature-policy default, no real keys/certificates, no root crates/packages
 or unrelated workflows changed. Main checkout untouched. Exactly one PR is opened
 for both WPs after push; CI and merge decisions remain with the controller.
+
+## WP12 / D1 phase 1 — 2026-10-15
+
+Implementation, decisions, threat table, test inventory, validation boundaries,
+owner questions and follow-ups: [phase 1 handoff](2026-10-15-d1-p1.md).
+Branch `codex/d1-p1-deeplinks`, base `4557176c`; four-phase package continues with
+WP13 packaging after this phase's PR. Earlier “WP12 NOT STARTED” rows above are
+historical. Native/manual limitations in the new handoff remain explicit.
