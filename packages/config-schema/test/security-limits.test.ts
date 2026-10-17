@@ -15,3 +15,8 @@ test("security invalid bounds fail configuration loading",()=>{
  }
  const cfg:any=defaults();cfg.breakglass.reasonMinChars=501;assert.equal(validate(cfg).ok,false);
 });
+test("remote defaults require a factor remotely and keep exposure keys closed and audited",()=>{
+ const cfg=defaults();assert.equal(cfg.remote?.publish,"tailnet");assert.equal(cfg.remote?.tls,"self-signed");assert.equal(cfg.auth?.requireSecondFactor,"remote");
+ for(const patch of [{publish:"funnel"},{tls:"none"},{noticeAck:{by:"owner",at:1,version:2}},{arbitrary:true}]){const candidate:any=defaults();candidate.remote={...candidate.remote,...patch};assert.equal(validate(candidate).ok,false);}
+ const factor=CONFIG_SCHEMA.properties.auth.properties.requireSecondFactor;assert.deepEqual(factor["x-write-roles"],["owner","admin"]);assert.equal(factor["x-audit"],true);
+});

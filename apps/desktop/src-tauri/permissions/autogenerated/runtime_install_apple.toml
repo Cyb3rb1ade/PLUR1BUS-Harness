@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-runtime-install-apple"
+description = "Enables the runtime_install_apple command without any pre-configured scope."
+commands.allow = ["runtime_install_apple"]
+
+[[permission]]
+identifier = "deny-runtime-install-apple"
+description = "Denies the runtime_install_apple command without any pre-configured scope."
+commands.deny = ["runtime_install_apple"]

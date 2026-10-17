@@ -7,7 +7,8 @@ import type { Clock, SubjectKind } from "../policy/decide.ts";
 import type { SurfaceTrust } from "../policy/capabilities.ts";
 import { ApprovalChain, ApprovalChainError, bindingTuple, type ChainEntry, type VerifyResult } from "./chain.ts";
 import { transaction } from "./db.ts";
-import type { ChainKeySource } from "./keys.ts";
+import type { ChainKeySource, SigningKeySource } from "./keys.ts";
+import { loadDecisionSigner, type DecisionSigner } from "./signing.ts";
 
 const MAX_DETAIL_BYTES = 16 * 1024;
 export const DEFAULT_REQUEST_TTL_MS = 24 * 60 * 60_000; // §5: parked up to 24 h, then expired = denied
@@ -82,6 +83,10 @@ export interface ApprovalStoreOptions {
   keys: ChainKeySource;
   clock: Clock;
   requestTtlMs?: number;
+  /** Loaded once at open, same as the HMAC key. */
+  signing?: SigningKeySource;
+  /** Tests inject a signer without a secret store. */
+  signer?: DecisionSigner;
 }
 
 /** Compared as bytes: equal length in characters is not equal length in bytes, and timingSafeEqual throws on the latter. */
@@ -94,7 +99,8 @@ const boundOf = (b: ApprovalBinding): Omit<ApprovalBinding, "requestId"> => ({
 });
 
 export async function createApprovalStore(o: ApprovalStoreOptions): Promise<ApprovalStore> {
-  const chain = new ApprovalChain(o.db, await o.keys.load(), o.clock);
+  const signer = o.signer ?? (o.signing ? await loadDecisionSigner(o.signing) : undefined);
+  const chain = new ApprovalChain(o.db, await o.keys.load(), o.clock, signer);
   const ttl = o.requestTtlMs ?? DEFAULT_REQUEST_TTL_MS;
 
   /** The verified snapshot, or a thrown integrity error (fail closed). */

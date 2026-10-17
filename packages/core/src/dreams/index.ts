@@ -2,13 +2,15 @@
 import path from "node:path";
 import type { AgentRegistry } from "../agents.ts";
 import type { Layout } from "../paths.ts";
+import { createCandidateSource, type CandidateMemory } from "./producer.ts";
 import { DreamScheduler, type SchedulerOptions } from "./scheduler.ts";
 import { DreamStore } from "./store.ts";
-import { DIARY_FILE, type Clock, type DreamEngine, type DreamLogger } from "./types.ts";
+import { DIARY_FILE, type CandidateSource, type Clock, type DreamEngine, type DreamLogger } from "./types.ts";
 
 export { DreamScheduler } from "./scheduler.ts";
 export { DreamStore, SCHEMA_VERSION } from "./store.ts";
 export { buildDreamsMethods } from "./methods.ts";
+export { createCandidateSource, itemsFromEngineList, type CandidateMemory, type CandidateMemoryItem } from "./producer.ts";
 export * from "./types.ts";
 
 export interface DreamsOptions {
@@ -16,6 +18,10 @@ export interface DreamsOptions {
   securePath?: (p: string, options?: { mode?: number }) => unknown;
   /** Test seam / overrides forwarded to the scheduler. */
   scheduler?: Partial<SchedulerOptions>;
+  /** Optional candidate producer. Takes precedence over `candidateMemory`. */
+  candidates?: CandidateSource;
+  /** Memory list the default producer wraps when `candidates` is omitted. */
+  candidateMemory?: CandidateMemory;
 }
 
 export interface Dreams { scheduler: DreamScheduler; store: DreamStore; start(): Promise<void>; stop(): Promise<void> }
@@ -24,11 +30,13 @@ export interface Dreams { scheduler: DreamScheduler; store: DreamStore; start():
 export function createDreams(o: DreamsOptions): Dreams {
   const dir = path.join(o.layout.state, "dreams");
   const store = new DreamStore(path.join(dir, "dreams.db"), o.securePath ? { securePath: o.securePath } : {});
+  const candidates = o.candidates ?? (o.candidateMemory ? createCandidateSource(o.candidateMemory) : undefined);
   const scheduler = new DreamScheduler({
     store, engine: o.engine, clock: o.clock, logger: o.logger, logsDir: dir, agents: () => o.agents.list(),
     // D15 harness-host name. TODO(engine): the pinned engine still writes DREAMS.md; until it follows D15 `exists` stays false for it.
     diaryPath: (id) => { const ws = o.agents.workspaceOf(id); return ws ? path.join(ws, DIARY_FILE) : null; },
     ...o.scheduler,
+    ...(candidates ? { candidates } : {}),
   });
   // Runs a killed core left open are closed now, also when the scheduler's own timers stay off (manual-only mode).
   scheduler.reconcile();

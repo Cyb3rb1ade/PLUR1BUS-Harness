@@ -239,3 +239,23 @@ fn audit_is_its_own_record_type() {
         );
     });
 }
+
+#[test]
+fn wrapped_output_text_over_line_bytes_is_refused() {
+    within(|| {
+        let mut over = example("process.output.line");
+        over["attrs"]["text"] = json!("😀".repeat(1500));
+        assert_eq!(
+            code(&line(&over)),
+            "attrs_invalid",
+            "1500 four-byte characters are 6000 bytes, over the 4096-byte line limit"
+        );
+        let mut edge = example("process.output.line");
+        edge["attrs"]["text"] = json!("😀".repeat(1024));
+        assert_eq!(
+            code(&line(&edge)),
+            "ok",
+            "1024 four-byte characters are exactly 4096 bytes"
+        );
+    });
+}

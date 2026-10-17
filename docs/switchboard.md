@@ -150,3 +150,40 @@ pnpm docs:check
 
 The shared contract suite (`packages/channels-discord/test/contract-suite.test.ts`) runs every
 new channel against the core `Channel` contract with a fake platform and no network.
+
+## Behaviour profiles (M4 phase 1)
+
+ADR-003 uses exactly four configurable levels, stored in `agents.<agentId>.behaviour`:
+`default` → `direct` / `group` → `byChannelKind.<kind>` → `byBotConnection.<connection>`.
+The current host has one connection per channel kind; its stable connection ids are `telegram`,
+`discord`, `matrix`, `slack`, `signal`, `email` (and `buzz` reserved for M4 phase 3). Other connection
+keys are rejected by configuration validation. There is no per-chat permission layer.
+
+`packages/core/src/channels/behaviour.ts` is the shared resolver and message gate for all six adapters.
+Transport allowlists and signature/address parsing still run first. Reply policies use the order
+`always` → `on-mention` → `never`; capture uses `full` → `provenance-only` → `none`. Denies union,
+allowlists intersect, numeric ceilings take the minimum, `captureOtherSpeakers` can only become
+false and `requireLinkedPrincipalForUserScope` can only become true. Allow entries are literal
+names, deny entries additionally support `*`. An omitted allowlist inherits; an empty one denies all.
+
+Shipped group restrictions: `on-mention`, `provenance-only`, scopes `agent-private`/`workspace`,
+no capture of other speakers, linked principal required for user scope, 60 replies/hour,
+20 edits/minute, 8192 UTF-16 units per reply. Direct ceilings are 3600/hour, 60/minute and 65536 units.
+Output caps never split a surrogate pair. Reply budgets are enforced per person on router turns and
+per chat at adapter output boundaries; edits have a separate minute window. A refused output is silent.
+
+The switchboard detail shows effective direct/group values and participating source paths for every
+field, in English and German. Its editor writes only the displayed channel-kind layer via the existing
+supervisor `config.set`, with schema validation, owner/admin write roles, audit and revision protection.
+Broader restrictions must be changed at their owning level. Live changes affect subsequent turns;
+running turns retain their initial tool/memory policy snapshot.
+
+**Engine limitation (pin `6868b7b1`, not a permission widening):** `Principal`/`recall`/`capture` have
+no per-request allowed-scope mask. When an effective profile excludes any engine scope, the memory
+port returns `behaviour-scope-unavailable` and calls no engine recall/capture. `provenance-only`
+records a content-free receipt in the harness log, not a searchable engine memory. Accordingly,
+group recall and durable provenance memory are not accepted yet. No engine code or pin is changed.
+
+Evidence: `core/test/channels/behaviour.test.ts` (64-case matrix and 1000 deterministic property trials),
+`behaviour-runtime.test.ts`, hosted Matrix and Slack gate regressions, and
+`web/test/switchboard-behaviour.test.ts` (DE/EN, field origins, channel-only write, CSRF and axe).

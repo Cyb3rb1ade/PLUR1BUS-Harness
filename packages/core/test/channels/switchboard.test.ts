@@ -363,7 +363,7 @@ test("a group chat gets no approval prompt (it would show the request to the who
   const rig = await running();
   const { humanId } = rig.link("discord", "bot-1", "sender-1");
   const a = rig.adapter();
-  await a.inbound({ chatId: "room-1", chatKind: "group", text: "do it" });
+  await a.inbound({ chatId: "room-1", chatKind: "group", addressed: true, text: "do it" });
   const session = rig.store.listSessions({ owner: deriveUserPrincipal(humanId), kind: "channel" }).sessions[0]!;
   rig.switchboard.approvalEvents.emit("approval.requested", { approval: approvalFor(rig, humanId, session.id), nonce: "n", foregroundUntil: 1 });
   await flush(10);
@@ -491,5 +491,18 @@ test("an image a turn produced follows the text reply into the same chat, and on
   assert.equal(await out.authorize(IMG, "chat-1"), true);
   assert.equal(await out.authorize(IMG, "chat-2"), false);
   assert.equal(await out.authorize("123e4567-e89b-42d3-a456-426614174999", "chat-1"), false);
+  rig.close();
+});
+
+test('behaviour: outbound reply and edit ceilings also cover adapter-local outputs', async () => {
+  const rig = await running();
+  rig.config.current().agents.main = { behaviour: { byBotConnection: { discord: { rateLimits: { repliesPerHour: 1, editsPerMinute: 0, maxReplyChars: 4 } } } } };
+  const host = rig.adapter().host!;
+  assert.deepEqual(host.behaviour!({ channel: 'discord', chatKind: 'direct', connection: 'untrusted' }).profile.rateLimits, { repliesPerHour: 1, editsPerMinute: 0, maxReplyChars: 4 });
+  assert.equal(host.output!({ channel: 'discord', chatId: 'c', kind: 'reply', text: 'abc😀long' }), 'abc');
+  assert.equal(host.output!({ channel: 'discord', chatId: 'c', kind: 'reply', text: 'second' }), null);
+  assert.equal(host.output!({ channel: 'discord', chatId: 'c', kind: 'edit', text: 'edit' }), null);
+  await rig.clock.advance(3_600_000);
+  assert.equal(host.output!({ channel: 'discord', chatId: 'c', kind: 'reply', text: 'next' }), 'next');
   rig.close();
 });

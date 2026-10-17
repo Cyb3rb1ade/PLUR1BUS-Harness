@@ -25,7 +25,12 @@ export function seedSecretsPage(server: MockHarnessServer): void {
   seedSecrets(server.rpc, [meta("anthropic.apiKey"), meta("telegram.token", { backend: "file" }), meta("matrix.accessToken"), meta("openai.apiKey", { updatedAt: "2026-10-05T10:00:00.000Z" })]);
 }
 export function seedDevices(server: MockHarnessServer): void {
-  server.rpc.handle("config.get", () => ({ key: "remote.publish", tier: "advanced", value: "lan", restartClass: "core", restart: "core", revision: "r1" }), { write: false });
+  server.extensions.unshift((req, res, path) => {
+    if (req.method !== "GET" || path !== "/api/v1/remote") return false;
+    res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+    res.end(JSON.stringify({ publish: "tailnet", tls: "self-signed", bind: {}, allowSubnets: [], noticeRequired: true, noticeItems: [], status: { state: "ready" } }));
+    return true;
+  });
 }
 export const seedLogs = (server: MockHarnessServer): void => { installLogsMocks(server, { lines: makeLines(120), tail: false }); };
 export const seedActivity = (server: MockHarnessServer): void => { installActivity(server); };
