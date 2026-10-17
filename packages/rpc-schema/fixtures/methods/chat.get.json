@@ -1,0 +1,42 @@
+{
+  "params": {
+    "sessionId": "ses_1"
+  },
+  "result": {
+    "session": {
+      "id": "ses_1",
+      "kind": "direct",
+      "agentId": "bernd",
+      "scope": "user",
+      "chatKey": null,
+      "title": "Planning",
+      "pinned": false,
+      "memoryMode": "remember",
+      "createdAt": 1000,
+      "updatedAt": 2000,
+      "lastTurnAt": 2000,
+      "archivedAt": null,
+      "turnCount": 1
+    },
+    "runningTurnId": null,
+    "messages": [
+      {
+        "id": "msg_1",
+        "seq": 1,
+        "turnId": "trn_1",
+        "role": "user",
+        "text": "hello",
+        "createdAt": 1500
+      },
+      {
+        "id": "msg_2",
+        "seq": 2,
+        "turnId": "trn_1",
+        "role": "assistant",
+        "text": "hi",
+        "createdAt": 1600
+      }
+    ],
+    "lastEventSeq": 3
+  }
+}

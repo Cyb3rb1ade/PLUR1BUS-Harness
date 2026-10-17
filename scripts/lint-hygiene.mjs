@@ -2,6 +2,8 @@
 // crates, packages, tests, scripts, apps (desktop shell), and the host clients and adapters under clients/ and hosts/ (HM2) — except the few lines explicitly allow-listed below (the
 // engine dependency line, a documented parity import, and the lines in this file and the
 // import-hygiene test that name the very patterns being checked for).
+import { openaiWorkflowFindings } from "./openai-workflow-gate.mjs";
+import { foreignClientFindings } from "./foreign-client-fingerprints.mjs";
 import { lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -12,9 +14,9 @@ if (process.argv.includes("--self-test")) {
   process.exit(result.status ?? 1);
 }
 
-const ROOTS = ["packages", "crates", "tests", "scripts", "apps", "clients", "hosts"];
+const ROOTS = ["packages", "crates", "tests", "scripts", "apps", "clients", "hosts", "desktop"];
 const SKIP_DIRS = new Set(["node_modules", "dist", "target", "generated", ".git", "__pycache__", ".venv", "venv"]);
-const EXT = new Set([".ts", ".mjs", ".js", ".rs", ".json", ".md", ".toml", ".yaml", ".yml", ".py"]);
+const EXT = new Set([".ts", ".mjs", ".js", ".rs", ".json", ".md", ".toml", ".yaml", ".yml", ".py", ".tsx", ".jsx", ".swift", ".html", ".vue", ".svelte", ".c", ".h", ".cpp", ".kt"]);
 const PATTERNS = [
   { id: "HYG-001", re: /openclaw/i, why: "no OpenClaw idiom in the harness (spec D9)" },
   { id: "HYG-002", re: /OPENCLAW_/, why: "no host env names" },
@@ -170,6 +172,10 @@ for (const { path, mode, hash } of entries) {
     bad += 1;
     continue;
   }
+  for (const finding of foreignClientFindings(path, blob)) {
+    console.error(`[HYG-014] ${path}:${finding.line}: staged ${finding.rule} (${finding.source})`);
+    bad += 1;
+  }
   // The binding plan quotes this header to specify this very check. Exempt only
   // that quoted literal in that one document; an actual header there still fails.
   const text = path === "docs/superpowers/plans/2026-09-27-desktop-app-d1.md"
@@ -204,6 +210,11 @@ function walk(dir) {
     }
     if (![...EXT].some((e) => name.endsWith(e))) continue;
     const rel = relative(process.cwd(), p).replaceAll("\\", "/");
+    // D110 scan is independent of legacy source exemptions (including importer directories).
+    for (const finding of foreignClientFindings(rel, readFileSync(p, "utf8"))) {
+      console.error(`[HYG-014] ${rel}:${finding.line}: ${finding.rule} (${finding.source})`);
+      bad += 1;
+    }
     if (ALLOW_FILES.has(rel) || ALLOW_DIRS.some((d) => rel.startsWith(d))) continue;
     const allow = ALLOW.get(rel) ?? [];
     const patterns = [...PATTERNS, ...SCOPED.filter((s) => (s.files ? s.files.includes(rel) : rel.startsWith(s.prefix))).flatMap((s) => s.patterns)];
@@ -250,6 +261,16 @@ for (const r of ROOTS) {
     }
   }
 }
+try {
+  for (const file of readdirSync(".github/workflows")) {
+    if (!/\.ya?ml$/.test(file)) continue;
+    const path = `.github/workflows/${file}`;
+    for (const f of openaiWorkflowFindings(path, readFileSync(path, "utf8"))) {
+      console.error(`[HYG-015] ${path}:${f.line}: OpenAI credential outside owner-gated live job`);
+      bad += 1;
+    }
+  }
+} catch (e) { if (e.code !== "ENOENT") throw e; }
 if (bad) {
   console.error(`hygiene: ${bad} violation(s)`);
   process.exit(1);

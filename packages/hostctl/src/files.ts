@@ -11,7 +11,7 @@ import { fail, string, integer } from './errors.ts';
 import type { HostctlConfig } from './config.ts';
 export function files(roots: readonly PathRoot[], extraDeny: readonly DenyEntry[], config: HostctlConfig, trash: (path: string, signal: AbortSignal) => Promise<void>, home = homedir(), env: NodeJS.ProcessEnv = process.env, afterStage?: () => Promise<void>) {
   const cwd = roots[0]?.path;
-  const deny = [...denyEntriesFor(home, env, isHostPlatform(process.platform) ? process.platform : 'linux'), { name: '.env' }, ...extraDeny];
+  const deny = [...denyEntriesFor(home, env, isHostPlatform(process.platform) ? process.platform : 'linux'), { name: '.env' }, { name: 'api-owner.token' }, { name: 'core.token' }, { name: 'supervisor.token' }, ...extraDeny];
   const fs = createFsOps({ roots, deny, home, limits: { maxReadBytes: config.output.maxBytes, maxWriteBytes: config.output.maxBytes } });
   const canon = async (input: string, access: 'read' | 'write'): Promise<CanonicalPath> => {
     if (input.split(/[\\/]/).some(p => /^\.env(?:\.|$)/i.test(p))) fail('DENIED', 'Environment credential files cannot be accessed.');

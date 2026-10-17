@@ -163,3 +163,7 @@
   background: var(--surface);
   font-weight: 650;
 }
+
+@media (max-width: 1023.98px) {
+  .help-toc-link { min-height: 44px; min-width: 44px; display: flex; align-items: center; }
+}

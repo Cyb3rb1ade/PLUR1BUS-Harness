@@ -1,0 +1,13 @@
+{
+  "params": {
+    "changes": [
+      {
+        "key": "engine.embedding.local.model",
+        "value": "intfloat/multilingual-e5-small"
+      }
+    ]
+  },
+  "result": {
+    "ok": true
+  }
+}

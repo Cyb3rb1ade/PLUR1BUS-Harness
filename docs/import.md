@@ -116,6 +116,16 @@ Embedding identity = model + revision/artefact hash + quantization + dimension +
 - **Mismatch (or target has no compatible provider configured yet):** the importer routes the store through PLUR1BUS's guided re-embedding migration — prepare target generation → dry-run → copy into new generation → separate switch → old generation retained for rollback (plur1bus-crons-embedding-portability.md §2, auftrag §6.2) — never a silent re-embed and never a mixed-vector-space table.
 - A store whose embedding identity cannot be determined at all (e.g. missing/corrupt provider metadata) is treated as a mismatch, never as an assumed match.
 
+**As built (OpenClaw, `import/importers/openclaw-stores.ts`).** The decision is made per partition (one per agent, one per shared pool), never for the store as a whole, and always on a copy: the source is only read (when it is a source snapshot, §12, its manifest is verified first) and stays byte-identical, content and permission bits.
+
+1. The partition is copied (the Hermes copy routine of `hermes-stores.ts`: no links, no special files) into a one-partition probe root next to `state/lancedb.adopt-<runId>` (dry run: the OS temp dir), together with the store's `_schema.json`.
+2. `Engine.stores.adopt` (dry run) checks that copy: schema marker of the current version, dimension, and, for stores without a generation manifest, the sample cosine probe that re-embeds a few stored texts and compares. This is what catches a store of the same dimension written by another model, which the recorded evidence (config, cache) cannot.
+3. Verdict `ok`: the copy joins the staging dir; after the snapshot and ledger exist, the staging dir is swapped into `state/lancedb` in one rename (`commitStoreAdopt`, ledger entity `store`, action `adopted`; rollback removes it). Nothing is embedded outside the probe.
+4. Identity mismatch, dimension mismatch, or an identity that cannot be proven: the partition is **not copied**. The report entry has `action: "re-embedding-migration"`, the reasons, and a `nextStep`: make the harness embed with the store's model, re-run the import, then `plur1bus memory reembed --plan --model <harness model>` (the guided migration of M2: plan, throttled copy into a new generation, validation, separate switch; its checkpoint checks are untouched by the import).
+5. A store without a readable current schema marker is `skipped` (`schema-mismatch`/`schema-unreadable`): the import never migrates or writes a source.
+6. Namespaced and generation layouts are `skipped` (`layout-unsupported`); only the flat layout (`<root>/<agent>/memories.lance`, `<root>/.plur1bus-shared/<kind>/<key>`) is mapped onto the harness store.
+7. An existing `state/lancedb` is never merged into: partitions already present byte-for-byte are `matched-existing`; otherwise `--conflict skip` reports `store-exists-skipped`, `rename` reports `store-rename-unsupported`, and `replace` swaps the store whole (the old one is kept under `imports/<runId>/replaced/lancedb`; rollback restores it). A second run on an unchanged source and target therefore writes nothing outside `imports/`.
+
 #### 2.3.2 Reranker (added 2026-09-27)
 
 The reranker was missing from this document. It touches **no stored vector** (ADR-006 §"Rerankers": switchable at runtime without migration), so a reranker difference is never a reason to re-embed or to block a take-over.
@@ -354,6 +364,16 @@ Extended for the harness's own provider matrix (ADR-006) with the equivalent env
       }
     }
   ],
+  "stores": [
+    {
+      "storeId": "agent:alpha | shared:workspaces:<key>",
+      "plannedAction": "take-over | re-embedding-migration",
+      "action": "taken-over | preview-ok | matched-existing | re-embedding-migration | skipped",
+      "rows": 0,
+      "reasons": ["identity-mismatch"],
+      "nextStep": "string | null"
+    }
+  ],
   "secrets": {
     "opted_in": false,
     "allowlistedKeysImported": ["TELEGRAM_BOT_TOKEN"],
@@ -374,6 +394,10 @@ Extended for the harness's own provider matrix (ADR-006) with the equivalent env
     "filesSkipped": 0,
     "channelsDeferred": 0,
     "cronJobsDeferred": 0,
+    "storesTakenOver": 0,
+    "storesMatched": 0,
+    "storesReembedMigration": 0,
+    "storesSkipped": 0,
     "corruptLedgerLines": 0
   },
   "errors": [ { "sourceRef": "string", "reason": "string" } ]

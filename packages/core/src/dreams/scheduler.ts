@@ -8,7 +8,7 @@ import { contentHash, DEFAULT_GATES, evaluate, type Decision, type GateConfig } 
 import { isValidTimezone, nextAfter, parseCron } from "./cron.ts";
 import type { DreamStore } from "./store.ts";
 import {
-  BREAKER_PHASES, BREAKER_SESSIONS, CANDIDATE_TTL_MS, DAY_MS, LEDGER_RETENTION_MS, LOG_RETENTION_MS, MAX_CONCURRENT_RUNS, PHASE_DEFAULTS, PHASES, REASON, RETRY_CAP, STAGGER_WINDOW_S,
+  BREAKER_PHASES, BREAKER_SESSIONS, CANDIDATE_TTL_MS, DAY_MS, LEDGER_RETENTION_MS, LOG_RETENTION_MS, MAX_CONCURRENT_RUNS, PHASE_DEFAULTS, PHASES, REASON, RETRY_CAP, RETRY_MAX_AGE_MS, STAGGER_WINDOW_S,
   type CandidateSource, type Clock, type DreamEngine, type DreamEvent, type DreamJobRun, type DreamLogger, type DreamRun, type Outcome, type Phase,
   type PhaseDefaults, type RunCounts, type ScheduleRow, type Trigger,
 } from "./types.ts";
@@ -23,6 +23,8 @@ export interface SchedulerOptions {
   breakerSessions?: number; maxConcurrent?: number; staggerWindowS?: number; candidateTtlMs?: number; gates?: GateConfig;
   phases?: { [P in Phase]?: Partial<PhaseDefaults> };
   candidates?: CandidateSource;
+  /** Age bound for a crashed-window retry. Default: RETRY_MAX_AGE_MS (24 h). */
+  retryMaxAgeMs?: number;
   /** Optional pre-check; the engine's own `no_llm_*` skip is mapped to the same reason when absent. */
   llmRoute?: (agentId: string) => boolean | Promise<boolean>;
   /** Phases whose completed run must have written a diary entry (the engine reports it in `JobRun.diary`). */
@@ -55,6 +57,14 @@ class Semaphore {
 const AGENT_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/; // rpc.schema.json $defs/AgentId
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 const utcDayStart = (ms: number) => Math.floor(ms / DAY_MS) * DAY_MS;
+
+/** Decode at most `maxBytes` of `buf` without splitting a UTF-8 codepoint (no U+FFFD at the cap). */
+function utf8Prefix(buf: Buffer, maxBytes: number): string {
+  if (buf.length <= maxBytes) return buf.toString("utf8");
+  let end = maxBytes;
+  while (end > 0 && (buf[end]! & 0xc0) === 0x80) end--;
+  return buf.subarray(0, end).toString("utf8");
+}
 
 /** The scheduling window of a run: the local date for rem/deep, a 4-hour bucket of it for light (ADR-009 Idempotency). */
 function windowId(phase: Phase, ms: number, tz: string): string {
@@ -178,10 +188,13 @@ export class DreamScheduler {
   }
 
   /** Retry rule for a crashed run: a scheduled window (cron or catch-up, so it has an instant), an agent still registered, the
-   *  phase still enabled, and no other run for that instant yet: the original and at most one retry (`RETRY_CAP`). */
+   *  phase still enabled, the window not older than `retryMaxAgeMs` (default 24 h), and no other run for that instant yet:
+   *  the original and at most one retry (`RETRY_CAP`). */
   #mayRetry(c: { runId: string; agentId: string; phase: Phase; trigger: Trigger; scheduledFor: number | null }): boolean {
     if ((c.trigger !== "cron" && c.trigger !== "catchup") || c.scheduledFor === null) return false;
     if (!this.#o.agents().includes(c.agentId) || !this.#o.store.getSchedule(c.agentId, c.phase)?.enabled) return false;
+    const maxAge = this.#o.retryMaxAgeMs ?? RETRY_MAX_AGE_MS;
+    if (this.#o.clock.now() - c.scheduledFor > maxAge) return false;
     return this.#o.store.windowRuns(c.agentId, c.phase, c.scheduledFor).length <= RETRY_CAP;
   }
 
@@ -548,6 +561,21 @@ export class DreamScheduler {
       return { agentId: id, phases, diary };
     });
     return { agents, counters: this.counters, schemaVersion: this.#o.store.schemaVersion };
+  }
+
+  /** The private diary of one agent (D15 `dreaming.md`). Cap matches per-run logs (262 144 bytes). Retention is unlimited. */
+  readDiary(agentId: string): { path: string | null; exists: boolean; bytes: number; text: string; truncated: boolean } {
+    const dp = this.#o.diaryPath?.(agentId) ?? null;
+    if (!dp) return { path: null, exists: false, bytes: 0, text: "", truncated: false };
+    try {
+      if (!existsSync(dp)) return { path: dp, exists: false, bytes: 0, text: "", truncated: false };
+      const bytes = statSync(dp).size;
+      const raw = readFileSync(dp);
+      const truncated = raw.length > 262_144;
+      return { path: dp, exists: bytes > 0, bytes, text: utf8Prefix(raw, 262_144), truncated };
+    } catch {
+      return { path: dp, exists: false, bytes: 0, text: "", truncated: false };
+    }
   }
 
   log(q: { agentId?: string; phase?: Phase; runId?: string; limit?: number }): { runs: DreamRun[]; log?: string } {

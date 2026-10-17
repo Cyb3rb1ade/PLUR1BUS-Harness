@@ -1,3 +1,4 @@
+import { channelMessageAllowed, channelOutputText } from "../../core/src/channels/behaviour.ts";
 import { createConnection } from "node:net";
 import type { Duplex } from "node:stream";
 import type { IdentityService } from "../../core/src/identity/service.ts";
@@ -385,6 +386,7 @@ export class SignalChannel implements Channel {
   }
 
   async sendTurn(turn: OutboundTurn): Promise<SentRef[]> {
+    turn = { ...turn, text: channelOutputText(this.#host, this.name, turn.chatId, "reply", turn.text) };
     const { client, signal } = this.#requireStarted();
     if (turn.buttons?.length) throw new UnsupportedError("buttons");
     const target = this.#target(turn.chatId);
@@ -414,6 +416,7 @@ export class SignalChannel implements Channel {
 
   /** Streaming edit of an own message (signal-cli `send` with `editTimestamp`). Must fit one message. */
   async edit(ref: SentRef, text: string): Promise<void> {
+    text = channelOutputText(this.#host, this.name, ref.chatId, "edit", text);
     const { client, signal } = this.#requireStarted();
     const target = this.#target(ref.chatId);
     const styled = toSignalText(text);
@@ -673,6 +676,7 @@ export class SignalChannel implements Channel {
       return this.#drop("view-once");
     }
 
+    if (!channelMessageAllowed(this.#host, { channel: this.name, chatId, chatKind, text, addressed }, this.#o.replyPolicy, this.#users?.has(senderId) === true)) return this.#drop("group-policy");
     const cmd = chatKind === "direct" ? /^\/([a-z]+)(?:\s+([\s\S]*))?$/i.exec(text) : null;
     const command = cmd && ["link", "help"].includes(cmd[1]!.toLowerCase()) ? cmd[1]!.toLowerCase() : undefined;
     if (command === "help") {
@@ -719,9 +723,7 @@ export class SignalChannel implements Channel {
   }
 
   #groupHears(member: boolean, addressed: boolean): boolean {
-    const policy = this.#o.replyPolicy ?? "mention";
-    const heard = policy === "always" || (policy === "allowlist" && member && this.#users !== undefined);
-    return heard || addressed;
+    return channelMessageAllowed(this.#host, { channel: this.name, chatKind: "group", text: "", addressed }, this.#o.replyPolicy, member && this.#users !== undefined);
   }
 
   async #emitRich(message: RichInbound): Promise<void> {

@@ -176,3 +176,16 @@ test("an image a tool produced in the turn follows the text reply as an image ev
     assert.equal(fake.uploads[0]!.size, bytes.length);
   } finally { await close(); }
 });
+
+test("behaviour: only an addressed Matrix group message crosses both adapter and router gates", async () => {
+  const { e2e, fake, close } = await matrix();
+  try {
+    e2e.link("matrix", BOT, ALICE);
+    await say(fake, ROOM, ALICE, "unaddressed group message");
+    await fake.waitIdle();
+    assert.equal(e2e.provider.requests.length, 0);
+    await say(fake, ROOM, ALICE, `${BOT} please reply`);
+    await e2e.until(() => bodies(fake, ROOM).length > 0, "addressed group reply");
+    assert.equal(e2e.provider.requests.length, 1);
+  } finally { await close(); }
+});

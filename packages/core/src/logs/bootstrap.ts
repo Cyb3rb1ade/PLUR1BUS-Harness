@@ -1,8 +1,9 @@
 // The one bootstrap seam: two example sources without migrating every legacy call site.
 import type { HarnessLogger } from "@plur1bus/module-api";
 import { createWriter } from "./writer.ts";
-import type { WriterOptions } from "./writer.ts";
-export function createCoreLog(o: WriterOptions): HarnessLogger {
+import type { LevelSettings, WriterOptions } from "./writer.ts";
+export type CoreLog = HarnessLogger & { updateLevels(settings: LevelSettings): void; currentLevels(): LevelSettings };
+export function createCoreLog(o: WriterOptions): CoreLog {
   const writer = createWriter(o); let closed = false;
   writer.write("core.process.started", { pid: process.pid });
   const crashFlush = () => { try { writer.tick(true); writer.flush(); } catch { /* preserve the original crash */ } };
@@ -27,10 +28,10 @@ export function createCoreLog(o: WriterOptions): HarnessLogger {
     return {
       debug: (m, f) => write("debug", m, f), info: (m, f) => write("info", m, f), warn: (m, f) => write("warn", m, f), error: (m, f) => write("error", m, f),
       child: fields => make({ ...base, ...fields }),
-      setLevel(level) { writer.updateLevels({ defaultLevel: level }); },
+      setLevel(level) { writer.updateLevels({ ...writer.currentLevels(), defaultLevel: level }); },
       setRotation(r) { writer.setRotation(r); },
       async close() { if (closed) return; closed = true; process.off("uncaughtExceptionMonitor", crashFlush); process.off("exit", crashFlush); writer.close(); },
     };
   };
-  return make({});
+  return Object.assign(make({}), { updateLevels: (s: LevelSettings) => writer.updateLevels(s), currentLevels: () => writer.currentLevels() });
 }

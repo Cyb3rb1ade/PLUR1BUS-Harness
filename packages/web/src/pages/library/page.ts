@@ -12,9 +12,14 @@ import { t } from "../../i18n.ts";
 import { registerArea } from "../../i18n/index.ts";
 import { area } from "../home/area.ts";
 import { StoredImage } from "../surfaces/stored-image.ts";
+import * as mediaArea from "../../i18n/libmedia.ts";
+import type { EditSource, MediaDialogProps } from "./generate.ts";
+import { JobBar } from "./jobs.ts";
+import { Preferences } from "./prefs.ts";
 import "../../styles/library.css";
 
 registerArea("homeHelpLibrary", area);
+registerArea("libmedia", mediaArea);
 
 export interface LibraryOutput {
   id: string;
@@ -42,6 +47,23 @@ function kindOf(o: LibraryOutput): string {
   return o.kind || (o.mimeType?.startsWith("video/") ? "video" : o.mimeType?.startsWith("audio/") ? "audio" : "image");
 }
 
+/** The generate/edit dialog is its own chunk: it is only fetched the first time a person opens it. */
+function LazyMediaDialog(props: MediaDialogProps): View {
+  const [Dialog_, setDialog_] = useState<((p: MediaDialogProps) => View) | null>(null);
+  useEffect(() => {
+    let live = true;
+    import("./generate.ts").then((m) => { if (live) setDialog_(() => m.MediaDialog); }, () => { if (live) props.onClose(); });
+    return () => { live = false; };
+  }, []);
+  return Dialog_ ? h(Dialog_, props) : h("span", { class: "sr-only", role: "status" }, t("state.loading"));
+}
+
+/** The kind narrowed to the ones the media dialogs know; anything unknown counts as an image. */
+function mediumOf(o: LibraryOutput): "image" | "video" | "audio" {
+  const k = kindOf(o);
+  return k === "video" || k === "audio" ? k : "image";
+}
+
 export function LibraryPage(): View {
   const { state, reload } = useLoad<{ outputs: LibraryOutput[] }>(
     async (signal) =>
@@ -62,6 +84,10 @@ export function LibraryPage(): View {
   } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<LibraryOutput | null>(null);
+  // Generate / edit dialog, the jobs it started (watched by the job bar) and a result the job bar asked to open.
+  const [dialog, setDialog] = useState<{ mode: "generate" } | { mode: "edit"; source: EditSource } | null>(null);
+  const [watch, setWatch] = useState<string[]>([]);
+  const [openId, setOpenId] = useState("");
 
   // Caption editing
   const [editingCaption, setEditingCaption] = useState(false);
@@ -129,6 +155,13 @@ export function LibraryPage(): View {
     }
   };
 
+  const loadedOutputs = state.status === "ok" ? state.data.outputs : null;
+  useEffect(() => {
+    if (!openId || !loadedOutputs) return;
+    const hit = loadedOutputs.find((o) => o.id === openId);
+    if (hit) { setSelected(hit); setOpenId(""); }
+  }, [openId, loadedOutputs]);
+
   const title = t("library.title");
 
   if (state.status === "loading") {
@@ -183,6 +216,9 @@ export function LibraryPage(): View {
       h(
         "div",
         { class: "library-actions" },
+        write
+          ? h("button", { type: "button", class: "btn btn-primary", onClick: () => setDialog({ mode: "generate" }) }, t("libmedia.generate"))
+          : null,
         h(
           "a",
           { href: "#/media", class: "btn" },
@@ -190,6 +226,12 @@ export function LibraryPage(): View {
         ),
       ),
     ),
+    h(JobBar, {
+      watch,
+      onOpenOutput: (id: string) => { reload(); setOpenId(id); },
+      onFinished: reload,
+    }),
+    h(Preferences, {}),
     filteredOutputs.length === 0
       ? h(PageState, { state: "empty", title: rawOutputs.length === 0 ? t("library.empty") : t("library.emptyFiltered") })
       : h(
@@ -246,6 +288,14 @@ export function LibraryPage(): View {
                   },
                   t("library.preview"),
                 ),
+                write && mediumOf(item) !== "audio"
+                  ? h("button", {
+                      type: "button",
+                      class: "btn btn-quiet",
+                      "aria-describedby": `library-prompt-${item.id}`,
+                      onClick: () => setDialog({ mode: "edit" as const, source: { id: item.id, prompt: item.prompt, kind: mediumOf(item) } }),
+                    }, t("libmedia.edit"))
+                  : null,
                 write
                   ? h(
                       "button",
@@ -386,6 +436,16 @@ export function LibraryPage(): View {
             ),
           ),
         )
+      : null,
+    dialog
+      ? h(LazyMediaDialog, {
+          ...dialog,
+          ...(dialog.mode === "edit"
+            ? { masks: rawOutputs.filter((o) => mediumOf(o) === "image").map((o) => ({ id: o.id, prompt: o.prompt })) }
+            : {}),
+          onClose: () => setDialog(null),
+          onQueued: (id: string) => { setWatch((w) => [...w, id]); },
+        } as MediaDialogProps)
       : null,
     deleteTarget
       ? h(

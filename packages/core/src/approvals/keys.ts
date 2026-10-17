@@ -1,14 +1,21 @@
 // D109 §6: the per-installation HMAC key lives in the secret store (ADR-005), never on disk in the clear.
 // The chain takes it through this interface so tests inject a fixed key and the core injects the secret store.
-import { randomBytes } from "node:crypto";
+import { generateKeyPairSync, randomBytes } from "node:crypto";
 import { SecretError, type SecretPrincipal } from "../secrets/types.ts";
 import type { SecretStore } from "../secrets/store.ts";
 
 export const MIN_KEY_BYTES = 32;
 export const CHAIN_KEY_SECRET_NAME = "approvals.chain-key.v1";
+/** PKCS8 DER (base64) Ed25519 identity used to sign `approval.decided` entries. Never silently replaced if corrupt. */
+export const SIGNING_KEY_SECRET_NAME = "approvals.signing-key.v1";
 
 export interface ChainKeySource {
   /** The key bytes (at least 32). Called once when a store opens; the key is then held in memory only. */
+  load(): Promise<Uint8Array>;
+}
+
+/** PKCS8 DER bytes of the Ed25519 signing identity. Called once when a store opens. */
+export interface SigningKeySource {
   load(): Promise<Uint8Array>;
 }
 
@@ -57,6 +64,39 @@ export function secretStoreKeySource(store: SecretStore, o: SecretKeySourceOptio
         if (!(e instanceof SecretError) || e.code !== "not-found") throw e;
       }
       await store.set(creator, name, randomBytes(MIN_KEY_BYTES).toString("base64"));
+      return read();
+    },
+  };
+}
+
+/**
+ * Reads the Ed25519 signing identity from the secret store, creating one on first use. A stored value that is not a
+ * valid PKCS8 blob is `corrupt` and is never replaced silently: replacing it would make every existing signature
+ * unverifiable against the new key.
+ */
+export function secretStoreSigningKeySource(store: SecretStore, o: SecretKeySourceOptions = {}): SigningKeySource {
+  const name = o.name ?? SIGNING_KEY_SECRET_NAME;
+  const reader: SecretPrincipal = o.reader ?? { kind: "core" };
+  const creator: SecretPrincipal = o.creator ?? { kind: "owner", id: "core" };
+  const read = async (): Promise<Uint8Array> => {
+    const lease = await store.lease(reader, name, { purpose: "approvals-signing", profileId: "core", ttlMs: 5000 });
+    try {
+      const bytes = Buffer.from(lease.value, "base64");
+      if (bytes.length < 16) throw new SecretError("corrupt", `secret ${name} is corrupt: not an Ed25519 PKCS8 key`, { name });
+      return Uint8Array.from(bytes);
+    } finally {
+      store.revokeLease(reader, lease.leaseId);
+    }
+  };
+  return {
+    async load() {
+      try {
+        return await read();
+      } catch (e) {
+        if (!(e instanceof SecretError) || e.code !== "not-found") throw e;
+      }
+      const { privateKey } = generateKeyPairSync("ed25519");
+      await store.set(creator, name, privateKey.export({ type: "pkcs8", format: "der" }).toString("base64"));
       return read();
     },
   };

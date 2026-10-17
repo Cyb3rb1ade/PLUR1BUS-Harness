@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-runtime-install-vendor"
+description = "Enables the runtime_install_vendor command without any pre-configured scope."
+commands.allow = ["runtime_install_vendor"]
+
+[[permission]]
+identifier = "deny-runtime-install-vendor"
+description = "Denies the runtime_install_vendor command without any pre-configured scope."
+commands.deny = ["runtime_install_vendor"]
