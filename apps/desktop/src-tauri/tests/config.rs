@@ -93,7 +93,17 @@ fn shell_capability_is_local_only() {
             "allow-harness-upgrade-status",
             "allow-harness-rollback",
             "allow-deep-link-next",
-            "allow-deep-link-open"
+            "allow-deep-link-open",
+            "allow-install-options",
+            "allow-runtime-install-apple",
+            "allow-runtime-install-vendor",
+            "allow-runtime-enable-podman-socket",
+            "allow-cli-shim-install",
+            "allow-cli-shim-remove",
+            "allow-uninstall-summary",
+            "allow-uninstall-run",
+            "allow-desktop-integration-get",
+            "allow-desktop-integration-set"
         ])
     );
     assert_eq!(c["webviews"], serde_json::json!(["shell"]));
@@ -125,6 +135,14 @@ fn every_wp4_command_is_registered_guarded_and_no_pin_or_runtime_path_is_an_ipc_
     assert_eq!(
         SHELL_COMMANDS,
         [
+            "install_options",
+            "runtime_install_apple",
+            "runtime_install_vendor",
+            "runtime_enable_podman_socket",
+            "cli_shim_install",
+            "cli_shim_remove",
+            "uninstall_summary",
+            "uninstall_run",
             "runtime_detect",
             "runtime_start",
             "bundle_install",
@@ -151,6 +169,8 @@ fn every_wp4_command_is_registered_guarded_and_no_pin_or_runtime_path_is_an_ipc_
             "pair_code",
             "pair_local",
             "open_connection",
+            "desktop_integration_get",
+            "desktop_integration_set",
             "autostart_get",
             "autostart_set",
             "quit_request",

@@ -1,3 +1,5 @@
+import { integrationControls } from "./views/integration-controls.ts";
+import { advancedSettings } from "./views/settings-advanced.ts";
 import { addRemote, resetPairing } from "./views/add-remote.ts";
 import type { LinkEnvelope } from "./ipc.ts";
 import {versionPage} from "./views/settings-version.ts";
@@ -54,6 +56,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   }
   function closeLink() { externalLink = null; render(); focusPage(); void pullLink(); }
   if (transport.deepLinkEvents) void transport.deepLinkEvents(() => { void pullLink(); }).then(pullLink).catch(() => {});
+  const renderAdvanced=advancedSettings(transport,key=>t(key),()=>render(),integrationControls(transport,key=>t(key),()=>render()));
   const renderUpdates = updatesPage(transport,()=>render());
   const renderVersion = versionPage(transport,()=>render());
   const renderComputerAccess = computerAccess(transport,key=>t(key),()=>render());
@@ -62,6 +65,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   let persisted: Settings = settings;
   const preferenceQueue: Array<{ change: Partial<Settings>; resolve: () => void }> = [];
   let saving = false;
+  let storeManaged=false;
   let autostart: boolean | null = null;
   let autostartBusy = false;
   let autostartFailed = false;
@@ -113,7 +117,7 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     settings = preferenceQueue.reduce((value, entry) => ({ ...value, ...entry.change }), stored);
     render();
   }).catch(() => { notice = "load"; render(); });
-  void transport.appInfo().then(info => { platform = info.platform; systemLocale = info.locale; render(); }).catch(() => {});
+  void transport.appInfo().then(info => { platform = info.platform; systemLocale = info.locale; storeManaged=info.store_managed===true; render(); }).catch(() => {});
   render();
   void refreshConnections();
 
@@ -229,7 +233,8 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
     openSections.dataset.focusKey = "sections";
     const layout = element("div", "settings-layout");
     const main = element("div", "settings-main");
-    if (route.page === "computer-access") {
+    if (route.page === "advanced") { main.append(renderAdvanced());
+    } else if (route.page === "computer-access") {
       main.append(renderComputerAccess());
     } else if (route.page === "updates" && transport.updateSettings) {
       main.append(renderUpdates());
@@ -251,11 +256,12 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
         const section = element("section", "settings-card");
         const label = element("label", "quit-choice");
         const toggle = document.createElement("input"); toggle.type = "checkbox";
-        toggle.checked = autostart === true; toggle.indeterminate = autostart === null; toggle.disabled = autostartBusy;
+        toggle.checked = autostart === true; toggle.indeterminate = autostart === null; toggle.disabled = autostartBusy||storeManaged;
         toggle.dataset.focusKey = "autostart";
         toggle.addEventListener("change", () => { void setAutostart(toggle.checked); });
         append(label, toggle, document.createTextNode(t("autostart.label"))); section.append(label);
-        if (autostart === null) section.append(element("p", undefined, t("autostart.unconfirmed")));
+        if(storeManaged) section.append(element("p",undefined,t("integration.store")));
+        if (autostart === null&&!storeManaged) section.append(element("p", undefined, t("autostart.unconfirmed")));
         if (autostartFailed) { const error = element("p", undefined, t("autostart.failed")); error.setAttribute("role", "alert"); section.append(error); }
         main.append(section);
       }

@@ -659,3 +659,15 @@ nothing is downloaded or installed. Unknown inputs are discarded with an
 argument-free diagnostic. The same checks apply to first- and second-launch argv.
 Portable AppImage desktop integration and Flatpak exports are packaging work;
 installed-bundle and native acceptance limits are in the [phase 1 report](handoff/status/2026-10-15-d1-p1.md).
+
+## D1 packaging preview (2026-10-15)
+
+WP13 implementation and limitations: [phase 2 handoff](handoff/status/2026-10-15-d1-p2.md). Direct native bundles support online and offline content; Store and Flatpak are online-only. `node apps/desktop/scripts/build-bundle.mjs --target aarch64-apple-darwin --variant offline --ci-fixture` builds a clearly labelled preview without usable host CLI, Apple installer, harness or model weights. Other supported targets are Windows x64/arm64 and Linux x64/arm64 triples. Run on the matching native toolchain.
+
+Production inputs are explicit environment paths: `PLUR1BUS_DESKTOP_RELEASE_MANIFEST`, `PLUR1BUS_DESKTOP_HOST_CLI`, `PLUR1BUS_DESKTOP_APPLE_PKG`, `PLUR1BUS_DESKTOP_OFFLINE_IMAGE`, `PLUR1BUS_DESKTOP_OFFLINE_MODELS`. Missing inputs fail closed. Metadata checksums must describe the actual release artifacts. Staging writes a separate provenance manifest and never downloads executable payloads. Use `--channel dev|beta|stable`; it selects the initial update channel while preserving saved user choices. Dev builds are debug previews; beta/stable use their independent signed feed keys.
+
+`--distribution store|flatpak --variant online` builds without updater features and stages the native format plan. `--execute-formats` runs MakeAppx/flatpak-builder explicitly; Windows requires `PLUR1BUS_MSIX_PUBLISHER` and the SDK on PATH. Set `PLUR1BUS_MSIX_IDENTITY` only from the owner’s assigned Store identity. Unsigned MSIX cannot be treated as an installed Store release. Flatpak runtime/ABI/portal acceptance requires a native Linux environment; no broad host filesystem permission is requested.
+
+Signing: `APPLE_SIGNING_IDENTITY` selects the macOS identity, otherwise `-` uses ad-hoc. No notarization credentials are provided by the scripts. Windows `signCommand` stays empty until SignPath is configured. AppImage signing is release-operated with Tauri/linuxdeploy’s `SIGN`, `SIGN_KEY` and `APPIMAGETOOL_SIGN_PASSPHRASE`; do not store key material in this repository or treat an unsigned preview as verified publisher identity.
+
+Uninstall offers **App only** by default, **App and images**, or **Everything**. Only Everything removes owned state/models/snapshots and corresponding device credentials, and requires typing `plur1bus-state`. Review the summary first. Package-manager/NSIS app removal itself leaves harness data intact. CLI shim installation refuses an existing foreign `plur1bus`; the native CLI’s authoritative identity/location and forwarding are separate pending contracts.

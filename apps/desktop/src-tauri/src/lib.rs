@@ -6,6 +6,7 @@ pub mod connections;
 pub mod controller;
 pub mod crash;
 pub mod deeplink;
+pub mod desktop_integration;
 pub mod diagnostics;
 pub mod discovery;
 pub mod events;
@@ -15,6 +16,8 @@ pub mod helper;
 pub mod host_commands;
 pub mod ids;
 pub mod install;
+pub mod install_commands;
+pub mod integration_commands;
 pub mod lifecycle;
 pub mod logging;
 pub mod native;
@@ -111,6 +114,7 @@ pub fn run() {
         .manage(update_commands::UpdateState::default())
         .on_window_event(native::close)
         .setup(|app| {
+            if crate::desktop_integration::refresh_on_launch().is_err() { eprintln!("DESKTOP_INTEGRATION_REFRESH_FAILED"); }
             // Until Linux tray/background capability is confirmed, keep its dash entry reachable.
             use tauri::Manager;
             app.state::<native::NativeState>().background.store(!cfg!(target_os = "linux"), std::sync::atomic::Ordering::SeqCst);
@@ -123,7 +127,11 @@ pub fn run() {
             // URLs and logs foreign argv in debug builds; its bundle configuration still registers
             // the scheme. No renderer receives plugin permissions or raw OS events.
             deeplink::dispatch(app.handle(), std::env::args_os().map(|arg| arg.to_string_lossy().into_owned()).collect());
-            if !fixture && native::build_tray(app.handle()).is_err() {
+            #[cfg(target_os = "linux")]
+            let portal_only = gnome::is_flatpak();
+            #[cfg(not(target_os = "linux"))]
+            let portal_only = false;
+            if !fixture && (portal_only || native::build_tray(app.handle()).is_err()) {
                 app.state::<native::NativeState>().tray_failed();
                 eprintln!("TRAY_SETUP_FAILED");
             }
@@ -159,6 +167,14 @@ pub fn run() {
             { let _ = app; Ok(()) }
         })
         .invoke_handler(tauri::generate_handler![
+            install_commands::install_options,
+            install_commands::runtime_install_apple,
+            install_commands::runtime_install_vendor,
+            install_commands::runtime_enable_podman_socket,
+            install_commands::cli_shim_install,
+            install_commands::cli_shim_remove,
+            install_commands::uninstall_summary,
+            install_commands::uninstall_run,
             runtime_commands::runtime_detect,
             runtime_commands::runtime_start,
             runtime_commands::bundle_install,
@@ -185,6 +201,8 @@ pub fn run() {
             commands::pair_code,
             commands::pair_local,
             commands::open_connection,
+            integration_commands::desktop_integration_get,
+            integration_commands::desktop_integration_set,
             commands::autostart_get,
             commands::autostart_set,
             commands::quit_request,

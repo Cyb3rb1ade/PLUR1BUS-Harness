@@ -51,6 +51,16 @@
     "allow-harness-upgrade-status",
     "allow-harness-rollback",
     "allow-deep-link-next",
-    "allow-deep-link-open"
+    "allow-deep-link-open",
+    "allow-install-options",
+    "allow-runtime-install-apple",
+    "allow-runtime-install-vendor",
+    "allow-runtime-enable-podman-socket",
+    "allow-cli-shim-install",
+    "allow-cli-shim-remove",
+    "allow-uninstall-summary",
+    "allow-uninstall-run",
+    "allow-desktop-integration-get",
+    "allow-desktop-integration-set"
   ]
 }

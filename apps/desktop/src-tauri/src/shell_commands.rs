@@ -1,5 +1,13 @@
 // Shared by the native allow-list and Tauri's generated application ACL.
 pub const SHELL_COMMANDS: &[&str] = &[
+    "install_options",
+    "runtime_install_apple",
+    "runtime_install_vendor",
+    "runtime_enable_podman_socket",
+    "cli_shim_install",
+    "cli_shim_remove",
+    "uninstall_summary",
+    "uninstall_run",
     "runtime_detect",
     "runtime_start",
     "bundle_install",
@@ -26,6 +34,8 @@ pub const SHELL_COMMANDS: &[&str] = &[
     "pair_code",
     "pair_local",
     "open_connection",
+    "desktop_integration_get",
+    "desktop_integration_set",
     "autostart_get",
     "autostart_set",
     "quit_request",
@@ -48,6 +58,14 @@ pub const SHELL_COMMANDS: &[&str] = &[
 
 // Application manifest includes both trust zones; shell-ui still names only SHELL_COMMANDS.
 pub const APP_COMMANDS: &[&str] = &[
+    "install_options",
+    "runtime_install_apple",
+    "runtime_install_vendor",
+    "runtime_enable_podman_socket",
+    "cli_shim_install",
+    "cli_shim_remove",
+    "uninstall_summary",
+    "uninstall_run",
     "runtime_detect",
     "runtime_start",
     "bundle_install",
@@ -74,6 +92,8 @@ pub const APP_COMMANDS: &[&str] = &[
     "pair_code",
     "pair_local",
     "open_connection",
+    "desktop_integration_get",
+    "desktop_integration_set",
     "autostart_get",
     "autostart_set",
     "quit_request",
