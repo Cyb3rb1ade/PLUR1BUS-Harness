@@ -2,7 +2,7 @@
 // a code is single use, expires, is bound to its channel, and a claim only parks until the owner confirms.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { createIdentityService, IdentityError, type AuditEvent, type ChannelIdentity } from "../../src/identity/service.ts";
+import { createIdentityService, DEFAULT_CODE_TTL_MS, IdentityError, type AuditEvent, type ChannelIdentity } from "../../src/identity/service.ts";
 import { ADMIN, MIN, OWNER, refuses, useIdentity } from "./helpers.ts";
 
 const fixture = useIdentity();
@@ -10,10 +10,10 @@ const TG: ChannelIdentity = { channel: "telegram", accountId: "bot-a", userId: "
 const HOUR = 60 * MIN;
 
 describe("identity pairing: starting", () => {
-  it("issues an 8-symbol code from the unambiguous alphabet, valid for one hour by default", () => {
+  it("issues an 8-symbol code from the unambiguous alphabet, valid for 10 minutes by default", () => {
     const f = fixture(); const h = f.human();
     const p = f.svc.startPairing({ humanId: h.id, channel: "telegram" }, OWNER);
-    assert.match(p.code, /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8}$/); assert.equal(p.channel, "telegram"); assert.equal(p.expiresAt, f.now() + HOUR);
+    assert.match(p.code, /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8}$/); assert.equal(p.channel, "telegram"); assert.equal(p.expiresAt, f.now() + DEFAULT_CODE_TTL_MS); assert.equal(DEFAULT_CODE_TTL_MS, 10 * MIN);
     assert.match(p.pairingId, /^[0-9a-f-]{36}$/);
   });
 
@@ -80,7 +80,7 @@ describe("identity pairing: claiming", () => {
     const { f, p } = started();
     f.advance(2 * MIN);
     const c = f.svc.claim({ code: p.code, identity: TG });
-    assert.deepEqual(c, { pairingId: p.pairingId, state: "awaiting-confirmation", confirmBy: f.now() + HOUR });
+    assert.deepEqual(c, { pairingId: p.pairingId, state: "awaiting-confirmation", confirmBy: f.now() + DEFAULT_CODE_TTL_MS });
     assert.equal(f.svc.resolve(TG), null);
     refuses(() => f.svc.claim({ code: p.code, identity: { ...TG, userId: "other" } }), "invalid-code", undefined, "single use");
   });
@@ -186,24 +186,24 @@ describe("identity pairing: confirming", () => {
     refuses(() => f.svc.confirm(undefined as never, OWNER), "invalid-params", "pairingId");
   });
 
-  it("the confirmation has its own lifetime after the claim (one hour for a full-length code): fine one millisecond before, expired at the boundary", () => {
-    const a = claimed(); a.f.advance(40 * MIN);
-    // a claim made now would have its own hour; this one was claimed at +0, so its boundary is +60 min
-    a.f.advance(20 * MIN - 1);
+  it("the confirmation has its own lifetime after the claim (as long as a full-length code lives, 10 minutes by default): fine one millisecond before, expired at the boundary", () => {
+    const a = claimed(); a.f.advance(4 * MIN);
+    // a claim made now would have its own 10 minutes; this one was claimed at +0, so its boundary is +10 min
+    a.f.advance(6 * MIN - 1);
     assert.equal(a.f.svc.confirm({ pairingId: a.c.pairingId, approve: true }, OWNER).state, "confirmed");
-    const b = claimed(); b.f.advance(HOUR);
+    const b = claimed(); b.f.advance(DEFAULT_CODE_TTL_MS);
     refuses(() => b.f.svc.confirm({ pairingId: b.c.pairingId, approve: true }, OWNER), "expired");
     assert.equal(b.f.svc.resolve(TG), null);
     assert.equal(b.f.svc.list({ includeResolvedPairings: true }).pairings.find((x) => x.id === b.c.pairingId)!.state, "expired");
   });
 
-  it("a claim near the end of a full-length code still gets a full hour to be confirmed", () => {
+  it("a claim near the end of a full-length code still gets a full lifetime to be confirmed", () => {
     const f = fixture(); const h = f.human();
     const p = f.svc.startPairing({ humanId: h.id, channel: "telegram" }, OWNER);
-    f.advance(59 * MIN);
+    f.advance(9 * MIN);
     const c = f.svc.claim({ code: p.code, identity: TG });
-    assert.equal(c.confirmBy, f.now() + HOUR);
-    f.advance(HOUR - 1);
+    assert.equal(c.confirmBy, f.now() + DEFAULT_CODE_TTL_MS);
+    f.advance(DEFAULT_CODE_TTL_MS - 1);
     assert.equal(f.svc.confirm({ pairingId: c.pairingId, approve: true }, OWNER).state, "confirmed");
   });
 

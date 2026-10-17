@@ -101,6 +101,12 @@ describe("logs query: filters", () => {
     assert.deepEqual(msgs(await q(d, { ...diag, text: "TIMEOUT" })), ["provider failed: Timeout"]);
     assert.deepEqual(msgs(await q(d, { ...diag, text: "openai" })), ["slow recall"]); // inside source
   });
+  it("traceId matches the record's trace_id exactly", async () => {
+    const d = logsDir();
+    const tid = "4bf92f3577b34da6a3ce929d0e0e4736";
+    put(d, "core.log", rec(0, "info", "hit", { trace_id: tid }) + rec(10, "info", "miss", { trace_id: "00f067aa0ba902b74bf92f3577b34da6" }) + rec(20, "info", `mentions ${tid}`));
+    assert.deepEqual(msgs(await q(d, { ...diag, traceId: tid })), ["hit"]);
+  });
   it("filters combine (AND)", async () => {
     const d = fixture();
     const f: LogFilter = { ...diag, from: iso(1000), to: iso(3500), minLevel: "warn", component: "core", text: "provider" };

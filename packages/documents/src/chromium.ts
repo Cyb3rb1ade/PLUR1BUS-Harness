@@ -281,9 +281,31 @@ export async function captureScreenshot(cdp: CdpClient): Promise<Uint8Array> {
   return Buffer.from(res.data, "base64");
 }
 
-/** Render the full scrollable page to one PNG (beyond the viewport). */
+/** Fixed capture viewport (A4 at 96 dpi). Without it the headless window size, and with it the page width/height, varies between runs. */
+export const CAPTURE_WIDTH = 794;
+export const CAPTURE_HEIGHT = 1123;
+
+/**
+ * Render the full scrollable page to one PNG (beyond the viewport). Deterministic: the viewport is pinned, the layout is given time
+ * to settle (fonts ready, two animation frames, scroll height unchanged over consecutive samples) and the capture is clipped to the
+ * measured document height.
+ */
 export async function captureFullPagePng(cdp: CdpClient): Promise<Uint8Array> {
-  const res = await cdp.call<{ data: string }>("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+  await cdp.call("Emulation.setDeviceMetricsOverride", { width: CAPTURE_WIDTH, height: CAPTURE_HEIGHT, deviceScaleFactor: 1, mobile: false });
+  const settle = "document.fonts.ready.then(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(Math.ceil(Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0)))))))";
+  let height = 0, stable = 0;
+  for (let i = 0; i < 40 && stable < 3; i++) {
+    const res = await cdp.call<{ result?: { value?: number } }>("Runtime.evaluate", { expression: settle, awaitPromise: true, returnByValue: true });
+    const h = Number(res.result?.value ?? 0);
+    stable = h === height && h > 0 ? stable + 1 : 0;
+    height = h;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  const res = await cdp.call<{ data: string }>("Page.captureScreenshot", {
+    format: "png",
+    captureBeyondViewport: true,
+    clip: { x: 0, y: 0, width: CAPTURE_WIDTH, height: Math.max(height, 1), scale: 1 },
+  });
   return Buffer.from(res.data, "base64");
 }
 

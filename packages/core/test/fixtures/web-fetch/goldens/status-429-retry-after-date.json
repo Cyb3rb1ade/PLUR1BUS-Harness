@@ -1,0 +1,5 @@
+{
+  "code": "rate-limited",
+  "status": 429,
+  "retryAfterSeconds": 180
+}

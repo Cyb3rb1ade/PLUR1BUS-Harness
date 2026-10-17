@@ -5,6 +5,7 @@ import { openApprovalsDb } from "../../src/approvals/db.ts";
 import { ApprovalChain } from "../../src/approvals/chain.ts";
 import { staticKeySource } from "../../src/approvals/keys.ts";
 import { createApprovalStore, type ApprovalBinding, type ApprovalStore } from "../../src/approvals/store.ts";
+import type { DecisionSigner } from "../../src/approvals/signing.ts";
 
 export const NOW = Date.UTC(2026, 9, 6, 12, 0, 0);
 export const MIN = 60_000;
@@ -36,10 +37,10 @@ export function openChain(path: string, o: { key?: Uint8Array; clock?: FakeClock
   return { db, chain: new ApprovalChain(db, o.key ?? KEY, clock), clock };
 }
 
-export async function openStore(path: string, o: { key?: Uint8Array; clock?: FakeClock; ttlMs?: number } = {}): Promise<{ store: ApprovalStore; db: DatabaseSync; clock: FakeClock }> {
+export async function openStore(path: string, o: { key?: Uint8Array; clock?: FakeClock; ttlMs?: number; signer?: DecisionSigner } = {}): Promise<{ store: ApprovalStore; db: DatabaseSync; clock: FakeClock }> {
   const clock = o.clock ?? new FakeClock();
   const db = openApprovalsDb({ path });
-  const store = await createApprovalStore({ db, keys: staticKeySource(o.key ?? KEY), clock, ...(o.ttlMs !== undefined ? { requestTtlMs: o.ttlMs } : {}) });
+  const store = await createApprovalStore({ db, keys: staticKeySource(o.key ?? KEY), clock, ...(o.ttlMs !== undefined ? { requestTtlMs: o.ttlMs } : {}), ...(o.signer ? { signer: o.signer } : {}) });
   return { store, db, clock };
 }
 

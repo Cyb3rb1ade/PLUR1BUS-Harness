@@ -1,3 +1,8 @@
+import { DatabaseSync } from "node:sqlite";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { assertMemoryConfiguration } from "./licences/memory.ts";
+import type { LicenceAcceptance } from "./licences/ledger.ts";
 import type { HarnessConfig } from "@plur1bus/config-schema";
 import type { Layout } from "./paths.ts";
 
@@ -27,4 +32,16 @@ function plain(v: unknown): Record<string, any> {
   if (v === null || typeof v !== "object" || Array.isArray(v)) return out;
   for (const [k, x] of Object.entries(v)) if (k !== "__proto__") out[k] = x;
   return out;
+}
+
+/** Execution gate is separate from the pure projection used by read-only migration inspection. */
+export function checkEngineConfigLicences(engineConfig: unknown,l: Layout): void {
+  // CLI/config-file writes have no HTTP preflight; the runtime still refuses an unconfirmed NC revision.
+  const ledgerPath = join(l.state,"model-licences.sqlite");
+  let accepted: LicenceAcceptance[] = [];
+  if (existsSync(ledgerPath)) {
+    const db = new DatabaseSync(ledgerPath,{readOnly:true});
+    try { accepted = db.prepare("SELECT * FROM model_licences").all() as unknown as LicenceAcceptance[]; } finally { db.close(); }
+  }
+  assertMemoryConfiguration(engineConfig,accepted);
 }

@@ -224,7 +224,7 @@ const SHOTS: Shot[] = [
     await p.getByRole("list", { name: "People with access" }).getByRole("listitem").nth(3).waitFor();
   }),
   shot("settings-secrets", "#/settings/secrets", (app) => { M3.seedSecretsPage(app.server); }, async (p) => { await p.getByRole("row", { name: /openai\.apiKey/ }).waitFor(); }),
-  shot("settings-devices", "#/settings/devices", (app) => { M3.seedDevices(app.server); }, async (p) => { await p.getByText("Published as lan").waitFor(); }),
+  shot("settings-devices", "#/settings/devices", (app) => { M3.seedDevices(app.server); }, async (p) => { await p.getByText("Published as tailnet").waitFor(); }),
   shot("logs-viewer", "#/logs", (app) => { M3.seedLogs(app.server); }, async (p) => { await p.getByRole("grid", { name: "Log entries" }).locator('[role="row"][data-row]').first().waitFor(); }),
   shot("logs-activity", "#/logs/activity", (app) => { M3.seedActivity(app.server); }, async (p) => { await p.getByRole("region", { name: "Recent activity" }).getByRole("heading", { level: 3 }).first().waitFor(); }),
   shot("logs-sessions", "#/logs/sessions", (app) => { M3.seedSessions(app.server); }, async (p) => { await p.locator("li.session-row").first().waitFor(); }),
