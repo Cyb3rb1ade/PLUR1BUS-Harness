@@ -146,3 +146,25 @@ Object.assign(window, { testShell: {
     next.reject(new Error("fixture write failure"));
   },
 } });
+
+// Installation fixtures exercise the same views and transport interfaces as the native shell.
+import { advancedSettings } from "../src/views/settings-advanced.ts";
+import { integrationControls } from "../src/views/integration-controls.ts";
+import { installRuntime } from "../src/views/install-runtime.ts";
+Object.assign((window as any).testShell, {
+ installCalls:[] as unknown[],
+ showIntegration:(kind:"desktop"|"menu"|"store"="desktop",fail=false)=>{
+  const render=integrationControls({...transport,desktopIntegrationGet:async()=>({kind,enabled:false}),desktopIntegrationSet:async enabled=>{if(fail)throw Error("foreign-secret");return {kind,enabled};}},key=>translate("en",key),()=>shellRoot.replaceChildren(render()));
+  shellRoot.replaceChildren(render());
+ },
+ showInstall:(platform:"mac"|"win"|"linux"="win",locale:"en"|"de"="en")=>{
+  const self=(window as any).testShell;
+  const render=installRuntime({...transport,installOptions:async()=>({platform,appleAvailable:platform==="mac",dockerLicence:"Docker terms",podmanLicence:"Apache-2.0"}),runtimeInstallApple:async agreed=>{self.installCalls.push(["apple",agreed]);},runtimeInstallVendor:async(vendor,agreed)=>{self.installCalls.push([vendor,agreed]);},runtimeEnablePodmanSocket:async()=>{self.installCalls.push(["socket"]);}},key=>translate(locale,key),()=>shellRoot.replaceChildren(render()),()=>{self.installCalls.push(["recheck"]);});
+  shellRoot.replaceChildren(render());
+ },
+ showAdvanced:(locale:"en"|"de"="en")=>{
+  const self=(window as any).testShell;
+  const render=advancedSettings({...transport,cliShimInstall:async add=>{self.installCalls.push(["shim",add]);},cliShimRemove:async()=>{},diagnosticsOpen:async()=>{},uninstallSummary:async level=>({level,containers:["plur1bus-harness"],images:level==="app_only"?[]:["sha256:fixture"],volumes:level==="everything"?[{name:"plur1bus-state",bytes:null},{name:"plur1bus-state-pre-0.1.0",bytes:4096}]:[],preservesData:level!=="everything",removesKeychain:level==="everything"}),uninstallRun:async(level,confirmation)=>{self.installCalls.push(["uninstall",level,confirmation]);}},key=>translate(locale,key),()=>shellRoot.replaceChildren(render()));
+  shellRoot.replaceChildren(render());
+ },
+});

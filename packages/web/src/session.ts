@@ -27,7 +27,7 @@ export type WriteMethod = "POST" | "PUT" | "PATCH" | "DELETE";
 
 /** The only session surface UI code uses; the HTTP client and any test double implement it. */
 export type AccountCredentials = { username: string; password: string } | { challenge: string; code: string };
-export type AccountLoginResult = LoginResult | { ok: false; challenge: string };
+export type AccountLoginResult = LoginResult | { ok: false; challenge: string; mfa?: "webauthn" };
 
 export interface SessionApi {
   /** The signed-in user, or null when there is no valid session. Rejects only on a network or server failure. */
@@ -105,7 +105,7 @@ export class HttpSessionApi implements SessionApi {
     if (!res.ok) return { ok: false, failure: { kind: "server", status: res.status } };
     try {
       const body = await res.json() as { mfa?: unknown; challenge?: unknown };
-      if (body.mfa === "totp" && typeof body.challenge === "string" && body.challenge.length <= 128) return { ok: false, challenge: body.challenge };
+      if ((body.mfa === "totp" || body.mfa === "webauthn") && typeof body.challenge === "string" && body.challenge.length <= 128) return { ok: false, challenge: body.challenge, ...(body.mfa === "webauthn" ? { mfa: "webauthn" as const } : {}) };
       const user = asUser(body); return user ? { ok: true, user } : { ok: false, failure: { kind: "server", status: res.status } };
     } catch { return { ok: false, failure: { kind: "server", status: res.status } }; }
   }

@@ -657,9 +657,6 @@ test("health() never carries a secret or a ticket in `detail`, before start, whi
 
 test(
   "a webSocket factory that throws while reconnecting keeps its error text out of the process",
-  {
-    todo: "KNOWN GAP: channels-slack SocketMode.#supervise (src/socket.ts:122): erwartet kein Geheimnis in einem unbehandelten Promise-Reject, tatsächlich enthält der Reject-Text den Marker (Bot-Token und Socket-URL mit Ticket); die Wiederverbindung bricht dabei still ab",
-  },
   async () => {
     // At start a throwing factory is mapped to a fixed message (see section 3). After a successful start the same failure
     // happens inside the background reconnect loop, which has no handler of its own. Expected: the error text, which here

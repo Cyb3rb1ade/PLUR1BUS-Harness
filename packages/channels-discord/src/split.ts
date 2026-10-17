@@ -39,9 +39,25 @@ function cutFor(s: string, budget: number): number {
   const floor = Math.floor(budget / 2);
   for (const sep of ["\n\n", "\n", " "]) {
     const i = s.lastIndexOf(sep, budget - sep.length);
-    if (i >= floor) return i + sep.length;
+    if (i >= floor) return graphemeCut(s, i + sep.length);
   }
-  return Math.max(1, budget);
+  return graphemeCut(s, Math.max(1, budget));
+}
+
+const GRAPHEMES = new Intl.Segmenter("en", { granularity: "grapheme" });
+const LOOKAHEAD = 64;
+
+/** Moves `cut` back to the nearest extended grapheme cluster boundary at or before it, so a ZWJ sequence, a flag pair, a
+ *  skin-tone or VS16 emoji, a combining mark or CRLF is never torn. A cluster that starts at 0 and spans the whole budget
+ *  cannot be kept together; then the cut stays where it is (the caller still avoids splitting a surrogate pair). */
+function graphemeCut(s: string, cut: number): number {
+  if (cut >= s.length) return cut;
+  let best = 0;
+  for (const seg of GRAPHEMES.segment(s.slice(0, cut + LOOKAHEAD))) {
+    if (seg.index > cut) break;
+    best = seg.index;
+  }
+  return best > 0 ? best : cut;
 }
 
 interface Fence {

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 // Agent creation is serialised per core, with Config Schema as the sole settings validator.
 import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -7,6 +8,7 @@ import { authorize } from "../rbac/authorize.ts";
 import type { Layout } from "../paths.ts";
 import type { AuditSink } from "../rbac/audit.ts";
 import { RpcError } from "../rpc/errors.ts";
+import { AgentCreateSaga, creationDigest, type SagaRecord } from "./saga.ts";
 import { cleanImport, readAgentBundle, type AgentFile } from "./import.ts";
 export interface WizardError { step: "identity" | "model" | "rights"; field: string; message: string; code: string }
 export interface AgentCreationDeps {
@@ -19,6 +21,12 @@ export interface AgentCreationDeps {
   requiredSecrets(config: HarnessConfig["agents"][string]): string[];
   importMemory(id: string, cards: unknown[], hash: string, who: Principal): Promise<void>;
   pause(id: string): void;
+  /** Reversible runtime reservation; close does not claim engine data erasure. */
+  reserve?(id: string): Promise<void>;
+  release?(id: string): Promise<void>;
+  ready?(id: string): void;
+  removeConfig?(id: string, expected: HarnessConfig["agents"][string]): Promise<void>;
+  clearRights?(id: string): void;
 }
 const obj = (v: unknown): v is Record<string, any> => !!v && typeof v === "object" && !Array.isArray(v);
 /** References are checked against the instance both in the wizard and immediately before the Config-owner commit. */
@@ -41,7 +49,7 @@ export function agentCreation(d: AgentCreationDeps) {
     else if (Object.hasOwn(d.config().agents, id) || existsSync(d.layout.agentDir(id))) add("identity", "name", "agent already exists", "E_AGENT_EXISTS");
     // A person ID is a rights recipient; an agent of the same name would make that person ungrantable and ambiguous.
     else if (d.people().includes(id)) add("identity", "name", "name belongs to a person", "E_AGENT_EXISTS");
-    const config = Object.fromEntries(Object.entries(p).filter(([k]) => k !== "name" && k !== "rights"));
+    const config = Object.fromEntries(Object.entries(p).filter(([k]) => k !== "name" && k !== "rights" && k !== "idempotencyKey"));
     const candidate = { ...d.config(), agents: { wizard: config } };
     const checked = validate(candidate);
     if (!checked.ok) for (const message of checked.errors) {
@@ -100,9 +108,59 @@ export function agentCreation(d: AgentCreationDeps) {
       throw new RpcError("E_STORAGE", "agent registration unavailable");
     } finally { rmSync(stage, { recursive: true, force: true }); }
   };
+  const saga = new AgentCreateSaga(d.layout.state);
+  const stepsFor = (record: SagaRecord) => {
+    const v = record.payload as { config: HarnessConfig["agents"][string]; rights: Record<string, AgentRight> };
+    const id = record.agentId, root = d.layout.agentDir(id);
+    if (!new RegExp(CONFIG_SCHEMA.properties.agents.propertyNames.pattern).test(id) || !obj(v) || !obj(v.config) || !obj(v.rights)) throw new RpcError("E_STORAGE", "invalid provisioning intent");
+    if (!d.reserve || !d.release || !d.removeConfig || !d.clearRights) throw new RpcError("E_NOT_AVAILABLE", "reversible agent provisioning unavailable");
+    return [
+      { name: "engine", apply: () => d.reserve!(id), undo: () => d.release!(id) },
+      { name: "files", apply: async () => {
+        mkdirSync(join(root, "workspace"), { recursive: true, mode: 0o700 });
+        if (v.config.persona !== undefined) writeFileSync(join(root, "SOUL.md"), v.config.persona, { mode: 0o600, flag: "wx" });
+      }, undo: async () => { rmSync(root, { recursive: true, force: true }); } },
+      { name: "config", apply: () => d.set(id, v.config), undo: () => d.removeConfig!(id,v.config) },
+      { name: "rights", apply: async () => {
+        for (const [user, right] of Object.entries(v.rights)) d.setRight(id, user, right);
+        d.setRight(id, record.actor, "manage");
+        d.audit.append({ at: d.clock(), actor: { user: record.actor, host: "rpc" }, action: "agent.created", target: id, detail: { idempotency: true } });
+      }, undo: async () => { d.clearRights!(id); } },
+    ];
+  };
+  const recover = async () => {
+    for (const record of saga.completedUnactivated()) { await d.release?.(record.agentId); d.ready?.(record.agentId); saga.markActivated(record); }
+    for (const record of saga.pending()) {
+      try { await saga.compensate(record, stepsFor(record)); }
+      catch { d.pause(record.agentId); throw new RpcError("E_STORAGE", "agent provisioning recovery incomplete"); }
+    }
+  };
+  const create = (payload: unknown, who: Principal) => serial(async () => {
+    if (!obj(payload)) return commit(check(payload, who), who);
+    if (payload.idempotencyKey === undefined) {
+      if (!d.reserve) return commit(check(payload, who), who);
+      payload = { ...payload, idempotencyKey: randomUUID() };
+    }
+    if (!obj(payload)) throw new RpcError("E_INVALID_PARAMS", "invalid creation request");
+    const key = payload.idempotencyKey;
+    if (typeof key !== "string" || !/^[A-Za-z0-9_-]{16,128}$/.test(key)) throw new RpcError("E_INVALID_PARAMS", "invalid idempotency key");
+    await recover();
+    const digest = creationDigest(payload), previous = saga.find(key, who.userId);
+    if (previous && previous.digest !== digest) throw new RpcError("E_CONFLICT", "idempotency key belongs to another request");
+    if (previous?.state === "complete") return { agentId: previous.agentId, replayed: true };
+    const v = check(payload, who);
+    if (v.errors.length) { const e = v.errors[0]!; throw new RpcError(e.code, e.message, { detail: e.field }); }
+    const record: SagaRecord = { version: 1, key, actor: who.userId, digest, agentId: v.id, attempted: 0, state: "running", payload: { config: { ...v.config, createdAt: new Date(d.clock()).toISOString() }, rights: v.rights } };
+    const steps = stepsFor(record);
+    d.audit.append({ at: d.clock(), actor: { user: who.userId, host: "rpc" }, action: "agent.create", target: v.id, detail: { idempotency: true } });
+    try { await saga.provision(record, steps); }
+    catch (e) { if (e instanceof RpcError) throw e; throw new RpcError("E_STORAGE", "agent provisioning unavailable"); }
+    await d.release!(v.id); d.ready?.(v.id); saga.markActivated(record);
+    return { agentId: v.id };
+  });
   return {
     validate(payload: unknown, who: Principal) { const { errors } = check(payload, who); return { valid: errors.length === 0, errors }; },
-    create: (payload: unknown, who: Principal) => serial(() => commit(check(payload, who), who)),
+    create, recover: () => serial(recover),
     import: (input: unknown, onConflict: unknown, who: Principal) => serial(async () => {
       // Version, checksums and any signature precede config interpretation and every mutation.
       const bundle = readAgentBundle(input);

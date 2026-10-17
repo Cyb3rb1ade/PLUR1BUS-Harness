@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-uninstall-summary"
+description = "Enables the uninstall_summary command without any pre-configured scope."
+commands.allow = ["uninstall_summary"]
+
+[[permission]]
+identifier = "deny-uninstall-summary"
+description = "Denies the uninstall_summary command without any pre-configured scope."
+commands.deny = ["uninstall_summary"]

@@ -13,6 +13,16 @@ export interface Extracted {
   publishedAt?: string;
   /** Almost no text but scripts present: a client-rendered shell (D94 step 4, `needs-render`). */
   looksClientRendered: boolean;
+  /** What the page itself says about being a wall: a sign-in form, a CAPTCHA, a visible paywall prompt. Evidence, not a verdict. */
+  signals: PageSignals;
+  /** True when the text came from `<noscript>` because the scripted page had none. */
+  fromNoscript?: boolean;
+}
+
+export interface PageSignals {
+  passwordForm: boolean;
+  captcha: boolean;
+  paywall: boolean;
 }
 
 export interface Section {
@@ -63,6 +73,7 @@ interface El {
 
 const VOID = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]);
 const RAW = new Set(["script", "style", "textarea", "title"]);
+const INLINE_FORMAT = new Set(["b", "strong", "i", "em", "u", "s", "small", "big", "font", "mark", "sub", "sup"]);
 const CLOSES_P = new Set(["address", "article", "aside", "blockquote", "div", "dl", "fieldset", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "header", "hr", "main", "nav", "ol", "p", "pre", "section", "table", "ul"]);
 
 function parseTree(html: string): El {
@@ -147,8 +158,16 @@ function parseTree(html: string): El {
         const q = html[j];
         if (q === '"' || q === "'") {
           const e = html.indexOf(q, j + 1);
-          value = html.slice(j + 1, e === -1 ? n : e);
-          j = e === -1 ? n : e + 1;
+          if (e === -1) {
+            // An unterminated value: a browser would swallow the rest of the document. Text extraction recovers instead
+            // and ends the value at the tag's own closing bracket, so the words after the tag are still read.
+            const g = html.indexOf(">", j + 1);
+            value = html.slice(j + 1, g === -1 ? n : g);
+            j = g === -1 ? n : g;
+          } else {
+            value = html.slice(j + 1, e);
+            j = e + 1;
+          }
         } else {
           const vs = j;
           while (j < n && !/[\s>]/.test(html[j]!)) j++;
@@ -161,7 +180,13 @@ function parseTree(html: string): El {
     i = j;
     nodes++;
 
-    // implied end tags
+    // implied end tags. Unclosed inline formatting and headings must not swallow the blocks that follow them.
+    if (CLOSES_P.has(tag) || tag === "li" || tag === "tr" || tag === "td" || tag === "th") {
+      while (stack.length > 1 && INLINE_FORMAT.has(top().tag)) stack.pop();
+    }
+    if (CLOSES_P.has(tag)) {
+      while (stack.length > 1 && /^h[1-6]$/.test(top().tag)) stack.pop();
+    }
     if (CLOSES_P.has(tag) && top().tag === "p") stack.pop();
     if (tag === "li") closeUntil(["li"], ["ul", "ol"]);
     else if (tag === "dt" || tag === "dd") closeUntil(["dt", "dd"], ["dl"]);
@@ -198,9 +223,32 @@ const HIDDEN_STYLE = /display\s*:\s*none|visibility\s*:\s*hidden/i;
 interface Ctx {
   base: URL | null;
   keepHeader: boolean;
+  /** The element selected as the page's main content: never dropped, whatever its class says. */
+  keep?: El | null;
+}
+
+/**
+ * Class and id words that mark page furniture rather than content: sidebars, share bars, related-story boxes,
+ * pagers, in-page tables of contents, wiki "[edit]" links. Whole words only (`has-sidebar` on a layout wrapper still
+ * matches, which is why an element that wraps the content landmarks is never dropped by this rule).
+ */
+const FURNITURE = /(?:^|[^a-z0-9])(?:side-?bar|widget(?:-area)?s?|share(?:-?bar|-?buttons|-?links)?|sharing|social(?:-?links|-?media|-?share|-?buttons)?|newsletter|subscribe|breadcrumbs?|pager|pagination|page-?nav|advert(?:isement)?s?|ad-?(?:slot|container|banner)|adsbygoogle|related(?:-?posts|-?stories|-?articles)?|recommended|toc|table-of-contents|(?:mw-)?edit-?section|skip-?link|catlinks|print-?footer|masthead|(?:site-?|page-?|post-?)?footer|site-?(?:header|nav))(?:$|[^a-z0-9])/i;
+
+const wrapsContent = new WeakMap<El, boolean>();
+/** True when the element contains a `<main>`, an `<article>` or a top-level heading: it is the page frame, not furniture. */
+function framesContent(el: El): boolean {
+  const hit = wrapsContent.get(el);
+  if (hit !== undefined) return hit;
+  let found = false;
+  walk(el, (e) => {
+    if (e !== el && (e.tag === "main" || e.tag === "article" || e.tag === "h1" || e.attrs.role === "main")) found = true;
+  });
+  wrapsContent.set(el, found);
+  return found;
 }
 
 function skip(el: El, ctx: Ctx): boolean {
+  if (el === ctx.keep) return false;
   if (el.tag === "header" && ctx.keepHeader) return false;
   if (DROP.has(el.tag) || el.tag === "header") return true;
   const a = el.attrs;
@@ -208,6 +256,7 @@ function skip(el: El, ctx: Ctx): boolean {
   if (a.style !== undefined && HIDDEN_STYLE.test(a.style)) return true;
   if (a.role === "navigation" || a.role === "banner" || a.role === "contentinfo" || a.role === "dialog") return true;
   if (BANNER.test(a.id ?? "") || BANNER.test(a.class ?? "")) return true;
+  if ((a.class !== undefined || a.id !== undefined) && FURNITURE.test(`${a.class ?? ""} ${a.id ?? ""}`) && !framesContent(el)) return true;
   return false;
 }
 
@@ -313,20 +362,62 @@ function collectRows(el: El, rows: El[]): void {
   }
 }
 
-function renderTable(el: El, ctx: Ctx): string {
+const cellsOf = (r: El): El[] => r.children.filter((c): c is El => typeof c !== "string" && (c.tag === "td" || c.tag === "th"));
+const span = (v: string | undefined): number => {
+  const n = Number.parseInt(v ?? "", 10);
+  return Number.isFinite(n) && n > 1 ? Math.min(n, 100) : 1;
+};
+
+/** A table used for page layout rather than data: a cell holds a heading or another table. Its cells are read as ordinary blocks. */
+function isLayoutTable(rows: El[]): boolean {
+  for (const r of rows) {
+    for (const c of cellsOf(r)) {
+      let layout = false;
+      walk(c, (e) => {
+        if (e !== c && (e.tag === "table" || /^h[1-6]$/.test(e.tag))) layout = true;
+      });
+      if (layout) return true;
+    }
+  }
+  return false;
+}
+
+function renderTable(el: El, ctx: Ctx): string[] {
   const rows: El[] = [];
   collectRows(el, rows);
-  const grid = rows
-    .map((r) =>
-      r.children
-        .filter((c): c is El => typeof c !== "string" && (c.tag === "td" || c.tag === "th"))
-        .map((c) => tidy(c.children.map((x) => inline(x, ctx)).join("")).replace(/\n/g, " ").replace(/\|/g, "\\|")),
-    )
-    .filter((r) => r.length > 0);
-  if (grid.length === 0) return "";
+  if (isLayoutTable(rows)) return rows.flatMap((r) => cellsOf(r).flatMap((c) => blocksOf(c.children, ctx)));
+  // Markdown has no spans: a cell that spans columns is followed by empty cells and a cell that spans rows leaves empty
+  // cells below it, so every value stays under its own column header.
+  const carry: number[] = [];
+  const grid: string[][] = [];
+  for (const r of rows) {
+    const out: string[] = [];
+    const place = (): void => {
+      while ((carry[out.length] ?? 0) > 0) {
+        carry[out.length]!--;
+        out.push("");
+      }
+    };
+    for (const c of cellsOf(r)) {
+      place();
+      const text = tidy(c.children.map((x) => inline(x, ctx)).join("")).replace(/\n/g, " ").replace(/\|/g, "\\|");
+      const col = out.length;
+      const cs = span(c.attrs.colspan);
+      const rs = span(c.attrs.rowspan);
+      out.push(text);
+      for (let k = 1; k < cs; k++) out.push("");
+      if (rs > 1) for (let k = 0; k < cs; k++) carry[col + k] = rs - 1;
+    }
+    place();
+    if (out.length > 0) grid.push(out);
+  }
+  if (grid.length === 0) return [];
   const width = Math.max(...grid.map((r) => r.length));
   const line = (r: string[]): string => `| ${[...r, ...new Array<string>(width - r.length).fill("")].join(" | ")} |`;
-  return [line(grid[0]!), line(new Array<string>(width).fill("---")), ...grid.slice(1).map(line)].join("\n");
+  const table = [line(grid[0]!), line(new Array<string>(width).fill("---")), ...grid.slice(1).map(line)].join("\n");
+  const caption = el.children.find((c): c is El => typeof c !== "string" && c.tag === "caption");
+  const captionText = caption ? tidy(caption.children.map((x) => inline(x, ctx)).join("")).replace(/\n/g, " ") : "";
+  return captionText === "" ? [table] : [captionText, table];
 }
 
 function renderBlock(el: El, ctx: Ctx): string[] {
@@ -347,10 +438,8 @@ function renderBlock(el: El, ctx: Ctx): string[] {
       const body = textOf(el).replace(/^\n/, "").replace(/\s+$/, "");
       return body === "" ? [] : [`\`\`\`${lang}\n${body}\n\`\`\``];
     }
-    case "table": {
-      const s = renderTable(el, ctx);
-      return s === "" ? [] : [s];
-    }
+    case "table":
+      return renderTable(el, ctx);
     case "blockquote": {
       const inner = blocksOf(el.children, ctx).join("\n\n");
       return inner === "" ? [] : [inner.split("\n").map((l) => (l === "" ? ">" : `> ${l}`)).join("\n")];
@@ -423,8 +512,9 @@ export function htmlToMarkdown(html: string, baseUrl: string): Extracted {
     /* relative links stay unresolved */
   }
   const root = parseTree(html);
-  const meta: Extracted = { markdown: "", looksClientRendered: false };
+  const meta: Extracted = { markdown: "", looksClientRendered: false, signals: { passwordForm: false, captcha: false, paywall: false } };
   let scripts = 0;
+  let scriptBundles = 0;
   walk(root, (el) => {
     switch (el.tag) {
       case "title":
@@ -452,6 +542,7 @@ export function htmlToMarkdown(html: string, baseUrl: string): Extracted {
         break;
       case "script":
         scripts++;
+        if (el.attrs.src) scriptBundles++;
         break;
     }
   });
@@ -462,7 +553,7 @@ export function htmlToMarkdown(html: string, baseUrl: string): Extracted {
   const picked = mains[0] ?? (articles.length === 1 ? articles[0] : undefined);
 
   const render = (el: El, keepHeader: boolean): string => {
-    const blocks = blocksOf(el.tag === "#root" || el.tag === "body" ? el.children : [el], { base, keepHeader });
+    const blocks = blocksOf(el.tag === "#root" || el.tag === "body" ? el.children : [el], { base, keepHeader, keep: picked ?? null });
     return blocks.join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
   };
   let markdown = render(picked ?? bodyEl, picked !== undefined);
@@ -470,9 +561,61 @@ export function htmlToMarkdown(html: string, baseUrl: string): Extracted {
     const whole = render(bodyEl, false);
     if (whole.length >= markdown.length * 10) markdown = whole; // the picked node was a stub, not the content
   }
+  meta.signals = pageSignals(root, markdown);
+
+  // A scripted shell: next to no text and scripts present, plus evidence that the scripts are what fills the page: an empty
+  // application root, or practically no text next to a loaded bundle. A short but real page that merely carries an inline
+  // analytics snippet is not a shell, and neither is a short CJK page (which is why length alone never decides).
+  const textLen = markdown.trim().length;
+  const emptyRoot = findAll(root, (e) => APP_ROOT.test(e.attrs.id ?? "") && collapse(textOf(e)).trim().length < 25).length > 0;
+  meta.looksClientRendered = scripts > 0 && (textLen === 0 || (textLen < 80 && emptyRoot) || (textLen < 25 && scriptBundles > 0));
+  if (meta.looksClientRendered || textLen === 0) {
+    // With no browser to run the scripts, the page's own <noscript> content is the best text there is.
+    const ns = findAll(root, (e) => e.tag === "noscript" && !e.children.every((c) => typeof c === "string" && c.trim() === ""))
+      .map((e) => blocksOf(e.children, { base, keepHeader: true, keep: null }).join("\n\n"))
+      .join("\n\n")
+      .trim();
+    if (ns.length >= 80 && !NOSCRIPT_NAG.test(ns)) {
+      markdown = ns;
+      meta.looksClientRendered = false;
+      meta.fromNoscript = true;
+    }
+  }
   meta.markdown = markdown;
-  meta.looksClientRendered = markdown.trim().length < 80 && scripts > 0;
   return meta;
+}
+
+const APP_ROOT = /^(?:root|app|__next|__nuxt|app-root|svelte|___gatsby|q-app)$/i;
+const NOSCRIPT_NAG = /(?:enable|turn on|activate)\s+javascript|javascript\s+(?:is\s+)?(?:required|disabled|turned off|needed)|requires?\s+javascript/i;
+const CAPTCHA_MARK = /re-?captcha|h-?captcha|turnstile|captcha|cf-chl|challenge-platform|arkose|funcaptcha/i;
+const CAPTCHA_WORDS = /(?:verify|confirm|prove)\s+(?:that\s+)?you(?:'re|\s+are|\s+a)\s+(?:a\s+)?(?:human|person|not\s+a\s+robot)|are\s+you\s+a\s+(?:robot|human)|not\s+a\s+robot|unusual\s+traffic|just\s+a\s+moment/i;
+const PAYWALL_MARK = /(?:^|[^a-z0-9])(?:paywall(?:ed)?|pay-?wall-?(?:prompt|overlay|modal)|subscriber-?(?:only|wall)|subscription-?wall|reg(?:istration)?-?wall|premium-?(?:wall|gate)|metered-?wall)(?:$|[^a-z0-9])/i;
+/** A page this short that carries a wall marker is the wall itself, not an article that happens to embed a widget. */
+const WALL_MAX_CHARS = { captcha: 400, login: 400, paywall: 1500 } as const;
+
+/** Evidence that the page is a wall of some kind. The caller decides what to do with it. */
+function pageSignals(root: El, markdown: string): PageSignals {
+  const len = markdown.trim().length;
+  let password = false;
+  let captchaEl = false;
+  let paywallEl = false;
+  const visit = (el: El, hidden: boolean): void => {
+    const a = el.attrs;
+    const nowHidden = hidden || a.hidden !== undefined || a["aria-hidden"] === "true" || (a.style !== undefined && HIDDEN_STYLE.test(a.style)) || el.tag === "template";
+    if (el.tag === "input" && (a.type ?? "").toLowerCase() === "password" && !nowHidden) password = true;
+    if (!hidden) {
+      const names = `${a.class ?? ""} ${a.id ?? ""}`;
+      if (CAPTCHA_MARK.test(names) || (el.tag === "script" || el.tag === "iframe" ? CAPTCHA_MARK.test(a.src ?? "") : false) || (a["data-sitekey"] !== undefined && CAPTCHA_MARK.test(names))) captchaEl = true;
+      if (!nowHidden && PAYWALL_MARK.test(names)) paywallEl = true;
+    }
+    if (el.tag === "script" || el.tag === "style") return;
+    for (const c of el.children) if (typeof c !== "string") visit(c, nowHidden);
+  };
+  visit(root, false);
+  const title = findAll(root, (e) => e.tag === "title")[0];
+  const titleText = title ? collapse(textOf(title)) : "";
+  const captcha = len < WALL_MAX_CHARS.captcha && (captchaEl || CAPTCHA_WORDS.test(titleText) || CAPTCHA_WORDS.test(markdown));
+  return { passwordForm: password && len < WALL_MAX_CHARS.login, captcha, paywall: paywallEl && len < WALL_MAX_CHARS.paywall };
 }
 
 // ---------------------------------------------------------------- sections
@@ -514,7 +657,7 @@ function tryDecode(buf: Uint8Array, label: string): string | null {
   }
 }
 
-/** Charset detection per D94: Content-Type header → BOM → `<meta>` in the first 2 KB → UTF-8. Never throws. */
+/** Charset detection per D94: Content-Type header → BOM → `<meta>` in the first 2 KB → sniff (valid UTF-8, else windows-1252). Never throws. */
 export function decodeBody(buf: Uint8Array, contentType: string | undefined): string {
   const fromHeader = /charset\s*=\s*["']?([A-Za-z0-9_.:-]+)/i.exec(contentType ?? "")?.[1];
   if (fromHeader) {
@@ -528,5 +671,10 @@ export function decodeBody(buf: Uint8Array, contentType: string | undefined): st
     const t = tryDecode(buf, meta);
     if (t !== null) return t;
   }
-  return new TextDecoder("utf-8").decode(buf);
+  // Nothing declared a charset: UTF-8 if the bytes are valid UTF-8, otherwise the legacy Western encoding (the "sniff" step of D94).
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(buf);
+  } catch {
+    return new TextDecoder("windows-1252").decode(buf);
+  }
 }

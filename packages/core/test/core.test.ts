@@ -257,21 +257,26 @@ describe("core start journal replay (I2)", () => {
   it("a line journaled while the journal is replaying is captured by the same replay and counted in journalBacklog", async () => {
     const home = newHome(); const l = layout(home);
     appendJournalLine(l.journal, jline("11111111-1111-4111-8111-111111111111", "Please remember that the boiler service is on Tuesday at eight."));
-    const core = createCore({ home, testInternals: flatTestInternals({ passageDelayMs: () => 400 }) });
+    // The first capture is held open by a gate, not by a delay: the second line is journaled while that capture is provably
+    // in flight, whatever the load on the runner (a 400 ms delay raced the 10 ms polling loop below).
+    let release!: () => void; const gate = new Promise<void>((r) => { release = r; });
+    const core = createCore({ home, testInternals: flatTestInternals({ passageGate: gate }) });
     await core.start();
-    // Wait until replay has renamed bernd.jsonl away (the first capture is embedding), then journal as the CLI would.
-    const until = Date.now() + 10_000;
-    while (!readdirSync(l.journal).some((f) => f.startsWith("bernd.jsonl.replaying-")) && Date.now() < until) await new Promise((r) => setTimeout(r, 10));
-    assert.ok(Date.now() < until, "replay never started");
-    appendJournalLine(l.journal, jline("22222222-2222-4222-8222-222222222222", "Please remember that the chimney sweep comes on Wednesday at noon."));
-    const c = await connect({ address: core.address, token: core.token });
+    let c: CoreClient | undefined;
     try {
+      // Wait until replay has renamed bernd.jsonl away (the first capture is embedding), then journal as the CLI would.
+      const until = Date.now() + 10_000;
+      while (!readdirSync(l.journal).some((f) => f.startsWith("bernd.jsonl.replaying-")) && Date.now() < until) await new Promise((r) => setTimeout(r, 10));
+      assert.ok(Date.now() < until, "replay never started");
+      appendJournalLine(l.journal, jline("22222222-2222-4222-8222-222222222222", "Please remember that the chimney sweep comes on Wednesday at noon."));
+      release();
+      c = await connect({ address: core.address, token: core.token });
       const s = await replayDone(core, (x) => x.journalBacklog === 0);
       assert.equal(s.journalReplay?.replayed, 2); assert.equal(s.journalReplay?.passes, 2);
       assert.equal(existsSync(join(l.journal, "bernd.jsonl")), false, "nothing stranded in the journal");
       const r = await c.call<any>("memory.recall", { caller, agentId: "bernd", query: "chimney sweep", joined: true, budget: { softMs: 5000, hardMs: 10_000 } });
       assert.match(r.joined.text, /chimney sweep/i);
-    } finally { await c.close(); await core.stop({ budgetMs: 5000 }); }
+    } finally { release(); await c?.close(); await core.stop({ budgetMs: 5000 }); }
   });
 });
 

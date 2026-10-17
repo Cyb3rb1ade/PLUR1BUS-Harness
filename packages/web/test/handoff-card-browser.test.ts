@@ -14,8 +14,15 @@ for (const lang of ['en', 'de'] as const) test(`D104 board card and comment rend
     rpc.handle('project.card.list', () => ({ cards: [card], nextCursor: null }), { write: false });
     rpc.handle('project.card.get', () => card, { write: false });
     rpc.handle('project.card.comment.list', () => ({ items: [{ id: 'cm1', cardId: 'c1', author: { kind: 'agent', id: 'forge' }, text: body, createdAt: 1 }], nextCursor: null }), { write: false });
+    rpc.handle('collab.trace.list', () => ({ traces: [{ traceId: 'trace_one', projectId: 'p1', status: 'partial', spans: [{ spanId: 'span_one', parentSpanId: null, agentId: 'forge', status: 'partial', startedAt: 1, endedAt: 11, inputTokens: 2, outputTokens: 3, costEstimate: 0.001, sessionId: 'session_one' }] }] }), { write: false });
+    rpc.handle('collab.session.replay', () => ({ messages: [{ role: 'tool', text: 'redacted peer transcript' }] }), { write: false });
     rpc.handle('project.card.activity.list', () => ({ items: [], nextCursor: null }), { write: false });
     await openRoute(app.page, '#/projects/p1', lang);
+    await app.page.getByText('trace_one · partial', { exact: true }).click();
+    const transcript = app.page.getByRole('link', { name: lang === 'de' ? 'Transcript öffnen' : 'Open transcript' });
+    await transcript.focus(); await app.page.keyboard.press('Enter');
+    await app.page.locator('.delegation-transcript').waitFor();
+    assert.match(await app.page.locator('.delegation-transcript').textContent() ?? '', /redacted peer transcript/);
     await app.page.getByText('Handoff fixture', { exact: true }).click();
     await app.page.locator('.comments-feed .handoff-card').waitFor();
     assert.equal(await app.page.locator('.handoff-card').count(), 2);

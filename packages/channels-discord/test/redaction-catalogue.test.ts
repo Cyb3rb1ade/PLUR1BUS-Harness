@@ -672,16 +672,10 @@ for (const [name, over] of BAD_VALUES) {
   });
 }
 
-// Validation messages that quote a rejected value. These two quote up to 40 characters of it (intents.ts, config.ts), which covers
-// the whole first segment of a pasted token. The value is operator input, not the secret read from the store, and the first
-// segment of a real Discord token is the bot's (public) user id in base64, so the severity is low; it is recorded because the
-// expectation "a credential placed in the configuration is never echoed" does not hold.
+// Validation messages never quote a rejected value (intents.ts, config.ts): a credential pasted into the configuration by mistake
+// must not come back in an error message.
 test(
   "config: the token as an intent name is refused without echoing it",
-  {
-    todo:
-      "KNOWN GAP: channels-discord resolveIntents: erwartet kein Geheimnis in err.message des Konstruktors (RangeError), tatsächlich enthält err.message die ersten 40 Zeichen des abgelehnten Eintrags und damit den Marker (intents.ts:32)",
-  },
   () => {
     const cap = newCapture();
     cap.errors.push({ where: "constructor", err: constructError({ intents: [TOKEN] }) });
@@ -691,10 +685,6 @@ test(
 
 test(
   "config: the token as an unknown option name is refused without echoing it",
-  {
-    todo:
-      "KNOWN GAP: channels-discord splitOptions: erwartet kein Geheimnis in err.message des Konstruktors (RangeError), tatsächlich enthält err.message die ersten 40 Zeichen des unbekannten Schlüssels und damit den Marker (config.ts:73)",
-  },
   () => {
     const cap = newCapture();
     cap.errors.push({ where: "constructor", err: constructError({ [TOKEN]: true }) });

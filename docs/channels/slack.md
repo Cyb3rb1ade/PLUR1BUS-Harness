@@ -153,7 +153,7 @@ The slash command replies are ephemeral: only the person who typed the command s
 - Markdown from the model is converted to Slack mrkdwn: bold, italic, strike, inline and fenced code, links, lists, quotes, headings (as bold lines), rules, and tables (as code blocks).
 - `&`, `<` and `>` are escaped, so `<!channel>`, `<!here>`, `<@U…>`, `<#C…>` and any raw link token in model or user text are shown literally. Only validated `http(s)` and `mailto` links from markdown become Slack links.
 - Links are sent with unfurling off and `link_names` off. Nothing pings a channel or a user unless the host asks for it through an approval text, which names the decider.
-- Long text is split at 3500 characters (buttons: 2900 per section) without tearing a code fence, a surrogate pair, or an angle-bracket token.
+- Long text is split at 3500 characters (buttons: 2900 per section) without tearing a code fence, a grapheme cluster (including surrogate pairs), or an angle-bracket token.
 
 ## 9. Files
 

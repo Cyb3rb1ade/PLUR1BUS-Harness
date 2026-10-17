@@ -1,4 +1,4 @@
-// D109 §5: approval.requested | approval.resolved | grant.changed on the RPC event path.
+// D109 §5: approval.requested | approval.resolved | approval.parked | grant.changed on the RPC event path.
 //
 // Who may receive them: only a connection whose principal is a person, is the person the request / grant belongs to, and holds
 // approval.read (grant.read for grant.changed); and only a connection that opted in by naming the notification in `events.subscribe`.
@@ -30,7 +30,7 @@ export interface PermissionNotifier {
   /** Hand this to `createApprovalService({ events })`. */
   readonly events: ApprovalEvents;
   /** For grants the RPC handlers create or revoke (the service announces the ones a decision creates). */
-  grantChanged(change: "created" | "revoked", grant: GrantRecord): void;
+  grantChanged(change: "created" | "used" | "revoked" | "expired" | "suspended", grant: GrantRecord): void;
   /** Resolves when everything queued so far has been delivered or withheld. */
   idle(): Promise<void>;
   confirmationChanged(approval: ApprovalRecord): void;
@@ -79,7 +79,7 @@ export function createPermissionNotifier(o: PermissionNotifierOptions): Permissi
 
   const events: ApprovalEvents = {
     emit<E extends ApprovalEvent>(name: E["name"], payload: E["payload"]): void {
-      if (name === "approval.requested" || name === "approval.resolved") {
+      if (name === "approval.requested" || name === "approval.resolved" || name === "approval.parked") {
         const view = (payload as { approval: Parameters<typeof approvalRecordOf>[0] }).approval;
         const record: ApprovalRecord = approvalRecordOf(view);
         enqueue(name, "approval.read", view.principal, () => ({ approval: record }));
@@ -90,7 +90,6 @@ export function createPermissionNotifier(o: PermissionNotifierOptions): Permissi
           return v ? { change: c.change, grant: grantRecordOf(v.grant, v.state) } : undefined;
         });
       }
-      // approval.parked is a hint for relays, not a wire notification.
     },
   };
 

@@ -18,8 +18,7 @@
 //  * A fence line is a line (split on "\n") that starts with three backticks in column 0. Indented or inline "```" does
 //    not count. That is the code's own definition (FENCE_LINE) and is what property 4 uses.
 //  * Surrogate pairs are never split (documented). Extended grapheme clusters (ZWJ sequences, flags, combining marks,
-//    CRLF) are NOT handled by the code and not promised by the docs; property 3b states the expectation and is a
-//    KNOWN GAP todo.
+//    CRLF) are kept whole too (property 3b).
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { SLACK_MAX_TEXT, SLACK_SECTION_MAX, splitMessage } from "../src/index.ts";
@@ -527,18 +526,8 @@ function graphemeBoundaries(s: string): Set<number> {
   return set;
 }
 
-// KNOWN GAP: splitMessage cuts at a code-point boundary at best (it only guards surrogate pairs and "<...>" tokens), so
-// a hard cut or a cut at a space can fall inside a ZWJ sequence, a regional-indicator flag, a combining sequence or a
-// CRLF pair. docs/channels/slack.md line 156 promises only "a code fence, a surrogate pair, or an angle-bracket token".
-// First failing input: seed=20261012 index=19 (see the todo text). The test stays todo, not skipped: it runs and reports
-// the failure.
 test(
   "P3b: no extended grapheme cluster is split at a part boundary (Intl.Segmenter)",
-  {
-    todo:
-      "KNOWN GAP: channels-slack splitMessage: erwartet jede Teilgrenze auf einer Graphem-Grenze (Intl.Segmenter), tatsächlich Schnitt mitten in einem Graphem-Cluster " +
-      "(erster Fehlschlag seed=20261012 index=19, hand:family-zwj-run-default, Offset 3496 mitten in einer Familien-ZWJ-Sequenz; weitere: Flaggen, Kombinationszeichen, Keycaps, CRLF zwischen CR und LF)",
-  },
   () => {
     for (const c of CASES) {
       const bounds = graphemeBoundaries(c.text);

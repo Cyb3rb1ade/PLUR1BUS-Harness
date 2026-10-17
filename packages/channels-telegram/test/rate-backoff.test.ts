@@ -498,9 +498,6 @@ test("send: a network failure followed by a good answer is retried once after th
 for (const status of [500, 503]) {
   test(
     `send: HTTP ${status} is retried with backoff up to maxSendRetries`,
-    {
-      todo: `KNOWN GAP: channels-telegram TelegramChannel.#retry: erwartet Backoff-Retry bei 5xx bis maxSendRetries (4 Anfragen, Waits 1000/2000/4000), tatsächlich 1 Anfrage und sofortige Ablehnung mit kind "http", weil nur rate-limited/network/timeout wiederholt werden (src/channel.ts:495; docs/channels/telegram.md:73 nennt ebenfalls nur 429/Netzwerk/Timeout)`,
-    },
     async () => {
       const rig = await makeRig();
       try {
@@ -582,10 +579,6 @@ for (const status of [401, 403, 404]) {
 
 test(
   "poll: HTTP 400 on getUpdates is not retried",
-  {
-    todo:
-      "KNOWN GAP: channels-telegram TelegramChannel.#poll: erwartet keine Wiederholung bei 4xx ausser 429 (eine getUpdates-Anfrage, kein Backoff-Wait), tatsächlich Backoff-Retry nach 1000 ms, weil nur unauthorized/forbidden die Schleife beenden (src/channel.ts:437-447)",
-  },
   async () => {
     const rig = await makeRig({ mode: "polling" });
     try {

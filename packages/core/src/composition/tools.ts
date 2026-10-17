@@ -1,15 +1,17 @@
+import { collaborationTools, type CollaborationTools } from '../tools/collaboration.ts';
 import type { createHostctlPool } from '../../../hostctl/src/pool.ts';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { CallBudgetExceededError, type CallBudget } from '../budget/index.ts';
 import { homedir } from 'node:os';
-import { ToolRegistry, type ToolDef } from '../tools/registry.ts';
+import { ToolRegistry, type ToolClassification, type ToolDef } from '../tools/registry.ts';
 import { createFsTools } from '../tools/fs/tools.ts';
 import { canonicalisePath, type PathRoot, type DenyEntry } from '../policy/paths-index.ts';
 import { CAPABILITIES } from '../policy/index.ts';
 import { HOST_TOOLS, createNodeHostContext, denyEntriesFor, isHostPlatform, type HostContext } from '../host-tools/index.ts';
 import { createExecTool } from '../tools/exec/tool.ts';
+import { buildEnv, DEFAULT_ENV_ALLOW, envFingerprint } from '../tools/exec/env.ts';
 import { createNodeProcessPort, systemTimers } from '../tools/exec/node-process.ts';
 import { scopedMcpPort } from '../mcp/index.ts';
 import type { ExecConfig } from '../tools/exec/types.ts';
@@ -25,6 +27,7 @@ import { WEB_SEARCH_DESCRIPTION, WEB_SEARCH_SCHEMA } from '../tools/web/tools.ts
 import { DOCUMENT_RENDER_DESCRIPTION, DOCUMENT_RENDER_SCHEMA, reviewDocument, type DocumentRenderArgs, type ReviewBrowser, type TemplateId } from '../../../documents/src/index.ts';
 
 export interface ToolCompositionOptions {
+  collaboration?: CollaborationTools;
   home: string; budget?: CallBudget; degraded?: (service: string, error: unknown) => void; roots: readonly PathRoot[]; deny?: readonly DenyEntry[];
   host?: HostContext; exec?: Partial<ExecConfig>; audit: AuditSink; grants: GrantSource;
   mcp?: { port: McpToolPort; servers: readonly string[] };
@@ -38,6 +41,15 @@ export interface ToolCompositionOptions {
   /** document.render (D100) over a headless Chromium. Absent, the tool is not offered. */
   documents?: { browser: ReviewBrowser };
 }
+async function classifyExecRun(args: unknown, o: { roots: readonly PathRoot[]; deny: readonly DenyEntry[]; exec?: Partial<ExecConfig> }): Promise<ToolClassification> {
+  const raw = args && typeof args === 'object' && !Array.isArray(args) ? args as { cwd?: unknown; env?: unknown } : undefined;
+  if (typeof raw?.cwd !== 'string') throw new Error('cwd must be a string');
+  const resolved = await canonicalisePath(raw.cwd, { roots: o.roots, deny: o.deny, access: 'read', requireRoot: true, platform: process.platform });
+  if (!resolved.ok) throw new Error(`cwd refused: ${resolved.reason}`);
+  const env = buildEnv({ allow: o.exec?.envAllow ?? DEFAULT_ENV_ALLOW, base: process.env, requested: raw.env === undefined ? undefined : raw.env as Record<string, string>, windows: process.platform === 'win32' });
+  return { flags: { outsideRoots: false, denyListHit: false }, targets: [resolved.canonical], hashExtra: envFingerprint(env), access: 'write' };
+}
+
 function unwrap(value: unknown): unknown {
   if (value && typeof value === 'object' && 'isError' in value) {
     if (value.isError === true) throw new ToolAdapterError('tool-failed', value);
@@ -52,6 +64,7 @@ export class ToolAdapterError extends Error {
 /** Registration is per turn for scoped MCP visibility. No executable tool escapes the dispatcher. */
 export async function composeTools(o: ToolCompositionOptions, req: ChatRequest): Promise<ToolRegistry> {
   const registry = new ToolRegistry();
+  if (o.collaboration) for (const tool of collaborationTools(o.collaboration, req)) registry.register(tool);
   const platform = isHostPlatform(process.platform) ? process.platform : 'linux';
   const deny = [...denyEntriesFor(homedir(), process.env, platform), { path: join(o.home, 'run') }, { path: join(o.home, 'state') }, ...(o.deny ?? [])];
   const fs = o.roots.length ? createFsTools({ roots: o.roots, deny }) : { tools: [] };
@@ -72,7 +85,13 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
   }
   // Only ToolDispatcher invokes this closure after a recorded D109 authorization. The inner exec gate is narrowed
   // to that already-authorized invocation; it still enforces config.mode, roots, deny paths, arguments and env.
-  registry.register({ name: 'exec.run', description: 'Run an enabled, allowlisted program inside a granted root without a shell.', inputSchema: (await import('../tools/exec/tool.ts')).EXEC_RUN_SCHEMA, capability: 'shell.exec', effect: 'local-write', risk: 'medium', trust: 'first-party', execute: async (args, ctx) => {
+  registry.register({ name: 'exec.run', description: 'Run an enabled, allowlisted program inside a granted root without a shell.', inputSchema: (await import('../tools/exec/tool.ts')).EXEC_RUN_SCHEMA, capability: 'shell.exec', effect: 'local-write', risk: 'medium', trust: 'first-party', classify: args => classifyExecRun(args, { roots: o.roots, deny, ...(o.exec ? { exec: o.exec } : {}) }), execute: async (args, ctx) => {
+    if (ctx.classified) {
+      const live = await classifyExecRun(args, { roots: o.roots, deny, ...(o.exec ? { exec: o.exec } : {}) });
+      if (ctx.classified.targets?.[0] !== live.targets?.[0] || ctx.classified.hashExtra !== live.hashExtra) {
+        throw new Error('exec.run cwd/env no longer matches the classified call');
+      }
+    }
     const tool = createExecTool({ config: { ...o.exec, mode: o.exec?.mode ?? 'deny', roots: o.roots, deny }, process: createNodeProcessPort(), timers: systemTimers, audit: o.audit, policy: { grants: o.grants, clock: { now: Date.now } }, policyContext: { principal: { person: ctx.principal }, subject: { kind: 'agent', agentId: ctx.agentId }, surface: ctx.surface ?? 0, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), overrides: { 'shell.exec': 'allowed' } }, ...(o.output ? { output: o.output } : {}) });
     const run = tool.execute; return unwrap(await run(args, ctx));
   } });
@@ -121,7 +140,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
     const webSearch = o.webSearch;
     // D109: a search is a network read (`net.fetch`). The sidecar is the only destination and it is fixed by configuration.
     registry.register({ name: 'web.search', description: WEB_SEARCH_DESCRIPTION, inputSchema: WEB_SEARCH_SCHEMA, capability: 'net.fetch', effect: CAPABILITIES.get('net.fetch')!.intrinsicEffect, risk: 'low', trust: 'first-party', execute: async (args, ctx) => {
-      try { return await webSearch.search(args as never, { signal: ctx.signal }); }
+      try { return await webSearch.search(args as never, { signal: ctx.signal, agentId: ctx.agentId, sessionId: ctx.sessionId }); }
       catch (e) { throw new ToolAdapterError('tool-failed', (e instanceof WebFailure ? e : new WebFailure('internal-error', 'unexpected failure')).toResult()); }
     } });
   }

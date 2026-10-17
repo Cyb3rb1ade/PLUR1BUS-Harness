@@ -102,6 +102,7 @@ export function renderOpenclaw(r: OpenclawImportReport): string {
   const L: string[] = [];
   L.push(`OpenClaw import from ${r.source.root} — ${r.mode === "dry-run" ? "DRY RUN (nothing written; add --apply)" : `applied, run ${r.runId}`}`);
   L.push(`Target: ${r.harness.home}`);
+  for (const p of r.disabledAuthProfiles ?? []) L.push(`Auth profile ${p.id}: disabled — ${p.reason}. ${p.action} (${p.replacement}).`);
   L.push("", `Agents (${r.agents.length}):`);
   for (const a of r.agents) {
     const details = a.action === "rejected"
