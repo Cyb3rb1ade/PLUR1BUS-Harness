@@ -14,6 +14,8 @@ export interface TurnApprover { person: string | null; surface: 0 | 1 | 2 | 3 }
 export interface RecurringOrigin { jobId: string; jobName: string; runAs: string; trigger: "recurring" }
 
 export interface ChatRequest {
+  /** Trusted scoped reviewer checkout. No transport accepts this field. */
+  readOnlyWorktree?: string;
   collaborationTier?: 'cheap' | 'standard' | 'premium';
   /** Internal peer envelopes: persisted/rendered as tool results, never system or assistant text. */
   peerResults?: readonly { id: string; name: string; text: string }[];
