@@ -5,7 +5,7 @@ import { Badge } from "../../components/card.ts";
 import { icon } from "../../icons.ts";
 import { formatDateTime, t } from "../../i18n.ts";
 import { getApi } from "../common/load.ts";
-import { SafeMarkdown } from "./markdown.ts";
+import { HandoffContent } from "./handoff-card.ts";
 import { canComment, canWriteCards } from "./model.ts";
 import type {
   BoardActivity,
@@ -312,7 +312,7 @@ export function CardDrawer({
           "section",
           { class: "drawer-section" },
           h("h3", {}, t("projects.card.description")),
-          h(SafeMarkdown, {
+          h(HandoffContent, {
             content: card.description,
             fallback: t("projects.card.noDescription"),
           }),
@@ -459,7 +459,7 @@ export function CardDrawer({
                           formatDateTime(new Date(cmt.createdAt)),
                         ),
                       ),
-                      h(SafeMarkdown, { content: cmt.text }),
+                      h(HandoffContent, { content: cmt.text }),
                     ),
                   ),
                 ),

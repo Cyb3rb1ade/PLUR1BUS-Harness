@@ -1,3 +1,8 @@
+import { WEBAUTHN_ROUTES, buildWebAuthnHandlers } from "./webauthn-routes.ts";
+import {REMOTE_PAIRING_ROUTES,buildRemotePairingHandlers} from "./remote-pairing-routes.ts";
+import {REMOTE_ROUTES,buildRemoteHandlers} from "./remote-config-routes.ts";
+import { WS_ROUTES } from "./ws-routes.ts";
+import { CHAT_ROUTES, buildChatHandlers } from "./chat-routes.ts";
 import { ACCOUNT_ROUTES, buildAccountHandlers } from "./account-routes.ts";
 import { TRANSPORT_ROUTES, buildTransportHandlers } from "./transport-routes.ts";
 import { ERROR_CODES } from "@plur1bus/rpc-schema";
@@ -25,7 +30,7 @@ export const COOKIE_NAME_TLS = "__Host-plur1bus_session";
 export const CSRF_HEADER = "x-csrf-token";
 
 export type JsonSchema = Record<string, unknown>;
-export type Method = "GET" | "POST" | "DELETE";
+export type Method = "GET" | "POST" | "PATCH" | "DELETE";
 
 /** What a route needs from `authorize(principal, action, resource)` (ADR-007 *Enforcement*): every route declares one of
  *  these, and a route that does not is refused with 403 whoever calls it.
@@ -67,7 +72,7 @@ export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
     reason: { type: "string", description: "A short machine-readable cause, e.g. `no-session`, `csrf`, `rate-limited`, `locked`, `role-denied`, `body-too-large`." },
   }, ["schema", "error", "message"]),
   Principal: obj({ kind: { enum: ["owner", "user"] }, id: { type: "string" }, role: { enum: ROLE_NAMES } }),
-  SessionChallenge: obj({ schema: schemaId("session.challenge/1"), mfa: { const: "totp" }, challenge: { type: "string", description: "One-time, valid for 5 minutes, dies after 5 wrong codes." }, expiresAt: iso }),
+  SessionChallenge: obj({ schema: schemaId("session.challenge/1"), mfa: { enum: ["totp", "webauthn"] }, challenge: { type: "string", description: "One-time, valid for 5 minutes, dies after 5 wrong codes." }, expiresAt: iso }),
   BreakGlassGrant: obj({ id: { type: "string" }, targetUserId: { type: "string" }, reason: { type: "string" }, issuedAt: iso, expiresAt: iso }),
   Notice: obj({ kind: { const: "break-glass.granted" }, grantId: { type: "string" }, holderUserId: { type: "string" }, reason: { type: "string" }, at: iso, expiresAt: iso }),
   Token: obj({ id: { type: "string" }, prefix: { type: "string" }, name: { type: "string" }, scopes: { type: "array", items: { type: "string" } }, createdAt: iso, expiresAt: iso, lastUsedAt: iso, revokedAt: iso }, ["id", "prefix", "name", "scopes", "createdAt", "expiresAt"]),
@@ -77,7 +82,7 @@ export const COMPONENT_SCHEMAS: Record<string, JsonSchema> = {
 const SESSION_TIMES = { createdAt: iso, expiresAt: iso, idleExpiresAt: iso };
 
 export const ROUTES: readonly RouteSpec[] = [
-  ...TRANSPORT_ROUTES, ...ACCOUNT_ROUTES,
+  ...TRANSPORT_ROUTES, ...ACCOUNT_ROUTES, ...WEBAUTHN_ROUTES, ...CHAT_ROUTES, ...WS_ROUTES, ...REMOTE_ROUTES, ...REMOTE_PAIRING_ROUTES,
   {
     id: "session.create", method: "POST", path: `${API_PREFIX}/session`, tag: "session", summary: "Log in with the owner token or with a local account; sets the session cookie",
     auth: "none", authz: "public", csrf: false, rate: "auth", stability: "experimental", since: "1.0.0",
@@ -227,18 +232,22 @@ export const ROUTES: readonly RouteSpec[] = [
 COMPONENT_SCHEMAS.Health = ROUTES.find((r) => r.id === "health")!.success.schema;
 
 export interface HandlerInput {
+  remoteTransport?:import("./remote-pairing-controller.ts").PairingTransport;
+  pathParams?: Record<string,string>; query?: URLSearchParams; headers?: import("node:http").IncomingHttpHeaders;
   principal: Principal | undefined; session: Session | undefined; sessionId: string | undefined; body: unknown;
   /** The RBAC principal built from the user directory for this request (never from the session's stored role). */
   rbac: RbacPrincipal | undefined;
   /** The session cookie the request carried, if any, on routes that do not authenticate with it (login): it is ended. */
   presentedSessionId: string | undefined;
   ip: string;
+  /** Origin checked against the listener allowlist before handler dispatch. */
+  origin?: string | undefined;
   /** How the caller authenticated: the session cookie or a personal API token. */
   via: "session" | "token" | undefined;
   /** Set when `via` is `token`: what whoami may show of it (never the hash, never the secret). */
   token: { id: string; prefix: string; scopes: readonly string[]; expiresAt: number } | undefined;
 }
-export interface HandlerOutput { status?: number; body: Record<string, unknown>; headers?: Record<string, string> }
+export interface HandlerOutput { chatStream?: {sessionId:string;turnId:string;afterSeq:number}; status?: number; body: Record<string, unknown>; headers?: Record<string, string> }
 export type Handler = (i: HandlerInput) => Promise<HandlerOutput> | HandlerOutput;
 
 export interface HandlerDeps {
@@ -246,9 +255,11 @@ export interface HandlerDeps {
   principal: Principal; healthTimeoutMs: number; log: { info(msg: string, f?: Record<string, unknown>): void; warn(msg: string, f?: Record<string, unknown>): void };
   /** Password login; without it only the owner token logs in. */
   login?: PasswordLogin | undefined;
+  requireSecondFactor?: (role:string)=>boolean;
   resolveBootstrap?: (() => Promise<import("./account-store.ts").CorePerson | null>) | undefined;
   tokens?: TokenService | undefined;
   users?: UserDirectory | undefined;
+  hasPasskeys?: ((id: string) => boolean) | undefined;
   totp?: TotpService | undefined;
   challenges?: LoginChallenges | undefined;
   limiter?: RateLimiter | undefined;
@@ -325,7 +336,12 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
   const clearCookie = { "Set-Cookie": sessionCookie(d.tls, "", 0) };
   return {
     ...buildAccountHandlers(d, undefined, d.core),
+    ...buildWebAuthnHandlers(d, undefined, () => "http://localhost"),
     ...buildTransportHandlers(d.core),
+    ...buildChatHandlers(d.core,d.audit),
+    ...buildRemoteHandlers({core:d.core,now:()=>d.clock.now()}),
+    ...buildRemotePairingHandlers(undefined),
+    "ws.ticket": () => ({body:{}}), "ws.reserved": () => ({body:{}}),
     "session.create": async (i) => {
       const b = loginBody(i.body);
       if (!b) throw errors.badRequest("body", "body must be {\"token\": string} or {\"username\": string, \"password\": string}");
@@ -348,12 +364,13 @@ export function buildHandlers(d: HandlerDeps): Record<string, Handler> {
           throw new ApiError(401, "E_UNAUTHORIZED", "authentication failed", { reason: "invalid-credentials" });
         }
         // A second factor turns the right password into a challenge, not a session.
-        if (d.totp && d.challenges && await d.totp.isEnabled(r.user.id)) {
+        if (d.challenges && (await d.totp?.isEnabled(r.user.id) || d.hasPasskeys?.(r.user.id))) {
           const c = d.challenges.create(r.user.id, r.user.version);
-          return { body: { schema: "session.challenge/1", mfa: "totp", challenge: c.id, expiresAt: iso8601(c.expiresAt) } };
+          return { body: { schema: "session.challenge/1", mfa: await d.totp?.isEnabled(r.user.id) ? "totp" : "webauthn", challenge: c.id, expiresAt: iso8601(c.expiresAt) } };
         }
         principal = { kind: "user", id: r.user.id, role: r.user.role }; authVersion = r.user.version;
       }
+      if(d.requireSecondFactor?.(principal.role)){d.audit.emit("auth.login.failure",principal.id,`user:${principal.id}`,{reason:"second-factor-required",ip:i.ip});throw errors.forbidden("second-factor-required","a second factor must be enrolled locally before remote login");}
       // Session fixation: a cookie the request already carried never becomes the logged-in session, and it dies here.
       d.sessions.destroy(i.presentedSessionId);
       const { id, session } = d.sessions.create(principal, { authVersion });

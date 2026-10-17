@@ -97,14 +97,17 @@ describe("OutputLines", () => {
     o.push(buf("a".repeat(4096) + "\n")); o.push(buf("b".repeat(4097) + "\n"));
     const [a, b] = f.lines();
     assert.equal("truncated" in a!.attrs, false);
-    assert.equal(b!.attrs.truncated, true); assert.equal(b!.attrs.bytes, 4097); assert.equal(b!.attrs.text.length, 4097);
+    assert.equal(a!.attrs.text, "a".repeat(4096));
+    assert.equal(b!.attrs.truncated, true); assert.equal(b!.attrs.bytes, 4097);
+    assert.ok(Buffer.byteLength(b!.attrs.text) <= LIMITS.lineBytes, b!.attrs.text.length);
   });
-  it("a line over 64 KiB is replaced wholesale by a marker; 64 KiB exactly is kept", () => {
+  it("a line over 64 KiB is replaced wholesale by a marker; 64 KiB exactly is framed then cut to lineBytes before write", () => {
     const f = fakeWriter(); const o = new OutputLines(f.writer, "stdout", { now: clock().now });
     o.push(buf("c".repeat(65536) + "\n"));
     o.push(buf("SECRET=" + "d".repeat(70000) + "\n"));
     const [kept, replaced] = f.lines();
-    assert.equal(kept!.attrs.text.length, 65536); assert.equal(kept!.attrs.bytes, 65536);
+    assert.equal(kept!.attrs.truncated, true); assert.equal(kept!.attrs.bytes, 65536);
+    assert.ok(Buffer.byteLength(kept!.attrs.text) <= LIMITS.lineBytes);
     assert.equal(replaced!.attrs.text, "[TRUNCATED:oversized-line]"); assert.equal(replaced!.attrs.bytes, 70007); assert.equal(replaced!.attrs.truncated, true);
   });
   it("an oversized line delivered over several chunks is still replaced and the next line is clean", () => {
