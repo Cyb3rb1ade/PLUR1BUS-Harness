@@ -123,6 +123,7 @@ export const ENTRIES: readonly Entry[] = [
   { action: "admin.agent.rights", page: "Users & roles", verb: "read", cells: ownerAdmin },
   { action: "admin.breakglass.read", page: "Users & roles", verb: "read", cells: ownerAdmin },
   { action: "admin.breakglass.write", page: "Users & roles", verb: "read", cells: ownerAdmin },
+  { action: "remote.device.write", page: "My area, Projects", verb: "write", cells: cells("yes", "yes", "yes", "yes", "none") },
   { action: "admin.pairing.read", page: "Users & roles", verb: "read", cells: ownerAdmin },
   { action: "admin.sessions.write", page: "Users & roles", verb: "read", cells: cells("yes", "yes", "yes", "yes", "none") },
   { action: "admin.sessions.read", page: "Users & roles", verb: "read", cells: cells("yes", "yes", "yes", "yes", "yes") },

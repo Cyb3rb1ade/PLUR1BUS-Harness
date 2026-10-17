@@ -842,3 +842,84 @@ async fn fully_available_rollover_trust_rejects_unknown_leaf_and_requires_repair
         assert!(m.control.recorded_requests().iter().all(|(_, auth)| !auth));
     }
 }
+
+#[tokio::test]
+async fn confirmed_link_pin_is_persisted_and_wrong_pin_reveals_no_code() {
+    use plur1bus_desktop::{connections::Store, pair, secrets::MemoryStore};
+    let identity = Identity::self_signed();
+    let pin = CertPin::parse(&identity.pin()).unwrap();
+    let mock = MockHarness::start_tls(MockOptions::default(), identity)
+        .await
+        .unwrap();
+    let code = mock.control.create_pair_code();
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path());
+    let tokens = MemoryStore::default();
+    let wrong = CertPin::of(b"wrong certificate");
+    let client = HarnessClient::from_pairing_payload(
+        Origin::parse(&mock.origin).unwrap(),
+        Some(wrong),
+        None,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        pair::pair_using_client(
+            client,
+            &code,
+            "Desk",
+            Kind::Remote,
+            None,
+            None,
+            &tokens,
+            &store
+        )
+        .await
+        .unwrap_err(),
+        pair::PairError::Client(ClientError::CertChanged)
+    );
+    assert!(mock.control.recorded_requests().is_empty());
+    assert!(store.load().unwrap().is_empty());
+    let client = HarnessClient::from_pairing_payload(
+        Origin::parse(&mock.origin).unwrap(),
+        Some(pin.clone()),
+        None,
+    )
+    .await
+    .unwrap();
+    let row = pair::pair_using_client(
+        client,
+        &code,
+        "Desk",
+        Kind::Remote,
+        None,
+        None,
+        &tokens,
+        &store,
+    )
+    .await
+    .unwrap();
+    assert_eq!(row.cert_pin, Some(pin));
+}
+#[tokio::test]
+async fn confirmed_company_ca_link_fetches_only_matching_ca() {
+    let ca = CompanyCa::new();
+    let identity = ca.issue();
+    let pin = CertPin::parse(&identity.ca_pin().unwrap()).unwrap();
+    let mock = MockHarness::start_tls(MockOptions::default(), identity)
+        .await
+        .unwrap();
+    let client =
+        HarnessClient::from_pairing_payload(Origin::parse(&mock.origin).unwrap(), None, Some(pin))
+            .await
+            .unwrap();
+    client.meta().await.unwrap();
+    mock.control.wrong_ca_response();
+    assert!(HarnessClient::from_pairing_payload(
+        Origin::parse(&mock.origin).unwrap(),
+        None,
+        Some(CertPin::of(b"wrong ca"))
+    )
+    .await
+    .is_err());
+}

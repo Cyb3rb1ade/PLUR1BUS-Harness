@@ -1,6 +1,7 @@
 // web.search (D95): one normalised tool over pluggable providers. This module owns the contract — the provider
 // interface, argument validation, fallback order, normalisation and provenance — and ships NO provider that talks to
-// the network; SearXNG, Brave, Tavily, Exa and a model's native search each implement `SearchProvider` elsewhere.
+// the network; SearXNG (searxng.ts) and Brave, Tavily and Exa (search-providers.ts) implement `SearchProvider`. A model's
+// native search is not built (docs/web-search.md, "Open").
 //
 // Everything a provider returns is untrusted text: markup and control characters are stripped, lengths capped,
 // unknown fields dropped, non-http(s) URLs discarded, and the answer carries a provenance envelope.
@@ -78,8 +79,16 @@ export interface WebSearchArgs {
   lang?: string;
 }
 
+export interface WebSearchContext {
+  signal?: AbortSignal | undefined;
+  /** The calling agent: the provider is an agent setting (D95), so a router picks its chain by this id. */
+  agentId?: string | undefined;
+  /** The calling session: a chain, once chosen for a session, stays (ADR-010 R4). */
+  sessionId?: string | undefined;
+}
+
 export interface WebSearch {
-  search(args: WebSearchArgs, ctx?: { signal?: AbortSignal | undefined }): Promise<WebSearchResult>;
+  search(args: WebSearchArgs, ctx?: WebSearchContext): Promise<WebSearchResult>;
 }
 
 const DEFAULT_COUNT = 8;

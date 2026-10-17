@@ -59,7 +59,9 @@ describe("users: rights of one person", opts, () => {
       await app.page.getByLabel("Rights for person").selectOption("u-olaf");
       await app.page.getByRole("checkbox", { name: "Use right on agent main" }).waitFor();
       assert.equal(await app.page.getByRole("columnheader", { name: "Manage" }).count(), 0);
-      assert.equal(await app.page.getByRole("checkbox", { name: "Use right on agent research" }).isChecked(), false);
+      const research = app.page.getByRole("checkbox", { name: "Use right on agent research" });
+      for (let i = 0; i < 50 && await research.isChecked(); i++) await new Promise((r) => setTimeout(r, 100)); // the previous person's matrix is replaced when the new rights arrive
+      assert.equal(await research.isChecked(), false);
       assert.deepEqual(sets(app), []);
     });
   });

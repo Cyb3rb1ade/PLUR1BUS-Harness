@@ -1,8 +1,9 @@
 /* Devices & remote section */
 .devices { display: grid; gap: 16px; }
-.pairing-qr { display: grid; place-items: center; padding: 16px; background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); }
-.pairing-qr svg { display: block; max-width: 100%; height: auto; }
-.devices-qr-wrap { display: grid; gap: 8px; place-items: center; }
+.pairing-qr { display: grid; place-items: center; padding: 16px; width: min(100%, 290px); min-width: 0; background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); }
+.pairing-qr svg { display: block; max-width: min(100%, 256px); height: auto; }
+.devices-qr-wrap { display: grid; gap: 8px; place-items: center; min-width: 0; }
+.devices-qr-wrap > * { max-width: 100%; min-width: 0; }
 .devices-pair-form { display: grid; gap: 12px; }
 .devices-list { display: grid; gap: 12px; }
 .devices-row { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; }
@@ -11,3 +12,7 @@
 .devices-facts dt { font-size: 12.5px; color: var(--ink-2); }
 .devices-facts dd { margin: 0; overflow-wrap: anywhere; }
 .devices-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.devices > .card, .devices-pair-form, .devices-pair-form > *, .devices-pair-form .field { min-width: 0; }
+.devices .a-mono, .devices-qr-wrap a { overflow-wrap: anywhere; word-break: break-word; }
+.devices-pair-form input, .devices-pair-form select, .devices-pair-form textarea { width: 100%; min-width: 0; max-width: 100%; }
+.devices-pair-form .btn { white-space: normal; max-width: 100%; text-align: start; }

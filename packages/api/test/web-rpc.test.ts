@@ -63,3 +63,10 @@ test("different cookie sessions of one person have distinct connection scopes; r
   const key = webConnection(first.session); assert.notEqual(key, webConnection(second.session));
   sessions.rotate(first.id); assert.notEqual(webConnection(first.session), key);
 });
+
+test("NC config mutations preflight through authenticated core and refuse before supervisor", async () => {
+  const calls: string[]=[];
+  const core = { callAs: async (method: string) => { calls.push(method); if(method==="model.licence.check") throw {error:"E_DENIED",reason:"model-licence-required"}; } } as unknown as CoreRpc;
+  const r=await rpcRoute(core,{jsonrpc:"2.0",id:1,method:"config.set",params:{changes:[{key:"modelRoles.rerank",value:"jinaai/jina-reranker-v2-base-multilingual"}]}},person);
+  assert.equal((r.error as any).data.error,"E_DENIED");assert.deepEqual(calls,["model.licence.check"]);
+});

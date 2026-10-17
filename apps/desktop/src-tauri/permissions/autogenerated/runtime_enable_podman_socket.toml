@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-runtime-enable-podman-socket"
+description = "Enables the runtime_enable_podman_socket command without any pre-configured scope."
+commands.allow = ["runtime_enable_podman_socket"]
+
+[[permission]]
+identifier = "deny-runtime-enable-podman-socket"
+description = "Denies the runtime_enable_podman_socket command without any pre-configured scope."
+commands.deny = ["runtime_enable_podman_socket"]

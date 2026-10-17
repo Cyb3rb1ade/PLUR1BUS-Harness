@@ -144,7 +144,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
     const webSearch = o.webSearch;
     // D109: a search is a network read (`net.fetch`). The sidecar is the only destination and it is fixed by configuration.
     registry.register({ name: 'web.search', description: WEB_SEARCH_DESCRIPTION, inputSchema: WEB_SEARCH_SCHEMA, capability: 'net.fetch', effect: CAPABILITIES.get('net.fetch')!.intrinsicEffect, risk: 'low', trust: 'first-party', execute: async (args, ctx) => {
-      try { return await webSearch.search(args as never, { signal: ctx.signal }); }
+      try { return await webSearch.search(args as never, { signal: ctx.signal, agentId: ctx.agentId, sessionId: ctx.sessionId }); }
       catch (e) { throw new ToolAdapterError('tool-failed', (e instanceof WebFailure ? e : new WebFailure('internal-error', 'unexpected failure')).toResult()); }
     } });
   }

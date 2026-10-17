@@ -79,9 +79,10 @@ describe("users: identities tab", opts, () => {
     await withApp({}, async (app) => {
       play(app);
       await openRoute(app.page, "#/settings/users?tab=identities");
-      await app.page.locator("#identity-channel").fill("telegram");
+      await app.page.getByLabel("Channel", { exact: true }).fill("telegram");
       await app.page.getByRole("button", { name: "Issue pairing code" }).click();
       await app.page.getByText("One-time code: ABCDEFGH", { exact: false }).waitFor();
+      assert.deepEqual(app.server.rpc.calls.find(c => c.method === "identity.link.request")!.params, { channel: "telegram" });
       await app.page.getByRole("button", { name: "Approve link" }).click();
       await app.page.getByRole("button", { name: "My principal union" }).click();
       await app.page.locator("pre", { hasText: "42@telegram" }).waitFor();

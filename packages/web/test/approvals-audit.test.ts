@@ -138,8 +138,18 @@ describe("Approvals: focus and announcements", opts, () => {
       app.server.rpc.handle("approval.list", () => ({ approvals: decided ? [] : sampleApprovals }), { write: false });
       await openRoute(app.page, "#/approvals");
       await approveBtn(app.page).focus();
+      // Capture the first DOM commit containing the result, before deferred effects can repair focus.
+      await app.page.evaluate(() => {
+        const capture = new MutationObserver(() => {
+          if (!document.querySelector("main")?.textContent?.includes("No pending approval requests.")) return;
+          document.documentElement.dataset.approvalResultFocused = String(!!document.activeElement?.closest("[role=tabpanel]"));
+          capture.disconnect();
+        });
+        capture.observe(document.querySelector("main")!, { childList: true, subtree: true });
+      });
       await app.page.keyboard.press("Enter");
       await app.page.getByText("No pending approval requests.").waitFor();
+      assert.equal(await app.page.evaluate(() => document.documentElement.dataset.approvalResultFocused), "true", "result must retain focus in its first DOM commit");
       const inPanel = await app.page.evaluate(() => !!document.activeElement?.closest("[role=tabpanel]"));
       assert.ok(inPanel, "the card is gone; focus must not fall back to <body>");
       const live = await app.page.locator("[role=status]", { hasText: /approved/i }).count();

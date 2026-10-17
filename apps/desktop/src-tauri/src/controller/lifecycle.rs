@@ -12,6 +12,8 @@ impl Controller {
         let _guard = self.mutation.lock().await;
         self.require_settled_upgrade()?;
         res.validate()?;
+        // A preserved inventory must never be overwritten by a new runtime selection.
+        self.retained_installed()?;
         let previous = self.installed()?;
         self.runtime.ensure_started().await?;
         progress(InstallStep::Image);
@@ -246,7 +248,10 @@ impl Controller {
             return Err(CtlError::Invalid);
         }
         let _guard = self.mutation.lock().await;
-        let Some(i) = self.installed()? else {
+        self.require_settled_upgrade()?;
+        let journal = self.upgrade_journal()?;
+        self.set_desired_running(false)?;
+        let Some(i) = self.uninstall_inventory()? else {
             progress(UninstallStep::Done);
             return Ok(());
         };
@@ -271,6 +276,9 @@ impl Controller {
         {
             return Err(CtlError::Storage);
         }
+        // Persist cleanup ownership before the first destructive operation. This record is not
+        // active installation state and survives AppOnly, partial cleanup and process death.
+        atomic_json(&self.dir, "uninstall-retained.json", &i)?;
         let state = self.runtime.state(&i.container).await?;
         if state.exists {
             if state.labels.get("app.plur1bus.role").map(String::as_str) != Some("harness")
@@ -280,7 +288,6 @@ impl Controller {
                     "foreign-container".into(),
                 )));
             }
-            progress(UninstallStep::Container);
             if state.running {
                 self.runtime
                     .stop(&i.container, Duration::from_secs(150))
@@ -288,31 +295,81 @@ impl Controller {
             }
             self.runtime.remove(&i.container).await?
         }
-        progress(UninstallStep::Network);
+        if let Some(j) = &journal {
+            self.remove_container_owned(
+                &format!("{}-previous", self.names.container),
+                Some(&j.from_digest),
+            )
+            .await?;
+        }
+        progress(UninstallStep::Container);
         match self.runtime.network_remove(&self.names.network).await {
             Ok(()) | Err(RuntimeError::NotFoundObject(_)) => {}
             Err(e) => return Err(e.into()),
         }
+        progress(UninstallStep::Network);
+        if level != UninstallLevel::AppOnly {
+            let mut images = BTreeSet::from([i.image_digest.clone()]);
+            if let Some(j) = &journal {
+                images.insert(j.from_digest.clone());
+                images.insert(j.to_digest.clone());
+            }
+            for digest in images {
+                match self.runtime.image_remove(&digest).await {
+                    Ok(()) | Err(RuntimeError::NotFoundObject(_)) => {}
+                    Err(e) => return Err(e.into()),
+                }
+            }
+        }
         if level != UninstallLevel::AppOnly {
             progress(UninstallStep::Images);
-            self.runtime.image_remove(&i.image_digest).await?
         }
         if level == UninstallLevel::Everything {
-            progress(UninstallStep::Volumes);
             self.runtime
                 .volume_remove_owned(&self.names.state, &self.resource_labels("state"))
                 .await?;
             self.runtime
                 .volume_remove_owned(&self.names.models, &self.resource_labels("models"))
                 .await?;
-            progress(UninstallStep::Keychain);
+            if let Some(j) = &journal {
+                let snapshots = j
+                    .snapshot
+                    .iter()
+                    .chain(j.failed_snapshot.iter())
+                    .chain(j.cleanup.iter())
+                    .map(|s| s.volume.clone())
+                    .chain(j.cleanup_failed.iter().cloned())
+                    .collect::<BTreeSet<_>>();
+                for volume in snapshots {
+                    self.runtime
+                        .volume_remove_owned(&volume, &self.resource_labels("snapshot"))
+                        .await?;
+                }
+            }
+            progress(UninstallStep::Volumes);
             for row in rows {
                 store
                     .remove(row.id, tokens)
                     .map_err(|_| CtlError::Storage)?
             }
         }
-        std::fs::remove_file(self.dir.join("installed.json")).map_err(|_| CtlError::Storage)?;
+        if level == UninstallLevel::Everything {
+            progress(UninstallStep::Keychain);
+        }
+        if level == UninstallLevel::Everything && journal.is_some() {
+            std::fs::remove_file(self.dir.join("upgrades.json")).map_err(|_| CtlError::Storage)?;
+        }
+        for name in if level == UninstallLevel::Everything {
+            &["installed.json", "uninstall-retained.json"][..]
+        } else {
+            &["installed.json"][..]
+        } {
+            match std::fs::remove_file(self.dir.join(name)) {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(_) => return Err(CtlError::Storage),
+            }
+        }
         progress(UninstallStep::Done);
         Ok(())
     }

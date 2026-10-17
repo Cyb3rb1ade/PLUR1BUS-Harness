@@ -24,7 +24,7 @@ Paths in the table are relative to `packages/core/` unless prefixed `docs/`.
 | N:1 durable approved links, provenance, confirmer, archive unlink | Yes | `src/identity/store.ts`, `service.ts`; `test/identity/service.test.ts` |
 | Pending → claimed → confirmed/declined/expired | Partial | `service.ts`, `store.ts`; existing tests; move proofs out of durable storage |
 | Eight-symbol hashed code, single use, channel binding | Yes | `codes.ts`, `service.ts`; service/RPC tests |
-| One-hour expiry, pending cap including claims | Yes | `DEFAULT_CODE_TTL_MS` is 60 minutes (`ttlMs` accepts 1 to 60 minutes) and the cap of 3 counts unexpired pending and claimed pairings per person and channel (`service.ts`). The generated `identity.pair.start` text in `rpc.md` still says "valid 10 minutes"; the code and this page say one hour |
+| Ten-minute expiry, pending cap including claims | Yes | `DEFAULT_CODE_TTL_MS` is 10 minutes (owner decision; it matches the generated `identity.pair.start` text in `rpc.md`, "valid 10 minutes"). `ttlMs` accepts 1 to 60 minutes (`MAX_CODE_TTL_MS`, used by an invitation's code) and the cap of 3 counts unexpired pending and claimed pairings per person and channel (`service.ts`) |
 | Channel/global lockouts, restart persistence | Yes | `ratelimit.ts`, `service.ts`; service/RPC tests |
 | User and global issuance limits; user claim limit | No | Add to service; `test/identity/v2.test.ts` |
 | Union v2 ∪ active v1 without vector writes (M3 acceptance 6) | Partial | `linkedV1Principals` exists; add `recall.ts` / `resolvePrincipals` and fake recall acceptance |
@@ -36,14 +36,14 @@ Paths in the table are relative to `packages/core/` unless prefixed `docs/`.
 ## Pairing and link lifecycle
 
 `startPairing` issues an eight-character CSPRNG code from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`
-(40 bits), bound to a user and channel. The default lifetime is one hour; injected shorter positive
-TTLs are supported. Only salted SHA-256 hashes are stored. A user can have at most three live proofs
+(40 bits), bound to a user and channel. The default lifetime is 10 minutes; an injected positive
+TTL (at most one hour) replaces it, and a code may ask for 1 to 60 minutes unless the service is configured lower. Only salted SHA-256 hashes are stored. A user can have at most three live proofs
 per channel, counting both pending and claimed proofs. A channel adapter must authenticate the
 sender and supply its complete triple to `claim`; it must not trust sender fields supplied in text.
 
 A successful claim consumes the code and enters `claimed`, awaiting explicit human confirmation.
 Approval creates a durable link with `proofMethod=pairing_code`, timestamps and confirmer. Decline
-links nothing. Confirmation has its own TTL, expires at the boundary, and rechecks exclusivity.
+links nothing. Confirmation has its own TTL (as long as a full-length code lives, 10 minutes by default), expires at the boundary, and rechecks exclusivity.
 `owner_manual` links are explicit, deliberate actions. `signed_challenge` remains a reserved model
 value; no flow offers it. There is no heuristic association flow.
 

@@ -1,3 +1,4 @@
+import { runWithAgentScope, scopeFor } from "../../src/agents/scope.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { defaults } from "@plur1bus/config-schema";
@@ -11,11 +12,12 @@ test("trusted recurring identity selects only runAs private memories, never an e
     const engine: any = { recall: async ({ principal }: any) => { owners.push(principal.user); const text = principal.user === alice ? "Alice private note" : "Bob private note"; return { blocks: [{ name: "private", text, chars: text.length, droppable: false }], degraded: null }; }, capture: ({ principal }: any) => { captures.push(principal.user); return { id: "capture", done: Promise.resolve({ stored: 1, skipped: 0 }) }; } };
     const memory = engineTurnMemory({ engine, config: defaults, agents: { workspaceOf: () => tempDir("job-memory-"), has: () => true } as any, logger: { info() { }, warn() { } } as any, captureSignal: new AbortController().signal, isStopping: () => false });
     const caller = { channel: "cli" as const, accountId: "recurring", userId: "bob" };
-    const result = await memory.recall({ agentId: "main", caller, authenticatedPerson: "alice", query: "today", signal: new AbortController().signal });
+    await assert.rejects(memory.recall({ agentId: "main", caller, authenticatedPerson: "alice", query: "today", signal: new AbortController().signal }), (e: any) => e.reason === "agent-scope-required");
+    const result = await runWithAgentScope(scopeFor("main","agents/main"), () => memory.recall({ agentId: "main", caller, authenticatedPerson: "alice", query: "today", signal: new AbortController().signal }));
     assert.match(result.text, /Alice private note/);
     assert.doesNotMatch(result.text, /Bob private note/);
     assert.deepEqual(owners, [alice]);
-    await memory.capture({ agentId: "main", caller, authenticatedPerson: "alice", sessionId: "session", turnId: "turn", messages: [{ role: "user", content: "today" }, { role: "assistant", content: "answer" }], incognito: false });
+    await runWithAgentScope(scopeFor("main","agents/main"), () => memory.capture({ agentId: "main", caller, authenticatedPerson: "alice", sessionId: "session", turnId: "turn", messages: [{ role: "user", content: "today" }, { role: "assistant", content: "answer" }], incognito: false }));
     assert.deepEqual(captures, [alice]);
     assert.notEqual(alice, bob);
 });
