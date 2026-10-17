@@ -147,6 +147,7 @@ Jeder Bug steht als Test mit dem **korrekten** Erwartungswert im Testfile, marki
 - **Ist:** Der `abort`-Listener feuert bei einem bereits abgebrochenen Signal nie. Der Aufruf pollt bis `waitMs` abgelaufen ist.
 - **Reproduktion:** Test `an already aborted connection signal does not wait` (`logs-methods.coverage.test.ts`).
 - **Schweregrad:** P3 (verschwendete Zeit bis zum Timeout, kein Fehlverhalten der Daten).
+- **Status:** behoben (Agent d01): `logs.tail` prüft `ctx.signal.aborted` und das Core-Signal nach dem Anhängen der Listener; der Test läuft ohne `skip`.
 
 ### api-server-audit-token-id-redacted
 

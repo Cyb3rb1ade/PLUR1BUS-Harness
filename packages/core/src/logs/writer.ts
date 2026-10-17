@@ -6,6 +6,8 @@ import { LevelPolicy, type LevelSettings, type Source } from "./levels.ts";
 export type { LevelSettings, Source };
 import { currentTrace, newTrace } from "./trace.ts";
 import { createSink } from "./sink.ts";
+/** Records held while the sink fails; the oldest are dropped (and reported once the sink works again). */
+const MAX_PENDING = 256;
 export interface WriteFields { source?: Source; level?: Level; stream?: "stdout" | "stderr"; bypassRate?: boolean }
 export interface WriterOptions { dir: string; role: string; source: Source; now?: () => number; timers?: boolean; strict?: boolean; maxBytes?: number; keep?: number; retentionDays?: number; redactPii?: boolean; levels?: LevelSettings }
 type RecordValue = Record<string, any>;
@@ -22,25 +24,37 @@ export function createWriter(o: WriterOptions) {
   const now = o.now ?? Date.now; const sink = createSink({ ...o, now });
   const secrets = new Set<string>(); let redactor = createRedactor({ pii: o.redactPii ?? false, secrets });
   let closed = false; let flushing = false; let lastPrune = now();
-  const pending: string[] = []; const repeats = new Map<string, Repeat>(); const buckets = new Map<string, Bucket>();
+  const pending: string[] = []; let lost = 0; let retryAt = 0; const repeats = new Map<string, Repeat>(); const buckets = new Map<string, Bucket>();
   const policy = new LevelPolicy({ now, expired: key => emit("log.level.expired", { source_key: key, from: "trace", to: "debug" }, {}, true) });
   policy.update(o.levels ?? {});
   let levelSettings: LevelSettings = o.levels ?? {};
   function enqueue(record: RecordValue): void {
     const check = validateRecord(record);
     if (!check.ok) throw new Error(`invalid log record: ${check.code} ${check.detail}`);
-    pending.push(`${JSON.stringify(record)}\n`);
-    if (pending.length >= 64) flush();
+    queue(`${JSON.stringify(record)}\n`);
+    if (pending.length >= 64) autoFlush(true);
+  }
+  /** Flush on the hot path: a failing sink must not throw into the caller, and is retried by the timer, flush() and close() (and here after a second) rather than on every record. */
+  function autoFlush(durable: boolean): void {
+    if (now() < retryAt) return;
+    try { flush(durable); } catch { retryAt = now() + 1000; }
+  }
+  function queue(line: string): void {
+    pending.push(line);
+    if (pending.length > MAX_PENDING) { const n = pending.length - MAX_PENDING; pending.splice(0, n); lost += n; }
   }
   function flush(durable = true): void {
     if (flushing) return;
     flushing = true;
     try {
-      while (pending.length) { sink.append(pending[0]!, false); pending.shift(); }
+      drain();
+      if (lost > 0 && !closed) { const dropped = lost; lost = 0; emit("log.suppressed", { dropped, window_ms: 0, reason: "sink-failed" }, {}, true); drain(); }
       if (durable) sink.sync();
     }
     finally { flushing = false; }
+    retryAt = 0;
   }
+  function drain(): void { while (pending.length) { sink.append(pending[0]!, false); pending.shift(); } }
   function fit(record: RecordValue): RecordValue {
     const attrs = record.attrs as RecordValue; const original = Buffer.byteLength(JSON.stringify(attrs));
     const schema = attrsSchemaFor(lookupEvent(record.event)!); const props = schema.properties as Record<string, { maxLength?: number; maxItems?: number; items?: { maxLength?: number } }>;
@@ -119,18 +133,19 @@ export function createWriter(o: WriterOptions) {
     writeLegacy(level: Level, msg: string, fields: Record<string, unknown> = {}) {
       if (closed) throw new Error("log writer closed");
       if (!levelAtLeast(level, policy.resolve(o.source))) return;
+      let line: string;
       try {
-        const safe = redactor.value(Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, serializeError(value)])));
-        // The envelope wins over caller fields of the same name: `at` orders the line, `level` and `role` classify it.
-        const { at: _at, level: _level, role: _role, msg: _msg, ...extra } = safe as Record<string, unknown>;
-        const record = { at: new Date(now()).toISOString(), level, role: o.role, ...extra, msg: cap(redactor.text(msg), LIMITS.msgBytes) };
-        let line = JSON.stringify(record);
+        // Caller fields never replace the record's own keys (a `level` or `at` field would forge or hide the line).
+        const safe = redactor.value(Object.fromEntries(Object.entries(fields).map(([key, value]) => [["at", "level", "role", "msg"].includes(key) ? `field_${key}` : key, serializeError(value)])));
+        const record = { at: new Date(now()).toISOString(), level, role: o.role, ...safe, msg: cap(redactor.text(msg), LIMITS.msgBytes) };
+        line = JSON.stringify(record);
         if (Buffer.byteLength(line) > LIMITS.lineBytes) line = JSON.stringify({ at: record.at, level, role: o.role, msg: record.msg, truncated: true, bytes: Buffer.byteLength(line) });
-        // Preserve synchronous diagnostic visibility without blocking every capture/
-        // recall on fsync. The 1 s timer and explicit flush/close sync the batch;
-        // warn/error still sync before returning. Audit sinks are separate.
-        pending.push(`${line}\n`); flush(level !== "info" && level !== "debug");
-      } catch { emit("log.redaction.failed", { attempted_event: "log.unregistered" }, {}, true); }
+      } catch { emit("log.redaction.failed", { attempted_event: "log.unregistered" }, {}, true); return; }
+      // Preserve synchronous diagnostic visibility without blocking every capture/
+      // recall on fsync. The 1 s timer and explicit flush/close sync the batch;
+      // warn/error still sync before returning. Audit sinks are separate.
+      queue(`${line}\n`);
+      autoFlush(level !== "info" && level !== "debug"); // a failing sink is not a redaction failure; the record stays queued
     },
     registerSecret(value: string) {
       secrets.delete(value); secrets.add(value);
