@@ -98,7 +98,12 @@ export async function connect(opts: ConnectOptions): Promise<CoreClient> {
   );
   const sock = await new Promise<Socket>((resolve, reject) => {
     const s = createConnection(opts.address);
-    const timer = setTimeout(() => { s.destroy(); reject(new RpcCallError(-32000, "E_CORE_UNAVAILABLE", "connect timeout", "connect-timeout")); }, connectTimeoutMs);
+    // A stalled loop dispatches an expired timer before the poll phase that carries `connect`/`error`, so the timer can win against a
+    // socket that is already connected. Give up in the check phase instead (after that I/O has run), and only if still unsettled.
+    const timer = setTimeout(() => setImmediate(() => {
+      if (!s.connecting) return;
+      s.destroy(); reject(new RpcCallError(-32000, "E_CORE_UNAVAILABLE", "connect timeout", "connect-timeout"));
+    }), connectTimeoutMs);
     s.once("connect", () => { clearTimeout(timer); resolve(s); });
     s.once("error", (e: NodeJS.ErrnoException) => { clearTimeout(timer); reject(new RpcCallError(-32000, "E_CORE_UNAVAILABLE", e.message, e.code ?? "connect-error")); });
   });

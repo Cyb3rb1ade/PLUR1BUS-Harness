@@ -78,6 +78,38 @@ jobs:
         with:
           path: ${{ github.workspace }}/.models-cache
           key: ${{ steps.models.outputs.cache-primary-key }}
+  # M2 acceptance 13 (D95): the SearXNG provider against a live instance. Not gating and skipped unless the repository
+  # variable PLUR1BUS_SEARXNG_LIVE_URL is set to an instance the sidecar rule admits (private, tailnet or loopback
+  # address; a hosted runner can reach it only through a self-hosted runner or a service container). A red run opens the
+  # usual nightly issue and blocks nothing.
+  web-search-searxng-live:
+    if: ${{ vars.PLUR1BUS_SEARXNG_LIVE_URL != '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+      PLUR1BUS_SEARXNG_LIVE_URL: ${{ vars.PLUR1BUS_SEARXNG_LIVE_URL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - name: engine git access over https
+        shell: bash
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then
+            base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"
+            git config --global --add "url.${base}.insteadOf" "https://github.com/"
+          else
+            base="https://github.com/"
+          fi
+          git config --global --add "url.${base}.insteadOf" "git@github.com:"
+          git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
+      - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build
+      - name: live SearXNG search
+        working-directory: packages/core
+        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-timeout=120000 test/live/web-search-searxng.test.ts
   # Spec 2026-09-27 §8.4/§12, acceptance 8: ten minutes of mutants of valid .p1x packages through the inspect pipeline
   # (no panic, no mutant accepted as first-party). The seed is printed; replay a failure with PLUR1BUS_FUZZ_SEED.
   ext-fuzz:

@@ -3,6 +3,7 @@
 // extracts channel allowlists, reports cron as deferred (zero disk writes),
 // reports secrets by key name only, enforces single-writer lock withTargetLock,
 // writes pre-apply snapshot for rollback, records atomic ledger.jsonl, and supports conflict strategies.
+import { importedProfile } from "../../openai-auth/profiles.ts";
 import { createHash } from "node:crypto";
 import {
   existsSync,
@@ -31,6 +32,9 @@ import { readOpenclawChannels, type ChannelAllowlistReport } from "./openclaw-ch
 import { readOpenclawCronJobs, type OpenclawCronJob } from "./openclaw-cron.ts";
 import { writeAtomicSync } from "../fs-atomic.ts";
 import { RUN_ID_RE } from "../rollback.ts";
+import { readConfigFile } from "../../config-load.ts";
+import { abortStoreAdopt, type StoreAdoptReport } from "./hermes-stores.ts";
+import { commitOpenclawStores, prepareOpenclawStores, type OpenclawStoreReport, type PreparedOpenclawStores } from "./openclaw-stores.ts";
 
 export interface OpenclawImportOptions {
   home: string;
@@ -45,6 +49,11 @@ export interface OpenclawImportOptions {
   probeWsl?: boolean | undefined;
   allowLiveCopy?: boolean | undefined;
   now?: () => Date;
+  /** Test seam: the engine internals (e.g. a stub embedder) used for the store take-over probe. */
+  testInternals?: Record<string, unknown> | undefined;
+  /** Test seam: throw right after this step of the store take-over (`store-staged`: copy verified, not yet swapped;
+   *  `store-committed`: swapped into state/lancedb) to prove abort cleanup and resume. */
+  failAfterStep?: "store-staged" | "store-committed" | undefined;
 }
 
 export interface OpenclawImportReport {
@@ -62,6 +71,7 @@ export interface OpenclawImportReport {
   harness: {
     home: string;
   };
+  disabledAuthProfiles?: ReturnType<typeof importedProfile>[];
   profilesOrAgents: AgentImportReport[];
   agents: AgentImportReport[]; // backward compatibility alias
   channels: ChannelAllowlistReport[];
@@ -78,6 +88,9 @@ export interface OpenclawImportReport {
     unmigrated_secrets: string[]; // backward compatibility alias
     count: number;
   };
+  /** One entry per PLUR1BUS store partition of the source: taken over, matched, routed to re-embedding, or skipped. */
+  stores: OpenclawStoreReport[];
+  storeAdopt?: StoreAdoptReport | undefined;
   archived: Array<{ kind: string; path: string }>;
   errors: Array<{ sourceRef: string; reason: string }>;
   counts: {
@@ -93,6 +106,10 @@ export interface OpenclawImportReport {
     channelsDeferred: number;
     channelsImported: number; // backward compatibility
     cronJobsDeferred: number;
+    storesTakenOver: number;
+    storesMatched: number;
+    storesReembedMigration: number;
+    storesSkipped: number;
     corruptLedgerLines?: number;
   };
   snapshot: {
@@ -104,6 +121,12 @@ export interface OpenclawImportReport {
   reportPath: string | null;
   startedAt: string;
   finishedAt: string;
+}
+
+/** The config the probe engine is built from: the validated target config, like `targetIdentity` reads it (the defaults
+ *  when the file is missing or invalid, so the identity compared against is the one the report names). */
+function engineTargetConfig(configPath: string) {
+  try { return readConfigFile(configPath); } catch { return defaults(); }
 }
 
 export async function importOpenclaw(opts: OpenclawImportOptions): Promise<OpenclawImportReport> {
@@ -120,6 +143,9 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
   if (opts.migrateSecrets) {
     throw new ImportError("E_SECRET_STORE_UNAVAILABLE", "secret-store-unavailable", "secret store unavailable until M2");
   }
+
+  // A staged store copy that never reached the swap (any failure before it) is removed again by the caller's finally.
+  let preparedStores: PreparedOpenclawStores | undefined;
 
   const executeImport = async (isApply: boolean): Promise<OpenclawImportReport> => {
     let runId: string;
@@ -212,6 +238,24 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
     rawConfig.agents = rawConfig.agents ?? {};
     const existingAgentIds = new Set(Object.keys(rawConfig.agents));
 
+    // PLUR1BUS stores: each partition is taken over (identity matches, no re-embedding) or routed to the guided
+    // re-embedding migration. Staged and verified on a COPY, swapped in under the lock, before anything else is written.
+    preparedStores = await prepareOpenclawStores({
+      stores: sourceReport.plur1bus.stores,
+      storeRoot: sourceReport.plur1bus.storeRoot,
+      l,
+      isApply,
+      runId,
+      onConflict,
+      targetConfig: engineTargetConfig(l.configPath),
+      targetEmbedding: ctx.target.embedding,
+      testInternals: opts.testInternals,
+      resumeLedgerText: opts.resume && ledgerPath && existsSync(ledgerPath) ? readFileSync(ledgerPath, "utf8") : undefined,
+    });
+    if (opts.failAfterStep === "store-staged") throw new Error("failAfterStep: store-staged");
+    if (isApply) commitOpenclawStores(preparedStores, { l, ledger, replacedBackupDir });
+    if (opts.failAfterStep === "store-committed") throw new Error("failAfterStep: store-committed");
+
     // Migrate agents and curated files
     const agentReports: AgentImportReport[] = [];
     const seenSourceAgentIds = new Set<string>();
@@ -261,7 +305,8 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
 
     // Read channels from openclaw.json
     let channelReports: ChannelAllowlistReport[] = [];
-    const errors: Array<{ sourceRef: string; reason: string }> = [...(sourceReport.errors ?? [])];
+    let disabledAuthProfiles: ReturnType<typeof importedProfile>[] = [];
+    const errors: Array<{ sourceRef: string; reason: string }> = [...(sourceReport.errors ?? []), ...preparedStores.errors];
     if (sourceReport.source.configPath && existsNoFollow(sourceReport.source.configPath)) {
       let cfgText: string | null = null;
       try {
@@ -276,6 +321,13 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
         try {
           const rawCfg = parseJson5(cfgText) as Record<string, unknown>;
           channelReports = readOpenclawChannels(rawCfg);
+          // Metadata only. Never open another client's token store or retain its issued ID.
+          const auth = rawCfg.auth as { profiles?: Record<string, { provider?: unknown; mode?: unknown }> } | undefined;
+          const oldId = "openai:chatgpt-oauth-restricted";
+          if (auth?.profiles && Object.entries(auth.profiles).some(([id, p]) => id === oldId ||
+              (p && ["openai", "openai-codex"].includes(String(p.provider)) && p.mode === "oauth"))) {
+            disabledAuthProfiles = [importedProfile(oldId)];
+          }
           if (isApply && ledger) {
             for (const ch of channelReports) {
               ledger.record({
@@ -364,6 +416,7 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
       harness: {
         home: l.home,
       },
+      disabledAuthProfiles,
       profilesOrAgents: agentReports,
       agents: agentReports,
       channels: channelReports,
@@ -380,6 +433,8 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
         unmigrated_secrets: unmigratedSecrets,
         count: unmigratedSecrets.length,
       },
+      stores: preparedStores.stores,
+      ...(preparedStores.adoptReport ? { storeAdopt: preparedStores.adoptReport } : {}),
       archived: [],
       errors: [
         ...errors,
@@ -400,6 +455,10 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
         channelsDeferred: channelReports.length,
         channelsImported: channelReports.length,
         cronJobsDeferred: userJobs.length,
+        storesTakenOver: preparedStores.stores.filter((x) => x.action === "taken-over" || x.action === "preview-ok").length,
+        storesMatched: preparedStores.stores.filter((x) => x.action === "matched-existing").length,
+        storesReembedMigration: preparedStores.stores.filter((x) => x.action === "re-embedding-migration").length,
+        storesSkipped: preparedStores.stores.filter((x) => x.action === "skipped").length,
         corruptLedgerLines: ledger?.corruptLineCount ?? 0,
       },
       snapshot: snapshotResult ? {
@@ -426,7 +485,11 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
   // C1: Single-writer lock held across the entire apply pipeline (reads, writes, report)
   if (opts.apply) {
     return await withTargetLock(l, async () => {
-      return await executeImport(true);
+      try {
+        return await executeImport(true);
+      } finally {
+        abortStoreAdopt(preparedStores?.adopt);
+      }
     });
   }
 

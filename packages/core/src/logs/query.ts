@@ -17,6 +17,8 @@ export interface LogFilter {
   component?: string;
   /** Case-insensitive substring of the *redacted* record text. */
   text?: string;
+  /** Exact match on the record's `trace_id`. */
+  traceId?: string;
 }
 
 export interface LogRecordOut {
@@ -64,7 +66,7 @@ export class CursorError extends Error {
 }
 
 export function fingerprint(f: LogFilter, order: Order): string {
-  return createHash("sha1").update(JSON.stringify([f.stream, order, f.from ?? null, f.to ?? null, f.minLevel ?? null, f.component ?? null, f.text ?? null])).digest("hex").slice(0, 12);
+  return createHash("sha1").update(JSON.stringify([f.stream, order, f.from ?? null, f.to ?? null, f.minLevel ?? null, f.component ?? null, f.text ?? null, f.traceId ?? null])).digest("hex").slice(0, 12);
 }
 export const mintCursor = (f: LogFilter, order: Order, k: Key): string => encodeCursor(k, fingerprint(f, order));
 const encodeCursor = (k: Key, fp: string): string => Buffer.from(JSON.stringify({ v: 1, ts: k.ts, h: k.h, fp }), "utf8").toString("base64url");
@@ -116,6 +118,7 @@ function parse(line: string, f: OpenLogFile, filter: LogFilter): Cand | null {
     const action = typeof r.action === "string" ? r.action.split(".")[0] : undefined;
     pre = filter.component === f.component || filter.component === src?.id || filter.component === src?.kind || filter.component === r.role || filter.component === action;
   }
+  if (pre && filter.traceId !== undefined) pre = r.trace_id === filter.traceId;
   return { key: { ts, h: hashOf(line) }, ts, line, rec: r, level, component: f.component, pre };
 }
 
@@ -201,9 +204,10 @@ export async function runQuery(o: QueryOptions): Promise<QueryResult> {
       await advance(pick);
       let rec: Record<string, unknown> | null = null;
       if (c.pre) {
-        rec = redactor.value(c.rec);
+        // A line the redactor cannot walk (nesting deeper than the stack: RangeError) is withheld, never returned raw and never fatal.
+        try { rec = redactor.value(c.rec); } catch (e) { if (!(e instanceof RangeError)) throw e; corrupt++; rec = null; }
         // The text is matched against the redacted record, so a search cannot confirm a secret.
-        if (needle !== undefined && JSON.stringify(rec).toLowerCase().indexOf(needle) < 0) rec = null;
+        if (rec && needle !== undefined && JSON.stringify(rec).toLowerCase().indexOf(needle) < 0) rec = null;
       }
       if (rec) {
         // RULING: lines with an identical (ts, line hash) at a page boundary stay together (at most 100 extra), because

@@ -29,6 +29,8 @@ import type { ApprovalBinding, ApprovalDenial, ApprovalRecord, ApprovalStatus, A
 export const DEFAULT_FOREGROUND_WAIT_MS = 10 * 60_000;
 const HOUR_MS = 60 * 60_000;
 const MAX_SUMMARY = 2048;
+const MAX_REASON = 2048;
+const MAX_DIFF = 8192;
 const MAX_TARGETS = 50;
 const MAX_JOB_NAME = 80;
 
@@ -58,6 +60,8 @@ export interface ApprovalView {
   flags?: Record<string, boolean>;
   targets?: readonly string[];
   summary?: string;
+  agentReason?: string;
+  diff?: string;
   createdAt: number;
   expiresAt: number;
   delegable: boolean;
@@ -132,6 +136,7 @@ interface RequestDetail {
   requiredSurface: SurfaceTrust; originSurface: SurfaceTrust; grantOptions: readonly GrantOption[]; tainted: boolean; taintSuspended: boolean;
   agentId: string; callId: string; targets: string[]; targetsMasked: boolean; targetsTotal: number; access?: "read" | "write";
   summary: string; argsBytes: number; payloadHash: string;
+  agentReason?: string; diff?: string;
   /** Only when the call carried a real one: a task / session grant needs it. */
   taskId?: string; sessionId?: string; projectId?: string;
 }
@@ -189,6 +194,7 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
       ...(d?.grantOptions !== undefined ? { grantOptions: d.grantOptions } : {}), ...(d?.tainted !== undefined ? { tainted: d.tainted } : {}),
       ...(d?.taintSuspended !== undefined ? { taintSuspended: d.taintSuspended } : {}), ...(d?.flags !== undefined ? { flags: d.flags } : {}),
       ...(d?.targets !== undefined ? { targets: d.targets } : {}), ...(d?.summary !== undefined ? { summary: d.summary } : {}),
+      ...(d?.agentReason !== undefined ? { agentReason: d.agentReason } : {}), ...(d?.diff !== undefined ? { diff: d.diff } : {}),
       createdAt: r.createdAt, expiresAt: r.expiresAt, delegable: r.delegable,
       ...(r.decidedAt !== undefined ? { decidedAt: r.decidedAt } : {}), ...(r.decidedBy !== undefined ? { decidedBy: r.decidedBy } : {}),
       ...(r.decisionSurface !== undefined ? { decisionSurface: r.decisionSurface } : {}),
@@ -221,6 +227,8 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
       tainted: req.tainted, taintSuspended: req.taintSuspended, agentId: ask.agentId, callId: ask.callId,
       targets: masked, targetsMasked: masked.some((t, i) => t !== shown[i]) || all.length > shown.length, targetsTotal: all.length,
       ...(ask.access ? { access: ask.access } : {}), summary, argsBytes: payload.bytes, payloadHash: payload.hash,
+      ...(typeof ask.reason === "string" && ask.reason !== "" ? { agentReason: redactor.text(ask.reason).slice(0, MAX_REASON) } : {}),
+      ...(typeof ask.diff === "string" && ask.diff !== "" ? { diff: redactor.text(ask.diff).slice(0, MAX_DIFF) } : {}),
       ...(ask.taskId !== undefined ? { taskId: ask.taskId } : {}), ...(ask.sessionId !== undefined ? { sessionId: ask.sessionId } : {}),
       ...(ask.projectId !== undefined ? { projectId: ask.projectId } : {}),
     };

@@ -160,6 +160,9 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus budget set`↴](#plur1bus-budget-set)
 * [`plur1bus audit`↴](#plur1bus-audit)
 * [`plur1bus audit verify`↴](#plur1bus-audit-verify)
+* [`plur1bus logs`↴](#plur1bus-logs)
+* [`plur1bus logs query`↴](#plur1bus-logs-query)
+* [`plur1bus logs tail`↴](#plur1bus-logs-tail)
 * [`plur1bus secret`↴](#plur1bus-secret)
 * [`plur1bus secret status`↴](#plur1bus-secret-status)
 * [`plur1bus secret set`↴](#plur1bus-secret-set)
@@ -172,14 +175,17 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus device rename`↴](#plur1bus-device-rename)
 * [`plur1bus grant`↴](#plur1bus-grant)
 * [`plur1bus grant list`↴](#plur1bus-grant-list)
+* [`plur1bus grant show`↴](#plur1bus-grant-show)
 * [`plur1bus grant add`↴](#plur1bus-grant-add)
 * [`plur1bus grant revoke`↴](#plur1bus-grant-revoke)
 * [`plur1bus approval`↴](#plur1bus-approval)
 * [`plur1bus approval list`↴](#plur1bus-approval-list)
 * [`plur1bus approval pending`↴](#plur1bus-approval-pending)
+* [`plur1bus approval show`↴](#plur1bus-approval-show)
 * [`plur1bus approval approve`↴](#plur1bus-approval-approve)
 * [`plur1bus approval deny`↴](#plur1bus-approval-deny)
 * [`plur1bus approval verify`↴](#plur1bus-approval-verify)
+* [`plur1bus approval audit`↴](#plur1bus-approval-audit)
 * [`plur1bus login`↴](#plur1bus-login)
 * [`plur1bus login status`↴](#plur1bus-login-status)
 * [`plur1bus login list`↴](#plur1bus-login-list)
@@ -310,6 +316,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `voice` — [experimental] Voice: language profiles, realtime features, agent overrides and licensed models
 * `budget` — [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
 * `audit` — [experimental] Audit trail: verify the hash-chained audit file (B5)
+* `logs` — [experimental] Diagnostic logs: query and tail through the core
 * `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
 * `device` — [experimental] Paired devices: list, revoke and rename (F44)
 * `grant` — [experimental] Standing permissions: list, add and revoke grants (D109)
@@ -2544,6 +2551,70 @@ Every line of the chained audit file must carry the SHA-256 of the line before i
 
 
 
+## `plur1bus logs`
+
+[experimental] Diagnostic logs: query and tail through the core
+
+**Usage:** `plur1bus logs <COMMAND>`
+
+###### **Subcommands:**
+
+* `query` — [experimental] Query diagnostic logs (newest first)
+* `tail` — [experimental] Tail diagnostic logs (oldest of the newest page first)
+
+
+
+## `plur1bus logs query`
+
+[experimental] Query diagnostic logs (newest first)
+
+**Usage:** `plur1bus logs query [OPTIONS]`
+
+###### **Options:**
+
+* `--level <LEVEL>` — Minimum level
+
+  Possible values: `trace`, `debug`, `info`, `warn`, `error`, `fatal`
+
+* `--component <COMPONENT>` — File role, source.id or source.kind
+* `--trace <TRACE>` — 32-hex trace id (exact match on the record's trace_id)
+* `--from <TS>` — Inclusive lower bound
+* `--to <TS>` — Inclusive upper bound
+* `--limit <LIMIT>`
+
+  Default value: `100`
+* `--stream <STREAM>`
+
+  Possible values: `diagnostic`, `audit`
+
+
+
+
+## `plur1bus logs tail`
+
+[experimental] Tail diagnostic logs (oldest of the newest page first)
+
+**Usage:** `plur1bus logs tail [OPTIONS]`
+
+###### **Options:**
+
+* `--level <LEVEL>` — Minimum level
+
+  Possible values: `trace`, `debug`, `info`, `warn`, `error`, `fatal`
+
+* `--component <COMPONENT>` — File role, source.id or source.kind
+* `--trace <TRACE>` — 32-hex trace id (exact match on the record's trace_id)
+* `--follow` — Keep polling until interrupted
+* `--limit <LIMIT>`
+
+  Default value: `50`
+* `--stream <STREAM>`
+
+  Possible values: `diagnostic`, `audit`
+
+
+
+
 ## `plur1bus secret`
 
 [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
@@ -2683,6 +2754,7 @@ A grant lets an agent use a capability without asking each time. Only a person c
 ###### **Subcommands:**
 
 * `list` — [experimental] List grants, newest first (owner/admin only)
+* `show` — [experimental] Show one grant of the calling person
 * `add` — [experimental] Give an agent a standing permission (scope task, session or always)
 * `revoke` — [experimental] Revoke a grant now; revoking a revoked grant changes nothing
 
@@ -2703,6 +2775,18 @@ A grant lets an agent use a capability without asking each time. Only a person c
   Possible values: `active`, `revoked`, `consumed`, `suspended`
 
 * `--limit <LIMIT>` — at most this many (1-500, default 100)
+
+
+
+## `plur1bus grant show`
+
+[experimental] Show one grant of the calling person
+
+**Usage:** `plur1bus grant show <ID>`
+
+###### **Arguments:**
+
+* `<ID>` — the grant id (grt_...)
 
 
 
@@ -2764,9 +2848,11 @@ A grant lets an agent use a capability without asking each time. Only a person c
 
 * `list` — [experimental] List approval requests, newest first
 * `pending` — [experimental] The pending queue: requests waiting for a person (approval list --status pending)
+* `show` — [experimental] Show one approval request
 * `approve` — [experimental] Approve a pending request after showing exactly what it asks for
 * `deny` — [experimental] Deny a pending request
 * `verify` — [experimental] Verify the HMAC chain of the approval store; exit 1 and the first broken position if it breaks
+* `audit` — [experimental] Redacted approval-related HMAC-chain entries of the calling person
 
 
 
@@ -2792,6 +2878,18 @@ A grant lets an agent use a capability without asking each time. Only a person c
 [experimental] The pending queue: requests waiting for a person (approval list --status pending)
 
 **Usage:** `plur1bus approval pending`
+
+
+
+## `plur1bus approval show`
+
+[experimental] Show one approval request
+
+**Usage:** `plur1bus approval show <ID>`
+
+###### **Arguments:**
+
+* `<ID>` — the request id (apr_...)
 
 
 
@@ -2837,6 +2935,18 @@ A request above low risk needs one more thing on a plain local connection: a fre
 [experimental] Verify the HMAC chain of the approval store; exit 1 and the first broken position if it breaks
 
 **Usage:** `plur1bus approval verify`
+
+
+
+## `plur1bus approval audit`
+
+[experimental] Redacted approval-related HMAC-chain entries of the calling person
+
+**Usage:** `plur1bus approval audit [OPTIONS]`
+
+###### **Options:**
+
+* `--limit <LIMIT>` — at most this many (1-500, default 100)
 
 
 

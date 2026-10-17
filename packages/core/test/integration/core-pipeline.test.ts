@@ -56,10 +56,11 @@ test('identity adapter resolves v2 plus two linked v1 scopes; captures only cano
   const engine = { async recall(q: { principal: { user: string } }) { reads.push(q.principal.user); return { blocks: [{ name: q.principal.user, text: q.principal.user === a.v1Principal ? 'fact from cli' : q.principal.user === b.v1Principal ? 'fact from linked channel' : 'canonical fact', chars: 30, droppable: false }], capChars: Infinity, degraded: null } as RecallResult; }, capture(t: { principal: { user: string } }) { writes.push(t.principal.user); return { id: 'capture', done: Promise.resolve({ stored: 1, skipped: 0 }) }; } } as unknown as Engine;
   const memory = engineTurnMemory({ engine, config: () => cfg, agents, logger, captureSignal: new AbortController().signal, isStopping: () => false, identity, scope: createRecallScopeProvider(identity) });
   try {
-    const recalled = await memory.recall({ agentId: 'bernd', caller, query: 'facts', signal: new AbortController().signal });
+    await assert.rejects(memory.recall({ agentId: 'bernd', caller, query: 'facts', signal: new AbortController().signal }), (e: any) => e.reason === 'agent-scope-required');
+    const recalled = await runWithAgentScope(scopeFor('bernd','test'), () => memory.recall({ agentId: 'bernd', caller, query: 'facts', signal: new AbortController().signal }));
     assert.match(recalled.text, /fact from cli/); assert.match(recalled.text, /fact from linked channel/);
     assert.deepEqual(new Set(reads), new Set([deriveUserPrincipal(human.id), a.v1Principal, b.v1Principal]));
-    await memory.capture({ agentId: 'bernd', caller, sessionId: 's1', turnId: 't1', messages: [], incognito: false }); assert.deepEqual(writes, [deriveUserPrincipal(human.id)]);
+    await runWithAgentScope(scopeFor('bernd','test'), () => memory.capture({ agentId: 'bernd', caller, sessionId: 's1', turnId: 't1', messages: [], incognito: false })); assert.deepEqual(writes, [deriveUserPrincipal(human.id)]);
   } finally { identity.close(); await logger.close(); await rm(home, { recursive: true, force: true }); }
 });
 
