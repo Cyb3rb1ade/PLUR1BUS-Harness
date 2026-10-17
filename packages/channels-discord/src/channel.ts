@@ -1,3 +1,4 @@
+import { channelMessageAllowed, channelOutputText } from "../../core/src/channels/behaviour.ts";
 import { randomBytes } from "node:crypto";
 import type { Channel, ChannelHealth, ChannelHost, OutboundMessage } from "../../core/src/channels/types.ts";
 import { DiscordApi, DiscordApiError } from "./api.ts";
@@ -317,6 +318,7 @@ export class DiscordChannel implements Channel {
   }
 
   async sendTurn(turn: OutboundTurn): Promise<SentRef[]> {
+    turn = { ...turn, text: channelOutputText(this.#host, this.name, turn.chatId, "reply", turn.text) };
     const { api, signal } = this.#live();
     const chat = this.#target(turn.chatId, turn.threadId);
     if (turn.replyTo !== undefined && !SNOWFLAKE.test(turn.replyTo)) throw new Error("invalid reply target");
@@ -355,6 +357,7 @@ export class DiscordChannel implements Channel {
   }
 
   async edit(ref: SentRef, text: string): Promise<void> {
+    text = channelOutputText(this.#host, this.name, ref.chatId, "edit", text);
     const { api, signal } = this.#live();
     const chat = this.#target(ref.chatId);
     if (!SNOWFLAKE.test(ref.messageId)) throw new Error("invalid message reference");
@@ -556,11 +559,10 @@ export class DiscordChannel implements Channel {
     const addressed = dm || mentioned || repliedToBot;
     if (!dm) {
       if (this.#c.userAllowlist && !this.#c.userAllowlist.has(sender)) return;
-      const listed = this.#c.userAllowlist?.has(sender) ?? false;
-      const heard = this.#c.replyPolicy === "always" || (this.#c.replyPolicy === "allowlist" && listed);
-      if (!addressed && !heard) return;
+
     }
     let text = typeof d.content === "string" ? d.content : "";
+    if (!channelMessageAllowed(this.#host, { channel: this.name, chatId: chat, chatKind: dm ? "direct" : "group", text, addressed }, this.#c.replyPolicy, this.#c.userAllowlist?.has(sender) === true)) return;
     text = text.split(`<@${botId}>`).join("").split(`<@!${botId}>`).join("").trim();
     let attachments: Attachment[];
     try {
@@ -643,6 +645,7 @@ export class DiscordChannel implements Channel {
     const user = d.member?.user ?? d.user;
     const sender = typeof user?.id === "string" && SNOWFLAKE.test(user.id) ? user.id : undefined;
     if (!sender || user?.bot === true) return;
+    if (d.type === 2 && !channelMessageAllowed(this.#host, { channel: this.name, chatId: typeof d.channel_id === "string" ? d.channel_id : "", chatKind: d.guild_id ? "group" : "direct", text: "", command: typeof d.data?.name === "string" ? d.data.name : "", addressed: true }, this.#c.replyPolicy)) return;
     if (d.type === 2 && d.data?.name === "status") {
       return this.#answer(d, async () => this.#statusText());
     }
@@ -675,8 +678,12 @@ export class DiscordChannel implements Channel {
   async #answer(d: DiscordInteraction, produce: () => Promise<string>): Promise<void> {
     const signal = this.#ac?.signal;
     if (!signal || !this.#api) return;
+    const chatId = typeof d.channel_id === "string" ? d.channel_id : "";
+    const permit = channelOutputText(this.#host, this.name, chatId, "reply", " ");
+    if (!permit) return;
+    const maxChars = this.#host?.behaviour?.({ channel: this.name, chatKind: d.guild_id ? "group" : "direct" }).profile.rateLimits.maxReplyChars;
     const result = produce().then(
-      (content) => content,
+      (content) => maxChars === undefined ? content : content.slice(0, maxChars),
       () => this.#msgs.failed,
     );
     const LATE = Symbol("late");

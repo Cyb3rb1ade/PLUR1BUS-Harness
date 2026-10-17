@@ -1,3 +1,4 @@
+import { permitsTool } from '../channels/behaviour-context.ts';
 import { waitForVoiceConfirmation } from '../voice/turn-profile.ts';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { ProviderRouter, ProviderError, type ProfileTable, type ChatRequest as WireRequest, type ChatMessage, type ToolDefinition, type Usage, type ChatResult, type RouterConfig, type BudgetGuard, type RouterEvent } from '../../../providers/src/index.ts';
@@ -142,6 +143,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       const index = new CapabilityIndex();
       for (const d of registry.describe()) {
         const t = registry.entries().find(t => t.name === d.name)!;
+        if (!permitsTool(t.name, t.capability)) continue;
         if (req.toolView && !req.toolView.includes(t.name)) continue;
         const category = t.name.startsWith('image.') ? 'media.image' : t.name.startsWith('file.') ? 'files.manage' : t.name.startsWith('mcp.') ? 'general.chat' : 'ops.system';
         index.upsert({ id: t.name, name: t.name, description: t.description, category, kind: t.name.startsWith('mcp.') ? 'mcp-tool' : 'tool', effect: t.effect, risk: t.risk, source: t.trust, version: '1' });
