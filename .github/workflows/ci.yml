@@ -77,6 +77,8 @@ jobs:
       - run: pnpm gen
       - run: pnpm build
       - run: node packages/config-schema/src/gen-defaults.mjs --check && pnpm lint
+        env:
+          NODE_OPTIONS: ${{ runner.os == 'macOS' && '--max-old-space-size=4096' || '' }}
       - name: unit tests with file timings
         shell: bash
         run: |
@@ -171,6 +173,46 @@ jobs:
         timeout-minutes: 15
         env: { PLUR1BUS_BIN: target/release/plur1bus, PLUR1BUS_SOAK_TURNS: "200" }
       - run: pnpm bench
+  # M3 criteria 7/9: required after the complete pinned-Chromium local baseline and late authorization checks passed.
+  web-browser:
+    needs: plan
+    if: needs.plan.outputs.proceed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      PLUR1BUS_WEB_E2E_REQUIRED: "1"
+      PLUR1BUS_WEB_TRANSPORT_REQUIRED: "1"
+      PLUR1BUS_BIN: ${{ github.workspace }}/target/debug/plur1bus
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - name: frozen dependencies (engine credential scoped to this step)
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; else base="https://github.com/"; fi
+          n=0
+          for from in $([ -n "${GH_ENGINE_READ_TOKEN}" ] && echo "https://github.com/") "git@github.com:" "ssh://git@github.com/"; do
+            export "GIT_CONFIG_KEY_$n=url.${base}.insteadOf" "GIT_CONFIG_VALUE_$n=$from"
+            n=$((n + 1))
+          done
+          export GIT_CONFIG_COUNT=$n
+          unset GH_ENGINE_READ_TOKEN base
+          pnpm install --frozen-lockfile
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
+        with: { toolchain: "1.95" }
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+      - name: build Core and CLI for served-stack browser acceptance
+        run: pnpm gen && pnpm build && cargo build -p plur1bus
+      - name: install lockfile-matched Chromium and Linux libraries
+        run: pnpm --filter @plur1bus/web exec playwright install --with-deps chromium
+      - name: web browser suites (axe, keyboard, contrast, responsive and zoom)
+        run: pnpm --filter @plur1bus/web test
+        timeout-minutes: 35
   # OS service registration against the real service manager (Task 8, criterion 9): systemd user instance, launchd
   # GUI domain, Task Scheduler. Every registration uses the temp home's suffixed name (S10) and is removed again.
   # Ruling C5: Linux needs a user manager (lingering); if enabling it fails, the job keeps the unit-file tests

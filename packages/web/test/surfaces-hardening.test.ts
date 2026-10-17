@@ -61,7 +61,7 @@ describe("surfaces use names the backend gave, never ones the page made up", opt
   });
 
   // `#/identities` was moved into Settings > Users & roles (router.ts MOVED, #387): the form below is src/pages/settings/users/identities.ts,
-  // not src/pages/surfaces/identities.ts (dead since then). It lives in the settings package.
+  // not src/pages/surfaces/identities.ts (dead since then). These regressions now cover that live Settings panel.
   test("the identity channel starts empty and is required; the suggestions are the channels this person already has", { skip: browserSkip }, async () => {
     await withApp({}, async ({ page, server }) => {
       identities(server); server.rpc.handle("identity.link.request", () => ({ code: "ABCD-EFGH", expiresAt: Date.now() + 600_000 })); await openRoute(page, "#/identities");
@@ -94,6 +94,18 @@ describe("surfaces tell the truth and stay readable", opts, () => {
       const names = await page.locator("main").getByRole("button", { name: /remove/i }).evaluateAll((els) => els.map((e) => (e.getAttribute("aria-label") ?? e.textContent ?? "").trim()));
       assert.equal(names.length, 2); assert.equal(new Set(names).size, 2, `identical names: ${JSON.stringify(names)}`);
       assert.ok(names.every((n) => /signal-xyz|matrix-abc/.test(n)), JSON.stringify(names));
+    });
+  });
+
+  test("identity removal names distinguish users sharing one channel account", async () => {
+    await withApp({}, async ({ page, server }) => {
+      identities(server, { humanId: "owner", links: [
+        { id: "first", channel: "matrix", accountId: "shared", userId: "person-one" },
+        { id: "second", channel: "matrix", accountId: "shared", userId: "person-two" },
+      ], pairings: [] });
+      await openRoute(page, "#/identities");
+      await page.getByRole("button", { name: "Remove matrix account shared identity person-one", exact: true }).waitFor();
+      await page.getByRole("button", { name: "Remove matrix account shared identity person-two", exact: true }).waitFor();
     });
   });
 

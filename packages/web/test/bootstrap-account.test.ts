@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { chromium } from "playwright";
 import { buildWeb } from "../build.ts";
 import { browserSkip } from "./harness.ts";
+import { findChromium } from "./browser-runtime.ts";
 import { AccountStore } from "../../api/src/account-store.ts";
 import { bootstrapHash } from "../../api/src/bootstrap.ts";
 import { createApiServer } from "../../api/src/server.ts";
@@ -16,7 +17,7 @@ test("real API wizard account bootstrap creates Owner, clears proof and never pe
   const accounts = new AccountStore({ path: ":memory:", resolve: async userId => ({ userId, kind: "person", role: "owner", disabled: false, version: 1 }) }); t.after(() => accounts.close());
   const proof = randomBytes(32).toString("base64url"), password = randomBytes(24).toString("base64url"); accounts.initializeBootstrap(bootstrapHash(proof));
   const api = createApiServer({ core: fakeCore(), accounts, users: accounts, ownerToken: randomBytes(32).toString("hex"), webRoot: dir }); const listener = await api.listen(); const url = listener.url.replace("127.0.0.1", "localhost"); t.after(() => api.close());
-  const browser = await chromium.launch({ executablePath: process.env.PLUR1BUS_CHROMIUM ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", headless: true }); t.after(() => browser.close()); const page = await browser.newPage({ locale: "en-US" }); page.setDefaultTimeout(5000);
+  const browser = await chromium.launch({ executablePath: findChromium()!, headless: true }); t.after(() => browser.close()); const page = await browser.newPage({ locale: "en-US" }); page.setDefaultTimeout(5000);
   await page.goto(url + "/#/setup"); try { await page.getByLabel("One-time bootstrap proof", { exact: true }).fill(proof); } catch (e) { console.log(await page.locator("body").textContent()); throw e; } await page.getByLabel("Username", { exact: true }).fill("christian"); await page.getByLabel("Password (at least 12 characters)", { exact: true }).fill(password); await page.getByRole("button", { name: "Create account", exact: true }).click();
   await page.getByText("You are signed in as local-owner (owner).", { exact: true }).waitFor();
   const cdp = await page.context().newCDPSession(page); await cdp.send("WebAuthn.enable");

@@ -314,6 +314,7 @@ describe("settings config: a11y and layout", opts, () => {
         await app.page.getByRole("button", { name: "Review changes" }).click();
         await app.page.locator(".cfg-diff").waitFor();
         await expectAxeClean(app.page, `review ${scheme}`);
+        app.page.once("dialog", (d) => { void d.accept(); }); // the review still holds the edits; leaving the section asks first (covered above)
         await app.page.evaluate(() => { location.hash = "#/settings/models"; });
         await app.page.locator("#cfg-modelRoles").waitFor();
         await expectAxeClean(app.page, `models ${scheme}`);
@@ -344,6 +345,7 @@ describe("settings config: a11y and layout", opts, () => {
       await app.page.getByRole("button", { name: "Review changes" }).click();
       await app.page.locator(".cfg-diff").waitFor();
       assert.equal(await wide(), false);
+      app.page.once("dialog", (d) => { void d.accept(); }); // leaving the section with the edit asks first (covered above)
       await app.page.evaluate(() => { location.hash = "#/settings/models"; });
       await app.page.locator("#cfg-modelRoles").waitFor();
       assert.equal(await wide(), false);
