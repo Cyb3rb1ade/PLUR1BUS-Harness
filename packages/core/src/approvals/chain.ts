@@ -8,6 +8,7 @@ import type { DatabaseSync } from "node:sqlite";
 import type { Clock } from "../policy/decide.ts";
 import { transaction } from "./db.ts";
 import { assertKey } from "./keys.ts";
+import { verifyDecisionSignature, type DecisionSigner } from "./signing.ts";
 
 export const GENESIS_MAC = "0".repeat(64);
 
@@ -17,11 +18,21 @@ export interface ChainEntry {
 
 export type VerifyFailure =
   | "seq-gap" | "prev-mismatch" | "mac-mismatch" | "truncated" | "head-mismatch"
-  | "malformed" | "nonce-reuse" | "binding-mismatch" | "duplicate";
+  | "malformed" | "nonce-reuse" | "binding-mismatch" | "duplicate" | "signature-mismatch";
+
+export type SignatureReport = "unsigned (legacy)" | "signed-ok" | "signed-bad";
+export interface SignatureSummary {
+  unsignedLegacy: number;
+  signedOk: number;
+  signedBad: number;
+  report: SignatureReport;
+}
+
+export const EMPTY_SIGNATURES: SignatureSummary = { unsignedLegacy: 0, signedOk: 0, signedBad: 0, report: "unsigned (legacy)" };
 
 export type VerifyResult =
-  | { ok: true; entries: number; head: { seq: number; mac: string } | null }
-  | { ok: false; entries: number; /** First position (seq) at which the chain does not hold. */ brokenAt: number; reason: VerifyFailure; detail: string };
+  | { ok: true; entries: number; head: { seq: number; mac: string } | null; signatures: SignatureSummary }
+  | { ok: false; entries: number; /** First position (seq) at which the chain does not hold. */ brokenAt: number; reason: VerifyFailure; detail: string; signatures: SignatureSummary };
 
 export interface ChainSnapshot {
   result: VerifyResult;
@@ -61,13 +72,22 @@ export class ApprovalChain {
   readonly #db: DatabaseSync;
   readonly #key: Buffer;
   readonly #clock: Clock;
+  #signer: DecisionSigner | undefined;
   #gen = 0;
   #cache: { dv: number; gen: number; snap: ChainSnapshot } | null = null;
 
-  constructor(db: DatabaseSync, key: Uint8Array, clock: Clock) {
+  constructor(db: DatabaseSync, key: Uint8Array, clock: Clock, signer?: DecisionSigner) {
     this.#db = db;
     this.#key = Buffer.from(assertKey(key));
     this.#clock = clock;
+    this.#signer = signer;
+  }
+
+  /** Tests and late wiring (the store loads the signer after the HMAC key). */
+  setSigner(signer: DecisionSigner | undefined): void {
+    this.#signer = signer;
+    this.#gen++;
+    this.#cache = null;
   }
 
   #mac(prev: string, e: Pick<ChainEntry, "seq" | "ts" | "kind" | "refId" | "nonce" | "payload">): string {
@@ -97,8 +117,8 @@ export class ApprovalChain {
     const rows = (this.#db.prepare("SELECT seq, ts, kind, ref_id, nonce, payload, prev_mac, mac FROM approval_chain ORDER BY seq").all() as unknown as Row[]).map(toEntry);
     const byRef = new Map<string, ChainEntry[]>();
     for (const e of rows) { const l = byRef.get(e.refId); if (l) l.push(e); else byRef.set(e.refId, [e]); }
-    const fail = (brokenAt: number, reason: VerifyFailure, detail: string): ChainSnapshot => ({
-      result: { ok: false, entries: rows.length, brokenAt, reason, detail }, entries: rows, byRef, trustedBelow: brokenAt,
+    const fail = (brokenAt: number, reason: VerifyFailure, detail: string, signatures: SignatureSummary = EMPTY_SIGNATURES): ChainSnapshot => ({
+      result: { ok: false, entries: rows.length, brokenAt, reason, detail, signatures }, entries: rows, byRef, trustedBelow: brokenAt,
     });
 
     let expected = 1;
@@ -124,10 +144,55 @@ export class ApprovalChain {
 
     const semantic = this.#semantic(rows);
     if (semantic) return fail(semantic.at, semantic.reason, semantic.detail);
+    const signatures = this.#signatures(rows);
+    if (signatures.signedBad > 0) {
+      const brokenAt = this.#firstBadSignatureSeq(rows) ?? n;
+      return fail(brokenAt, "signature-mismatch", "a signed decision does not verify", signatures);
+    }
     return {
-      result: { ok: true, entries: n, head: n === 0 ? null : { seq: n, mac: rows[n - 1]!.mac } },
+      result: { ok: true, entries: n, head: n === 0 ? null : { seq: n, mac: rows[n - 1]!.mac }, signatures },
       entries: rows, byRef, trustedBelow: Number.POSITIVE_INFINITY,
     };
+  }
+
+  #signatureRows(): Map<number, { alg: string; public_key: string; signature: string }> {
+    const out = new Map<number, { alg: string; public_key: string; signature: string }>();
+    try {
+      const rows = this.#db.prepare("SELECT seq, alg, public_key, signature FROM approval_signatures").all() as { seq: number; alg: string; public_key: string; signature: string }[];
+      for (const r of rows) out.set(Number(r.seq), r);
+    } catch {
+      // Schema v2 files are migrated before this runs; a missing table is treated as unsigned-legacy.
+    }
+    return out;
+  }
+
+  #signatures(rows: readonly ChainEntry[]): SignatureSummary {
+    const stored = this.#signatureRows();
+    let unsignedLegacy = 0, signedOk = 0, signedBad = 0;
+    for (const e of rows) {
+      if (e.kind !== "approval.decided") { unsignedLegacy += 1; continue; }
+      const row = stored.get(e.seq);
+      if (!row) { unsignedLegacy += 1; continue; }
+      const cryptoOk = verifyDecisionSignature(e.mac, row.public_key, row.signature);
+      const keyOk = this.#signer === undefined || row.public_key === this.#signer.publicKey;
+      if (cryptoOk && keyOk) signedOk += 1;
+      else signedBad += 1;
+    }
+    const report: SignatureReport = signedBad > 0 ? "signed-bad" : signedOk > 0 ? "signed-ok" : "unsigned (legacy)";
+    return { unsignedLegacy, signedOk, signedBad, report };
+  }
+
+  #firstBadSignatureSeq(rows: readonly ChainEntry[]): number | undefined {
+    const stored = this.#signatureRows();
+    for (const e of rows) {
+      if (e.kind !== "approval.decided") continue;
+      const row = stored.get(e.seq);
+      if (!row) continue;
+      const cryptoOk = verifyDecisionSignature(e.mac, row.public_key, row.signature);
+      const keyOk = this.#signer === undefined || row.public_key === this.#signer.publicKey;
+      if (!cryptoOk || !keyOk) return e.seq;
+    }
+    return undefined;
   }
 
   /** Binding and replay rules over MAC-valid entries: defence in depth against a buggy or key-holding writer. */
@@ -183,6 +248,11 @@ export class ApprovalChain {
         .run(base.seq, base.ts, kind, refId, nonce, base.payload, prev, mac);
       this.#db.prepare("INSERT INTO chain_head (id, seq, mac, tag) VALUES (1, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET seq = excluded.seq, mac = excluded.mac, tag = excluded.tag")
         .run(base.seq, mac, this.#tag(base.seq, mac));
+      if (this.#signer && kind === "approval.decided") {
+        const sig = this.#signer.sign(mac);
+        this.#db.prepare("INSERT INTO approval_signatures (seq, alg, public_key, signature) VALUES (?, ?, ?, ?)")
+          .run(base.seq, sig.alg, sig.publicKey, sig.signature);
+      }
       return { ...base, prevMac: prev, mac };
     };
     try {

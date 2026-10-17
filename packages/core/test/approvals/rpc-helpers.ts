@@ -5,6 +5,7 @@ import { validateParams, validateResult } from "@plur1bus/rpc-schema";
 import { RpcError } from "../../src/rpc/errors.ts";
 import type { CallContext, Handler } from "../../src/rpc/server.ts";
 import { buildApprovalMethods, type ApprovalMethodDeps } from "../../src/approvals/rpc.ts";
+import { grantRecordOf } from "../../src/approvals/wire.ts";
 import { connectionSurface, type ConnectionAttestation } from "../../src/rbac/connection-surface.ts";
 import type { Principal } from "../../src/rbac/types.ts";
 import { askFor, lastNonce, rig, tick, type Rig } from "./service-helpers.ts";
@@ -28,6 +29,7 @@ export async function rpcRig(o: { attest?: ConnectionAttestation; unknownAgent?:
   const r = await rig();
   const x = { who: PERSON as Principal | null, attestation: o.attest } as { who: Principal | null; attestation: ConnectionAttestation | undefined };
   const grantChanged: RpcRig["grantChanged"] = [];
+  r.stores.grants.setNotify((change, grant, state) => { grantChanged.push({ change, grant: grantRecordOf(grant, state) }); });
   const methods: Record<string, Handler> = buildApprovalMethods({
     permissions: async () => ({ service: r.service, grants: r.stores.grants }),
     principalOf: () => x.who,

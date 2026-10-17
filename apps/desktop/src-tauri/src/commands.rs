@@ -62,6 +62,8 @@ fn store(window: &WebviewWindow) -> Result<SettingsStore, String> {
 
 #[derive(Debug, Serialize)]
 pub struct AppInfo {
+    pub store_managed: bool,
+    pub sandboxed: bool,
     pub platform: &'static str,
     pub locale: String,
 }
@@ -89,6 +91,8 @@ pub fn app_info(window: WebviewWindow) -> Result<AppInfo, String> {
         linux_desktop(&std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default())
     };
     Ok(AppInfo {
+        store_managed: cfg!(feature = "store"),
+        sandboxed: cfg!(target_os = "linux") && std::env::var_os("FLATPAK_ID").is_some(),
         platform,
         locale: sys_locale::get_locale().unwrap_or_else(|| "en".into()),
     })
@@ -185,6 +189,7 @@ pub struct PairCodeRequest {
     pub name: String,
     pub code: String,
     pub repair_id: Option<uuid::Uuid>,
+    pub link_id: Option<u64>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -258,29 +263,79 @@ pub async fn pair_code(
 ) -> Result<Paired, String> {
     check(&window, "pair_code")?;
     let store = connection_store(&window)?;
+    // A link always creates a new connection. An existing connection can never be repaired or
+    // replaced by an external offer, and the renderer cannot substitute the offer's trust.
+    let offer = match request.link_id {
+        Some(id) if request.repair_id.is_none() => Some(
+            window
+                .state::<crate::deeplink::LinkState>()
+                .0
+                .lock()
+                .unwrap()
+                .confirm_pair(id, &request.origin, &request.code)
+                .ok_or("invalid")?,
+        ),
+        Some(_) => return Err("invalid".into()),
+        None => None,
+    };
     let code = crate::secrets::SecretString::new(request.code);
     let app = window.app_handle().clone();
-    credential_action(&state, move |tokens, runtime| {
+    let result = credential_action(&state, move |tokens, runtime| {
         if let Some(id) = request.repair_id {
             crate::native::retire_connection(&app, id);
         }
         let tokens = tokens.get_or_insert_with(crate::secrets::open_default);
         let connection = runtime
-            .block_on(crate::pair::pair_code(
-                &request.origin,
-                code.expose(),
-                &request.name,
-                tokens.as_ref(),
-                &store,
-                request.repair_id,
-            ))
+            .block_on(async {
+                if let Some(crate::deeplink::DeepLink::Pair {
+                    origin, pin, ca, ..
+                }) = offer
+                {
+                    let client =
+                        crate::client::HarnessClient::from_pairing_payload(origin, pin, ca)
+                            .await
+                            .map_err(crate::pair::PairError::from)?;
+                    crate::pair::pair_using_client(
+                        client,
+                        code.expose(),
+                        &request.name,
+                        crate::connections::Kind::Remote,
+                        None,
+                        None,
+                        tokens.as_ref(),
+                        &store,
+                    )
+                    .await
+                } else {
+                    crate::pair::pair_code(
+                        &request.origin,
+                        code.expose(),
+                        &request.name,
+                        tokens.as_ref(),
+                        &store,
+                        request.repair_id,
+                    )
+                    .await
+                }
+            })
             .map_err(|e| e.public_message())?;
         Ok(Paired {
             connection,
             token_store: tokens.kind(),
         })
     })
-    .await
+    .await;
+    if result.is_ok() {
+        if let Some(id) = request.link_id {
+            window
+                .state::<crate::deeplink::LinkState>()
+                .0
+                .lock()
+                .unwrap()
+                .finish_pair(id);
+        }
+    }
+    result
 }
 #[tauri::command]
 pub async fn pair_local(
@@ -518,6 +573,14 @@ pub async fn quit_response(
 #[tauri::command]
 pub fn autostart_get(window: WebviewWindow) -> Result<Option<bool>, String> {
     check(&window, "autostart_get")?;
+    #[cfg(debug_assertions)]
+    if std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR").is_some() {
+        use crate::controller::autostart::AppLauncher;
+        return crate::controller::autostart::NativeLauncher(window.app_handle())
+            .is_enabled()
+            .map(Some)
+            .map_err(|reason| reason.code().to_owned());
+    }
     #[cfg(target_os = "linux")]
     if crate::gnome::is_flatpak() {
         return Ok(*window
@@ -528,26 +591,58 @@ pub fn autostart_get(window: WebviewWindow) -> Result<Option<bool>, String> {
             .lock()
             .unwrap());
     }
-    use crate::controller::autostart::AppLauncher;
-    crate::controller::autostart::NativeLauncher(window.app_handle())
-        .is_enabled()
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("APPIMAGE").is_some() {
+        return crate::desktop_integration::appimage_autostart_get()
+            .map(Some)
+            .map_err(str::to_owned);
+    }
+    #[cfg(all(target_os = "windows", feature = "store"))]
+    return Ok(None);
+    #[cfg(all(target_os = "windows", not(feature = "store")))]
+    return crate::desktop_integration::windows_autostart_get()
         .map(Some)
-        .map_err(|reason| reason.code().to_owned())
+        .map_err(str::to_owned);
+    #[cfg(not(target_os = "windows"))]
+    {
+        use crate::controller::autostart::AppLauncher;
+        crate::controller::autostart::NativeLauncher(window.app_handle())
+            .is_enabled()
+            .map(Some)
+            .map_err(|reason| reason.code().to_owned())
+    }
 }
 #[tauri::command]
 pub async fn autostart_set(window: WebviewWindow, enabled: bool) -> Result<bool, String> {
     check(&window, "autostart_set")?;
+    #[cfg(debug_assertions)]
+    if std::env::var_os("PLUR1BUS_DESKTOP_CONFIG_DIR").is_some() {
+        return crate::controller::autostart::set_enabled(
+            &crate::controller::autostart::NativeLauncher(window.app_handle()),
+            enabled,
+        )
+        .map_err(|reason| reason.code().to_owned());
+    }
     #[cfg(target_os = "linux")]
     if crate::gnome::is_flatpak() {
         return crate::gnome::request_autostart(window.app_handle(), enabled)
             .await
             .map_err(str::to_owned);
     }
-    crate::controller::autostart::set_enabled(
-        &crate::controller::autostart::NativeLauncher(window.app_handle()),
-        enabled,
-    )
-    .map_err(|reason| reason.code().to_owned())
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("APPIMAGE").is_some() {
+        return crate::desktop_integration::appimage_autostart_set(enabled).map_err(str::to_owned);
+    }
+    #[cfg(target_os = "windows")]
+    return crate::desktop_integration::windows_autostart_set(enabled).map_err(str::to_owned);
+    #[cfg(not(target_os = "windows"))]
+    {
+        crate::controller::autostart::set_enabled(
+            &crate::controller::autostart::NativeLauncher(window.app_handle()),
+            enabled,
+        )
+        .map_err(|reason| reason.code().to_owned())
+    }
 }
 
 #[tauri::command]
