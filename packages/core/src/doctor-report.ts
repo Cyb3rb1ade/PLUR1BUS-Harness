@@ -20,7 +20,9 @@ export function runFirstAid(home: string, binary = process.env.PLUR1BUS_BIN ?? "
     });
   });
 }
-export function buildDoctorMethods(o: { home: string; clock: () => number; check?: () => Promise<unknown>; scheduleInitial?: (start: () => Promise<unknown>) => void }): Record<string, Handler> {
+export function buildDoctorMethods(o: { home: string; clock: () => number; check?: () => Promise<unknown>; scheduleInitial?: (start: () => Promise<unknown>) => void;
+  /** Checks the core answers itself from its live configuration (e.g. privacy.local-only); appended to the provisioning group. */
+  coreChecks?: () => Check[] }): Record<string, Handler> {
   let cached: Report | null = null;
   let lastStarted = -Infinity;
   let inFlight: Promise<Report> | null = null;
@@ -44,6 +46,7 @@ export function buildDoctorMethods(o: { home: string; clock: () => number; check
       const status: Status = c.status === "info" ? "ok" : c.status === "skip" ? "skipped" : c.status as Status;
       return { id: c.id, status, summary: safe(c.summary), ...(typeof c.hint === "string" ? { repair: { kind: "hint", label: safe(c.hint) } } : {}) };
     });
+    for (const c of o.coreChecks?.() ?? []) if (!checks.some(x => x.id === c.id)) checks.push({ ...c, summary: safe(c.summary), ...(c.repair ? { repair: { kind: c.repair.kind, label: safe(c.repair.label) } } : {}) });
     // These categories have no authoritative 1staid check in this revision. Report that explicitly; do not invent probes.
     for (const id of ["containers", "secrets", "certificates", "ports", "disks"]) if (!checks.some(c => c.id === id || c.id.startsWith(`${id}.`))) checks.push({ id, status: "skipped", summary: "No authoritative provisioning check is available in this installation." });
     cached = { generatedAt: new Date(o.clock()).toISOString(), groups: [{ id: "provisioning", title: "Provisioning", checks }] };

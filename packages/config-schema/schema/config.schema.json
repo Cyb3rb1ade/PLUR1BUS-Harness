@@ -1154,7 +1154,7 @@
       "type": "object", "additionalProperties": false, "default": {},
       "properties": {
         "localOnly": {
-          "description": "Only local models: every model or inference endpoint must be loopback (localhost, 127.0.0.0/8, ::1) or listed in privacy.localEndpoints. A cloud provider is refused with E_DENIED reason local-only, never silently replaced by another model. An agent can override it with agents.<id>.privacy.localOnly.",
+          "description": "Only local models: every model or inference endpoint must be loopback (localhost, 127.0.0.0/8, ::1) or listed in privacy.localEndpoints. A cloud provider is refused with E_DENIED reason local-only, never silently replaced by another model. Web tools (web.fetch, web.search) are not model calls and are not affected. An agent can override it with agents.<id>.privacy.localOnly.",
           "type": "boolean", "default": false, "x-restart": "core", "x-tier": "basic", "x-write-roles": ["owner", "admin"], "x-audit": true
         },
         "localEndpoints": {

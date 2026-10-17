@@ -11,7 +11,7 @@ import { Compactor, defaultCompaction } from '../../src/session/compaction.ts';
 import { TurnRunner } from '../../src/session/turn-loop.ts';
 import { FakeChatProvider } from '../../src/session/provider.ts';
 import type { SessionService } from '../../src/session/service.ts';
-async function fixture() {
+async function fixture(extra: Partial<Parameters<typeof createVoiceV2>[0]> = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'voice-v2-')); const engine = new FakeEngine(); const files = testFiles();
   const local = new LocalVoice({ modelsDir: dir, engine, config: { language: 'de', catalogOverride: testCatalogOverride('https://models.invalid', files) }, fetch: async url => new Response(Buffer.from(files[new URL(url).pathname.slice(1)]!)) });
   await local.setLanguage('de', { download: true }); await local.setLanguage('en', { download: true });
@@ -22,7 +22,7 @@ async function fixture() {
   let registryCalls = 0, admitted = 0, released = 0; const events: unknown[] = []; const frames: unknown[] = [];
   const v2 = createVoiceV2({ config: () => ({ localRealtime: { enabled: true, endpointingMs: 1 } }), sessions: () => service, modelsDir: dir, signal: new AbortController().signal, clock: Date.now,
     local: () => local, registry() { registryCalls++; return { asr: {}, tts: {}, realtime: {}, status: [] }; }, allowed: async () => true,
-    budget: { async reserve() { admitted++; return true; }, async record() { return true; }, async release() { released++; } } });
+    budget: { async reserve() { admitted++; return true; }, async record() { return true; }, async release() { released++; } }, ...extra });
   const client: VoiceClient = { sessionId: session.id, principal: 'owner', caller: { channel: 'cli', accountId: 'a', userId: 'u' }, approver: { person: 'owner', surface: 2 }, receive: async f => { frames.push(f); }, stopPlayback() {}, event: e => events.push(e) };
   return { v2, local, engine, store, runner, session, client, events, frames, registryCalls: () => registryCalls, admitted: () => admitted, released: () => released,
     async close() { await v2.close(); await runner.idle(); store.close(); await rm(dir, { recursive: true, force: true }); } };
@@ -33,6 +33,16 @@ test('privacy pin performs no cloud construction; owner binding precedes admissi
     const c = await f.v2.openTalk({ sessionId: f.session.id, privacyPin: true }, f.client); assert.equal(c.route.kind, 'local'); assert.equal(f.registryCalls(), 0);
     await Promise.all([c.close(), c.close(), f.v2.close()]); assert.equal(f.released(), 1); assert.ok(!JSON.stringify([f.events, f.frames, c.route]).includes('apiKeyRef'));
   } finally { await f.close(); }
+});
+test('privacy.localOnly keeps the session on the local voice tier and builds no cloud adapter, per agent', async () => {
+  const f = await fixture({ localOnly: agent => agent === 'a' }); try {
+    const c = await f.v2.openTalk({ sessionId: f.session.id }, f.client); assert.equal(c.route.kind, 'local'); assert.equal(f.registryCalls(), 0);
+    await c.close();
+  } finally { await f.close(); }
+  const g = await fixture({ localOnly: agent => agent === 'other' }); try {
+    const c = await g.v2.openTalk({ sessionId: g.session.id }, g.client); assert.equal(g.registryCalls(), 1, 'an agent without the switch may consider cloud voice');
+    await c.close();
+  } finally { await g.close(); }
 });
 test('runtime language switch closes the old ASR/VAD leases and loads the new language', async () => {
   const f = await fixture(); try {

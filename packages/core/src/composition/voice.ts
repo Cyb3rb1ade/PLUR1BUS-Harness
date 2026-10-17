@@ -15,6 +15,7 @@ import type { CompositionDeps } from './index.ts';
 import type { OpenAIRuntime } from '../openai-auth/runtime.ts';
 import type { CallBudget } from '../budget/index.ts';
 import type { SessionService } from '../session/service.ts';
+import { localOnlyFor } from '../privacy/local-only.ts';
 /** One registration in composition. Existing D110 broker transports and handles retain their ownership. */
 export function composeVoice(d: CompositionDeps, openai: OpenAIRuntime, budget: CallBudget | null, sessions: () => SessionService) {
   const { onVoice, ...options } = d.options ?? {};
@@ -25,6 +26,7 @@ export function composeVoice(d: CompositionDeps, openai: OpenAIRuntime, budget: 
     budget: ledger?.port ?? { reserve: async () => false, record: async () => false, release: async () => {} },
     registry: (config, usage) => createVoiceProviders(config, { getSecret: ref => secrets.get(ref), fetch: voiceFetch(d.egress), wsFactory: voiceSockets(d.egress), usage, now: d.clock,
       pollyClientFactory: () => loadSdkClient({ ...(config?.polly?.region ? { region: config.polly.region } : {}), ...(config?.polly?.credentials?.profile ? { profile: config.polly.credentials.profile } : {}) }, pollyRequestHandler(d.egress)) }),
+    localOnly: agentId => localOnlyFor(d.config(), agentId),
     localModelAllowed(provider) {
       const def = d.options?.definitions?.[provider] ?? d.config().providers[provider];
       if (!def || typeof def !== 'object' || !('profile' in def)) return false;

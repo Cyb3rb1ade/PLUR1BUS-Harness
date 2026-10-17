@@ -39,6 +39,7 @@ import { composedAgentRunner } from './collaboration.ts';
 import { legacyAdapter } from './legacy.ts';
 import { composeMediaSearch, mediaSearchMethods } from './media-search.ts';
 import { mediaToInbox } from '../inbox/producers.ts';
+import { isLocalEndpoint, localEndpoints, localOnlyFor, localOnlyShared, LOCAL_ONLY_REASON, LOCAL_ONLY_HINT } from '../privacy/local-only.ts';
 
 export interface CompositionOptions {
   delegationTargets?: readonly import("../collab/target.ts").DelegationTarget[];
@@ -138,19 +139,24 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     }
     const mediaConfig = cfg.providers.media as { adapters?: MediaDefinition[] } | undefined;
     let media = options.tools?.media ?? null;
-    if (!media) try { media = await composeMedia(d.home, mediaConfig?.adapters ?? [], d.secrets, d.egress, registerSecret); }
+    // privacy.localOnly for media generation: per agent inside a turn, installation-wide for a direct RPC call.
+    const mediaPrivacy = { localOnly: (agentId?: string) => localOnlyFor(d.config(), agentId), localEndpoints: () => localEndpoints(d.config()) };
+    const mediaLocal = new Map<string, () => boolean>();
+    if (!media) try { const composed = await composeMedia(d.home, mediaConfig?.adapters ?? [], d.secrets, d.egress, registerSecret, mediaPrivacy); if (composed) mediaLocal.set(composed.adapter.id, composed.local); media = composed; }
     catch (e) { d.logger.error('turn media unavailable', { err: e }); }
     const adapters = media ? [media.adapter] : [];
     for (const definition of (mediaConfig?.adapters ?? []).slice(1)) {
       try {
-        const configured = await composeMedia(d.home, [definition], d.secrets, d.egress, registerSecret);
-        if (configured) adapters.push(configured.adapter);
+        const configured = await composeMedia(d.home, [definition], d.secrets, d.egress, registerSecret, mediaPrivacy);
+        if (configured) { adapters.push(configured.adapter); mediaLocal.set(configured.adapter.id, configured.local); }
       } catch (error) { d.logger.error('media adapter unavailable', { err: error }); }
     }
     const mediaSurface = createMediaSurface({ home: d.home, adapters, store: media?.store ?? new (await import('../../../media/src/index.ts')).OutputStore(join(d.home,'media','outputs')), budget, signal: d.signal,
       notify: (method, params, opts) => d.notify(method,params,opts),
-      async policy(operation, request, agentId, principal, ctx) {
+      async policy(operation, request, agentId, principal, ctx, adapterId) {
         if (!d.agents.has(agentId)) throw new RpcError('E_AGENT_UNKNOWN','unknown media agent');
+        // An adapter composed elsewhere (a test seam) has no locality record and counts as cloud.
+        if (localOnlyFor(d.config(), agentId) && !(adapterId !== undefined && mediaLocal.get(adapterId)?.() === true)) throw new RpcError('E_DENIED', `media adapter ${adapterId ?? 'unknown'} is not a local model; ${LOCAL_ONLY_HINT}`, { reason: LOCAL_ONLY_REASON });
         await d.permissions.open();
         const decision = decide({ capability: `media.${operation}`, tool: `media.${operation}`, flags: { outsideRoots: false, denyListHit: false }, actionHash: mediaActionHash(operation,request,agentId) },
           { principal: { person: principal.userId }, subject: { kind: 'agent', agentId }, surface: connectionSurface({ principal, now: d.clock() }) }, { grants, clock: { now: d.clock } });
@@ -160,8 +166,20 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     });
     await mediaSurface.recover();
     disposers.push(() => mediaSurface.close());
-    const mediaSearch = await composeMediaSearch({ home: d.home, config: d.config, engine: d.engine, agents: d.agents, logger: d.logger, store: media?.store ?? null, budget, ...(d.inbox ? { emit: (name, payload) => { d.logger.info(name, payload); mediaToInbox(d.inbox!, name, payload); } } : {}) }); disposers.push(() => mediaSearch.close());
+    // The media index is shared like the engine: its cloud tiers (media embedding, captioning) are pinned off while the
+    // installation or any agent is local-only (the existing privacy-pin refusal, E_MEDIA_PRIVACY reason privacy-pin).
+    const mediaSearch = await composeMediaSearch({ home: d.home, config: d.config, engine: d.engine, agents: d.agents, logger: d.logger, store: media?.store ?? null, budget, privacyPinned: () => localOnlyShared(d.config()), ...(d.inbox ? { emit: (name, payload) => { d.logger.info(name, payload); mediaToInbox(d.inbox!, name, payload); } } : {}) }); disposers.push(() => mediaSearch.close());
     const profiles = options.providers?.profiles ?? (d.provider ? { default: [{ provider: 'fixture', model: 'gpt-4.1', adapter: legacyAdapter(d.provider) }] } : auth?.profiles ?? {});
+    // privacy.localOnly: a chat/role provider is local when its endpoint is loopback or listed in privacy.localEndpoints.
+    // No base_url means the vendor's cloud default; a managed OpenAI login is always cloud. The in-process test provider
+    // (`fixture`, only with PLUR1BUS_TEST_CHAT_PROVIDER) sends nothing anywhere.
+    const isLocalProvider = (id: string): boolean => {
+      if (id === 'fixture' && d.provider) return true;
+      const def = definitions[id];
+      if (!def || openai.handles(def)) return false;
+      const base = def.profile?.base_url;
+      return typeof base === 'string' && isLocalEndpoint(base, localEndpoints(d.config()));
+    };
     const classProfiles = cfg.decision.classProfiles as Record<string, string> | undefined;
     // Reserved `providers` namespace: `providers.modelProfilePolicy.<profile>.allowCrossBilling: true` opts one profile into
     // plan<->paid fallback; absent, a fallback across billing classes is refused.
@@ -181,7 +199,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     // M2: isolated additive Session wiring; the existing turn/tool composition below is unchanged.
     const create = sessionRoleFactory(options.createTurnProvider ?? createTurnProvider, cfg);
     const maintenance = sessionMaintenance(d.home, cfg);
-    const provider = budget && Object.keys(profiles).length ? create({ ...options.providers, profiles, profile: auth?.resolved.defaultProfile ?? 'default', profileForClass: modelClass => classProfiles?.[modelClass], router: { profileDefaults: auth?.resolved.defaults ?? {}, unsupportedProfiles: auth?.resolved.unsupported ?? {}, ...options.providers?.router }, family: options.providers?.family ?? auth?.families ?? {}, billing: options.providers?.billing ?? auth?.billing ?? {}, allowCrossBilling: name => profilePolicy[name]?.allowCrossBilling === true, secrets: () => registered, onRouterEvent: routerEventSink(d), policyContext: approvalPolicyContext(d.permissions), registry: new ToolRegistry(), budget, principal, toolsForTurn, snapshot: (req, memory) => req.projectId ? memory : sessions.forSession(req.sessionId).store.freezePromptSnapshot(req.sessionId, memory), onUsage: record => d.logger.info('provider.cache_usage', { ...record }), onPrompt: prompt => { options.providers?.onPrompt?.(prompt); for (const event of prompt.events) d.logger.info(event.type, { ...event }); }, beforeTools: async () => { await d.permissions.open(); }, grants, grantUse: { markUsed: id => d.permissions.current()!.grants.markUsed(id), consumeOnce: (id, binding) => d.permissions.current()!.grants.consumeOnce(id, binding) }, approval: { request: async ask => (await d.permissions.open()).service.request(ask), begin: (answer, ask) => d.permissions.current()?.service.begin(answer, ask) ?? false }, audit, log: record => d.logger.info('turn.stage', { ...record }), resultStore: { async put(value) {
+    const provider = budget && Object.keys(profiles).length ? create({ ...options.providers, profiles, profile: auth?.resolved.defaultProfile ?? 'default', profileForClass: modelClass => classProfiles?.[modelClass], router: { profileDefaults: auth?.resolved.defaults ?? {}, unsupportedProfiles: auth?.resolved.unsupported ?? {}, ...options.providers?.router }, family: options.providers?.family ?? auth?.families ?? {}, billing: options.providers?.billing ?? auth?.billing ?? {}, allowCrossBilling: name => profilePolicy[name]?.allowCrossBilling === true, localOnly: agentId => localOnlyFor(d.config(), agentId), isLocalProvider, secrets: () => registered, onRouterEvent: routerEventSink(d), policyContext: approvalPolicyContext(d.permissions), registry: new ToolRegistry(), budget, principal, toolsForTurn, snapshot: (req, memory) => req.projectId ? memory : sessions.forSession(req.sessionId).store.freezePromptSnapshot(req.sessionId, memory), onUsage: record => d.logger.info('provider.cache_usage', { ...record }), onPrompt: prompt => { options.providers?.onPrompt?.(prompt); for (const event of prompt.events) d.logger.info(event.type, { ...event }); }, beforeTools: async () => { await d.permissions.open(); }, grants, grantUse: { markUsed: id => d.permissions.current()!.grants.markUsed(id), consumeOnce: (id, binding) => d.permissions.current()!.grants.consumeOnce(id, binding) }, approval: { request: async ask => (await d.permissions.open()).service.request(ask), begin: (answer, ask) => d.permissions.current()?.service.begin(answer, ask) ?? false }, audit, log: record => d.logger.info('turn.stage', { ...record }), resultStore: { async put(value) {
       const dir = join(d.home, 'state', 'tool-results'); await mkdir(dir, { recursive: true, mode: 0o700 });
       const id = randomUUID(); await writeFile(join(dir, `${id}.json`), JSON.stringify(value), { flag: 'wx', mode: 0o600 }); return `tool-result:${id}`;
     } } }) : null;
