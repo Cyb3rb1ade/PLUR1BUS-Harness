@@ -5,7 +5,7 @@ import { assertMemoryConfiguration } from "./licences/memory.ts";
 import type { LicenceAcceptance } from "./licences/ledger.ts";
 import type { HarnessConfig } from "@plur1bus/config-schema";
 import type { Layout } from "./paths.ts";
-import { assertEngineProviderPolicy } from "./composition/embedding-policy.ts";
+import { resolveEmbeddingProvider, resolveRerankerProvider } from "./composition/embedding-policy.ts";
 
 const E5_SMALL = "intfloat/multilingual-e5-small";
 const BGE_RERANKER = "woxpas-ai/bge-reranker-v2-m3-onnx";
@@ -19,10 +19,12 @@ export function buildEngineConfig(cfg: HarnessConfig, l: Layout): Record<string,
   const user = plain(cfg.engine);
   const { baseDbPathOverride, baseDbPath: _b, autoRecall: _r, autoCapture: _c, ...passthrough } = user;
   const emb = plain(passthrough.embedding), rer = plain(passthrough.reranker), rec = plain(passthrough.recall);
-  assertEngineProviderPolicy(emb, "embedding");
-  assertEngineProviderPolicy(rer, "reranker");
-  const embedding = { ...emb, provider: "local-transformers", local: { model: E5_SMALL, dimensions: 384, cacheDir: l.models, ...plain(emb.local) } };
-  const reranker = { ...rer, enabled: true, provider: "local-transformers", local: { model: BGE_RERANKER, cacheDir: l.models, ...plain(rer.local) } };
+  // Owner decision 2026-10-18: cloud and OpenAI-compatible providers are allowed for both roles; refused only for
+  // missing details, a key in the config, a missing privacy acknowledgment or a provider the engine has no adapter for.
+  const embPlan = resolveEmbeddingProvider(emb, plain(plain(plain(cfg).memory).embedding).privacyAck);
+  const rerPlan = resolveRerankerProvider(rer);
+  const embedding = embPlan.kind === "remote" ? embPlan.block : { ...emb, provider: "local-transformers", local: { model: E5_SMALL, dimensions: 384, cacheDir: l.models, ...plain(emb.local) } };
+  const reranker = rerPlan.kind === "remote" ? rerPlan.block : { ...rer, enabled: true, provider: "local-transformers", local: { model: BGE_RERANKER, cacheDir: l.models, ...plain(rer.local) } };
   const recall = { ...rec, softBudgetMs: cfg.core.recall.softBudgetMs, globalInjectMaxChars: cfg.core.recall.capChars, decisionTrace: { ...plain(rec.decisionTrace), enabled: true } };
   const override = typeof baseDbPathOverride === "string" && baseDbPathOverride.trim() !== "" ? baseDbPathOverride : undefined;
   return { ...passthrough, baseDbPath: override ?? l.lancedb, autoRecall: false, autoCapture: false, embedding, reranker, recall };
