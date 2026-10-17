@@ -222,7 +222,7 @@ test("a record whose property access throws is refused with a code, never thrown
 });
 
 // Spec section 2.4 truncates a wrapped output line to 4 KiB; the schema bounds `text` in characters (maxLength 4096), so the byte
-// bound is checked in validateRecord (TypeScript side; the Rust validate_line does not check it yet).
+// bound is checked in validateRecord and in Rust validate_line.
 test("a wrapped output line over lineBytes is refused", () => {
   const r = { ...rec("process.output.line"), attrs: { text: "\u{1F600}".repeat(1500), untrusted: true } };
   const v = validateRecord(r);

@@ -13,6 +13,7 @@ import { createCollab } from "../../src/collab/service.ts";
 import { buildCollabSurface } from "../../src/rpc/collab-surface.ts";
 import { createMediaSurface } from "../../src/rpc/media-surface.ts";
 import { OutputStore, type ImageAdapter } from "../../../media/src/index.ts";
+import { makePng } from "../../../media/test/adapters-fixtures.ts";
 import { createCallBudget, PriceBook } from "../../src/budget/index.ts";
 const owner: Principal = {
   userId: "local-owner",
@@ -237,7 +238,7 @@ test("media surfaces: fake adapter -> durable store -> gallery result, budget/po
     async generate() {
       invoked++;
       return {
-        files: [{ bytes: Buffer.from("synthetic-image"), format: "png" }],
+        files: [{ bytes: makePng(), format: "png" }],
         metadata: { adapter: "fake", model: "fake", durationMs: 1, costUsd: 0 },
       };
     },
@@ -289,10 +290,7 @@ test("media surfaces: fake adapter -> durable store -> gallery result, budget/po
       id: queued.jobId,
       file: 0,
     })) as { data: string; canShare: boolean };
-    assert.equal(
-      Buffer.from(output.data, "base64").toString(),
-      "synthetic-image",
-    );
+    assert.deepEqual(Buffer.from(output.data, "base64"), makePng());
     assert.equal(output.canShare, false);
     assert.ok(events.some((e) => e.method === "media.job.finished"));
     assert.ok(events.every((e) => e.audience?.[0] === "c"));

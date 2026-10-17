@@ -229,8 +229,14 @@ export function seedJobs(
   jobs: JobsListResult["jobs"] = sampleJobs,
   history: (JobRun | SystemJobRun)[] = sampleHistory
 ): void {
+  // The real page now discovers agents before running an agent job or collecting per-agent history.
+  const agentIds = [...new Set(["main", ...history.flatMap(r => "agentId" in r ? [r.agentId] : [])])];
+  rpc.handle("agent.list", () => ({ agents: agentIds.map(agentId => ({ agentId, name: agentId, state: "idle", open: false, activity: { state: "idle" } })) }), { write: false });
   rpc.handle("jobs.list", () => ({ jobs }), { write: false });
-  rpc.handle("jobs.history", () => ({ runs: history }), { write: false });
+  rpc.handle("jobs.history", (params) => {
+    const agentId = (params as { agentId?: string }).agentId;
+    return { runs: history.filter(r => agentId === undefined ? !("agentId" in r) : "agentId" in r && r.agentId === agentId) };
+  }, { write: false });
   rpc.handle("jobs.run", (params) => {
     const { job } = params as { job: string };
     return {

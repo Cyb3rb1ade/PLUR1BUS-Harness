@@ -1,3 +1,5 @@
+import { buildRemoteDeviceServiceSurface } from "./remote-device-service-surface.ts";
+import type { TrustNextEvent } from "../../../remote-access/src/trust-rollover.ts";
 import { join } from "node:path";
 import { DeviceError, DeviceStore, type DeviceStoreOptions } from "../../../remote-access/src/device-store.ts";
 import { authenticatedPrincipal } from "../rbac/guard.ts";
@@ -36,7 +38,8 @@ export function buildDeviceSurface(store: DeviceStore | (() => DeviceStore)): Re
 }
 
 /** Lazy: a damaged store refuses device RPC without preventing the rest of the core from starting. */
-export function createDeviceSurface(options: Omit<DeviceStoreOptions, "file"> & { state: string }): Record<string, Handler> {
+export function createDeviceSurface(options: Omit<DeviceStoreOptions, "file"> & { state: string; notifyTrust?: (event: TrustNextEvent, owners: string[]) => void }): Record<string, Handler> {
   let store: DeviceStore | undefined;
-  return buildDeviceSurface(() => store ??= new DeviceStore({ ...options, file: join(options.state, "devices.json") }));
+  const shared = () => store ??= new DeviceStore({ ...options, file: join(options.state, "devices.json") });
+  return { ...buildDeviceSurface(shared), ...buildRemoteDeviceServiceSurface(shared,options.notifyTrust) };
 }

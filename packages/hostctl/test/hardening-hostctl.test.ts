@@ -1,7 +1,7 @@
 // Step 10 of the server hardening sweep: files, search, atomic writes and processes of hostctl, against real files and real
 // child processes in throw-away directories (no network, no shell). Generative cases use mulberry32 with a fixed seed that
-// appears in every failure message. A "KNOWN GAP" is an `it.todo` plus an `it.fails` that holds the evidence: the second
-// fails today and starts failing the suite (as an unexpected pass) the day the gap is closed.
+// appears in every failure message. A "KNOWN GAP" would be an `it.todo` plus an `it.fails` that holds the evidence; all three
+// gaps of the first sweep are closed and are ordinary tests now.
 // Already pinned elsewhere (not repeated): the fake-spawn process contract, ownership, the 33rd process, shell gating,
 // dangerous-command refusals, env allowlist by example, atomic create/overwrite/abort/CHANGED, NUL and traversal by example,
 // native argv contracts (processes.coverage, atomic.coverage, files.coverage, hostctl.test, native*.test).
@@ -121,29 +121,32 @@ describe('a process that does not read its input cannot make the host buffer wit
   }, 60_000);
 });
 
-// ---- processes: KNOWN GAPs ------------------------------------------------------------------------------------------------
+// ---- processes and credentials: former KNOWN GAPs, now closed ------------------------------------------------------------------------------------------------
 
-describe('KNOWN GAP: environment names that inject code are blocked only if they are on a short list', () => {
+describe('environment names that inject code stay blocked even when allowlisted', () => {
   const inject = ['PERL5OPT', 'PERL5LIB', 'RUBYOPT', 'RUBYLIB', 'PYTHONSTARTUP', 'PYTHONHOME', 'NODE_PATH', 'JAVA_TOOL_OPTIONS', '_JAVA_OPTIONS', 'JDK_JAVA_OPTIONS', 'CLASSPATH', 'GIT_SSH_COMMAND', 'GIT_EXTERNAL_DIFF', 'LESSOPEN', 'PROMPT_COMMAND', 'GCONV_PATH'];
-  it.todo('KNOWN GAP: docs/hostctl.md says injection environment names stay blocked even when allowlisted; the list misses these');
-  it.fails('KNOWN GAP evidence: an operator who allowlists a code-injecting variable not on the short list hands it to the child', async () => {
+  it('an operator who allowlists a code-injecting variable does not hand it to the child', async () => {
     const base = Object.fromEntries(inject.map(k => [k, 'redact-probe-alpha'])); const h = make({ baseEnv: base, config: { env: { allow: inject }, exec: { timeoutMs: 20000 } } });
     const r = await call(h, 'proc.exec', { ...node('process.stdout.write(JSON.stringify(Object.keys(process.env)))'), cwd: root }); expect(r.ok).toBe(true);
     expect(JSON.parse(r.value.output).filter((k: string) => !k.startsWith('__CF'))).toEqual([]);
   }, 30_000);
 });
 
-describe('KNOWN GAP: foreign termination can target the process that supervises the harness', () => {
-  it.todo('KNOWN GAP: proc.kill_foreign refuses PID 0, 1 and the harness itself, but not its parent (the supervisor) or its process group');
-  it.fails('KNOWN GAP evidence: the parent process id is accepted as a foreign pid', async () => {
+describe('foreign termination cannot target the supervisor or the own process group', () => {
+  it('the parent process id is refused as a foreign pid', async () => {
     const signalled: number[] = []; const h = make({ killForeign: pid => { signalled.push(pid); } });
-    const r = await call(h, 'proc.kill_foreign', { pid: process.ppid }); expect(r.ok).toBe(false); expect(signalled).toEqual([]);
+    const r = await call(h, 'proc.kill_foreign', { pid: process.ppid }); expect(r.ok).toBe(false); expect(r.error!.code).toBe('DENIED'); expect(signalled).toEqual([]);
+  });
+  it.skipIf(process.platform !== 'linux')('the leader pid of the own process group is refused, an unrelated pid still passes through', async () => {
+    const stat = (await readFile('/proc/self/stat', 'utf8')); const pgid = Number(stat.slice(stat.lastIndexOf(')') + 2).split(' ')[2]);
+    const signalled: number[] = []; const h = make({ killForeign: pid => { signalled.push(pid); } });
+    const r = await call(h, 'proc.kill_foreign', { pid: pgid }); expect(r.ok).toBe(false); expect(r.error!.code).toBe('DENIED'); expect(signalled).toEqual([]);
+    const free = 2 ** 22 + 12345; expect((await call(h, 'proc.kill_foreign', { pid: free })).ok).toBe(true); expect(signalled).toEqual([free]);
   });
 });
 
-describe('KNOWN GAP: the harness\'s own credential files are not on the default deny list', () => {
-  it.todo('KNOWN GAP: a root that contains the harness home (or is the user home) lets fs.read return run/api-owner.token, run/core.token and run/supervisor.token without an approval');
-  it.fails('KNOWN GAP evidence: the three token files under run/ are readable like any other file in a root', async () => {
+describe('the harness\'s own credential files are on the default deny list', () => {
+  it('the three token files under run/ are neither readable nor searchable', async () => {
     await mkdir(join(root, 'run')); for (const n of ['api-owner.token', 'core.token', 'supervisor.token']) await writeFile(join(root, 'run', n), 'redact-probe-alpha-token-file');
     const h = make();
     for (const n of ['api-owner.token', 'core.token', 'supervisor.token']) { const r = await call(h, 'fs.read', { path: `run/${n}` }); expect(r.ok, `${n} was read`).toBe(false); expect(r.error!.code).toBe('DENIED'); }

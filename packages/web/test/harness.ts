@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,11 +5,7 @@ import { chromium, type Browser, type BrowserContext, type Page } from "playwrig
 import { buildWeb } from "../build.ts";
 import { MockHarnessServer, OWNER_TOKEN, type MockOptions } from "./mock-server.ts";
 
-/** Chromium: PLUR1BUS_CHROMIUM, else Playwright's own install, else the container's /opt/pw-browsers/chromium. No download. */
-function findChromium(): string | undefined {
-  const candidates = [process.env.PLUR1BUS_CHROMIUM, chromium.executablePath(), "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/opt/pw-browsers/chromium"];
-  return candidates.find((p): p is string => !!p && existsSync(p));
-}
+import { findChromium } from "./browser-runtime.ts";
 
 const executablePath = findChromium();
 /** `skip` option for node:test; the browser tests need a Chromium that CI's plain `pnpm test` job may not have. */
@@ -35,8 +30,11 @@ export const getDistDir = (): string => { if (!distDir) throw new Error("setup()
 export type AppOptions = {
   width?: number;
   height?: number;
+  deviceScaleFactor?: number;
   colorScheme?: "light" | "dark" | "no-preference";
   locale?: string;
+  /** IANA zone of the browser context; default is the machine's own (CI runs in UTC). */
+  timezoneId?: string;
   reducedMotion?: "reduce" | "no-preference";
   server?: Partial<MockOptions>;
   /** Navigate here (hash) instead of the root. */
@@ -53,8 +51,10 @@ export async function withApp(opts: AppOptions, run: (app: App) => Promise<void>
   const baseUrl = await server.start();
   const context = await browser.newContext({
     viewport: { width: opts.width ?? 1440, height: opts.height ?? 900 },
+    deviceScaleFactor: opts.deviceScaleFactor ?? 1,
     colorScheme: opts.colorScheme ?? "no-preference",
     locale: opts.locale ?? "en-US",
+    ...(opts.timezoneId ? { timezoneId: opts.timezoneId } : {}),
     reducedMotion: opts.reducedMotion ?? "no-preference",
   });
   const page = await context.newPage();

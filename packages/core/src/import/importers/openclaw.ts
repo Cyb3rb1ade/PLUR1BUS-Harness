@@ -3,6 +3,7 @@
 // extracts channel allowlists, reports cron as deferred (zero disk writes),
 // reports secrets by key name only, enforces single-writer lock withTargetLock,
 // writes pre-apply snapshot for rollback, records atomic ledger.jsonl, and supports conflict strategies.
+import { importedProfile } from "../../openai-auth/profiles.ts";
 import { createHash } from "node:crypto";
 import {
   existsSync,
@@ -70,6 +71,7 @@ export interface OpenclawImportReport {
   harness: {
     home: string;
   };
+  disabledAuthProfiles?: ReturnType<typeof importedProfile>[];
   profilesOrAgents: AgentImportReport[];
   agents: AgentImportReport[]; // backward compatibility alias
   channels: ChannelAllowlistReport[];
@@ -303,6 +305,7 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
 
     // Read channels from openclaw.json
     let channelReports: ChannelAllowlistReport[] = [];
+    let disabledAuthProfiles: ReturnType<typeof importedProfile>[] = [];
     const errors: Array<{ sourceRef: string; reason: string }> = [...(sourceReport.errors ?? []), ...preparedStores.errors];
     if (sourceReport.source.configPath && existsNoFollow(sourceReport.source.configPath)) {
       let cfgText: string | null = null;
@@ -318,6 +321,13 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
         try {
           const rawCfg = parseJson5(cfgText) as Record<string, unknown>;
           channelReports = readOpenclawChannels(rawCfg);
+          // Metadata only. Never open another client's token store or retain its issued ID.
+          const auth = rawCfg.auth as { profiles?: Record<string, { provider?: unknown; mode?: unknown }> } | undefined;
+          const oldId = "openai:chatgpt-oauth-restricted";
+          if (auth?.profiles && Object.entries(auth.profiles).some(([id, p]) => id === oldId ||
+              (p && ["openai", "openai-codex"].includes(String(p.provider)) && p.mode === "oauth"))) {
+            disabledAuthProfiles = [importedProfile(oldId)];
+          }
           if (isApply && ledger) {
             for (const ch of channelReports) {
               ledger.record({
@@ -406,6 +416,7 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
       harness: {
         home: l.home,
       },
+      disabledAuthProfiles,
       profilesOrAgents: agentReports,
       agents: agentReports,
       channels: channelReports,
