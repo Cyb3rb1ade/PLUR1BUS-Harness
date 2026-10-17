@@ -88,8 +88,8 @@ describe("Skills & Plugins (Extensions) page", opts, () => {
     });
   });
 
-  test("German translation & a11y clean", async () => {
-    await withApp({ locale: "de-DE" }, async (app) => {
+  for (const colorScheme of ["light", "dark"] as const) test(`German translation & a11y clean (${colorScheme})`, async () => {
+    await withApp({ locale: "de-DE", colorScheme }, async (app) => {
       seedExtensions(app.server.rpc);
       await openRoute(app.page, "#/skills", "de");
       await app.page.getByRole("heading", { name: /Skills & Plugins/i }).waitFor();

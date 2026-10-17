@@ -1,7 +1,10 @@
-// `logs.query` and `logs.tail` (D4, D111 §2.1): read-only views over `<home>/logs/`. Both are guarded by RBAC action
-// `logs.query` (Owner/Admin, packages/core/src/rbac/guard.ts); the handlers themselves know nothing about principals.
+// `logs.query` and `logs.tail` (D4, D111 §2.1): read-only views over `<home>/logs/`.
+// `logs.levels` (D111 remainder): live snapshot of per-source levels; Owner/Admin, same RBAC action.
+import { isLevel, isSourceKey, type Level } from "@plur1bus/log-schema";
 import { RpcError } from "../rpc/errors.ts";
+import type { AuditSink } from "../rbac/audit.ts";
 import type { CallContext, Handler } from "../rpc/server.ts";
+import type { LevelSettings, LogWriter } from "./writer.ts";
 import { CursorError, mintCursor, runQuery, type LogFilter, type Order, type QueryResult } from "./query.ts";
 import { createRedactor, type Redactor } from "./redact.ts";
 
@@ -18,6 +21,10 @@ export interface LogsDeps {
   pollMs?: number;
   maxScanBytes?: number;
   onListed?: () => void | Promise<void>;
+  /** Live diagnostic writer; absent when the core is using an injected logger. */
+  writer?: Pick<LogWriter, "updateLevels" | "currentLevels">;
+  audit?: AuditSink;
+  actor?: (ctx: CallContext) => { user: string; host: string };
 }
 
 const defaultSleep = (ms: number, signal: AbortSignal): Promise<void> => new Promise((resolve) => {
@@ -38,7 +45,12 @@ function bound(name: string, v: unknown): string | undefined {
   return iso;
 }
 
-interface Params { stream?: "diagnostic" | "audit"; from?: string; to?: string; minLevel?: LogFilter["minLevel"]; component?: string; text?: string; limit?: number; cursor?: string; order?: Order; waitMs?: number }
+interface Params { stream?: "diagnostic" | "audit"; from?: string; to?: string; minLevel?: LogFilter["minLevel"]; component?: string; text?: string; traceId?: string; limit?: number; cursor?: string; order?: Order; waitMs?: number }
+interface LevelsParams { defaultLevel?: Level; levels?: Record<string, Level>; unset?: string[]; traceUntil?: string | null }
+
+function publicLevels(s: LevelSettings): { defaultLevel: Level; levels: Record<string, Level>; traceUntil: string | null } {
+  return { defaultLevel: s.defaultLevel ?? "info", levels: { ...(s.levels ?? {}) }, traceUntil: s.traceUntil !== undefined ? new Date(s.traceUntil).toISOString() : null };
+}
 
 function filterOf(p: Params): LogFilter {
   const stream = p.stream ?? "diagnostic";
@@ -46,7 +58,7 @@ function filterOf(p: Params): LogFilter {
   if (from !== undefined && to !== undefined && from > to) throw new RpcError("E_INVALID_PARAMS", "from is after to", { reason: "empty-range" });
   // RULING: the audit stream has no level; a level filter on it is refused rather than silently ignored.
   if (stream === "audit" && p.minLevel !== undefined) throw new RpcError("E_INVALID_PARAMS", "the audit stream has no level", { reason: "level-not-applicable" });
-  return { stream, ...(from !== undefined ? { from } : {}), ...(to !== undefined ? { to } : {}), ...(p.minLevel ? { minLevel: p.minLevel } : {}), ...(p.component ? { component: p.component } : {}), ...(p.text ? { text: p.text } : {}) };
+  return { stream, ...(from !== undefined ? { from } : {}), ...(to !== undefined ? { to } : {}), ...(p.minLevel ? { minLevel: p.minLevel } : {}), ...(p.component ? { component: p.component } : {}), ...(p.text ? { text: p.text } : {}), ...(p.traceId ? { traceId: p.traceId } : {}) };
 }
 
 export function createLogsMethods(d: LogsDeps): Record<string, Handler> {
@@ -102,5 +114,44 @@ export function createLogsMethods(d: LogsDeps): Record<string, Handler> {
       }
     } finally { ctx.signal.removeEventListener("abort", abort); d.signal?.removeEventListener("abort", abort); }
   };
-  return { "logs.query": query, "logs.tail": tail };
+
+  const levels: Handler = async (params: LevelsParams, ctx: CallContext) => {
+    if (!d.writer) throw new RpcError("E_NOT_AVAILABLE", "live log levels are not available");
+    const current = d.writer.currentLevels();
+    const changing = params.defaultLevel !== undefined || params.levels !== undefined || params.unset !== undefined || params.traceUntil !== undefined;
+    if (!changing) return publicLevels(current);
+
+    const nextLevels: Record<string, Level> = { ...(current.levels ?? {}) };
+    for (const [key, value] of Object.entries(params.levels ?? {})) {
+      if (!isSourceKey(key) || !isLevel(value)) throw new RpcError("E_INVALID_PARAMS", "invalid source level", { reason: "invalid-level" });
+      nextLevels[key] = value;
+    }
+    for (const key of params.unset ?? []) {
+      if (!isSourceKey(key)) throw new RpcError("E_INVALID_PARAMS", "invalid source key", { reason: "invalid-level" });
+      delete nextLevels[key];
+    }
+    let traceUntil = current.traceUntil;
+    if (params.traceUntil === null) traceUntil = undefined;
+    else if (params.traceUntil !== undefined) {
+      const iso = bound("traceUntil", params.traceUntil);
+      traceUntil = Date.parse(iso!);
+    }
+    const next: LevelSettings = { defaultLevel: params.defaultLevel ?? current.defaultLevel ?? "info", levels: nextLevels, ...(traceUntil !== undefined ? { traceUntil } : {}) };
+    try { d.writer.updateLevels(next); }
+    catch (e) { throw new RpcError("E_INVALID_PARAMS", e instanceof Error ? e.message : "invalid level snapshot", { reason: "invalid-level" }); }
+    const after = d.writer.currentLevels();
+    const beforeMap: Record<string, Level | undefined> = { default: current.defaultLevel ?? "info", ...current.levels };
+    const afterMap: Record<string, Level | undefined> = { default: after.defaultLevel ?? "info", ...after.levels };
+    const actor = d.actor?.(ctx) ?? { user: "unknown", host: "rpc" };
+    for (const key of new Set([...Object.keys(beforeMap), ...Object.keys(afterMap)])) {
+      if (beforeMap[key] === afterMap[key]) continue;
+      try { d.audit?.append({ at: now(), actor, action: "logs.levels", target: key, detail: { ...(beforeMap[key] ? { from: beforeMap[key] } : {}), to: afterMap[key] ?? after.defaultLevel ?? "info" } }); } catch { /* the live change stands */ }
+    }
+    if ((current.traceUntil ?? null) !== (after.traceUntil ?? null)) {
+      try { d.audit?.append({ at: now(), actor, action: "logs.levels", target: "traceUntil", detail: { from: current.traceUntil ?? null, to: after.traceUntil ?? null } }); } catch { /* the live change stands */ }
+    }
+    return publicLevels(after);
+  };
+
+  return { "logs.query": query, "logs.tail": tail, "logs.levels": levels };
 }

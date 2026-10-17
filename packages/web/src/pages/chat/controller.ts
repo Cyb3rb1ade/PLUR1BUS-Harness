@@ -5,7 +5,7 @@ import type { Api, EventsHandle, EventsStatus, SseEvent } from "../../api/index.
 import type { Key } from "../../i18n.ts";
 import { applyEvent, addUser, EMPTY_TRANSCRIPT, fromResume, type Transcript } from "./model.ts";
 import type { SessionEvent, SessionRecord } from "./rpc-types.ts";
-import { getApi } from "../../api/shared.ts";
+import { getChatApi as getApi } from "./api.ts";
 import { isAborted, refreshList, submitErrorKey } from "./store.ts";
 
 export type LoadState = { status: "loading" } | { status: "ready"; session: SessionRecord } | { status: "error"; error: unknown };
