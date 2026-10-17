@@ -1,0 +1,27 @@
+{
+  "params": {
+    "name": "Fixture",
+    "platform": "macOS",
+    "publicKey": "MCowBQYDK2VwAyEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    "pairedBy": "local-owner",
+    "scope": [
+      "device.trust"
+    ]
+  },
+  "result": {
+    "device": {
+      "id": "dev_00000000-0000-0000-0000-000000000000",
+      "name": "Fixture",
+      "platform": "macOS",
+      "publicKey": "MCowBQYDK2VwAyEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "fingerprint": "0000000000000000000000000000000000000000000000000000000000000000",
+      "pairedAt": 1700000000000,
+      "lastSeenAt": 1700000000000,
+      "pairedBy": "local-owner",
+      "scope": [
+        "device.trust"
+      ],
+      "revoked": false
+    }
+  }
+}

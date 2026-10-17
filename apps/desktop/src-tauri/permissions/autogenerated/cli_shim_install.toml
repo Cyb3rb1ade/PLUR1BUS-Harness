@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-cli-shim-install"
+description = "Enables the cli_shim_install command without any pre-configured scope."
+commands.allow = ["cli_shim_install"]
+
+[[permission]]
+identifier = "deny-cli-shim-install"
+description = "Denies the cli_shim_install command without any pre-configured scope."
+commands.deny = ["cli_shim_install"]

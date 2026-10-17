@@ -8,6 +8,7 @@ import { outputAttachment, TELEGRAM_PHOTO_MAX_BYTES } from "../src/outputs.ts";
 import { createIdentityService } from "../../core/src/identity/service.ts";
 import { deriveUserPrincipal } from "../../core/src/identity/principals.ts";
 import { OutputStore } from "../../media/src/index.ts";
+import { makePng } from "../../media/test/adapters-fixtures.ts";
 import { FAKE_TELEGRAM_TOKEN } from "./helpers/fake-telegram.ts";
 const token = FAKE_TELEGRAM_TOKEN;
 const json = (result: unknown) =>
@@ -120,7 +121,7 @@ test("stored image sending requires destination rights, integrity and a bounded 
       id,
       { prompt: "Synthetic" },
       {
-        files: [{ bytes: Buffer.from("image"), format: "png" }],
+        files: [{ bytes: makePng(), format: "png" }],
         metadata: { adapter: "fake", model: "fixture", durationMs: 1 },
       },
     );
@@ -130,7 +131,7 @@ test("stored image sending requires destination rights, integrity and a bounded 
       "42",
     );
     assert.equal(image.kind, "photo");
-    assert.equal(Buffer.from(image.data).toString(), "image");
+    assert.deepEqual(Buffer.from(image.data), makePng());
     await assert.rejects(
       () => outputAttachment({ store, authorize: async () => false }, id, "42"),
       /denied/,
@@ -141,7 +142,7 @@ test("stored image sending requires destination rights, integrity and a bounded 
       { prompt: "Large" },
       {
         files: [
-          { bytes: Buffer.alloc(TELEGRAM_PHOTO_MAX_BYTES + 1), format: "png" },
+          { bytes: Buffer.concat([makePng(), Buffer.alloc(TELEGRAM_PHOTO_MAX_BYTES + 1)]), format: "png" },
         ],
         metadata: { adapter: "fake", model: "fixture", durationMs: 1 },
       },

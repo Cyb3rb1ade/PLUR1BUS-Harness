@@ -142,10 +142,6 @@ test("e) transient 500 and 429 do not call host.fail; polling backs off and reco
 
 test(
   "f) health is not ok after the connection is lost",
-  {
-    todo:
-      "KNOWN GAP: channels-telegram TelegramChannel.health: erwartet ok=false nach Verbindungsverlust, tatsächlich ok=true (#healthy wird im Poll-Backoff nur bei 401/403 gesetzt)",
-  },
   async () => {
     const h = await makeContractHarness();
     try {

@@ -7,3 +7,5 @@ docs/ops/zabbix/** text eol=lf
 # Generated config-schema fixtures are checked byte for byte by `gen-defaults.mjs --check` (CI unit job, all OSes);
 # a Windows autocrlf checkout must not turn them into CRLF.
 packages/config-schema/fixtures/*.json text eol=lf
+# The web.fetch golden corpus is byte-exact: legacy-charset pages and exact-text goldens must not gain CRLF on a Windows checkout.
+packages/core/test/fixtures/web-fetch/** -text
