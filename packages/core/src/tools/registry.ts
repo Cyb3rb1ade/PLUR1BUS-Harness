@@ -1,6 +1,7 @@
 // The tool registry (B1): what tools exist, what they accept, what they may do. Registration is fail-closed; the
 // registry never executes anything (that is `dispatcher.ts`, behind the policy gate).
 import { CAPABILITIES, RISKS, effectRank, isEffect, riskRank, type CallFlags, type Effect, type Risk } from "../policy/index.ts";
+import { isReservedToolName } from "./reserved-names.ts";
 
 /** Hard caps no tool may exceed, whatever it declares. */
 export const HARD_MAX_TIMEOUT_MS = 300_000;
@@ -21,6 +22,8 @@ export interface ToolRunContext {
   sessionId?: string;
   /** Trust of the surface the call originates from (D109 §5), as the dispatcher received it. */
   surface?: 0 | 1 | 2 | 3;
+  /** Classification used to gate this call; tools re-check live args against it before spawn (D109 follow-up). */
+  classified?: ToolClassification;
 }
 
 /** What the tool knows about a call that the policy needs (D109 §2). Flags are computed by the harness path layer, not the model. */
@@ -28,6 +31,8 @@ export interface ToolClassification {
   flags?: Partial<CallFlags>;
   targets?: readonly string[];
   access?: "read" | "write";
+  /** Bound into actionHash without becoming a grant target (e.g. env fingerprint for exec.run). */
+  hashExtra?: string;
 }
 
 export interface ToolDef {
@@ -51,7 +56,7 @@ export interface ToolDef {
 export interface RegisteredTool extends Omit<ToolDef, "limits" | "trust"> { readonly limits: ToolLimits; readonly trust: ToolTrust }
 export interface ToolDescription { name: string; description: string; inputSchema: Record<string, unknown>; risk: Risk }
 
-export type RegistryReason = "name" | "description" | "schema" | "capability" | "effect" | "risk" | "limits" | "duplicate";
+export type RegistryReason = "name" | "description" | "schema" | "capability" | "effect" | "risk" | "limits" | "duplicate" | "reserved";
 export class RegistryError extends Error {
   readonly reason: RegistryReason;
   constructor(reason: RegistryReason, message: string) { super(message); this.name = "RegistryError"; this.reason = reason; }
@@ -72,6 +77,7 @@ export class ToolRegistry {
   register(d: ToolDef): void {
     const bad = (r: RegistryReason, m: string): never => { throw new RegistryError(r, `tool ${JSON.stringify(d.name)}: ${m}`); };
     if (typeof d.name !== "string" || !NAME.test(d.name)) bad("name", "name must match [a-z][a-z0-9_.-]{0,63}");
+    if (isReservedToolName(d.name)) bad("reserved", "name collides with a harness RPC method or notification");
     if (this.#tools.has(d.name)) bad("duplicate", "already registered");
     if (typeof d.description !== "string" || d.description.trim() === "") bad("description", "description is required");
     if (!d.inputSchema || typeof d.inputSchema !== "object" || d.inputSchema.type !== "object") bad("schema", "inputSchema must be an object schema");

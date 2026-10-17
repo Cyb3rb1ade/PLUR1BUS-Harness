@@ -274,10 +274,13 @@ pnpm lint                                  # typecheck, hygiene, check-i18n (not
   that into a failure. `UPDATE_SNAPSHOTS=1` rewrites `test/fixtures/responsive.json`.
 - **Coverage.** axe (WCAG 2.1 AA) per page, state and theme; layout checks at 400, 960, 1440 and 2560 px (1024 where a mode changes),
   no horizontal scroll, 200 % text zoom (a 1440 px window becomes a 720 px viewport), keyboard paths, contrast of the tokens.
-- **Bundle budgets** (`test/build.test.ts`, gzip level 9): `main.js` 10 KiB, start-up closure (`main.js` plus statically imported
-  chunks) 54 KiB, each lazy page chunk 12 KiB, `styles.css` 9 KiB. M3 part 2 raised the start-up closure from 46 (it was 40.0 KiB) and
-  `styles.css` from 8 (it was 6.2 KiB) because ten new i18n areas live in the start-up closure (F18); the palette dialog became a lazy
-  chunk to keep it down. Measured: start-up closure about 51 KiB, page chunks up to 7.5 KiB, `styles.css` 8.6 KiB. The same test forbids `eval`, `new Function`, inline script or style,
+- **Bundle budgets** (`test/build.test.ts`, gzip level 9): `main.js` 25 KiB, start-up closure (`main.js` plus statically imported
+  chunks) 150 KiB, each lazy page chunk 40 KiB, `styles.css` 20 KiB. These are tripwires against a runaway dependency, not targets
+  (owner decision 2026-10-17: parse and execute cost on weak devices matters more than transfer size). Growth inside the ceilings is
+  watched against `test/bundle-baseline.json`: a value more than 20 % above its baseline prints a GitHub Actions
+  `::warning title=Web bundle growth::` (not a failure). After an intended change, refresh the baseline with
+  `PLUR1BUS_WEB_BUNDLE_BASELINE_WRITE=1 pnpm --filter @plur1bus/web test` and commit it. Measured at the change: `main.js` about 7 KiB,
+  start-up closure about 48 KiB, page chunks up to 11.3 KiB, `styles.css` 4.3 KiB. The same test forbids `eval`, `new Function`, inline script or style,
   `javascript:` URLs and remote origins.
 - **Screenshots.** Not a test; run by hand, e.g. for a PR:
   `PLUR1BUS_WEB_SHOTS_DIR=<dir> pnpm --filter @plur1bus/web exec node --experimental-strip-types test/shots.ts`. It captures chat,

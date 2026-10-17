@@ -10,6 +10,8 @@ export interface InboundMessage {
   /** The channel's own id for the sender (Telegram user id, Matrix mxid, …). Never a harness user id. */
   senderId: string;
   accountId?: string;
+  /** Transport-decoded addressing evidence; never an authorization claim. */
+  addressed?: boolean;
   text: string;
   messageId?: string;
 }
@@ -32,6 +34,8 @@ export interface ChannelLogger {
 export interface ChannelHost {
   /** Hand an inbound message to the harness. Never rejects; failures are handled (and logged) on the harness side. */
   receive(msg: InboundMessage): Promise<void>;
+  output?(input: { channel: string; chatId: string; kind: "reply" | "edit"; text: string }): string | null;
+  behaviour?(input: import("./behaviour.ts").BehaviourContext): import("./behaviour.ts").ResolvedBehaviour;
   /** Report a fatal channel-side failure (connection lost for good, auth revoked). The registry stops and restarts it with backoff. */
   fail(err: unknown): void;
   readonly log: ChannelLogger;
@@ -65,7 +69,11 @@ export interface IdentityPort {
 
 /** The session store as the channel layer needs it (D21: one active session per channel chat). */
 export interface SessionPort {
-  findActive(chat: ChatKey): Promise<string | null>;
+  /**
+   * The chat's active session. With `forOwner` the session must belong to that person: a session of someone else (a handle
+   * unlinked from A and linked to B keeps the same chat key) is archived and `null` comes back, so the caller starts a fresh one.
+   */
+  findActive(chat: ChatKey, forOwner?: { userId: string }): Promise<string | null>;
   create(chat: ChatKey, owner: { userId: string }): Promise<string>;
   archive(sessionId: string): Promise<void>;
   /** `session.submit`: one turn in, the agent's reply out. */

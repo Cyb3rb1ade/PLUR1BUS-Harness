@@ -22,8 +22,8 @@ async function fail(p: Promise<unknown>): Promise<RpcError | Error> {
 const reasonOf = async (p: Promise<unknown>): Promise<string | undefined> => { const e = await fail(p); assert.ok(e instanceof RpcError, String(e)); assert.equal(e.error, "E_INVALID_PARAMS"); return e.reason; };
 
 describe("logs methods: handler registry", () => {
-  it("exposes exactly logs.query and logs.tail", () => {
-    assert.deepEqual(Object.keys(createLogsMethods({ dir })).sort(), ["logs.query", "logs.tail"]);
+  it("exposes logs.query, logs.tail and logs.levels", () => {
+    assert.deepEqual(Object.keys(createLogsMethods({ dir })).sort(), ["logs.levels", "logs.query", "logs.tail"]);
   });
 });
 
@@ -222,7 +222,7 @@ describe("logs.tail: edge cases", () => {
     const r: any = await createLogsMethods({ dir, maxScanBytes: 100, ...fake() })["logs.tail"]!({ limit: 100 }, ctx());
     assert.equal(r.truncated, true);
   });
-  it("an already aborted connection signal does not wait", { skip: "BUG: bereits abgebrochenes ctx.signal beendet logs.tail nicht (addEventListener feuert nicht) – siehe docs/testing/coverage-2026-10.md#logs-tail-preaborted-signal" }, async () => {
+  it("an already aborted connection signal does not wait", async () => {
     put(dir, "core.log", rec(0, "info", "a"));
     const f = fake(); const ac = new AbortController();
     const h = createLogsMethods({ dir, now: f.now, sleep: f.sleep });

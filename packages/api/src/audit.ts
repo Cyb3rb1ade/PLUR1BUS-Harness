@@ -5,6 +5,8 @@ import type { AuditSink } from "./rbac-bridge.ts";
 
 /** The auth events the API writes (ADR-004 *Audit*, ADR-007 *Authentication*). Names are stable: `docs/api.md` lists them. */
 export const AUDIT_ACTIONS = [
+  "account.bootstrap.consumed", "auth.passkey.registered", "auth.passkey.changed", "auth.passkey.failure", "auth.passkey.clone-warning",
+  "transport.ws.opened", "transport.ws.closed", "chat.call",
   "invitation.redeemed", "invitation.account.failed",
   "auth.login.success", "auth.login.failure", "auth.logout", "auth.logout-all", "auth.session.rotated",
   "auth.token.created", "auth.token.revoked", "auth.token.used-denied",
