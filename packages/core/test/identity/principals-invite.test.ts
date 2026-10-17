@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { deriveUserPrincipal, isUserPrincipal, USER_PRINCIPAL } from "../../src/identity/principals.ts";
 import { hashInviteToken, INVITE_CODE_MAX_MINUTES, INVITE_TTL_DEFAULT_MINUTES, INVITE_TTL_MAX_MINUTES, inviteLink, isInviteTokenShape, mintInviteToken, parseOrigin } from "../../src/identity/invite-token.ts";
-import { DEFAULT_CODE_TTL_MS } from "../../src/identity/service.ts";
+import { MAX_CODE_TTL_MS } from "../../src/identity/service.ts";
 import { IdentityError } from "../../src/identity/store.ts";
 import { mulberry32 } from "./helpers.ts";
 
@@ -67,7 +67,7 @@ describe("identity invite tokens", () => {
   });
 
   it("the documented lifetimes: 60 minutes by default, 30 days at most for a link, 60 minutes for the code riding along (the identity service's own ceiling)", () => {
-    assert.equal(INVITE_TTL_DEFAULT_MINUTES, 60); assert.equal(INVITE_TTL_MAX_MINUTES, 30 * 24 * 60); assert.equal(INVITE_CODE_MAX_MINUTES * 60_000, DEFAULT_CODE_TTL_MS);
+    assert.equal(INVITE_TTL_DEFAULT_MINUTES, 60); assert.equal(INVITE_TTL_MAX_MINUTES, 30 * 24 * 60); assert.equal(INVITE_CODE_MAX_MINUTES * 60_000, MAX_CODE_TTL_MS);
   });
 });
 

@@ -175,6 +175,7 @@ describe("shell", opts, () => {
     await withApp({}, async ({ page }) => {
       await signIn(page);
       await page.getByRole("heading", { name: "Chat", level: 1 }).waitFor();
+      await page.waitForFunction(() => document.querySelectorAll('main [data-state="loading"]').length === 0); // a page that re-renders its heading would drop the focus
       await page.keyboard.press("Tab");
       assert.equal(await page.evaluate(() => document.activeElement?.textContent), "Skip to content");
       await page.keyboard.press("Enter");

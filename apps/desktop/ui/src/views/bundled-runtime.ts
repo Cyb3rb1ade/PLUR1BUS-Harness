@@ -1,3 +1,4 @@
+import { installRuntime } from "./install-runtime.ts";
 import { openSheet } from "../components/sheet.ts";
 import { element, append } from "../components/dom.ts";
 import { button } from "../components/button.ts";
@@ -7,6 +8,7 @@ import type { MessageKey } from "../i18n.ts";
 import { redactedTail } from "../models/redact.ts";
 const knownStates = new Set(["not-installed","ready","stopped","starting","runtime-down","crashed","error"]);
 export function bundledRuntime(transport:DesktopTransport,t:(key:MessageKey,values?:Record<string,string>)=>string,refresh:()=>void) {
+ const renderInstallRuntime=installRuntime(transport,t,refresh,()=>{state={...state,step:"runtime"};void detect();});
  let state:Wizard=initialWizard(), busy=false, status="", log="", memory=3, phase="image";
  void transport.harnessStatus?.().then(value=>{status=value.state;if(value.resources)memory=value.resources.memoryMiB/1024;refresh();}).catch(()=>{});
  void transport.harnessStatusEvents?.(value=>{status=value.state;refresh();}).catch(()=>{});
@@ -19,7 +21,7 @@ export function bundledRuntime(transport:DesktopTransport,t:(key:MessageKey,valu
   if(state.step==="welcome")body.append(element("p",undefined,t("wizard.welcomeBody")));
   if(state.step==="licences") {append(body,element("p",undefined,t("wizard.licencesBody")),element("p",undefined,t("wizard.licenceNotices")));const label=element("label","quit-choice"),input=document.createElement("input");input.type="checkbox";input.checked=state.agreed;input.addEventListener("change",()=>{state=agreeWizard(state,input.checked);refresh();});append(label,input,element("span",undefined,t("wizard.agree")));body.append(label);}
   if(state.step==="runtime") {const group=element("fieldset","runtime-choices");group.append(element("legend",undefined,t("wizard.chooseRuntime")));for(const runtime of state.runtimes){const label=element("label","quit-choice"),input=document.createElement("input");input.type="radio";input.name="runtime";input.checked=state.selected===runtime.id;input.disabled=!["ready","stopped"].includes(runtime.state);input.addEventListener("change",()=>{state={...state,selected:runtime.id};});append(label,input,element("span",undefined,`${runtime.engine} ${runtime.version} — ${runtime.endpoint}`));group.append(label);}body.append(group);}
-  if(state.step==="install-runtime")append(body,element("p",undefined,t("wizard.runtimeGuide")),button(t("runtime.recheck"),()=>{state={...state,step:"runtime"};void detect();}));
+  if(state.step==="install-runtime")append(body,renderInstallRuntime(),element("p",undefined,t("wizard.runtimeGuide")),button(t("runtime.recheck"),()=>{state={...state,step:"runtime"};void detect();}));
   if(state.step==="installing") {const progress=element("p",undefined,t("wizard.installingBody"));progress.setAttribute("role","status");body.append(progress);const phases=element("ol","install-phases");for(const item of ["copy","checksums","unpack","volumes","start","health"]){const key=item==="checksums"&&phase==="image"?"verify":item;const row=element("li",undefined,t(`wizard.progress.${key}` as MessageKey));if((phase==="image"&&item==="copy")||(phase==="volumes"&&item==="volumes")||(phase==="start"&&item==="start")||(["owner","pairing"].includes(phase)&&item==="health"))row.setAttribute("aria-current","step");phases.append(row);}body.append(phases);const cancel=button(t("wizard.cancel"),()=>{const selected=state.selected;if(selected)void transport.bundleCancel?.(selected).then(()=>{if(state.step==="installing"){state=failWizard(state,"cancelled");refresh();}}).catch(()=>{});});body.append(cancel);}
   if(state.step==="error") {const alert=element("p",undefined,t(errors[state.error??"runtime"].message));alert.setAttribute("role","alert");append(body,alert,button(t("wizard.retry"),()=>{state=retryWizard(state);void detect();}));}
   if(!["error","installing","install-runtime","opened"].includes(state.step)){const next=button(t(state.step==="done"?"wizard.open":"wizard.continue"),primary,"primary");next.disabled=busy||(state.step==="licences"&&!state.agreed);body.append(next);}const choices=element("aside","wizard-choices");append(choices,element("h2",undefined,t("wizard.choices")),element("p",undefined,state.runtimes.find(r=>r.id===state.selected)?.engine??t("runtime.status.unknown")));body.append(choices);return body;

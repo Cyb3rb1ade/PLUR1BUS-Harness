@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test, type TestOptions } from "node:test";
+import { test } from "node:test";
 import { inspect } from "node:util";
 import { MemoryOffsetStore, TelegramApiError, TelegramChannel, type TelegramErrorKind } from "../src/index.ts";
 import type { ChannelHost } from "../../core/src/channels/types.ts";
@@ -551,27 +551,6 @@ test("health(): shape is exactly {ok} before start, after start, after a failed 
 
 const RETRYABLE: TelegramErrorKind[] = ["rate-limited", "network", "timeout"];
 
-/** Known leaks: `${op}|${fault.name}` -> KNOWN GAP text (German, as the lead asked). Empty when everything redacts. */
-//
-// Cause: TelegramApi.#call (src/api.ts:223-245) puts the Telegram `description` into err.message after redactString()
-// (src/redact.ts:7-11), which removes only the whole token, a /bot<token>/ path and a digits:rest shape. The part after
-// the bot id on its own, the percent-encoded token and any second credential (the webhook secret) pass through. Real
-// Telegram does not echo credentials, so this needs a proxy or custom baseUrl that does: a hardening gap, not a live leak.
-const gapText = (where: string, what: string) =>
-  `KNOWN GAP: channels-telegram TelegramApi.#call: erwartet kein Geheimnis in err.message, tatsächlich err.message enthält den Marker (${what}; ${where})`;
-const GAP_HALF = gapText("src/api.ts:224", "nur der Teil nach der Bot-ID im description-Echo");
-const GAP_ENCODED = gapText("src/api.ts:224", "prozentkodierter Token im description-Echo");
-const GAP_WEBHOOK = gapText("src/api.ts:224", "Webhook-Secret im description-Echo");
-const HALF = "502 whose description echoes only the part of the token after the bot id";
-const ENCODED = "502 whose description echoes the percent-encoded token";
-const KNOWN_GAPS = new Map<string, string>([
-  [`start(host) getMe|${HALF}`, GAP_HALF],
-  [`start(host) getMe|${ENCODED}`, GAP_ENCODED],
-  [`send sendMessage|${HALF}`, GAP_HALF],
-  [`send sendMessage|${ENCODED}`, GAP_ENCODED],
-  [`webhook setWebhook|${WEBHOOK_ECHO.name}`, GAP_WEBHOOK],
-]);
-
 async function runOp(op: Op, fault: Fault, rig: Rig): Promise<void> {
   const label = `${op} x ${fault.name}`;
   switch (op) {
@@ -614,7 +593,8 @@ async function runOp(op: Op, fault: Fault, rig: Rig): Promise<void> {
             );
       assert.ok(error instanceof TelegramApiError, `${label}: send must reject with a TelegramApiError`);
       assert.equal(error.kind, fault.kind);
-      const attempts = RETRYABLE.includes(fault.kind) ? 3 : 1;
+      // 5xx answers (kind "http") are retried like transport faults; other 4xx and protocol faults are final.
+      const attempts = RETRYABLE.includes(fault.kind) || (fault.kind === "http" && (error.status ?? 0) >= 500) ? 3 : 1;
       assert.equal(rig.hits.get(method), attempts, `${label}: attempts`);
       if (attempts > 1)
         assert.equal(rig.ctorLogs.filter((l) => eventOf(l) === "channel.telegram.request-retry").length, attempts - 1);
@@ -636,7 +616,8 @@ async function runOp(op: Op, fault: Fault, rig: Rig): Promise<void> {
           `${label}: poll-failed lines`,
         );
         assert.ok(rig.hostLogs.some((l) => l.level === "warn" && eventOf(l) === "channel.telegram.poll-failed"));
-        assert.deepEqual(await rig.probeHealth(), { ok: true });
+        // Contract: health is false while polling fails at transport/server level; a 429 proves the connection is up.
+        assert.deepEqual(await rig.probeHealth(), { ok: fault.kind === "rate-limited" });
       }
       assert.equal(rig.hits.get("getUpdates"), times, `${label}: the fault fired ${times} times`);
       break;
@@ -686,9 +667,7 @@ const title = (op: string, fault: Fault) => `${op} x ${fault.name}: the marker a
 
 for (const op of OPS)
   for (const fault of FAULTS) {
-    const gap = KNOWN_GAPS.get(`${op}|${fault.name}`);
-    const opts: TestOptions = gap ? { todo: gap } : {};
-    test(title(op, fault), opts, async () => {
+    test(title(op, fault), async () => {
       const rig = await makeRig();
       try {
         await runOp(op, fault, rig);
@@ -703,9 +682,7 @@ for (const op of OPS)
 const ECHO_OPS: Op[] = ["start(host) getMe", "send sendMessage", "poll getUpdates"];
 for (const op of ECHO_OPS)
   for (const fault of ECHO_VARIANTS) {
-    const gap = KNOWN_GAPS.get(`${op}|${fault.name}`);
-    const opts: TestOptions = gap ? { todo: gap } : {};
-    test(title(op, fault), opts, async () => {
+    test(title(op, fault), async () => {
       const rig = await makeRig();
       try {
         await runOp(op, fault, rig);
@@ -745,9 +722,7 @@ test("webhook mode: a healthy start sends the webhook secret and neither credent
 });
 
 for (const fault of WEBHOOK_FAULTS) {
-  const gap = KNOWN_GAPS.get(`webhook setWebhook|${fault.name}`);
-  const opts: TestOptions = gap ? { todo: gap } : {};
-  test(title("start(host) webhook setWebhook", fault), opts, async () => {
+  test(title("start(host) webhook setWebhook", fault), async () => {
     const label = `webhook setWebhook x ${fault.name}`;
     const rig = await makeRig({ webhook: { url: "https://hooks.example.invalid/telegram", secret: WEBHOOK_SECRET } });
     try {
