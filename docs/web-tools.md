@@ -57,7 +57,7 @@ regular expression, so a hostile `robots.txt` cannot stall the process. The User
 
 ## `web.search`
 
-`SearchProvider { id, search(query, signal) }` is the whole contract. The one provider that ships is SearXNG
+`SearchProvider { id, search(query, signal) }` is the whole contract. The first provider is SearXNG
 (`tools/web/searxng.ts`, JSON API, wired by `sidecars/web-search.ts`, see [sidecars.md](sidecars.md)); the tool is
 registered per turn only when that backend exists, as capability `net.fetch` (D109, a network read, allowed by default).
 The sidecar is the only destination and it comes from configuration, not from the model. `createWebSearch` takes the
@@ -65,6 +65,9 @@ fallback order (frozen at creation: a provider is chosen per agent session, neve
 skips failing providers with a `skipped` note (ids and reasons only, never error text), and normalises results:
 http(s) only, de-duplicated by URL, markup and control characters stripped, lengths capped, unknown fields dropped, the
 `site` filter re-applied. The answer carries `provenance: { source: "web.search", provider, retrievedAt, trust: "untrusted" }`.
+
+Brave, Tavily and Exa sit next to SearXNG (`tools/web/search-providers.ts`, `search-http.ts`, routed per agent by
+`sidecars/web-search-router.ts`); setup, keys, limits and what is still open: [web-search.md](web-search.md).
 
 ## Repair hook and capability index
 
