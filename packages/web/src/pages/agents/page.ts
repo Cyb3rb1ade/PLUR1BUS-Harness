@@ -96,5 +96,10 @@ export function AgentsPage({ sub }: PageProps): View {
   else detail = h(PageState, { state: "empty", title: t("agents.notFound.title"), detail: t("shared.notFound.detail") }, h("a", { class: "btn", href: "#/agents" }, t("agents.notFound.back")));
 
   return h(Page, { title, width: "full" },
+    h("details", { class: "card" }, h("summary", {}, t("agents.isolation.title")),
+      h("table", {}, h("tbody", {},
+        h("tr", {}, h("th", { scope: "row" }, t("agents.isolation.agent")), h("td", {}, t("agents.isolation.private"))),
+        h("tr", {}, h("th", { scope: "row" }, t("agents.isolation.global")), h("td", {}, t("agents.isolation.shared"))))),
+      h("p", {}, t("agents.isolation.boundary"))),
     h(ListDetail, { list, detail, selected: sub !== undefined, listLabel: t("agents.list.label"), detailLabel: t("agents.detail.label"), onBack: () => { navigate("/agents"); } }));
 }

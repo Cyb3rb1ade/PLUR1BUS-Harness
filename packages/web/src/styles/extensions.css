@@ -20,3 +20,7 @@
 .right-label { font-weight: 600; color: var(--ink); }
 .right-value { color: var(--ink-2); }
 .right-explain { flex-basis: 100%; margin: 0; color: var(--ink-2); font-size: 13px; }
+/* These are buttons, so reset the browser's light button background before applying theme tokens. */
+.extensions-list .nav-link { background: transparent; border: 0; width: 100%; text-align: left; }
+.extensions-list .nav-link:hover { background: var(--hover-bg); }
+.extensions-list .nav-link[aria-current="true"] { background: var(--active-bg); }

@@ -11,7 +11,7 @@ import { rbacAuthorizePort, requireAuthorization, type AuthorizePort, type Ident
 import { createAuditWriter } from "../../src/identity/audit.ts";
 import { IdentityError, type Actor, type AuditEvent, type ChannelIdentity, type IdentityErrorCode } from "../../src/identity/service.ts";
 import { ROLES, type Role } from "../../src/rbac/types.ts";
-import { MIN, OWNER, gap, refuses, useIdentity } from "./helpers.ts";
+import { MIN, OWNER, refuses, useIdentity } from "./helpers.ts";
 import { createHash } from "node:crypto";
 
 const fixture = useIdentity();
@@ -267,10 +267,10 @@ describe("identity rpc: the owner-only handlers", () => {
   it("characterization: Ist-Verhalten, nicht spezifiziert: identity.pair.start ignores a ttlMs parameter (the schema has none), so the lifetime is the service default", async () => {
     const { f, call } = rig(); const h = f.human();
     const p = await call("identity.pair.start", { caller: CLI, humanId: h.id, channel: "telegram", ttlMs: 60_000 }) as { expiresAt: number };
-    assert.equal(p.expiresAt, f.now() + 60 * MIN);
+    assert.equal(p.expiresAt, f.now() + 10 * MIN);
   });
 
-  it(gap("identity.pair.start (RPC)", "a code valid for 10 minutes (rpc.schema.json: 'valid 10 minutes'; docs/identity.md says one hour and its status table calls main's 10 minutes outdated)", "expiresAt is now + 60 minutes: the schema text and docs/identity.md contradict each other, the code follows the document"), { todo: gap("identity.pair.start (RPC)", "a code valid for 10 minutes (rpc.schema.json: 'valid 10 minutes'; docs/identity.md says one hour and its status table calls main's 10 minutes outdated)", "expiresAt is now + 60 minutes: the schema text and docs/identity.md contradict each other, the code follows the document") }, async () => {
+  it("identity.pair.start (RPC): a code is valid for 10 minutes, as rpc.schema.json says ('valid 10 minutes')", async () => {
     const { f, call } = rig(); const h = f.human();
     const p = await call("identity.pair.start", { caller: CLI, humanId: h.id, channel: "telegram" }) as { expiresAt: number };
     assert.equal(p.expiresAt, f.now() + 10 * MIN);

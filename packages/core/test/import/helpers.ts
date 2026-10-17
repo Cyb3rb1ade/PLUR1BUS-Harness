@@ -17,10 +17,6 @@ export function mulberry32(seed: number): () => number {
   };
 }
 
-export function gap(fn: string, expected: string, actual: string): string {
-  return `KNOWN GAP: core/import ${fn}: erwartet ${expected}, tatsächlich ${actual}`;
-}
-
 /** mkdtemp directories removed after each test of the calling scope. */
 export function useTempDirs(): () => string {
   const made: string[] = [];
@@ -73,10 +69,8 @@ const IDENT = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
 /** JSON5 text for `v`, decorated with comments, trailing commas, odd whitespace, hex numbers, both quote styles and line continuations. */
 export function toJson5(v: unknown, rnd: () => number, depth = 0): string {
-  // U+FEFF is whitespace in JSON5 but parseJson5 reads it as an identifier character (KNOWN GAP in json5.test.ts), so the
-  // generator emits it only directly after punctuation (wsP), never after a key, literal or number.
-  const ws = (): string => pick(rnd, ["", "", " ", "\n", "\t", "  ", " ", "\r\n", " /* c */ ", " // note\n", "\u000b", "\u000c"]);
-  const wsP = (): string => (rnd() < 0.15 ? "\u00a0" : rnd() < 0.2 ? "\ufeff" : ws());
+  // U+FEFF, U+2028 and the Unicode Space_Separator characters are JSON5 whitespace/line terminators anywhere between tokens.
+  const ws = (): string => pick(rnd, ["", "", " ", "\n", "\t", "  ", "\u00a0", "\r\n", " /* c */ ", " // note\n", "\u000b", "\u000c", "\ufeff", "\u2028", "\u2003", "\u3000", " // note\u2029"]);
   const str = (s: string): string => {
     const q = rnd() < 0.5 ? "'" : "\"";
     let out = q;
@@ -100,12 +94,12 @@ export function toJson5(v: unknown, rnd: () => number, depth = 0): string {
   }
   if (typeof v === "string") return str(v);
   const trailing = (): string => (rnd() < 0.4 ? "," : "");
-  if (Array.isArray(v)) return "[" + wsP() + v.map(x => toJson5(x, rnd, depth + 1)).join(ws() + "," + wsP()) + (v.length ? ws() + trailing() : "") + ws() + "]";
+  if (Array.isArray(v)) return "[" + ws() + v.map(x => toJson5(x, rnd, depth + 1)).join(ws() + "," + ws()) + (v.length ? ws() + trailing() : "") + ws() + "]";
   const entries = Object.keys(v as object).map(k => {
     const key = IDENT.test(k) && rnd() < 0.6 ? k : str(k);
-    return key + ws() + ":" + wsP() + toJson5((v as Record<string, unknown>)[k], rnd, depth + 1);
+    return key + ws() + ":" + ws() + toJson5((v as Record<string, unknown>)[k], rnd, depth + 1);
   });
-  return "{" + wsP() + entries.join(ws() + "," + wsP()) + (entries.length ? ws() + trailing() : "") + ws() + "}";
+  return "{" + ws() + entries.join(ws() + "," + ws()) + (entries.length ? ws() + trailing() : "") + ws() + "}";
 }
 
 const SAFE_WORD = /^[A-Za-z][A-Za-z0-9 _./-]*$/;

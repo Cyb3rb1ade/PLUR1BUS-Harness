@@ -1,0 +1,21 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { generateKeyPairSync, sign } from "node:crypto";
+import { bindApiPrincipal } from "../../../module-api/src/api-principal.ts";
+import { createDeviceSurface } from "../../src/rpc/device-surface.ts";
+import { DeviceStore } from "../../../remote-access/src/device-store.ts";
+import { pinOf } from "../../../remote-access/src/fingerprint.ts";
+test("private API device service shares durable store, requires service credential, and verifies Ed25519 possession once",async t=>{
+ const state=mkdtempSync(join(tmpdir(),"device-service-"));t.after(()=>rmSync(state,{recursive:true,force:true}));const events:any[]=[];const methods=createDeviceSurface({state,clock:()=>Date.now(),audit:{append:()=>{}},securePath:()=>{},notifyTrust:(event,owners)=>events.push({event,owners})});const ctx:any={};bindApiPrincipal(ctx,null);const forwarded:any={};bindApiPrincipal(forwarded,{kind:"person",userId:"local-owner",role:"owner"});
+ const keys=generateKeyPairSync("ed25519"),publicKey=keys.publicKey.export({type:"spki",format:"der"}).toString("base64");const p={name:"fixture",platform:"macOS",publicKey,pairedBy:"local-owner",scope:["device.trust"]};
+ for(const context of [{},forwarded])for(const method of Object.keys(methods).filter(k=>k.startsWith("admin.api.device.")))await assert.rejects(methods[method]!(p,context as any),e=>(e as any).error==="E_DENIED");
+ const made:any=await methods["admin.api.device.pair"]!(p,ctx);const disk=new DeviceStore({file:join(state,"devices.json"),clock:()=>Date.now(),audit:{append:()=>{}},securePath:()=>{}});assert.equal(disk.get(made.device.id).pairedBy,"local-owner");
+ const challenge:any=await methods["admin.api.device.challenge"]!({},ctx),signature=sign(null,Buffer.from(challenge.challenge,"base64url"),keys.privateKey).toString("base64url");const proof={id:made.device.id,publicKey,challenge:challenge.challenge,signature};
+ assert.equal((await methods["admin.api.device.prove"]!(proof,ctx) as any).device.id,made.device.id);await assert.rejects(methods["admin.api.device.prove"]!(proof,ctx));
+ const fresh:any=await methods["admin.api.device.challenge"]!({},ctx);await assert.rejects(methods["admin.api.device.prove"]!({...proof,challenge:fresh.challenge,signature:Buffer.alloc(64).toString("base64url")},ctx));
+ await methods["admin.api.device.announce"]!({next:{kind:"cert",pin:pinOf(Buffer.from("next"))},stagedAt:1},ctx);assert.deepEqual(events[0].owners,["local-owner"]);assert.equal(events[0].event.type,"devices.trust.next");assert.ok(!JSON.stringify(events).includes(publicKey));
+ disk.revoke(made.device.id,"local-owner");await assert.rejects(methods["admin.api.device.prove"]!({...proof,challenge:fresh.challenge},ctx));
+});

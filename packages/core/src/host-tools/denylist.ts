@@ -34,6 +34,12 @@ export function denyEntriesFor(
     p(home, ".config", "gh"),
     p(home, ".password-store"),
     p(home, ".local", "share", "keyrings"),
+    p(home, ".claude"),
+    p(home, ".claude.json"),
+    p(home, ".gemini"),
+    p(home, ".agy"),
+    p(home, ".config", "agy"),
+    p(home, ".config", "antigravity"),
     p(home, ".codex"),
     p(home, ".codex", "auth.json"),
     p(home, ".hermes"),
@@ -49,6 +55,11 @@ export function denyEntriesFor(
     p(home, ".mozilla", "firefox"),
     p(home, ".config", "Bitwarden"),
   ];
+  // D110 §2.5: expand overrides through the same D109 source; no existence/read probes here.
+  for (const key of ["CLAUDE_CONFIG_DIR", "GEMINI_CLI_HOME", "AGY_HOME", "ANTIGRAVITY_HOME", OC.toUpperCase() + "_HOME", OC.toUpperCase() + "_STATE_DIR"]) {
+    if (env[key]) paths.push(env[key]!);
+  }
+  if (env.XDG_CONFIG_HOME) paths.push(p(env.XDG_CONFIG_HOME, "gcloud"), p(env.XDG_CONFIG_HOME, "agy"), p(env.XDG_CONFIG_HOME, "antigravity"));
   const codexHome = env.CODEX_HOME;
   if (codexHome) paths.push(codexHome, p(codexHome, "auth.json"));
   const hermesHome = env.HERMES_HOME;
@@ -57,6 +68,10 @@ export function denyEntriesFor(
     const lad = env.LOCALAPPDATA ?? p(home, "AppData", "Local");
     paths.push(
       p(lad, "hermes"),
+      p(lad, "Claude"),
+      p(lad, "Antigravity"),
+      p(env.APPDATA ?? p(home, "AppData", "Roaming"), "Claude"),
+      p(env.APPDATA ?? p(home, "AppData", "Roaming"), "Antigravity"),
       p(lad, "Google", "Chrome", "User Data"),
       p(lad, "Mozilla", "Firefox"),
       p(home, "AppData", "Roaming", "1Password"),
