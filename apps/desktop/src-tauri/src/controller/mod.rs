@@ -1,6 +1,7 @@
 pub mod acquire;
 pub mod autostart;
 pub mod bundle;
+pub mod compatibility;
 pub mod journal;
 pub mod lifecycle;
 pub mod upgrade;
@@ -95,6 +96,7 @@ pub enum CtlError {
     },
     Health,
     Cancelled,
+    MissingContract(&'static str),
 }
 impl CtlError {
     pub fn code(&self) -> &'static str {
@@ -111,6 +113,7 @@ impl CtlError {
             Self::ExecFailed { .. } => "exec-failed",
             Self::Health => "health",
             Self::Cancelled => "cancelled",
+            Self::MissingContract(_) => "upgrade-contract-unavailable",
         }
     }
 }
