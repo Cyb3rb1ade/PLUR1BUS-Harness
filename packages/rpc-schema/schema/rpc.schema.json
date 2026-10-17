@@ -9606,6 +9606,10 @@
         "health": { "$ref": "#/$defs/ChannelHealth" }
       }
     },
+    "ResolvedChannelBehaviour": {
+      "type": "object", "additionalProperties": false, "required": ["profile", "origins"],
+      "properties": { "profile": { "type": "object", "description": "Effective restrictive behaviour, keyed by section and field." }, "origins": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } } }
+    },
     "ChannelDetail": {
       "description": "Experimental (1.5.0). One channel: summary plus effective configuration (secrets as names), missing secrets, status, probe and pairing help. Never a secret value.",
       "x-stability": "experimental", "x-since": "1.5.0",
@@ -9623,6 +9627,7 @@
         "missing": { "type": "array", "items": { "type": "string" } },
         "secrets": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["key", "name", "present"], "properties": { "key": { "type": "string" }, "name": { "type": "string" }, "present": { "type": "boolean" } } } },
         "config": { "type": "object" },
+        "behaviour": { "description": "ADR-003 effective direct/group policy with per-field source paths and the channel-kind layer editable by owner/admin. Null if no unambiguous default agent exists.", "type": ["object", "null"], "additionalProperties": false, "required": ["agentId", "editableKey", "layer", "direct", "group"], "properties": { "agentId": { "type": "string" }, "editableKey": { "type": "string" }, "layer": { "type": "object" }, "direct": { "$ref": "#/$defs/ResolvedChannelBehaviour" }, "group": { "$ref": "#/$defs/ResolvedChannelBehaviour" } } },
         "attempts": { "type": "integer", "minimum": 0 },
         "lastError": { "type": "string" },
         "startedAt": { "type": "integer", "minimum": 0 },

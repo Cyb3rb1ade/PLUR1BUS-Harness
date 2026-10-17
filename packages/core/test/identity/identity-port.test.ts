@@ -208,8 +208,8 @@ describe("identity port: no sender becomes somebody else", () => {
   it("a group chat is one shared conversation: a second linked member continues the room's session (the owner is not compared there)", async () => {
     const rig = await running(); const a = rig.adapter();
     const p = rig.link("discord", "bot-1", "sender-1", "Pat"); const q = rig.link("discord", "bot-1", "sender-2", "Quinn");
-    await a.inbound({ chatId: "room-1", chatKind: "group", senderId: "sender-1", text: "pat in the room" });
-    await a.inbound({ chatId: "room-1", chatKind: "group", senderId: "sender-2", text: "quinn in the room" });
+    await a.inbound({ chatId: "room-1", chatKind: "group", addressed: true, senderId: "sender-1", text: "pat in the room" });
+    await a.inbound({ chatId: "room-1", chatKind: "group", addressed: true, senderId: "sender-2", text: "quinn in the room" });
     assert.equal(sessionsOf(rig, p.humanId), 1); assert.equal(sessionsOf(rig, q.humanId), 0, "the room's session stays the first speaker's, as before");
     assert.equal(rig.store.listSessions({ owner: deriveUserPrincipal(p.humanId), kind: "channel" }).sessions[0]!.archivedAt, null);
   });

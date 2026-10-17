@@ -1,3 +1,4 @@
+import { resolveBehaviour } from "../channels/behaviour.ts";
 // RPC surface for channel management over the switchboard (R3): channel.list|get|enable|disable|set|test|status.
 //
 // Generic over the channel registry and the config schema's `channels.*` block: nothing here knows one channel from
@@ -287,6 +288,7 @@ export function buildChannelSurface(d: ChannelSurfaceDeps): Record<string, Handl
         missing: f.missing,
         secrets: f.secrets,
         config: project(channelConfig(cfg, id), present),
+        behaviour: channelBehaviourView(cfg, id),
         attempts: f.status?.attempts ?? 0,
         ...(f.status?.lastError ? { lastError: scrub(f.status.lastError) } : {}),
         ...(f.status?.startedAt !== undefined ? { startedAt: f.status.startedAt } : {}),
@@ -390,5 +392,19 @@ export function buildChannelSurface(d: ChannelSurfaceDeps): Record<string, Handl
       audit(principal.userId, "channel.test.send", id, { linkId: mine.id });
       return { ...out, sent: true, sentTo: { linkId: mine.id } };
     },
+  };
+}
+
+/** The same default-agent selection as the channel host; only the selected channel-kind layer is editable here. */
+export function channelBehaviourView(cfg: HarnessConfig, id: string) {
+  const ids = Object.keys(cfg.agents);
+  const agentId = ids.length === 1 ? ids[0]! : ids.includes("main") ? "main" : null;
+  if (agentId === null) return null;
+  const set = cfg.agents[agentId]?.behaviour ?? {};
+  return {
+    agentId, editableKey: `agents.${agentId}.behaviour.byChannelKind.${id}`,
+    layer: set.byChannelKind?.[id] ?? {},
+    direct: resolveBehaviour(set, { channel: id, chatKind: "direct" }),
+    group: resolveBehaviour(set, { channel: id, chatKind: "group" }),
   };
 }
