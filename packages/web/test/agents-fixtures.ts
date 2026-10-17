@@ -21,6 +21,16 @@ export function installAgents(server: MockHarnessServer, w: World = world()): Wo
     if (key === "agents") return { key, tier: null, value: w.agents, restartClass: "live", restart: "live", revision: `r${w.revision}` };
     return { key: null, tier: null, value: { agents: w.agents }, restartClass: null, restart: null, revision: `r${w.revision}` };
   }, { write: false });
+  const attempts = new Map<string,string>();
+  rpc.handle("agent.create", p => {
+    const q = p as { name:string; displayName:string; skills:string[]; idempotencyKey:string };
+    const previous = attempts.get(q.idempotencyKey);
+    if (previous) return { agentId:previous, replayed:true };
+    if (w.agents[q.name]) throw rpcError("E_AGENT_EXISTS","agent already exists");
+    w.agents[q.name]={displayName:q.displayName,createdAt:new Date().toISOString(),skills:q.skills};
+    attempts.set(q.idempotencyKey,q.name); w.revision++;w.sets++;
+    return {agentId:q.name};
+  });
   rpc.handle("config.set", (p) => {
     const q = p as { changes: { key: string; value: Entry }[]; ifRevision?: string };
     if (q.ifRevision !== undefined && q.ifRevision !== `r${w.revision}`) throw rpcError("E_CONFLICT", "changed", "config-changed");

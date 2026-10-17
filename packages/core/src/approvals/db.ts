@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { layout } from "../paths.ts";
 
-export const APPROVALS_SCHEMA_VERSION = 2;
+export const APPROVALS_SCHEMA_VERSION = 3;
 export const APPROVALS_DB_FILE = "approvals.sqlite";
 
 /** `<home>/state/approvals.sqlite`, via the harness layout (never config.json, D109 §6). */
@@ -93,6 +93,15 @@ const MIGRATIONS: Record<number, string> = {
   `,
   // #192 option C: where a grant came from when an OS confirmation lifted its approval to T2 ("attested:<method>"). NULL for every earlier row.
   2: `ALTER TABLE grants ADD COLUMN attested_via TEXT;`,
+  // D109 §9.7: Ed25519 signatures live outside the HMAC'd fields so the HMAC chain is unchanged and unsigned legacy rows stay valid.
+  3: `
+    CREATE TABLE approval_signatures (
+      seq INTEGER PRIMARY KEY,
+      alg TEXT NOT NULL,
+      public_key TEXT NOT NULL,
+      signature TEXT NOT NULL
+    );
+  `,
 };
 
 export class ApprovalsDbError extends Error {

@@ -1,0 +1,13 @@
+{
+  "params": {
+    "sessionId": "ses_1",
+    "text": "hello"
+  },
+  "result": {
+    "sessionId": "ses_1",
+    "turnId": "trn_1",
+    "messageId": "msg_1",
+    "state": "completed",
+    "reply": "hi"
+  }
+}

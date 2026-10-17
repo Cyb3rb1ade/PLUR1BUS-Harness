@@ -1,0 +1,32 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { chromium } from "playwright";
+import { buildWeb } from "../build.ts";
+import { browserSkip } from "./harness.ts";
+import { findChromium } from "./browser-runtime.ts";
+import { AccountStore } from "../../api/src/account-store.ts";
+import { bootstrapHash } from "../../api/src/bootstrap.ts";
+import { createApiServer } from "../../api/src/server.ts";
+import { fakeCore } from "../../api/test/helpers.ts";
+import { randomBytes } from "node:crypto";
+test("real API wizard account bootstrap creates Owner, clears proof and never persists secrets", { skip: browserSkip }, async t => {
+  const dir = await mkdtemp(join(tmpdir(), "m3-bootstrap-browser-")); t.after(() => rm(dir, { recursive: true, force: true })); await buildWeb(dir);
+  const accounts = new AccountStore({ path: ":memory:", resolve: async userId => ({ userId, kind: "person", role: "owner", disabled: false, version: 1 }) }); t.after(() => accounts.close());
+  const proof = randomBytes(32).toString("base64url"), password = randomBytes(24).toString("base64url"); accounts.initializeBootstrap(bootstrapHash(proof));
+  const api = createApiServer({ core: fakeCore(), accounts, users: accounts, ownerToken: randomBytes(32).toString("hex"), webRoot: dir }); const listener = await api.listen(); const url = listener.url.replace("127.0.0.1", "localhost"); t.after(() => api.close());
+  const browser = await chromium.launch({ executablePath: findChromium()!, headless: true }); t.after(() => browser.close()); const page = await browser.newPage({ locale: "en-US" }); page.setDefaultTimeout(5000);
+  await page.goto(url + "/#/setup"); try { await page.getByLabel("One-time bootstrap proof", { exact: true }).fill(proof); } catch (e) { console.log(await page.locator("body").textContent()); throw e; } await page.getByLabel("Username", { exact: true }).fill("christian"); await page.getByLabel("Password (at least 12 characters)", { exact: true }).fill(password); await page.getByRole("button", { name: "Create account", exact: true }).click();
+  await page.getByText("You are signed in as local-owner (owner).", { exact: true }).waitFor();
+  const cdp = await page.context().newCDPSession(page); await cdp.send("WebAuthn.enable");
+  await cdp.send("WebAuthn.addVirtualAuthenticator", { options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
+  await page.evaluate(() => { location.hash = "#/settings/security"; }); await page.getByLabel("Key name", { exact: true }).fill("Browser passkey"); await page.getByRole("button", { name: "Add passkey", exact: true }).click();
+  await page.getByLabel("Owner token", { exact: true }).waitFor(); assert.equal(accounts.passkeysFor("local-owner").length, 1);
+  await page.getByRole("button", { name: "Use username and password", exact: true }).click(); await page.getByLabel("Username", { exact: true }).fill("christian"); await page.getByRole("button", { name: "Use a passkey", exact: true }).click();
+  await page.locator(".sidebar").waitFor(); assert.equal(accounts.passkeysFor("local-owner")[0]!.signCount > 0, true);
+  assert.equal(accounts.bootstrapState()?.consumed, true); const storage = await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage })); assert.equal(storage.includes(proof), false); assert.equal(storage.includes(password), false);
+});
+
+test.todo("KNOWN GAP: physical platform/security-key interoperability requires owner hardware; CDP proves browser WebAuthn only");

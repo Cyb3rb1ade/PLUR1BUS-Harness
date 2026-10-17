@@ -77,7 +77,7 @@ import type { StreamingAdapter, ChatRequest as WireRequest, ChatResult } from ".
 import type { ChatChunk, ChatRequest } from "../../src/session/provider.ts";
 
 export type ScriptedCall = { id: string; name: string; args: Record<string, unknown>; raw?: string };
-export type ScriptedRound = { text?: string; streamed?: string[]; calls?: ScriptedCall[]; usage?: { inputTokens: number; outputTokens: number } };
+export type ScriptedRound = { text?: string; streamed?: string[]; calls?: ScriptedCall[]; usage?: { inputTokens: number; outputTokens: number }; reasoning?: string };
 
 /** An adapter that answers round N with `rounds[N]` (the last round repeats) and records every wire request it was given. */
 export function scriptedAdapter(rounds: ScriptedRound[]) {
@@ -88,7 +88,7 @@ export function scriptedAdapter(rounds: ScriptedRound[]) {
       requests.push(request);
       for (const piece of round.streamed ?? (round.text ? [round.text] : [])) yield { type: "text_delta", text: piece };
       const calls = round.calls ?? [];
-      const result = { text: round.text ?? "", toolCalls: calls.map((c) => ({ id: c.id, name: c.name, arguments: c.args, argumentsRaw: c.raw ?? JSON.stringify(c.args) })), finishReason: calls.length ? "tool_calls" : "stop", rawFinishReason: "stop", usage: round.usage ?? { inputTokens: 10, outputTokens: 2 }, meta: {} } as unknown as ChatResult;
+      const result = { text: round.text ?? "", ...(round.reasoning ? { reasoning: round.reasoning } : {}), toolCalls: calls.map((c) => ({ id: c.id, name: c.name, arguments: c.args, argumentsRaw: c.raw ?? JSON.stringify(c.args) })), finishReason: calls.length ? "tool_calls" : "stop", rawFinishReason: "stop", usage: round.usage ?? { inputTokens: 10, outputTokens: 2 }, meta: {} } as unknown as ChatResult;
       yield { type: "done", result };
     },
   };

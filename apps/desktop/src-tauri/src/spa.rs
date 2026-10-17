@@ -584,6 +584,29 @@ fn schedule_retry(app: &tauri::AppHandle, origin: &Origin, manual: bool) {
     });
 }
 
+/// External deep links may only change the fragment of the active connection's live SPA.
+pub fn navigate_active(
+    app: &tauri::AppHandle,
+    connection: uuid::Uuid,
+    path: &str,
+) -> Result<(), String> {
+    if !crate::deeplink::allowed_path(path) {
+        return Err("invalid".into());
+    }
+    let state = app.state::<SpaState>();
+    let current = state.current.lock().unwrap();
+    let active = current
+        .as_ref()
+        .filter(|a| a.connection.id == connection)
+        .ok_or("pairing-needed")?;
+    let window = app.get_webview_window("spa").ok_or("pairing-needed")?;
+    let mut url = url::Url::parse(active.proxy.origin().as_str()).map_err(|_| "invalid")?;
+    url.set_fragment(Some(path));
+    window.navigate(url).map_err(|_| "invalid")?;
+    window.show().map_err(|_| "invalid")?;
+    window.set_focus().map_err(|_| "invalid".into())
+}
+
 #[cfg(all(test, debug_assertions))]
 mod fixture_navigation_tests {
     use super::*;

@@ -33,7 +33,7 @@ async function toReview(app: App, name = "Research Bot", id?: string, skills: st
 const submit = (app: App): Promise<void> => app.page.getByRole("button", { name: "Create agent" }).click();
 
 describe("agents create: steps", opts, () => {
-  test("name -> skills -> review -> create writes agents.<id> with ifRevision and opens the detail", async () => {
+  test("name -> skills -> review -> server saga receives one idempotency key and opens the detail", async () => {
     await withApp({}, async (app) => {
       const w = await open(app);
       await fillName(app, "Research Bot");
@@ -48,13 +48,13 @@ describe("agents create: steps", opts, () => {
       await app.page.getByRole("heading", { name: "Research Bot", level: 2 }).waitFor();
       await app.page.getByText("Agent Research Bot was created.").waitFor();
       assert.equal(app.page.url().endsWith("#/agents/research-bot"), true);
-      const sets = callsOf(app.server, "config.set");
+      const sets = callsOf(app.server, "agent.create");
       assert.equal(sets.length, 1);
-      const p = sets[0]!.params as { changes: { key: string; value: { displayName: string; createdAt: string; skills: string[] } }[]; ifRevision: string };
-      assert.equal(p.ifRevision, "r1");
-      assert.equal(p.changes[0]!.key, "agents.research-bot");
-      assert.deepEqual(p.changes[0]!.value.skills, ["notes"]);
-      assert.equal(p.changes[0]!.value.displayName, "Research Bot");
+      const p = sets[0]!.params as { name:string; displayName:string; skills:string[]; idempotencyKey:string };
+      assert.match(p.idempotencyKey,/^[a-z0-9-]{36}$/);
+      assert.equal(p.name,"research-bot");
+      assert.deepEqual(p.skills,["notes"]);
+      assert.equal(p.displayName,"Research Bot");
       assert.equal(w.agents["research-bot"]?.displayName, "Research Bot");
       await app.page.getByRole("link", { name: /Research Bot/ }).waitFor();
     });
@@ -76,7 +76,7 @@ describe("agents create: steps", opts, () => {
       await app.page.getByRole("heading", { name: /Step 2 of 3/ }).waitFor();
       await app.page.getByRole("button", { name: "Back" }).click();
       assert.equal(await app.page.getByLabel("ID", { exact: true }).inputValue(), "x-1");
-      assert.equal(callsOf(app.server, "config.set").length, 0);
+      assert.equal(callsOf(app.server, "agent.create").length, 0);
     });
   });
   test("skills step: none installed, failing and missing RPC are notes, the step can be skipped", async () => {
@@ -126,11 +126,11 @@ describe("agents create: idempotency", opts, () => {
   test("a double click sends one config.set", async () => {
     await withApp({}, async (app) => {
       const w = await open(app);
-      app.server.rpc.setDelay("config.set", 300);
+      app.server.rpc.setDelay("agent.create", 300);
       await toReview(app);
       await app.page.getByRole("button", { name: "Create agent" }).dblclick();
       await app.page.getByRole("heading", { name: "Research Bot", level: 2 }).waitFor();
-      assert.equal(callsOf(app.server, "config.set").length, 1);
+      assert.equal(callsOf(app.server, "agent.create").length, 1);
       assert.equal(w.sets, 1);
     });
   });
@@ -138,16 +138,16 @@ describe("agents create: idempotency", opts, () => {
     await withApp({}, async (app) => {
       const w = await open(app);
       await toReview(app);
-      app.server.rpc.scenario("config.set", "error");
+      app.server.rpc.scenario("agent.create", "error");
       await submit(app);
       await app.page.getByRole("alert").getByText(/could not be created/).waitFor();
       assert.equal(w.sets, 0);
-      app.server.rpc.scenario("config.set", "success");
+      app.server.rpc.scenario("agent.create", "success");
       await submit(app);
       await app.page.getByRole("heading", { name: "Research Bot", level: 2 }).waitFor();
       assert.equal(w.sets, 1);
-      const [a, b] = callsOf(app.server, "config.set").map((c) => (c.params as { changes: { value: { createdAt: string } }[] }).changes[0]!.value.createdAt);
-      assert.equal(a, b, "same attempt, same createdAt");
+      const [a, b] = callsOf(app.server, "agent.create").map((c) => (c.params as { idempotencyKey:string }).idempotencyKey);
+      assert.equal(a, b, "same attempt, same server key");
     });
   });
   test("retry after a lost response reports success without a second write", async () => {
@@ -156,9 +156,10 @@ describe("agents create: idempotency", opts, () => {
       await toReview(app);
       // The write lands, the answer is lost.
       const real = w.agents;
-      app.server.rpc.handle("config.set", (p) => {
-        const q = p as { changes: { key: string; value: never }[] };
-        for (const c of q.changes) real[c.key.replace(/^agents\./, "")] = c.value;
+      app.server.rpc.handle("agent.create", (p) => {
+        const q = p as {name:string;displayName:string;skills:string[]};
+        if(real[q.name]) return {agentId:q.name,replayed:true};
+        real[q.name]={displayName:q.displayName,skills:q.skills,createdAt:new Date().toISOString()};
         w.revision += 1; w.sets += 1;
         throw rpcError("E_INTERNAL", "connection lost");
       });
@@ -168,7 +169,7 @@ describe("agents create: idempotency", opts, () => {
       await submit(app);
       await app.page.getByRole("heading", { name: "Research Bot", level: 2 }).waitFor();
       await app.page.getByText(/already created by an earlier attempt/).waitFor();
-      assert.equal(callsOf(app.server, "config.set").length, 1, "the retry wrote nothing");
+      assert.equal(callsOf(app.server, "agent.create").length, 2, "retry sends the same key to the server");
       assert.equal(w.sets, 1);
     });
   });
@@ -180,7 +181,7 @@ describe("agents create: idempotency", opts, () => {
       await submit(app);
       await app.page.getByRole("heading", { name: /Step 1 of 3/ }).waitFor();
       await app.page.getByText("An agent with this ID already exists.").first().waitFor();
-      assert.equal(callsOf(app.server, "config.set").length, 0);
+      assert.equal(w.sets, 0);
     });
   });
   test("revision conflict: nothing written, message shown, the retry reads the new revision", async () => {
@@ -189,25 +190,25 @@ describe("agents create: idempotency", opts, () => {
       await toReview(app);
       const get = app.server.rpc.handle.bind(app.server.rpc);
       void get;
-      app.server.rpc.handle("config.set", () => { w.revision += 1; throw rpcError("E_CONFLICT", "changed", "config-changed"); });
+      app.server.rpc.handle("agent.create", () => { w.revision += 1; throw rpcError("E_CONFLICT", "changed", "config-changed"); });
       await submit(app);
       await app.page.getByRole("alert").getByText(/configuration changed in the meantime/).waitFor();
       assert.equal(w.sets, 0);
       installAgents(app.server, w);
       await submit(app);
       await app.page.getByRole("heading", { name: "Research Bot", level: 2 }).waitFor();
-      const last = callsOf(app.server, "config.set").at(-1)!.params as { ifRevision: string };
-      assert.equal(last.ifRevision, `r${w.revision - 1}`);
+      const [first,last] = callsOf(app.server, "agent.create").map(c => (c.params as {idempotencyKey:string}).idempotencyKey);
+      assert.equal(first,last);
       assert.equal(w.agents["research-bot"]?.displayName, "Research Bot");
     });
   });
   test("forbidden and unavailable writes show their own message", async () => {
     await withApp({}, async (app) => {
       await open(app); await toReview(app);
-      app.server.rpc.scenario("config.set", "forbidden");
+      app.server.rpc.scenario("agent.create", "forbidden");
       await submit(app);
       await app.page.getByRole("alert").getByText("Your role does not allow creating agents.").waitFor();
-      app.server.rpc.scenario("config.set", "unavailable");
+      app.server.rpc.scenario("agent.create", "unavailable");
       await submit(app);
       await app.page.getByRole("alert").getByText(/configuration service is not available/).waitFor();
     });

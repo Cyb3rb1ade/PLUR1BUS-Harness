@@ -588,7 +588,7 @@ impl Controller {
         }
         value
     }
-    async fn remove_container_owned(
+    pub(crate) async fn remove_container_owned(
         &self,
         name: &str,
         digest: Option<&str>,
