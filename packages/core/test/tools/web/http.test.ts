@@ -408,3 +408,36 @@ describe("http: TLS keeps verifying the hostname while connecting to the pinned 
     }
   });
 });
+
+describe("http: error bodies are opt-in and capped", () => {
+  it("by default a >= 400 answer has an empty body", async () => {
+    const s = await startStub((_q, res) => res.writeHead(403, { "content-type": "text/html" }).end("<p>forbidden page</p>"));
+    try {
+      assert.equal((await guardedRequest(`http://127.0.0.1:${s.port}/`, base)).body.length, 0);
+    } finally {
+      await s.close();
+    }
+  });
+  it("errorBodyBytes returns the (decompressed) page, cut at the cap without an error", async () => {
+    const page = `<p>${"x".repeat(5000)}</p>`;
+    const s = await startStub((_q, res) => res.writeHead(429, { "content-type": "text/html", "content-encoding": "gzip" }).end(gzipSync(page)));
+    try {
+      const r = await guardedRequest(`http://127.0.0.1:${s.port}/`, { ...base, errorBodyBytes: 1000 });
+      assert.equal(r.status, 429);
+      assert.equal(r.body.length, 1000);
+      assert.equal(r.body.toString().startsWith("<p>xxx"), true);
+    } finally {
+      await s.close();
+    }
+  });
+  it("an undecodable error page is still just an error status", async () => {
+    const s = await startStub((_q, res) => res.writeHead(500, { "content-encoding": "gzip" }).end("not gzip at all"));
+    try {
+      const r = await guardedRequest(`http://127.0.0.1:${s.port}/`, { ...base, errorBodyBytes: 1000 });
+      assert.equal(r.status, 500);
+      assert.equal(r.body.length, 0);
+    } finally {
+      await s.close();
+    }
+  });
+});

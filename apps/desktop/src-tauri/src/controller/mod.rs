@@ -253,7 +253,19 @@ impl Controller {
         self.runtime.info()
     }
     pub fn installed(&self) -> Result<Option<Installed>, CtlError> {
-        let path = self.dir.join("installed.json");
+        self.installation_record("installed.json")
+    }
+    pub fn retained_installed(&self) -> Result<Option<Installed>, CtlError> {
+        self.installation_record("uninstall-retained.json")
+    }
+    pub fn uninstall_inventory(&self) -> Result<Option<Installed>, CtlError> {
+        match self.installed()? {
+            Some(i) => Ok(Some(i)),
+            None => self.retained_installed(),
+        }
+    }
+    fn installation_record(&self, name: &str) -> Result<Option<Installed>, CtlError> {
+        let path = self.dir.join(name);
         let meta = match std::fs::symlink_metadata(&path) {
             Ok(m) => m,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -262,7 +274,7 @@ impl Controller {
         if !meta.is_file() || meta.file_type().is_symlink() || meta.len() > 16384 {
             return Err(CtlError::Storage);
         }
-        let text = read_private_json(&self.dir, "installed.json", 16384)?;
+        let text = read_private_json(&self.dir, name, 16384)?;
         let v: Installed = serde_json::from_str(&text).map_err(|_| CtlError::Storage)?;
         v.resources.validate()?;
         if !(18700..=18799).contains(&v.port)
@@ -466,7 +478,9 @@ pub fn daemon_is_ready(value: &serde_json::Value) -> bool {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum UninstallLevel {
+    #[default]
     AppOnly,
     AppAndImages,
     Everything,

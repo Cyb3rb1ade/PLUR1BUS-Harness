@@ -16,3 +16,6 @@
   .inbox-time { margin-inline-start: 0; width: 100%; }
   .inbox-actions .btn { flex: 1 1 auto; }
 }
+@media (max-width: 1023.98px) {
+  .inbox-chip { min-height: 44px; min-width: 44px; }
+}

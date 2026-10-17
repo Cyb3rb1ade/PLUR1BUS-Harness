@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crash when the cache directory is read-only - Issue 311</title>
+
+<style>body{font-family:serif}.hide{display:none}</style>
+</head>
+<body>
+<header><a href="/">Tracker</a></header>
+<main>
+<h1>Crash when the cache directory is read-only <span class="num">#311</span></h1>
+<p class="state">Open · opened by <a href="/u/wren">wren</a> on 12 June 2026 · 2 comments</p>
+<div class="comment" id="c0"><h2>Description</h2>
+<p>Starting the daemon with <code>CACHE_DIR</code> on a read-only mount aborts with a stack trace instead of a message.</p>
+<p>Steps to reproduce:</p>
+<ol><li>Mount an empty volume read-only at <code>/srv/cache</code>.</li><li>Run <code>daemon --cache /srv/cache</code>.</li></ol>
+</div>
+<div class="comment" id="c1"><h3>Reply from <a href="/u/kestrel">kestrel</a></h3>
+<p>Reproduced on 3.8.1. The crash is in the warm-up routine, which writes a probe file before checking permissions.</p>
+<pre><code>Error: EROFS: read-only file system, open '/srv/cache/.probe'
+    at warmUp (cache.js:41)</code></pre></div>
+<div class="comment" id="c2"><h3>Reply from <a href="/u/wren">wren</a></h3>
+<p>Thanks. A clear error would be enough for me; falling back to memory-only caching would be a bonus.</p></div>
+<form class="new-comment"><textarea></textarea><button>Comment</button></form>
+</main>
+<script>window.dataLayer=window.dataLayer||[];function t(){dataLayer.push(arguments)}</script>
+</body>
+</html>
