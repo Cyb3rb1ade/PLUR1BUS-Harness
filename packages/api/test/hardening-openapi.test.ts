@@ -1,8 +1,11 @@
+import { bootstrapHash } from "../src/bootstrap.ts";
+import { vector } from "./webauthn-vectors.ts";
 // Step 5 of the server hardening sweep: the OpenAPI document and the route table agree, and what the real handlers answer
 // agrees with the document. The server runs in-process with a fake core; every route is driven through its success and
 // its failure paths and each answer is checked against the response schema the document names for its status.
 // Already pinned elsewhere (not repeated): route <-> operation in both directions, handler <-> route, $refs resolve and
 // docs/openapi.json equals the generator's output in-process (openapi.test.ts).
+import type { RemotePairingController } from "../src/remote-pairing-controller.ts";
 import { AccountStore } from "../src/account-store.ts";
 import { randomBytes } from "node:crypto";
 import assert from "node:assert/strict";
@@ -33,6 +36,9 @@ test("the test validator rejects what a schema forbids (so a green run below mea
   assert.ok(validate({ oneOf: [{ type: "string" }, { type: "string", minLength: 2 }] }, "abc", d).length > 0, "two matching branches are not exactly one");
   assert.deepEqual(validate({ type: "string", format: "date-time" }, "2026-10-12T10:00:00.000Z", d), []);
   assert.ok(validate({ type: "string", format: "date-time" }, "yesterday", d).length > 0);
+  assert.deepEqual(validate({ type: ["integer", "null"], minimum: 0 }, null, d), []);
+  assert.deepEqual(validate({ type: ["integer", "null"], minimum: 0 }, 1, d), []);
+  for(const bad of ["1", -1, 1.5, false])assert.ok(validate({ type: ["integer", "null"], minimum: 0 }, bad, d).length>0);
   assert.throws(() => validate({ type: "string", contentEncoding: "base64" } as never, "x", d), /does not know/);
 });
 
@@ -48,7 +54,7 @@ test("per operation: method, path, id, tag, security, CSRF parameter, stability 
     const declared = Object.keys(op.responses).sort();
     const expected = [String(r.successStatus), ...Object.keys(r.extra ?? {}), "401", "403", "413", "421", "429", ...(r.id === "web.rpc" ? [] : ["504"]), ...(r.requestBody ? ["400", "415"] : [])].filter((s, i, a) => a.indexOf(s) === i).sort();
     if (JSON.stringify(declared) !== JSON.stringify(expected)) problems.push(`${at}: statuses ${declared} != table ${expected}`);
-    if (!/^\/api\/v1\//.test(r.path) && !["/rpc", "/events"].includes(r.path)) problems.push(`${at}: outside /api/v1`);
+    if (!/^\/api\/v1\//.test(r.path) && !["/rpc", "/events", "/ws"].includes(r.path)) problems.push(`${at}: outside /api/v1`);
     const pathParams = [...r.path.matchAll(/\{(\w+)\}/g)].map((m) => m[1]); const docParams = ((op.parameters ?? []) as any[]).filter((p) => p.in === "path").map((p) => p.name);
     if (JSON.stringify(pathParams) !== JSON.stringify(docParams)) problems.push(`${at}: path parameters ${pathParams} != documented ${docParams}`);
     if (r.method === "GET" && op.requestBody) problems.push(`${at}: a GET with a request body`);
@@ -94,7 +100,7 @@ function rec(id: string, label: string, r: Res): Res {
 }
 const rt = (h: Harness, cookie: string, id: string, label: string, o: { method?: string; path?: string; body?: unknown } = {}) => {
   const spec = ROUTES.find((x) => x.id === id)!;
-  return (spec.method === "GET" ? raw(h, { path: o.path ?? spec.path, headers: { cookie } }) : write(h, cookie, { method: spec.method, path: o.path ?? spec.path, ...(o.body !== undefined ? { body: o.body } : {}) })).then((r) => rec(id, label, r));
+  return (spec.auth === "none" ? raw(h, { method: spec.method, path: o.path ?? spec.path, headers: jsonHeaders(), body: JSON.stringify(o.body ?? {}) }) : spec.method === "GET" ? raw(h, { path: o.path ?? spec.path, headers: { cookie } }) : write(h, cookie, { method: spec.method, path: o.path ?? spec.path, ...(o.body !== undefined ? { body: o.body } : {}) })).then((r) => rec(id, label, r));
 };
 const anon = (h: Harness, id: string, label = "no session") => { const spec = ROUTES.find((x) => x.id === id)!; return raw(h, { method: spec.method, path: spec.path, headers: spec.requestBody ? jsonHeaders() : {}, ...(spec.requestBody ? { body: "{}" } : {}) }).then((r) => rec(id, label, r)); };
 const noCsrf = (h: Harness, cookie: string, id: string) => { const spec = ROUTES.find((x) => x.id === id)!; return raw(h, { method: spec.method, path: spec.path, headers: { cookie, ...(spec.requestBody ? jsonHeaders() : {}) }, ...(spec.requestBody ? { body: "{}" } : {}) }).then((r) => rec(id, "no CSRF token", r)); };
@@ -111,7 +117,11 @@ test("every route, driven through its success and failure paths on the real serv
   const accounts = new AccountStore({ path: ":memory:", resolve: async userId => ({ userId, kind: "person", role: "member", disabled: false, version: 1 }) });
   const core = fakeCore(); const inviteCode = randomBytes(32).toString("base64url"); let consumed = false;
   Object.assign(core, { serviceCall: async (method: string, p: { token?: string }) => { if (p.token !== inviteCode || consumed) throw new Error("invalid invitation"); if (method === "user.invite.redeem") consumed = true; return { userId: "invited-person", role: "member" }; } });
-  const h = await start({ rateClasses: wide, accounts, core });
+  // Here the controller is an explicit response-contract fixture; real TLS/bootstrap/core ownership
+  // and durable rollover are covered by remote-pairing(-tls).test.ts.
+  const fixtureMethods = ["status", "offer", "proof", "pair", "getTrust", "challenge", "ack", "rotate"];
+  const remotePairing = Object.fromEntries(fixtureMethods.map(method => [method, async () => ({ contract: method })])) as unknown as RemotePairingController;
+  const h = await start({ rateClasses: wide, accounts, core, remotePairing, remoteCertificates: { importCompany: async (cert) => { if (cert !== "fixture-cert") throw new Error("invalid fixture certificate"); return { certPin: "sha256:" + "a".repeat(43), staged: true }; } } });
   try {
     for (const [id, role] of [["u-alice", "member"], ["u-vera", "viewer"], ["u-ada", "admin"], ["u-dana", "member"], ["u-carol", "member"]] as const) await addUser(h, { id, username: id.slice(2), role });
     const owner = (await login(h)).cookie; const alice = (await loginAs(h, "alice")).cookie; const vera = (await loginAs(h, "vera")).cookie; const ada = (await loginAs(h, "ada")).cookie;
@@ -119,10 +129,6 @@ test("every route, driven through its success and failure paths on the real serv
     const registration = (body: object, headers: Record<string, string> = {}) => raw(h, { method: "POST", path: "/api/v1/invitations/redeem", headers: { ...jsonHeaders(), ...headers }, body: JSON.stringify(body) });
     rec("invitation.redeem", "invalid invitation", await registration({ code: randomBytes(32).toString("base64url"), username: "validname", password: FIXTURE_PASSWORD }));
     rec("invitation.redeem", "valid invitation", await registration({ code: inviteCode, username: "validname", password: FIXTURE_PASSWORD }));
-    rec("account.bootstrap", "missing session", await raw(h, { method: "POST", path: "/api/v1/accounts/bootstrap", headers: jsonHeaders(), body: "{}" }));
-    rec("account.bootstrap", "wrong proof", await write(h, owner, { path: "/api/v1/accounts/bootstrap", body: { proof: "wrong", username: "ownerlogin", password: FIXTURE_PASSWORD } }));
-    rec("account.bootstrap", "invalid username", await write(h, owner, { path: "/api/v1/accounts/bootstrap", body: { proof: OWNER_TOKEN, username: "owner", password: FIXTURE_PASSWORD } }));
-    rec("account.bootstrap", "current bootstrap proof", await write(h, owner, { path: "/api/v1/accounts/bootstrap", body: { proof: OWNER_TOKEN, username: "ownerlogin", password: FIXTURE_PASSWORD } }));
     // session.create
     rec("session.create", "owner token", (await login(h)).res); rec("session.create", "local account", await pwLogin(h, "alice"));
     const owner2 = await raw(h, { method: "POST", path: "/api/v1/session", headers: jsonHeaders(), body: JSON.stringify({ token: "f".repeat(64) }) }); rec("session.create", "wrong owner token", owner2);
@@ -209,6 +215,35 @@ test("every route, driven through its success and failure paths on the real serv
     await anon(h, "web.events"); await rt(h, owner, "web.events", "SSE headers and connected comment");
     await rt(h, owner, "web.events", "query refused", { path: "/events?credential=forbidden" });
 
+    // Direct-chat contracts: the generic server rig uses an explicit fake Core result; true Core lifecycle is tested separately.
+    const previousCore = core.impl;
+    core.impl = async (method, params) => method.startsWith("chat.") ? JSON.parse(readFileSync(new URL(`../../rpc-schema/fixtures/methods/${method}.json`, import.meta.url), "utf8")).result : previousCore(method, params);
+    for (const spec of ROUTES.filter(r => r.id.startsWith("chats."))) {
+      const concrete = spec.path.replace("{agentId}", "main").replace("{sessionId}", "contract-chat");
+      const body = spec.id === "chats.create" ? { agentId: "main" } : spec.id === "chats.submit" ? { text: "Contract hello" } : spec.requestBody ? {} : undefined;
+      await rt(h, alice, spec.id, "owned contract result", { path: concrete, ...(body !== undefined ? { body } : {}) });
+      await anon(h, spec.id);
+      if (spec.requestBody) await rt(h, alice, spec.id, "unknown fields refused", { path: concrete, body: { unexpected: true } });
+      if (spec.csrf) await noCsrf(h, alice, spec.id);
+      else await rt(h, owner, spec.id, "unknown query refused", { path: concrete + "?unknown=true" });
+    }
+    await rt(h, owner, "ws.ticket", "one-use upgrade ticket"); await anon(h, "ws.ticket"); await noCsrf(h, owner, "ws.ticket");
+    await rt(h, owner, "ws.reserved", "normal request requires upgrade"); await anon(h, "ws.reserved"); await rt(h, alice, "ws.reserved", "member cannot upgrade");
+
+    core.impl = async (method, params) => method === "config.get" ? { value: { publish: "tailnet", tls: "self-signed", bind: {}, allowSubnets: [] }, revision: "fixture-revision" } : method === "config.set" ? { revision: "next-revision" } : previousCore(method, params);
+    const remoteBodies: Record<string, unknown> = { "remote.set": { publish: "local" }, "remote.confirm": { confirmed: true, version: 1 }, "remote.certificate": { certPem: "fixture-cert", keyPem: "fixture-key" } };
+    for (const spec of ROUTES.filter(r => r.id.startsWith("remote."))) {
+      const body = remoteBodies[spec.id] ?? (spec.requestBody ? {} : undefined);
+      if (spec.auth === "none") {
+        rec(spec.id, "reviewed pairing bootstrap success fixture", await raw(h, { method: spec.method, path: spec.path, headers: jsonHeaders(), body: JSON.stringify(body) }));
+        rec(spec.id, "malformed bootstrap JSON", await raw(h, { method: spec.method, path: spec.path, headers: jsonHeaders(), body: "{" }));
+      } else {
+        await rt(h, owner, spec.id, "remote result contract", { ...(body !== undefined ? { body } : {}) });
+        await anon(h, spec.id);
+        if (spec.csrf) await noCsrf(h, owner, spec.id);
+      }
+    }
+
     // the shared failures, on every route: a foreign Host (421), a foreign Origin (403), and for routes with a body a wrong
     // content type (415), broken JSON (400) and an oversized body (413), each after authentication and the CSRF check
     for (const spec of ROUTES) {
@@ -235,6 +270,37 @@ test("the same, for the paths that need another server: audit down, a hung core,
     await addUser(noAudit, { id: "u-alice", username: "alice", role: "member" }); const owner = (await login(noAudit)).cookie;
     await rt(noAudit, owner, "breakglass.request", "no audit sink, no grant", { body: { targetUserId: "u-alice", reason: "redact-probe-alpha reason text" } });
   } finally { await noAudit.close(); }
+  const passkeys = new AccountStore({ path: ":memory:", resolve: async userId => ({ userId, kind: "person", role: "member", disabled: false, version: 1 }) });
+  const p = await start({ accounts: passkeys, rateClasses: wide });
+  try {
+    await addUser(p, { id: "passkey-person", username: "passkeyuser", role: "member" });
+    await passkeys.createPending("passkey-person", "passkeyuser", "unused"); await passkeys.activate("passkey-person");
+    const cookie = (await loginAs(p, "passkeyuser")).cookie;
+    const opts = await rt(p, cookie, "passkeys.options", "enrollment options", { body: {} });
+    const v = vector(-7, p.url); v.context.challenge = opts.json.challenge;
+    await rt(p, cookie, "passkeys.register", "valid registration", { body: { ...v.registration, challenge: opts.json.challenge, name: "New" } });
+    const { registerCredential } = await import("../src/webauthn.ts");
+    const fixture = vector(-7, p.url), stored = registerCredential(fixture.registration, fixture.context);
+    passkeys.putPasskey("passkey-person", { ...stored, name: "Test" });
+    await rt(p, cookie, "passkeys.list", "own keys");
+    for (const id of ["passkeys.list", "passkeys.options", "passkeys.register", "passkeys.change"]) await anon(p, id);
+    for (const id of ["passkeys.options", "passkeys.register", "passkeys.change"]) await noCsrf(p, cookie, id);
+    await rt(p, cookie, "passkeys.change", "rename", { body: { id: stored.id, name: "Renamed" } });
+    const loginOpts = await rt(p, "", "passkeys.login.options", "assertion options", { body: { username: "passkeyuser" } }); fixture.context.challenge = loginOpts.json.challenge;
+    await rt(p, "", "passkeys.login", "valid assertion", { body: { ...fixture.assertion(), challenge: loginOpts.json.challenge } });
+    await rt(p, "", "passkeys.login", "replayed challenge", { body: { ...fixture.assertion(), challenge: loginOpts.json.challenge } });
+    await rt(p, "", "passkeys.login.options", "malformed username", { body: {} });
+    await rt(p, "", "passkeys.login", "malformed body", { body: [] });
+    await rt(p, cookie, "passkeys.options", "malformed body", { body: [] });
+    await rt(p, cookie, "passkeys.register", "malformed body", { body: [] });
+    await rt(p, cookie, "passkeys.change", "malformed body", { body: [] });
+    const proof = randomBytes(32).toString("base64url"); passkeys.initializeBootstrap(bootstrapHash(proof));
+    await rt(p, "", "account.bootstrap", "wrong proof", { body: { proof: "wrong", username: "ownerlogin", password: FIXTURE_PASSWORD } });
+    await rt(p, "", "account.bootstrap", "invalid username", { body: { proof, username: "owner", password: FIXTURE_PASSWORD } });
+    await rt(p, "", "account.bootstrap", "username collision", { body: { proof, username: "passkeyuser", password: FIXTURE_PASSWORD } });
+    await rt(p, "", "account.bootstrap", "single-use bootstrap", { body: { proof, username: "ownerlogin", password: FIXTURE_PASSWORD } });
+    await rt(p, "", "account.bootstrap", "spent proof", { body: { proof, username: "ownerlogin", password: FIXTURE_PASSWORD } });
+  } finally { await p.close(); passkeys.close(); }
   const hung = await start({ rateClasses: wide, limits: { handlerTimeoutMs: 60 } });
   try {
     const owner = (await login(hung)).cookie; hung.core.impl = () => new Promise(() => {});
@@ -263,7 +329,7 @@ test("every route was exercised on its success status and on each failure status
   const missing: string[] = [];
   for (const r of ROUTES) {
     const got = byRoute(r.id);
-    const want = [r.successStatus, ...Object.keys(r.extra ?? {}).map(Number), ...(r.id === "invitation.redeem" ? [] : [401]), ...(r.requestBody ? [400] : []), ...(r.csrf || typeof r.authz === "object" ? [403] : [])];
+    const want = [r.successStatus, ...Object.keys(r.extra ?? {}).map(Number), ...(["invitation.redeem", "account.bootstrap", "passkeys.login.options", "remote.pair-proof", "remote.device.pair"].includes(r.id) ? [] : [401]), ...(r.requestBody ? [400] : []), ...(r.csrf || typeof r.authz === "object" ? [403] : [])];
     for (const s of want) if (!got.has(s)) missing.push(`${r.id}: ${s} was never observed (saw ${[...got].sort().join(",") || "nothing"})`);
   }
   for (const s of [413, 415, 421, 429, 504]) if (!seen.some((x) => x.status === s)) missing.push(`no route answered ${s} in this run`);

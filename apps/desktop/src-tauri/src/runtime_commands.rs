@@ -52,7 +52,7 @@ fn env() -> Env {
     }
 }
 #[cfg(target_os = "macos")]
-fn macos_major() -> Option<u32> {
+pub(crate) fn macos_major() -> Option<u32> {
     let key = c"kern.osproductversion";
     let mut bytes = [0u8; 128];
     let mut len = bytes.len();
@@ -78,7 +78,7 @@ fn macos_major() -> Option<u32> {
         .flatten()
 }
 #[cfg(not(target_os = "macos"))]
-fn macos_major() -> Option<u32> {
+pub(crate) fn macos_major() -> Option<u32> {
     None
 }
 pub(crate) async fn resolve(
@@ -86,6 +86,32 @@ pub(crate) async fn resolve(
     owner: &mut RuntimeOwner,
     selected: Option<&str>,
 ) -> Result<Arc<Controller>, String> {
+    resolve_with_inventory(window, owner, selected, false).await
+}
+pub(crate) async fn resolve_uninstall(
+    window: &WebviewWindow,
+    owner: &mut RuntimeOwner,
+) -> Result<Arc<Controller>, String> {
+    resolve_with_inventory(window, owner, None, true).await
+}
+async fn resolve_with_inventory(
+    window: &WebviewWindow,
+    owner: &mut RuntimeOwner,
+    selected: Option<&str>,
+    cleanup: bool,
+) -> Result<Arc<Controller>, String> {
+    // A failed ordinary install may have cached a newly selected runtime. Cleanup
+    // must reconnect to the retained record's original endpoint, never that selection.
+    if cleanup
+        && owner.controller.as_ref().is_some_and(|c| {
+            matches!(
+                c.uninstall_inventory(),
+                Err(crate::controller::CtlError::RuntimeChanged)
+            )
+        })
+    {
+        owner.controller = None;
+    }
     if let Some(c) = &owner.controller {
         if selected.is_some_and(|s| {
             s != id(&Detected {
@@ -102,16 +128,23 @@ pub(crate) async fn resolve(
         return Ok(c.clone());
     }
     let dir = commands::app_config_dir(window.app_handle())?.join("bundled");
-    let installed_path = dir.join("installed.json");
-    let saved = if installed_path.exists() {
+    let record = if cleanup
+        && std::fs::symlink_metadata(dir.join("installed.json"))
+            .is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound)
+    {
+        "uninstall-retained.json"
+    } else {
+        "installed.json"
+    };
+    let installed_path = dir.join(record);
+    let saved = if std::fs::symlink_metadata(&installed_path).is_ok() {
         let meta = std::fs::symlink_metadata(&installed_path).map_err(|_| "storage")?;
         if !meta.is_file() || meta.file_type().is_symlink() || meta.len() > 16384 {
             return Err("storage".into());
         }
         Some(
             serde_json::from_str::<crate::controller::Installed>(
-                &crate::controller::read_private_json(&dir, "installed.json", 16384)
-                    .map_err(|e| e.code())?,
+                &crate::controller::read_private_json(&dir, record, 16384).map_err(|e| e.code())?,
             )
             .map_err(|_| "storage")?,
         )
@@ -164,7 +197,11 @@ pub(crate) async fn resolve(
                 .map_err(|_| "storage")?,
         ),
     );
-    c.installed().map_err(|e| e.code())?;
+    if cleanup {
+        c.uninstall_inventory().map_err(|e| e.code())?;
+    } else {
+        c.installed().map_err(|e| e.code())?;
+    }
     owner.controller = Some(c.clone());
 
     Ok(c)
@@ -449,6 +486,8 @@ pub async fn harness_logs_tail(
 }
 
 fn write_target(window: &WebviewWindow, c: &Controller) -> Result<(), String> {
+    #[cfg(not(debug_assertions))]
+    let _ = window;
     let installed = c
         .installed()
         .map_err(|e| e.code())?

@@ -86,17 +86,14 @@ describe("engine logger adapter", () => {
   });
 });
 
-// KNOWN GAP (packages/core/src/logs/redact.ts, outside this audit): the free-text key=value rule consumes
-// `Error: token=...` as one pair named `Error`, so the credential after the colon is never examined.
-describe("redactor gaps found while auditing the engine logger", () => {
-  it("KNOWN GAP: redacts a secret-keyed pair that follows a `Name:` prefix", { todo: true }, () => {
+describe("redactor regressions found while auditing the engine logger", () => {
+  it("redacts a secret-keyed pair that follows a `Name:` prefix", () => {
     const out = createRedactor().text(`Error: token=${PASS} while connecting`);
     assert.ok(!out.includes(PASS), out);
   });
-  // KNOWN GAP: the same rule is quadratic in the length of an unbroken word run (about 0.8 s at 4 KiB, 4 s at 8 KiB).
-  it("KNOWN GAP: redacting a 4 KiB unbroken run stays fast", { todo: true }, () => {
+  it("redacting a 64 KiB unbroken run stays linear", () => {
     const t = Date.now();
-    createRedactor().text("m".repeat(4096));
-    assert.ok(Date.now() - t < 100, `took ${Date.now() - t} ms`);
+    createRedactor().text("m".repeat(65536));
+    assert.ok(Date.now() - t < 500, `took ${Date.now() - t} ms`);
   });
 });

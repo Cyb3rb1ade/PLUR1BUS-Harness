@@ -21,8 +21,28 @@ pub struct AppleReq {
     pub min: String,
     pub tested: String,
     pub pkg_url: String,
+    #[serde(default = "apple_path")]
+    pub pkg_path: String,
     pub pkg_sha256: String,
     pub team_id: String,
+}
+fn apple_path() -> String {
+    "apple/container.pkg".into()
+}
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct CliArtifact {
+    pub path: String,
+    pub sha256: String,
+}
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct VendorArtifact {
+    pub installer_url: String,
+    pub sha256: String,
+    pub licence: String,
+    #[serde(default)]
+    pub signer_thumbprint: Option<String>,
 }
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -35,6 +55,10 @@ pub struct Bundle {
     pub apple: AppleReq,
     pub supported_image_majors: Vec<u64>,
     pub docker_min_api: String,
+    #[serde(default)]
+    pub cli: CliArtifact,
+    #[serde(default)]
+    pub vendor: BTreeMap<String, VendorArtifact>,
 }
 impl Bundle {
     pub fn digest(&self, arch: Arch) -> Result<&str, &'static str> {
@@ -65,7 +89,7 @@ impl Bundle {
 }
 pub fn embedded() -> &'static Bundle {
     static B: LazyLock<Bundle> = LazyLock::new(|| {
-        serde_json::from_str(include_str!("../../../bundle/bundle.json.tmpl"))
+        serde_json::from_str(include_str!(concat!(env!("OUT_DIR"), "/bundle.json")))
             .expect("embedded bundle schema")
     });
     &B

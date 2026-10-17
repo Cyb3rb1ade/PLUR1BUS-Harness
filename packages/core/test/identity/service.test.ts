@@ -22,7 +22,7 @@ describe("identity service", () => {
     const h = svc.createHuman({ displayName: "Alex" }, OWNER);
     const p = svc.startPairing({ humanId: h.id, channel: "telegram" }, OWNER);
     assert.match(p.code, /^[A-HJ-NP-Z2-9]{8}$/);
-    assert.equal(p.expiresAt, now + 60 * 60_000);
+    assert.equal(p.expiresAt, now + 10 * 60_000);
     const c = svc.claim({ code: p.code, identity: TG });
     assert.equal(c.state, "awaiting-confirmation");
     assert.equal(svc.resolve(TG), null, "a claim alone links nothing");

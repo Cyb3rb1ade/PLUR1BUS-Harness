@@ -1,6 +1,7 @@
 # Permissions and approvals (D109)
 
-Status: D109 D1-D9 implemented on branch `feat/d109-approvals-grants` (2026-10-07). Hand-written. Authority: D109 in
+Status: D109 D1-D9 implemented on branch `feat/d109-approvals-grants` (2026-10-07). §9 follow-ups 1, 3, 4, 7, 9 and the listed
+items of 10 closed on `grok/d109-followups` with named tests (chapter 9). Hand-written. Authority: D109 in
 `docs/superpowers/specs/2026-09-28-basics-quality-bar-design.md` (from "D109 - Permission and approval model"). Code:
 `packages/core/src/policy/` (decision), `packages/core/src/approvals/` and `packages/core/src/grants/` (store, service, RPC),
 `packages/core/src/rbac/{surface,connection-surface}.ts` (surface trust), `crates/plur1bus/src/commands/{grant,approval}.rs`
@@ -140,9 +141,9 @@ turn, task and session ids; the action hash; the grant options (narrowest first,
 is not in any RPC record or notification; a session decides without it, and only a channel relay that holds one passes it back
 for comparison.
 
-*Deviation (what is shown):* the spec also lists a unified diff, the provenance of the turn and the model's reason labelled
-"unverified". The record has the redacted argument summary, the targets and the `tainted` flag; it has no diff and no model
-reason.
+The record also carries additive `agentReason` (at most 2048 characters) and `diff` (at most 8192) when the call site
+supplied them; both pass the same redactor as the argument summary (#464) and are labelled unverified. Turn provenance is
+still not on the record.
 
 ### 3.2 Surface trust, T0 to T3
 
@@ -314,6 +315,19 @@ silently replaced, because replacing it would orphan every entry. Entries: `appr
 `approval.cancelled`, `approval.used`, `grant.created`, `grant.used`, `grant.consumed`, `grant.revoked`, `grant.ended`. A grant's
 definition is chained when it is created; on every read the table row is compared with it.
 
+**Ed25519 on decisions.** Each `approval.decided` entry also carries an additive Ed25519 signature over its HMAC (`node:crypto`,
+same pattern as `packages/core/src/agents/signing.ts`). Signatures live in the side table `approval_signatures`; the HMAC
+fields are untouched. Unsigned legacy entries remain valid. The signing identity is PKCS8 DER in the secret store
+(`approvals.signing-key.v1`), created on first use. A stored value that is not an Ed25519 PKCS8 key is `corrupt` and is never
+replaced (`packages/core/test/approvals/signing.test.ts`: "a corrupt signing key fails closed and is never replaced").
+
+**Signing-key rotation.** Each signed decision stores the public key used to produce it. `verify()` reports `unsigned (legacy)`,
+`signed-ok` or `signed-bad`. When a signer is loaded, `signed-ok` also requires that stored public key to equal the current
+signer, so overwriting `approvals.signing-key.v1` with a new identity would mark every existing signed decision `signed-bad`.
+Rotation is additive: keep v1, introduce a new name (`approvals.signing-key.v2`) in a release that accepts previously stored
+public keys as well as the new one. There is no command that rewrites signatures. The HMAC chain key is independent and is
+likewise never silently replaced.
+
 **What `verify()` detects** (`approval.verify`, `plur1bus approval verify`; read-only):
 
 | Finding (`reason`) | Meaning |
@@ -324,9 +338,12 @@ definition is chained when it is created; on every read the table row is compare
 | `truncated`, `head-mismatch` | the tail was cut, entries exist beyond the pinned head, or the head was altered or removed |
 | `nonce-reuse`, `duplicate`, `binding-mismatch` | replay and rebinding: a nonce used twice, a request decided or used twice, a decision, cancel or use that does not match its request |
 | `malformed` | a payload that cannot be read |
+| `signature-mismatch` | a stored Ed25519 signature on `approval.decided` does not verify (`signed-bad`); HMAC may still hold |
 
-A result is `{ ok, entries, head }` or `{ ok: false, entries, head: null, brokenAt, reason }`. A broken chain is a finding, not an
-RPC error.
+A result is `{ ok, entries, head, signatures }` or `{ ok: false, entries, head: null, brokenAt, reason, signatures }`.
+`signatures` counts `{ unsignedLegacy, signedOk, signedBad }` and a `report` of `unsigned (legacy)`, `signed-ok` or
+`signed-bad`. A broken chain is a finding, not an RPC error. Unsigned legacy entries do not fail integrity; a manipulated
+signed decision does (`packages/core/test/approvals/signing.test.ts`).
 
 **When the chain breaks** the core fails closed. Store operations that need the chain (request, decide, consume, cancel, list,
 get) throw an integrity error, the approval service ends every waiting call as "not approved", and an `approvals.integrity-failure`
@@ -342,18 +359,22 @@ table row that says otherwise.
 - Rolling the whole file back to an older, fully consistent copy is not detected.
 - Deleting the database file removes every grant and request; the fresh empty chain verifies. Nothing becomes approved by it.
 - The store detects tampering by anything weaker than these; it does not stop malware with the person's rights.
-- `verify()` runs when asked (CLI or RPC). There is no scheduled check yet (chapter 9).
+- `verify()` runs when asked (CLI or RPC), at core start (skipped if the store file is absent, so first use still opens the
+  keychain) and daily as the system job `approvals.integrity` (`packages/core/src/approvals/integrity-job.ts`).
+  `1staid check approvals.integrity` calls the same `approval.verify`; it skips when the core is down
+  (`crates/plur1bus/src/commands/firstaid.rs` `approvals_integrity_skips_when_core_is_down`).
 
 ## 6. CLI and RPC
 
 All commands are `[experimental]` and need a running core (`plur1bus daemon start`). Every command accepts `--json` and
-`--home`; `--json` documents carry `schema`: `grant.list/1`, `grant.add/1`, `grant.revoke/1`, `approval.list/1`,
-`approval.pending/1`, `approval.decide/1`, `approval.verify/1` (failures: `error/1`). The full flag lists are in `docs/cli.md`
+`--home`; `--json` documents carry `schema`: `grant.list/1`, `grant.get/1`, `grant.add/1`, `grant.revoke/1`, `approval.list/1`,
+`approval.pending/1`, `approval.decide/1`, `approval.verify/1`, `approval.audit/1` (failures: `error/1`). The full flag lists are in `docs/cli.md`
 (generated; do not copy them here). Ids: grants `grt_...`, requests `apr_...`.
 
 ```text
 # Standing permissions (scope task, session or always; once exists only as the answer to a request)
 plur1bus grant list --agent bernd --state active
+plur1bus grant show grt_0123456789abcdef01234567
 plur1bus grant add fs.read --agent bernd --scope always --path /srv/shared/notes --access read --recursive --expires 30d
 plur1bus grant add fs.write --agent bernd --scope task --task-id t_42 --path /srv/shared/out --access write
 plur1bus grant revoke grt_0123456789abcdef01234567 --reason "project finished"
@@ -361,12 +382,14 @@ plur1bus grant revoke grt_0123456789abcdef01234567 --reason "project finished"
 # Requests
 plur1bus approval pending
 plur1bus approval list --status pending --agent bernd --limit 20
+plur1bus approval show apr_0123456789abcdef01234567
 plur1bus approval approve apr_0123456789abcdef01234567 --scope session
 plur1bus approval approve apr_0123456789abcdef01234567 --yes --json
 plur1bus approval deny apr_0123456789abcdef01234567
 
 # Integrity
 plur1bus approval verify
+plur1bus approval audit --limit 50
 ```
 
 Behaviour worth knowing:
@@ -387,17 +410,19 @@ Behaviour worth knowing:
 
 ### RPC methods
 
-Eight methods, all `x-server: core`, experimental, **for person principals only** (the surface level and the person come from the
+Ten methods, all `x-server: core`, experimental, **for person principals only** (the surface level and the person come from the
 authenticated connection, never from params). RBAC roles per method are in `docs/rbac.md`.
 
 | Method | Purpose | RBAC action (roles) |
 |---|---|---|
 | `grant.list` | grants of the caller, filter `agent`, `capability`, `state` (`active`, `revoked`, `consumed`, `suspended`), paged | `grant.read` (Owner, Admin) |
+| `grant.get` | one grant of the caller; another person's grant is `E_NOT_FOUND` | `grant.read` |
 | `grant.create` | a task, session or always grant; `match` is `capability` or `path` | `grant.write` (Owner, Admin) |
 | `grant.revoke` | immediate; idempotent | `grant.write` (Owner, Admin) |
 | `approval.list` | requests of the caller, filter `status`, `agent`, paged; `status=pending` is the pending queue | `approval.read` (Owner, Admin, Operator) |
 | `approval.get` | one request | `approval.read` |
-| `approval.verify` | verify the chain (read-only) | `approval.read` |
+| `approval.verify` | verify the chain and Ed25519 decision signatures (read-only) | `approval.read` |
+| `approval.audit` | redacted view of existing HMAC-chain entries (`approval.*`, `grant.*`); not a second log | `approval.read` |
 | `approval.decide` | `approve` or `deny`, with `scope` and `delegable` | `approval.decide` (Owner, Admin) |
 | `approval.cancel` | withdraw a pending request | `approval.decide` |
 
@@ -408,13 +433,14 @@ carries `not-pending`; a broken chain is `E_STORAGE` with reason `approval-chain
 
 ### Notifications
 
-`approval.requested`, `approval.resolved` and `grant.changed` are opt-in: a subscription must name them in `events.subscribe`.
-They carry the wire record without the nonce. The RPC server cannot address one connection, so the rule is applied to the whole
-audience: if **any** subscribed connection is not the person the request or grant belongs to, or lacks `approval.read` /
-`grant.read`, the notification is withheld from all of them (and logged). An agent that subscribes therefore silences the
-notification instead of reading it.
-`approval.resolved` is sent with the outcome `approved`, `denied`, `expired` or `cancelled`; `grant.changed` is sent for
-`created` and `revoked`. An internal `approval.parked` event exists for relays and is not a wire notification.
+`approval.requested`, `approval.resolved`, `approval.parked` and `grant.changed` are opt-in: a subscription must name them in
+`events.subscribe`. They carry the wire record without the nonce. The RPC server cannot address one connection, so the rule is
+applied to the whole audience: if **any** subscribed connection is not the person the request or grant belongs to, or lacks
+`approval.read` / `grant.read`, the notification is withheld from all of them (and logged). An agent that subscribes therefore
+silences the notification instead of reading it. `approval.resolved` is sent with the outcome `approved`, `denied`, `expired` or
+`cancelled`; `grant.changed` is sent for `created`, `used`, `revoked`, `expired` and `suspended`. `approval.parked` is a wire
+notification with the same shape as `approval.requested`. Used, expired, suspended and parked events reach only the affected
+person when the audience is that person (`packages/core/test/approvals/notify.test.ts`).
 
 ## 7. Agents cannot touch this
 
@@ -447,30 +473,31 @@ credentials, `Authorization` credentials, credential-store paths) and is cut to 
 and SHA-256 only. The approval record keeps a redacted, length-bounded argument summary for the person who decides; the raw
 arguments are not stored.
 
-*Deviation:* the spec names `plur1bus approval audit` and a 400-day retention. There is no such command, and retention is that
-of the audit files (`docs/audit-chain.md`), not a D109 setting.
+`plur1bus approval audit` / `approval.audit` is a redacted page of the existing HMAC chain (`approval.*` and `grant.*` kinds),
+not a second log: no nonce, no payload, no MAC. Retention is that of the audit files (`docs/audit-chain.md`); the spec's
+400-day setting is not a D109 store option.
 
 ## 9. Known gaps and follow-ups
 
-1. **No productive tool dispatcher in the core.** `ToolDispatcher` exists and the turn loop can use one (`toolCalls`), but the
-   core constructs none; the host tools (D106) are not built. Until then the decision path is exercised by tests and by the
-   MCP bridge (`tools/mcp-bridge.ts`, which registers a server's tools as `net.submit` so a call runs only after `decide()`),
-   and `call-paths.test.ts` guards that nothing else in `src` executes a tool. So the dispatcher is wired to the evaluator, the
-   stores and the service, but the core does not yet construct a dispatcher: until D106 lands, no agent tool call reaches
-   `decide()` in a running core.
+Closed items name the test that covers them. Remaining items stay open.
+
+1. **Tool dispatcher in the core.** Done since #293: the per-turn composition constructs a `ToolDispatcher`
+   (`packages/core/src/composition/tools.ts`, `packages/core/src/provider.ts`). Agent tool calls reach `decide()` in a running
+   core; `tests/system/turn-pipeline.test.ts` asserts a `policy.decision` audit line. D106 host-tool remaining names and the
+   OS sandbox are tracked in `docs/milestones.md`, not here.
 2. **WebMCP does not forbid the new methods by name.** `FORBIDDEN_PREFIX` in `packages/webmcp/src/provider.ts` lists `admin.`,
    `secret.` and others but not `grant.` or `approval.`. RBAC still refuses an agent principal, but the spec's "refused as WebMCP
    tools" is not enforced at the WebMCP layer.
-3. **Registry name protection.** `ToolRegistry` accepts any name matching `[a-z][a-z0-9_.-]{0,63}`, including `grant.create` or
-   `approval.decide`. Such a tool would still go through `decide()` with its declared capability, but names that collide with
-   the harness's own methods should be reserved.
-4. **Two approval ports.** `tools/exec/types.ts` defines its own `ApprovalPort` (`request(req)`), separate from
-   `tools/approval.ts`. `exec.run` calls `decide()` itself, writes its own audit lines and has no `begin()` or grant-use step:
-   an approval it receives is not consumed, and a `once` grant that lets an exec call through is not consumed either, so it
-   could be replayed within its 10 minutes. Exec should move onto the dispatcher (or the service port) before it is used with
-   the permission stores. Its action hash does include `cwd` and the environment names.
+3. **Registry name protection.** Done: `ToolRegistry` refuses a name that collides with a harness RPC method
+   (`packages/core/test/tools/registry-reserved.test.ts` "refuses a name that collides with a harness RPC method (grant.create)",
+   "refuses approval.decide"). First-party overlap (`exec.run`, `media.*`, `web.search`, host tools) stays registerable.
+4. **`exec.run` once-grants.** Done: a `once` grant allows exactly one call (`packages/core/test/tools/exec/replay.test.ts`
+   "a once grant allows exactly one call: consumeOnce at execution start; a stale list cannot reuse it"). `begin()` is on the
+   exec `ApprovalPort` when the service supplies it. The exec types remain a separate `ApprovalPort` shape; moving exec fully
+   onto the dispatcher is leftover host-tool work, not a grant-replay hole.
 5. **Notification delivery needs an all-person audience** (6): one non-person subscriber withholds a notification from everyone.
-   A per-connection address in the notify API would make it selective.
+   A per-connection address in the notify API would make it selective. Used, expired, suspended and parked events already reach
+   only the affected person when the audience is that person (`packages/core/test/approvals/notify.test.ts`).
 6. **No T3 attestation** (3.2): `CoreOptions.rbac.attest` has no supplier, so T3-only requests cannot be decided; the CLI TTY
    and the desktop app are not yet attested. The residual same-user-token risk stays until the exec sandbox denies `run/` and
    `state/` to agent processes. The OS confirmation of 3.2.1 lifts to T2 only. The portable release archives now ship the hash-pinned helper beside
@@ -478,18 +505,33 @@ of the audit files (`docs/audit-chain.md`), not a D109 setting.
    installer/`update` feed still needs helper integration (see [release.md](release.md#attestation-helper-delivery)). The web
    approvals page is still a placeholder, so only the CLI drives the flow; the web texts (`approvals.attest.*`, de/en) and
    `attestationText()` are ready for it. The interactive macOS and Windows dialogs are verified by hand, not in CI.
-7. **Ed25519 signatures and `1staid check approvals.integrity` are missing.** The spec has signed decisions for out-of-process
-   verifiers (the host helper, a controlled desktop) and a start and daily integrity check; only the HMAC chain and the
-   on-demand `approval verify` exist. Remote-control approvals on both ends (D108) are not built.
+7. **Ed25519 signatures and `approvals.integrity`.** Done: `approval.decided` entries are Ed25519-signed; HMAC is unchanged;
+   unsigned legacy stays valid. Named tests: `packages/core/test/approvals/signing.test.ts` ("unsigned legacy entries remain
+   valid and are reported as unsigned (legacy)", "a manipulated signed decision fails integrity as signed-bad; HMAC still holds",
+   "a corrupt signing key fails closed and is never replaced"); `packages/core/test/approvals/integrity-job.test.ts`
+   ("is a daily singleton system job named approvals.integrity", "fails when a signed decision was manipulated");
+   `crates/plur1bus/src/commands/firstaid.rs` `approvals_integrity_skips_when_core_is_down`,
+   `approvals_integrity_unsigned_legacy_is_ok_and_tampered_signed_fails`. Remote-control approvals on both ends (D108) are not
+   built. Signing-key rotation is documented in chapter 5.
 8. **Taint has no producer** (3.5), and the roots, deny-list flag, `cwd` and environment names depend on a tool's `classify()`
    hook. A tool without one counts as outside the roots (fail closed).
-9. **Task and session end are not wired to grants.** `GrantStore.endTask` and `endSession` exist; the core does not call them
-   yet, so a `task` grant ends by its 24 hours and a `session` grant by 7 days idle until it does.
-10. **Smaller spec items not implemented:** parking of the whole task and the repeated notification (3.3), the fatigue features
-    listed in 3.4, the model's reason and the diff on the request (3.1), `grant show`, `approval show` and `approval audit`,
-    the `approval.parked` wire notification, `grant.changed` for `used`, `expired` and `suspended` (rpc.md describes them; the
-    code sends `created` and `revoked`), the inbox review nudge for 90-day-old `always` grants, privilege escalation handling
-    (`os.privilege` is a capability, the shell-layer rules for passwords are part of the not-yet-built host tools), and
+9. **Task and session end.** Done: composition `openSessionService({ onSessionEnd })` also calls `grants.endSession(id)` (hostctl
+   cleanup stays); collab task-end calls `grants.endTask(taskId)`. Named tests: `packages/core/test/grants/lifetime-core.test.ts`
+   "a task-scoped grant ends when the collab task ends, not after 24h", "a session-scoped grant ends on session archive via
+   composition onSessionEnd".
+10. **Smaller spec items.** Done on this branch, with named tests: the model's reason and the diff on the request
+    (`packages/core/test/approvals/rpc-approvals.test.ts` "puts the model's reason and diff on the request, masked like the
+    argument summary"); `grant show` / `grant.get` (`rpc-grants.test.ts` "returns the caller's grant; another person's grant is
+    E_NOT_FOUND like an unknown id", `crates/plur1bus/src/commands/grant.rs` `show_parses_an_id`); `approval show` and
+    `approval audit` (`rpc-approvals.test.ts` "approval.audit lists redacted approval-related chain entries; another person's
+    grant of the same store is invisible", `crates/plur1bus/src/commands/approval.rs` `parses_the_commands_and_their_flags`);
+    the `approval.parked` wire notification and `grant.changed` for `used`, `expired` and `suspended`
+    (`packages/core/test/approvals/notify.test.ts` "grant.changed used, expired and suspended, and approval.parked, reach only
+    the affected person", `rpc-grants.test.ts` "using, expiring and suspending a grant emit grant.changed used, expired and
+    suspended"); the inbox review nudge for 90-day-old `always` grants (`packages/core/test/inbox/producers.test.ts`
+    "always-grants older than 90 days: one inbox item for that person, never audience all; a second run is deduped").
+    Still open: parking of the whole task and the repeated notification (3.3), the fatigue features listed in 3.4, privilege
+    escalation handling (`os.privilege` is a capability, the shell-layer rules for passwords are part of the host tools),
     Settings and `V2Approvals` screens.
 
 # Deutsch
@@ -533,8 +575,9 @@ Scope) oder mit `plur1bus grant add` (`task`, `session`, `always`).
 - **Inhalt einer Anfrage** (vom Harness berechnet, nie vom Modell): Fähigkeit, Tool, Effekt, Risiko, Umkehrbarkeit, Flags,
   Ziele und eine geschwärzte Zusammenfassung der Argumente (Größe und SHA-256 der vollständigen Argumente), Subjekt, Person,
   Turn-, Task- und Sitzungs-ID, Aktions-Hash, die angebotenen Grant-Optionen (engste zuerst, jeweils mit der nötigen
-  Oberfläche), `tainted`. Die Nonce verlässt den Core nie. Abweichung: Diff, Herkunft des Turns und die als "ungeprüft"
-  markierte Begründung des Modells sind nicht Teil des Records.
+  Oberfläche), `tainted`. Die Nonce verlässt den Core nie. `agentReason` (höchstens 2048 Zeichen) und `diff` (höchstens 8192)
+  stehen additiv auf dem Record, wenn die Aufrufstelle sie liefert; beide laufen durch denselben Redaktor wie die
+  Argumentzusammenfassung (#464) und gelten als ungeprüft. Die Herkunft des Turns steht nicht auf dem Record.
 - **Oberflächen-Vertrauen T0 bis T3:** T3 Desktop-App, CLI an einem TTY des OS-Nutzers, Web mit Step-up (5 min); T2 Web ohne
   Step-up, privater Chat mit verknüpfter Identität und einmaliger Nonce auf einem Erstanbieter-Kanal; T1 der ACP-Editor, der
   die Sitzung gestartet hat (nur `low`: `fs.read`, `fs.write`, `clipboard.read`); T0 Gruppenchats, MCP-Clients, A2A-Peers,
@@ -596,17 +639,27 @@ D5 (sofort ablehnen). Parken ließe sich später ergänzen. `grant add` hat kein
 Der Zustand liegt in `<home>/state/approvals.sqlite`, nie in `config.json`, und wird beim ersten Gebrauch geöffnet. **Die Kette
 ist die Autorität**, die Tabellen nur Projektionen. Jeder Eintrag trägt den MAC seines Vorgängers und einen eigenen
 HMAC-SHA256-Wert; eine geschlüsselte Head-Zeile fixiert den neuesten Eintrag. Der Schlüssel (32 Zufallsbytes,
-`approvals.chain-key.v1`) liegt im Secret-Store und wird nie stillschweigend ersetzt.
+`approvals.chain-key.v1`) liegt im Secret-Store und wird nie stillschweigend ersetzt. `approval.decided` trägt zusätzlich eine
+Ed25519-Signatur in der Seitentabelle `approval_signatures`; die HMAC-Felder bleiben unangetastet. Die Identität liegt unter
+`approvals.signing-key.v1` und wird bei Beschädigung nie still ersetzt.
 
 - **Was `verify()` erkennt:** Manipulation (`mac-mismatch`), Löschung oder Einfügen in der Mitte (`seq-gap`), Umordnung
   (`prev-mismatch`), abgeschnittenes Ende oder verändertes Head (`truncated`, `head-mismatch`), Replay und Umbindung
-  (`nonce-reuse`, `duplicate`, `binding-mismatch`), unlesbare Payloads (`malformed`).
+  (`nonce-reuse`, `duplicate`, `binding-mismatch`), unlesbare Payloads (`malformed`), eine gebrochene Ed25519-Signatur auf
+  `approval.decided` (`signature-mismatch`, Report `signed-bad`). Unsignierte Alteinträge bleiben gültig (`unsigned (legacy)`).
+  Der Report ist `unsigned (legacy)`, `signed-ok` oder `signed-bad`.
 - **Bei Bruch** schlägt der Core fehlgeschlossen zu: Store-Operationen werfen einen Integritätsfehler, wartende Aufrufe enden
   als "nicht genehmigt", eine Zeile `approvals.integrity-failure` wird geschrieben, und **alle Grants ab der ersten gebrochenen
   Position sind suspendiert** (`grant list` zeigt `suspended`). Grants vor dem Bruch bleiben gültig; neue Anfragen, Entscheidungen
   und Grants sind unmöglich, solange die Kette gebrochen ist. Widerruf funktioniert weiter. Einen Reparaturbefehl gibt es nicht.
-- **Prüfen:** `approval.verify` (RPC) und `plur1bus approval verify` (Exit 1 und erste gebrochene Position bei Bruch). Es gibt
-  noch keine geplante Prüfung.
+- **Prüfen:** `approval.verify` (RPC) und `plur1bus approval verify` (Exit 1 und erste gebrochene Position bei Bruch). Zusätzlich
+  der Systemjob `approvals.integrity` täglich und beim Core-Start (übersprungen, wenn die Store-Datei fehlt) und
+  `1staid check approvals.integrity` (Skip, wenn der Core nicht erreichbar ist).
+- **Signaturschlüssel drehen:** Die Identität liegt unter `approvals.signing-key.v1`. Ein beschädigter Wert wird nie still
+  ersetzt. Jede Signatur speichert den öffentlichen Schlüssel. `signed-ok` verlangt bei geladenem Signer, dass dieser Schlüssel
+  dem aktuellen Signer entspricht; `v1` einfach zu überschreiben würde jede bestehende Signatur als `signed-bad` werten.
+  Drehung ist additiv: `v1` behalten, einen neuen Namen (`approvals.signing-key.v2`) in einer Version einführen, die alte und
+  neue Schlüssel akzeptiert. Es gibt keinen Befehl, der Signaturen umschreibt.
 - **Nicht geschützt:** Code, der als OS-Nutzer läuft und den Secret-Store lesen kann, besitzt den Schlüssel und kann eine gültige
   Kette fälschen. Ein Zurückspielen einer älteren, in sich konsistenten Kopie wird nicht erkannt. Das Löschen der Datei entfernt
   alle Grants und Anfragen (nichts wird dadurch genehmigt). Der Store erkennt Manipulation durch alles Schwächere, er hält
@@ -614,18 +667,20 @@ HMAC-SHA256-Wert; eine geschlüsselte Head-Zeile fixiert den neuesten Eintrag. D
 
 ## 6. CLI und RPC
 
-Befehle: `grant list|add|revoke`, `approval list|pending|approve|deny|verify`, jeweils mit `--json` (Schemas `grant.list/1` usw.)
+Befehle: `grant list|show|add|revoke`, `approval list|pending|show|approve|deny|verify|audit`, jeweils mit `--json` (Schemas `grant.list/1` usw.)
 und `--home`; Beispiele im englischen Teil. `approval approve` zeigt die Anfrage zuerst (stderr) und fragt am Terminal `[y/N]`;
 ohne Terminal oder mit `--json` ist `--yes` Pflicht, sonst Abbruch vor dem Verbindungsaufbau (Exit 2). Exit-Codes: 0 Erfolg;
 1 Ablehnung oder Fehler des Core und gebrochene Kette bei `verify`; 2 Aufruffehler vor jedem Call, `E_NOT_AVAILABLE`,
 `E_APPROVAL_REQUIRED`; 3 `E_LOCKED`. Die CLI sendet keine Verbindungs-Attestation, der Core sieht sie als T1; verlangt eine Freigabe T2, zeigt `approval approve`, was
 das OS fragen wird, wiederholt die Entscheidung mit `attest: true` und das OS-Fenster erscheint auf diesem Rechner.
 
-RPC: `grant.list`, `grant.create`, `grant.revoke`, `approval.list`, `approval.get`, `approval.verify`, `approval.decide`,
-`approval.cancel`; nur für Personen, Person und Oberfläche stammen aus der Verbindung, nie aus Parametern; eine fremde Anfrage ist
-`E_NOT_FOUND`. Notifications `approval.requested`, `approval.resolved`, `grant.changed` sind Opt-in und enthalten keine Nonce.
-Weil der Server keine einzelne Verbindung adressieren kann, wird eine Benachrichtigung **zurückgehalten, wenn irgendein
-Abonnent keine berechtigte Person ist**; ein Agent, der abonniert, bringt sie also zum Schweigen, statt sie zu lesen.
+RPC: `grant.list`, `grant.get`, `grant.create`, `grant.revoke`, `approval.list`, `approval.get`, `approval.verify`,
+`approval.audit`, `approval.decide`, `approval.cancel`; nur für Personen, Person und Oberfläche stammen aus der Verbindung, nie
+aus Parametern; eine fremde Anfrage oder ein fremder Grant ist `E_NOT_FOUND`. Notifications `approval.requested`,
+`approval.resolved`, `approval.parked`, `grant.changed` (`created`, `used`, `revoked`, `expired`, `suspended`) sind Opt-in und
+enthalten keine Nonce. Weil der Server keine einzelne Verbindung adressieren kann, wird eine Benachrichtigung **zurückgehalten,
+wenn irgendein Abonnent keine berechtigte Person ist**; ein Agent, der abonniert, bringt sie also zum Schweigen, statt sie zu
+lesen. `used`/`expired`/`suspended`/`parked` erreichen nur die betroffene Person, wenn die Audience genau diese Person ist.
 
 ## 7. Agenten
 
@@ -643,25 +698,42 @@ ausgeführt. Grant-Änderungen stehen in derselben Transaktion wie die Änderung
 Anfrage, Entscheidung, Parken, Ablauf, Abbruch, Verbrauch, Verweigerung, Grant-Anlage, -Nutzung, -Verbrauch, -Widerruf, -Ende,
 Integritätsbruch und verworfene Hand-off-Verweise. Die Felder sind eine Allowlist; jede Zeichenkette läuft durch den
 Redaktor und ist auf 256 Zeichen begrenzt; Argumente und Diffs erscheinen nur als Größe und Hash, Dateiinhalte und
-Tool-Ergebnisse nie. Abweichung: `plur1bus approval audit` und eine 400-Tage-Aufbewahrung gibt es nicht.
+Tool-Ergebnisse nie. `plur1bus approval audit` / `approval.audit` ist eine geschwärzte Sicht auf die HMAC-Kette, kein zweites
+Log. Die 400-Tage-Aufbewahrung der Spezifikation ist keine Store-Option; es gelten die Audit-Dateien.
 
 ## 9. Bekannte Lücken und Folgearbeiten
 
-1. Kein produktiver ToolDispatcher im Core bis D106; auch `exec.run` ist nicht angeschlossen.
+Erledigte Punkte nennen den Test. Die übrigen bleiben offen.
+
+1. ToolDispatcher im Core seit #293 (`packages/core/src/composition/tools.ts`, `tests/system/turn-pipeline.test.ts`
+   `policy.decision`). Offene D106-Namen und die OS-Sandbox stehen in `docs/milestones.md`.
 2. WebMCP-`FORBIDDEN_PREFIX` kennt `grant.` und `approval.` nicht (RBAC verweigert Agenten trotzdem).
-3. Der Tool-Registry fehlt ein Namensschutz für `grant.*` und `approval.*`.
-4. Zwei ApprovalPorts: Der Exec-Port (`tools/exec/types.ts`) verbraucht weder Freigaben noch `once`-Grants.
-5. Benachrichtigungen werden nur zugestellt, wenn alle Abonnenten berechtigte Personen sind.
+3. Registry-Namensschutz: `packages/core/test/tools/registry-reserved.test.ts` ("refuses a name that collides with a harness
+   RPC method (grant.create)", "refuses approval.decide").
+4. `exec.run` verbraucht einen `once`-Grant: `packages/core/test/tools/exec/replay.test.ts` ("a once grant allows exactly one
+   call: consumeOnce at execution start; a stale list cannot reuse it"). Der Exec-Port bleibt ein eigener Typ; `begin()` und
+   `consumeOnce` sind angeschlossen.
+5. Benachrichtigungen werden nur zugestellt, wenn alle Abonnenten berechtigte Personen sind. `used`/`expired`/`suspended`/
+   `parked` erreichen die betroffene Person, wenn die Audience genau diese Person ist
+   (`packages/core/test/approvals/notify.test.ts`).
 6. Keine T3-Attestation; die OS-Bestätigung hebt nur auf T2. Die portablen Release-Archive enthalten den
    Hash-gepinnten Helfer `plur1bus-attest` und unter Linux die polkit-Policy. Der separate native Installer/`update`-Feed
    braucht weiterhin die Helper-Integration. Die Web-Freigabeseite ist
    noch ein Platzhalter. Die Same-User-Token-Grenze (Kapitel 3) bleibt, bis die Sandbox `run/` und `state/` sperrt.
-7. Ed25519-Signaturen und `1staid check approvals.integrity` fehlen; D108 (Freigaben auf beiden Seiten) ist nicht gebaut.
+7. Ed25519-Signaturen und `approvals.integrity`: `packages/core/test/approvals/signing.test.ts`, `integrity-job.test.ts`,
+   `crates/plur1bus/src/commands/firstaid.rs` (`approvals_integrity_skips_when_core_is_down`,
+   `approvals_integrity_unsigned_legacy_is_ok_and_tampered_signed_fails`). D108 (Freigaben auf beiden Seiten) ist nicht gebaut.
+   Schlüsselrotation steht in Kapitel 5.
 8. Taint hat keinen Lieferanten; Roots, Deny-List-Flag, `cwd` und Umgebungsnamen hängen an `classify()` des Tools.
-9. `GrantStore.endTask` und `endSession` werden vom Core noch nicht aufgerufen.
-10. Kleinere Spezifikationspunkte: Task-Parken und wiederholte Benachrichtigung, Ermüdungsschutz-Details, Diff und Modellbegründung
-    in der Anfrage, `grant show`, `approval show`, `approval audit`, `grant.changed` für `used`, `expired`, `suspended`, der
-    Inbox-Hinweis nach 90 Tagen, Oberflächen in den Einstellungen.
+9. Task- und Session-Ende: `packages/core/test/grants/lifetime-core.test.ts` ("a task-scoped grant ends when the collab task
+   ends, not after 24h", "a session-scoped grant ends on session archive via composition onSessionEnd").
+10. Erledigt auf diesem Branch: Modellbegründung und Diff
+    (`packages/core/test/approvals/rpc-approvals.test.ts` "puts the model's reason and diff on the request, masked like the
+    argument summary"); `grant show`/`grant.get`, `approval show`, `approval audit`; `approval.parked` und `grant.changed`
+    `used`/`expired`/`suspended`; Inbox-Hinweis nach 90 Tagen für `always`-Grants
+    (`packages/core/test/inbox/producers.test.ts` "always-grants older than 90 days: one inbox item for that person, never
+    audience all; a second run is deduped"). Offen: Task-Parken und wiederholte Benachrichtigung, Ermüdungsschutz-Details in
+    3.4, Rechteerweiterung (`os.privilege`, Passwortregeln der Host-Tools), Einstellungen und `V2Approvals`.
 
 ## OS confirmation status
 

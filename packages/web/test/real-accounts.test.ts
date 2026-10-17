@@ -8,13 +8,14 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { findChromium } from "./browser-runtime.ts";
 import { defaults } from "@plur1bus/config-schema";
 import { buildWeb } from "../build.ts";
 import { AccountStore, type CorePerson } from "../../api/src/account-store.ts";
 import { createApiServer } from "../../api/src/server.ts";
 import { createCoreLink } from "../../api/src/core-link.ts";
 const root = fileURLToPath(new URL("../../../", import.meta.url)), bin = resolve(process.env.PLUR1BUS_BIN ?? join(root, "target/debug/plur1bus")), coreJs = join(root, "packages/core/dist/core.js");
-const executablePath = [process.env.PLUR1BUS_CHROMIUM, chromium.executablePath(), "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/opt/pw-browsers/chromium"].find(p => p && existsSync(p));
+const executablePath = findChromium();
 const missing = !executablePath || !existsSync(bin) || !existsSync(coreJs);
 if (missing && process.env.PLUR1BUS_WEB_TRANSPORT_REQUIRED === "1") throw new Error("real accounts acceptance requires built Core/CLI and Chromium");
 test("real browser: invite → Join → password login → disable/enable in Users", { skip: missing ? "requires built Core/CLI and Chromium" : false, timeout: 120000 }, async t => {

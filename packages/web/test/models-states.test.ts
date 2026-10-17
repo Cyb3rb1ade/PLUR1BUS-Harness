@@ -241,10 +241,11 @@ describe("models: detail states", opts, () => {
         await app.page.evaluate((h) => { location.hash = h; }, bad);
         await detailOf(app.page).getByText("Select an item to see its details.").waitFor();
       }
-      // The global router rejects malformed escapes before the Models page can decode them.
+      // Invalid URI escapes are rejected by the router before Models ever receives a selection.
       await app.page.evaluate(() => { location.hash = "#/models/%E0%A4%A/x"; });
-      await app.page.getByRole("heading", { name: "Page not found", exact: true }).waitFor();
-      assert.equal(await detailOf(app.page).count(), 0);
+      await app.page.getByRole("heading", { name: "Page not found", exact: true, level: 1 }).waitFor();
+      assert.equal(await detailOf(app.page).count(), 0, "malformed encoding must not reach the model surface");
+      assert.equal(await app.page.getByRole("button", { name: "Edit overrides" }).count(), 0);
     });
   });
 
