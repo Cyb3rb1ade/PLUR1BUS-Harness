@@ -71,7 +71,7 @@ class RecordingStream:
         return self.pending.pop(0)
 
     def peer_pid(self) -> int | None:
-        return None
+        return os.getpid()
 
     def close(self) -> None:
         pass
@@ -90,6 +90,10 @@ class ConformanceOfflineTest(unittest.TestCase):
         os.chmod(os.path.join(self.home, "run"), 0o700)
         with open(os.path.join(self.home, "run", "core.token"), "w") as f:
             f.write(TOKEN)
+        # The recording transport represents this process on every OS. Windows
+        # requires the pid file before authentication, just like the real pipe.
+        with open(os.path.join(self.home, "run", "core.pid"), "w") as f:
+            f.write(str(os.getpid()))
         self.sent: list[dict] = []
         self.client = MemoryClient(
             self.home, transport_factory=lambda address, *, connect_timeout: RecordingStream(self.sent)
@@ -191,6 +195,8 @@ class MemoryListParamsTest(unittest.TestCase):
         os.chmod(os.path.join(home, "run"), 0o700)
         with open(os.path.join(home, "run", "core.token"), "w") as f:
             f.write(TOKEN)
+        with open(os.path.join(home, "run", "core.pid"), "w") as f:
+            f.write(str(os.getpid()))
         sent: list[dict] = []
         client = MemoryClient(home, transport_factory=lambda address, *, connect_timeout: RecordingStream(sent))
         self.addCleanup(client.close)
