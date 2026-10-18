@@ -112,6 +112,7 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "project.member.role": rule("project.surface.write", system),
   "project.agent.add": rule("project.surface.write", system),
   "project.agent.remove": rule("project.surface.write", system),
+  "task.complete": { ...rule("project.surface.write", system), humanOnly: true },
   "collab.session.replay": rule("project.surface.read", system),
   "collab.trace.get": rule("project.surface.read", system),
   "collab.trace.list": rule("project.surface.read", system),
