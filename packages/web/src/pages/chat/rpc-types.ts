@@ -47,6 +47,7 @@ export type AgentsAnswer = { schema?: string; agents: { agentId: string; open: b
 
 declare module "../../api/index.ts" {
   interface RpcMethods {
+    "session.model.set": { params: { sessionId: string; profile: string; confirmed?: boolean; expectedRevision?: number }; result: import("./model-switch.ts").ModelSwitchPreview };
     "session.create": { params: { agentId: string; kind?: "direct"; title?: string; memoryMode?: MemoryMode }; result: { session: SessionRecord } };
     "session.list": { params: { kind?: SessionRecord["kind"]; agentId?: string; archived?: "exclude" | "only" | "any"; search?: string; limit?: number }; result: { sessions: SessionRecord[]; truncated: boolean } };
     "session.resume": { params: { sessionId: string; limit?: number }; result: { session: SessionRecord; runningTurnId: string | null; messages: SessionMessage[]; lastEventSeq: number } };

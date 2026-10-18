@@ -1,5 +1,13 @@
 // chat area catalogue: keys `chat.<topic>`; en and de must have the same keys and {placeholders} (test/i18n.test.ts).
 export const en = {
+  "chat.model.label": "Model profile",
+  "chat.model.preview": "Preview model switch",
+  "chat.model.warning": "Switch to {profile}? The cache will rebuild; cache writes and different model costs may apply. Per-model prefixes are preserved.",
+  "chat.model.confirm": "Confirm model switch",
+  "chat.model.cancel": "Cancel",
+  "chat.model.error": "The model could not be switched. Check the configured profile and connection. This API may not support model switching yet.",
+  "chat.model.done": "Model profile changed.",
+
   "chat.list.label": "Chat history",
   "chat.list.heading": "Chats",
   "chat.detail.label": "Conversation",
@@ -57,6 +65,13 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "chat.model.label": "Modellprofil",
+  "chat.model.preview": "Modellwechsel vorbereiten",
+  "chat.model.warning": "Zu {profile} wechseln? Der Cache wird neu aufgebaut; Cache-Schreibkosten und andere Modellkosten können entstehen. Die Präfixe pro Modell bleiben erhalten.",
+  "chat.model.confirm": "Modellwechsel bestätigen",
+  "chat.model.cancel": "Abbrechen",
+  "chat.model.error": "Das Modell konnte nicht gewechselt werden. Prüfe das eingerichtete Profil und die Verbindung. Diese API unterstützt den Modellwechsel möglicherweise noch nicht.",
+  "chat.model.done": "Modellprofil geändert.",
   "chat.list.label": "Chat-Verlauf",
   "chat.list.heading": "Chats",
   "chat.detail.label": "Unterhaltung",
