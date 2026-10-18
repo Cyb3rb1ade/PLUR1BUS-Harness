@@ -70,20 +70,7 @@ export async function importBackfill(opts: BackfillOptions): Promise<BackfillRes
     rawConfig = defaults();
   }
 
-  const testInternals = opts.testInternals ?? (
-    (process.env.NODE_TEST_CONTEXT || process.env.PLUR1BUS_TEST_INTERNALS === "1")
-      ? {
-          embeddings: {
-            embed: async () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0)),
-            embedQuery: async () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0)),
-            embedPassage: async () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0)),
-            embedBatch: async (texts: string[]) => texts.map(() => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0))),
-            shutdown: async () => {},
-          },
-          reranker: null,
-        }
-      : undefined
-  );
+  const testInternals = opts.testInternals;
 
   const engineDefaults = defaults().engine;
   const engineConfigTarget = {

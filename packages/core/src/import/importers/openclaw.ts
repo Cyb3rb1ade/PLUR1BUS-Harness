@@ -38,7 +38,7 @@ import { commitOpenclawStores, prepareOpenclawStores, type OpenclawStoreReport, 
 import { createEngine } from "@cyb3rb1ade/plur1bus-memory/engine/create-engine.js";
 import { buildEngineConfig } from "../../engine-config.ts";
 import type { Engine } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
-import { importOpenclawMemories, type OpenclawMemoryImportResult } from "./openclaw-memories.ts";
+import { hasOpenclawCardFiles, importOpenclawMemories, type OpenclawMemoryImportResult } from "./openclaw-memories.ts";
 
 export interface OpenclawImportOptions {
   home: string;
@@ -112,6 +112,8 @@ export interface OpenclawImportReport {
     memoryCardsImported: number;
     memoryCardsSkippedDuplicate: number;
     memoryCardsRejected: number;
+    /** Cards of agents with their own memory store: left out of the shared store, reason `agent-has-own-store`. */
+    memoryCardsSkippedOwnStore: number;
     unresolvedUserScope: number;
     channelsDeferred: number;
     channelsImported: number; // backward compatibility
@@ -268,22 +270,12 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
 
     let engine = opts.engine;
     let createdEngineLocally = false;
-    const testInternals = opts.testInternals ?? (
-      (process.env.NODE_TEST_CONTEXT || process.env.PLUR1BUS_TEST_INTERNALS === "1")
-        ? {
-            embeddings: {
-              embed: async () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0)),
-              embedQuery: async () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0)),
-              embedPassage: async () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0)),
-              embedBatch: async (texts: string[]) => texts.map(() => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0))),
-              shutdown: async () => {},
-            },
-            reranker: null,
-          }
-        : undefined
-    );
+    const testInternals = opts.testInternals;
 
-    if (isApply && !engine) {
+    // The engine is opened on first use only: an import with no card to write (an agent with its own store, no
+    // MEMORY.md / USER.md) never creates or touches state/lancedb through it.
+    const ensureEngine = (): void => {
+      if (!isApply || engine) return;
       const engineDefaults = defaults().engine;
       const engineConfigTarget = {
         ...defaults(),
@@ -311,7 +303,7 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
         testInternals ? { internals: testInternals } : undefined,
       );
       createdEngineLocally = true;
-    }
+    };
 
     try {
       // Migrate agents, curated files and memory cards
@@ -322,6 +314,12 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
       let totalCardsSkippedDuplicate = 0;
       let totalCardsRejected = 0;
       let totalUnresolvedUserScope = 0;
+      let totalCardsSkippedOwnStore = 0;
+      // Agents that keep their own memory store (a PLUR1BUS store partition of their own in the source): their cards
+      // are not written to the shared store, they are listed in the report as skipped with the reason.
+      const ownStoreAgents = new Set(
+        sourceReport.plur1bus.stores.filter((st) => st.kind === "agent" && st.agentId).map((st) => st.agentId!.toLowerCase()),
+      );
       const errors: Array<{ sourceRef: string; reason: string }> = [...(sourceReport.errors ?? []), ...preparedStores.errors];
 
       for (const agent of sourceReport.agents) {
@@ -367,6 +365,8 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
         let memoryRes: OpenclawMemoryImportResult | undefined;
         if (report.action !== "rejected") {
           const agentWs = agent.workspace ?? sourceReport.source.root;
+          const ownStore = ownStoreAgents.has(normId);
+          if (!ownStore && hasOpenclawCardFiles(agentWs)) ensureEngine();
           memoryRes = await importOpenclawMemories({
             workspaceDir: agentWs,
             agentId: agent.agentId,
@@ -377,7 +377,9 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
             userPrincipal: opts.userPrincipal,
             onConflict,
             replacedBackupDir,
+            ...(ownStore ? { skipReason: "agent-has-own-store" } : {}),
           });
+          totalCardsSkippedOwnStore += memoryRes.skippedOwnStoreCount;
           totalCardsImported += memoryRes.importedCount;
           totalCardsSkippedDuplicate += memoryRes.skippedDuplicateCount;
           totalCardsRejected += memoryRes.rejectedCount;
@@ -544,6 +546,7 @@ export async function importOpenclaw(opts: OpenclawImportOptions): Promise<Openc
         memoryCardsImported: totalCardsImported,
         memoryCardsSkippedDuplicate: totalCardsSkippedDuplicate,
         memoryCardsRejected: totalCardsRejected,
+        memoryCardsSkippedOwnStore: totalCardsSkippedOwnStore,
         unresolvedUserScope: totalUnresolvedUserScope,
         channelsDeferred: channelReports.length,
         channelsImported: channelReports.length,

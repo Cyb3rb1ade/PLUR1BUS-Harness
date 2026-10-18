@@ -20,7 +20,7 @@ export type Envelope =
 
 const fail = (error: string, reason: string, message: string, exit = 2): Envelope => ({ ok: false, error, message, reason, exit });
 
-export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process.env, homedir?: string): Promise<Envelope> {
+export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process.env, homedir?: string, testInternals?: Record<string, unknown>): Promise<Envelope> {
   let values: Record<string, string | boolean | string[] | undefined>; let positionals: string[];
   try {
     ({ values, positionals } = parseArgs({
@@ -55,6 +55,7 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
         home: values.home,
         agentId: values.agent.trim(),
         apply: values.apply === true,
+        testInternals,
       });
       return { ok: true, schema: "import.backfill/1", value: r as unknown as Record<string, unknown>, human: renderBackfill(r) };
     } catch (e) {
@@ -131,6 +132,7 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
           migrateSecrets: values["migrate-secrets"] === true,
           onConflict: onConflict as ConflictStrategy,
           resume: values.resume as string | undefined,
+          testInternals,
         });
         return { ok: true, schema: "import.openclaw/1", value: r as unknown as Record<string, unknown>, human: renderOpenclaw(r) };
       }
@@ -145,6 +147,7 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
           adoptStrategy: values["adopt-strategy"] as any,
           mapProfiles: Object.keys(mapProfiles).length > 0 ? mapProfiles : undefined,
           mergeProfiles: values["merge-profiles"] === true,
+          testInternals,
         });
         return { ok: true, schema: "import.hermes/1", value: r as unknown as Record<string, unknown>, human: renderHermes(r), exit: r.errors.length > 0 ? 1 : 0 };
       }

@@ -45,15 +45,22 @@ function importErrorCode(err: any): string {
   return typeof raw === "string" && /^[A-Za-z0-9_.-]{1,64}$/.test(raw) ? raw : "storage";
 }
 
+/** Whether the workspace holds a card file (MEMORY.md / USER.md, any case the importer reads). */
+export function hasOpenclawCardFiles(workspaceDir: string): boolean {
+  return ["MEMORY.md", "memory.md", "USER.md", "user.md"].some((n) => existsNoFollow(join(workspaceDir, n)));
+}
+
 export interface OpenclawMemoryImportResult {
   importedCount: number;
   skippedDuplicateCount: number;
   rejectedCount: number;
   unresolvedUserScopeCount: number;
   totalCards: number;
+  /** Cards left out because the agent keeps its own memory store (never written to the shared store, never lost silently). */
+  skippedOwnStoreCount: number;
   cardResults: Array<{
     idempotencyKey: string;
-    outcome: "created" | "matched-existing" | "rejected" | "unresolved-user-scope";
+    outcome: "created" | "matched-existing" | "rejected" | "unresolved-user-scope" | "skipped";
     reason?: string | undefined;
   }>;
   errors: Array<{ sourceRef: string; reason: string }>;
@@ -69,6 +76,8 @@ export async function importOpenclawMemories(opts: {
   userPrincipal?: any | undefined;
   onConflict?: ConflictStrategy | undefined;
   replacedBackupDir?: string | undefined;
+  /** Set for an agent that has its own memory store: its cards are counted and reported as skipped with this reason, nothing is embedded or written. */
+  skipReason?: string | undefined;
 }): Promise<OpenclawMemoryImportResult> {
   const {
     workspaceDir,
@@ -85,6 +94,7 @@ export async function importOpenclawMemories(opts: {
   let skippedDuplicateCount = 0;
   let rejectedCount = 0;
   let unresolvedUserScopeCount = 0;
+  let skippedOwnStoreCount = 0;
   const cardResults: OpenclawMemoryImportResult["cardResults"] = [];
   const errors: Array<{ sourceRef: string; reason: string }> = [];
 
@@ -99,6 +109,42 @@ export async function importOpenclawMemories(opts: {
   };
   const systemAgent = { origin: "system", background: false } as const;
   const runSuffix = ledger ? `;run=${ledger.runId}` : "";
+
+
+  // Agent with its own store: owner decision 18.10. The cards stay with that store; they are only counted and listed.
+  if (opts.skipReason !== undefined) {
+    const skipReason = opts.skipReason;
+    for (const [names, file] of [[["MEMORY.md", "memory.md"], "MEMORY.md"], [["USER.md", "user.md"], "USER.md"]] as const) {
+      const found = names.map((n) => join(workspaceDir, n)).find((cand) => existsNoFollow(cand));
+      if (found === undefined) continue;
+      let content: string;
+      try {
+        content = readSourceTextSafe(found, MAX_MEMORY_FILE_BYTES);
+      } catch (error) {
+        errors.push({ sourceRef: `${agentId}:${file}`, reason: error instanceof ImportError ? error.reason : "source-unreadable" });
+        continue;
+      }
+      const cards = splitOpenclawCards(content);
+      totalCards += cards.length;
+      skippedOwnStoreCount += cards.length;
+      cards.forEach((text, i) => {
+        const key = cardIdempotencyKey("openclaw", agentId, file, text);
+        cardResults.push({ idempotencyKey: key, outcome: "skipped", reason: skipReason });
+        if (isApply && ledger) {
+          ledger.record({
+            entity: "memory",
+            idempotencyKey: key,
+            action: "skipped",
+            sourceRef: `openclaw:${agentId}:${file}#${i + 1}${runSuffix}`,
+            targetRef: `agents/${agentId}/workspace/${file === "MEMORY.md" ? "memories.md" : "USER.md"}`,
+            sha256: createHash("sha256").update(text.replace(/\r\n/g, "\n").trim()).digest("hex"),
+            reason: skipReason,
+          });
+        }
+      });
+    }
+    return { importedCount, skippedDuplicateCount, rejectedCount, unresolvedUserScopeCount, skippedOwnStoreCount, totalCards, cardResults, errors };
+  }
 
   // 1. Process MEMORY.md / memory.md (agent-scoped)
   let memoryMdPath: string | null = null;
@@ -417,6 +463,7 @@ export async function importOpenclawMemories(opts: {
     skippedDuplicateCount,
     rejectedCount,
     unresolvedUserScopeCount,
+    skippedOwnStoreCount,
     totalCards,
     cardResults,
     errors,

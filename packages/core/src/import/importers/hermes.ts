@@ -335,20 +335,7 @@ export async function importHermes(opts: HermesImportOptions): Promise<HermesImp
 
       // 2. Engine for memory cards: apply mode only. A dry run never opens an engine on the target (it would create
       // state/lancedb and engine marker files); its card counts are planned counts derived from the source.
-      const testInternals = opts.testInternals ?? (
-        (process.env.NODE_TEST_CONTEXT || process.env.PLUR1BUS_TEST_INTERNALS === "1")
-          ? {
-              embeddings: {
-                embed: async () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0)),
-                embedQuery: async () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0)),
-                embedPassage: async () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0)),
-                embedBatch: async (texts: string[]) => texts.map(() => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0))),
-                shutdown: async () => {},
-              },
-              reranker: null,
-            }
-          : undefined
-      );
+      const testInternals = opts.testInternals;
 
       if (isApply && !engine) {
         const engineDefaults = defaults().engine;
