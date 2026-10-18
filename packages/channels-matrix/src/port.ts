@@ -87,4 +87,6 @@ export interface SyncTokenStore {
   /** `undefined` = no state yet (first run). Must THROW on unreadable/corrupt state: the channel then fails closed. */
   load(): Promise<string | undefined>;
   save(token: string): Promise<void>;
+  loadSafety?(): Promise<import("./sync-safety.ts").SyncSafetyState>;
+  saveSafety?(state: import("./sync-safety.ts").SyncSafetyState): Promise<void>;
 }

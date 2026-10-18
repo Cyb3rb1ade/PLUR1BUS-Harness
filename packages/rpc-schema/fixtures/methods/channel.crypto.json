@@ -1,0 +1,23 @@
+{
+  "params": {
+    "id": "matrix",
+    "action": "inspect",
+    "flowId": "flow-1"
+  },
+  "result": {
+    "flowId": "flow-1",
+    "done": false,
+    "cancelled": false,
+    "emoji": [
+      {
+        "symbol": "🐶",
+        "description": "Dog"
+      }
+    ],
+    "decimals": [
+      1234,
+      5678,
+      9012
+    ]
+  }
+}

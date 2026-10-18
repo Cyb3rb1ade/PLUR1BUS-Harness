@@ -357,6 +357,13 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "channel.crypto" => {
+                check_pair::<types::ChannelCryptoParams, types::ChannelCryptoResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
             "channel.get" => check_pair::<types::ChannelGetParams, types::ChannelGetResult>(
                 name,
                 fixture,
