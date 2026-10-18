@@ -1,15 +1,51 @@
 //! `plur1bus update` (apply), `update --rollback`, `update status` and the `daemon start` recovery hook (M8, D78).
-//! Hermetic: the "binary" the update swaps is a shell script (`PLUR1BUS_UPDATE_TARGET_BIN`, test internals), the feed
+//! Hermetic: the "binary" the update swaps is a native fixture executable (`PLUR1BUS_UPDATE_TARGET_BIN`, test internals), the feed
 //! is a local file signed with a throwaway minisign key, the service manager is the recording fake
-//! (`PLUR1BUS_SERVICE_FAKE`), `HOME` is a temp dir. Unix only (the stand-in binary is `/bin/sh`).
-#![cfg(unix)]
+//! (`PLUR1BUS_SERVICE_FAKE`), user directories are temporary. Native fixtures use the existing Rust toolchain.
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
-const OLD: &str = "#!/bin/sh\ncase \" $* \" in *\" --version \"*) echo 'plur1bus 0.1.0';; esac\n";
+/// Native executable bytes, compiled once per suite with the already-required toolchain.
+fn fixture_binary(new: bool) -> &'static [u8] {
+    static BINARIES: std::sync::OnceLock<[Vec<u8>; 2]> = std::sync::OnceLock::new();
+    let binaries = BINARIES.get_or_init(|| {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("fixture.rs");
+        fs::write(&source, r##"
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    let version = if cfg!(fixture_new) { "0.2.0" } else { "0.1.0" };
+    if args.iter().any(|a| a == "--version") { println!("plur1bus {version}"); return; }
+    if !cfg!(fixture_new) { return; }
+    let has = |a: &str, b: &str| args.windows(2).any(|w| w[0] == a && w[1] == b);
+    if has("daemon", "start") { println!("{}", r#"{"started":true}"#); }
+    else if has("daemon", "status") { println!("{}", r#"{"children":[{"kind":"core","process":{"state":"ready"}}]}"#); }
+    else if has("1staid", "check") {
+        let root = std::env::var_os("PLUR1BUS_FIXTURE_UPDATE_ROOT").expect("fixture root");
+        if std::path::Path::new(&root).join("gate-fail").exists() {
+            println!("{}", r#"{"ok":false,"checks":[{"id":"runtime.core","status":"fail"}]}"#);
+            std::process::exit(1);
+        }
+        println!("{}", r#"{"ok":true,"checks":[]}"#);
+    }
+}
+"##).unwrap();
+        [false, true].map(|new| {
+            let name = if cfg!(windows) { "fixture.exe" } else { "fixture" };
+            let out = dir.path().join(name);
+            let mut command = Command::new("rustc");
+            command.args(["--edition=2024", "--crate-name", "update_fixture"]);
+            if new { command.args(["--cfg", "fixture_new"]); }
+            let result = command.arg(&source).arg("-o").arg(&out).output().unwrap();
+            assert!(result.status.success(), "fixture compilation: {}", String::from_utf8_lossy(&result.stderr));
+            fs::read(out).unwrap()
+        })
+    });
+    &binaries[usize::from(new)]
+}
 
 fn sha(b: &[u8]) -> String {
     format!("{:x}", Sha256::digest(b))
@@ -23,7 +59,13 @@ struct Env {
     target: PathBuf,
 }
 
-const HOST: &str = if cfg!(target_arch = "aarch64") && cfg!(target_os = "macos") {
+const HOST: &str = if cfg!(target_os = "windows") {
+    if cfg!(target_arch = "aarch64") {
+        "win-arm64"
+    } else {
+        "win-x64"
+    }
+} else if cfg!(target_arch = "aarch64") && cfg!(target_os = "macos") {
     "darwin-arm64"
 } else if cfg!(target_arch = "aarch64") {
     "linux-arm64"
@@ -42,12 +84,16 @@ fn env() -> Env {
     fs::create_dir_all(root.join("user")).unwrap();
     fs::write(home.join("runtime/core/core.js"), "old core").unwrap();
     fs::write(home.join("config.json"), "{\"engine\":{}}\n").unwrap();
-    let target = root.join("plur1bus-installed");
-    fs::write(&target, OLD).unwrap();
+    let target = root.join(if cfg!(windows) {
+        "plur1bus-installed.exe"
+    } else {
+        "plur1bus-installed"
+    });
+    fs::write(&target, fixture_binary(false)).unwrap();
     let h = "a".repeat(64);
     let manifest = json!({
         "schemaVersion": 1, "installedAt": 1, "updatedAt": 1, "channel": "stable", "target": HOST,
-        "binary": { "version": "0.1.0", "sha256": sha(OLD.as_bytes()) },
+        "binary": { "version": "0.1.0", "sha256": sha(fixture_binary(false)) },
         "node": { "version": "24.21.0", "archiveSha256": h, "binarySha256": h, "path": "/n" },
         "core": { "version": "0.1.0", "contract": "1.9.0", "rpc": "1.3.0", "sha256": null, "source": "local" },
         "modules": [], "skills": [],
@@ -65,19 +111,6 @@ fn env() -> Env {
     }
 }
 
-/// The new binary: reports 0.2.0, a ready core, and a `1staid check` that fails while `<root>/gate-fail` exists.
-fn new_script(root: &Path) -> String {
-    format!(
-        "#!/bin/sh\ncase \" $* \" in\n\
- *\" --version \"*) echo 'plur1bus 0.2.0';;\n\
- *\" daemon start \"*) echo '{{\"started\":true}}';;\n\
- *\" daemon status \"*) echo '{{\"children\":[{{\"kind\":\"core\",\"process\":{{\"state\":\"ready\"}}}}]}}';;\n\
- *\" 1staid check \"*) if [ -f '{0}/gate-fail' ]; then echo '{{\"ok\":false,\"checks\":[{{\"id\":\"runtime.core\",\"status\":\"fail\"}}]}}'; exit 1; fi; echo '{{\"ok\":true,\"checks\":[]}}';;\n\
-esac\n",
-        root.display()
-    )
-}
-
 struct Feed {
     path: PathBuf,
     pubkey: String,
@@ -88,11 +121,15 @@ struct Feed {
 fn feed(e: &Env, with_core: bool) -> Feed {
     let dir = e.root.join("feed");
     fs::create_dir_all(&dir).unwrap();
-    let script = new_script(&e.root);
-    let binary = dir.join("plur1bus-new");
-    fs::write(&binary, &script).unwrap();
+    let script = fixture_binary(true);
+    let binary = dir.join(if cfg!(windows) {
+        "plur1bus-new.exe"
+    } else {
+        "plur1bus-new"
+    });
+    fs::write(&binary, script).unwrap();
     let mut native = json!({
-        "binary": { HOST: { "url": binary.to_string_lossy(), "sha256": sha(script.as_bytes()) } },
+        "binary": { HOST: { "url": binary.to_string_lossy(), "sha256": sha(script) } },
         "core": { "version": "0.1.0", "contract": "1.9.0", "rpc": "1.3.0",
                   "payload": { HOST: { "url": "https://example.invalid/core.tar.gz", "sha256": "a".repeat(64) } } },
         "node": { "version": "24.21.0" },
@@ -144,6 +181,9 @@ fn cmd(e: &Env, f: Option<&Feed>, args: &[&str]) -> Command {
         .arg(&e.home)
         .args(args)
         .env("HOME", e.root.join("user"))
+        .env("USERPROFILE", e.root.join("user"))
+        .env("LOCALAPPDATA", e.root.join("user/AppData/Local"))
+        .env("PLUR1BUS_FIXTURE_UPDATE_ROOT", &e.root)
         .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
         .env("PLUR1BUS_SERVICE_FAKE", e.root.join("fake"))
         .env("PLUR1BUS_UPDATE_TARGET_BIN", &e.target)
@@ -289,14 +329,14 @@ fn a_tampered_feed_or_checksum_is_refused_and_nothing_changes() {
     // 2. a correctly signed feed whose binary does not match its checksum
     let e2 = env();
     let f2 = feed(&e2, false);
-    fs::write(&f2.binary, "#!/bin/sh\necho tampered\n").unwrap();
+    fs::write(&f2.binary, "tampered fixture").unwrap();
     let (code, doc) = run(&mut update(&e2, &f2, &[]));
     assert_eq!(
         (code, doc["reason"].as_str()),
         (2, Some("digest-mismatch")),
         "{doc}"
     );
-    assert_eq!(snapshot_of(&e2).0, OLD.as_bytes());
+    assert_eq!(snapshot_of(&e2).0, fixture_binary(false));
     assert!(!e2.home.join("update/staging").exists());
     let (_, st) = run(&mut cmd(&e2, None, &["update", "status"]));
     assert_eq!(
@@ -316,7 +356,7 @@ fn a_tampered_feed_or_checksum_is_refused_and_nothing_changes() {
         (2, Some("release-unverified")),
         "{doc}"
     );
-    assert_eq!(snapshot_of(&e3).0, OLD.as_bytes());
+    assert_eq!(snapshot_of(&e3).0, fixture_binary(false));
 }
 
 #[test]
@@ -386,7 +426,13 @@ fn a_crash_after_the_swap_is_rolled_back_by_the_next_daemon_start() {
     let o = cmd(&e, None, &["daemon", "start"])
         .env("PLUR1BUS_SUPERVISOR_TIME_SCALE", "0.02")
         .env("PLUR1BUS_CORE_JS", &fixture)
-        .env("PLUR1BUS_NODE", "node")
+        .env("PLUR1BUS_NODE", {
+            let output = Command::new("node")
+                .args(["-p", "process.execPath"])
+                .output()
+                .unwrap();
+            String::from_utf8(output.stdout).unwrap().trim().to_string()
+        })
         .env("FAKE_CORE_MODE", "ok")
         .output()
         .unwrap();
