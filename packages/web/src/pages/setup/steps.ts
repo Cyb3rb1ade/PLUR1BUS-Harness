@@ -99,3 +99,15 @@ export function ImportStep(): View {
       h("button", { type: "button", class: "btn", onClick: () => { void copy(); } }, t("setup.import.copy")),
       h("p", { role: "status", class: "field-hint" }, note)));
 }
+
+/** Optional: an empty selection keeps rule triage and never overwrites an existing role. */
+export function DecisionStep({ a, set, busy }: StepProps): View {
+  const { state } = useLoad(async signal => chatModels(await getApi().rpc("models.list", undefined, { write: false, signal })), []);
+  return h("div", {}, h(DecisionHintIfMissing, { where: "wizard" }),
+    h("p", { class: "reading" }, t("setup.decision.lead")),
+    h(Field, { id: "setup-decision", label: t("setup.decision.label") },
+      h("select", { id: "setup-decision", value: a.decisionModel ?? "", disabled: busy || state.status !== "ok", onChange: (e: Event) => { set({ decisionModel: (e.target as HTMLSelectElement).value }); } },
+        h("option", { value: "" }, t("setup.decision.skip")),
+        state.status === "ok" ? state.data.map(m => h("option", { key: `${m.provider}/${m.id}`, value: `${m.provider}/${m.id}` }, `${m.name} (${m.provider})`)) : null)),
+    state.status === "fail" ? h("p", { role: "alert" }, t("setup.model.loadFailed")) : null);
+}

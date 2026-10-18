@@ -211,7 +211,7 @@ describe("absent from every catalogue an agent or an outside client can see", ()
 describe("budget.set human-only RPC boundary",()=>{
   it("keeps the exact explicit human-only method inventory, including budget mutation",()=>{
     assert.deepEqual(Object.entries(RPC_RULES).filter(([,r])=>r.humanOnly).map(([m])=>m).sort(),[
-      "agent.activity.list","budget.set","doctor.report","identity.human.create","identity.link","identity.list","identity.pair.claim","identity.pair.confirm","identity.pair.start","identity.unlink","jobs.create","jobs.delete","jobs.update","model.embedding.select","model.licence.check","model.licence.confirm","model.licence.list","session.model.set","user.disable","user.enable","voice.session.create",
+      "agent.activity.list","models.test","budget.set","doctor.report","identity.human.create","identity.link","identity.list","identity.pair.claim","identity.pair.confirm","identity.pair.start","identity.unlink","jobs.create","jobs.delete","jobs.update","model.embedding.select","model.licence.check","model.licence.confirm","model.licence.list","session.model.set","task.complete","user.disable","user.enable","voice.session.create",
     ].sort());
     assert.equal(RPC_RULES["budget.set"]!.action,"settings.write");
   });

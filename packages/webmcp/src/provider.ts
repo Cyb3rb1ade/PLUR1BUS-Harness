@@ -54,7 +54,7 @@ const FORBIDDEN_EXACT = new Set([
   "jobs.create", "jobs.update", "jobs.delete", "doctor.report", "agent.activity.list",
   "core.auth", "core.shutdown", "core.adopt", "memory.checkpoint", "agent.open", "agent.close",
   "ext.install", "ext.uninstall", "ext.restore", "ext.enable", "ext.disable", "ext.update",
-  "models.scan", "models.setOverride", "models.removeManual", "models.acknowledge",
+  "models.test", "models.scan", "models.setOverride", "models.removeManual", "models.acknowledge",
   "budget.set",
   "voice.language.set", "voice.realtime.profile.set", "voice.agent.override.set", "voice.agent.override.clear",
   "voice.models.install", "voice.realtime.start", "voice.realtime.stop",

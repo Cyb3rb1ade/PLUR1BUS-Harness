@@ -487,6 +487,11 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::ProjectAgentRemoveParams,
                 types::ProjectAgentRemoveResult,
             >(name, fixture, &root_schema),
+            "task.complete" => check_pair::<types::TaskCompleteParams, types::TaskCompleteResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "collab.session.replay" => check_pair::<
                 types::CollabSessionReplayParams,
                 types::CollabSessionReplayResult,
@@ -946,6 +951,11 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::AdminReembedAbortParams,
                 types::AdminReembedAbortResult,
             >(name, fixture, &root_schema),
+            "models.test" => check_pair::<types::ModelsTestParams, types::ModelsTestResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "models.list" => check_pair::<types::ModelsListParams, types::ModelsListResult>(
                 name,
                 fixture,

@@ -1,5 +1,10 @@
 // setup area catalogue (first-run wizard, `/setup`): keys `setup.<topic>`; en and de have the same keys and {placeholders}.
 export const en = {
+  "setup.step.decision": "Decision model",
+  "setup.decision.lead": "Optionally choose a configured model for triage. Leaving this empty keeps rule triage.",
+  "setup.decision.label": "Decision model",
+  "setup.decision.skip": "Skip (rule triage)",
+
   "setup.err.embeddingUnavailable": "The selected embedding model is unavailable in the pinned engine. Choose multilingual-e5-small or a supported model; setup has not applied this selection.",
   "setup.err.embeddingMigration": "Changing the embedding model requires the engine validation API. Keep the active model, or update the engine and run plur1bus memory reembed --plan followed by --run. Setup has not applied this selection.",
   "setup.lead": "A few steps to get PLUR1BUS ready. You can skip optional steps and come back later; your progress is kept in this browser.",
@@ -103,6 +108,11 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "setup.step.decision": "Decision-Modell",
+  "setup.decision.lead": "Wähle optional ein konfiguriertes Modell für die Triage. Ohne Auswahl bleibt die Regel-Triage aktiv.",
+  "setup.decision.label": "Decision-Modell",
+  "setup.decision.skip": "Überspringen (Regel-Triage)",
+
   "setup.err.embeddingUnavailable": "Das gewählte Embedding-Modell ist in der gepinnten Engine nicht verfügbar. Wähle multilingual-e5-small oder ein unterstütztes Modell; die Auswahl wurde nicht angewendet.",
   "setup.err.embeddingMigration": "Ein Embedding-Modellwechsel benötigt die Validierungs-API der Engine. Behalte das aktive Modell oder aktualisiere die Engine und führe plur1bus memory reembed --plan und anschließend --run aus. Die Auswahl wurde nicht angewendet.",
   "setup.lead": "Ein paar Schritte, bis PLUR1BUS bereit ist. Optionale Schritte kannst du überspringen und später nachholen; dein Fortschritt bleibt in diesem Browser erhalten.",

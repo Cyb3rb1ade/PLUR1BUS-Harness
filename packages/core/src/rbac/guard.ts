@@ -43,6 +43,7 @@ export function authenticatedPrincipal(ctx: CallContext): Principal {
 export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "events.subscribe": rule("agent.list", system),
   "voice.session.create": { ...rule("agent.use", agent), humanOnly: true },
+  "models.test": { ...rule("settings.write", system), humanOnly: true },
   "budget.set": { ...rule("settings.write", system), humanOnly: true },
   "chat.create": rule("chat:write", system),
   "chat.list": rule("chat:read", system),
@@ -112,6 +113,7 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "project.member.role": rule("project.surface.write", system),
   "project.agent.add": rule("project.surface.write", system),
   "project.agent.remove": rule("project.surface.write", system),
+  "task.complete": { ...rule("project.surface.write", system), humanOnly: true },
   "collab.session.replay": rule("project.surface.read", system),
   "collab.trace.get": rule("project.surface.read", system),
   "collab.trace.list": rule("project.surface.read", system),
