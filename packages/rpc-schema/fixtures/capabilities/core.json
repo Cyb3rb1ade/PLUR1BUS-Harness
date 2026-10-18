@@ -1,5 +1,17 @@
 {
   "methods": {
+    "chat.promote.links": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.promote.preview": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.promote.commit": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "chat.create": {
       "stability": "experimental",
       "since": "1.6.0"

@@ -179,6 +179,11 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<ProjectAgentRemoveParams, ProjectAgentRemoveResult>(name, f)
         }
         "task.complete" => pair::<TaskCompleteParams, TaskCompleteResult>(name, f),
+        "chat.promote.preview" => {
+            pair::<ChatPromotePreviewParams, ChatPromotePreviewResult>(name, f)
+        }
+        "chat.promote.commit" => pair::<ChatPromoteCommitParams, ChatPromoteCommitResult>(name, f),
+        "chat.promote.links" => pair::<ChatPromoteLinksParams, ChatPromoteLinksResult>(name, f),
         "collab.session.replay" => {
             pair::<CollabSessionReplayParams, CollabSessionReplayResult>(name, f)
         }
