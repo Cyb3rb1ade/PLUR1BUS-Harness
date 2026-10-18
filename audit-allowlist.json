@@ -1,4 +1,8 @@
 {
   "version": 1,
-  "exceptions": []
+  "exceptions": [
+    { "advisoryId": "RUSTSEC-2024-0429", "created": "2026-10-18", "expires": "2027-01-16", "reason": "glib 0.18.5 unmaintained (kein Fix), transitiv ueber GTK3/Tauri nur auf Linux-Desktop; Update erst mit Tauri-GTK4-Migration." },
+    { "advisoryId": "RUSTSEC-2024-0370", "created": "2026-10-18", "expires": "2027-01-16", "reason": "proc-macro-error 1.0.4 unmaintained (kein Fix), reine Build-Zeit-Proc-Macro transitiv ueber Tauri/GTK3." },
+    { "advisoryId": "RUSTSEC-2026-0370", "created": "2026-10-18", "expires": "2027-01-16", "reason": "zvariant unmaintained (kein Patch, in zbus >= 6 aufgegangen); transitiv ueber zbus 5.19.0 im Desktop-Crate, Migration auf zbus 6 separat." }
+  ]
 }
