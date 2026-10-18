@@ -105,10 +105,19 @@ test("parallel attempts with the right password on one name all stay correct (se
   const results = await Promise.all([login.check("josé", FIXTURE_PASSWORD), login.check("josé", FIXTURE_PASSWORD), login.check("josé", "wrong")]);
   assert.deepEqual(results.map((r) => r.ok), [true, true, false]);
   assert.equal(login.lockedFor("josé"), 0);
-  // A different name is never held up by a slow one.
-  const slow = new PasswordLogin({ users, clock, verify: async (h, p) => { await new Promise((r) => setTimeout(r, 30)); return verifyPassword(h, p); } });
-  const t0 = Date.now(); await Promise.all([slow.check("josé", "wrong"), slow.check("nobody", "wrong"), slow.check("other", "wrong")]);
-  assert.ok(Date.now() - t0 < 120, "three names were checked in parallel, not one after the other");
+  // Hold all verifications until every distinct name reaches the verifier. A global queue would deadlock here.
+  let entered = 0, allEntered!: () => void, release!: () => void;
+  const started = new Promise<void>(resolve => { allEntered = resolve; });
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const slow = new PasswordLogin({ users, clock, verify: async () => {
+    if (++entered === 3) allEntered();
+    await gate;
+    return false;
+  } });
+  const checks = [slow.check("josé", "wrong"), slow.check("nobody", "wrong"), slow.check("other", "wrong")];
+  try { await started; assert.equal(entered, 3); }
+  finally { release(); }
+  assert.deepEqual((await Promise.all(checks)).map(result => result.ok), [false, false, false]);
 });
 
 // ---- TOTP ----------------------------------------------------------------------------------------------------------
