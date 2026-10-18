@@ -8,6 +8,15 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Added
 
+- **A description per secret (`secret.set`, `secret set --description`, Settings > Secrets).** An optional one-line note (at most
+  200 characters, never the value) saying what a secret is for. `secret.list`, `secret.get` and `secret.status` return it, and
+  the agent's `secret_names` tool lists it next to a stored secret. A replacement without one keeps the stored text, an empty one
+  removes it. Files and keyring indexes written before the field existed read unchanged (same schema ids).
+- **A2A push and the OAuth token POST send through `egress.request`.** Both files open no socket any more (a static test guards
+  it): pinning, request and response caps, the deadline and the no-redirect rule for a request with a body live in the egress
+  service. New `discardBody` option for calls that need status and headers only. The caller can no longer set `Host`,
+  `Content-Length` or `Cookie` on a push POST, and a compressed token answer is now decoded.
+
 - **`web.fetch` golden corpus and gate (M2 acceptance 12, D94).** 127 synthetic fixtures (70 extraction goldens, 57 typed
   failures) served by an offline fixture server; the gate requires at least 95 % of each golden's main-text tokens and every
   heading and table, covers every typed failure the tool can produce through an enum test, and a new SSRF suite drives

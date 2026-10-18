@@ -170,15 +170,15 @@ Diese Liste enthält die typisierten Fehlercodes, Fehlerklassen und Fehler-Enums
 ## packages/core/src/auth/http.ts
 | Code | Module | Meaning | Source |
 |---|---|---|---|
-| `invalid_grant` | core · auth/http | OAuth-Wire-Code, der durchgereicht wird (Set Z.9) | packages/core/src/auth/http.ts:9 |
-| `authorization_pending` | core · auth/http | OAuth-Wire-Code, der durchgereicht wird (Set Z.9) | packages/core/src/auth/http.ts:9 |
-| `slow_down` | core · auth/http | OAuth-Wire-Code, der durchgereicht wird (Set Z.9) | packages/core/src/auth/http.ts:9 |
-| `expired_token` | core · auth/http | OAuth-Wire-Code, der durchgereicht wird (Set Z.9) | packages/core/src/auth/http.ts:9 |
-| `access_denied` | core · auth/http | OAuth-Wire-Code, der durchgereicht wird (Set Z.9) | packages/core/src/auth/http.ts:9 |
-| `invalid_client` | core · auth/http | OAuth-Wire-Code, der durchgereicht wird (Set Z.9) | packages/core/src/auth/http.ts:9 |
-| `invalid_request` | core · auth/http | OAuth-Wire-Code, der durchgereicht wird (Set Z.9) | packages/core/src/auth/http.ts:9 |
-| `unsupported_grant_type` | core · auth/http | OAuth-Wire-Code, der durchgereicht wird (Set Z.9) | packages/core/src/auth/http.ts:9 |
-| `OAuthHttpError` (Klasse) | core · auth/http | Keine Antwort, Endpoint oder Form überlebt die Grenze (Z.10) | packages/core/src/auth/http.ts:11 |
+| `invalid_grant` | core · auth/http | OAuth-Wire-Code, der durchgereicht wird (Set Z.9) | packages/core/src/auth/http.ts:8 |
+| `authorization_pending` | core · auth/http | OAuth-Wire-Code, der durchgereicht wird (Set Z.9) | packages/core/src/auth/http.ts:8 |
+| `slow_down` | core · auth/http | OAuth-Wire-Code, der durchgereicht wird (Set Z.9) | packages/core/src/auth/http.ts:8 |
+| `expired_token` | core · auth/http | OAuth-Wire-Code, der durchgereicht wird (Set Z.9) | packages/core/src/auth/http.ts:8 |
+| `access_denied` | core · auth/http | OAuth-Wire-Code, der durchgereicht wird (Set Z.9) | packages/core/src/auth/http.ts:8 |
+| `invalid_client` | core · auth/http | OAuth-Wire-Code, der durchgereicht wird (Set Z.9) | packages/core/src/auth/http.ts:8 |
+| `invalid_request` | core · auth/http | OAuth-Wire-Code, der durchgereicht wird (Set Z.9) | packages/core/src/auth/http.ts:8 |
+| `unsupported_grant_type` | core · auth/http | OAuth-Wire-Code, der durchgereicht wird (Set Z.9) | packages/core/src/auth/http.ts:8 |
+| `OAuthHttpError` (Klasse) | core · auth/http | Keine Antwort, Endpoint oder Form überlebt die Grenze (Z.10) | packages/core/src/auth/http.ts:10 |
 
 ## packages/core/src/auth/refresh.ts
 | Code | Module | Meaning | Source |
