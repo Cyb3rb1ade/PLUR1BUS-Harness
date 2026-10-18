@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
         with: { toolchain: "1.95", components: "clippy, rustfmt" }
@@ -103,7 +103,7 @@ jobs:
       - name: slowest 20 test files
         if: always()
         run: node scripts/release/timing-summary.mjs test-timings
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: test-timings-${{ matrix.os }}
@@ -144,7 +144,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
         with: { toolchain: "1.95" }
@@ -200,7 +200,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
       - name: frozen dependencies (engine credential scoped to this step)
         shell: bash
@@ -242,7 +242,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0 }
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
         with: { toolchain: "1.95" }
@@ -318,7 +318,7 @@ jobs:
         run: '"$PY" hosts/hermes/tests/run_with_timeout.py discover -v -s hosts/hermes/tests -t hosts/hermes'
       - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
         with: { toolchain: "1.95" }
@@ -363,7 +363,7 @@ jobs:
       - name: setup WSL (attempt 1 of 3)
         id: wsl_setup_1
         continue-on-error: true
-        uses: Vampire/setup-wsl@d1da7f2c0322a5ee4f24975344f67fc0f5baf364 # v7.0.0
+        uses: Vampire/setup-wsl@4c48163d9f981914dd8caa0fc335fe19cca5bff4 # v7.2.0
         with:
           distribution: Ubuntu-24.04
           wsl-shell-user: root
@@ -378,7 +378,7 @@ jobs:
         id: wsl_setup_2
         if: steps.wsl_setup_1.outcome == 'failure'
         continue-on-error: true
-        uses: Vampire/setup-wsl@d1da7f2c0322a5ee4f24975344f67fc0f5baf364 # v7.0.0
+        uses: Vampire/setup-wsl@4c48163d9f981914dd8caa0fc335fe19cca5bff4 # v7.2.0
         with:
           distribution: Ubuntu-24.04
           wsl-shell-user: root
@@ -393,7 +393,7 @@ jobs:
         id: wsl_setup_3
         if: steps.wsl_setup_2.outcome == 'failure'
         continue-on-error: true
-        uses: Vampire/setup-wsl@d1da7f2c0322a5ee4f24975344f67fc0f5baf364 # v7.0.0
+        uses: Vampire/setup-wsl@4c48163d9f981914dd8caa0fc335fe19cca5bff4 # v7.2.0
         with:
           distribution: Ubuntu-24.04
           wsl-shell-user: root
@@ -424,7 +424,7 @@ jobs:
         uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
         with: { version: 10.28.0 }
       - if: steps.wsl_setup_status.outputs.ready == 'true'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
       - if: steps.wsl_setup_status.outputs.ready == 'true'
         run: pnpm install --frozen-lockfile
@@ -502,7 +502,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0 }
       - run: node --test scripts/release/test/*.test.mjs
       - name: install pinned actionlint (setup only)
@@ -547,7 +547,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with: { node-version: 24.21.0, cache: pnpm }
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
         with: { toolchain: '1.95' }
@@ -579,7 +579,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/perf-models"
           node scripts/bench/startup.mjs --runs 30 --real-models --models-cache "$RUNNER_TEMP/perf-models" --out startup-models
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: startup-${{ matrix.target }}
@@ -589,6 +589,57 @@ jobs:
             startup-models.json
             startup-models.md
           if-no-files-found: warn
+
+  perf-budgets:
+    name: budget catalogue (${{ matrix.os }}, advisory)
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, windows-2025, windows-11-arm, ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with: { node-version: 24.21.0, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
+        with: { toolchain: '1.95' }
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c
+      - name: install pinned dependencies
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          base="https://github.com/"
+          if [ -n "$GH_ENGINE_READ_TOKEN" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; fi
+          export GIT_CONFIG_COUNT=3
+          export GIT_CONFIG_KEY_0="url.${base}.insteadOf" GIT_CONFIG_VALUE_0='git@github.com:'
+          export GIT_CONFIG_KEY_1="url.${base}.insteadOf" GIT_CONFIG_VALUE_1='ssh://git@github.com/'
+          export GIT_CONFIG_KEY_2="url.${base}.insteadOf" GIT_CONFIG_VALUE_2='https://github.com/'
+          pnpm install --frozen-lockfile
+      - run: pnpm prep
+      - run: cargo build --release -p plur1bus
+      - name: O6 dry hardware baseline (known incomplete coverage is explicit)
+        shell: bash
+        run: |
+          set +e
+          node scripts/bench/reference-hardware.mjs --out reference-ci
+          result=$?
+          if [ "$result" = 2 ]; then
+            echo '::warning::Reference collector reports known incomplete B10 coverage / B5 miss; see JSON and Markdown. No gate promotion.'
+          else
+            exit "$result"
+          fi
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        if: always()
+        with:
+          name: budgets-${{ matrix.os }}
+          path: |
+            reference-ci.json
+            reference-ci.md
+          if-no-files-found: error
 
   # D100 golden set (separate, append-only job): render one document per template and compare against the committed
   # references (visual diff). Chrome is pinned (CHROME_VERSION) because the references are only comparable to renders of that
@@ -609,7 +660,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
       - uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
         id: chrome
@@ -637,7 +688,7 @@ jobs:
           node --experimental-strip-types --conditions=source packages/documents/scripts/golden.ts check
       - name: upload golden renders
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: golden-renders
           path: ${{ runner.temp }}/golden-renders

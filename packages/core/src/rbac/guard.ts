@@ -41,6 +41,7 @@ export function authenticatedPrincipal(ctx: CallContext): Principal {
 }
 
 export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
+  "voice.session.create": { ...rule("agent.use", agent), humanOnly: true },
   "budget.set": { ...rule("settings.write", system), humanOnly: true },
   "chat.create": rule("chat:write", system),
   "chat.list": rule("chat:read", system),

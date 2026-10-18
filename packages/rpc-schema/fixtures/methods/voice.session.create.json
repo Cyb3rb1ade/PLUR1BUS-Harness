@@ -1,0 +1,4 @@
+{
+  "params": { "agentId": "main", "provider": "openai:realtime", "model": "fixture-model", "transport": "webrtc", "sdp": "v=0" },
+  "result": { "sessionId": "voice-main", "sdpAnswer": "v=0" }
+}
