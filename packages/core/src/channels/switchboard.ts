@@ -1,3 +1,4 @@
+import { createEgress } from "../egress/service.ts";
 // The switchboard host: the one place that starts, stops and watches the channel adapters inside the core process.
 //
 // How channels run (R3 step 0): the adapters are libraries behind the core `Channel` contract. The core process hosts them with
@@ -44,6 +45,7 @@ export interface ApprovalDecisionLike { promptId: string; chatId: string; sender
 
 /** A core `Channel` plus the optional adapter ports the host uses when the adapter has them. */
 export interface HostedChannel extends Channel {
+  cryptoVerification?(input: import("../../../channels-matrix/src/crypto-memory.ts").VerificationInput): Promise<Record<string, unknown>>;
   prompt?(req: ApprovalPromptLike): Promise<{ promptId: string; refs: readonly unknown[] }>;
   onDecision?(handler: (d: ApprovalDecisionLike) => void | Promise<void>): () => void;
   /** Sends a media-store image to a chat (bytes are read and verified by the adapter through the `outputs` port). */
@@ -209,6 +211,11 @@ class Host implements Switchboard {
       probe: async (n) => { const h = await r.probe(n); return h && { ...h, ...(h.detail !== undefined ? { detail: this.#redact(h.detail) } : {}) }; },
       sendTo: (n, m) => r.sendTo(n, m),
       ownerTarget: (n, who) => this.#ownerTarget(n, who),
+      cryptoVerification: async (name, input) => {
+        const channel = this.#live.get(name);
+        if (!channel?.cryptoVerification) throw new Error("crypto verification unavailable");
+        return channel.cryptoVerification(input);
+      },
     };
     this.approvalEvents = {
       emit: (name, payload) => {
@@ -359,6 +366,7 @@ class Host implements Switchboard {
       logger,
       now: () => o.clock.now(),
       stateDir: this.#stateDirOf(id),
+      ...(id === "buzz" ? { egress: createEgress({ config: () => o.config.current().egress }) } : {}),
       ...(o.adapterDeps?.[id] ?? {}),
     };
   }

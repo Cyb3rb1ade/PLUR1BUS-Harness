@@ -259,6 +259,16 @@ Pages depend on the `Api` interface (`rpc`, `get`, `post`, `put`, `patch`, `dele
   parameters are masked. A settings hit navigates to `#/settings?focus=<key>`; the router drops the query and
   the page is a placeholder (F16, F27).
 
+- **Decision-model hint** (`src/pages/common/decision-hint.ts`, keys `shared.decisionHint.*`). Without `modelRoles.decision` the built-in
+  rule triage runs (a normal mode, not an error), but model-based message triage, tool pre-selection and the model class and effort
+  per task are limited. The notice names these three and the way to set the role (Settings, Models & providers, and
+  `plur1bus config set modelRoles.decision <provider/model>`). It shows in the setup wizard (model step and summary, reading
+  `modelRoles.decision` with `config.get`; a failed read still shows it, the wizard never sets the role) and on the Models & providers
+  settings section; it disappears once the role is a non-empty string. The same three features are listed by `plur1bus setup`
+  (`config` step, `detail.decisionRole`) and by the `models.decision` row of `1staid check` (`info`, never a warning). Tests:
+  `test/decision-hint.test.ts`. The `modelRoles` object is still shown read-only in the settings form, so the role is set on the
+  command line for now.
+
 ## Tests and verification
 
 ```bash

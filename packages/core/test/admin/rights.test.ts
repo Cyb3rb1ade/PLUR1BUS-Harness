@@ -33,3 +33,20 @@ test("session mutation checks stored agent use rights and never permits a foreig
   roles.setRight("alpha","self",null);await assert.rejects(methods["session.create"]!({agentId:"alpha"},ctx()),(e:any)=>e.error==="E_DENIED");
   assert.deepEqual(executed,["session.submit"]);
 });
+
+test("session mutation access resolves ephemeral sessions through the lookup, still scoped to the owner and stored agent rights", async t => {
+  const { sessionWriteAccess }=await import("../../src/rpc/session-access.ts");
+  const { SessionStore }=await import("../../src/session/store.ts");
+  const { guardMethods }=await import("../../src/rbac/guard.ts");
+  const roles=new AdminStore({path:":memory:",ownerId:"owner"}),durable=new SessionStore({path:":memory:"}),volatile=new SessionStore({path:":memory:"});
+  t.after(()=>{roles.close();durable.close();volatile.close();});
+  const own=volatile.createSession({agentId:"alpha",kind:"direct",owner:"self",memoryMode:"incognito"}),foreign=volatile.createSession({agentId:"alpha",kind:"direct",owner:"other",memoryMode:"incognito"});
+  const executed:string[]=[]; const stubs={"session.model.set":async(p:any)=>{executed.push(p.sessionId);return {};}};
+  const lookup=(id:string)=>volatile.getSession(id)?volatile:durable;
+  const methods=guardMethods(sessionWriteAccess({methods:stubs,sessions:()=>durable,lookup,ownership:()=>["self"]}),{resolve:()=>roles.resolve({userId:"self",role:"member",kind:"person"}),now:()=>1});
+  const ctx=()=>({requestId:"offline",connectionId:"offline",signal:new AbortController().signal});
+  await assert.rejects(methods["session.model.set"]!({sessionId:own.id},ctx()),(e:any)=>e.error==="E_DENIED");
+  roles.setRight("alpha","self","use");await methods["session.model.set"]!({sessionId:own.id},ctx());
+  await assert.rejects(methods["session.model.set"]!({sessionId:foreign.id},ctx()),(e:any)=>e.error==="E_NOT_FOUND");
+  assert.deepEqual(executed,[own.id]);
+});

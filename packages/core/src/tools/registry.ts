@@ -38,6 +38,7 @@ export interface ToolClassification {
 export interface ToolDef {
   /** `[a-z][a-z0-9_.-]{0,63}`. */
   name: string;
+  discovery?: { kind?: "tool" | "mcp-tool" | "plugin-command" | "channel-action"; category?: string; summary?: string; useWhen?: string; notFor?: string };
   description: string;
   /** JSON Schema (object) of the parameters; validated by `validateArgs` (`repair.ts`). */
   inputSchema: Record<string, unknown>;
@@ -94,7 +95,7 @@ export class ToolRegistry {
     let schema: Record<string, unknown>;
     try { schema = JSON.parse(JSON.stringify(d.inputSchema)) as Record<string, unknown>; } catch { return bad("schema", "inputSchema is not JSON"); }
     this.#tools.set(d.name, deepFreeze({
-      name: d.name, description: d.description, inputSchema: schema, capability: cap.id, effect: d.effect, risk: d.risk,
+      name: d.name, ...(d.discovery ? { discovery: structuredClone(d.discovery) } : {}), description: d.description, inputSchema: schema, capability: cap.id, effect: d.effect, risk: d.risk,
       trust: d.trust ?? "untrusted", limits: { timeoutMs, maxResultBytes },
       ...(d.classify ? { classify: d.classify } : {}), execute: d.execute,
     }));

@@ -76,6 +76,10 @@
       "stability": "experimental",
       "since": "1.6.0"
     },
+    "voice.session.create": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "voice.realtime.start": {
       "stability": "experimental",
       "since": "1.6.0"
@@ -744,6 +748,10 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "channel.crypto": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "channel.get": {
       "stability": "experimental",
       "since": "1.5.0"
@@ -831,6 +839,10 @@
     "identity.unlink": {
       "stability": "experimental",
       "since": "1.5.0"
+    },
+    "session.model.set": {
+      "stability": "experimental",
+      "since": "1.7.0"
     },
     "session.create": {
       "stability": "experimental",

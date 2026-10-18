@@ -10,6 +10,7 @@ import { FailureState, Notice } from "../../common/states.ts";
 import { currentRole, getApi, roleIn, useLoad } from "../../common/load.ts";
 import type { SectionProps } from "../page.ts";
 import { setUnsaved } from "../unsaved.ts";
+import { DecisionHint, decisionRoleMissing } from "../../common/decision-hint.ts";
 import { FieldRow, groupOf, groupTitle, RestartBadge } from "../config/fields.ts";
 import { fieldId } from "../config/meta.ts";
 import { buildFields, collectChanges, initialDraft, mapInvalid, restartKind, show, type Change, type Draft, type Field } from "../config/model.ts";
@@ -178,6 +179,7 @@ function Form({ data, section, focus, onSaved, reload }: FormProps): View {
   return h("div", { class: "cfg-form" },
     !canWrite ? h(Notice, { tone: "info" }, h("span", { id: "cfg-ro" }, t("settings.cfg.readOnlyRole"))) : null,
     focus !== undefined && !focused ? h(Notice, {}, t("settings.cfg.focusUnknown", { key: focus })) : null,
+    section.id === "models" && decisionRoleMissing(data.config) ? h(DecisionHint, { where: "settings" }) : null,
     banner ? h("div", { class: "form-notice", "data-tone": banner.tone, role: "alert" }, banner.text, banner.reload ? [" ", h("button", { type: "button", class: "btn btn-quiet", onClick: reload }, t("settings.cfg.reload"))] : null) : null,
     groups.map(([g, fs]) => {
       const gid = `cfg-group-${g || "other"}`;

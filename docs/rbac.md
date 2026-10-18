@@ -305,6 +305,7 @@ Assigned roles and explicit agent rights are read from `state/admin.sqlite` on e
 | `inbox.markRead`, `inbox.dismiss` | `inbox.write` | All five, human principals only; own entries only, foreign ids change nothing |
 | `session.list` | `admin.sessions.read` | All five; Member own only; Owner/Admin/Operator/Viewer may filter all metadata |
 | `session.get`, `session.resume`, `session.events` | `admin.sessions.transcript` | All five; own session or live audited Break-Glass grant |
+| `session.model.set` | `admin.sessions.write` | Human Owner, Admin, Operator, Member; own idle direct session and `agent.use`; never WebMCP |
 | `session.create`, `session.submit`, `session.cancel`, `session.archive` | `admin.sessions.write` | Owner, Admin, Operator, Member; own session and `agent.use` required |
 | `memory.list`, `memory.show` | `admin.memory.read` | All five; optional `targetUserId` requires `agent.read` and live library `memory.user.read` authorization |
 | `pairing.qr` | `admin.pairing.read` | Owner, Admin; existing payload only, no code issuance |
@@ -410,7 +411,7 @@ The session-only `/rpc` gateway uses an explicit exposure list in `packages/api/
 
 Config get/set and module list/graph use the supervisor, which obtains current identity from the core; config writes are Owner/Admin and additionally obey every affected x-write-roles annotation, including parent replacements. Annotations and sensitivity are checked at the mutation boundary. Internal lifecycle/auth/subscription RPCs, admin backup/import, secret reveal and raw caller-based memory calls remain excluded. For legacy methods without a guard, API admission is conservative: actual Owner only, except authorized diagnostics and filtered agent listing. This is narrower than the previous local-token compatibility path. Remaining exposed methods keep their existing Core policy and humanOnly requirements.
 
-Person-bound SSE is independent of WebMCP. An event requires a matching person/connection audience; only process-only core.state is globally forwarded. Replay retains already filtered events per person and session. A delegated connection has no automatic step-up/OS attestation. See [api.md](api.md#browser-rpc-and-events) for limits and local trust boundaries.
+Person-bound SSE is independent of WebMCP. An event requires a matching person/connection audience, or (for recall, jobs, dreams, ACL denials and agent activity) a typed agent audience plus current `agent.read` permission; only process-only `core.state` is globally forwarded. Subscription filters do not grant access. Explicit agent subscriptions are checked at admission and agent events are checked again at delivery, so rights revocation takes effect on existing subscriptions. Owner/Admin see all agents; Member/Viewer need `use` or `manage` rights. Operator follows the existing `agent.read` policy. Local owner IPC keeps its unfiltered event stream. Replay retains already filtered events per person and session. A delegated connection has no automatic step-up/OS attestation. See [api.md](api.md#browser-rpc-and-events) for limits and local trust boundaries.
 
 ### Agent activity history
 
