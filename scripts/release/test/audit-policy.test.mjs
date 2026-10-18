@@ -84,3 +84,9 @@ test('pnpm configuration cannot provide a second, unversioned advisory allowlist
   assert.throws(() => assertNoPnpmIgnores('{"ignoreGhsas":["GHSA-aaaa-bbbb-cccc"]}'));
   assert.throws(() => assertNoPnpmIgnores('{"ignoreUnfixable":true}'));
 });
+
+test('KNOWN GAP: an exception is not scoped to the package it was approved for', { todo: 'KNOWN GAP: audit-allowlist.json entries match by advisory ID only, so RUSTSEC-2026-0367..0369 approved for zip 4.6.1 also hide other crates' }, () => {
+  const approved = validateAllowlist(policy({ advisoryId: 'RUSTSEC-2026-0367', reason: 'zip 4.6.1 behind the signature-checked updater', created: '2026-10-15', expires: '2027-01-13' }), now);
+  const other = { id: 'RUSTSEC-2026-0367', package: 'other-crate@1.0.0', severity: 'high' };
+  assert.equal(evaluate([other], [], approved)[0].block, true);
+});
