@@ -210,8 +210,14 @@ class BindingTest(unittest.TestCase):
             root_link = os.path.join(self.root, "root-link")
             os.symlink(r, root_link)
             self.assertEqual(agent_id_for(os.path.join(r, "profiles", "work"), default_root=root_link), "hermes-work")
-        # The default root comes from HOME when not given.
-        self.assertEqual(agent_id_for(r, env={"HOME": os.path.join(self.root, "u")}, platform="linux"), "hermes-default")
+        # Native filesystem paths use the native platform. Shared vectors below
+        # continue to cover synthetic POSIX and Windows path classification.
+        if sys.platform == "win32":
+            local = self._dir("native-local")
+            native_root = self._dir("native-local", "hermes")
+            self.assertEqual(agent_id_for(native_root, env={"LOCALAPPDATA": local}, platform="win32"), "hermes-default")
+        else:
+            self.assertEqual(agent_id_for(r, env={"HOME": os.path.join(self.root, "u")}, platform=sys.platform), "hermes-default")
 
     def test_shared_fold_vectors(self) -> None:
         for case in _vectors("binding-vectors.json")["fold"]:

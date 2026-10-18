@@ -15,7 +15,7 @@ not commitments. Test references are `file > test name` relative to `packages/co
 | File | Role |
 |---|---|
 | `index.ts` | `openTurnComposition`: opens budget, voice, auth, MCP, media, sessions, collaboration, in this order, and closes them in reverse. `approvalPolicyContext` (fail closed when the permission stores are not open) and `routerEventSink` (router events to log and audit). |
-| `auth.ts` | `composeAuth`: one streaming adapter per provider definition, credential lease per attempt (each leased value is registered for redaction), tool-call dialect family per wire format, billing class per provider (`billingClassOf`, refused at load when it cannot be determined). |
+| `auth.ts` | `composeAuth`: one streaming adapter per provider definition, credential lease per attempt (each leased value is registered for redaction), tool-call dialect family per wire format, billing class per provider (`billingClassOf`; a provider whose class cannot be determined is refused at load, the others are unaffected). |
 | `provider.ts` | `createTurnProvider`: the turn loop (identity, triage, tool registry, capability routing, prompt, provider call, tool dispatch, result cap), repair of invalid tool arguments, budget tickets and retry budget, cross-billing refusal. |
 | `http.ts` | `providerFetch` (egress decision, pinned address, no redirects) and `anthropicBreakpoints` (cache markers for the Anthropic wire body). |
 | `media.ts` | `composeMedia`: the first configured image adapter, wrapped so that egress and the secret lease happen per operation; the output store under `<home>/media/outputs`. |
@@ -28,7 +28,7 @@ not commitments. Test references are `file > test name` relative to `packages/co
 
 ADR-005: a fallback must not cross silently between a subscription ("plan") and a metered ("paid") provider. The class of
 each provider is derived once in `composeAuth` and stored in `billing[providerId]`. Every composed provider has a class:
-a provider without one is refused at load (fail closed, below).
+a provider without one is refused at load, alone (fail closed, below).
 
 Order of decision:
 
@@ -40,12 +40,18 @@ Order of decision:
 
 Tests: `billing.test.ts`.
 
-* **Unknown explicit path, unknown kind or missing profile: refused at load.** `billingClassOf` answers `undefined` for an
-  explicit path outside the vocabulary (`enterprise`, `""`, `PLAN`: the match is case-sensitive and never falls back to the
-  credential kind), for an unknown credential kind and for a missing profile. `composeAuth` then refuses the whole provider
-  set before anything is composed, with `E_CONFIG_INVALID` (`ids.provider` names the provider, `detail` says why). The
-  composition root logs `turn providers unavailable` and no turn reaches a provider until the configuration is fixed.
-  Correct configurations get the same classes as before. Tests: `auth.test.ts > fail closed: ...` (one test per case),
+* **Unknown explicit path, unknown kind or missing profile: that provider is refused at load.** `billingClassOf` answers
+  `undefined` for an explicit path outside the vocabulary (`enterprise`, `""`, `PLAN`: the match is case-sensitive and never
+  falls back to the credential kind), for an unknown credential kind and for a missing profile. `composeAuth` then refuses
+  only that provider: it gets no adapter, no class and no model-profile candidate (a profile left without candidates is
+  dropped), so it can never run without a billing class. Every other provider is composed and serves turns as before. If all
+  are refused, no provider is composed and turns answer `no-provider`, as before. The refusal is reported, not thrown:
+  `composeAuth` returns `refused` (`{ provider, code: "E_CONFIG_INVALID", reason }`), the composition root logs one
+  `turn provider refused` error per provider (`code`, `provider`, `reason`), `TurnComposition.refusedProviders` carries the
+  list, and `doctor.report` shows one failing check `providers.<id>` per refused provider (no new error code, no new RPC
+  field: the check list of the existing report grows). Correct configurations get the same classes as before. Tests:
+  `auth.test.ts > fail closed: ...` (one test per case, plus all-refused and model profiles), `open.test.ts > one provider
+  without a billing class is refused and reported ...`, `doctor-report.test.ts > lists composition problems ...`,
   `auth.test.ts > records the billing class of every correct definition unchanged (plan vs paid, ADR-005)`,
   `billing.test.ts > an unknown explicit billing path is unknown (undefined), never a fallback to the kind`.
 * The guard in `provider.ts` compares `billing[primary]` with `billing[candidate]` and refuses when both are set and differ
@@ -146,7 +152,7 @@ exception object. Span ids are 16 hex characters, trace ids 32.
 
 Observations from the test wave (#422). Fixed points stay listed with the test that now pins the behaviour.
 
-1. **Fixed: a mistyped `billingPath` disabled the billing check for that provider.** It is now refused at load with
+1. **Fixed: a mistyped `billingPath` disabled the billing check for that provider.** It is now refused at load (that provider only) with
    `E_CONFIG_INVALID` ([Billing class](#billing-class-billingclassof-authts); `auth.test.ts > fail closed: a misspelled billingPath refuses the provider at load with E_CONFIG_INVALID`).
 2. **Fixed: unknown kinds and missing profiles silently yielded no class.** Same refusal (`auth.test.ts > fail closed: an unknown credential kind refuses the provider at load with E_CONFIG_INVALID`,
    `auth.test.ts > fail closed: a missing profile refuses the provider at load with E_CONFIG_INVALID`).

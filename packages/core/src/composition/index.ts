@@ -29,7 +29,7 @@ import { createPolicyAudit } from '../policy/audit.ts';
 import type { GrantSource } from '../policy/index.ts';
 import { createMcpRegistry } from '../mcp/index.ts';
 import { composeMedia, type MediaDefinition } from './media.ts';
-import { composeAuth, type ProviderDefinition } from './auth.ts';
+import { composeAuth, type ProviderDefinition, type RefusedProvider } from './auth.ts';
 import { composeTools, type ToolCompositionOptions } from './tools.ts';
 import { agentSecretRefs } from '../agents/secrets.ts';
 import type { SecretNamesPort } from '../tools/secret-names.ts';
@@ -73,7 +73,7 @@ export interface CompositionDeps {
   /** web.search over the SearXNG sidecar (`sidecars/web-search.ts`); absent, no search tool is registered. */
   webSearch?: import('../tools/web/search.ts').WebSearch;
 }
-export interface TurnComposition { discoveryCredentials: (definition: ProviderDefinition) => import("../auth/credentials.ts").CredentialsProvider | undefined; voice: VoiceRuntime; openai: OpenAIRuntime; sessions: SessionService; collab: Collab | null; surfaceMethods: Record<string, Handler>; close(): Promise<void> }
+export interface TurnComposition { /** Provider definitions refused at composition (`E_CONFIG_INVALID`); they serve no turn. Empty when all were composed. */ refusedProviders: readonly RefusedProvider[]; discoveryCredentials: (definition: ProviderDefinition) => import("../auth/credentials.ts").CredentialsProvider | undefined; voice: VoiceRuntime; openai: OpenAIRuntime; sessions: SessionService; collab: Collab | null; surfaceMethods: Record<string, Handler>; close(): Promise<void> }
 /** secret_names backend: the agent's configured secret references, with presence from the store's metadata (never a value). */
 export function secretNamesPort(d: Pick<CompositionDeps, 'config' | 'secrets'>): SecretNamesPort {
   return {
@@ -138,6 +138,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     disposers.push(() => registered.clear());
     const auth = isolated('turn providers', () => composeAuth({ config: cfg, definitions, openai, secrets: d.secrets, egress: d.egress, registerSecret, log: record => d.logger.info('turn.stage', { ...record }), ...(options.fetch ? { fetch: options.fetch } : {}) }));
     if (auth) disposers.push(() => auth.close());
+    for (const r of auth?.refused ?? []) d.logger.error('turn provider refused', { code: r.code, provider: r.provider, reason: r.reason });
     const hostctl = createHostctlPool({ config: cfg.tools?.hostctl, audit: event => d.audit.append({ at: d.clock(), actor: { user: event.principal, host: 'local' }, action: event.operation, target: event.paths.join(';'), detail: { ...event } }) });
     disposers.push(() => hostctl.close());
     const audit = createPolicyAudit({ sink: d.audit, clock: { now: d.clock }, ...(d.secrets.redaction ? { redactor: d.secrets.redaction.redactor() } : {}) });
@@ -230,7 +231,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     }, ...(d.approver ? { approver: d.approver } : {}) });
     let closed = false;
     const opened = sessions;
-    return { discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, surfaceMethods: { ...mediaSurface.methods, ...mediaSearchMethods({ home: d.home, config: d.config, agents: d.agents }, mediaSearch) }, async close() {
+    return { refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, surfaceMethods: { ...mediaSurface.methods, ...mediaSearchMethods({ home: d.home, config: d.config, agents: d.agents }, mediaSearch) }, async close() {
       if (closed) return; closed = true;
       await collab?.shutdown();
       await opened.close();

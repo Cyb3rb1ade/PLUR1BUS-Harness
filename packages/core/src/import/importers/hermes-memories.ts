@@ -244,6 +244,9 @@ export async function importHermesMemories(opts: {
     trust: "proved",
   };
   const systemAgent = { origin: "system", background: false } as const;
+  // The import run is part of the card's origin (provenance "imported" + source + run + time). The card id and the
+  // idempotency key do not depend on it, so a re-run matches the existing card and keeps the first run's origin.
+  const runSuffix = ledger ? `;run=${ledger.runId}` : "";
 
   // 1. Process memories/MEMORY.md (agent-scoped)
   const memoryMdPath = join(profileDir, "memories", "MEMORY.md");
@@ -278,7 +281,7 @@ export async function importHermesMemories(opts: {
           idempotencyKey: key,
           text: cardText,
           provenance: "imported",
-          sourceRef: `hermes:${profileName}:memories/MEMORY.md#${i + 1}`,
+          sourceRef: `hermes:${profileName}:memories/MEMORY.md#${i + 1}${runSuffix}`,
           scope: "agent-private",
           isDuplicateInRun,
         });
@@ -432,7 +435,7 @@ export async function importHermesMemories(opts: {
           idempotencyKey: cardIdempotencyKey("hermes", profileName, "memories/USER.md", cardText),
           text: cardText,
           provenance: "imported" as const,
-          sourceRef: `hermes:${profileName}:memories/USER.md#${i + 1}`,
+          sourceRef: `hermes:${profileName}:memories/USER.md#${i + 1}${runSuffix}`,
           scope: "user" as const,
         }));
 
