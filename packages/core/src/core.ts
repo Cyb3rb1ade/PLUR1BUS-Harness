@@ -640,7 +640,7 @@ export function createCore(o: CoreOptions): Core {
           return t;
         },
       });
-      try { turnComposition = await openTurnComposition({ home: l.home, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
+      try { turnComposition = await openTurnComposition({ home: l.home, systemJobs, supervised: o.supervisorConfig !== undefined, config: cfg, engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
         voiceConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal, resolveCollaborationPerson: id => people.resolvePerson(id), secrets: secretStore, egress, permissions: perms, audit: rbacAudit, identity, clock, signal: shutdown.signal, webSearch: webSearch.search,
         // D109 §5: the submitting connection's approver and surface, derived by the core; a non-person can still chat (tool-less or
         // grant-covered turns) and is refused with a typed error only when a call needs a person's approval.
@@ -849,7 +849,7 @@ export function createCore(o: CoreOptions): Core {
       rawMethods["agent.status"] = async (p, ctx) => { if (lifecycle.state(p.agentId).deleted) throw new RpcError("E_NOT_FOUND", "agent not found"); return { ...await agentStatus!(p,ctx) as object, lifecycle: lifecycle.state(p.agentId) }; };
       Object.assign(rawMethods, breakglassMemory({ methods: rawMethods, engine: eng, identity: identityService, breakglass, workspace: id => registry.workspaceOf(id) }));
       let initialDoctorCheck: (() => Promise<unknown>) | undefined;
-      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; } }));
+      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, capabilityStatus: () => turnComposition?.capabilities.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; } }));
       Object.assign(rawMethods, attachUserJobMethods({ ...rawMethods }, userJobs, resolvePrincipal));
       const methods = guardMethods(apiAdmission(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
       server = createRpcServer({
