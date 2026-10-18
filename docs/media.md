@@ -249,7 +249,9 @@ plur1bus media rm <output-id>
 ```
 
 `--wait` reports progress on stderr and returns a terminal job; JSON stdout remains
-one document. It waits up to ten minutes; timeout leaves the job queryable. `--out`
+one document. It waits up to ten minutes; timeout leaves the job queryable. A job that
+ends `failed` or `cancelled` exits 1 with `E_INTERNAL`, `reason=media-job-failed` (the job's error is `detail`); a
+wait that runs out exits 1 with `E_INTERNAL`, `reason=media-wait-timeout` ([errors.md](errors.md#media-reasons-plur1bus-media---wait)). `--out`
 creates a new file and preserves existing files. References and masks are existing
 private output IDs, not arbitrary paths or provider URLs. RPC image transfer is
 bounded to 16 MiB per file; larger files remain stored. Output deletion preserves
