@@ -265,6 +265,29 @@ pub fn chat(out: &Out, layout: &Layout, args: ChatArgs) {
             (v["session"]["id"].as_str().unwrap_or("").to_string(), agent)
         }
     };
+    if let Some(profile) = args.model {
+        let preview = call(
+            out,
+            &mut c,
+            "session.model.set",
+            json!({ "caller": &caller, "sessionId": &session_id, "profile": &profile }),
+        );
+        let german = std::env::var("LANG").unwrap_or_default().starts_with("de");
+        let warning = if german {
+            "Modell wechseln? Der Cache wird neu aufgebaut; neue Cache-Schreibkosten und andere Modellkosten können entstehen. Die Präfixe pro Modell bleiben erhalten."
+        } else {
+            "Switch model? The cache will rebuild; new cache writes and different model costs may apply. Per-model prefixes are preserved."
+        };
+        // Even --yes callers see the warning; raw JSON remains solely the RPC result on stdout.
+        eprintln!("{warning}");
+        crate::commands::module::confirm(out, warning, args.yes);
+        call(
+            out,
+            &mut c,
+            "session.model.set",
+            json!({ "caller": &caller, "sessionId": &session_id, "profile": &profile, "confirmed": true, "expectedRevision": preview["revision"] }),
+        );
+    }
     let mut turn = |text: &str| {
         let v = call(
             out,
@@ -273,13 +296,27 @@ pub fn chat(out: &Out, layout: &Layout, args: ChatArgs) {
             json!({ "caller": &caller, "sessionId": &session_id, "text": text, "wait": true }),
         );
         let failed = v["state"].as_str() == Some("failed");
-        out.ok("chat.turn/1", &v, || match v["reply"].as_str() {
+        let human = || match v["reply"].as_str() {
             Some(r) => r.to_string(),
             None => format!(
                 "(turn failed: {})",
                 v["error"].as_str().unwrap_or("unknown")
             ),
-        });
+        };
+        if failed {
+            // The core's `error` string moves to `detail`; the document stays one per turn.
+            let mut failure = crate::output::Failure::new(
+                "E_INTERNAL",
+                "turn-failed",
+                "the turn failed (see detail)",
+            );
+            if let Some(why) = v["error"].as_str() {
+                failure.extra["detail"] = json!(why);
+            }
+            out.print_failed("chat.turn/1", &v, human, &failure);
+        } else {
+            out.ok("chat.turn/1", &v, human);
+        }
         failed
     };
     if let Some(m) = args.message {

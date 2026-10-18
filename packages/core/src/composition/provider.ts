@@ -168,7 +168,9 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const taskScope = JSON.stringify([req.agentId, principal, req.sessionId]);
     const atBoundary = req.taskBoundary?.atBoundary ?? decision.shape !== 'followup';
     let profile = defaultProfile;
-    if (!coreOnly) {
+    // A session-selected model profile (session.setModel) overrides the class choice; the decision role keeps its own model.
+    if (req.modelProfile && req.role !== 'decision') profile = req.modelProfile;
+    else if (!coreOnly) {
       if (!atBoundary && taskProfiles.has(taskScope)) profile = taskProfiles.get(taskScope)!;
       else try { profile = o.profileForClass?.(modelClass) ?? defaultProfile; if (!o.profiles[profile]?.length) throw Error('class-profile-unavailable'); }
       catch { coreOnly = true; profile = defaultProfile; await stage('triage-fallback', signal, o.log, () => undefined); }
