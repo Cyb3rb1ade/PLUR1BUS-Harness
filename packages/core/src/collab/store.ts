@@ -244,12 +244,12 @@ export class CollabStore {
 
   finishSpan(spanId: string, patch: {
     status: SpanStatus; outputPreview?: string; error?: string | null; guardrail?: string | null;
-    inputTokens?: number; outputTokens?: number; costEstimate?: number | null;
+    inputTokens?: number; outputTokens?: number; costEstimate?: number | null; targetKind?: import("./types.ts").Provenance["targetKind"];
   }): void {
     this.#run(
-      "UPDATE spans SET ended_at=?, status=?, output_preview=?, error=?, guardrail=?, input_tokens=?, output_tokens=?, cost_estimate=? WHERE span_id=?",
+      "UPDATE spans SET ended_at=?, status=?, output_preview=?, error=?, guardrail=?, input_tokens=?, output_tokens=?, cost_estimate=?, target_kind=? WHERE span_id=?",
       this.#clock(), patch.status, patch.outputPreview ?? "", patch.error ?? null, patch.guardrail ?? null,
-      patch.inputTokens ?? 0, patch.outputTokens ?? 0, patch.costEstimate ?? null, spanId,
+      patch.inputTokens ?? 0, patch.outputTokens ?? 0, patch.costEstimate ?? null, patch.targetKind ?? null, spanId,
     );
   }
 
@@ -299,15 +299,15 @@ export class CollabStore {
 
   updateTask(id: string, patch: {
     status: TaskStatus; result?: string | null; truncated?: boolean; artifactId?: string | null;
-    error?: string | null; inputTokens?: number; outputTokens?: number;
+    error?: string | null; inputTokens?: number; outputTokens?: number; targetKind?: import("./types.ts").Provenance["targetKind"];
   }): DelegateTask {
     const now = this.#clock();
     const started = patch.status === "running" ? now : undefined;
     this.#run(
-      `UPDATE tasks SET status=?, result_capped=?, truncated=?, result_artifact_id=?, error=?, ended_at=?, input_tokens=?, output_tokens=?
+      `UPDATE tasks SET status=?, result_capped=?, truncated=?, result_artifact_id=?, error=?, ended_at=?, input_tokens=?, output_tokens=?, target_kind=?
        ${started !== undefined ? ", started_at=?" : ""} WHERE id=?`,
       patch.status, patch.result ?? null, patch.truncated === true ? 1 : 0, patch.artifactId ?? null, patch.error ?? null,
-      patch.status === "running" ? null : now, patch.inputTokens ?? null, patch.outputTokens ?? null,
+      patch.status === "running" ? null : now, patch.inputTokens ?? null, patch.outputTokens ?? null, patch.targetKind ?? null,
       ...(started !== undefined ? [started, id] : [id]),
     );
     if (patch.status === "succeeded" || patch.status === "failed" || patch.status === "cancelled") this.#endTaskGrants(id);
@@ -350,6 +350,7 @@ export class CollabStore {
 
 function toSpan(r: Row): CollabSpan {
   return {
+    ...(r.target_kind ? { targetKind: r.target_kind as import("./types.ts").Provenance["targetKind"] } : {}),
     ...(r.session_id ? { sessionId: r.session_id as string } : {}),
     spanId: r.span_id as string, traceId: r.trace_id as string, parentSpanId: (r.parent_span_id as string | null) ?? null,
     agentId: r.agent_id as string, kind: r.kind as CollabSpan["kind"], startedAt: r.started_at as number,
@@ -364,6 +365,7 @@ function toSpan(r: Row): CollabSpan {
 function toTask(r: Row): DelegateTask {
   const artifactId = (r.result_artifact_id as string | null) ?? null;
   return {
+    ...(r.target_kind ? { targetKind: r.target_kind as import("./types.ts").Provenance["targetKind"] } : {}),
     id: r.id as string, projectId: r.project_id as string, traceId: r.trace_id as string, spanId: r.span_id as string,
     parentTaskId: (r.parent_task_id as string | null) ?? null, fromAgent: r.from_agent as string, toAgent: r.to_agent as string,
     status: r.status as TaskStatus, task: r.task as string, acceptanceCriteria: r.acceptance as string,
