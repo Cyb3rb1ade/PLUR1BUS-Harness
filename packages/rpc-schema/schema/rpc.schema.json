@@ -8812,6 +8812,78 @@
         "params": {"type": "object", "additionalProperties": false, "required": ["caller", "linkId"], "properties": {"caller": { "$ref": "#/$defs/CallerIdentity" }, "linkId": { "type": "string", "minLength": 1 }}},
         "result": { "$ref": "#/$defs/IdentityLink" }
       },
+      "session.model.set": {
+        "x-stability": "experimental",
+        "x-since": "1.7.0",
+        "x-server": "core",
+        "description": "Preview a model-profile switch and its cache/cost warning; applies only with confirmed=true and the preview revision. Own idle direct sessions only. Per-model stable prefixes are retained.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "caller",
+            "sessionId",
+            "profile"
+          ],
+          "properties": {
+            "caller": {
+              "$ref": "#/$defs/CallerIdentity"
+            },
+            "sessionId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "profile": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "expectedRevision": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessionId",
+            "profile",
+            "previousProfile",
+            "revision",
+            "applied",
+            "warning"
+          ],
+          "properties": {
+            "sessionId": {
+              "type": "string"
+            },
+            "profile": {
+              "type": "string"
+            },
+            "previousProfile": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "applied": {
+              "type": "boolean"
+            },
+            "warning": {
+              "const": "cache-rebuild-cost-prefixes-preserved"
+            }
+          }
+        }
+      },
       "session.create": {
         "x-stability": "experimental", "x-since": "1.5.0", "x-server": "core",
         "description": "Opens a session for the caller (the owner is derived from the caller identity). Only direct and channel sessions are created here; card/project/acp sessions belong to their modules. A channel session needs chatKey and, per D21, at most one is active per chat: a second create is E_CONFLICT unless replaceActive archives the first (/new).",

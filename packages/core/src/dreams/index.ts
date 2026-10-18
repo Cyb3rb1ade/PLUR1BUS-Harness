@@ -46,3 +46,16 @@ export function createDreams(o: DreamsOptions): Dreams {
     stop: async () => { try { await scheduler.stop(); } finally { store.close(); } },
   };
 }
+
+/**
+ * For the code that removes an agent (the composition root): drops the agent's schedule rows at once instead of at the next start.
+ * Call it after the registry no longer lists the agent (`forgetAgent` refuses a registered one). Never throws: a failure is logged
+ * and the next start's cleanup removes the rows.
+ */
+export function forgetRemovedAgent(scheduler: Pick<DreamScheduler, "forgetAgent"> | null | undefined, agentId: string, logger: DreamLogger): void {
+  if (!scheduler) return;
+  try {
+    const rows = scheduler.forgetAgent(agentId);
+    if (rows > 0) logger.info("dreams schedule rows of a removed agent deleted", { agentId, rows });
+  } catch (err) { logger.warn("dreams schedule rows of a removed agent kept until the next start", { agentId, err: String((err as Error)?.message ?? err) }); }
+}

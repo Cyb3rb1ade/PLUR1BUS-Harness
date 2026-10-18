@@ -211,7 +211,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     });
     const classes = ['small', 'medium', 'large', 'frontier'];
     const modelClass = (req.collaborationTier ? { cheap: 'small', standard: 'medium', premium: 'large' }[req.collaborationTier] : undefined) ?? decision.tasks.reduce((chosen, task) => classes.indexOf(task.chosenClass) > classes.indexOf(chosen) ? task.chosenClass : chosen, 'small');
-    const profile = o.profileForClass?.(modelClass) ?? o.profile ?? 'default';
+    const profile = req.modelProfile ?? o.profileForClass?.(modelClass) ?? o.profile ?? 'default';
     const candidate = o.profiles[profile]?.[0];
     if (!candidate) throw new TurnToolError('unknown_profile', profile);
     const key = `${req.agentId}:${req.sessionId}`;
