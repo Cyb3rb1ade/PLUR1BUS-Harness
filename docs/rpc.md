@@ -13803,7 +13803,7 @@ Sets the caption of a medium (source `user`); the caption is a memory entry of t
 
 **Served by:** core
 
-Creates or replaces a secret; leases on the old value are revoked. The value is write-only: the result carries metadata only. Owner only; every call is audited (M2, ADR-005).
+Creates or replaces a secret, with an optional description; leases on the old value are revoked. The value is write-only: the result carries metadata only. Owner only; every call is audited (M2, ADR-005).
 
 **params**
 
@@ -13824,6 +13824,11 @@ Creates or replaces a secret; leases on the old value are revoked. The value is 
       "type": "string",
       "minLength": 1,
       "maxLength": 65536
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "What the secret is for (one line of plain text, at most 200 characters, never the value); the agent's `secret_names` tool shows it. Absent: a replacement keeps the stored description. Empty: removes it."
     }
   }
 }
@@ -23087,7 +23092,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "Experimental (1.5.0). A secret's name and timestamps; never its value (M2, ADR-005).",
+  "description": "Experimental (1.5.0). A secret's name, timestamps and optional description; never its value (M2, ADR-005).",
   "x-stability": "experimental",
   "x-since": "1.5.0",
   "type": "object",
@@ -23115,6 +23120,11 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "updatedBy": {
       "type": "string",
       "description": "Person ID of the last writer, when known; never a secret value."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "What the secret is for, as the owner wrote it; absent when none was given. Never a secret value."
     }
   }
 }
@@ -23225,6 +23235,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
           },
           "updatedBy": {
             "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 200
           }
         }
       },
