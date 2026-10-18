@@ -40,12 +40,13 @@ async fn install_happy_path_emits_steps_in_order() {
         let spec = s.containers.get(&installed.container).unwrap();
         assert_eq!(spec.memory_mib, 3072);
         assert_eq!(spec.host_port, Some(installed.port));
-        assert!(spec.volumes.iter().any(|(_, p, _)| p == "/state"));
-        assert!(spec.volumes.iter().any(|(_, p, _)| p == "/state/models"));
         assert!(spec
-            .env
+            .volumes
             .iter()
-            .any(|(key, value)| key == "PLUR1BUS_HOME" && value == "/state"));
+            .any(|(_, p, _)| p == plur1bus_desktop::runtime::spec::STATE_MOUNT));
+        assert!(spec.volumes.iter().any(|(_, p, _)| p == "/state/models"));
+        assert!(spec.env.iter().any(|(key, value)| key == "PLUR1BUS_HOME"
+            && value == plur1bus_desktop::runtime::spec::STATE_MOUNT));
     }
 }
 #[tokio::test]
@@ -488,10 +489,8 @@ fn create_spec_is_exact_for_both_native_adapters() {
     );
     let a = create_argv(&s).unwrap();
     let v = serde_json::to_value(create_body(&s).unwrap()).unwrap();
-    assert!(s
-        .env
-        .iter()
-        .any(|(key, value)| key == "PLUR1BUS_HOME" && value == "/state"));
+    assert!(s.env.iter().any(|(key, value)| key == "PLUR1BUS_HOME"
+        && value == plur1bus_desktop::runtime::spec::STATE_MOUNT));
     assert!(!s
         .volumes
         .iter()
@@ -500,7 +499,11 @@ fn create_spec_is_exact_for_both_native_adapters() {
     assert_eq!(
         s.volumes,
         vec![
-            ("plur1bus-state".into(), "/state".into(), false),
+            (
+                "plur1bus-state".into(),
+                plur1bus_desktop::runtime::spec::STATE_MOUNT.into(),
+                false
+            ),
             ("plur1bus-models".into(), "/state/models".into(), false)
         ]
     );

@@ -162,7 +162,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "channels.buzz", type: "object", tier: "advanced", help: "NIP-17 text-only direct messages. Disabled by default." },
   { key: "channels.buzz.enabled", type: "boolean", tier: "advanced", help: "Start Buzz." },
   { key: "channels.buzz.relays", type: "array", tier: "advanced", help: "Permitted wss relays; ws only for literal loopback." },
-  { key: "channels.buzz.privateKeySecret", type: "string", tier: "advanced", help: "Secret-store reference; never the private key." },
+  { key: "channels.buzz.privateKeySecret", type: "string", tier: "advanced", help: "Name of the secret holding the Buzz private key; never the key itself." },
   { key: "channels.buzz.senderAllowlist", type: "array", tier: "advanced", help: "Allowed hex or npub sender keys." },
   { key: "channels.buzz.locale", type: "string", tier: "advanced", help: "Local command language." },
   { key: "channels.matrix.e2ee", type: "object", tier: "advanced", help: "Experimental E2EE. Memory mode is NOT persistent: restart loses keys and requires device verification again." },
