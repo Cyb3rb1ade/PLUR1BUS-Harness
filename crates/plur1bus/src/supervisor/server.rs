@@ -339,9 +339,11 @@ impl ConnCtx {
                 None,
             );
         }
-        if let Some(core) = st.slot_mut("core") {
-            core.backoff.reset();
-            core.start_requested = true;
+        for role in ["core", "api"] {
+            if let Some(slot) = st.slot_mut(role) {
+                slot.backoff.reset();
+                slot.start_requested = true;
+            }
         }
         self.shared.wake.notify_all();
         drop(st);

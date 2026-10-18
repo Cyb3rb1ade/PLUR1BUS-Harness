@@ -170,6 +170,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus secret rm`↴](#plur1bus-secret-rm)
 * [`plur1bus secret ls`↴](#plur1bus-secret-ls)
 * [`plur1bus device`↴](#plur1bus-device)
+* [`plur1bus device pair`↴](#plur1bus-device-pair)
 * [`plur1bus device list`↴](#plur1bus-device-list)
 * [`plur1bus device revoke`↴](#plur1bus-device-revoke)
 * [`plur1bus device rename`↴](#plur1bus-device-rename)
@@ -2706,9 +2707,25 @@ One trailing newline is removed. Replacing a secret revokes the leases on the ol
 
 ###### **Subcommands:**
 
+* `pair` — [experimental] Issue a person-bound desktop attach code valid for ten minutes
 * `list` — [experimental] List your devices (Owner/Admin: all), including revoked devices
 * `revoke` — [experimental] Revoke a device and close its connections immediately
 * `rename` — [experimental] Rename a device you own
+
+
+
+## `plur1bus device pair`
+
+[experimental] Issue a person-bound desktop attach code valid for ten minutes
+
+**Usage:** `plur1bus device pair --kind <KIND>`
+
+###### **Options:**
+
+* `--kind <KIND>`
+
+  Possible values: `desktop`
+
 
 
 
@@ -4075,7 +4092,7 @@ Examples:
 
 * `<SOURCE_TYPE>` — Source system to read (never modified)
 
-  Possible values: `openclaw`, `hermes`
+  Possible values: `openclaw`, `hermes`, `backfill`
 
 
 ###### **Options:**
@@ -4103,6 +4120,9 @@ Examples:
 * `--resume <RUN_ID>` — Resume an interrupted import run by run ID
 * `--force` — Force rollback: delete user-modified files created by the import instead of keeping them
 * `--adopt-store <PATH>` — Take over an existing PLUR1BUS store at path using stores.adopt (default: off)
+* `--agent <AGENT>` — Target agent ID (required for backfill)
+* `--adopt-strategy <STRATEGY>` — Store adoption strategy when identity mismatches: 'reembed' or 'import'
+* `--merge-profiles` — Allow multiple Hermes profiles to merge into the same target agent
 
 
 

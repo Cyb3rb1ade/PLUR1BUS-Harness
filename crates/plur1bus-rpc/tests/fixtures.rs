@@ -101,6 +101,16 @@ fn method_fixture(name: &str, f: &Value) {
         "project.card.activity.list" => {
             pair::<ProjectCardActivityListParams, ProjectCardActivityListResult>(name, f)
         }
+        "device.pair" => pair::<DevicePairParams, DevicePairResult>(name, f),
+        "admin.api.desktop.redeem" => {
+            pair::<AdminApiDesktopRedeemParams, AdminApiDesktopRedeemResult>(name, f)
+        }
+        "admin.api.desktop.token" => {
+            pair::<AdminApiDesktopTokenParams, AdminApiDesktopTokenResult>(name, f)
+        }
+        "admin.api.desktop.resolve" => {
+            pair::<AdminApiDesktopResolveParams, AdminApiDesktopResolveResult>(name, f)
+        }
         "device.list" => pair::<DeviceListParams, DeviceListResult>(name, f),
         "device.revoke" => pair::<DeviceRevokeParams, Device>(name, f),
         "device.rename" => pair::<DeviceRenameParams, Device>(name, f),
@@ -491,6 +501,10 @@ fn every_method_fixture_round_trips() {
         "chat.export",
         "chat.model.get",
         "chat.model.set",
+        "device.pair",
+        "admin.api.desktop.redeem",
+        "admin.api.desktop.token",
+        "admin.api.desktop.resolve",
         "admin.api.device.pair",
         "admin.api.device.challenge",
         "admin.api.device.prove",

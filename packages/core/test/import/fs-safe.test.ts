@@ -11,6 +11,7 @@ import { planAndMigrateAgent } from "../../src/import/importers/openclaw-agents.
 import { layout } from "../../src/paths.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 import { buildM7OpenclawFixture, CONTENT_MARKER, SYMLINKS } from "./fixtures.ts";
+import { flatTestInternals } from "../helpers/flat-embedder.ts";
 
 const timeout = 10_000;
 const refused = (reason: string) => (error: unknown) => {
@@ -201,7 +202,7 @@ describe("OpenClaw safe source reads", () => {
       });
       syncBuiltinESMExports();
       const home = tempDir("p1b-safe-home-");
-      const report = await importOpenclaw({ home, source: fx.root, apply: true });
+      const report = await importOpenclaw({ testInternals: flatTestInternals(), home, source: fx.root, apply: true });
       const alpha = report.agents.find((agent) => agent.harnessAgentId === "alpha")!;
       const soul = alpha.files.find((file) => file.targetFile === "SOUL.md")!;
       assert.equal(soul.action, "skipped");

@@ -52,7 +52,7 @@ export const SPECS: Readonly<Record<string, Spec>> = {
   'proc.kill': spec('proc.signal', 'Terminate an owned process session including descendants.', { id: text }, ['id']),
   'proc.kill_foreign': spec('hostctl.proc.kill_foreign', 'Signal a foreign PID only after a separate D109 approval; cannot target self or PID 0/1.', { pid: { type: 'integer', minimum: 2 }, signal: { enum: ['SIGTERM'] } }, ['pid']),
   'sys.info': spec('sys.read', 'Return OS/CPU/RAM, root disk capacity and network addresses; no environment, user, hostname or MAC.'),
-  'app.open': spec('os.script', 'Open a root-contained local file or credential-free HTTP(S) URL with the OS default app.', { target: pathSchema }, ['target']),
+  'app.open': spec('apps.launch', 'Open a root-contained local file or credential-free HTTP(S) URL with the OS default app.', { target: pathSchema }, ['target']),
   'clipboard.read': spec('clipboard.read', 'Read the local clipboard after D109 approval; contents never enter audit logs.'),
   'clipboard.write': spec('clipboard.read', 'Write the local clipboard after D109 approval, using stdin; contents never enter audit logs.', { text }, ['text']),
   'notify': spec('os.script', 'Display a local desktop notification; no text in audit logs.', { title: { type: 'string', minLength: 1, maxLength: 200 }, body: { type: 'string', maxLength: 2000 } }, ['title']),

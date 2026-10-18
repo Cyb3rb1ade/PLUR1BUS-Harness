@@ -825,7 +825,14 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             time_scale,
             core_ready_floor,
             config,
-            slots: vec![Slot::new(Role::core(), time_scale)],
+            slots: if opts.no_core {
+                vec![Slot::new(Role::core(), time_scale)]
+            } else {
+                vec![
+                    Slot::new(Role::core(), time_scale),
+                    Slot::new(Role::api(), time_scale),
+                ]
+            },
             stopping: None,
             restart_jobs: VecDeque::new(),
             restart_running: false,
@@ -874,6 +881,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     let mut monitors = Monitors::new();
     if !opts.no_core {
         start_child(&shared, layout, &token, &Role::core(), &mut monitors);
+        start_child(&shared, layout, &token, &Role::api(), &mut monitors);
         start_modules(&shared, layout);
     }
 
@@ -980,7 +988,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         if let Some(m) = monitors.get_mut(&name) {
             let left = budget_end.saturating_duration_since(Instant::now());
             match kind {
-                RoleKind::Module => m.stop_until(left, budget_end),
+                RoleKind::Api | RoleKind::Module => m.stop_until(left, budget_end),
                 RoleKind::Core => m.stop_until(left.max(grace / 2), deadline),
             }
         }
@@ -1217,6 +1225,7 @@ fn probe_and_adopt(
     monitors: &mut Monitors,
 ) -> bool {
     let found = match role.kind {
+        RoleKind::Api => adopt::Probe::Absent,
         RoleKind::Core => adopt::probe_child(layout, role, adopt::PROBE_TIMEOUT),
         RoleKind::Module => {
             // The manifest as it is now (minor 3), else what the slot last saw.
@@ -1322,6 +1331,8 @@ fn already_running(layout: &Layout, address: &str, lock: &fs::File) {
 fn remove_run_files(layout: &Layout) {
     #[cfg(unix)]
     let _ = fs::remove_file(supervisor_address(&layout.home, platform()));
+    let _ = fs::remove_file(layout.run().join("api.json"));
+    let _ = fs::remove_file(layout.run().join("api-listen.json"));
     let _ = fs::remove_file(layout.supervisor_token());
     let _ = fs::remove_file(layout.supervisor_pid());
 }

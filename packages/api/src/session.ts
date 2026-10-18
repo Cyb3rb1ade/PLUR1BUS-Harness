@@ -13,6 +13,7 @@ export interface Session {
   readonly principal: Principal; readonly createdAt: number; absoluteExpiresAt: number; idleExpiresAt: number;
   /** The user record's `version` when the session was made; a different one means rights changed since. */
   authVersion: number;
+  readonly device?: {deviceId:string;userId:string;scopes:string[];expiresAt:number};
   /** Set when rights changed: the next request gets a new cookie and the old value stops working. */
   mustRotate: boolean;
   /** Epoch ms of the last second-factor check (the T3 step-up window of ADR-007); undefined when none happened. */
@@ -45,12 +46,12 @@ export class SessionStore {
   constructor(clock: Clock, limits: SessionLimits = DEFAULT_SESSION_LIMITS) { this.#clock = clock; this.#limits = limits; }
 
   /** A new session; `id` is the cookie value and exists nowhere else. */
-  create(principal: Principal, o: { authVersion?: number; stepUpAt?: number } = {}): { id: string; session: Session } {
+  create(principal: Principal, o: { authVersion?: number; stepUpAt?: number; device?: Session["device"] } = {}): { id: string; session: Session } {
     const now = this.#clock.now();
     this.#sweep(now);
     while (this.#byId.size >= this.#limits.maxSessions) { const first = this.#byId.keys().next(); if (first.done) break; this.#remove(first.value); }
     const id = newSecret();
-    const e: Entry = { principal, createdAt: now, absoluteExpiresAt: now + this.#limits.absoluteMs, idleExpiresAt: now + this.#limits.idleMs, authVersion: o.authVersion ?? 0, mustRotate: false, csrf: new Map(), ...(o.stepUpAt !== undefined ? { stepUpAt: o.stepUpAt } : {}) };
+    const e: Entry = { principal, createdAt: now, absoluteExpiresAt: now + this.#limits.absoluteMs, idleExpiresAt: now + this.#limits.idleMs, authVersion: o.authVersion ?? 0, mustRotate: false, ...(o.device ? {device:structuredClone(o.device)} : {}), csrf: new Map(), ...(o.stepUpAt !== undefined ? { stepUpAt: o.stepUpAt } : {}) };
     this.#byId.set(sha256(id), e);
     return { id, session: e };
   }

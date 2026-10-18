@@ -3,18 +3,18 @@ import assert from "node:assert/strict";
 import { CAPABILITIES, RISKS } from "../../src/policy/capabilities.ts";
 import { HOST_TOOLS, getHostTool } from "../../src/host-tools/index.ts";
 
-const NAME = /^[a-z][a-z0-9_.-]{0,63}$/;
+const NAME = /^(?:[a-z][a-z0-9_.-]{0,63}|sys\.startupItems)$/;
 
 describe("host-tools catalog", () => {
   it("registers the D106 families with capabilities from the D109 table", () => {
     const names = HOST_TOOLS.map((t) => t.name).sort();
     assert.deepEqual(names, [
-      "apps.list", "apps.open", "apps.running",
+      "apps.focus", "apps.list", "apps.open", "apps.quit", "apps.running",
       "clipboard.read", "clipboard.write",
       "notify",
-      "pkg.detect", "pkg.info", "pkg.install", "pkg.list-installed", "pkg.remove", "pkg.search",
+      "pkg.detect", "pkg.info", "pkg.install", "pkg.list-installed", "pkg.remove", "pkg.search", "pkg.upgrade",
       "proc.info", "proc.kill", "proc.list", "proc.wait",
-      "sys.battery", "sys.disks", "sys.info", "sys.network",
+      "sys.battery", "sys.disks", "sys.info", "sys.memory", "sys.network", "sys.services", "sys.startupItems", "sys.updates",
     ]);
     for (const t of HOST_TOOLS) {
       assert.match(t.name, NAME, t.name);
@@ -38,7 +38,7 @@ describe("host-tools catalog", () => {
     assert.equal(getHostTool("pkg.remove")!.capability, "pkg.change");
     assert.equal(getHostTool("pkg.install")!.riskClass, "high");
     assert.equal(getHostTool("apps.list")!.capability, "sys.read");
-    assert.equal(getHostTool("apps.open")!.capability, "sys.read");
+    assert.equal(getHostTool("apps.open")!.capability, "apps.launch");
     assert.equal(getHostTool("clipboard.read")!.capability, "clipboard.read");
     assert.equal(getHostTool("clipboard.write")!.capability, "clipboard.read");
     assert.equal(getHostTool("notify")!.capability, "sys.read");

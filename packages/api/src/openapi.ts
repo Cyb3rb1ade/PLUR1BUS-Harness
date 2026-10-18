@@ -10,7 +10,7 @@ function operation(r: RouteSpec): Record<string, unknown> {
   if (r.requestBody) { responses["400"] = errorResponse("Malformed JSON or a body that does not match the schema (`reason`: `json`, `body`)."); responses["415"] = errorResponse("The content type is not `application/json`."); }
   if (r.auth === "session") responses["401"] = errorResponse("No live session (`reason`: `no-session`).");
   else if (r.auth === "any") responses["401"] = errorResponse("No live session and no token (`reason`: `no-session`), or a token that is malformed, unknown, revoked or expired (`reason`: `invalid-token`).");
-  else responses["401"] = errorResponse("The credentials are wrong (`reason`: `invalid-token` for the owner token, `invalid-credentials` for a local account).");
+  else if (!["desktop.meta", "desktop.pair", "desktop.redeem"].includes(r.id)) responses["401"] = errorResponse("The credentials are wrong (`reason`: `invalid-token` for the owner token, `invalid-credentials` for a local account).");
   const denied = typeof r.authz === "object" ? " The caller's role does not hold the route's action, or a token scope excludes it (`reason`: `role-denied`, `object-right-required`, `token-scope` …)." : "";
   if (r.csrf) responses["403"] = errorResponse(`The one-time CSRF token is missing, wrong, spent or expired (\`reason\`: \`csrf\`); or a foreign \`Origin\` / cross-site fetch (\`reason\`: \`origin\`, \`cross-site\`).${denied}`);
   else responses["403"] = errorResponse(`A foreign \`Origin\` or a cross-site fetch (\`reason\`: \`origin\`, \`cross-site\`).${denied}`);

@@ -22,7 +22,7 @@ use std::fs;
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub const STEP_IDS: [&str; 9] = [
     "state-root",
@@ -1508,7 +1508,36 @@ fn step_service(out: &Out, layout: &Layout, o: &SetupOpts) -> Result<StepResult,
 /// `daemon start` (it prints and exits on failure). Once the core is ready, reads its contract and RPC versions for
 /// the manifest and drops `runtime/core.prev`.
 fn step_start(out: &Out, layout: &Layout, ctx: &mut Ctx) -> Result<StepResult, StepError> {
-    let (started, via, status) = crate::commands::daemon::start(out, layout, false);
+    let (started, via, mut status) = crate::commands::daemon::start(out, layout, false);
+    // Setup is complete only when the bundled HTTP child is usable too. Retain core.prev on failure.
+    let reset_api = status["children"]
+        .as_array()
+        .and_then(|children| children.iter().find(|c| c["role"] == "api"))
+        .map(|c| c["process"].clone());
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        let api = status["children"]
+            .as_array()
+            .and_then(|children| children.iter().find(|c| c["role"] == "api"));
+        if api.is_some_and(|c| c["process"]["state"] == "ready") {
+            break;
+        }
+        if api.is_some_and(|c| {
+            c["process"]["state"] == "crashed"
+                && c["nextRestartAt"].is_null()
+                && Some(&c["process"]) != reset_api.as_ref()
+        }) || Instant::now() >= deadline
+        {
+            return Err(
+                StepError::new("api-not-ready", "the supervised API did not become ready")
+                    .hint("Check logs/api.out.log and the bundled runtime/core/api.js"),
+            );
+        }
+        std::thread::sleep(Duration::from_millis(20));
+        if let Some(next) = crate::commands::daemon::probe_status(layout) {
+            status = next;
+        }
+    }
     let state = crate::commands::daemon::core_child(&status)
         .map(|c| c["process"]["state"].clone())
         .unwrap_or(Value::Null);
@@ -1523,7 +1552,7 @@ fn step_start(out: &Out, layout: &Layout, ctx: &mut Ctx) -> Result<StepResult, S
     let _ = fs::remove_dir_all(layout.runtime().join("core.prev"));
     Ok(StepResult::done(
         "start",
-        json!({ "started": started, "via": via, "core": state }),
+        json!({ "started": started, "via": via, "core": state, "api": "ready" }),
     ))
 }
 
