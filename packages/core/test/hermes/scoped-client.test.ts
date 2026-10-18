@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { resolve } from "node:path";
+import { resolve as resolvePath } from "node:path";
+import { fileURLToPath } from "node:url";
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync, unlinkSync, mkdirSync } from 'node:fs';
@@ -14,6 +15,8 @@ import { AdminStore } from '../../src/identity/admin-store.ts';
 import { AccountStore } from '../../../api/src/account-store.ts';
 import { TokenService } from '../../../api/src/tokens.ts';
 
+/** Repo files, independent of the working directory (CI runs the package tests from packages/core). */
+const resolve = (rel: string): string => resolvePath(fileURLToPath(new URL('../../../../', import.meta.url)), rel);
 test('approved Hermes token attaches to running core, stays in one agent, and revocation is live', async () => {
   const home = mkdtempSync(join(tmpdir(), 'hm4-client-'));
   const cfg = defaults(); cfg.agents['hermes-test'] = {}; cfg.agents.other = {};
