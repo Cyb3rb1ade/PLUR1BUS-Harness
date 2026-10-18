@@ -290,6 +290,7 @@
       "default": {},
       "properties": {
         "sandbox": {
+          "description": "OS sandbox policy for processes that agent tools launch.",
           "type": "object",
           "additionalProperties": false,
           "default": {},
