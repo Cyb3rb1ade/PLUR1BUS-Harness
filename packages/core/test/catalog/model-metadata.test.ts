@@ -8,6 +8,8 @@ import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadBundledMetadataTable, loadMetadataTable, lookup } from "../../src/discovery/metadata.ts";
+import { HOST_SCENARIO_IDS } from "../../src/toolcall/host-eval.ts";
+import { validateHostRecordings } from "../../src/toolcall/host-eval-recordings.ts";
 import { duplicateKeys, useTempDirs } from "./helpers.ts";
 
 const CATALOG_DIR = fileURLToPath(new URL("../../catalog/", import.meta.url));
@@ -15,7 +17,28 @@ const FIXTURES = fileURLToPath(new URL("../fixtures/model-ids/", import.meta.url
 // The vocabularies, copied from the design document (§2.5 "Fields"), not imported.
 const DOC_KINDS = ["chat", "embedding", "tts", "asr", "image", "moderation", "rerank", "realtime", "unknown"];
 const DOC_CAPABILITIES = ["tools", "vision", "reasoning", "audio_in", "audio_out", "structured_output", "prompt_caching"];
-const KNOWN_SCHEMAS: Record<string, (raw: unknown) => unknown> = { "plur1bus.model-metadata/1": (raw) => loadMetadataTable(raw) };
+// Every shipped file must be registered here with the real loader that reads it; `schema` is the document's own schema
+// marker (the scenario corpus is a bare array, consumed by host-eval.ts, and carries none).
+interface Shipped { schema?: string; accept: (raw: any) => void }
+const KNOWN_FILES: Record<string, Shipped> = {
+  "model-metadata.json": { schema: "plur1bus.model-metadata/1", accept: (raw) => {
+    const compiled = loadMetadataTable(raw) as unknown as { revision: string; sections: Map<string, unknown[]> };
+    assert.equal(compiled.revision, raw.revision);
+    assert.equal(compiled.sections.size, Object.keys(raw.vendors).length);
+    for (const [name, rules] of Object.entries(raw.vendors as Record<string, unknown[]>)) assert.equal(compiled.sections.get(name)!.length, rules.length, name);
+  } },
+  "host-eval-recordings.json": { schema: "plur1bus.host-eval-recordings/1", accept: (raw) => { assert.ok(Array.isArray(validateHostRecordings(raw))); } },
+  "host-eval-scenarios.json": { accept: (raw) => {
+    assert.ok(Array.isArray(raw) && raw.length > 0, "a non-empty array of scenarios");
+    assert.deepEqual(HOST_SCENARIO_IDS, raw.map((x: { id: string }) => x.id), "the loader and the file list the same scenarios");
+    assert.equal(new Set(HOST_SCENARIO_IDS).size, HOST_SCENARIO_IDS.length, "scenario ids are unique");
+    for (const x of raw) {
+      assert.equal(typeof x.id, "string"); assert.equal(typeof x.prompt, "string");
+      assert.ok(x.human === "approve" || x.human === "deny", `${x.id}: human`);
+      assert.ok(Array.isArray(x.transcript) && Array.isArray(x.expected) && x.expected.length > 0, `${x.id}: transcript/expected`);
+    }
+  } },
+};
 
 interface Rule { pattern: string; kind: string; contextWindow?: number; capabilities: string[]; aliases?: string[] }
 const files = readdirSync(CATALOG_DIR).sort();
@@ -37,18 +60,15 @@ describe("shipped catalog files", () => {
         assert.deepEqual(duplicateKeys(text), []);
       });
 
-      it("names a schema this test knows, so a new kind of file cannot be added without being validated", () => {
-        const raw = table(f);
-        assert.equal(typeof raw.schema, "string");
-        assert.ok(Object.hasOwn(KNOWN_SCHEMAS, raw.schema), `${f}: schema ${JSON.stringify(raw.schema)} has no validator in this test; add one`);
+      it("is registered in this test with its loader, so a new kind of file cannot be added without being validated", () => {
+        assert.ok(Object.hasOwn(KNOWN_FILES, f), `${f} has no validator in this test; add one`);
+        const raw = JSON.parse(read(f));
+        if (KNOWN_FILES[f]?.schema !== undefined) assert.equal(raw.schema, KNOWN_FILES[f]!.schema, `${f}: schema marker`);
       });
 
       it("is accepted by the real loader", () => {
-        const raw = table(f);
-        const compiled = KNOWN_SCHEMAS[raw.schema]!(raw) as { revision: string; sections: Map<string, unknown[]> };
-        assert.equal(compiled.revision, raw.revision);
-        assert.equal(compiled.sections.size, Object.keys(raw.vendors).length);
-        for (const [name, rules] of Object.entries(raw.vendors)) assert.equal(compiled.sections.get(name)!.length, rules.length, name);
+        assert.ok(Object.hasOwn(KNOWN_FILES, f), `${f} has no validator in this test; add one`);
+        KNOWN_FILES[f]!.accept(JSON.parse(read(f)));
       });
     });
   }
