@@ -385,6 +385,55 @@ pub fn check_models_roles(layout: &Layout) -> Check {
     )
 }
 
+/// What needs a configured `modelRoles.decision` (D105 message triage). Without the role the rule triage still runs,
+/// so nothing breaks, but these features are limited. One list for the `models.decision` check and the `setup`
+/// hint (the web wizard and settings page keep the same three in their i18n bundles).
+pub const DECISION_FEATURES: [&str; 3] = ["messageTriage", "toolPreselection", "modelClassChoice"];
+
+/// The human wording of [`DECISION_FEATURES`], in the same order.
+const DECISION_FEATURE_TEXT: [&str; 3] = [
+    "model-based message triage (a message with several tasks is split into tasks)",
+    "tool pre-selection by task category",
+    "model class and reasoning effort per task",
+];
+
+/// How to set the role later (CLI and web), shared by the check and the setup hint.
+pub const DECISION_ROLE_HOW: &str = "set it with `plur1bus config set modelRoles.decision <provider/model>` or under Settings > Models & providers (modelRoles)";
+
+/// `true` when `roles` (the `modelRoles` object) names a decision model.
+pub fn decision_role_set(roles: &Value) -> bool {
+    roles
+        .get("decision")
+        .and_then(Value::as_str)
+        .is_some_and(|m| !m.trim().is_empty())
+}
+
+/// One sentence naming the limited features, for the `1staid check` row (a human line shows only the summary) and
+/// the `setup` output.
+pub fn decision_limits_sentence() -> String {
+    format!(
+        "no decision model role is set: message triage runs on the built-in rules, so {} are limited",
+        DECISION_FEATURE_TEXT.join(", ")
+    )
+}
+
+/// Diagnoses `models.decision` in `1staid check` (append-only id): `ok` when `modelRoles.decision` is set, otherwise
+/// `info` (never a warning or failure: the rule triage is a normal mode) naming the limited features and how to set
+/// the role.
+pub fn check_models_decision(layout: &Layout) -> Check {
+    const ID: &str = "models.decision";
+    if decision_role_set(&read_config_roles(layout)) {
+        return Check::ok(ID, "a decision model role is set");
+    }
+    Check {
+        id: ID,
+        status: crate::commands::firstaid::Status::Info,
+        summary: format!("{}; {DECISION_ROLE_HOW}", decision_limits_sentence()),
+        detail: Some(json!({ "limited": DECISION_FEATURES })),
+        hint: Some(DECISION_ROLE_HOW.to_string()),
+    }
+}
+
 pub fn render_list(v: &Value) -> String {
     let mut out = String::new();
     if v.get("stale").and_then(Value::as_bool).unwrap_or(false) {
@@ -810,6 +859,60 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn models_decision_check_is_info_without_the_role_and_ok_with_it() {
+        use crate::commands::firstaid::Status;
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().join("h"));
+
+        // No config at all: the rule triage runs, the row informs and never warns or fails.
+        let none = check_models_decision(&layout);
+        assert_eq!(none.id, "models.decision");
+        assert_eq!(none.status, Status::Info);
+        assert_eq!(none.detail.unwrap()["limited"], json!(DECISION_FEATURES));
+        assert!(
+            none.summary.contains("tool pre-selection"),
+            "{}",
+            none.summary
+        );
+        assert!(
+            none.summary.contains("modelRoles.decision"),
+            "{}",
+            none.summary
+        );
+        assert!(none
+            .hint
+            .unwrap()
+            .contains("config set modelRoles.decision"));
+
+        fs::create_dir_all(layout.config_path().parent().unwrap()).unwrap();
+        // Other roles set, decision missing or blank: still info.
+        for roles in [
+            json!({ "chat": "p/m" }),
+            json!({ "decision": "  " }),
+            json!({ "decision": 3 }),
+        ] {
+            fs::write(
+                layout.config_path(),
+                json!({ "modelRoles": roles }).to_string(),
+            )
+            .unwrap();
+            assert_eq!(
+                check_models_decision(&layout).status,
+                Status::Info,
+                "{roles}"
+            );
+        }
+        fs::write(
+            layout.config_path(),
+            json!({ "modelRoles": { "decision": "p/small" } }).to_string(),
+        )
+        .unwrap();
+        let set = check_models_decision(&layout);
+        assert_eq!(set.status, Status::Ok);
+        assert!(set.detail.is_none() && set.hint.is_none());
     }
 
     #[test]

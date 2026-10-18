@@ -30,6 +30,13 @@ export const en = {
   "shared.role.operator": "Operator",
   "shared.role.member": "Member",
   "shared.role.viewer": "Viewer",
+  "shared.decisionHint.title": "No decision model set",
+  "shared.decisionHint.lead": "Without a decision model, messages are sorted by the built-in rules. Everything keeps working, but these features are limited:",
+  "shared.decisionHint.triage": "Model-based message triage: a message with several tasks is split into tasks. The rules only split at words such as \u201cthen\u201d.",
+  "shared.decisionHint.tools": "Tool pre-selection: the decision model picks the tool categories a task needs. The rules recognise only a few keywords.",
+  "shared.decisionHint.classes": "Model class and reasoning effort per task: the rules use fixed estimates instead of a probability for each class.",
+  "shared.decisionHint.how": "Set it later under Settings \u2192 Models & providers (modelRoles.decision) or on the command line with plur1bus config set modelRoles.decision <provider/model>.",
+  "shared.decisionHint.howHere": "Set it on the command line with plur1bus config set modelRoles.decision <provider/model>. The role then appears under modelRoles below.",
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
@@ -62,4 +69,11 @@ export const de: Record<keyof typeof en, string> = {
   "shared.role.operator": "Operator",
   "shared.role.member": "Mitglied",
   "shared.role.viewer": "Betrachter",
+  "shared.decisionHint.title": "Kein Decision-Modell eingerichtet",
+  "shared.decisionHint.lead": "Ohne Decision-Modell ordnen die eingebauten Regeln die Nachrichten ein. Alles funktioniert weiter, aber diese Funktionen sind eingeschränkt:",
+  "shared.decisionHint.triage": "Modellbasierte Nachrichten-Triage: Eine Nachricht mit mehreren Aufgaben wird in Aufgaben zerlegt. Die Regeln trennen nur bei Wörtern wie \u201edanach\u201c.",
+  "shared.decisionHint.tools": "Werkzeug-Vorauswahl: Das Decision-Modell wählt die Werkzeugkategorien, die eine Aufgabe braucht. Die Regeln erkennen nur wenige Stichwörter.",
+  "shared.decisionHint.classes": "Modellklasse und Denkaufwand je Aufgabe: Die Regeln nutzen feste Schätzungen statt einer Wahrscheinlichkeit je Klasse.",
+  "shared.decisionHint.how": "Richte es später unter Einstellungen \u2192 Modelle & Anbieter (modelRoles.decision) oder auf der Kommandozeile mit plur1bus config set modelRoles.decision <Anbieter/Modell> ein.",
+  "shared.decisionHint.howHere": "Richte es auf der Kommandozeile mit plur1bus config set modelRoles.decision <Anbieter/Modell> ein. Die Rolle erscheint danach unten unter modelRoles.",
 };
