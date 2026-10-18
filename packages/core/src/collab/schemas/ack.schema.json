@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "plur1bus.ack/1",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "plur1bus.ack/1"
+    },
+    "inReplyTo": {
+      "type": "string",
+      "minLength": 1
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "ok",
+        "blocked"
+      ]
+    },
+    "blockingQuestions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "maxItems": 80
+    }
+  },
+  "required": [
+    "schema",
+    "inReplyTo",
+    "objective",
+    "status",
+    "blockingQuestions"
+  ],
+  "additionalProperties": false
+}

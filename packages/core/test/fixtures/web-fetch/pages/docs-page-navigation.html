@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configuring the scheduler - Quillstone docs</title>
+
+<style>body{font-family:serif}.hide{display:none}</style>
+</head>
+<body>
+<header class="docs-header"><a href="/">Quillstone</a><input type="search" placeholder="Search docs"><nav class="top"><a href="/docs">Docs</a><a href="/api">API</a></nav></header>
+<div class="docs-shell">
+<nav class="sidebar" aria-label="Docs navigation"><ul><li><a href="/docs/intro">Introduction</a></li><li><a href="/docs/install">Installation</a></li><li class="active"><a href="/docs/scheduler">Scheduler</a></li><li><a href="/docs/workers">Workers</a></li></ul></nav>
+<main>
+<nav class="breadcrumb" aria-label="breadcrumb"><a href="/docs">Docs</a> / Scheduler</nav>
+<h1>Configuring the scheduler</h1>
+<p>The scheduler decides which queued job runs next. It is configured in <code>quillstone.toml</code> under the <code>[scheduler]</code> table.</p>
+<h2 id="concurrency">Concurrency</h2>
+<p>Set <code>max_parallel</code> to the number of jobs that may run at the same time. The default is the number of CPU cores.</p>
+<pre><code class="language-toml">[scheduler]
+max_parallel = 4
+tick_ms = 250</code></pre>
+<h2 id="priorities">Priorities</h2>
+<p>Jobs carry a priority from 0 (lowest) to 9. Within one priority, jobs run in the order they were queued.</p>
+<h2 id="fairness">Fairness</h2>
+<p>Enable <code>fair_share</code> to stop one tenant from filling every slot. Each tenant then gets at most <code>max_parallel / tenants</code> slots while others are waiting.</p>
+<div class="pager"><a href="/docs/install">Previous: Installation</a><a href="/docs/workers">Next: Workers</a></div>
+</main>
+<aside class="toc"><h4>On this page</h4><ul><li><a href="#concurrency">Concurrency</a></li><li><a href="#priorities">Priorities</a></li><li><a href="#fairness">Fairness</a></li></ul></aside>
+</div>
+<footer><p>Quillstone 4.2 documentation. Edit this page on GitHub.</p></footer>
+<script>window.dataLayer=window.dataLayer||[];function t(){dataLayer.push(arguments)}</script>
+</body>
+</html>

@@ -42,6 +42,15 @@ export class FileJobPersistence implements JobPersistence {
   /** Call only after the host has established exclusive ownership; never steals a live runner's claim. */
   async recoverClaims(): Promise<void> { await mkdir(this.root, { recursive: true, mode: 0o700 }); for (const name of await readdir(this.root)) if (/^[a-zA-Z0-9_-]+\.claim$/.test(name)) await rm(join(this.root, name), { recursive: true }); }
 }
+/** An adapter that ignores or misses the abort (an already-aborted signal emits no event) must not hang the runner: the signal wins the race and the adapter's late settlement is dropped. */
+function raceAbort<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) { void work.catch(() => {}); return Promise.reject(signal.reason); }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+    signal.addEventListener('abort', onAbort, { once: true });
+    work.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
+  });
+}
 export class JobRunner {
   readonly persistence: JobPersistence; readonly store: OutputStore; private readonly adapters: Map<string, ImageAdapter>; private readonly budget?: BudgetPort;
   private readonly controllers = new Map<string, AbortController>();
@@ -81,7 +90,7 @@ export class JobRunner {
         await this.budget?.reserve(id, estimateCost(job.request, adapter)); reserved = true;
         job.state = 'running'; await save();
         const context = { signal: combined, onCheckpoint: async (token: ResumeToken) => { job.checkpoint = token; await save(); }, onProgress: async (p: Progress) => { if (!Number.isFinite(p.fraction) || p.fraction < 0 || p.fraction > 1) throw new MediaError('invalid_response'); job.progress = p; await save(); }, ...(job.checkpoint ? { resume: job.checkpoint } : {}) };
-        const result = resuming ? await adapter.resume!(job.request, context) : await adapter[job.operation](job.request, context);
+        const result = await raceAbort(resuming ? adapter.resume!(job.request, context) : adapter[job.operation](job.request, context), combined);
         combined.throwIfAborted();
         job.output = await this.store.put(id, job.request, result);
         await this.budget?.settle(id, result.metadata.costUsd ?? null); reserved = false;

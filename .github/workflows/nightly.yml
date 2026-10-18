@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
         with: { version: 10.28.0 }
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0, cache: pnpm }
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
         with: { toolchain: "1.95" }
@@ -78,6 +78,38 @@ jobs:
         with:
           path: ${{ github.workspace }}/.models-cache
           key: ${{ steps.models.outputs.cache-primary-key }}
+  # M2 acceptance 13 (D95): the SearXNG provider against a live instance. Not gating and skipped unless the repository
+  # variable PLUR1BUS_SEARXNG_LIVE_URL is set to an instance the sidecar rule admits (private, tailnet or loopback
+  # address; a hosted runner can reach it only through a self-hosted runner or a service container). A red run opens the
+  # usual nightly issue and blocks nothing.
+  web-search-searxng-live:
+    if: ${{ vars.PLUR1BUS_SEARXNG_LIVE_URL != '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+      PLUR1BUS_SEARXNG_LIVE_URL: ${{ vars.PLUR1BUS_SEARXNG_LIVE_URL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - name: engine git access over https
+        shell: bash
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then
+            base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"
+            git config --global --add "url.${base}.insteadOf" "https://github.com/"
+          else
+            base="https://github.com/"
+          fi
+          git config --global --add "url.${base}.insteadOf" "git@github.com:"
+          git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
+      - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build
+      - name: live SearXNG search
+        working-directory: packages/core
+        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-timeout=120000 test/live/web-search-searxng.test.ts
   # Spec 2026-09-27 §8.4/§12, acceptance 8: ten minutes of mutants of valid .p1x packages through the inspect pipeline
   # (no panic, no mutant accepted as first-party). The seed is printed; replay a failure with PLUR1BUS_FUZZ_SEED.
   ext-fuzz:
@@ -90,3 +122,108 @@ jobs:
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
       - name: fuzz the inspect pipeline (600 s)
         run: PLUR1BUS_FUZZ_SECONDS=600 cargo test -p plur1bus-ext --features testkit --test fuzz -- --ignored --nocapture
+
+  m2-live-proof:
+    # Independent, non-gating acceptance: never called from the pull-request workflow.
+    # No configured endpoints => named skips; configured failures remain red in Nightly.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+      PLUR1BUS_M2_NIGHTLY: "1"
+      PLUR1BUS_MODELS_CACHE: ${{ github.workspace }}/.models-cache
+      PLUR1BUS_M2_CHAT_URL: ${{ vars.PLUR1BUS_M2_CHAT_URL }}
+      PLUR1BUS_M2_CHAT_MODEL: ${{ vars.PLUR1BUS_M2_CHAT_MODEL }}
+      PLUR1BUS_M2_CHAT_KEY: ${{ secrets.PLUR1BUS_M2_CHAT_KEY }}
+      PLUR1BUS_LIVE_OLLAMA_KEY: ${{ secrets.PLUR1BUS_LIVE_OLLAMA_KEY }}
+      PLUR1BUS_LIVE_OLLAMA_URL: ${{ vars.PLUR1BUS_LIVE_OLLAMA_URL }}
+      PLUR1BUS_LIVE_OLLAMA_MODEL: ${{ vars.PLUR1BUS_LIVE_OLLAMA_MODEL }}
+      PLUR1BUS_LIVE_OLLAMA_DIMS: ${{ vars.PLUR1BUS_LIVE_OLLAMA_DIMS }}
+      PLUR1BUS_LIVE_TEI_KEY: ${{ secrets.PLUR1BUS_LIVE_TEI_KEY }}
+      PLUR1BUS_LIVE_TEI_RERANK_KEY: ${{ secrets.PLUR1BUS_LIVE_TEI_RERANK_KEY }}
+      PLUR1BUS_LIVE_TEI_URL: ${{ vars.PLUR1BUS_LIVE_TEI_URL }}
+      PLUR1BUS_LIVE_TEI_MODEL: ${{ vars.PLUR1BUS_LIVE_TEI_MODEL }}
+      PLUR1BUS_LIVE_TEI_DIMS: ${{ vars.PLUR1BUS_LIVE_TEI_DIMS }}
+      PLUR1BUS_LIVE_TEI_RERANK_URL: ${{ vars.PLUR1BUS_LIVE_TEI_RERANK_URL }}
+      PLUR1BUS_LIVE_TEI_RERANK_MODEL: ${{ vars.PLUR1BUS_LIVE_TEI_RERANK_MODEL }}
+      PLUR1BUS_LIVE_VLLM_KEY: ${{ secrets.PLUR1BUS_LIVE_VLLM_KEY }}
+      PLUR1BUS_LIVE_VLLM_RERANK_KEY: ${{ secrets.PLUR1BUS_LIVE_VLLM_RERANK_KEY }}
+      PLUR1BUS_LIVE_VLLM_URL: ${{ vars.PLUR1BUS_LIVE_VLLM_URL }}
+      PLUR1BUS_LIVE_VLLM_MODEL: ${{ vars.PLUR1BUS_LIVE_VLLM_MODEL }}
+      PLUR1BUS_LIVE_VLLM_DIMS: ${{ vars.PLUR1BUS_LIVE_VLLM_DIMS }}
+      PLUR1BUS_LIVE_VLLM_RERANK_URL: ${{ vars.PLUR1BUS_LIVE_VLLM_RERANK_URL }}
+      PLUR1BUS_LIVE_VLLM_RERANK_MODEL: ${{ vars.PLUR1BUS_LIVE_VLLM_RERANK_MODEL }}
+      PLUR1BUS_LIVE_LLAMACPP_KEY: ${{ secrets.PLUR1BUS_LIVE_LLAMACPP_KEY }}
+      PLUR1BUS_LIVE_LLAMACPP_RERANK_KEY: ${{ secrets.PLUR1BUS_LIVE_LLAMACPP_RERANK_KEY }}
+      PLUR1BUS_LIVE_LLAMACPP_URL: ${{ vars.PLUR1BUS_LIVE_LLAMACPP_URL }}
+      PLUR1BUS_LIVE_LLAMACPP_MODEL: ${{ vars.PLUR1BUS_LIVE_LLAMACPP_MODEL }}
+      PLUR1BUS_LIVE_LLAMACPP_DIMS: ${{ vars.PLUR1BUS_LIVE_LLAMACPP_DIMS }}
+      PLUR1BUS_LIVE_LLAMACPP_RERANK_URL: ${{ vars.PLUR1BUS_LIVE_LLAMACPP_RERANK_URL }}
+      PLUR1BUS_LIVE_LLAMACPP_RERANK_MODEL: ${{ vars.PLUR1BUS_LIVE_LLAMACPP_RERANK_MODEL }}
+      PLUR1BUS_LIVE_OMLX_KEY: ${{ secrets.PLUR1BUS_LIVE_OMLX_KEY }}
+      PLUR1BUS_LIVE_OMLX_RERANK_KEY: ${{ secrets.PLUR1BUS_LIVE_OMLX_RERANK_KEY }}
+      PLUR1BUS_LIVE_OMLX_URL: ${{ vars.PLUR1BUS_LIVE_OMLX_URL }}
+      PLUR1BUS_LIVE_OMLX_MODEL: ${{ vars.PLUR1BUS_LIVE_OMLX_MODEL }}
+      PLUR1BUS_LIVE_OMLX_DIMS: ${{ vars.PLUR1BUS_LIVE_OMLX_DIMS }}
+      PLUR1BUS_LIVE_OMLX_RERANK_URL: ${{ vars.PLUR1BUS_LIVE_OMLX_RERANK_URL }}
+      PLUR1BUS_LIVE_OMLX_RERANK_MODEL: ${{ vars.PLUR1BUS_LIVE_OMLX_RERANK_MODEL }}
+      PLUR1BUS_LIVE_MTPLX_KEY: ${{ secrets.PLUR1BUS_LIVE_MTPLX_KEY }}
+      PLUR1BUS_LIVE_MTPLX_RERANK_KEY: ${{ secrets.PLUR1BUS_LIVE_MTPLX_RERANK_KEY }}
+      PLUR1BUS_LIVE_MTPLX_URL: ${{ vars.PLUR1BUS_LIVE_MTPLX_URL }}
+      PLUR1BUS_LIVE_MTPLX_MODEL: ${{ vars.PLUR1BUS_LIVE_MTPLX_MODEL }}
+      PLUR1BUS_LIVE_MTPLX_DIMS: ${{ vars.PLUR1BUS_LIVE_MTPLX_DIMS }}
+      PLUR1BUS_LIVE_MTPLX_RERANK_URL: ${{ vars.PLUR1BUS_LIVE_MTPLX_RERANK_URL }}
+      PLUR1BUS_LIVE_MTPLX_RERANK_MODEL: ${{ vars.PLUR1BUS_LIVE_MTPLX_RERANK_MODEL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - name: engine git access over https
+        shell: bash
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then
+            base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"
+            git config --global --add "url.${base}.insteadOf" "https://github.com/"
+          else
+            base="https://github.com/"
+          fi
+          git config --global --add "url.${base}.insteadOf" "git@github.com:"
+          git config --global --add "url.${base}.insteadOf" "ssh://git@github.com/"
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        id: m2-models
+        with:
+          path: ${{ github.workspace }}/.models-cache
+          key: m2-models-${{ runner.os }}-e5-small-bge-v1
+      - run: pnpm install --frozen-lockfile && pnpm gen && pnpm build
+      - name: M2 real Direct Chat and self-hosted adapter smoke
+        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 tests/nightly/m2-*.test.ts
+      - name: save M2 model cache
+        if: ${{ always() && steps.m2-models.outputs.cache-hit != 'true' && hashFiles('.models-cache/**') != '' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ github.workspace }}/.models-cache
+          key: m2-models-${{ runner.os }}-e5-small-bge-v1
+
+  # M2 criterion 9: independent live prompt-cache evidence, never part of gating CI.
+  b5-provider-cache:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0 }
+      - name: six real provider turns (skip without owner credential/model)
+        run: node --experimental-strip-types --conditions=source --test --test-timeout=300000 tests/nightly/b5-provider.test.ts
+        env:
+          PLUR1BUS_B5_LIVE: "1"
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PLUR1BUS_B5_MODEL: ${{ vars.PLUR1BUS_B5_MODEL }}
+      - name: publish redacted cache usage
+        if: ${{ always() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v7
+        with:
+          name: b5-provider-cache
+          path: artifacts/b5-provider.json
+          if-no-files-found: error

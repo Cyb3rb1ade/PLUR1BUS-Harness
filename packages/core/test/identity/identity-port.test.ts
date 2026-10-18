@@ -180,10 +180,7 @@ describe("identity port: no sender becomes somebody else", () => {
     assert.equal(rig.provider.requests.length, 1);
   });
 
-  const relinkTitle = gap("switchboard session port (findActive/submit)",
-    "after a handle is unlinked from A and linked to B, B's turn does not carry A's private conversation (sessions are owned by a person; the store 'never decides who may see a session' and callers must get not-found for someone else's)",
-    "the chat's active session is found by chat key alone, so B's turn runs in A's session and the model prompt contains A's earlier message and reply");
-  it(relinkTitle, { todo: relinkTitle }, async () => {
+  it("after a handle is unlinked from A and linked to B, B's turn does not carry A's private conversation: A's session is archived and B talks in a session B owns", async () => {
     const rig = await running(); const a = rig.adapter();
     const first = rig.link("discord", "bot-1", "sender-1", "First");
     await a.inbound({ senderId: "sender-1", text: "probe-private-alpha" });
@@ -194,6 +191,27 @@ describe("identity port: no sender becomes somebody else", () => {
     const seen = rig.provider.requests.at(-1)!.messages.map((m) => m.text).join("\n");
     assert.equal(seen.includes("probe-private-alpha"), false, "B's prompt must not contain A's message");
     assert.equal(sessionsOf(rig, second.humanId), 1, "B talks in a session B owns");
+    const [aSession] = rig.store.listSessions({ owner: deriveUserPrincipal(first.humanId), kind: "channel", archived: "any" }).sessions;
+    assert.notEqual(aSession!.archivedAt, null, "A's session is closed, not shared");
+    assert.equal(rig.store.activeForChat(aSession!.chatKey!)!.owner, deriveUserPrincipal(second.humanId));
+    await a.inbound({ senderId: "sender-1", text: "second again" });
+    assert.equal(sessionsOf(rig, second.humanId), 1, "B's own follow-up continues B's session");
+  });
+
+  it("a private chat of the same person is not split: the same linked handle keeps its one session", async () => {
+    const rig = await running(); const a = rig.adapter();
+    const p = rig.link("discord", "bot-1", "sender-1", "Pat");
+    await a.inbound({ senderId: "sender-1", text: "one" }); await a.inbound({ senderId: "sender-1", text: "two" });
+    assert.equal(sessionsOf(rig, p.humanId), 1);
+  });
+
+  it("a group chat is one shared conversation: a second linked member continues the room's session (the owner is not compared there)", async () => {
+    const rig = await running(); const a = rig.adapter();
+    const p = rig.link("discord", "bot-1", "sender-1", "Pat"); const q = rig.link("discord", "bot-1", "sender-2", "Quinn");
+    await a.inbound({ chatId: "room-1", chatKind: "group", addressed: true, senderId: "sender-1", text: "pat in the room" });
+    await a.inbound({ chatId: "room-1", chatKind: "group", addressed: true, senderId: "sender-2", text: "quinn in the room" });
+    assert.equal(sessionsOf(rig, p.humanId), 1); assert.equal(sessionsOf(rig, q.humanId), 0, "the room's session stays the first speaker's, as before");
+    assert.equal(rig.store.listSessions({ owner: deriveUserPrincipal(p.humanId), kind: "channel" }).sessions[0]!.archivedAt, null);
   });
 });
 

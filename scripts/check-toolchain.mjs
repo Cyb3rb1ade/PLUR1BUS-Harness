@@ -55,6 +55,17 @@ export function isMainModule(entry = process.argv[1], moduleUrl = import.meta.ur
   catch { return false; }
 }
 
+
+// pnpm/action-setup installs pnpm.cmd on Windows. Batch files require cmd.exe;
+// only this fixed version command goes through the shell, never caller input.
+export function version(cmd, args, { platform = process.platform, run = execFileSync } = {}) {
+  try {
+    return (platform === "win32" && cmd === "pnpm"
+      ? run(process.env.ComSpec || "cmd.exe", ["/d", "/s", "/c", "pnpm --version"], { encoding: "utf8" })
+      : run(cmd, args, { encoding: "utf8" })).trim();
+  } catch { return "missing"; }
+}
+
 if (isMainModule()) {
   const result = checkToolchain({
     node: process.version,

@@ -1,21 +1,21 @@
-// Unsaved edits of the Settings page. A section with a draft reports it here; the page's own navigation asks before it drops the
-// draft, and the browser asks before the tab is closed or reloaded. The router is not touched: other pages' links do not ask.
+// Unsaved edits of the Settings page. A section with a draft reports it here; the router's dirty guard then asks before anything leaves
+// the section (sidebar, palette, links, the browser's back button, an edited address) and the browser asks before the tab is closed or reloaded.
+import { path, registerDirtyGuard } from "../../router.ts";
 import { t } from "../../i18n.ts";
 
-let dirty = false;
-const warn = (e: Event): void => { e.preventDefault(); (e as BeforeUnloadEvent).returnValue = ""; };
+let off: (() => void) | null = null;
+
+/** Where `to` (a route as `navigate` takes it, query included) lands, without the query. */
+const target = (to: string): string => to.split("?")[0]!;
 
 /** Reports whether the open section holds edits that are not saved. */
 export function setUnsaved(on: boolean): void {
-  if (on === dirty) return;
-  dirty = on;
-  if (on) globalThis.addEventListener?.("beforeunload", warn); else globalThis.removeEventListener?.("beforeunload", warn);
-}
-
-/** True when leaving is fine: nothing unsaved, or the person agreed to lose it. */
-export function leaveAllowed(): boolean {
-  if (!dirty) return true;
-  const ok = typeof globalThis.confirm === "function" ? globalThis.confirm(t("settings.unsaved.confirm")) : true;
-  if (ok) setUnsaved(false);
-  return ok;
+  if (on === (off !== null)) return;
+  if (on) {
+    // Same route with another query (`?focus=`) keeps the section mounted, so the draft survives: no question. An empty target is the tab closing.
+    off = registerDirtyGuard((to) => to === "" || target(to) !== path.value, () => t("settings.unsaved.confirm"));
+  } else {
+    off?.();
+    off = null;
+  }
 }

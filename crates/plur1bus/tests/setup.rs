@@ -70,6 +70,10 @@ fn setup_non_interactive_installs_everything_but_the_service() {
         e.json(&["config", "get", "embedding.acceptedNcLicence"])["value"],
         false
     );
+    assert_eq!(
+        e.json(&["config", "get", "engine.embedding.local.model"])["value"],
+        "intfloat/multilingual-e5-small"
+    );
     assert!(e.json(&["config", "get", "agents"])["value"]
         .get("main")
         .is_some());
@@ -285,6 +289,45 @@ fn accept_nc_licence_sets_both_fields_and_writes_one_audit_line() {
 
 #[cfg(unix)]
 #[test]
+fn non_interactive_rerun_preserves_explicit_embedding_model_and_dimensions() {
+    for (model, dimensions) in [
+        ("jinaai/jina-embeddings-v3", 1024),
+        ("Qwen/Qwen3-Embedding-0.6B", 768),
+    ] {
+        let e = Env::new();
+        std::fs::create_dir_all(&e.home).unwrap();
+        let selection = serde_json::json!({
+            "provider": "local",
+            "local": {"model": model, "dimensions": dimensions},
+        });
+        let mut config = plur1bus_config::defaults();
+        config["engine"] = serde_json::json!({"embedding": selection});
+        std::fs::write(
+            e.home.join("config.json"),
+            serde_json::to_vec(&config).unwrap(),
+        )
+        .unwrap();
+        for _ in 0..2 {
+            let (code, result) = e.setup(&["--non-interactive", "--no-service"]);
+            assert_success(code, &result);
+            let saved: Value =
+                serde_json::from_slice(&std::fs::read(e.home.join("config.json")).unwrap())
+                    .unwrap();
+            assert_eq!(
+                saved["engine"]["embedding"], selection,
+                "{model}: {result:#}"
+            );
+            assert!(!step(&result, "config")["detail"]["changed"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|key| key == "engine.embedding.local"));
+        }
+    }
+}
+
+#[cfg(unix)]
+#[test]
 fn non_interactive_never_accepts_the_nc_licence_silently() {
     let e = Env::new();
     let (code, v) = e.setup(&[
@@ -391,4 +434,69 @@ fn the_setup_fixture_core_is_a_copy_of_fake_core() {
         norm(fixtures.join("setup/core.js")),
         norm(fixtures.join("fake-core.mjs"))
     );
+}
+
+/// Equivalent explicit choices must produce the same installed payload and permissions.
+/// EOF selects the displayed defaults in StdinPrompter; no real user home/service is touched.
+#[test]
+fn interactive_defaults_and_noninteractive_install_the_same_payload() {
+    let interactive = Env::new();
+    let unattended = Env::new();
+    for (e, flags) in [
+        (&interactive, vec!["--no-service"]),
+        (&unattended, vec!["--no-service", "--non-interactive"]),
+    ] {
+        let (code, report) = e.setup(&flags);
+        assert_success(code, &report);
+        let _ = e.cmd(&["daemon", "stop"]).output().unwrap();
+    }
+    fn tree(root: &Path, at: &Path) -> Vec<(PathBuf, Vec<u8>, u32)> {
+        let mut entries = Vec::new();
+        for child in std::fs::read_dir(at).unwrap() {
+            let child = child.unwrap();
+            let metadata = std::fs::symlink_metadata(child.path()).unwrap();
+            assert!(
+                !metadata.is_symlink(),
+                "installed fixture must not contain symlinks"
+            );
+            #[cfg(unix)]
+            let mode = {
+                use std::os::unix::fs::PermissionsExt;
+                metadata.permissions().mode() & 0o777
+            };
+            #[cfg(not(unix))]
+            let mode = u32::from(metadata.permissions().readonly());
+            let bytes = if metadata.is_file() {
+                std::fs::read(child.path()).unwrap()
+            } else {
+                Vec::new()
+            };
+            entries.push((
+                child.path().strip_prefix(root).unwrap().to_path_buf(),
+                bytes,
+                mode,
+            ));
+            if metadata.is_dir() {
+                entries.extend(tree(root, &child.path()));
+            }
+        }
+        entries.sort();
+        entries
+    }
+    assert_eq!(
+        tree(&interactive.home, &interactive.home.join("runtime")),
+        tree(&unattended.home, &unattended.home.join("runtime"))
+    );
+    // Manifest timestamps and absolute home paths describe the individual installation.
+    let manifest = |e: &Env| {
+        let raw = std::fs::read_to_string(e.home.join("manifest.json")).unwrap();
+        let mut doc: serde_json::Value = serde_json::from_str(
+            &raw.replace(&e.home.to_string_lossy().replace('\\', "\\\\"), "<home>"),
+        )
+        .unwrap();
+        doc.as_object_mut().unwrap().remove("installedAt");
+        doc.as_object_mut().unwrap().remove("updatedAt");
+        doc
+    };
+    assert_eq!(manifest(&interactive), manifest(&unattended));
 }

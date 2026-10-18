@@ -14,7 +14,8 @@ import type { PageProps } from "../registry.ts";
 import { failureOf } from "../common/load.ts";
 import { choiceById } from "./licences.ts";
 import { changesFor, load, save, stepsFor, validate, type Answers, type Errors, type Saved, type StepId, type Status } from "./model.ts";
-import { AccountStep, BackupStep, ImportStep, MemoryStep, ModelStep, PersonaStep, UnavailableStep, type StepProps } from "./steps.ts";
+import { DecisionHintIfMissing } from "../common/decision-hint.ts";
+import { BackupStep, ImportStep, ModelStep, PersonaStep, UnavailableStep, type StepProps } from "./steps.ts";
 import { lazySection } from "../common/lazy-section.ts";
 import { MediaSetupStep, type MediaSetupProps } from "../media-search/setup.ts";
 import { mediaErrorOf, problemText } from "../media-search/model.ts";
@@ -27,6 +28,8 @@ registerArea("setup", setupArea);
 type MediaProblemCode = MediaSetupProps["error"];
 
 // The voice language step is its own lazy chunk (with the voice catalogue and CSS); the wizard stays small.
+const MemoryStep = lazySection<StepProps>(() => import("./memory-step.ts").then((m) => m.MemoryStep));
+const AccountStep = lazySection<StepProps>(() => import("./account-step.ts").then((m) => m.AccountStep));
 const VoiceStep = lazySection<StepProps>(() => import("./voice-step.ts").then((m) => m.VoiceStep));
 
 const label = (id: StepId): string => t(`setup.step.${id}` as Key);
@@ -101,8 +104,24 @@ export function SetupPage({ item }: PageProps): View {
     if (changes.length > 0) {
       saving.current = true; setBusy(true); setFail("");
       try {
+        if (def.id === "memory") for (const id of [answers.embedding,answers.rerank]) {
+          const model = choiceById(id);
+          if (model?.nc && answers.nc) await getApi().rpc("model.licence.confirm", { model: model.hf, accepted: true });
+        }
+        if (def.id === "memory") { const selected = choiceById(answers.embedding); if (selected) await getApi().rpc("model.embedding.select", {model:selected.hf}); }
+        if (def.id === "persona") {
+          // Persist the attempt timestamp before I/O, so a lost response keeps the same server key.
+          setSt(previous => ({ ...previous, answers: { ...previous.answers, createdAt: answers.createdAt } }));
+          save({ ...st, answers });
+          let existing = false;
+          try { const current = await getApi().rpc("config.get", { key: `agents.${answers.agentId}` }, { write: false }); existing = !!current.value && typeof current.value === "object"; }
+          catch (e) { if ((e as {errorCode?:string}).errorCode !== "E_NOT_FOUND") throw e; }
+          if (!existing) await getApi().rpc("agent.create", { name:answers.agentId, displayName:answers.displayName.trim(), idempotencyKey:`setup-${answers.agentId}-${answers.createdAt.replace(/[^0-9]/g,"")}` });
+          else await getApi().rpc("config.set", { changes });
+        }
         const needsPrivacyParent = def.id === "memory" && (changes.some(c => c.key.startsWith("memory.mediaEmbedding.") && c.key.endsWith(".provider")) || cloudFunctions(answers).length > 0);
-        if (needsPrivacyParent) {
+        if (def.id === "persona") { /* handled by the create saga or existing-agent update above */ }
+        else if (needsPrivacyParent) {
           if (sessionState.value.status !== "authenticated") throw new Error("person required");
           const previous = await getApi().rpc("config.get", { key: "memory.mediaEmbedding" }, { write: false });
           const safeChanges = privacyChanges(answers, changes, previous.value, sessionState.value.user.id);
@@ -110,6 +129,10 @@ export function SetupPage({ item }: PageProps): View {
         } else await getApi().rpc("config.set", { changes });
       } catch (e) {
         // A refused media setting names its E_MEDIA_* code; show what the person can do about it.
+        const selectionReason = (e as {reason?:string}).reason;
+        if (selectionReason === "embedding-model-unavailable" || selectionReason === "embedding-migration-unavailable") {
+          setFail(t(selectionReason === "embedding-model-unavailable" ? "setup.err.embeddingUnavailable" : "setup.err.embeddingMigration"));saving.current=false;setBusy(false);return;
+        }
         const media = mediaErrorOf(e);
         if (media) { setFail(problemText(media)); saving.current = false; setBusy(false); return; }
         const k = failureOf(e).kind;
@@ -164,6 +187,7 @@ export function SetupPage({ item }: PageProps): View {
         h("h2", { id: "setup-h", ref: heading, tabIndex: -1 }, t("setup.summary.title")),
         h("p", { class: "reading" }, t("setup.summary.lead")),
         h(Summary, { steps: ids, st }),
+        h(DecisionHintIfMissing, { where: "wizard" }),
         h("div", { class: "setup-nav" },
           h("button", { type: "button", class: "btn", onClick: () => { go(ids.length - 1); } }, t("setup.back")),
           h("a", { class: "btn btn-primary", href: "#/chat" }, t("setup.summary.chat")))));

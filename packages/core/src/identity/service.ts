@@ -33,11 +33,13 @@ export interface AuditEvent { action: string; target: string; detail: Record<str
 export interface IdentityOptions {
   store?: IdentityStorePort; authorize?: AuthorizePort;
   dbPath: string; clock: () => number; audit: (e: AuditEvent) => void;
-  /** Lifetime of a code and of a claim waiting for the owner. Default one hour (ADR-007). */
+  /** Lifetime of a code and of a claim waiting for the owner. Default 10 minutes (owner decision, as `identity.pair.start` says), at most one hour. */
   codeTtlMs?: number;
 }
 
-export const DEFAULT_CODE_TTL_MS = 60 * 60_000;
+export const DEFAULT_CODE_TTL_MS = 10 * 60_000;
+/** The longest a code may live: the ceiling for `codeTtlMs` and for a per-code `ttlMs` (an invite's code asks for up to this). */
+export const MAX_CODE_TTL_MS = 60 * 60_000;
 export const MAX_PENDING_PER_HUMAN_CHANNEL = 3;
 const MAX_FIELD = 128; // INPUT_LIMITS.ACCOUNT_ID / USER_ID in the engine, as in principal.ts
 const CONTROL = /[\u0000-\u001f\u007f]/;
@@ -79,8 +81,9 @@ const pairingOf = (r: Row): Pairing => ({
 
 export function createIdentityService(o: IdentityOptions) {
   const db: DatabaseSync = (o.store ?? { open: openStore }).open(o.dbPath);
-  const ttl = o.codeTtlMs ?? DEFAULT_CODE_TTL_MS;
-  if (!Number.isFinite(ttl) || ttl <= 0 || ttl > DEFAULT_CODE_TTL_MS) { db.close(); throw bad("codeTtlMs", "TTL must be positive and at most one hour"); }
+  const ttl = o.codeTtlMs ?? DEFAULT_CODE_TTL_MS; // default lifetime of a code, and how long a claim waits for the owner
+  const ttlCap = o.codeTtlMs ?? MAX_CODE_TTL_MS; // a code may ask for less or more than the default (an invite asks for up to an hour), never more than a configured lifetime
+  if (!Number.isFinite(ttl) || ttl <= 0 || ttl > MAX_CODE_TTL_MS) { db.close(); throw bad("codeTtlMs", "TTL must be positive and at most one hour"); }
   const authorizeAction = (action: IdentityAction, user: string, actor: Actor) => requireAuthorization(o.authorize ?? rbacAuthorizePort, actor, action, user);
   const digest = (value: string) => createHash("sha256").update(value).digest("hex");
   const limiter = createLimiter(db, o.clock);
@@ -170,7 +173,7 @@ export function createIdentityService(o: IdentityOptions) {
 
     startPairing(p: { humanId: string; channel: string; ttlMs?: number }, actor: Actor): { pairingId: string; code: string; channel: string; expiresAt: number } {
       const lifetime = p.ttlMs ?? ttl;
-      if (p.ttlMs !== undefined && (!Number.isInteger(lifetime) || lifetime < 60_000 || lifetime > ttl)) throw bad("ttlMs", "pairing TTL must be 1-60 minutes");
+      if (p.ttlMs !== undefined && (!Number.isInteger(lifetime) || lifetime < 60_000 || lifetime > ttlCap)) throw bad("ttlMs", "pairing TTL must be 1-60 minutes");
       authorizeAction("pair", p.humanId, actor);
       const channel = channelOf(p?.channel);
       const out = tx(() => {

@@ -13,7 +13,7 @@ const WRITE = { content: "x" };
 
 // ---- agent principals vs the eight methods ----
 
-const METHODS = ["grant.list", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.verify", "approval.decide", "approval.cancel"] as const;
+const METHODS = ["grant.list", "grant.get", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.verify", "approval.audit", "approval.decide", "approval.cancel"] as const;
 type Method = (typeof METHODS)[number];
 const RPC_CTX: CallContext = { requestId: "1", connectionId: "c1", signal: new AbortController().signal };
 
@@ -28,8 +28,8 @@ async function rpcWorld(): Promise<RpcWorld> {
   opened.n = 0; // setup went around the handlers
   const guarded = guardMethods(rr.methods, { resolve: () => rr.who, now: () => rr.clock.now() });
   const params: Record<Method, unknown> = {
-    "grant.list": {}, "grant.create": { capability: "fs.write", agent: "bernd", scope: "always" }, "grant.revoke": { id: g.id },
-    "approval.list": {}, "approval.get": { id: parked.id }, "approval.verify": {}, "approval.decide": { id: parked.id, decision: "approve" }, "approval.cancel": { id: parked.id },
+    "grant.list": {}, "grant.get": { id: g.id }, "grant.create": { capability: "fs.write", agent: "bernd", scope: "always" }, "grant.revoke": { id: g.id },
+    "approval.list": {}, "approval.get": { id: parked.id }, "approval.verify": {}, "approval.audit": {}, "approval.decide": { id: parked.id, decision: "approve" }, "approval.cancel": { id: parked.id },
   };
   const snapshot = (): string => JSON.stringify([rr.stores.chain.verify(), rr.stores.grants.inspect().map((v) => [v.grant.id, v.state]), rr.stores.approvals.list().map((a) => [a.id, a.status])]);
   return { rr, opened, guarded, params, pendingId: parked.id, snapshot };
@@ -81,18 +81,18 @@ export const AGENT_ROWS: E2ERow[] = [
     attack: () => asAgent("approval.decide", null),
   },
   {
-    id: "agent-tool-named-grant-create", group: "agent-rpc", what: "a tool called grant.create is never allowed (harness.admin = never), not even with an override or a token scope", expect: "denied:never",
+    id: "agent-tool-perm-grant", group: "agent-rpc", what: "a harness.admin tool is never allowed, not even with an override or a token scope", expect: "denied:never",
     attack: async (w) => {
-      const r1 = await w.probeCall("grant.create", { capability: "fs.write" });
+      const r1 = await w.probeCall("perm.grant", { capability: "fs.write" });
       w.policy = { overrides: { "harness.admin": "allowed" }, tokenScopes: ["harness.admin"] };
-      const r2 = await w.probeCall("grant.create", { capability: "fs.write" });
+      const r2 = await w.probeCall("perm.grant", { capability: "fs.write" });
       return { done: r1.done || r2.done, code: r1.code === r2.code ? r1.code : `${r1.code}/${r2.code}` };
     },
     benign: (w) => w.probe("fs.read", w.f.wsA),
   },
   {
-    id: "agent-tool-named-approval-decide", group: "agent-rpc", what: "a tool called approval.decide is never allowed", expect: "denied:never",
-    attack: (w) => w.probeCall("approval.decide", { id: "apr_x", decision: "approve" }, { surface: 3 }),
+    id: "agent-tool-perm-approve", group: "agent-rpc", what: "a second harness.admin tool is never allowed", expect: "denied:never",
+    attack: (w) => w.probeCall("perm.approve", { id: "apr_x", decision: "approve" }, { surface: 3 }),
     benign: (w) => w.probe("fs.read", w.f.wsA),
   },
   {

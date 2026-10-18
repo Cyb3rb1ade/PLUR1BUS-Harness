@@ -5,7 +5,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { checkToolchain, versionCommand, readVersion } from "./check-toolchain.mjs";
+import { checkToolchain, versionCommand, readVersion, version } from "./check-toolchain.mjs";
 
 test("accepts node 24.16+, pnpm 10+, cargo 1.95+", () => {
   const ok = checkToolchain({ node: "v24.21.0", pnpm: "10.28.0", cargo: "cargo 1.95.0 (f2d3ce0bd 2026-03-21)" });
@@ -69,4 +69,21 @@ test("Windows executes a real PATH pnpm.cmd shim",{skip:process.platform!=="win3
 test("module import from a non-file stdin entry point does not execute or throw", () => {
   const source = `import {isMainModule} from ${JSON.stringify(new URL("./check-toolchain.mjs", import.meta.url).href)}; if(isMainModule('-'))process.exit(7); console.log('import-only');`;
   assert.equal(execFileSync(process.execPath,["--input-type=module","-"],{input:source,encoding:"utf8"}).trim(),"import-only");
+});
+
+// Exercise the Windows launch strategy on all runners; the command is fixed.
+test("Windows pnpm uses cmd while native tools execute directly", () => {
+  const calls = [];
+  const run = (...args) => { calls.push(args); return "10.28.0\r\n"; };
+  assert.equal(version("pnpm", ["--version"], { platform: "win32", run }), "10.28.0");
+  assert.deepEqual(calls[0], [process.env.ComSpec || "cmd.exe", ["/d", "/s", "/c", "pnpm --version"], { encoding: "utf8" }]);
+  version("cargo", ["--version"], { platform: "win32", run });
+  assert.deepEqual(calls[1], ["cargo", ["--version"], { encoding: "utf8" }]);
+  version("pnpm", ["--version"], { platform: "darwin", run });
+  assert.deepEqual(calls[2], ["pnpm", ["--version"], { encoding: "utf8" }]);
+  assert.equal(version("pnpm", ["--version"], { platform: "win32", run: () => { throw new Error("missing"); } }), "missing");
+});
+
+test("installed pnpm is discoverable through the real launcher", () => {
+  assert.match(version("pnpm", ["--version"]), /^\d+\.\d+\.\d+/);
 });
