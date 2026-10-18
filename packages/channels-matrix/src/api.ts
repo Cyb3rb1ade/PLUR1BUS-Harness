@@ -119,6 +119,28 @@ export class MatrixApi {
     );
   }
 
+  async cryptoRequest(request: import("./crypto-memory.ts").CryptoRequest, signal: AbortSignal): Promise<string> {
+    const simple: Record<number, string> = { 0: "keys/upload", 1: "keys/query", 2: "keys/claim", 4: "keys/signatures/upload" };
+    let method = "POST", suffix = simple[request.type];
+    if (request.type === 3 && request.event_type && request.txn_id) { method = "PUT"; suffix = `sendToDevice/${enc(request.event_type)}/${enc(request.txn_id)}`; }
+    if (request.type === 5 && request.room_id && request.event_type && request.txn_id) { method = "PUT"; suffix = `rooms/${enc(request.room_id)}/send/${enc(request.event_type)}/${enc(request.txn_id)}`; }
+    if (!suffix) throw new MatrixApiError("protocol", "unsupported crypto request");
+    return JSON.stringify(await this.#json(method, `/_matrix/client/v3/${suffix}`, JSON.parse(request.body), signal, 30_000, "crypto"));
+  }
+  async roomMembers(roomId: string, signal: AbortSignal): Promise<string[]> {
+    const data = await this.#json<{ joined?: Record<string, unknown> }>("GET", `/_matrix/client/v3/rooms/${enc(roomId)}/joined_members`, undefined, signal, 30_000, "members");
+    return Object.keys(data.joined ?? {});
+  }
+
+  /** Missing encryption state is plaintext; other failures are unknown and must fail closed. */
+  async roomEncrypted(roomId: string, signal: AbortSignal, operation = "roomEncryption"): Promise<boolean> {
+    try {
+      const state = await this.#json<Record<string, unknown>>("GET", `/_matrix/client/v3/rooms/${enc(roomId)}/state/m.room.encryption`, undefined, signal, 30_000, operation);
+      if (state.algorithm !== "m.megolm.v1.aes-sha2") throw new MatrixApiError("protocol", "unknown room encryption algorithm");
+      return true;
+    } catch (e) { if (e instanceof MatrixApiError && e.kind === "not-found") return false; throw e; }
+  }
+
   async joinRoom(roomId: string, signal: AbortSignal): Promise<void> {
     await this.#json("POST", `/_matrix/client/v3/rooms/${enc(roomId)}/join`, {}, signal, 30_000, "join");
   }

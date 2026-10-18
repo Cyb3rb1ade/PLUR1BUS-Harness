@@ -6,15 +6,18 @@ container control, host bridge, update policy and rollback run in Rust. The
 German/English shell follows the OS language by default; Settings → General
 lets you choose System, English or Deutsch and System, Light or Dark appearance.
 The separate Rust mock and stub image prove the provisional harness contract.
-Real harness integration, signed distribution and the WP13 installer surfaces
-remain prerequisites, tracked in the
-[status report](handoff/status/desktop-shell.md).
+WP12 deep links and WP13 installer surfaces are implemented in the October 15
+D1 draft stack (#498, #501). Packaging previews and synthetic tests are locally
+validated; real-image migration/API acceptance, native cross-platform installation
+and signed distribution remain open. Start with the [current status](handoff/status/desktop-shell.md)
+and [real-image boundary](handoff/status/2026-10-15-d1-p3.md); older per-PR sections
+below describe their historical implementation boundaries.
 
 At widths below 1024 CSS px, navigation uses a 64 px rail and a 288 px overlay.
 The wide 400 px related panel opens as a 360 px sheet, or a full-width sheet
 below 600 px. Settings uses General, Runtime, Updates, Version, Advanced, and
 Computer access sections. General holds the theme and language controls
-(Appearance and Language); Advanced is currently an empty section. The stored
+(Appearance and Language); Advanced contains CLI, diagnostics, owned shortcut and uninstall controls. The stored
 `theme` and `locale` keys are unchanged.
 
 ## Development
@@ -671,3 +674,11 @@ Production inputs are explicit environment paths: `PLUR1BUS_DESKTOP_RELEASE_MANI
 Signing: `APPLE_SIGNING_IDENTITY` selects the macOS identity, otherwise `-` uses ad-hoc. No notarization credentials are provided by the scripts. Windows `signCommand` stays empty until SignPath is configured. AppImage signing is release-operated with Tauri/linuxdeploy’s `SIGN`, `SIGN_KEY` and `APPIMAGETOOL_SIGN_PASSPHRASE`; do not store key material in this repository or treat an unsigned preview as verified publisher identity.
 
 Uninstall offers **App only** by default, **App and images**, or **Everything**. Only Everything removes owned state/models/snapshots and corresponding device credentials, and requires typing `plur1bus-state`. Review the summary first. Package-manager/NSIS app removal itself leaves harness data intact. CLI shim installation refuses an existing foreign `plur1bus`; the native CLI’s authoritative identity/location and forwarding are separate pending contracts.
+
+## Real image, migration and rollback (2026-10-15)
+
+The controller now uses the actual M8 image layout (`/state`, `/state/models`), preserving existing volume names. Upgrade checks the old image's cold-snapshot CLI contract before stopping it. Missing support returns `upgrade-contract-unavailable`; the old harness remains running. [Phase 3 handoff](handoff/status/2026-10-15-d1-p3.md) lists the exact missing pairing/session/snapshot/smoke/forwarding interfaces and the native identity proposal, which is **not implemented**.
+
+Production native/stub→real store migration, real-image schema migration and SIGKILL rollback acceptance remain blocked on those authoritative interfaces. Existing synthetic upgrade/crash tests are useful state-machine evidence, not proof of real-store migration. Reuse M8's engine-aware backup archive rather than copying live databases or using the native updater's memory-excluding snapshot. No migration button or guessed native-state location is exposed. User guidance: [English](user/en/desktop.md), [Deutsch](user/de/desktop.md).
+
+`node apps/desktop/scripts/real-image-probe.mjs --runtime docker --image sha256:<local-content-id> --report <private-report.json>` tests a locally built immutable image; registry inputs require `reference@sha256:<digest>`. Apple and Podman are separate runtime choices. It creates and cleans only labelled random test resources, prints fixed verdicts, and reports missing contracts explicitly. `desktop-real-image.yml` is informational and never substitutes for the full authenticated desktop gate.

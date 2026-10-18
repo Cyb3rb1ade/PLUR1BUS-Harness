@@ -1,5 +1,6 @@
 [package]
 name = "plur1bus"
+default-run = "plur1bus"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

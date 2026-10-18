@@ -16,6 +16,10 @@ export interface SyncRoom {
 
 export interface SyncResponse {
   next_batch: string;
+  to_device?: { events?: MatrixEvent[] };
+  device_lists?: { changed?: string[]; left?: string[] };
+  device_one_time_keys_count?: Record<string, number>;
+  device_unused_fallback_key_types?: string[];
   rooms?: {
     join?: Record<string, SyncRoom>;
     invite?: Record<string, { invite_state?: { events?: MatrixEvent[] } }>;
@@ -33,7 +37,7 @@ export const SYNC_FILTER = JSON.stringify({
     ephemeral: { types: [] },
     account_data: { types: [] },
     state: { types: ["m.room.encryption"] },
-    timeline: { types: ["m.room.message", "m.reaction", "m.room.encrypted"], limit: 50 },
+    timeline: { types: ["m.room.message", "m.reaction", "m.room.encrypted", "m.room.encryption"], limit: 50 },
   },
 });
 

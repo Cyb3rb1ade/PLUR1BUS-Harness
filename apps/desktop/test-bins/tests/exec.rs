@@ -260,3 +260,29 @@ async fn native_pairing_client_spawns_known_binary_fixed_argv_and_never_records_
     .unwrap();
     assert_eq!(row.kind, plur1bus_desktop::connections::Kind::Local);
 }
+
+#[test]
+fn synthetic_upgrade_help_is_explicit_and_does_not_write_to_state() {
+    let dir = tempfile::tempdir().unwrap();
+    for args in [
+        vec!["--help"],
+        vec!["state", "--help"],
+        vec!["state", "snapshot", "--help"],
+        vec!["state", "verify", "--help"],
+        vec!["state", "restore", "--help"],
+        vec!["admin", "--help"],
+        vec!["admin", "migrate", "--help"],
+        vec!["admin", "smoke", "--help"],
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_fake-plur1bus"))
+            .args(&args)
+            .env("PLUR1BUS_HOME", dir.path())
+            .env("PLUR1BUS_FAKE_RECORD", dir.path().join("must-not-write"))
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        assert!(!output.stdout.is_empty());
+    }
+    assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 0);
+    assert!(plur1bus_desktop_test_bins::synthetic_help(&["unknown", "--help"]).is_none());
+}

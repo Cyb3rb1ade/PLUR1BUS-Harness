@@ -2,7 +2,7 @@
 import type { HarnessLogger } from "@plur1bus/module-api";
 import { createWriter } from "./writer.ts";
 import type { LevelSettings, WriterOptions } from "./writer.ts";
-export type CoreLog = HarnessLogger & { updateLevels(settings: LevelSettings): void; currentLevels(): LevelSettings };
+export type CoreLog = HarnessLogger & { updateLevels(settings: LevelSettings): void; currentLevels(): LevelSettings; registerSecret(value: string): void };
 export function createCoreLog(o: WriterOptions): CoreLog {
   const writer = createWriter(o); let closed = false;
   writer.write("core.process.started", { pid: process.pid });
@@ -33,5 +33,5 @@ export function createCoreLog(o: WriterOptions): CoreLog {
       async close() { if (closed) return; closed = true; process.off("uncaughtExceptionMonitor", crashFlush); process.off("exit", crashFlush); writer.close(); },
     };
   };
-  return Object.assign(make({}), { updateLevels: (s: LevelSettings) => writer.updateLevels(s), currentLevels: () => writer.currentLevels() });
+  return Object.assign(make({}), { updateLevels: (s: LevelSettings) => writer.updateLevels(s), currentLevels: () => writer.currentLevels(), registerSecret: (value: string) => writer.registerSecret(value) });
 }

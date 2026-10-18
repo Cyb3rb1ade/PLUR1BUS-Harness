@@ -19,7 +19,7 @@ not commitments. Test references are `file > test name` relative to `packages/co
 | `provider.ts` | `createTurnProvider`: the turn loop (identity, triage, tool registry, capability routing, prompt, provider call, tool dispatch, result cap), repair of invalid tool arguments, budget tickets and retry budget, cross-billing refusal. |
 | `http.ts` | `providerFetch` (egress decision, pinned address, no redirects) and `anthropicBreakpoints` (cache markers for the Anthropic wire body). |
 | `media.ts` | `composeMedia`: the first configured image adapter, wrapped so that egress and the secret lease happen per operation; the output store under `<home>/media/outputs`. |
-| `tools.ts` | `composeTools`: file tools, host tools, `exec.run`, media tools, `web.search` and MCP tools into a fresh registry per turn. |
+| `tools.ts` | `composeTools`: file tools, host tools, `exec.run`, media tools, `web.search`, `secret_names` and MCP tools into a fresh registry per turn. |
 | `inbox.ts` | `openInbox` (store, service, one-off copy of legacy break-glass notices) and `lateInboxPort`. |
 | `trace.ts` | `stage` (start/end/error records with trace and span ids) and `errorCode`. |
 | `legacy.ts`, `collaboration.ts` | `legacyAdapter` (a plain `ChatProvider` as a router adapter, test seam) and `composedAgentRunner` (collaboration runs through the same pipeline). |

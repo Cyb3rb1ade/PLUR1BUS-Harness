@@ -191,9 +191,9 @@ describe("triage(): validation of classifier decisions", () => {
     for (const shape of ["chat", "followup", "single"] as const) assert.deepEqual(triage("x", { classifier: fixed({ schema: "plur1bus.triage/1", shape, tasks: [] }) }), { schema: "plur1bus.triage/1", shape, tasks: [] });
   });
 
-  it("characterization: Ist-Verhalten, nicht spezifiziert - the shape is not checked against the task list ('chat' with tasks, 'multi' with one task, fractional offsets)", () => {
+  it("rejects fractional offsets before routing; runtime owns shape/task consistency", () => {
     const one = decision([taskOf("hello", { start: 0.5, end: 4.5 })], { shape: "chat" });
-    assert.equal(triage("hello", { classifier: fixed(one) }).shape, "chat");
+    assert.throws(() => triage("hello", { classifier: fixed(one) }), /invalid task segmentation/);
     assert.equal(triage("hello", { classifier: fixed(decision([taskOf("hello")], { shape: "multi" })) }).shape, "multi");
   });
 
