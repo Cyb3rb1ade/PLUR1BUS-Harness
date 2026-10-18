@@ -167,10 +167,21 @@ pub fn run(out: &Out, layout: &Layout, cmd: AdminCmd) {
                 json!({})
             };
             let v = call(out, layout, "admin.embedding.probe", params);
-            out.ok("admin.embedding.probe/1", &v, || describe_probe(&v));
             if v["ok"] != true {
-                std::process::exit(1);
+                // The core's own reason (`aborted`, `provider-failed`, `invalid-vector`, `dimension-mismatch`).
+                let reason = v["error"].as_str().unwrap_or("embedding-probe-failed");
+                out.ok_but_failed(
+                    "admin.embedding.probe/1",
+                    &v,
+                    || describe_probe(&v),
+                    crate::output::Failure::new(
+                        "E_INTERNAL",
+                        reason,
+                        "the embedding probe failed (see the reason)",
+                    ),
+                );
             }
+            out.ok("admin.embedding.probe/1", &v, || describe_probe(&v));
         }
         AdminCmd::Embedding {
             sub: EmbeddingCmd::Serve { stop },

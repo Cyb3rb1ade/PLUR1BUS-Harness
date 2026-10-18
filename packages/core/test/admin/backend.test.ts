@@ -10,6 +10,8 @@ import { exportAgent } from "../../src/agents/export.ts";
 import { buildAdminSurface } from "../../src/rpc/admin-surface.ts";
 import { guardMethods, RPC_RULES } from "../../src/rbac/guard.ts";
 import { RpcError } from "../../src/rpc/errors.ts";
+import { forgetRemovedAgent } from "../../src/dreams/index.ts";
+import { harness, useTempDirs } from "../dreams/helpers.ts";
 import { createIdentityService } from "../../src/identity/service.ts";
 import { createBreakGlass } from "../../src/rbac/break-glass.ts";
 import { SessionStore } from "../../src/session/store.ts";
@@ -22,7 +24,7 @@ const methods = ["agent.pause", "agent.resume", "agent.archive", "agent.unarchiv
 const schema = JSON.parse(readFileSync(new URL("../../../rpc-schema/schema/rpc.schema.json", import.meta.url), "utf8"));
 const reject = (error: string, reason?: string) => (e: unknown) => e instanceof RpcError && e.error === error && (!reason || e.reason === reason);
 
-function setup(t: { after(fn: () => void): void }, principal = owner) {
+function setup(t: { after(fn: () => void): void }, principal = owner, over: Partial<Parameters<typeof buildAdminSurface>[0]> = {}) {
   const root = mkdtempSync(join(tmpdir(), "admin-offline-"));
   let now = 1_000_000;
   const audit: any[] = [], notices: any[] = [];
@@ -41,6 +43,7 @@ function setup(t: { after(fn: () => void): void }, principal = owner) {
     export: async (id, who) => { exported.push(id); return exportAgent({ root: join(root, "agents", id), agentId: id, config: { skills: ["summary"], password: "synthetic-sensitive-value" }, memories: [], signer: async hash => ({ publicKey: keys.publicKey.export({ type: "spki", format: "der" }).toString("base64"), signature: (await import("node:crypto")).sign(null, Buffer.from(hash, "hex"), keys.privateKey).toString("base64") }) }); },
     erase: async id => { erased.push(id); },
     ownership: p => [p.userId],
+    ...over,
   });
   const guarded = guardMethods(raw, { resolve: () => people.resolve(principal), audit: sink, now: () => now });
   const call = (m: string, p: any = {}) => guarded[m]!(p, ctx());
@@ -250,4 +253,30 @@ test("claimed invitations expire at their original deadline and can be revoked b
   const proof=s.identities.claim({code:next.code,identity:{channel:"test",accountId:"offline",userId:"revocable"}});
   await s.call("user.invite.revoke",{inviteId:next.id});
   assert.throws(()=>s.identities.confirm({pairingId:proof.pairingId,approve:true},a),/not waiting/);
+});
+
+const dreamDirs = useTempDirs("p1b-admin-dreams-");
+test("agent.delete drops the agent's dream schedule rows at once, without a restart (composition wiring)", async t => {
+  let s!: ReturnType<typeof setup>;
+  // The scheduler reads the registry the way the Core does: a deleted agent is no longer listed (activeAgents).
+  const h = harness(dreamDirs, { agents: [] });
+  const all = ["alpha", "beta"];
+  const sched = h.make({ agents: () => all.filter(id => s.lifecycle.usable(id)) });
+  s = setup(t, owner, { onAgentDeleted: id => forgetRemovedAgent(sched, id, { info() {}, warn() {}, error() {} }) });
+  await sched.start();
+  assert.equal(h.store.listSchedules("alpha").length, 3);
+  assert.equal(h.store.listSchedules("beta").length, 3);
+  await s.call("agent.archive", { agentId: "alpha" });
+  const offer = await s.call("agent.export", { agentId: "alpha", offerOnly: true }) as any;
+  await s.call("agent.delete", { agentId: "alpha", confirmName: "Alpha", exportOfferId: offer.offerId });
+  assert.equal(h.store.listSchedules("alpha").length, 0, "rows of the deleted agent are gone immediately");
+  assert.equal(h.store.listSchedules("beta").length, 3, "other agents keep their schedule");
+  await sched.stop();
+});
+test("a failing forget hook never fails or undoes the deletion", async t => {
+  const s = setup(t, owner, { onAgentDeleted: () => { throw new Error("scheduler closed"); } });
+  await s.call("agent.archive", { agentId: "alpha" });
+  const offer = await s.call("agent.export", { agentId: "alpha", offerOnly: true }) as any;
+  assert.deepEqual(await s.call("agent.delete", { agentId: "alpha", confirmName: "Alpha", exportOfferId: offer.offerId }), { agentId: "alpha", deleted: true });
+  assert.equal(s.lifecycle.state("alpha").deleted, true);
 });

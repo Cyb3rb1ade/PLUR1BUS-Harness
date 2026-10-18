@@ -12,3 +12,8 @@ is a recommendation only.
 | M2 | [m2-m3-m4-p6-2026-10.md](m2-m3-m4-p6-2026-10.md) | not acceptable (no blocker; major M1–M4) | `3859b949` | 2026-10-16 |
 | M3 | [m2-m3-m4-p6-2026-10.md](m2-m3-m4-p6-2026-10.md) | not acceptable (no blocker; major M2, M4, M6) | `3859b949` | 2026-10-16 |
 | M4 | [m2-m3-m4-p6-2026-10.md](m2-m3-m4-p6-2026-10.md) | not acceptable (no blocker; major M5) | `3859b949` | 2026-10-16 |
+| M8 | [m8-d1-x1-hm-p6-2026-10.md](m8-d1-x1-hm-p6-2026-10.md) | not acceptable (2 major; criterion 7 open) | `3859b949` | 2026-10-16 |
+| D1 (WP1–WP15) | [m8-d1-x1-hm-p6-2026-10.md](m8-d1-x1-hm-p6-2026-10.md) | not acceptable (1 major; WP12, WP13 and the harness half of WP11 missing; desktop tests not executed) | `3859b949` | 2026-10-16 |
+| X1 | [m8-d1-x1-hm-p6-2026-10.md](m8-d1-x1-hm-p6-2026-10.md) | acceptable with conditions | `3859b949` | 2026-10-16 |
+| HM2 (harness side) | [m8-d1-x1-hm-p6-2026-10.md](m8-d1-x1-hm-p6-2026-10.md) | acceptable with conditions (Linux only) | `3859b949` | 2026-10-16 |
+| HM3 | [m8-d1-x1-hm-p6-2026-10.md](m8-d1-x1-hm-p6-2026-10.md) | acceptable with conditions | `3859b949` | 2026-10-16 |
