@@ -12,7 +12,7 @@ import type { ChannelHealth, OutboundMessage } from "../../src/channels/types.ts
 import type { IdentityService } from "../../src/identity/service.ts";
 
 const schema = JSON.parse(readFileSync(new URL("../../../rpc-schema/schema/rpc.schema.json", import.meta.url), "utf8"));
-const METHODS = ["channel.list", "channel.get", "channel.enable", "channel.disable", "channel.set", "channel.test", "channel.status"];
+const METHODS = ["channel.crypto", "channel.list", "channel.get", "channel.enable", "channel.disable", "channel.set", "channel.test", "channel.status"];
 // The channel ids the config schema declares, derived so a newly hosted channel needs no fixture edit.
 const SCHEMA_CHANNELS = Object.keys(defaults().channels).sort();
 // A channel a switchboard could register that the config schema does not declare.
@@ -80,7 +80,7 @@ function setup(o: { stored?: string[]; writable?: boolean; registry?: boolean; l
   return { registry, sets, audit, state, source, config: () => config, raw, guard, ctx, call, refusal };
 }
 
-test("the channel surface declares exactly the seven schema methods, all core and closed", () => {
+test("the channel surface declares exactly its schema methods, all core and closed", () => {
   const names = Object.keys(buildChannelSurface({} as ChannelSurfaceDeps)).sort();
   assert.deepEqual(names, [...METHODS].sort());
   for (const n of names) {
@@ -322,6 +322,7 @@ test("results of every method contain no secret value even when the registry car
 // --- RBAC: deny by default -------------------------------------------------------------------------------------
 
 const PARAMS: Record<string, unknown> = {
+  "channel.crypto": { id: "matrix", action: "inspect", flowId: "flow" },
   "channel.list": {}, "channel.status": {}, "channel.get": { id: "discord" }, "channel.test": { id: "discord" },
   "channel.enable": { id: "discord" }, "channel.disable": { id: "discord" }, "channel.set": { id: "discord", key: "locale", text: "de" },
 };
@@ -369,4 +370,14 @@ test("RBAC: reads are read-class and writes write-class in the rule table", () =
   const action = (m: string) => RPC_RULES[m]!.action;
   for (const m of ["channel.list", "channel.get", "channel.status", "channel.test"]) assert.equal(action(m), "channel.read", m);
   for (const m of ["channel.enable", "channel.disable", "channel.set"]) assert.equal(action(m), "channel.write", m);
+});
+
+test('Matrix SAS confirmation requires owner acknowledgement and binds the initiating actor', async () => {
+  const s = setup(); const calls: unknown[] = [];
+  (s.registry as ChannelRegistryView).cryptoVerification = async (_name, input) => { calls.push(input); return { flowId: 'flow', done: false }; };
+  assert.equal((await s.refusal('channel.crypto', { id: 'matrix', action: 'confirm', flowId: 'flow' })).error, 'E_DENIED');
+  assert.equal(calls.length, 0);
+  await s.call('channel.crypto', { id: 'matrix', action: 'confirm', flowId: 'flow', confirmed: true });
+  assert.deepEqual(calls, [{ actor: 'local-owner', action: 'confirm', flowId: 'flow' }]);
+  assert.deepEqual(s.audit.at(-1).detail, { action: 'confirm' });
 });

@@ -1,0 +1,946 @@
+[
+  {
+    "id": "triage-001",
+    "message": "Search laptop reviews",
+    "gold": [
+      {
+        "start": 0,
+        "end": 21,
+        "category": "web.research",
+        "minimumClass": "medium"
+      }
+    ]
+  },
+  {
+    "id": "triage-002",
+    "message": "Suche Bewertungen zum Laptop",
+    "gold": [
+      {
+        "start": 0,
+        "end": 28,
+        "category": "web.research",
+        "minimumClass": "medium"
+      }
+    ]
+  },
+  {
+    "id": "triage-003",
+    "message": "Browse website and scroll to the table",
+    "gold": [
+      {
+        "start": 0,
+        "end": 38,
+        "category": "web.browse",
+        "minimumClass": "medium"
+      }
+    ]
+  },
+  {
+    "id": "triage-004",
+    "message": "Scrolle die Webseite zum Ende",
+    "gold": [
+      {
+        "start": 0,
+        "end": 29,
+        "category": "web.browse",
+        "minimumClass": "medium"
+      }
+    ]
+  },
+  {
+    "id": "triage-005",
+    "message": "Write a PDF report; then Write a PDF report",
+    "gold": [
+      {
+        "start": 0,
+        "end": 18,
+        "category": "docs.create",
+        "minimumClass": "small"
+      },
+      {
+        "start": 25,
+        "end": 43,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-006",
+    "message": "Erstelle einen Bericht; danach Erstelle einen Bericht",
+    "gold": [
+      {
+        "start": 0,
+        "end": 22,
+        "category": "docs.create",
+        "minimumClass": "small"
+      },
+      {
+        "start": 31,
+        "end": 53,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-007",
+    "message": "Debug the failing parser test",
+    "gold": [
+      {
+        "start": 0,
+        "end": 29,
+        "category": "code.edit",
+        "minimumClass": "medium"
+      }
+    ]
+  },
+  {
+    "id": "triage-008",
+    "message": "Programmiere den Parser für Dateien",
+    "gold": [
+      {
+        "start": 0,
+        "end": 35,
+        "category": "code.edit",
+        "minimumClass": "medium"
+      }
+    ]
+  },
+  {
+    "id": "triage-009",
+    "message": "Review security architecture",
+    "gold": [
+      {
+        "start": 0,
+        "end": 28,
+        "category": "code.review",
+        "minimumClass": "large"
+      }
+    ]
+  },
+  {
+    "id": "triage-010",
+    "message": "Prüfe die Sicherheit der Architektur",
+    "gold": [
+      {
+        "start": 0,
+        "end": 36,
+        "category": "code.review",
+        "minimumClass": "large"
+      }
+    ]
+  },
+  {
+    "id": "triage-011",
+    "message": "Move files to the archive folder",
+    "gold": [
+      {
+        "start": 0,
+        "end": 32,
+        "category": "files.manage",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-012",
+    "message": "Verschiebe Dateien in den Ordner",
+    "gold": [
+      {
+        "start": 0,
+        "end": 32,
+        "category": "files.manage",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-013",
+    "message": "List system processes and disk usage; then Write a PDF report",
+    "gold": [
+      {
+        "start": 0,
+        "end": 36,
+        "category": "ops.system",
+        "minimumClass": "small"
+      },
+      {
+        "start": 43,
+        "end": 61,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-014",
+    "message": "Prüfe Prozesse im System; danach Erstelle einen Bericht",
+    "gold": [
+      {
+        "start": 0,
+        "end": 24,
+        "category": "code.review",
+        "minimumClass": "medium"
+      },
+      {
+        "start": 33,
+        "end": 55,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-015",
+    "message": "Analyze data from the CSV",
+    "gold": [
+      {
+        "start": 0,
+        "end": 25,
+        "category": "data.analyse",
+        "minimumClass": "medium"
+      }
+    ]
+  },
+  {
+    "id": "triage-016",
+    "message": "Analysiere Daten aus der Tabelle",
+    "gold": [
+      {
+        "start": 0,
+        "end": 32,
+        "category": "data.analyse",
+        "minimumClass": "medium"
+      }
+    ]
+  },
+  {
+    "id": "triage-017",
+    "message": "Send email to the team",
+    "gold": [
+      {
+        "start": 0,
+        "end": 22,
+        "category": "comm.email",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-018",
+    "message": "Schreibe einen Bericht als PDF",
+    "gold": [
+      {
+        "start": 0,
+        "end": 30,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-019",
+    "message": "Create image of a mountain",
+    "gold": [
+      {
+        "start": 0,
+        "end": 26,
+        "category": "media.image",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-020",
+    "message": "Foto vom Wald als Bild erstellen",
+    "gold": [
+      {
+        "start": 0,
+        "end": 32,
+        "category": "media.image",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-021",
+    "message": "Recall memory about the project; then Write a PDF report",
+    "gold": [
+      {
+        "start": 0,
+        "end": 31,
+        "category": "memory.manage",
+        "minimumClass": "small"
+      },
+      {
+        "start": 38,
+        "end": 56,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-022",
+    "message": "Erinnere mich an den Projektnamen; danach Erstelle einen Bericht",
+    "gold": [
+      {
+        "start": 0,
+        "end": 33,
+        "category": "memory.manage",
+        "minimumClass": "small"
+      },
+      {
+        "start": 42,
+        "end": 64,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-023",
+    "message": "Write a PDF report",
+    "gold": [
+      {
+        "start": 0,
+        "end": 18,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-024",
+    "message": "Erstelle einen Bericht",
+    "gold": [
+      {
+        "start": 0,
+        "end": 22,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-025",
+    "message": "Debug the failing parser test; then Write a PDF report",
+    "gold": [
+      {
+        "start": 0,
+        "end": 29,
+        "category": "code.edit",
+        "minimumClass": "medium"
+      },
+      {
+        "start": 36,
+        "end": 54,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-026",
+    "message": "Programmiere den Parser für Dateien; danach Erstelle einen Bericht",
+    "gold": [
+      {
+        "start": 0,
+        "end": 35,
+        "category": "code.edit",
+        "minimumClass": "medium"
+      },
+      {
+        "start": 44,
+        "end": 66,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-027",
+    "message": "List system processes and disk usage",
+    "gold": [
+      {
+        "start": 0,
+        "end": 36,
+        "category": "ops.system",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-028",
+    "message": "Prüfe Prozesse im System",
+    "gold": [
+      {
+        "start": 0,
+        "end": 24,
+        "category": "code.review",
+        "minimumClass": "medium"
+      }
+    ]
+  },
+  {
+    "id": "triage-029",
+    "message": "Analyze data from the CSV; then Write a PDF report",
+    "gold": [
+      {
+        "start": 0,
+        "end": 25,
+        "category": "data.analyse",
+        "minimumClass": "medium"
+      },
+      {
+        "start": 32,
+        "end": 50,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-030",
+    "message": "Analysiere Daten aus der Tabelle; danach Erstelle einen Bericht",
+    "gold": [
+      {
+        "start": 0,
+        "end": 32,
+        "category": "data.analyse",
+        "minimumClass": "medium"
+      },
+      {
+        "start": 41,
+        "end": 63,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-031",
+    "message": "Recall memory about the project",
+    "gold": [
+      {
+        "start": 0,
+        "end": 31,
+        "category": "memory.manage",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-032",
+    "message": "Erinnere mich an den Projektnamen",
+    "gold": [
+      {
+        "start": 0,
+        "end": 33,
+        "category": "memory.manage",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-033",
+    "message": "Search laptop reviews; then Write a PDF report",
+    "gold": [
+      {
+        "start": 0,
+        "end": 21,
+        "category": "web.research",
+        "minimumClass": "medium"
+      },
+      {
+        "start": 28,
+        "end": 46,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-034",
+    "message": "Suche Bewertungen zum Laptop; danach Erstelle einen Bericht",
+    "gold": [
+      {
+        "start": 0,
+        "end": 28,
+        "category": "web.research",
+        "minimumClass": "medium"
+      },
+      {
+        "start": 37,
+        "end": 59,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-035",
+    "message": "Review security architecture; then Write a PDF report",
+    "gold": [
+      {
+        "start": 0,
+        "end": 28,
+        "category": "code.review",
+        "minimumClass": "large"
+      },
+      {
+        "start": 35,
+        "end": 53,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-036",
+    "message": "Prüfe die Sicherheit der Architektur; danach Erstelle einen Bericht",
+    "gold": [
+      {
+        "start": 0,
+        "end": 36,
+        "category": "code.review",
+        "minimumClass": "large"
+      },
+      {
+        "start": 45,
+        "end": 67,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-037",
+    "message": "Send email to the team; then Write a PDF report",
+    "gold": [
+      {
+        "start": 0,
+        "end": 22,
+        "category": "comm.email",
+        "minimumClass": "small"
+      },
+      {
+        "start": 29,
+        "end": 47,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-038",
+    "message": "Schreibe einen Bericht als PDF; danach Erstelle einen Bericht",
+    "gold": [
+      {
+        "start": 0,
+        "end": 30,
+        "category": "docs.create",
+        "minimumClass": "small"
+      },
+      {
+        "start": 39,
+        "end": 61,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-039",
+    "message": "Search electric bicycle reviews",
+    "gold": [
+      {
+        "start": 0,
+        "end": 31,
+        "category": "web.research",
+        "minimumClass": "medium"
+      }
+    ]
+  },
+  {
+    "id": "triage-040",
+    "message": "Suche Testberichte zu Monitoren",
+    "gold": [
+      {
+        "start": 0,
+        "end": 31,
+        "category": "web.research",
+        "minimumClass": "medium"
+      }
+    ]
+  },
+  {
+    "id": "triage-041",
+    "message": "Browse the documentation website",
+    "gold": [
+      {
+        "start": 0,
+        "end": 32,
+        "category": "web.browse",
+        "minimumClass": "medium"
+      }
+    ]
+  },
+  {
+    "id": "triage-042",
+    "message": "Navigiere zur Webseite des Projekts",
+    "gold": [
+      {
+        "start": 0,
+        "end": 35,
+        "category": "web.browse",
+        "minimumClass": "medium"
+      }
+    ]
+  },
+  {
+    "id": "triage-043",
+    "message": "Write a release report",
+    "gold": [
+      {
+        "start": 0,
+        "end": 22,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-044",
+    "message": "Erstelle eine Zusammenfassung als Dokument",
+    "gold": [
+      {
+        "start": 0,
+        "end": 42,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-045",
+    "message": "Debug the cache invalidation test",
+    "gold": [
+      {
+        "start": 0,
+        "end": 33,
+        "category": "code.edit",
+        "minimumClass": "medium"
+      }
+    ]
+  },
+  {
+    "id": "triage-046",
+    "message": "Programmiere einen sicheren Parser",
+    "gold": [
+      {
+        "start": 0,
+        "end": 34,
+        "category": "code.edit",
+        "minimumClass": "medium"
+      }
+    ]
+  },
+  {
+    "id": "triage-047",
+    "message": "Review the authentication architecture",
+    "gold": [
+      {
+        "start": 0,
+        "end": 38,
+        "category": "code.review",
+        "minimumClass": "large"
+      }
+    ]
+  },
+  {
+    "id": "triage-048",
+    "message": "Prüfe die Sicherheit des Backends",
+    "gold": [
+      {
+        "start": 0,
+        "end": 33,
+        "category": "code.review",
+        "minimumClass": "large"
+      }
+    ]
+  },
+  {
+    "id": "triage-049",
+    "message": "Move files into the reports folder",
+    "gold": [
+      {
+        "start": 0,
+        "end": 34,
+        "category": "files.manage",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-050",
+    "message": "Verschiebe Dateien ins Archiv",
+    "gold": [
+      {
+        "start": 0,
+        "end": 29,
+        "category": "files.manage",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-051",
+    "message": "List system services",
+    "gold": [
+      {
+        "start": 0,
+        "end": 20,
+        "category": "ops.system",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-052",
+    "message": "System Prozesse auflisten",
+    "gold": [
+      {
+        "start": 0,
+        "end": 25,
+        "category": "ops.system",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-053",
+    "message": "Analyze the sales data",
+    "gold": [
+      {
+        "start": 0,
+        "end": 22,
+        "category": "data.analyse",
+        "minimumClass": "medium"
+      }
+    ]
+  },
+  {
+    "id": "triage-054",
+    "message": "Analysiere Daten zum Umsatz",
+    "gold": [
+      {
+        "start": 0,
+        "end": 27,
+        "category": "data.analyse",
+        "minimumClass": "medium"
+      }
+    ]
+  },
+  {
+    "id": "triage-055",
+    "message": "Send email with the meeting notes",
+    "gold": [
+      {
+        "start": 0,
+        "end": 33,
+        "category": "comm.email",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-056",
+    "message": "Email an das Projektteam senden",
+    "gold": [
+      {
+        "start": 0,
+        "end": 31,
+        "category": "comm.email",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-057",
+    "message": "Create image of a red bicycle",
+    "gold": [
+      {
+        "start": 0,
+        "end": 29,
+        "category": "media.image",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-058",
+    "message": "Ein Bild vom Garten erstellen",
+    "gold": [
+      {
+        "start": 0,
+        "end": 29,
+        "category": "media.image",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-059",
+    "message": "Recall memory of the workshop",
+    "gold": [
+      {
+        "start": 0,
+        "end": 29,
+        "category": "memory.manage",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-060",
+    "message": "Erinnere mich an das Projektziel",
+    "gold": [
+      {
+        "start": 0,
+        "end": 32,
+        "category": "memory.manage",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-061",
+    "message": "Write a PDF report about the experiment",
+    "gold": [
+      {
+        "start": 0,
+        "end": 39,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-062",
+    "message": "Dokument zum Experiment erstellen",
+    "gold": [
+      {
+        "start": 0,
+        "end": 33,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-063",
+    "message": "Debug the distributed transaction protocol",
+    "gold": [
+      {
+        "start": 0,
+        "end": 42,
+        "category": "code.edit",
+        "minimumClass": "large"
+      }
+    ]
+  },
+  {
+    "id": "triage-064",
+    "message": "Programmiere die Architektur der Warteschlange",
+    "gold": [
+      {
+        "start": 0,
+        "end": 46,
+        "category": "code.edit",
+        "minimumClass": "large"
+      }
+    ]
+  },
+  {
+    "id": "triage-065",
+    "message": "Search reviews for quiet keyboards",
+    "gold": [
+      {
+        "start": 0,
+        "end": 34,
+        "category": "web.research",
+        "minimumClass": "medium"
+      }
+    ]
+  },
+  {
+    "id": "triage-066",
+    "message": "Recherchiere Bewertungen zu Kameras",
+    "gold": [
+      {
+        "start": 0,
+        "end": 35,
+        "category": "web.research",
+        "minimumClass": "medium"
+      }
+    ]
+  },
+  {
+    "id": "triage-067",
+    "message": "Browse the website; then Write a document",
+    "gold": [
+      {
+        "start": 0,
+        "end": 18,
+        "category": "web.browse",
+        "minimumClass": "medium"
+      },
+      {
+        "start": 25,
+        "end": 41,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-068",
+    "message": "Analysiere Daten; danach Erstelle einen Bericht",
+    "gold": [
+      {
+        "start": 0,
+        "end": 16,
+        "category": "data.analyse",
+        "minimumClass": "medium"
+      },
+      {
+        "start": 25,
+        "end": 47,
+        "category": "docs.create",
+        "minimumClass": "small"
+      }
+    ]
+  },
+  {
+    "id": "triage-069",
+    "message": "Hallo!",
+    "gold": []
+  },
+  {
+    "id": "triage-070",
+    "message": "Danke!",
+    "gold": []
+  },
+  {
+    "id": "triage-071",
+    "message": "Hello",
+    "gold": []
+  },
+  {
+    "id": "triage-072",
+    "message": "Thanks!",
+    "gold": []
+  }
+]

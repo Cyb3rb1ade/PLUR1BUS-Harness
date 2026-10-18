@@ -24,6 +24,7 @@ import type { ChannelHealth, OutboundMessage } from "../channels/types.ts";
 
 /** What the surface needs of the registry (a `ChannelRegistry` satisfies it; tests use a fake). */
 export interface ChannelRegistryView {
+  cryptoVerification?(name: string, input: import("../../../channels-matrix/src/crypto-memory.ts").VerificationInput): Promise<Record<string, unknown>>;
   list(): ChannelStatus[];
   status(name: string): ChannelStatus | undefined;
   manifestOf(name: string): ChannelManifest | undefined;
@@ -255,6 +256,19 @@ export function buildChannelSurface(d: ChannelSurfaceDeps): Record<string, Handl
   };
 
   return {
+    "channel.crypto": async (p, ctx) => {
+      const principal = authenticatedPrincipal(ctx);
+      if (principal.kind !== "person" || !["owner", "admin"].includes(principal.role)) throw new RpcError("E_DENIED", "owner confirmation required");
+      const params = paramsOf(p);
+      if (params.id !== "matrix" || !["start", "inspect", "accept", "confirm", "cancel"].includes(String(params.action))) throw new RpcError("E_INVALID_PARAMS", "invalid verification operation");
+      if (params.action === "confirm" && params.confirmed !== true) throw new RpcError("E_DENIED", "compare the SAS before confirming");
+      const registry = d.registry();
+      if (!registry?.cryptoVerification) throw new RpcError("E_NOT_AVAILABLE", "crypto verification unavailable");
+      try {
+        const result = await registry.cryptoVerification("matrix", { actor: principal.userId, action: params.action as "inspect", ...(typeof params.userId === "string" ? { userId: params.userId } : {}), ...(typeof params.deviceId === "string" ? { deviceId: params.deviceId } : {}), ...(typeof params.flowId === "string" ? { flowId: params.flowId } : {}) });
+        audit(principal.userId, "channel.crypto", "matrix", { action: params.action }); return result;
+      } catch { throw new RpcError("E_NOT_AVAILABLE", "verification unavailable or not ready"); }
+    },
     "channel.list": read(async () => {
       const cfg = d.config(), present = await presentSecrets();
       return { host: d.registry() !== null, channels: knownIds().map((id) => summary(facts(id, cfg, present))) };
