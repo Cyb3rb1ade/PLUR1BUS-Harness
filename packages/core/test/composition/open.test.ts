@@ -58,7 +58,7 @@ describe("composition openTurnComposition", () => {
       assert.deepEqual(Object.keys(c).sort(), ["budget", "capabilities", "chatModels", "close", "collab", "discoveryCredentials", "openai", "refusedProviders", "sessions", "surfaceMethods", "voice"]);
       assert.ok(c.collab, "collaboration needs the call budget, which opened");
       assert.equal(typeof c.sessions.close, "function");
-      assert.deepEqual(Object.keys(c.surfaceMethods).sort(), [...MEDIA_METHODS, ...SEARCH_METHODS, "task.complete"].sort());
+      assert.deepEqual(Object.keys(c.surfaceMethods).sort(), [...MEDIA_METHODS, ...SEARCH_METHODS].sort());
       for (const m of Object.values(c.surfaceMethods)) assert.equal(typeof m, "function");
     } finally { await c.close(); identity.close(); }
   });

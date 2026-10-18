@@ -20,7 +20,7 @@ function Message({ e, agent }: { e: Entry; agent: string }): View {
       e.state === "running" ? h(Badge, { tone: "info" }, t("chat.state.running")) : null,
       e.state === "completed" ? h(Badge, { tone: "ok" }, t("chat.state.completed")) : null,
       e.state === "failed" ? h(Badge, { tone: cancelled ? "neutral" : "err" }, cancelled ? t("chat.state.cancelled") : t("chat.state.failed")) : null),
-    h("div", { class: "msg-text" }, e.text),
+    h("div", { class: "msg-text" }, e.modelChange ? t("chat.model.changed",{model:e.modelChange.model,reasoning:t(`chat.reasoning.${e.modelChange.reasoning}`)}) : e.text),
     e.outputId ? h(StoredImage, { id: e.outputId, download: true }) : null,
     e.state === "failed" && !cancelled && e.error ? h("p", { class: "msg-detail" }, t("chat.failed.detail", { error: e.error })) : null);
 }

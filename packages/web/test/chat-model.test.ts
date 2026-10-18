@@ -113,7 +113,8 @@ test("model-change notes replay at their message position and are not duplicated
  const change=ev(1,"session.model.changed",null,{profile:"deep",displayName:"Thinker",reasoning:"high",afterMessageSeq:2});
  const transcript=fromResume({messages,runningTurnId:"t2",lastEventSeq:2,modelChanges:[change]});
  assert.deepEqual(transcript.entries.map(e=>e.id),["m1","m2","model-event:1","m3"]);
- assert.match(transcript.entries[2]!.text,/Thinker/);
+ assert.equal(transcript.entries[2]!.modelChange?.model,"Thinker");
+ assert.equal(transcript.entries[2]!.modelChange?.reasoning,"high");
  const replay=applyEvent(transcript,change);
  assert.equal(replay.gap,false);assert.equal(replay.tr.entries.filter(e=>e.id==="model-event:1").length,1);
  assert.equal(replay.tr.lastSeq,1);

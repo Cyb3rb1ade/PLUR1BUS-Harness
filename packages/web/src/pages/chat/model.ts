@@ -1,4 +1,4 @@
-import { t, type Key } from "../../i18n.ts";
+import type { ReasoningChoice } from "./model-switch.ts";
 // Transcript state of one chat: the persisted messages plus the live events of the session's stream. Pure functions on an
 // immutable value, so the page (and the tests) can replace the whole transcript on every change.
 import { outputReference } from "../surfaces/data.ts";
@@ -13,6 +13,8 @@ export type Entry = {
   state?: TurnState;
   error?: string;
   outputId?: string;
+  /** Structured display metadata; the view translates it in the current language. */
+  modelChange?: {model: string; reasoning: ReasoningChoice};
 };
 
 export type Transcript = {
@@ -51,7 +53,7 @@ function modelChangeEntry(ev: SessionEvent): Entry {
   const choices=["default","off","minimal","low","medium","high","xhigh"];
   const chosen=ev.data.effectiveReasoning ?? ev.data.reasoning;
   const reasoning=typeof chosen === "string" && choices.includes(chosen) ? chosen : "default";
-  return {id:`model-event:${ev.seq}`,role:"system",turnId:null,text:t("chat.model.changed",{model:String(ev.data.displayName ?? ev.data.model ?? ev.data.profile ?? "?"),reasoning:t(`chat.reasoning.${reasoning}` as Key)})};
+  return {id:`model-event:${ev.seq}`,role:"system",turnId:null,text:"",modelChange:{model:String(ev.data.displayName ?? ev.data.model ?? ev.data.profile ?? "?"),reasoning:reasoning as ReasoningChoice}};
 }
 
 const indexOfTurn = (entries: readonly Entry[], turnId: string): number => entries.findIndex((e) => e.id === turnKey(turnId));
