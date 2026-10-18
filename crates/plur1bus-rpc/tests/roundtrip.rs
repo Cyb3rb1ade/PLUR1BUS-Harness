@@ -1316,6 +1316,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::VoiceRealtimeStopParams,
                 types::VoiceRealtimeStopResult,
             >(name, fixture, &root_schema),
+            "voice.session.create" => check_pair::<
+                types::VoiceSessionCreateParams,
+                types::VoiceSessionCreateResult,
+            >(name, fixture, &root_schema),
             other => panic!("method fixture {other} has no Rust type mapping"),
         }
     }
