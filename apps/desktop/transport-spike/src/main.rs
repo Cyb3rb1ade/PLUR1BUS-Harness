@@ -1,4 +1,6 @@
 #[cfg(feature = "ssh")]
+mod direct_key_policy;
+#[cfg(feature = "ssh")]
 mod spike;
 
 #[cfg(feature = "ssh")]

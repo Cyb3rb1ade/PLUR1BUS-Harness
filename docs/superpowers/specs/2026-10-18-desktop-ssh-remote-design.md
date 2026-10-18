@@ -1,6 +1,6 @@
 # Desktop: install and manage PLUR1BUS on a remote host over SSH — design
 
-**Status:** Owner decisions Q1–Q5 decided 2026-10-18 (D113); S0 partial, RSA/audit gate open · **Date:** 2026-10-18 ·
+**Status:** Owner decisions Q1–Q5 decided 2026-10-18 (D113); S0 partial; agent-only RSA decision verified, remaining audit/acceptance gates open · **Date:** 2026-10-18 ·
 **Owner:** Christian (Cyb3rb1ade) · **Track:** D (desktop), follow-up to D1 · **Plan:**
 [`2026-10-18-desktop-ssh-remote.md`](../plans/2026-10-18-desktop-ssh-remote.md)
 
@@ -106,7 +106,7 @@ everything else is identical Rust.
 
 **Decision: `russh`**, exact-pinned in `apps/desktop/Cargo.toml`/`Cargo.lock` (current line 0.64.x on docs.rs,
 2026-10-18; the exact version, its crypto backend — `ring`, matching the existing `rustls` feature — and the agent
-features are fixed by spike S0). This is a **new dependency** under `docs/dependency-policy.md`, approved by the owner on 2026-10-18 (Q2), subject to a green audit. S0 pins `russh =0.64.1`, `default-features=false`, `features=["ring"]`; direct RSA remains blocked by RUSTSEC-2023-0071. Key, agent and known_hosts APIs are built into `russh::keys`, not a separate legacy key crate. Known cost: no GSSAPI and no direct FIDO; people who need those use their agent or keep using
+features are fixed by spike S0). This is a **new dependency** under `docs/dependency-policy.md`, approved by the owner on 2026-10-18 (Q2), subject to a green audit. S0 pins `russh =0.64.1`, `default-features=false`, `features=["ring"]`; RSA in v1 is agent-only (owner 2026-10-18); direct RSA file login is excluded with `rsa-direct-unsupported` because of RUSTSEC-2023-0071. The `rsa` crate is absent from the whole resolved desktop workspace. Key, agent and known_hosts APIs are built into `russh::keys`, not a separate legacy key crate. Known cost: no GSSAPI and no direct FIDO; people who need those use their agent or keep using
 `tailnet`/`network` pairing.
 
 ### 4.2 Host-key verification
@@ -145,12 +145,36 @@ features are fixed by spike S0). This is a **new dependency** under `docs/depend
 | Method | What the person provides | Stored | Notes |
 |---|---|---|---|
 | **Password** | password, each time a session starts | **never** | used for one-off work and for enrolling a generated key; keyboard-interactive with a single password prompt is accepted as password, other prompts (OTP) are shown verbatim and answered by the person |
-| **Existing key file** | a private key under the person's home (e.g. `~/.ssh/id_ed25519`), passphrase if encrypted | path only (public metadata); **passphrase never** | Rust offers the standard `~/.ssh/id_*` files it finds, or a typed absolute path; it refuses group/world-readable files on POSIX, symlinks out of the home, and files over 16 KiB; no file picker plugin (AGENTS.md) |
+| **Existing key file** | an Ed25519/ECDSA private key under the person's home (e.g. `~/.ssh/id_ed25519`), passphrase if encrypted | path only (public metadata); **passphrase never** | Rust offers the standard `~/.ssh/id_*` files it finds, or a typed absolute path; it refuses group/world-readable files on POSIX, symlinks out of the home, and files over 16 KiB; no file picker plugin (AGENTS.md) |
 | **SSH agent** | nothing | nothing | macOS/Linux `SSH_AUTH_SOCK` (includes 1Password's socket when the person points `SSH_AUTH_SOCK`/the profile at it); Windows `\\.\pipe\openssh-ssh-agent` (Windows OpenSSH agent; 1Password for Windows serves the same pipe); the profile may pin the expected key fingerprint so a different agent key is not tried; Pageant optional (S0) |
 | **Generated key (recommended for durable access)** | the account password **once** | private key **only in the OS keychain**; public key in `ssh-hosts.json` and the server's `authorized_keys` | §5.2 |
 
 The order tried within one session is the profile's single configured method; the app does not spray every key it
 can find (servers lock accounts after `MaxAuthTries`).
+
+### 5.1.1 RSA in v1 — owner decision 2026-10-18
+
+RSA authentication is supported **only through an SSH agent**. The agent owns the
+private key and signs; the desktop uses `authenticate_publickey_with` with
+`rsa-sha2-256` or `rsa-sha2-512`. Never enable `russh/rsa`, never use SHA-1
+`ssh-rsa`, and never fall back to loading an RSA private key locally. New generated
+keys remain Ed25519 (§5.2).
+
+When a selected key file's public algorithm is RSA, refuse before requesting its
+passphrase or decrypting the file, with stable reason **`rsa-direct-unsupported`**.
+The bundled UI in WP3 translates the reason and shows:
+
+- DE: „Lade den Key in deinen SSH-Agent oder erzeuge einen ed25519-Key.“
+- EN: “Load the key into your SSH agent or generate an ed25519 key.”
+
+Direct RSA returns only after a Marvin-safe version or an audit-compliant backend
+exists. It remains a named future TODO, **not a v1 gate**. This does not waive any
+other audit finding or grant an exception for public-key operations.
+
+The S0 OpenSSH 10.5 probe verifies both RSA SHA-2 variants and authenticated exec
+using a separate agent, a separate sshd and test-generated keys. Rust receives only
+public metadata and the isolated socket path. Its host-key pin uses an Ed25519
+server key; this does not establish RSA-only server-host-key interoperability.
 
 ### 5.2 Generated Ed25519 key
 
@@ -487,10 +511,18 @@ P1–P3 gate the *Open* step; P4 is a quality improvement. **P5 and an egress-bl
 
 Authentication is either a one-time password prompt or durable OpenSSH-key authentication (owner 2026-10-17).
 
-### S0 security gate, 2026-10-18
+### S0 RSA decision follow-up, 2026-10-18
 
-The approved implementation choice does not make direct RSA safe: `russh 0.64.1`'s RSA feature pulls
-`rsa 0.10.0-rc.18`, still covered by [RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html)
-with no patched version. The isolated S0 executable therefore omits RSA. **S0 is partial and WP1 is blocked**;
-no advisory is ignored and no product crate uses SSH. The owner must resolve the RSA requirement without weakening
-the audit policy. See the [S0 evidence and remaining gates](../../handoff/status/2026-10-18-dssh-s0.md).
+**Decided:** agent-only RSA in v1; direct RSA file login is excluded. With
+`russh =0.64.1`, defaults off and only `ring`, the entire desktop dependency
+metadata contains **no `rsa` crate**. The graph regression checks this explicitly.
+The external OpenSSH agent signs for SHA-256 and SHA-512; actual SSH authentication
+and subsequent exec succeed against an isolated OpenSSH server. No RSA advisory
+exception or public-operation exception is needed or added.
+
+The old direct-feature candidate still pulls `rsa 0.10.0-rc.18`, covered by
+[RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html); it stays
+outside the committed dependency graph. S0 remains partial because five-target,
+proxy/jump, supported OpenSSH-version and installed-size evidence is still open.
+Whole-workspace audit findings remain separate gates. See the
+[S0 evidence and remaining gates](../../handoff/status/2026-10-18-dssh-s0.md).

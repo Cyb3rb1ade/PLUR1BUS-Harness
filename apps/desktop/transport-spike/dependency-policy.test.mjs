@@ -18,6 +18,7 @@ test("H: resolved spike graph pins russh/ring and excludes vulnerable RSA and aw
   assert.ok(nodes.get(russh.id).features.includes("ring"));
   assert.ok(!nodes.get(russh.id).features.includes("rsa"));
   for (const name of ["rsa", "aws-lc-rs", "aws-lc-sys", "russh-keys"]) assert.ok(!resolved.some(p => p.name === name), name);
+  assert.ok(!data.packages.some(p => p.name === "rsa"), "rsa must be absent from the entire desktop workspace, including public-operation dependencies");
   for (const d of spike.dependencies.filter(d => d.source !== null)) assert.ok(d.req.startsWith("="), d.name);
   assert.ok(!data.packages.filter(p => p.name !== spike.name).some(p => p.dependencies.some(d => d.name === spike.name)), "research package must not enter the app");
 });

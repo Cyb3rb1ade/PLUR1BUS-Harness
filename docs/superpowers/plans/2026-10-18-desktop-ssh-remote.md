@@ -8,7 +8,7 @@ remote command set, tunnel connector) used by `src-tauri` through new native com
 secrets only in the OS keychain; installation and management drive the existing harness CLI (`setup`, `update`,
 `uninstall`, `daemon`, `1staid`) with `--json`; the SPA reaches the server's loopback API through in-process
 `direct-tcpip` channels.
-**Status.** Q1–Q5 decided 2026-10-18 (D113, spec §12). S0 is partial: the ring-only research executable is not linked into the app; direct RSA and the full-workspace audit remain blocked. See `../../handoff/status/2026-10-18-dssh-s0.md`. WP1 waits for S0 acceptance and a policy-compliant resolution of RSA.
+**Status.** Q1–Q5 decided 2026-10-18 (D113, spec §12). S0 is partial: the ring-only research executable is not linked into the app; the owner selected agent-only RSA in v1, now verified against OpenSSH without any `rsa` crate. Other full-workspace audit and S0 acceptance gates remain open. See `../../handoff/status/2026-10-18-dssh-s0.md`. WP1 waits for the remaining S0 acceptance and package-1 A–G gates; RSA no longer needs an owner decision.
 **Constraints.** Desktop rules from `AGENTS.md`: exact-pinned direct dependencies, `--locked`, no shell/fs/http/dialog/
 opener plugins, native commands with capabilities and origin checks, no tokens in JS or files, scratch state and
 injected seams in tests, no real keychain or personal runtime. Desktop Green gate per `AGENTS.md`. No harness RPC, API or pairing-policy change in these WPs. P1–P3 remain M3-owned; **WP4 includes the additive Harness/CLI offline Node input P5**, required by owner Q3 (spec §9). No CI polling,
@@ -45,12 +45,12 @@ One branch and one **ready** PR per phase, including stacks (owner 2026-10-18). 
 exact version and features for the owner's dependency approval (Q2).
 
 **Files.**
-- `apps/desktop/transport-spike/`: research-only executable `plur1bus-ssh-spike`, not linked into the app; no personal keychain/agent/runtime. Exact pins and the desktop lockfile, with RSA omitted while its no-fix advisory is unresolved.
+- `apps/desktop/transport-spike/`: research-only executable `plur1bus-ssh-spike`, not linked into the app; no personal keychain/agent/runtime. Exact pins and the desktop lockfile, with the `rsa` crate excluded and RSA authentication delegated only to the SSH agent (owner 2026-10-18).
 - `docs/handoff/status/2026-10-18-dssh-s0.md`: results table and decision.
 
 **Checks (each a recorded yes/no per target).**
 - Build with `ring` backend on macOS arm64, Windows x64/arm64, Linux x64/arm64; `cargo deny` / licence check.
-- Ed25519, ECDSA P-256 and RSA (rsa-sha2-256/512) client auth; encrypted OpenSSH key with passphrase.
+- Ed25519/ECDSA P-256 file authentication (including encrypted Ed25519). RSA-SHA2-256/512 **via agent only** in v1; direct RSA file selection must return `rsa-direct-unsupported` with the DE/EN action hint from spec §5.1.1 before decryption/passphrase prompt.
 - Agent client: Unix socket (`SSH_AUTH_SOCK`), Windows `\\.\pipe\openssh-ssh-agent`, 1Password socket on macOS,
   Pageant (optional); `sk-ssh-ed25519@openssh.com` identities through an agent (expected: document the outcome).
 - known_hosts parsing including hashed `|1|` entries (crate helper or own parser).
@@ -60,7 +60,7 @@ exact version and features for the owner's dependency approval (Q2).
 - Supported kex/cipher/MAC list against OpenSSH 8.9 (Ubuntu 22.04) and 9.6 (Ubuntu 24.04).
 
 **Acceptance.** Status doc lists version, features, licence, binary size delta, every check per target, and the
-transport decision (in-process connector vs. fallback listener, spec §7.1). No product code merged. **RSA, five-target, OpenSSH and proxy-transport evidence are gates, not inferred from the local fixture.**
+transport decision (in-process connector vs. fallback listener, spec §7.1). No product code merged. **Agent-only RSA is verified on macOS with OpenSSH 10.5; five-target, supported OpenSSH versions and proxy-transport evidence remain gates. Direct RSA is outside v1 by owner decision.**
 
 ---
 
@@ -77,7 +77,7 @@ transport decision (in-process connector vs. fallback listener, spec §7.1). No 
 - `src/host_key.rs` — fingerprint (`SHA256:` base64, no padding), decision `Unknown | Match | Changed`, algorithm
   preference, known_hosts reader (plain + hashed; read-only).
 - `src/auth.rs` — password, keyboard-interactive (single password prompt or verbatim prompts), key file (load +
-  passphrase), agent (socket/pipe; pinned key fingerprint), in-memory key; one method per attempt.
+  passphrase), agent (socket/pipe; pinned key fingerprint; RSA signs only in the agent), in-memory Ed25519 key; one method per attempt. Refuse direct RSA with `rsa-direct-unsupported` before decryption or a passphrase prompt; new keys stay Ed25519.
 - `src/secret.rs` — `SecretString` reuse or thin wrapper over the app's existing type (zeroize, redacted Debug/Display,
   no `Serialize`).
 - `src/command.rs` — `RemoteCommand` enum, rendering, charset validator `[A-Za-z0-9._/:=@+-]`, stdin scripts for
@@ -161,7 +161,7 @@ transport decision (in-process connector vs. fallback listener, spec §7.1). No 
 - Rust: command ACL test (only the `shell` webview at the bundled origin; approvals window and SPA refused); input
   validation table (host as IDN/IP/garbage, user charset, port range, key path outside home/symlink/world-readable);
   `ssh_secret_submit` without a live request or with a reused nonce refused; secret never echoed in any response.
-- Browser suite (existing Playwright harness, injected test transport): wizard happy path; changed-key state shows both
+- Browser suite (existing Playwright harness, injected test transport): RSA key-file selection shows the translated `rsa-direct-unsupported` hint and performs no decryption/network/auth; wizard happy path; changed-key state shows both
   fingerprints and offers no connect; *Forget host key* needs typed host name; password field cleared after submit and
   absent from page state snapshots; axe light/dark DE/EN; 44 px targets; 400 px layout; keyboard-only flow.
 
@@ -298,7 +298,7 @@ over SSH.
 
 | WP | Est. (agent days) | Gate |
 |---|---|---|
-| S0 | 2 | Q2 approved 2026-10-18; full S0 acceptance including RSA/audit remains open |
+| S0 | 2 | Q2 approved 2026-10-18; agent-only RSA verified; remaining S0 acceptance/audit gates stay open |
 | WP1 | 5 | S0 accepted, Q2 approved |
 | WP2 | 4 | WP1 |
 | WP3 | 5 | WP2, Q4 answered |
@@ -310,7 +310,7 @@ Total ≈ 29 agent days for S0–WP6.
 
 ## Open points carried from the spec
 
-- P1–P3 stay with M3 (open #581 at inventory); P4 stays with installer work. P5 is part of WP4 by owner Q3. Direct RSA is blocked by RUSTSEC-2023-0071; no silent exception or narrowed acceptance.
+- P1–P3 stay with M3 (open #581 at inventory); P4 stays with installer work. P5 is part of WP4 by owner Q3. RSA is agent-only in v1 (owner 2026-10-18); no `rsa` crate or exception. Direct RSA is a named later TODO until a Marvin-safe version or audited backend exists.
 - Per-distro polkit behaviour of `loginctl enable-linger` without sudo is unverified; WP6's real-install job and the
   owner's VMs (Ubuntu 22.04/24.04, Debian 12, RHEL-family) provide the evidence.
 - FIDO (`sk-`) keys through agents and Pageant support depend on S0's findings.

@@ -7,7 +7,7 @@ license = "MIT"
 publish = false
 
 # Research executable only; no desktop product crate depends on this package.
-# RSA is intentionally absent: RUSTSEC-2023-0071 has no fixed release.
+# The rsa crate is absent: v1 RSA authentication uses only the SSH agent.
 [features]
 default = ["ssh"]
 ssh = ["dep:russh", "dep:russh-sftp", "dep:rand", "dep:tokio", "dep:futures-util", "dep:sha2", "dep:tempfile", "dep:zeroize"]

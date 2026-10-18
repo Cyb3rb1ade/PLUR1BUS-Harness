@@ -30,7 +30,9 @@ impl client::Handler for PinnedHost {
         &mut self,
         offered: &PublicKeyOrCertificate,
     ) -> Result<bool, Self::Error> {
-        Ok(matches!(offered, PublicKeyOrCertificate::PublicKey { key, .. } if key == &self.0))
+        Ok(
+            matches!(offered, PublicKeyOrCertificate::PublicKey { key, .. } if key.key_data() == self.0.key_data()),
+        )
     }
 }
 
@@ -360,6 +362,7 @@ async fn upload(connection: &Connection, fixture: &Fixture) -> Result<f64, Error
 }
 
 async fn key_login(fixture: &Fixture, key: PrivateKey) -> Result<(), Error> {
+    crate::direct_key_policy::validate(&key.algorithm())?;
     let mut connection = fixture.connect().await?;
     assert!(connection
         .authenticate_publickey(USER, PrivateKeyWithHashAlg::new(Arc::new(key), None))
@@ -480,7 +483,7 @@ pub async fn run() -> Result<(), Error> {
     let upload_seconds = upload(&connection, &fixture).await?;
     disconnect(&connection).await?;
     connections_ms.sort_by(f64::total_cmp);
-    println!("{{\"fixture\":\"russh-loopback\",\"target\":\"{}-{}\",\"samples\":20,\"connectAuthMedianMs\":{:.3},\"connectAuthP95Ms\":{:.3},\"uploadBytes\":{},\"uploadSeconds\":{:.3},\"uploadMiBPerSecond\":{:.3},\"sha256Readback\":true,\"rsa\":\"blocked-RUSTSEC-2023-0071\"}}",
+    println!("{{\"fixture\":\"russh-loopback\",\"target\":\"{}-{}\",\"samples\":20,\"connectAuthMedianMs\":{:.3},\"connectAuthP95Ms\":{:.3},\"uploadBytes\":{},\"uploadSeconds\":{:.3},\"uploadMiBPerSecond\":{:.3},\"sha256Readback\":true,\"rsa\":\"agent-only-v1-separate-openssh-probe\"}}",
         std::env::consts::OS, std::env::consts::ARCH, (connections_ms[9] + connections_ms[10]) / 2.0, connections_ms[18], UPLOAD_BYTES, upload_seconds, 50.0 / upload_seconds);
     Ok(())
 }
