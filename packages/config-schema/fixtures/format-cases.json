@@ -34,6 +34,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -499,6 +502,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -964,6 +970,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -1429,6 +1438,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -1894,6 +1906,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -2359,6 +2374,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -2824,6 +2842,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -3289,6 +3310,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -3754,6 +3778,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -4219,6 +4246,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -4684,6 +4714,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -5149,6 +5182,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -5614,6 +5650,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -6079,6 +6118,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -6544,6 +6586,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -7009,6 +7054,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -7474,6 +7522,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -7939,6 +7990,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -8404,6 +8458,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -8869,6 +8926,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -9334,6 +9394,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -9799,6 +9862,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -10264,6 +10330,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -10729,6 +10798,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -11194,6 +11266,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -11659,6 +11734,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -12124,6 +12202,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -12589,6 +12670,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -13054,6 +13138,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -13519,6 +13606,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {
@@ -13981,6 +14071,9 @@
         "maxEntries": 1000
       },
       "tools": {
+        "sandbox": {
+          "required": true
+        },
         "hostctl": {
           "enabled": true,
           "shell": {

@@ -83,6 +83,8 @@ test('coding_complete tool and task.complete RPC cannot be bypassed by a green r
   const bypass = await dispatcher.call({ id: 'bypass', name: 'coding_complete', args: { projectId: p.id, cardId: card.id, overrideNote: 'agent override' } }, ctx);
   assert.equal(bypass.isError, true);
   const methods = guardMethods(codingMethods(o), { resolve: () => owner, audit: { append() {} }, now: Date.now });
+  const foreign = guardMethods(codingMethods(o), { resolve: () => ({ kind: 'person', userId: 'other', role: 'member' }), now: Date.now });
+  await assert.rejects(foreign['task.complete']!({ projectId: p.id, cardId: card.id }, { requestId: 'foreign', connectionId: 'other', signal: ctx.signal }), (e: any) => e.error === 'E_DENIED');
   await methods['task.complete']!({ projectId: p.id, cardId: card.id, overrideNote: 'Owner accepts this fixture failure' }, { requestId: 'override', connectionId: 'owner', signal: ctx.signal });
   assert.equal(collab.boardStore.getCard(p.id, card.id).columnId, collab.boardStore.columns(p.id).find(c => c.titleKey === 'project.board.done')!.id);
   assert.ok(events.some(e => (e as { kind: string }).kind === 'coding.override'));

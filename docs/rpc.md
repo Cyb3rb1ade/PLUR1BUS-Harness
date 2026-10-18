@@ -74,6 +74,184 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ## Methods
 
+### `chat.promote.links`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+List this owned direct chat's private project links, filtered by current project visibility.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `chat.promote.preview`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private direct-chat promotion preview; content moves only by explicit selection and an owned unexpired preview.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "card",
+            "project",
+            "new_project"
+          ]
+        },
+        "projectId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "columnId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "none",
+            "summary",
+            "selected",
+            "transcript"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        },
+        "messageIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 500,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    }
+  },
+  "required": [
+    "sessionId",
+    "target"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `chat.promote.commit`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private direct-chat promotion commit; content moves only by explicit selection and an owned unexpired preview.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "previewId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "previewId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
 ### `chat.create`
 
 **Stability:** experimental · since 1.6.0
@@ -4853,7 +5031,7 @@ Human-only principals; self or authenticated administrator, codes revealed only 
   "properties": {
     "token": {
       "type": "string",
-      "minLength": 64,
+      "minLength": 60,
       "maxLength": 64
     },
     "api": {
@@ -10375,6 +10553,55 @@ Returns every installed extension and subscribes this connection to ext.changed.
       "items": {
         "$ref": "#/$defs/ExtItem"
       }
+    }
+  }
+}
+```
+
+### `models.test`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human-only Owner/Admin model probe through the configured chat adapter and budget. Fixed prompt, no tools, memory or session writes. Ten second deadline. E_NOT_AVAILABLE reasons model-not-configured, model-test-timeout, model-test-failed. Embedding/reranking probes are not supported.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model"
+  ],
+  "properties": {
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ok",
+    "durationMs"
+  ],
+  "properties": {
+    "ok": {
+      "const": true
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0
     }
   }
 }

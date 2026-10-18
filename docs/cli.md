@@ -364,6 +364,8 @@ Downloads the pinned Node runtime and the core payload and verifies their SHA-25
 
 ###### **Options:**
 
+* `--dry-run` — Show the setup/profile-upgrade plan without changing files or services
+* `--recover-profile` — Restore a preserved interrupted profile-upgrade snapshot (daemon is stopped first)
 * `--container` — Install in container mode on this host
 * `--container-manifest <MANIFEST>` — Signed release manifest path or HTTPS URL (default: the channel feed); used when no image is supplied
 * `--runtime <RUNTIME>` — Container runtime; automatic selection prefers Apple on macOS ARM

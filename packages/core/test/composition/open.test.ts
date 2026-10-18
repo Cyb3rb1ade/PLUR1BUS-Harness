@@ -11,7 +11,7 @@ import { memoryAuditSink } from "../../src/rbac/audit.ts";
 import { useTempDirs } from "./helpers.ts";
 
 const tmp = useTempDirs("p1b-open-comp-");
-const MEDIA_METHODS = ["task.complete", "media.generate", "media.edit", "media.job.get", "media.job.list", "media.job.cancel", "media.output.get", "media.output.list", "media.output.delete", "media.adapters.list", "media.preferences.get", "media.preferences.set"];
+const MEDIA_METHODS = ["chat.promote.links", "chat.promote.preview", "chat.promote.commit", "task.complete", "media.generate", "media.edit", "media.job.get", "media.job.list", "media.job.cancel", "media.output.get", "media.output.list", "media.output.delete", "media.adapters.list", "media.preferences.get", "media.preferences.set"];
 const SEARCH_METHODS = ["media.search", "media.index.status", "media.index.pause", "media.index.resume", "media.index.reindex", "media.caption.set"];
 
 function recordingLogger() {
@@ -58,7 +58,7 @@ describe("composition openTurnComposition", () => {
       assert.deepEqual(Object.keys(c).sort(), ["capabilities", "close", "collab", "discoveryCredentials", "openai", "refusedProviders", "sessions", "surfaceMethods", "voice"]);
       assert.ok(c.collab, "collaboration needs the call budget, which opened");
       assert.equal(typeof c.sessions.close, "function");
-      assert.deepEqual(Object.keys(c.surfaceMethods).sort(), [...MEDIA_METHODS, ...SEARCH_METHODS].sort());
+      assert.deepEqual(Object.keys(c.surfaceMethods).sort(), [...MEDIA_METHODS, ...SEARCH_METHODS, "models.test"].sort());
       for (const m of Object.values(c.surfaceMethods)) assert.equal(typeof m, "function");
     } finally { await c.close(); identity.close(); }
   });

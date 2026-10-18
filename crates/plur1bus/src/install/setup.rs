@@ -281,16 +281,22 @@ pub fn run_steps(
             continue;
         }
         maybe_pause(layout, id);
-        let r = match id {
-            "state-root" => step_state_root(layout, o, &mut ctx),
-            "runtime.node" => step_node(layout, &mut ctx),
-            "runtime.core" => step_core(layout, o, &mut ctx),
-            "modules.bundled" => step_modules(out, layout, &mut ctx),
-            "config" => step_config(out, layout, o, ctx.profile, ask),
-            "skills" => step_skills(layout, &mut ctx),
-            "service" => step_service(out, layout, o),
-            "start" => step_start(out, layout, &mut ctx),
-            _ => step_check(layout),
+        let r = if test_internals()
+            && std::env::var("PLUR1BUS_TEST_HM4_FAIL_AT").as_deref() == Ok(id)
+        {
+            Err(StepError::new("io", "injected profile upgrade failure"))
+        } else {
+            match id {
+                "state-root" => step_state_root(layout, o, &mut ctx),
+                "runtime.node" => step_node(layout, &mut ctx),
+                "runtime.core" => step_core(layout, o, &mut ctx),
+                "modules.bundled" => step_modules(out, layout, &mut ctx),
+                "config" => step_config(out, layout, o, ctx.profile, ask),
+                "skills" => step_skills(layout, &mut ctx),
+                "service" => step_service(out, layout, o),
+                "start" => step_start(out, layout, &mut ctx),
+                _ => step_check(layout),
+            }
         };
         results.push(r.unwrap_or_else(|e| StepResult::failed(id, e)));
     }
@@ -349,7 +355,7 @@ fn now_ms() -> u64 {
 
 /// The profile a run installs (HM2-R9): the requested one, else the recorded one (`full` when the manifest has none),
 /// else `full` for a new home. A request that differs from the recorded profile fails with
-/// `profile-change-unsupported` (HB16 vocabulary): until HM4 an installation cannot change profile in place.
+/// `profile-change-unsupported` for downgrades; host → full is run inside the HM4 transaction.
 pub fn effective_profile(
     requested: Option<&str>,
     recorded: Option<&InstallManifest>,
@@ -376,6 +382,7 @@ pub fn effective_profile(
     match requested {
         None => Ok(recorded),
         Some(r) if r == recorded => Ok(recorded),
+        Some(PROFILE_FULL) if recorded == PROFILE_HOST => Ok(PROFILE_FULL),
         Some(r) => {
             let e = StepError::new(
                 "profile-change-unsupported",
@@ -964,6 +971,9 @@ fn step_config(
         changes.extend(media_changes(&config, &m));
         Some(m)
     };
+    if let Some(model) = answer_decision(o.non_interactive, &config, layout, ask) {
+        changes.push(("modelRoles.decision".to_string(), json!(model)));
+    }
     let accepted = changes
         .iter()
         .any(|(k, _)| k == "embedding.acceptedNcLicence");
@@ -994,7 +1004,7 @@ fn step_config(
             "acceptedNcLicence": answers.accept_nc || config["embedding"]["acceptedNcLicence"] == json!(true),
             "changed": keys,
             "supervised": supervised,
-            "decisionRole": decision_role_note(&config),
+            "decisionRole": decision_role_note(&plur1bus_config::read(&layout.config_path()).unwrap_or_else(|_| config.clone())),
             "media": media.as_ref().map_or_else(
                 || json!({ "skipped": "profile-host" }),
                 MediaAnswers::detail,
@@ -1003,7 +1013,57 @@ fn step_config(
     ))
 }
 
-/// Setup asks no model question, so a home without `modelRoles.decision` finishes setup with message triage on the
+/// Only catalog chat models with a configured provider are offered; default is always skip.
+fn answer_decision(
+    non_interactive: bool,
+    config: &Value,
+    layout: &Layout,
+    ask: &mut dyn Prompter,
+) -> Option<String> {
+    if non_interactive {
+        return None;
+    }
+    let catalog: Value = fs::read_to_string(layout.catalog_models())
+        .ok()
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or(Value::Null);
+    let choices: Vec<String> = catalog["models"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|m| {
+            let provider = m["provider"].as_str()?;
+            let id = m["id"].as_str()?;
+            let kind = m["kind"].as_str()?;
+            if !matches!(kind, "chat" | "unknown")
+                || !matches!(m["status"].as_str(), Some("available" | "manual"))
+                || config["providers"].get(provider).is_none()
+            {
+                return None;
+            }
+            Some(format!("{provider}/{id}"))
+        })
+        .collect();
+    if choices.is_empty() {
+        return None;
+    }
+    let question = format!(
+        "Optional Decision model: {}. Empty = skip; rule triage remains active",
+        choices.join(", ")
+    );
+    loop {
+        let answer = ask.ask("modelRoles.decision", &question, "");
+        if answer.is_empty() {
+            return None;
+        }
+        if choices.contains(&answer) {
+            return Some(answer);
+        }
+        eprintln!("Choose a listed configured model or leave empty to skip");
+    }
+}
+
+/// Skipping the optional Decision step leaves a home without `modelRoles.decision` on the
 /// built-in rules. `{ set, limited, hint }` tells the person (and `setup/1` readers) which features are limited and how
 /// to set the role later; `limited` is empty once the role is set.
 fn decision_role_note(config: &Value) -> Value {
@@ -1601,6 +1661,39 @@ mod tests {
     }
 
     #[test]
+    fn decision_selection_is_explicit_configured_and_never_asked_unattended() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().join("h"));
+        fs::create_dir_all(layout.catalog_models().parent().unwrap()).unwrap();
+        fs::write(
+            layout.catalog_models(),
+            json!({ "models": [
+            { "provider": "p", "id": "small", "kind": "chat", "status": "available" },
+            { "provider": "p", "id": "dead", "kind": "chat", "status": "unavailable" },
+            { "provider": "other", "id": "unconfigured", "kind": "chat", "status": "available" }
+        ] })
+            .to_string(),
+        )
+        .unwrap();
+        let config = json!({ "providers": { "p": {} } });
+        let mut skipped = scripted(vec![], false);
+        assert_eq!(answer_decision(false, &config, &layout, &mut skipped), None);
+        assert_eq!(skipped.asked.len(), 1);
+        let mut selected = scripted(vec!["p/dead", "p/small"], false);
+        assert_eq!(
+            answer_decision(false, &config, &layout, &mut selected),
+            Some("p/small".into())
+        );
+        assert_eq!(selected.asked.len(), 2);
+        let mut unattended = scripted(vec!["p/small"], false);
+        assert_eq!(
+            answer_decision(true, &config, &layout, &mut unattended),
+            None
+        );
+        assert!(unattended.asked.is_empty());
+    }
+
+    #[test]
     fn setup_asks_only_basic_tier_questions() {
         let schema: Value = serde_json::from_str(plur1bus_config::SCHEMA_JSON).unwrap();
         let mut keys = basic_tier_keys(&schema);
@@ -1779,7 +1872,7 @@ mod tests {
             (Some("full"), Some(&full), Ok("full")),
             (None, Some(&legacy), Ok("full")),
             (Some("full"), Some(&legacy), Ok("full")),
-            (Some("full"), Some(&host), Err("profile-change-unsupported")),
+            (Some("full"), Some(&host), Ok("full")),
             (Some("host"), Some(&full), Err("profile-change-unsupported")),
             (
                 Some("host"),
@@ -1796,11 +1889,6 @@ mod tests {
                 recorded.map(|m| &m.profile)
             );
         }
-        let e = effective_profile(Some("full"), Some(&host)).unwrap_err();
-        assert_eq!(
-            e.hint.as_deref(),
-            Some("host \u{2192} full arrives with HM4")
-        );
     }
 
     #[test]

@@ -37,6 +37,22 @@ class ClientPosixTest(unittest.TestCase):
         self.addCleanup(core.stop)
         return core
 
+    def test_scoped_client_never_reads_the_core_token(self) -> None:
+        token = "plb_123456789abc_" + "x" * 43
+        self.fake(token=token)
+        path = os.path.join(self.home, "client.token")
+        with open(path, "w") as f:
+            f.write(token)
+        os.chmod(path, 0o600)
+        os.unlink(os.path.join(self.home, "run", "core.token"))
+        self.client(token_path=path).connect()
+
+    def test_missing_scoped_credential_does_not_fall_back_to_owner(self) -> None:
+        self.fake()
+        with self.assertRaises(RpcError) as cm:
+            self.client(token_path=os.path.join(self.home, "missing.token")).connect()
+        self.assertEqual(cm.exception.code, "E_UNAUTHORIZED")
+
     # -- Review Focus 2: squatted or stale endpoints ---------------------------------------------------
 
     def test_token_is_not_sent_when_the_peer_pid_differs_from_core_pid(self) -> None:
