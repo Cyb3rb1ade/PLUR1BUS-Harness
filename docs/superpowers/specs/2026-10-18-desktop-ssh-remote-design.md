@@ -1,6 +1,6 @@
 # Desktop: install and manage PLUR1BUS on a remote host over SSH — design
 
-**Status:** Draft for owner review (phase 1: specification and plan, no product code) · **Date:** 2026-10-18 ·
+**Status:** Owner decisions Q1–Q5 decided 2026-10-18 (D113); S0 partial, RSA/audit gate open · **Date:** 2026-10-18 ·
 **Owner:** Christian (Cyb3rb1ade) · **Track:** D (desktop), follow-up to D1 · **Plan:**
 [`2026-10-18-desktop-ssh-remote.md`](../plans/2026-10-18-desktop-ssh-remote.md)
 
@@ -48,7 +48,7 @@ OpenSSH key whose private half lives only in the OS keychain.
 **Relation to earlier decisions.** The desktop spec §6.1 dropped the former D2 *Install here* action (download and run
 `plur1bus setup` locally) and DS22 demoted the native installer to secondary. This design does **not** revive a local
 *Install here*; it adds remote installation over SSH as a new, separate function. Because it touches DS22's wording
-("the app does not drive it"), the owner has to confirm it as a new decision (owner question Q1, §12).
+("the app does not drive it"), the owner confirmed it as D113 on 2026-10-18 (§12).
 
 ## 2. Decisions at a glance
 
@@ -106,8 +106,7 @@ everything else is identical Rust.
 
 **Decision: `russh`**, exact-pinned in `apps/desktop/Cargo.toml`/`Cargo.lock` (current line 0.64.x on docs.rs,
 2026-10-18; the exact version, its crypto backend — `ring`, matching the existing `rustls` feature — and the agent
-features are fixed by spike S0). This is a **new dependency** under `docs/dependency-policy.md` and needs owner
-approval (Q2). Known cost: no GSSAPI and no direct FIDO; people who need those use their agent or keep using
+features are fixed by spike S0). This is a **new dependency** under `docs/dependency-policy.md`, approved by the owner on 2026-10-18 (Q2), subject to a green audit. S0 pins `russh =0.64.1`, `default-features=false`, `features=["ring"]`; direct RSA remains blocked by RUSTSEC-2023-0071. Key, agent and known_hosts APIs are built into `russh::keys`, not a separate legacy key crate. Known cost: no GSSAPI and no direct FIDO; people who need those use their agent or keep using
 `tailnet`/`network` pairing.
 
 ### 4.2 Host-key verification
@@ -193,8 +192,7 @@ sudo password, OTP answers — must be entered somewhere. Recommendation:
 - Later hardening option: native OS credential prompts (Windows `CredUIPromptForWindowsCredentials`, macOS secure
   text field) instead of the shell page. Not in v1 because there is no Linux equivalent and it adds platform code.
 
-This is a deliberate, bounded exception to "no secrets in JS" for transient input and needs the owner's confirmation
-(Q4).
+This is a deliberate, bounded exception to "no secrets in JS" for transient input, confirmed by the owner on 2026-10-18 (Q4). It does not permit persistent credentials in JavaScript.
 
 ## 6. Remote installation and management (R6, R7, R11)
 
@@ -436,7 +434,7 @@ cookie or ticket values. The redaction test of the desktop logger is extended wi
 | P4 | Line-oriented progress from `setup`/`update` (e.g. `--progress jsonl` on stderr) | live progress instead of log lines + final document | M8 / installer | not present; v1 works without it |
 | P5 | Offline Node runtime input for `setup` (counterpart to `--core-from`) | fully offline server install | M8 / installer | not present |
 
-P1–P3 gate only the *Open* step; P4 is a quality improvement; P5 gates only offline installs.
+P1–P3 gate the *Open* step; P4 is a quality improvement. **P5 and an egress-blocked offline installation test are v1 release gates** (Q3, decided 2026-10-18); upload is mandatory, not an optional later mode. P1–P3 are proposed in open PR #581 and are not accepted on main at the S0 inventory base `c2c75ab23`.
 
 ## 10. Testability
 
@@ -477,16 +475,22 @@ P1–P3 gate only the *Open* step; P4 is a quality improvement; P5 gates only of
 - **`tailnet`/`network` as the only way** — stays available, but forces exposure or Tailscale for a person who only
   wants their own server.
 
-## 12. Owner questions
+## 12. Owner decisions — entschieden 2026-10-18
 
-1. **Q1 — New decision vs. DS22/§6.1.** Confirm that the desktop app may install and manage a *remote* native harness
-   over SSH (new D number), while local *Install here* stays dropped.
-2. **Q2 — Dependency.** Approve `russh` (exact pin, `ring` backend, its key/agent sub-crates) in the desktop workspace
-   under the dependency policy.
-3. **Q3 — Offline servers in v1?** If servers without internet (clinic networks) are a v1 need, the harness must get
-   an offline Node runtime input for `setup` (P5) and the plan's upload mode becomes a gate, not an option.
-4. **Q4 — Transient secrets in the shell page.** Accept that SSH password, key passphrase and sudo password are typed
-   in the bundled shell page and sent once over a dedicated IPC command (§5.3), or require native OS prompts (no Linux
-   equivalent).
-5. **Q5 — Order with M3.** Ship install/manage first with *Open* disabled until P1–P3 exist, or hold the whole feature
-   until M3 delivers the desktop pairing contracts.
+| Question | Binding owner answer |
+|---|---|
+| Q1 | **Yes — D113.** The desktop may install/manage a remote native harness over SSH. Amend DS22/§6.1; local *Install here* stays removed. |
+| Q2 | **Yes.** Exact-pinned `russh`, `ring` backend and key/agent support in the desktop workspace under the dependency policy. Approval does not waive the audit gate. Fix security advisories through updates; exceptions only for unmaintained crates with no fix, reason and expiry. |
+| Q3 | **Offline servers are v1 need**, including clinic networks. Upload the verified release artifact and matching Node runtime. Offline Node input P5 and the no-egress installation test gate WP4 and release. |
+| Q4 | SSH password, key passphrase and sudo password are entered in the bundled shell, submitted once through the dedicated nonce-bound IPC (§5.3), never stored/logged, and zeroized after use. Durable OpenSSH keys live only in the OS keychain. |
+| Q5 | Ship install/manage first. **Open stays disabled until M3 desktop pairing P1–P3 are on main**; then SSH pairing uses a ten-minute single-use claim. |
+
+Authentication is either a one-time password prompt or durable OpenSSH-key authentication (owner 2026-10-17).
+
+### S0 security gate, 2026-10-18
+
+The approved implementation choice does not make direct RSA safe: `russh 0.64.1`'s RSA feature pulls
+`rsa 0.10.0-rc.18`, still covered by [RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html)
+with no patched version. The isolated S0 executable therefore omits RSA. **S0 is partial and WP1 is blocked**;
+no advisory is ignored and no product crate uses SSH. The owner must resolve the RSA requirement without weakening
+the audit policy. See the [S0 evidence and remaining gates](../../handoff/status/2026-10-18-dssh-s0.md).

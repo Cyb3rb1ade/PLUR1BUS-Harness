@@ -8,12 +8,10 @@ remote command set, tunnel connector) used by `src-tauri` through new native com
 secrets only in the OS keychain; installation and management drive the existing harness CLI (`setup`, `update`,
 `uninstall`, `daemon`, `1staid`) with `--json`; the SPA reaches the server's loopback API through in-process
 `direct-tcpip` channels.
-**Status.** Phase 1 (this PR): spec and plan only, no product code. Owner questions Q1–Q5 in spec §12 must be answered
-before WP1 starts; Q2 (dependency) gates every WP that compiles `russh`.
+**Status.** Q1–Q5 decided 2026-10-18 (D113, spec §12). S0 is partial: the ring-only research executable is not linked into the app; direct RSA and the full-workspace audit remain blocked. See `../../handoff/status/2026-10-18-dssh-s0.md`. WP1 waits for S0 acceptance and a policy-compliant resolution of RSA.
 **Constraints.** Desktop rules from `AGENTS.md`: exact-pinned direct dependencies, `--locked`, no shell/fs/http/dialog/
 opener plugins, native commands with capabilities and origin checks, no tokens in JS or files, scratch state and
-injected seams in tests, no real keychain or personal runtime. Desktop Green gate per `AGENTS.md`. No harness schema,
-RPC, API or pairing-policy change in these WPs (harness prerequisites P1–P5 belong to M3/M8, spec §9). No CI polling,
+injected seams in tests, no real keychain or personal runtime. Desktop Green gate per `AGENTS.md`. No harness RPC, API or pairing-policy change in these WPs. P1–P3 remain M3-owned; **WP4 includes the additive Harness/CLI offline Node input P5**, required by owner Q3 (spec §9). No CI polling,
 force-push, rebase, amend or stash.
 
 ## Review focus
@@ -37,8 +35,7 @@ S0 spike ──► WP1 ssh core ──► WP2 profiles + keys ──► WP3 IPC 
 WP7 later options (macOS remote, ssh_config import, native secret prompts)
 ```
 
-One branch and one PR per WP (`codex/dssh-<wp>-<slug>` or the controller's naming). A WP whose predecessor PR is still
-open is opened as Draft "baut auf #N auf" against that branch (COMMON.md rule); otherwise ready against `main`.
+One branch and one **ready** PR per phase, including stacks (owner 2026-10-18). Branches H–M/T use `codex/ssh-s0-spike`, `ssh-wp1-core`, `ssh-wp2-hosts`, `ssh-wp3-ui`, `ssh-wp4-install`, `ssh-wp5-connect`, `ssh-wp6-ci-docs` under `codex/`. Each starts from fresh `origin/main`, or cleanly stacks on its predecessor with that branch as base and `Stacked on #N` in the PR body. Never Draft; never copy code from open branches. Großpaket 1 A–G must be open/merged before implementation after H (Q inventory is the other exception).
 
 ---
 
@@ -48,8 +45,8 @@ open is opened as Draft "baut auf #N auf" against that branch (COMMON.md rule); 
 exact version and features for the owner's dependency approval (Q2).
 
 **Files.**
-- `apps/desktop/transport-spike/` (existing spike area): a throwaway example `ssh_spike.rs`, not linked into the app.
-- `docs/handoff/status/2026-10-xx-dssh-s0.md`: results table and decision.
+- `apps/desktop/transport-spike/`: research-only executable `plur1bus-ssh-spike`, not linked into the app; no personal keychain/agent/runtime. Exact pins and the desktop lockfile, with RSA omitted while its no-fix advisory is unresolved.
+- `docs/handoff/status/2026-10-18-dssh-s0.md`: results table and decision.
 
 **Checks (each a recorded yes/no per target).**
 - Build with `ring` backend on macOS arm64, Windows x64/arm64, Linux x64/arm64; `cargo deny` / licence check.
@@ -63,7 +60,7 @@ exact version and features for the owner's dependency approval (Q2).
 - Supported kex/cipher/MAC list against OpenSSH 8.9 (Ubuntu 22.04) and 9.6 (Ubuntu 24.04).
 
 **Acceptance.** Status doc lists version, features, licence, binary size delta, every check per target, and the
-transport decision (in-process connector vs. fallback listener, spec §7.1). No product code merged.
+transport decision (in-process connector vs. fallback listener, spec §7.1). No product code merged. **RSA, five-target, OpenSSH and proxy-transport evidence are gates, not inferred from the local fixture.**
 
 ---
 
@@ -186,8 +183,8 @@ transport decision (in-process connector vs. fallback listener, spec §7.1). No 
   `unsupported-os`, `unsupported-arch`, `unsupported-libc`, `no-systemd-user`, `unsupported-home-path`, `low-disk`.
 - `ssh_remote/feed.rs` — reuse `updates.rs` verification to get `native.binary[target]` from the verified feed bytes;
   no second verifier.
-- `ssh_remote/transfer.rs` — server fetch (fixed curl/wget args, size cap, https-only) and upload (local download +
-  verify, exec-stdin stream); server-side SHA-256 compare before `mv`.
+- `ssh_remote/transfer.rs` — server fetch (fixed curl/wget args, size cap, https-only) and mandatory SFTP upload (local download +
+  verify, explicit offsets and resumable transfers); server-side SHA-256 compare before `mv`.
 - `ssh_remote/setup.rs` — `setup --non-interactive --json` with enum-validated flags; parse `setup/1`; stderr into the
   operation log.
 - `ssh_remote/linger.rs` — status, enable without sudo, sudo path (`sudo -n true`, then `sudo -S -p ''` with stdin),
@@ -217,6 +214,7 @@ transport decision (in-process connector vs. fallback listener, spec §7.1). No 
   confirmations; axe.
 
 **Acceptance.**
+- **Offline gate (owner Q3, 2026-10-18):** desktop verifies and uploads release plus the matching Node runtime; additive offline Node input P5 in Harness/CLI; remote host egress blocked; real setup succeeds without internet. No mock proves this gate.
 - Against the OpenSSH container (WP6) with a real `sh`: install of the fake binary is idempotent (second run changes
   nothing on the server: file hashes and `authorized_keys` unchanged).
 - No `sudo` invocation outside `linger.rs` (static test over the command enum).
@@ -248,14 +246,17 @@ over SSH.
   absent from every IPC payload, event, log line, journal record and metadata file.
 - No listening socket opened in the preferred mode (test enumerates the process's listeners on Linux CI).
 
+**Implementation gate:** do not start WP5 until M3 P1–P3 (Großpaket 1 F) are on main. WP3 ships the disabled Open control in the meantime.
+
 **Acceptance.**
 - With the mock harness: the SPA opens logged in through an SSH host with each auth method.
-- With the real harness: only after P1–P3 land; until then the WP is merged with *Open* disabled and a KNOWN GAP
-  todo-test that asserts the real-harness pairing once the contract exists.
+- With the real harness: after P1–P3 are on main, pair end-to-end with a ten-minute single-use claim; expired claims fail. No claim that a mock flow closes the real pairing gate.
 
 ---
 
 ## WP6 — CI, real-install e2e and documentation (≈ 3 agent days)
+
+**CI gate (owner 2026-10-18):** `desktop-ssh-e2e`, budget at most 15 minutes; trigger only for `apps/desktop/**`, Harness install code and setup changes. Record the gating-vs-advisory rationale in the PR; a real offline no-egress install is required. Do not poll CI.
 
 **Files.**
 - `apps/desktop/ssh-test-server/Dockerfile` (digest-pinned Debian base, `openssh-server`), `entrypoint.sh` (generates
@@ -267,8 +268,7 @@ over SSH.
   `loginctl enable-linger`, locally built `plur1bus` release binary, `file://` feed signed with a throwaway key via
   the debug-only feed-key seam.
 - `docs/desktop.md` — section *Remote hosts over SSH* (boundaries, storage, seams, commands).
-- `docs/user/en/desktop.md`, `docs/user/de/desktop.md` (introduced by #504; create them if that PR has not landed) — user guide (add host, compare fingerprint, key vs. password,
-  linger, offline mode, uninstall levels); `pnpm docs:check` command check applies to these pages.
+- User guide text (add host, fingerprint, authentication, linger, offline mode, uninstall) goes in the **PR body as a DE/EN template for agy**. Do not edit `docs/user/{de,en}/` or the help bundle.
 - `docs/demos/d1.md` (owner worksheet from #504) — rows for the SSH flow, NOT RUN until executed.
 - `docs/handoff/status/desktop-shell.md` — SSH rows in the status record.
 
@@ -298,11 +298,11 @@ over SSH.
 
 | WP | Est. (agent days) | Gate |
 |---|---|---|
-| S0 | 2 | Q2 answered (may run before approval as a spike, nothing merged into the app) |
+| S0 | 2 | Q2 approved 2026-10-18; full S0 acceptance including RSA/audit remains open |
 | WP1 | 5 | S0 accepted, Q2 approved |
 | WP2 | 4 | WP1 |
 | WP3 | 5 | WP2, Q4 answered |
-| WP4 | 6 | WP3; Q3 decides whether upload mode is a gate |
+| WP4 | 6 | WP3; Q3 decided: offline release + Node upload and P5 are mandatory gates |
 | WP5 | 4 | WP3 + M3 P1–P3 for the real harness (Q5) |
 | WP6 | 3 | WP4 (WP5 rows added when it lands) |
 
@@ -310,7 +310,7 @@ Total ≈ 29 agent days for S0–WP6.
 
 ## Open points carried from the spec
 
-- Harness prerequisites P1–P5 (spec §9) are requests to M3/M8, not part of these WPs.
+- P1–P3 stay with M3 (open #581 at inventory); P4 stays with installer work. P5 is part of WP4 by owner Q3. Direct RSA is blocked by RUSTSEC-2023-0071; no silent exception or narrowed acceptance.
 - Per-distro polkit behaviour of `loginctl enable-linger` without sudo is unverified; WP6's real-install job and the
   owner's VMs (Ubuntu 22.04/24.04, Debian 12, RHEL-family) provide the evidence.
 - FIDO (`sk-`) keys through agents and Pageant support depend on S0's findings.
