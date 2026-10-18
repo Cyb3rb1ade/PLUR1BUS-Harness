@@ -316,6 +316,10 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "task.complete": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
     "collab.session.replay": {
       "stability": "experimental",
       "since": "1.5.0"
