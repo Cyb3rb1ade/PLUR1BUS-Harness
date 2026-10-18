@@ -14,7 +14,7 @@ import type { SessionStore } from "./store.ts";
 import { NoProviderError, type TurnRunner } from "./turn-loop.ts";
 import { SessionError, type EventRecord, type MessageRecord, type SessionRecord } from "./types.ts";
 
-export interface SessionMethodDeps { modelProfiles?: () => readonly string[];  compactor?: import("./compaction.ts").Compactor; store: SessionStore; runner: TurnRunner; agents: AgentRegistry; isStopping: () => boolean; /** Resolves the submitting connection's approver; never refuses (a non-person is refused only when a tool needs approval). */
+export interface SessionMethodDeps { modelProfiles?: () => readonly string[]; /** Store that holds the given session: the in-memory incognito store for ephemeral sessions, the durable store otherwise. */ storeFor?: (sessionId: string) => SessionStore;  compactor?: import("./compaction.ts").Compactor; store: SessionStore; runner: TurnRunner; agents: AgentRegistry; isStopping: () => boolean; /** Resolves the submitting connection's approver; never refuses (a non-person is refused only when a tool needs approval). */
   approver?: (ctx: CallContext, params: unknown) => Promise<import("./provider.ts").TurnApprover> }
 
 /** The session owner: the engine's own user-principal hash of the caller. An identity that would not give the engine a
@@ -58,15 +58,17 @@ export function buildSessionMethods(d: SessionMethodDeps): Record<string, Handle
   return {
     "session.model.set": wrap(async (p: { caller: CallerIdentity; sessionId: string; profile: string; confirmed?: boolean; expectedRevision?: number }, owner) => {
       if (d.isStopping()) throw stopping();
-      const s = d.store.getOwned(p.sessionId, owner);
+      // Incognito sessions live in a memory-only store; the profile is kept there too, so nothing reaches disk.
+      const store = d.storeFor?.(p.sessionId) ?? d.store;
+      const s = store.getOwned(p.sessionId, owner);
       requireAgent(d.agents, s.agentId);
-      if (s.kind !== "direct" || s.archivedAt !== null || d.store.runningTurn(s.id)) throw new SessionError("conflict", "model switch requires an idle direct session", "session-busy");
+      if (s.kind !== "direct" || s.archivedAt !== null || store.runningTurn(s.id)) throw new SessionError("conflict", "model switch requires an idle direct session", "session-busy");
       if (!d.modelProfiles?.().includes(p.profile)) throw new RpcError("E_NOT_AVAILABLE", "model profile is not configured", { reason: "model-profile-unavailable" });
-      const current = d.store.modelProfile(s.id);
+      const current = store.modelProfile(s.id);
       let revision = current.revision;
       if (p.confirmed === true) {
         if (p.expectedRevision === undefined) throw new RpcError("E_INVALID_PARAMS", "model switch confirmation requires the preview revision");
-        revision = d.store.setModelProfile(s.id, p.profile, p.expectedRevision);
+        revision = store.setModelProfile(s.id, p.profile, p.expectedRevision);
       }
       return { sessionId: s.id, profile: p.profile, previousProfile: current.profile, revision, applied: p.confirmed === true, warning: "cache-rebuild-cost-prefixes-preserved" };
     }),
