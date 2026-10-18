@@ -181,15 +181,21 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     let searchIndex: CapabilityIndex | undefined;
     let searchView: import('../toolcall/live-index.ts').CapabilityView | undefined;
     const searchName = 'capabilities.search';
-    const eligible = (t: import('../tools/registry.ts').RegisteredTool) => {
-      if (req.toolView && !req.toolView.includes(t.name)) return false;
+    const viewable = (t: import('../tools/registry.ts').RegisteredTool) => (!req.toolView || req.toolView.includes(t.name)) && permitsTool(t.name, t.capability);
+    /**
+     * True only for an unconditional policy denial (never, deny-list, tools.deny, untrusted surface); such a tool is withheld from the
+     * offer. Fatigue denials depend on the call, and a policy context that is not available yet (the permission stores open in
+     * `beforeTools`) decides nothing here: the dispatcher stays the authority and refuses, fail closed, at call time.
+     */
+    const policyDenied = (t: import('../tools/registry.ts').RegisteredTool) => {
       const ctx: DispatchContext = { agentId: req.agentId, principal: req.approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface: req.approver?.surface ?? req.originSurface ?? 0, signal };
-      try {
-        const context: Context = { principal: { person: ctx.principal }, subject: { kind: 'agent', agentId: req.agentId }, surface: ctx.surface, ...(o.policyContext?.(ctx, req) ?? {}) };
-        // Unknown arguments can still require approval or fail path classification. Reject unconditional policy denials now.
-        return decide({ capability: t.capability, tool: t.name, effect: t.effect, flags: { outsideRoots: false, denyListHit: false }, actionHash: '' }, context, { grants: o.grants, clock: { now: Date.now } }).kind !== 'deny';
-      } catch { return false; }
+      let context: Context;
+      try { context = { principal: { person: ctx.principal }, subject: { kind: 'agent', agentId: req.agentId }, surface: ctx.surface, ...(o.policyContext?.(ctx, req) ?? {}) }; } catch { return false; }
+      // Unknown arguments can still require approval or fail path classification. Reject unconditional policy denials now.
+      const decision = decide({ capability: t.capability, tool: t.name, effect: t.effect, flags: { outsideRoots: false, denyListHit: false }, actionHash: '' }, context, { grants: o.grants, clock: { now: Date.now } });
+      return decision.kind === 'deny' && (decision.reason === 'policy-never' || decision.reason === 'deny-list' || decision.reason === 'surface-untrusted');
     };
+    const eligible = (t: import('../tools/registry.ts').RegisteredTool) => viewable(t) && !policyDenied(t);
     if (o.capabilities && !req.role && !registry.get(searchName)) registry.register({
       name: searchName, description: 'Find available capabilities by literal query; discovered tools are available on the next model round.', capability: 'fs.read', effect: 'read', risk: 'low', trust: 'first-party',
       inputSchema: { type: 'object', additionalProperties: false, properties: { query: { type: 'string', minLength: 1, maxLength: 4096 }, category: { type: 'string', maxLength: 100 } }, required: ['query'] },
@@ -259,6 +265,8 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const aliases = new Map(selected.map(t => [t.name, t.name.replaceAll('.', '_')]));
     if (new Set(aliases.values()).size !== aliases.size) throw new TurnToolError('tool-name-collision', null);
     const original = new Map([...aliases].map(([name, alias]) => [alias, name]));
+    // A call to a tool withheld only by policy goes to the dispatcher, which refuses it (tool-denied, audited) as when it was offered.
+    const withheld = new Map(registry.entries().filter(t => !selected.includes(t) && viewable(t) && policyDenied(t)).flatMap(t => [[t.name, t], [t.name.replaceAll('.', '_'), t]] as const));
     const profiles = Object.fromEntries(Object.entries(o.profiles).map(([name, candidates]) => [name, candidates.map(c => ({ ...c, adapter: {
       async *stream(request: WireRequest, options?: Parameters<typeof c.adapter.stream>[1]) {
         const attempt = routing.getStore()?.call.current;
@@ -281,7 +289,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           if (next.done) break;
           const e = next.value;
           if (attempt) { attempt.received = true; if (e.type === 'text_delta') attempt.outputChars += e.text.length; }
-          if (e.type === 'done') yield { ...e, result: { ...e.result, toolCalls: e.result.toolCalls.map(t => ({ ...t, name: original.get(t.name) ?? t.name })) } };
+          if (e.type === 'done') yield { ...e, result: { ...e.result, toolCalls: e.result.toolCalls.map(t => ({ ...t, name: original.get(t.name) ?? withheld.get(t.name)?.name ?? t.name })) } };
           else yield e;
         } } catch (e) {
           if (attempt) attempt.error = e;
@@ -399,8 +407,8 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         messages = [...messages, { role: 'assistant', content: done.text || null, toolCalls }];
         for (const call of calls) {
           signal.throwIfAborted();
-          if (!selected.some(t => t.name === call.name)) throw new TurnToolError('tool-unknown', call.name);
-          const tool = selected.find(t => t.name === call.name)!;
+          const tool = selected.find(t => t.name === call.name) ?? (withheld.get(call.name)?.name === call.name ? withheld.get(call.name) : undefined);
+          if (!tool) throw new TurnToolError('tool-unknown', call.name);
           const args = restoreStrictArguments(tool.inputSchema, call.arguments);
           yield { type: 'tool.call', id: call.id, name: call.name, args };
           if (req.turnProfile) await waitForVoiceConfirmation(req.turnProfile, signal);
