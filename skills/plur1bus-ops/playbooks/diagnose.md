@@ -40,6 +40,7 @@ The result is `{"schema":"1staid.check/1","ok":<bool>,"checks":[{"id","status","
 | `approvals.integrity` | The approval store HMAC chain and Ed25519 decision signatures (`approval.verify`) | The chain is broken or a signed decision was tampered with; unsigned legacy entries stay valid | `plur1bus approval verify --json`; skip when the core is not reachable |
 | `dreams.last-runs` | Each enabled dreaming phase is on schedule; last run did not fail or abort | A window was missed (`nextRunAt` ≤ now) or the last run failed/aborted | `plur1bus dreams status` / `dreams log` for detail |
 | `remote.exposure` | Remote API publishing is not on the network and the requested remote listener started | `remote.publish` is `network` (reachable from the configured subnets), or the requested listener failed and there is no network fallback | Use `remote.publish` local or tailnet when network access is unnecessary; check Tailscale installation, login and remote TLS provisioning |
+| `models.decision` | A decision model role (`modelRoles.decision`) is set | `info` (never `warn` or `fail`): no role is set, so message triage runs on the built-in rules and model-based message triage, tool pre-selection and the model class and effort per task are limited | Optional: `plur1bus config set modelRoles.decision <provider/model> --dry-run --json`, then apply after reviewing the plan (or Settings > Models & providers); no repair step exists or is needed |
 
 ## 2. Cross-check with process status and logs
 
