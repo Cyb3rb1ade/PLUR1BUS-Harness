@@ -1,3 +1,7 @@
+import { DesktopAttach } from "../identity/desktop-attach.ts";
+import { apiPrincipal } from "@plur1bus/module-api";
+import { buildRemoteDeviceServiceSurface } from "./remote-device-service-surface.ts";
+import type { TrustNextEvent } from "../../../remote-access/src/trust-rollover.ts";
 import { join } from "node:path";
 import { DeviceError, DeviceStore, type DeviceStoreOptions } from "../../../remote-access/src/device-store.ts";
 import { authenticatedPrincipal } from "../rbac/guard.ts";
@@ -15,7 +19,7 @@ function failure(error: unknown): never {
 
 /** The central RBAC guard supplies the person and token-scope gate. Resource ownership is read from disk state,
  *  never from params, following identity-surface's second authorization gate. */
-export function buildDeviceSurface(store: DeviceStore | (() => DeviceStore)): Record<string, Handler> {
+export function buildDeviceSurface(store: DeviceStore | (() => DeviceStore), revoked?: (userId:string) => void): Record<string, Handler> {
   const bind = (method: "list" | "revoke" | "rename"): Handler => async (params, ctx) => {
     const principal = authenticatedPrincipal(ctx);
     if (principal.kind !== "person") throw new RpcError("E_DENIED", "people only");
@@ -27,7 +31,7 @@ export function buildDeviceSurface(store: DeviceStore | (() => DeviceStore)): Re
       if (typeof p?.id !== "string" || !/^dev_[a-f0-9-]{36}$/.test(p.id)) throw new DeviceError("invalid");
       const device = s.get(p.id);
       if (device.pairedBy !== principal.userId && (method === "rename" || !privileged)) throw new RpcError("E_DENIED", "own device required", { reason: "device-owner" });
-      if (method === "revoke") return s.revoke(p.id, principal.userId);
+      if (method === "revoke") { const result=s.revoke(p.id, principal.userId); revoked?.(device.pairedBy); return result; }
       if (typeof p.name !== "string") throw new DeviceError("invalid");
       return s.rename(p.id, p.name, principal.userId);
     } catch (error) { return failure(error); }
@@ -36,7 +40,26 @@ export function buildDeviceSurface(store: DeviceStore | (() => DeviceStore)): Re
 }
 
 /** Lazy: a damaged store refuses device RPC without preventing the rest of the core from starting. */
-export function createDeviceSurface(options: Omit<DeviceStoreOptions, "file"> & { state: string }): Record<string, Handler> {
+export function createDeviceSurface(options: Omit<DeviceStoreOptions, "file"> & { state: string; signal?: AbortSignal; revoked?: (userId:string) => void; personVersion?: (id: string) => number | null; notifyTrust?: (event: TrustNextEvent, owners: string[]) => void }): Record<string, Handler> {
   let store: DeviceStore | undefined;
-  return buildDeviceSurface(() => store ??= new DeviceStore({ ...options, file: join(options.state, "devices.json") }));
+  const shared = () => store ??= new DeviceStore({ ...options, file: join(options.state, "devices.json") });
+  let attach: DesktopAttach | undefined;
+  const desktop = () => {
+    if (options.signal?.aborted) throw new RpcError("E_NOT_AVAILABLE", "core stopping");
+    return attach ??= new DesktopAttach({ file:join(options.state,"desktop-attach.db"), devices:shared(), now:options.clock, audit:options.audit, securePath:options.securePath, ...(options.personVersion ? {personVersion:options.personVersion} : {}) });
+  };
+  options.signal?.addEventListener("abort", () => { attach?.close(); attach=undefined; }, {once:true});
+  const service = (fn: (p:any) => unknown): Handler => async (p,ctx) => {
+    if (apiPrincipal(ctx) !== null) throw new RpcError("E_DENIED", "API service credential required");
+    try { return fn(p); } catch(e) { return failure(e); }
+  };
+  return { ...buildDeviceSurface(shared,options.revoked), ...buildRemoteDeviceServiceSurface(shared,options.notifyTrust),
+    "device.pair": async (p,ctx) => {
+      const who=authenticatedPrincipal(ctx); if(who.kind!=="person") throw new RpcError("E_DENIED","people only");
+      try { return desktop().issue(who.userId,(p as {kind:string}).kind); } catch(e) { return failure(e); }
+    },
+    "admin.api.desktop.redeem":service(p=>desktop().redeem(p.code,p.kind,p.name,p.publicKey)),
+    "admin.api.desktop.token":service(p=>desktop().authenticate(p.token)),
+    "admin.api.desktop.resolve":service(p=>desktop().resolve(p.deviceId)),
+  };
 }

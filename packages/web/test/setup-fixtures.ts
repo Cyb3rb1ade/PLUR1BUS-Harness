@@ -14,7 +14,12 @@ export function seed(target: MockRpc | MockHarnessServer, models: unknown[] | nu
   { provider: "local", id: "old", displayName: "Old", kind: "chat", status: "unavailable" },
 ]): void {
   const rpc = "rpc" in target ? target.rpc : target;
+  const agents = new Map<string,unknown>();
+  rpc.handle("config.get", p => ({ value:agents.get((p as {key?:string}).key?.replace(/^agents\./,"") ?? ""), revision:"r1" }), {write:false});
+  rpc.handle("agent.create", p => { const q = p as {name:string;displayName:string};agents.set(q.name,{displayName:q.displayName});return {agentId:q.name}; });
   if ("events" in target && target.events) target.events.enable();
+  rpc.handle("model.embedding.select", p => ({model:(p as {model:string}).model,effective:true}));
+  rpc.handle("model.licence.confirm", p => ({ acceptance: { ...(p as object), who:"owner", at:new Date().toISOString(), licence:"CC BY-NC-4.0", revision:"fixture" } }));
   rpc.handle("config.set", () => ({ applied: true, dryRun: false, changed: [], restart: {}, revision: "r1", restarted: [], durationMs: 1 }));
   if (models) rpc.handle("models.list", () => ({ models, providers: [], newCount: 0, warnings: [] }), { write: false });
   rpc.handle("admin.backup.snapshot", () => ({ id: "plur1bus-20261007-setup", dir: "/home/state/backup-staging/x", storeTarget: "state/lancedb", engine: {}, files: [] }));
@@ -40,5 +45,6 @@ export async function toSwitchboard(app: App): Promise<void> {
   await stepHeading(page, /Main model/).waitFor();
   await page.getByLabel("Chat model").selectOption("anthropic/claude-x");
   await next(page);
+      await stepHeading(page, /Decision model/).waitFor(); await skip(page);
   await stepHeading(page, /Switchboard/).waitFor();
 }

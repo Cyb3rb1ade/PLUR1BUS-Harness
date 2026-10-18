@@ -6,10 +6,48 @@ Every route is **deny by default**: a route that is not `public` answers 401 wit
 
 | Method | Path | Operation | Auth | Action | CSRF | Rate class | Stability · since |
 |---|---|---|---|---|---|---|---|
+| `GET` | `/api/v1/meta` | `desktop.meta` | public | `public` | no | read | experimental · 1.0.0 |
+| `POST` | `/api/v1/desktop/pair` | `desktop.pair` | public | `public` | no | auth | experimental · 1.0.0 |
+| `POST` | `/api/v1/desktop/redeem` | `desktop.redeem` | public | `public` | no | auth | experimental · 1.0.0 |
+| `POST` | `/api/v1/desktop/ticket` | `desktop.ticket` | public | `public` | no | auth | experimental · 1.0.0 |
 | `POST` | `/rpc` | `web.rpc` | session | `delegated` | yes | rpc | experimental · 1.0.0 |
 | `GET` | `/events` | `web.events` | session | `delegated` | no | stream | experimental · 1.0.0 |
 | `POST` | `/api/v1/invitations/redeem` | `invitation.redeem` | public | `public` | no | auth | experimental · 1.0.0 |
-| `POST` | `/api/v1/accounts/bootstrap` | `account.bootstrap` | session | `authenticated` | yes | auth | experimental · 1.0.0 |
+| `POST` | `/api/v1/accounts/bootstrap` | `account.bootstrap` | public | `public` | no | auth | experimental · 1.0.0 |
+| `GET` | `/api/v1/me/passkeys` | `passkeys.list` | session | `my.read` | no | read | experimental · 1.0.0 |
+| `POST` | `/api/v1/me/passkeys/options` | `passkeys.options` | session | `my.write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/me/passkeys/register` | `passkeys.register` | session | `my.write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/me/passkeys/change` | `passkeys.change` | session | `my.write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/session/passkey/options` | `passkeys.login.options` | public | `public` | no | auth | experimental · 1.0.0 |
+| `POST` | `/api/v1/session/passkey` | `passkeys.login` | public | `public` | no | auth | experimental · 1.0.0 |
+| `GET` | `/api/v1/chats` | `chats.list` | session or token | `chat:read` | no | read | experimental · 1.0.0 |
+| `POST` | `/api/v1/chats` | `chats.create` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/agents/{agentId}/chats` | `chats.create-agent` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
+| `GET` | `/api/v1/chats/{sessionId}` | `chats.get` | session or token | `chat:read` | no | read | experimental · 1.0.0 |
+| `PATCH` | `/api/v1/chats/{sessionId}` | `chats.update` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
+| `GET` | `/api/v1/chats/{sessionId}/messages` | `chats.messages` | session or token | `chat:read` | no | read | experimental · 1.0.0 |
+| `POST` | `/api/v1/chats/{sessionId}/messages` | `chats.submit` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
+| `GET` | `/api/v1/chats/{sessionId}/events` | `chats.events` | session or token | `chat:read` | no | read | experimental · 1.0.0 |
+| `POST` | `/api/v1/chats/{sessionId}/cancel` | `chats.cancel` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/chats/{sessionId}/archive` | `chats.archive` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/chats/{sessionId}/restore` | `chats.restore` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/chats/{sessionId}/fork` | `chats.fork` | session or token | `chat:write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/chats/{sessionId}/export` | `chats.export` | session or token | `chat:read` | yes | write | experimental · 1.0.0 |
+| `DELETE` | `/api/v1/chats/{sessionId}` | `chats.delete` | session or token | `chat:delete` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/ws-ticket` | `ws.ticket` | session | `settings.write` | yes | stream | experimental · 1.0.0 |
+| `GET` | `/ws` | `ws.reserved` | session | `settings.write` | no | stream | experimental · 1.0.0 |
+| `GET` | `/api/v1/remote` | `remote.get` | session | `settings.read` | no | read | experimental · 1.0.0 |
+| `PATCH` | `/api/v1/remote` | `remote.set` | session | `settings.write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/remote/confirm` | `remote.confirm` | session | `settings.write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/remote/certificate` | `remote.certificate` | session | `settings.write` | yes | write | experimental · 1.0.0 |
+| `GET` | `/api/v1/devices/pairing` | `remote.pairing.status` | session | `admin.pairing.read` | no | read | experimental · 1.0.0 |
+| `POST` | `/api/v1/devices/pairing` | `remote.pairing.offer` | session | `admin.pairing.read` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/devices/pair-proof` | `remote.pair-proof` | public | `public` | no | auth | experimental · 1.0.0 |
+| `POST` | `/api/v1/devices/pair` | `remote.device.pair` | public | `public` | no | auth | experimental · 1.0.0 |
+| `GET` | `/api/v1/devices/trust` | `remote.trust.get` | session | `device.list` | no | read | experimental · 1.0.0 |
+| `POST` | `/api/v1/devices/trust/challenge` | `remote.trust.challenge` | session | `remote.device.write` | yes | auth | experimental · 1.0.0 |
+| `POST` | `/api/v1/devices/trust/ack` | `remote.trust.ack` | session | `remote.device.write` | yes | write | experimental · 1.0.0 |
+| `POST` | `/api/v1/devices/trust/rotate` | `remote.trust.rotate` | session | `admin.pairing.read` | yes | write | experimental · 1.0.0 |
 | `POST` | `/api/v1/session` | `session.create` | public | `public` | no | auth | experimental · 1.0.0 |
 | `DELETE` | `/api/v1/session` | `session.delete` | session | `authenticated` | yes | write | experimental · 1.0.0 |
 | `DELETE` | `/api/v1/sessions` | `sessions.revoke-all` | session | `authenticated` | yes | write | experimental · 1.0.0 |

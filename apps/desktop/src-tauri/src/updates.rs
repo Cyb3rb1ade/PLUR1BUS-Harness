@@ -88,7 +88,12 @@ pub struct UpdateSettings {
 impl Default for UpdateSettings {
     fn default() -> Self {
         Self {
-            channel: Channel::Stable,
+            channel: match env!("PLUR1BUS_DESKTOP_BUILD_CHANNEL") {
+                "beta" => Channel::Beta,
+                #[cfg(debug_assertions)]
+                "dev" => Channel::Dev,
+                _ => Channel::Stable,
+            },
             held: false,
             auto_patch: true,
             quiet_hours: (3, 5),
@@ -206,6 +211,26 @@ pub fn verify_payload(bytes: &[u8], signature: &str, key: &str) -> Result<(), Up
     key.verify(bytes, &sig, false)
         .map_err(|_| UpdateError::Signature)
 }
+/// SemVer precedence (§10: build metadata is ignored). `semver::Version`'s own `Ord` breaks ties on the build
+/// metadata, which is not an order a release can have; this is the order of the CLI (`update/guard.rs::precedence`).
+pub fn precedence(a: &Version, b: &Version) -> std::cmp::Ordering {
+    let (mut a, mut b) = (a.clone(), b.clone());
+    a.build = semver::BuildMetadata::EMPTY;
+    b.build = semver::BuildMetadata::EMPTY;
+    a.cmp(&b)
+}
+/// Whether two versions are the same release: equal by [`precedence`], so `1.2.3+a` is `1.2.3+b`.
+pub fn same_version(a: &Version, b: &Version) -> bool {
+    precedence(a, b).is_eq()
+}
+/// [`same_version`] for a version string from another source (the image, the bundle, the native updater). A string
+/// that is not SemVer is the same only when it is the exact text of `v`.
+pub fn same_version_str(s: &str, v: &Version) -> bool {
+    match Version::parse(s) {
+        Ok(p) => same_version(&p, v),
+        Err(_) => s == v.to_string(),
+    }
+}
 /// Injected local hour avoids treating UTC quiet hours as local quiet hours.
 pub fn decide(
     r: &Release,
@@ -215,10 +240,15 @@ pub fn decide(
     hour: u8,
     agent_run_active: bool,
 ) -> Offer {
-    if s.held || r.channel != s.channel || r.version <= *running {
+    if s.held || r.channel != s.channel || precedence(&r.version, running).is_le() {
         return Offer::None;
     }
-    if let Some(skipped) = s.skipped.get(&r.version) {
+    // The skip list is keyed by the exact version; build metadata is no different release.
+    let skipped = s
+        .skipped
+        .iter()
+        .find_map(|(v, at)| same_version(v, &r.version).then_some(at));
+    if let Some(skipped) = skipped {
         if !r.security || now.saturating_sub(*skipped) < 604800 {
             return Offer::None;
         }
@@ -226,7 +256,7 @@ pub fn decide(
     if s.later_until.is_some_and(|until| now < until) {
         return Offer::None;
     }
-    if *running < r.min_from_version {
+    if precedence(running, &r.min_from_version).is_lt() {
         return Offer::NeedsIntermediate(r.min_from_version.clone());
     }
     let (a, b) = s.quiet_hours;

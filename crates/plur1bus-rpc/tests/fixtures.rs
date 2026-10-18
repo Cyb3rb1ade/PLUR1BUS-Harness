@@ -40,6 +40,38 @@ fn pair<P: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize>(name: 
 fn method_fixture(name: &str, f: &Value) {
     use types::*;
     match name {
+        "model.embedding.select" => {
+            pair::<ModelEmbeddingSelectParams, ModelEmbeddingSelectResult>(name, f)
+        }
+        "model.licence.confirm" => {
+            pair::<ModelLicenceConfirmParams, ModelLicenceConfirmResult>(name, f)
+        }
+        "model.licence.list" => pair::<ModelLicenceListParams, ModelLicenceListResult>(name, f),
+        "model.licence.check" => pair::<ModelLicenceCheckParams, ModelLicenceCheckResult>(name, f),
+        "admin.api.device.announce" => {
+            pair::<AdminApiDeviceAnnounceParams, AdminApiDeviceAnnounceResult>(name, f)
+        }
+        "admin.api.device.challenge" => {
+            pair::<AdminApiDeviceChallengeParams, AdminApiDeviceChallengeResult>(name, f)
+        }
+        "admin.api.device.pair" => {
+            pair::<AdminApiDevicePairParams, AdminApiDevicePairResult>(name, f)
+        }
+        "admin.api.device.prove" => {
+            pair::<AdminApiDeviceProveParams, AdminApiDeviceProveResult>(name, f)
+        }
+        "chat.archive" => pair::<ChatArchiveParams, ChatArchiveResult>(name, f),
+        "chat.cancel" => pair::<ChatCancelParams, ChatCancelResult>(name, f),
+        "chat.create" => pair::<ChatCreateParams, ChatCreateResult>(name, f),
+        "chat.delete" => pair::<ChatDeleteParams, ChatDeleteResult>(name, f),
+        "chat.events" => pair::<ChatEventsParams, ChatEventsResult>(name, f),
+        "chat.export" => pair::<ChatExportParams, ChatExportResult>(name, f),
+        "chat.fork" => pair::<ChatForkParams, ChatForkResult>(name, f),
+        "chat.get" => pair::<ChatGetParams, ChatGetResult>(name, f),
+        "chat.list" => pair::<ChatListParams, ChatListResult>(name, f),
+        "chat.restore" => pair::<ChatRestoreParams, ChatRestoreResult>(name, f),
+        "chat.submit" => pair::<ChatSubmitParams, ChatSubmitResult>(name, f),
+        "chat.update" => pair::<ChatUpdateParams, ChatUpdateResult>(name, f),
         "project.column.list" => pair::<ProjectColumnListParams, ProjectColumnListResult>(name, f),
         "project.column.create" => pair::<ProjectColumnCreateParams, BoardColumn>(name, f),
         "project.column.update" => pair::<ProjectColumnUpdateParams, BoardColumn>(name, f),
@@ -66,6 +98,16 @@ fn method_fixture(name: &str, f: &Value) {
         }
         "project.card.activity.list" => {
             pair::<ProjectCardActivityListParams, ProjectCardActivityListResult>(name, f)
+        }
+        "device.pair" => pair::<DevicePairParams, DevicePairResult>(name, f),
+        "admin.api.desktop.redeem" => {
+            pair::<AdminApiDesktopRedeemParams, AdminApiDesktopRedeemResult>(name, f)
+        }
+        "admin.api.desktop.token" => {
+            pair::<AdminApiDesktopTokenParams, AdminApiDesktopTokenResult>(name, f)
+        }
+        "admin.api.desktop.resolve" => {
+            pair::<AdminApiDesktopResolveParams, AdminApiDesktopResolveResult>(name, f)
         }
         "device.list" => pair::<DeviceListParams, DeviceListResult>(name, f),
         "device.revoke" => pair::<DeviceRevokeParams, Device>(name, f),
@@ -106,6 +148,7 @@ fn method_fixture(name: &str, f: &Value) {
         "pairing.qr" => pair::<PairingQrParams, PairingQrResult>(name, f),
         "auth.status" => pair::<AuthStatusParams, AuthStatusResult>(name, f),
         "channel.list" => pair::<ChannelListParams, ChannelListResult>(name, f),
+        "channel.crypto" => pair::<ChannelCryptoParams, ChannelCryptoResult>(name, f),
         "channel.get" => pair::<ChannelGetParams, ChannelGetResult>(name, f),
         "channel.enable" => pair::<ChannelEnableParams, ChannelEnableResult>(name, f),
         "channel.disable" => pair::<ChannelDisableParams, ChannelDisableResult>(name, f),
@@ -134,6 +177,15 @@ fn method_fixture(name: &str, f: &Value) {
         "project.agent.add" => pair::<ProjectAgentAddParams, ProjectAgentAddResult>(name, f),
         "project.agent.remove" => {
             pair::<ProjectAgentRemoveParams, ProjectAgentRemoveResult>(name, f)
+        }
+        "task.complete" => pair::<TaskCompleteParams, TaskCompleteResult>(name, f),
+        "chat.promote.preview" => {
+            pair::<ChatPromotePreviewParams, ChatPromotePreviewResult>(name, f)
+        }
+        "chat.promote.commit" => pair::<ChatPromoteCommitParams, ChatPromoteCommitResult>(name, f),
+        "chat.promote.links" => pair::<ChatPromoteLinksParams, ChatPromoteLinksResult>(name, f),
+        "collab.session.replay" => {
+            pair::<CollabSessionReplayParams, CollabSessionReplayResult>(name, f)
         }
         "collab.trace.get" => pair::<CollabTraceGetParams, CollabTraceGetResult>(name, f),
         "collab.trace.list" => pair::<CollabTraceListParams, CollabTraceListResult>(name, f),
@@ -263,12 +315,14 @@ fn method_fixture(name: &str, f: &Value) {
         "dreams.schedule.set" => pair::<DreamsScheduleSetParams, DreamsScheduleSetResult>(name, f),
         "dreams.enable" => pair::<DreamsEnableParams, DreamsEnableResult>(name, f),
         "dreams.disable" => pair::<DreamsDisableParams, DreamsDisableResult>(name, f),
+        "dreams.diary" => pair::<DreamsDiaryParams, DreamsDiaryResult>(name, f),
         "admin.reembed.plan" => pair::<AdminReembedPlanParams, AdminReembedPlanResult>(name, f),
         "admin.reembed.run" => pair::<AdminReembedRunParams, AdminReembedRunResult>(name, f),
         "admin.reembed.status" => {
             pair::<AdminReembedStatusParams, AdminReembedStatusResult>(name, f)
         }
         "admin.reembed.abort" => pair::<AdminReembedAbortParams, AdminReembedAbortResult>(name, f),
+        "models.test" => pair::<ModelsTestParams, ModelsTestResult>(name, f),
         "models.list" => pair::<ModelsListParams, ModelsListResult>(name, f),
         "models.scan" => pair::<ModelsScanParams, ModelsScanResult>(name, f),
         "models.setOverride" => pair::<ModelsSetOverrideParams, ModelsSetOverrideResult>(name, f),
@@ -283,6 +337,7 @@ fn method_fixture(name: &str, f: &Value) {
         "session.archive" => pair::<SessionArchiveParams, SessionArchiveResult>(name, f),
         "session.submit" => pair::<SessionSubmitParams, SessionSubmitResult>(name, f),
         "session.events" => pair::<SessionEventsParams, SessionEventsResult>(name, f),
+        "session.model.set" => pair::<SessionModelSetParams, SessionModelSetResult>(name, f),
         "session.cancel" => pair::<SessionCancelParams, SessionCancelResult>(name, f),
         "identity.list" => pair::<IdentityListParams, IdentityListResult>(name, f),
         "identity.human.create" => {
@@ -295,6 +350,7 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<IdentityPairConfirmParams, IdentityPairConfirmResult>(name, f)
         }
         "identity.unlink" => pair::<IdentityUnlinkParams, IdentityUnlinkResult>(name, f),
+        "logs.levels" => pair::<LogsLevelsParams, LogsLevelsResult>(name, f),
         "logs.query" => pair::<LogsQueryParams, LogsQueryResult>(name, f),
         "logs.tail" => pair::<LogsTailParams, LogsTailResult>(name, f),
         "budget.status" => pair::<BudgetStatusParams, BudgetStatusResult>(name, f),
@@ -343,6 +399,9 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<VoiceRealtimeStartParams, VoiceRealtimeStartResult>(name, f)
         }
         "voice.realtime.stop" => pair::<VoiceRealtimeStopParams, VoiceRealtimeStopResult>(name, f),
+        "voice.session.create" => {
+            pair::<VoiceSessionCreateParams, VoiceSessionCreateResult>(name, f)
+        }
         other => panic!("fixtures/methods/{other}.json has no Rust type mapping in this test"),
     }
 }
@@ -426,6 +485,30 @@ fn every_method_fixture_round_trips() {
     assert!(!files.is_empty());
     let names: BTreeSet<&str> = files.iter().map(|(n, _)| n.as_str()).collect();
     for m in [
+        "chat.create",
+        "chat.list",
+        "chat.get",
+        "chat.events",
+        "chat.submit",
+        "chat.update",
+        "chat.archive",
+        "chat.restore",
+        "chat.cancel",
+        "chat.fork",
+        "chat.delete",
+        "chat.export",
+        "device.pair",
+        "admin.api.desktop.redeem",
+        "admin.api.desktop.token",
+        "admin.api.desktop.resolve",
+        "admin.api.device.pair",
+        "admin.api.device.challenge",
+        "admin.api.device.prove",
+        "admin.api.device.announce",
+        "model.embedding.select",
+        "model.licence.confirm",
+        "model.licence.list",
+        "model.licence.check",
         "supervisor.auth",
         "daemon.status",
         "daemon.start",
@@ -503,6 +586,7 @@ fn every_notification_fixture_round_trips() {
     assert!(!files.is_empty());
     for (name, v) in &files {
         match name.as_str() {
+            "devices.trust.next" => round_trip::<types::DevicesTrustNextNotification>(v, name),
             "inbox.changed" => round_trip::<types::InboxChangedNotification>(v, name),
             "project.card.changed" => round_trip::<types::ProjectCardChangedNotification>(v, name),
             "project.column.changed" => {
@@ -573,4 +657,15 @@ fn rpc_version_const_matches_the_schema() {
         .as_str()
         .unwrap()
         .contains(&format!("/{}/", plur1bus_rpc::RPC_VERSION)));
+}
+
+#[test]
+fn core_auth_preserves_owner_tokens_and_supports_scoped_client_tokens() {
+    for token in [
+        "0".repeat(64),
+        format!("plb_123456789abc_{}", "x".repeat(43)),
+    ] {
+        let value = serde_json::json!({ "token": token });
+        round_trip::<types::CoreAuthParams>(&value, "core.auth token variants");
+    }
 }

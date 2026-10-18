@@ -81,6 +81,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus dreams schedule set`↴](#plur1bus-dreams-schedule-set)
 * [`plur1bus dreams enable`↴](#plur1bus-dreams-enable)
 * [`plur1bus dreams disable`↴](#plur1bus-dreams-disable)
+* [`plur1bus dreams diary`↴](#plur1bus-dreams-diary)
 * [`plur1bus config`↴](#plur1bus-config)
 * [`plur1bus config get`↴](#plur1bus-config-get)
 * [`plur1bus config set`↴](#plur1bus-config-set)
@@ -159,6 +160,9 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus budget set`↴](#plur1bus-budget-set)
 * [`plur1bus audit`↴](#plur1bus-audit)
 * [`plur1bus audit verify`↴](#plur1bus-audit-verify)
+* [`plur1bus logs`↴](#plur1bus-logs)
+* [`plur1bus logs query`↴](#plur1bus-logs-query)
+* [`plur1bus logs tail`↴](#plur1bus-logs-tail)
 * [`plur1bus secret`↴](#plur1bus-secret)
 * [`plur1bus secret status`↴](#plur1bus-secret-status)
 * [`plur1bus secret set`↴](#plur1bus-secret-set)
@@ -166,6 +170,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus secret rm`↴](#plur1bus-secret-rm)
 * [`plur1bus secret ls`↴](#plur1bus-secret-ls)
 * [`plur1bus device`↴](#plur1bus-device)
+* [`plur1bus device pair`↴](#plur1bus-device-pair)
 * [`plur1bus device list`↴](#plur1bus-device-list)
 * [`plur1bus device revoke`↴](#plur1bus-device-revoke)
 * [`plur1bus device rename`↴](#plur1bus-device-rename)
@@ -312,6 +317,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `voice` — [experimental] Voice: language profiles, realtime features, agent overrides and licensed models
 * `budget` — [experimental] Budgets: usage per agent and model, soft and hard limits (L8)
 * `audit` — [experimental] Audit trail: verify the hash-chained audit file (B5)
+* `logs` — [experimental] Diagnostic logs: query and tail through the core
 * `secret` — [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
 * `device` — [experimental] Paired devices: list, revoke and rename (F44)
 * `grant` — [experimental] Standing permissions: list, add and revoke grants (D109)
@@ -359,6 +365,8 @@ Downloads the pinned Node runtime and the core payload and verifies their SHA-25
 
 ###### **Options:**
 
+* `--dry-run` — Show the setup/profile-upgrade plan without changing files or services
+* `--recover-profile` — Restore a preserved interrupted profile-upgrade snapshot (daemon is stopped first)
 * `--container` — Install in container mode on this host
 * `--container-manifest <MANIFEST>` — Signed release manifest path or HTTPS URL (default: the channel feed); used when no image is supplied
 * `--runtime <RUNTIME>` — Container runtime; automatic selection prefers Apple on macOS ARM
@@ -1191,6 +1199,8 @@ Chat sessions: list, show, archive
 
 ###### **Options:**
 
+* `--model <PROFILE>` — Configured model profile for this session; warns and asks before switching
+* `--yes` — Confirm the model switch for scripts (including --json)
 * `--agent <AGENT>` — The agent to talk to (default: the only registered agent)
 * `--session <SESSION>` — Continue this session instead of starting a new one
 * `--no-memory` — Start the chat incognito: nothing of it is remembered
@@ -1284,6 +1294,7 @@ Dreaming: phase schedules, status, run, log
 * `schedule` — [experimental] Phase schedules: get, set
 * `enable` — [experimental] Enable one phase's schedule
 * `disable` — [experimental] Disable one phase's schedule (run now still works)
+* `diary` — [experimental] Read the private dreaming diary of an agent
 
 
 
@@ -1418,6 +1429,18 @@ Dreaming: phase schedules, status, run, log
 
   Possible values: `light`, `rem`, `deep`
 
+
+###### **Options:**
+
+* `--agent <AGENT>`
+
+
+
+## `plur1bus dreams diary`
+
+[experimental] Read the private dreaming diary of an agent
+
+**Usage:** `plur1bus dreams diary --agent <AGENT>`
 
 ###### **Options:**
 
@@ -2531,6 +2554,70 @@ Every line of the chained audit file must carry the SHA-256 of the line before i
 
 
 
+## `plur1bus logs`
+
+[experimental] Diagnostic logs: query and tail through the core
+
+**Usage:** `plur1bus logs <COMMAND>`
+
+###### **Subcommands:**
+
+* `query` — [experimental] Query diagnostic logs (newest first)
+* `tail` — [experimental] Tail diagnostic logs (oldest of the newest page first)
+
+
+
+## `plur1bus logs query`
+
+[experimental] Query diagnostic logs (newest first)
+
+**Usage:** `plur1bus logs query [OPTIONS]`
+
+###### **Options:**
+
+* `--level <LEVEL>` — Minimum level
+
+  Possible values: `trace`, `debug`, `info`, `warn`, `error`, `fatal`
+
+* `--component <COMPONENT>` — File role, source.id or source.kind
+* `--trace <TRACE>` — 32-hex trace id (exact match on the record's trace_id)
+* `--from <TS>` — Inclusive lower bound
+* `--to <TS>` — Inclusive upper bound
+* `--limit <LIMIT>`
+
+  Default value: `100`
+* `--stream <STREAM>`
+
+  Possible values: `diagnostic`, `audit`
+
+
+
+
+## `plur1bus logs tail`
+
+[experimental] Tail diagnostic logs (oldest of the newest page first)
+
+**Usage:** `plur1bus logs tail [OPTIONS]`
+
+###### **Options:**
+
+* `--level <LEVEL>` — Minimum level
+
+  Possible values: `trace`, `debug`, `info`, `warn`, `error`, `fatal`
+
+* `--component <COMPONENT>` — File role, source.id or source.kind
+* `--trace <TRACE>` — 32-hex trace id (exact match on the record's trace_id)
+* `--follow` — Keep polling until interrupted
+* `--limit <LIMIT>`
+
+  Default value: `50`
+* `--stream <STREAM>`
+
+  Possible values: `diagnostic`, `audit`
+
+
+
+
 ## `plur1bus secret`
 
 [experimental] Secret store: status, set, get, rm, ls (OS keyring first, encrypted-file fallback)
@@ -2620,9 +2707,25 @@ One trailing newline is removed. Replacing a secret revokes the leases on the ol
 
 ###### **Subcommands:**
 
+* `pair` — [experimental] Issue a person-bound desktop attach code valid for ten minutes
 * `list` — [experimental] List your devices (Owner/Admin: all), including revoked devices
 * `revoke` — [experimental] Revoke a device and close its connections immediately
 * `rename` — [experimental] Rename a device you own
+
+
+
+## `plur1bus device pair`
+
+[experimental] Issue a person-bound desktop attach code valid for ten minutes
+
+**Usage:** `plur1bus device pair --kind <KIND>`
+
+###### **Options:**
+
+* `--kind <KIND>`
+
+  Possible values: `desktop`
+
 
 
 
@@ -3989,7 +4092,7 @@ Examples:
 
 * `<SOURCE_TYPE>` — Source system to read (never modified)
 
-  Possible values: `openclaw`, `hermes`
+  Possible values: `openclaw`, `hermes`, `backfill`
 
 
 ###### **Options:**
@@ -4017,6 +4120,9 @@ Examples:
 * `--resume <RUN_ID>` — Resume an interrupted import run by run ID
 * `--force` — Force rollback: delete user-modified files created by the import instead of keeping them
 * `--adopt-store <PATH>` — Take over an existing PLUR1BUS store at path using stores.adopt (default: off)
+* `--agent <AGENT>` — Target agent ID (required for backfill)
+* `--adopt-strategy <STRATEGY>` — Store adoption strategy when identity mismatches: 'reembed' or 'import'
+* `--merge-profiles` — Allow multiple Hermes profiles to merge into the same target agent
 
 
 

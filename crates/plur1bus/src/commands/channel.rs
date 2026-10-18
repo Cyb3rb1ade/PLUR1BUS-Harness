@@ -476,11 +476,19 @@ pub fn run(out: &Out, layout: &Layout, cmd: ChannelCmd) {
         }
         ChannelCmd::Set { .. } => out.ok("channel.set/1", &value, || render_set(&value)),
         ChannelCmd::Test { .. } => {
-            out.ok("channel.test/1", &value, || render_test(&value));
             // A failing check is a failing command, so a script can branch on it.
             if value["ok"] != json!(true) {
-                crate::output::exit(1);
+                let mut failure = crate::output::Failure::new(
+                    "E_INTERNAL",
+                    "channel-test-failed",
+                    "the channel check failed (see the state and detail)",
+                );
+                if let Some(d) = value["detail"].as_str() {
+                    failure.extra["detail"] = json!(d);
+                }
+                out.ok_but_failed("channel.test/1", &value, || render_test(&value), failure);
             }
+            out.ok("channel.test/1", &value, || render_test(&value));
         }
         ChannelCmd::LinkHelp { .. } => {
             let help = json!({ "id": value["id"], "linkHelp": value["linkHelp"] });

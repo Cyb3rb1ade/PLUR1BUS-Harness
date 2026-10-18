@@ -74,6 +74,934 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 ## Methods
 
+### `chat.promote.links`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+List this owned direct chat's private project links, filtered by current project visibility.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `chat.promote.preview`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private direct-chat promotion preview; content moves only by explicit selection and an owned unexpired preview.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "card",
+            "project",
+            "new_project"
+          ]
+        },
+        "projectId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "columnId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "none",
+            "summary",
+            "selected",
+            "transcript"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        },
+        "messageIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 500,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    }
+  },
+  "required": [
+    "sessionId",
+    "target"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `chat.promote.commit`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private direct-chat promotion commit; content moves only by explicit selection and an owned unexpired preview.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "previewId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "previewId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `chat.create`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Authenticated own direct-chat create. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "memoryMode": {
+      "enum": [
+        "remember",
+        "incognito"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "agentId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    }
+  },
+  "required": [
+    "session"
+  ]
+}
+```
+
+### `chat.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Authenticated own direct-chat list. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "archived": {
+      "enum": [
+        "exclude",
+        "only",
+        "any"
+      ]
+    },
+    "search": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    }
+  },
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionRecord"
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "nextCursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2048
+    }
+  },
+  "required": [
+    "sessions",
+    "truncated",
+    "nextCursor"
+  ]
+}
+```
+
+### `chat.get`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Authenticated own direct-chat get. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500
+    },
+    "beforeSeq": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "session",
+    "runningTurnId",
+    "messages",
+    "lastEventSeq"
+  ],
+  "properties": {
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    },
+    "runningTurnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionMessage"
+      }
+    },
+    "lastEventSeq": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `chat.events`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Authenticated own direct-chat events. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "afterSeq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "events",
+    "lastSeq",
+    "running"
+  ],
+  "properties": {
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionEvent"
+      }
+    },
+    "lastSeq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "running": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `chat.submit`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Authenticated own direct-chat submit. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64000
+    },
+    "wait": {
+      "type": "boolean"
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "resumeAfterSeq": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991,
+      "description": "Resume an existing turn only with its retained original idempotency key; never starts a new turn."
+    }
+  },
+  "required": [
+    "sessionId",
+    "text"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "turnId",
+    "messageId",
+    "state"
+  ],
+  "properties": {
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "turnId": {
+      "type": "string"
+    },
+    "messageId": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "running",
+        "completed",
+        "failed"
+      ]
+    },
+    "reply": {
+      "type": "string"
+    },
+    "error": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `chat.update`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Authenticated own direct-chat update. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "pinned": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    }
+  },
+  "required": [
+    "session"
+  ]
+}
+```
+
+### `chat.archive`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Authenticated own direct-chat archive. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    }
+  },
+  "required": [
+    "session"
+  ]
+}
+```
+
+### `chat.restore`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Authenticated own direct-chat restore. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    }
+  },
+  "required": [
+    "session"
+  ]
+}
+```
+
+### `chat.cancel`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Authenticated own direct-chat cancel. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "turnId",
+    "cancelled"
+  ],
+  "properties": {
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "turnId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "cancelled": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `chat.fork`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Authenticated own direct-chat fork. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "beforeSeq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    }
+  },
+  "required": [
+    "session"
+  ]
+}
+```
+
+### `chat.delete`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Authenticated own direct-chat delete. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "nonce": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "confirmation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "nonce": {
+              "type": "string"
+            },
+            "expiresAt": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "nonce",
+            "expiresAt"
+          ]
+        }
+      },
+      "required": [
+        "confirmation"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "purged": {
+          "const": true
+        },
+        "tombstoneId": {
+          "type": "string"
+        },
+        "messages": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "purged",
+        "tombstoneId",
+        "messages"
+      ]
+    }
+  ]
+}
+```
+
+### `chat.export`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Authenticated own direct-chat export. Identity is derived from the current principal. chat:read, chat:write or chat:delete scopes narrow roles and current agent object rights. Incognito transcripts stay in memory only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "sessionId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "session": {
+      "$ref": "#/$defs/SessionRecord"
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionMessage"
+      }
+    }
+  },
+  "required": [
+    "session",
+    "messages"
+  ]
+}
+```
+
 ### `jobs.create`
 
 **Stability:** experimental · since 1.6.0
@@ -522,6 +1450,79 @@ Voice V3: voice.agent.override.clear. Reads are available to all five human role
     "agentId",
     "override",
     "effective"
+  ]
+}
+```
+
+### `voice.session.create`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+D110 server-side voice session broker. Requires a person with agent use rights and an authenticated T2+ surface. Parent kind, billing path, region and provider terms acceptance come from providers.openaiVoice. Returns no credential. Delegation defaults to client.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "provider": {
+      "enum": [
+        "openai:realtime",
+        "openai:gpt-live"
+      ]
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "transport": {
+      "enum": [
+        "webrtc",
+        "websocket",
+        "sip"
+      ]
+    },
+    "sdp": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 131072
+    }
+  },
+  "required": [
+    "agentId",
+    "provider",
+    "model",
+    "transport"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sdpAnswer": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "sessionId"
   ]
 }
 ```
@@ -1979,6 +2980,502 @@ Project board card.activity.list. Live stored membership and token scopes are en
 }
 ```
 
+### `admin.api.device.pair`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private API-service pair operation over the core device store; never exposed through web RPC or WebMCP.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "platform": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "publicKey": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "pairedBy": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "scope": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "string",
+        "maxLength": 128
+      }
+    }
+  },
+  "required": [
+    "name",
+    "platform",
+    "publicKey",
+    "pairedBy",
+    "scope"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "device": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "device"
+  ]
+}
+```
+
+### `admin.api.device.challenge`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private API-service challenge operation over the core device store; never exposed through web RPC or WebMCP.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "challenge": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "challenge"
+  ]
+}
+```
+
+### `admin.api.device.prove`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private API-service prove operation over the core device store; never exposed through web RPC or WebMCP.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^dev_[a-f0-9-]{36}$"
+    },
+    "publicKey": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "challenge": {
+      "type": "string",
+      "minLength": 43,
+      "maxLength": 43,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "signature": {
+      "type": "string",
+      "minLength": 86,
+      "maxLength": 86,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    }
+  },
+  "required": [
+    "id",
+    "publicKey",
+    "challenge",
+    "signature"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "device": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "device"
+  ]
+}
+```
+
+### `admin.api.device.announce`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Private API-service announce operation over the core device store; never exposed through web RPC or WebMCP.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "next": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "cert",
+            "ca"
+          ]
+        },
+        "pin": {
+          "type": "string",
+          "pattern": "^sha256:[A-Za-z0-9_-]{43}$"
+        }
+      },
+      "required": [
+        "kind",
+        "pin"
+      ]
+    },
+    "stagedAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "next",
+    "stagedAt"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "announced": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "announced"
+  ]
+}
+```
+
+### `device.pair`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "const": "desktop"
+    }
+  },
+  "required": [
+    "kind"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43
+    },
+    "kind": {
+      "const": "desktop"
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    }
+  },
+  "required": [
+    "code",
+    "kind",
+    "expiresAt",
+    "scopes"
+  ]
+}
+```
+
+### `admin.api.desktop.redeem`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43
+    },
+    "kind": {
+      "const": "desktop"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "publicKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    }
+  },
+  "required": [
+    "code",
+    "kind",
+    "name",
+    "publicKey"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "device": {
+      "type": "object"
+    },
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "device",
+    "token",
+    "expiresAt"
+  ]
+}
+```
+
+### `admin.api.desktop.token`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 43
+    }
+  },
+  "required": [
+    "token"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "deviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "deviceId",
+    "userId",
+    "scopes",
+    "expiresAt"
+  ]
+}
+```
+
+### `admin.api.desktop.resolve`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Person-bound desktop attach operation. Private admin.api operations require the API service credential; credentials never confer ambient owner authority.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "deviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "deviceId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "deviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "expiresAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "deviceId",
+    "userId",
+    "scopes",
+    "expiresAt"
+  ]
+}
+```
+
 ### `device.list`
 
 **Stability:** experimental · since 1.6.0
@@ -3283,6 +4780,93 @@ Authenticated project agent.remove using ADR-007 object rights.
 }
 ```
 
+### `task.complete`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Complete an assigned coding card after sandboxed verifiers and exact-tree review. Human project leads may override with an audited note.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "overrideNote": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "projectId",
+    "cardId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `collab.session.replay`
+
+**Stability:** experimental · since 1.5.0
+
+**Served by:** core
+
+Replay a redacted delegation session; current project membership is required.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "traceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "spanId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "traceId",
+    "spanId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
 ### `collab.trace.get`
 
 **Stability:** experimental · since 1.5.0
@@ -3712,7 +5296,7 @@ Human-only principals; self or authenticated administrator, codes revealed only 
   "properties": {
     "token": {
       "type": "string",
-      "minLength": 64,
+      "minLength": 60,
       "maxLength": 64
     },
     "api": {
@@ -4826,6 +6410,231 @@ Called by a supervisor on a running core to adopt it. nonce is the current conte
 }
 ```
 
+### `model.embedding.select`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Make the Memory wizard embedding selection effective via the existing validated migration; refuses unsupported models and unavailable engine validation instead of silently retaining a different model.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "model"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "type": "string"
+    },
+    "effective": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "model",
+    "effective"
+  ]
+}
+```
+
+### `model.licence.confirm`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Persisted audited model licence confirm; authenticated Owner/Admin only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "type": "string",
+      "enum": [
+        "jinaai/jina-embeddings-v3",
+        "jinaai/jina-embeddings-v5-text-nano",
+        "jinaai/jina-embeddings-v5-text-nano-retrieval",
+        "jinaai/jina-reranker-v2-base-multilingual"
+      ]
+    },
+    "accepted": {
+      "const": true
+    }
+  },
+  "required": [
+    "model",
+    "accepted"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "who": {
+          "type": "string"
+        },
+        "at": {
+          "type": "string"
+        },
+        "licence": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "who",
+        "at",
+        "licence",
+        "model",
+        "revision",
+        "source"
+      ]
+    }
+  },
+  "required": [
+    "acceptance"
+  ]
+}
+```
+
+### `model.licence.list`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Persisted audited model licence list; authenticated Owner/Admin only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "acceptances": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  "required": [
+    "acceptances"
+  ]
+}
+```
+
+### `model.licence.check`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Persisted audited model licence check; authenticated Owner/Admin only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "changes": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {}
+        },
+        "required": [
+          "key",
+          "value"
+        ]
+      }
+    }
+  },
+  "required": [
+    "changes"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "ok"
+  ]
+}
+```
+
 ### `agent.create`
 
 **Stability:** experimental · since 1.6.0
@@ -4841,6 +6650,14 @@ Create an agent using Config Schema validation; Owner/Admin people only.
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "displayName": {},
+    "skills": {},
     "name": {},
     "persona": {},
     "model": {},
@@ -4861,6 +6678,9 @@ Create an agent using Config Schema validation; Owner/Admin people only.
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "replayed": {
+      "type": "boolean"
+    },
     "agentId": {
       "$ref": "#/$defs/AgentId"
     }
@@ -4886,6 +6706,14 @@ Dry-run the create payload; field errors grouped by wizard step without mutation
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "displayName": {},
+    "skills": {},
     "name": {},
     "persona": {},
     "model": {},
@@ -6125,6 +7953,75 @@ Disables one phase schedule; cron and importance triggers stop, run-now still wo
 }
 ```
 
+### `dreams.diary`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+The private dreaming diary (dreaming.md, D15) of one agent. Owner or agent.manage; a viewer is denied. Text is redacted. Unlimited diary retention (ADR-009 Q7) is unchanged; this is a read.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agentId",
+    "path",
+    "exists",
+    "bytes",
+    "text",
+    "truncated"
+  ],
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "path": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "exists": {
+      "type": "boolean"
+    },
+    "bytes": {
+      "type": "integer"
+    },
+    "text": {
+      "type": "string"
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
 ### `admin.obsidian.detect`
 
 **Stability:** experimental · since 1.3.0
@@ -6495,13 +8392,93 @@ Stages the consistent, engine-owned part of a backup (plur1bus backup create): t
 }
 ```
 
+### `logs.levels`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Reads or updates the live per-source log-level snapshot (D111). Takes effect immediately; does not persist to config.json (a restart restores core.logLevel). Owner/Admin only (RBAC action logs.query). Empty params return the current snapshot. A provided levels map is merged into the live overrides; unset removes named overrides and restores inheritance. Any trace level needs a future traceUntil at most 24 hours ahead (E_INVALID_PARAMS reason=invalid-level).
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "defaultLevel": {
+      "$ref": "#/$defs/LogLevel",
+      "description": "Live global default (core.logLevel in this process). Omitted: unchanged."
+    },
+    "levels": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/LogLevel"
+      },
+      "maxProperties": 256,
+      "description": "Per-source live overrides to merge. Keys are source keys (`kind` or `kind:id`)."
+    },
+    "unset": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LogSourceKey"
+      },
+      "maxItems": 256,
+      "description": "Source keys whose live override is removed."
+    },
+    "traceUntil": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 40,
+      "description": "RFC 3339 UTC expiry for any trace level; null clears it. E_INVALID_PARAMS reason=bad-timestamp when set and malformed."
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "defaultLevel",
+    "levels",
+    "traceUntil"
+  ],
+  "properties": {
+    "defaultLevel": {
+      "$ref": "#/$defs/LogLevel"
+    },
+    "levels": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/LogLevel"
+      },
+      "maxProperties": 256
+    },
+    "traceUntil": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "RFC 3339 UTC; null when no trace expiry is armed."
+    }
+  }
+}
+```
+
 ### `logs.query`
 
 **Stability:** experimental · since 1.5.0
 
 **Served by:** core
 
-Reads the protected log files under <home>/logs (rotated copies included) and returns matching records after redaction (D4, D111). Owner/Admin only (RBAC action logs.query). Files are streamed, never read whole; an unterminated last line is ignored and corrupt lines are counted in `corrupt`. Order defaults to newest first. from/to are inclusive RFC 3339 UTC bounds (E_INVALID_PARAMS reason=bad-timestamp | empty-range).
+Reads the protected log files under <home>/logs (rotated copies included) and returns matching records after redaction (D4, D111). Owner/Admin only (RBAC action logs.query). Files are streamed, never read whole; an unterminated last line is ignored and corrupt lines are counted in `corrupt`. Order defaults to newest first. from/to are inclusive RFC 3339 UTC bounds (E_INVALID_PARAMS reason=bad-timestamp | empty-range). traceId matches record.trace_id exactly; text remains a redacted-record substring.
 
 **params**
 
@@ -6528,6 +8505,11 @@ Reads the protected log files under <home>/logs (rotated copies included) and re
       "minLength": 1,
       "maxLength": 256,
       "description": "Case-insensitive substring, matched against the redacted record (so a search cannot confirm a secret)."
+    },
+    "traceId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "description": "Exact match on the record's trace_id."
     },
     "limit": {
       "type": "integer",
@@ -6572,7 +8554,7 @@ Reads the protected log files under <home>/logs (rotated copies included) and re
 
 **Served by:** core
 
-Follows the log: without a cursor the newest `limit` matches (oldest first) and a cursor anchored at the newest line; with a cursor the matches after it, in order. waitMs (default 0) makes the call wait for the first new match (a long poll, ended early by the connection closing or the core stopping). The cursor survives log rotation. Owner/Admin only (RBAC action logs.query). A push stream needs per-connection notifications the shared RPC server does not have yet; this call is the pull half.
+Follows the log: without a cursor the newest `limit` matches (oldest first) and a cursor anchored at the newest line; with a cursor the matches after it, in order. waitMs (default 0) makes the call wait for the first new match (a long poll, ended early by the connection closing or the core stopping). The cursor survives log rotation. Owner/Admin only (RBAC action logs.query). traceId matches record.trace_id exactly. A push stream needs per-connection notifications the shared RPC server does not have yet; this call is the pull half.
 
 **params**
 
@@ -6599,6 +8581,11 @@ Follows the log: without a cursor the newest `limit` matches (oldest first) and 
       "minLength": 1,
       "maxLength": 256,
       "description": "Case-insensitive substring, matched against the redacted record (so a search cannot confirm a secret)."
+    },
+    "traceId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "description": "Exact match on the record's trace_id."
     },
     "limit": {
       "type": "integer",
@@ -8831,6 +10818,55 @@ Returns every installed extension and subscribes this connection to ext.changed.
       "items": {
         "$ref": "#/$defs/ExtItem"
       }
+    }
+  }
+}
+```
+
+### `models.test`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Human-only Owner/Admin model probe through the configured chat adapter and budget. Fixed prompt, no tools, memory or session writes. Ten second deadline. E_NOT_AVAILABLE reasons model-not-configured, model-test-timeout, model-test-failed. Embedding/reranking probes are not supported.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "model"
+  ],
+  "properties": {
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ok",
+    "durationMs"
+  ],
+  "properties": {
+    "ok": {
+      "const": true
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0
     }
   }
 }
@@ -11818,6 +13854,111 @@ Every known channel (the config schema's `channels.*` plus any registered with t
 }
 ```
 
+### `channel.crypto`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Experimental owner/admin SAS control for opt-in Matrix memory crypto. Non-persistent; verification is lost after restart. Confirm only after comparing displayed SAS with the peer device. Never returns private keys.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "action"
+  ],
+  "properties": {
+    "id": {
+      "const": "matrix",
+      "type": "string"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "start",
+        "inspect",
+        "accept",
+        "confirm",
+        "cancel"
+      ]
+    },
+    "userId": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "deviceId": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "flowId": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "confirmed": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "flowId": {
+      "type": "string"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "memory"
+      ]
+    },
+    "warning": {
+      "type": "string"
+    },
+    "done": {
+      "type": "boolean"
+    },
+    "cancelled": {
+      "type": "boolean"
+    },
+    "emoji": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "symbol",
+          "description"
+        ],
+        "properties": {
+          "symbol": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "decimals": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      }
+    }
+  }
+}
+```
+
 ### `channel.get`
 
 **Stability:** experimental · since 1.5.0
@@ -12857,6 +14998,90 @@ Experimental (1.5.0, M3). Revokes a link at once: the identity stops resolving t
 ```json
 {
   "$ref": "#/$defs/IdentityLink"
+}
+```
+
+### `session.model.set`
+
+**Stability:** experimental · since 1.7.0
+
+**Served by:** core
+
+Preview a model-profile switch and its cache/cost warning; applies only with confirmed=true and the preview revision. Own idle direct sessions only. Per-model stable prefixes are retained.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId",
+    "profile"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "confirmed": {
+      "type": "boolean"
+    },
+    "expectedRevision": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "profile",
+    "previousProfile",
+    "revision",
+    "applied",
+    "warning"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string"
+    },
+    "profile": {
+      "type": "string"
+    },
+    "previousProfile": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "applied": {
+      "type": "boolean"
+    },
+    "warning": {
+      "const": "cache-rebuild-cost-prefixes-preserved"
+    }
+  }
 }
 ```
 
@@ -14114,6 +16339,59 @@ D109 §9.10: approval-related HMAC-chain entries of the calling person, newest f
 ## Notifications
 
 Delivered on the same connection to clients that called `events.subscribe`.
+
+### `devices.trust.next`
+
+**Stability:** experimental · since 1.6.0
+
+**Served by:** core
+
+Staged next certificate trust over authenticated current-trust connections; addressed only to paired device owners.
+
+```json
+{
+  "description": "Staged next certificate trust over authenticated current-trust connections; addressed only to paired device owners.",
+  "x-server": "core",
+  "x-stability": "experimental",
+  "x-since": "1.6.0",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "type": {
+      "const": "devices.trust.next"
+    },
+    "next": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "cert",
+            "ca"
+          ]
+        },
+        "pin": {
+          "type": "string",
+          "pattern": "^sha256:[A-Za-z0-9_-]{43}$"
+        }
+      },
+      "required": [
+        "kind",
+        "pin"
+      ]
+    },
+    "stagedAt": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "required": [
+    "type",
+    "next",
+    "stagedAt"
+  ]
+}
+```
 
 ### `api.account.changed`
 
@@ -17769,9 +20047,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "kind": {
       "enum": [
         "core",
-        "module"
+        "module",
+        "api"
       ],
-      "description": "Experimental (1.3.0). Whether the child is the core or a module; absent from supervisors before 1.3.0."
+      "description": "Experimental (1.3.0). Whether the child is the core, HTTP API or a module; absent from supervisors before 1.3.0."
     }
   }
 }
@@ -19552,6 +21831,16 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `LogSourceKey`
+
+```json
+{
+  "type": "string",
+  "pattern": "^(harness|extension|provider|model|cli|channel|host|desktop|os)(:[a-z0-9][a-z0-9._@/-]{0,127})?$",
+  "description": "`<kind>` or `<kind>:<id>` for logs.levels and filters."
+}
+```
+
 ### `LogStream`
 
 ```json
@@ -21022,6 +23311,34 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
+### `ResolvedChannelBehaviour`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile",
+    "origins"
+  ],
+  "properties": {
+    "profile": {
+      "type": "object",
+      "description": "Effective restrictive behaviour, keyed by section and field."
+    },
+    "origins": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+```
+
 ### `ChannelDetail`
 
 ```json
@@ -21129,6 +23446,38 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "config": {
       "type": "object"
+    },
+    "behaviour": {
+      "description": "ADR-003 effective direct/group policy with per-field source paths and the channel-kind layer editable by owner/admin. Null if no unambiguous default agent exists.",
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "agentId",
+        "editableKey",
+        "layer",
+        "direct",
+        "group"
+      ],
+      "properties": {
+        "agentId": {
+          "type": "string"
+        },
+        "editableKey": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "object"
+        },
+        "direct": {
+          "$ref": "#/$defs/ResolvedChannelBehaviour"
+        },
+        "group": {
+          "$ref": "#/$defs/ResolvedChannelBehaviour"
+        }
+      }
     },
     "attempts": {
       "type": "integer",

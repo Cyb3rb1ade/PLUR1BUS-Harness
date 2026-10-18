@@ -274,6 +274,12 @@ export class FakeMatrix {
 
     if (method === "GET" && path === "/_matrix/client/v3/sync") return this.#sync(req, res, url);
 
+    const encryptionState = /^\/_matrix\/client\/v3\/rooms\/([^/]+)\/state\/m.room.encryption$/.exec(path);
+    if (encryptionState && method === "GET") {
+      const room = this.rooms.get(decodeURIComponent(encryptionState[1]!));
+      if (!room) return this.#json(res, 403, { errcode: "M_FORBIDDEN" });
+      return room.encrypted ? this.#json(res, 200, { algorithm: "m.megolm.v1.aes-sha2" }) : this.#json(res, 404, { errcode: "M_NOT_FOUND" });
+    }
     const room = /^\/_matrix\/client\/v3\/rooms\/([^/]+)\/(join|leave|send\/[^/]+\/[^/]+|redact\/[^/]+\/[^/]+|typing\/[^/]+)$/.exec(path);
     if (room && method === "POST" && room[2] === "join") {
       this.joins.push(decodeURIComponent(room[1]!));

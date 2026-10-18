@@ -344,7 +344,7 @@ async fn patch_upgrade_with_a_schema_change_is_refused() {
             .unwrap()
             .calls
             .iter()
-            .any(|c| c.contains("admin migrate")));
+            .any(|c| c.contains("admin migrate") && !c.ends_with(" --help")));
     }
 }
 
@@ -747,4 +747,81 @@ async fn manual_rollback_is_unavailable_when_the_snapshot_volume_is_missing() {
             .is_err());
         assert!(f.runtime.state.lock().unwrap().calls.is_empty());
     }
+}
+
+#[tokio::test]
+async fn real_cli_missing_cold_snapshot_contract_refuses_before_any_upgrade_mutation() {
+    let f = fixture(RuntimeKind::Docker).await;
+    f.runtime
+        .desktop_upgrade_help
+        .store(false, std::sync::atomic::Ordering::SeqCst);
+    let before = f.runtime.state.lock().unwrap().calls.len();
+    let installed = f.dir.path().join("bundled/installed.json");
+    let bytes = std::fs::read(&installed).unwrap();
+    let result = f
+        .ctl
+        .upgrade(
+            &f.target,
+            f.target.version.parse().unwrap(),
+            plur1bus_desktop::updates::Kind::Patch,
+            &f.tokens,
+            &f.conn,
+            |_| panic!("missing contract must precede checkpoint"),
+        )
+        .await;
+    assert!(matches!(
+        result,
+        Err(plur1bus_desktop::controller::CtlError::MissingContract(
+            "state"
+        ))
+    ));
+    assert_eq!(std::fs::read(&installed).unwrap(), bytes);
+    assert!(!f.dir.path().join("bundled/upgrades.json").exists());
+    let s = f.runtime.state.lock().unwrap();
+    assert!(s.calls[before..]
+        .iter()
+        .all(|call| call.starts_with("exec:") || call.starts_with("state:")));
+}
+async fn run_as(
+    f: &Fixture,
+    approved: &str,
+) -> Result<Outcome, plur1bus_desktop::controller::CtlError> {
+    f.ctl
+        .upgrade(
+            &f.target,
+            semver::Version::parse(approved).unwrap(),
+            plur1bus_desktop::updates::Kind::Patch,
+            &f.tokens,
+            &f.conn,
+            |_| {},
+        )
+        .await
+}
+/// The approved version binds the bundle by SemVer precedence: build metadata is not part of it.
+#[tokio::test]
+async fn the_approved_version_matches_the_bundle_ignoring_build_metadata() {
+    let mut f = fixture(RuntimeKind::Docker).await;
+    f.target.version = "0.1.1+bundle".into();
+    let r = run_as(&f, "0.1.1+approved").await;
+    assert!(
+        !matches!(r, Err(plur1bus_desktop::controller::CtlError::Bundle)),
+        "{r:?}"
+    );
+    drop(f);
+    let mut f = fixture(RuntimeKind::Docker).await;
+    f.target.version = "0.1.2".into();
+    assert!(matches!(
+        run_as(&f, "0.1.1").await,
+        Err(plur1bus_desktop::controller::CtlError::Bundle)
+    ));
+}
+/// A bundle that differs from the installed version only in build metadata is not an upgrade.
+#[tokio::test]
+async fn a_build_metadata_only_difference_is_not_an_upgrade() {
+    let mut f = fixture(RuntimeKind::Docker).await;
+    f.target.version = "0.1.0+rebuilt".into();
+    assert!(matches!(
+        run_as(&f, "0.1.0+rebuilt").await,
+        Err(plur1bus_desktop::controller::CtlError::Bundle)
+    ));
 }

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { browserSkip, setup, teardown, TOKEN, withApp } from "./harness.ts";
 import { rpcError } from "./mock-rpc.ts";
-import { ISO, calls, changes, next, open, seed, skip, stepHeading, toSwitchboard } from "./setup-fixtures.ts";
+import { calls, changes, next, open, seed, skip, stepHeading, toSwitchboard } from "./setup-fixtures.ts";
 
 before(setup);
 after(teardown);
@@ -37,8 +37,9 @@ describe("setup wizard: flow", opts, () => {
       seed(app.server.rpc); await open(app);
       const { page } = app;
       await stepHeading(page, "Your account").waitFor();
+      await page.locator("main").getByText(/signed in as owner/i).waitFor(); // the session loads after the heading appears
       assert.match((await page.locator("main").textContent()) ?? "", /signed in as owner/i);
-      assert.equal(await page.locator("ol.setup-progress li").count(), 8);
+      assert.equal(await page.locator("ol.setup-progress li").count(), 9);
       assert.equal(await page.locator("ol.setup-progress li[aria-current=step]").count(), 1);
       await toSwitchboard(app);
       await page.getByText("cannot be done from the browser yet").waitFor();
@@ -58,12 +59,11 @@ describe("setup wizard: flow", opts, () => {
       await stepHeading(page, "Setup summary").waitFor();
 
       const c = changes(app);
-      assert.equal(c.length, 3);
-      assert.deepEqual(c[0]?.map((x) => x.key), ["agents.main"]);
-      const persona = c[0]?.[0]?.value as { displayName: string; createdAt: string };
-      assert.equal(persona.displayName, "Hal"); assert.match(persona.createdAt, ISO);
-      assert.deepEqual(c[1], [{ key: "modelRoles.chat", value: "anthropic/claude-x" }]);
-      assert.deepEqual(c[2], [{ key: "embedding.useClass", value: "general" }, { key: "modelRoles.rerank", value: "BAAI/bge-reranker-v2-m3" }]);
+      assert.equal(c.length, 2);
+      const persona = calls(app,"agent.create")[0]!.params as {name:string;displayName:string;idempotencyKey:string};
+      assert.equal(persona.name,"main");assert.equal(persona.displayName,"Hal");assert.match(persona.idempotencyKey,/^setup-main-[0-9]+$/);
+      assert.deepEqual(c[0], [{ key: "modelRoles.chat", value: "anthropic/claude-x" }]);
+      assert.deepEqual(c[1], [{ key: "embedding.useClass", value: "general" }, { key: "modelRoles.rerank", value: "BAAI/bge-reranker-v2-m3" }]);
       assert.deepEqual(calls(app, "admin.backup.snapshot").map((x) => x.params), [{ label: "setup" }]);
 
       const sum = (await page.locator(".setup-summary").textContent()) ?? "";
@@ -78,8 +78,8 @@ describe("setup wizard: flow", opts, () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc); await open(app, "#/setup?mode=bundled");
       await stepHeading(app.page, "Name & persona").waitFor();
-      assert.equal(await app.page.locator("ol.setup-progress li").count(), 7);
-      assert.match((await app.page.locator(".setup-count").textContent()) ?? "", /Step 1 of 7/);
+      assert.equal(await app.page.locator("ol.setup-progress li").count(), 8);
+      assert.match((await app.page.locator(".setup-count").textContent()) ?? "", /Step 1 of 8/);
       assert.equal(await app.page.locator("ol.setup-progress").getByText("Your account").count(), 0);
     });
   });
@@ -90,10 +90,10 @@ describe("setup wizard: flow", opts, () => {
       const { page } = app;
       await stepHeading(page, "Your account").waitFor();
       const live = page.locator("main [role=status][aria-live=polite]").first();
-      assert.equal(((await live.textContent()) ?? "").trim(), "Step 1 of 8: Your account");
+      assert.equal(((await live.textContent()) ?? "").trim(), "Step 1 of 9: Your account");
       await next(page);
       await stepHeading(page, "Name & persona").waitFor();
-      assert.equal(((await live.textContent()) ?? "").trim(), "Step 2 of 8: Name & persona");
+      assert.equal(((await live.textContent()) ?? "").trim(), "Step 2 of 9: Name & persona");
       await page.waitForFunction(() => document.activeElement?.tagName === "H2" && document.activeElement?.textContent === "Name & persona");
     });
   });
@@ -104,6 +104,8 @@ describe("setup wizard: flow", opts, () => {
       const { page } = app;
       await toSwitchboard(app);
       await page.getByRole("button", { name: "Back" }).click();
+      await stepHeading(page, /Decision model/).waitFor();
+      await page.getByRole("button", { name: "Back" }).click();
       await stepHeading(page, /Main model/).waitFor();
       assert.equal(await page.getByLabel("Chat model").inputValue(), "anthropic/claude-x");
       await page.getByRole("button", { name: "Back" }).click();
@@ -112,8 +114,9 @@ describe("setup wizard: flow", opts, () => {
       assert.equal(await page.getByLabel("Agent id").inputValue(), "main");
       await next(page);
       await stepHeading(page, /Main model/).waitFor();
-      const [first, second] = changes(app).filter((c) => c[0]?.key === "agents.main");
-      assert.deepEqual(first, second);
+      const first = calls(app,"agent.create")[0]!.params as {displayName:string};
+      const second = changes(app).find(c=>c[0]?.key==="agents.main")![0]!.value as {displayName:string};
+      assert.equal(first.displayName,second.displayName);assert.equal(calls(app,"agent.create").length,1,"revisiting an existing agent updates instead of creating again");
     });
   });
 });
@@ -126,8 +129,11 @@ describe("setup wizard: resume and storage", opts, () => {
       await toSwitchboard(app);
       await page.reload();
       await stepHeading(page, /Switchboard/).waitFor();
-      assert.match((await page.locator(".setup-count").textContent()) ?? "", /Step 4 of 8/);
+      assert.match((await page.locator(".setup-count").textContent()) ?? "", /Step 5 of 9/);
       await page.getByRole("button", { name: "Back" }).click();
+      await stepHeading(page, /Decision model/).waitFor();
+      await page.getByRole("button", { name: "Back" }).click();
+      await stepHeading(page, /Main model/).waitFor();
       await page.getByRole("button", { name: "Back" }).click();
       assert.equal(await page.getByLabel("Display name").inputValue(), "Hal");
       const dump = await page.evaluate(() => JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage } }));
@@ -180,7 +186,7 @@ describe("setup wizard: validation and failures", opts, () => {
       await page.getByLabel("Agent id").fill("hal-9000");
       await next(page);
       await stepHeading(page, /Main model/).waitFor();
-      assert.deepEqual(changes(app)[0]?.map((x) => x.key), ["agents.hal-9000"]);
+      assert.equal((calls(app,"agent.create")[0]!.params as {name:string}).name,"hal-9000");
     });
   });
 
@@ -195,10 +201,11 @@ describe("setup wizard: validation and failures", opts, () => {
       assert.deepEqual(opts, ["Choose a model…", "Claude X"]);
       await next(page);
       await page.getByText("Choose a model, or skip this step.").waitFor();
-      assert.equal(calls(app, "config.set").length, 1);
+      assert.equal(calls(app, "agent.create").length, 1);
       await skip(page);
+      await stepHeading(page, /Decision model/).waitFor(); await skip(page);
       await stepHeading(page, /Switchboard/).waitFor();
-      assert.equal(calls(app, "config.set").length, 1);
+      assert.equal(calls(app, "agent.create").length, 1);
     });
   });
 
@@ -212,6 +219,7 @@ describe("setup wizard: validation and failures", opts, () => {
         await page.getByText(models === null ? /does not offer this setting yet/ : /No chat models were found/).waitFor();
         await page.getByText(/Signing in to a provider is not available/).waitFor();
         await skip(page);
+      await stepHeading(page, /Decision model/).waitFor(); await skip(page);
         await stepHeading(page, /Switchboard/).waitFor();
       });
     }
@@ -257,12 +265,12 @@ describe("setup wizard: validation and failures", opts, () => {
       const { page } = app;
       await next(page); await page.getByLabel("Display name").fill("Hal");
       for (const [scenario, text] of [["error", /Saving failed/], ["forbidden", /not allowed to change/], ["unavailable", /does not offer this setting yet/]] as const) {
-        app.server.rpc.scenario("config.set", scenario);
+        app.server.rpc.scenario("agent.create", scenario);
         await next(page);
         await page.getByRole("alert").getByText(text).waitFor();
         await stepHeading(page, "Name & persona").waitFor();
       }
-      app.server.rpc.scenario("config.set", "success");
+      app.server.rpc.scenario("agent.create", "success");
       await next(page);
       await stepHeading(page, /Main model/).waitFor();
       assert.equal(await page.getByRole("alert").count(), 0);
@@ -272,7 +280,7 @@ describe("setup wizard: validation and failures", opts, () => {
   test("a conflict from the server is reported as a failure, not swallowed", async () => {
     await withApp({}, async (app) => {
       seed(app.server.rpc);
-      app.server.rpc.handle("config.set", () => { throw rpcError("E_CONFIG_INVALID", "bad value"); });
+      app.server.rpc.handle("agent.create", () => { throw rpcError("E_CONFIG_INVALID", "bad value"); });
       await open(app);
       await next(app.page); await app.page.getByLabel("Display name").fill("Hal"); await next(app.page);
       await app.page.getByRole("alert").getByText(/Saving failed/).waitFor();

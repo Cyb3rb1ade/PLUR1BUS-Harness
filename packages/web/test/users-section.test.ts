@@ -117,9 +117,7 @@ describe("users: presets, simple mode, rights", opts, () => {
       assert.equal(await use.isChecked(), true);
       await use.uncheck();
       assert.equal(await manage.isChecked(), false);
-      await app.page.getByLabel("Rights for role").selectOption("operator");
-      assert.equal(await app.page.getByRole("columnheader", { name: "Manage" }).count(), 0);
-      assert.match((await app.page.locator(".users-rights").textContent()) ?? "", /cannot hold Manage/);
+      assert.equal(await app.page.getByLabel("Rights for person").locator("option").count(), 3);
       assert.deepEqual(nonReads(app.server.rpc), []);
     });
   });

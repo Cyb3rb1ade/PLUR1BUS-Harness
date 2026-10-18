@@ -1,5 +1,65 @@
 {
   "methods": {
+    "chat.promote.links": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.promote.preview": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.promote.commit": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.create": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.get": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.events": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.submit": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.update": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.archive": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.restore": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.cancel": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.fork": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.delete": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "chat.export": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "jobs.create": {
       "stability": "experimental",
       "since": "1.6.0"
@@ -25,6 +85,10 @@
       "since": "1.6.0"
     },
     "voice.agent.override.clear": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "voice.session.create": {
       "stability": "experimental",
       "since": "1.6.0"
     },
@@ -136,6 +200,38 @@
       "stability": "experimental",
       "since": "1.6.0"
     },
+    "admin.api.device.pair": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.device.challenge": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.device.prove": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.device.announce": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "device.pair": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.desktop.redeem": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.desktop.token": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "admin.api.desktop.resolve": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "device.list": {
       "stability": "experimental",
       "since": "1.6.0"
@@ -229,6 +325,14 @@
       "since": "1.5.0"
     },
     "project.agent.remove": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "task.complete": {
+      "stability": "experimental",
+      "since": "1.5.0"
+    },
+    "collab.session.replay": {
       "stability": "experimental",
       "since": "1.5.0"
     },
@@ -336,6 +440,22 @@
       "stability": "experimental",
       "since": "1.1.0"
     },
+    "model.embedding.select": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "model.licence.confirm": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "model.licence.list": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
+    "model.licence.check": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "agent.create": {
       "stability": "experimental",
       "since": "1.6.0"
@@ -412,6 +532,10 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "dreams.diary": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "admin.obsidian.detect": {
       "stability": "experimental",
       "since": "1.3.0"
@@ -431,6 +555,10 @@
     "admin.backup.snapshot": {
       "stability": "experimental",
       "since": "1.5.0"
+    },
+    "logs.levels": {
+      "stability": "experimental",
+      "since": "1.6.0"
     },
     "logs.query": {
       "stability": "experimental",
@@ -475,6 +603,10 @@
     "events.unsubscribe": {
       "stability": "stable",
       "since": "1.0.0"
+    },
+    "models.test": {
+      "stability": "experimental",
+      "since": "1.6.0"
     },
     "models.list": {
       "stability": "experimental",
@@ -652,6 +784,10 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "channel.crypto": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "channel.get": {
       "stability": "experimental",
       "since": "1.5.0"
@@ -740,6 +876,10 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "session.model.set": {
+      "stability": "experimental",
+      "since": "1.7.0"
+    },
     "session.create": {
       "stability": "experimental",
       "since": "1.5.0"
@@ -814,6 +954,10 @@
     }
   },
   "notifications": {
+    "devices.trust.next": {
+      "stability": "experimental",
+      "since": "1.6.0"
+    },
     "api.account.changed": {
       "stability": "experimental",
       "since": "1.6.0"

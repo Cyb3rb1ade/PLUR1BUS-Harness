@@ -1,5 +1,6 @@
 // Unit tests for scripts/lint-hygiene.mjs (run by `pnpm lint`), including fixture-backed positive and negative cases
 // for every rule.
+import "./never-list.test.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -243,4 +244,27 @@ test("paths with spaces are scanned and reported, and many files share one blob 
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stderr, /packages\/a b\/c d\.ts:1:/);
   assert.match(r.stderr, /hygiene: 1 violation/);
+});
+
+test("D110 foreign-client lint applies before importer exemptions and scans desktop TSX", () => {
+  for (const path of ["packages/core/src/import/probe.ts", "desktop/src/probe.tsx", "apps/desktop/ui/src/probe.tsx"]) {
+    const r = lintTree({ [path]: 'const forbidden = "CODEX_' + 'APP_SERVER_LOGIN_CLIENT_ID";\n' });
+    assert.equal(r.status, 1); assert.match(r.stderr, /HYG-014/);
+    assert.doesNotMatch(r.stderr, /APP_SERVER_LOGIN_CLIENT_ID/);
+  }
+});
+test("D110 workflow lint rejects an offline job using a provider credential", () => {
+  const r = lintTree({ ".github/workflows/ci.yml": 'jobs:\n  offline:\n    env:\n      KEY: ${{ secrets.OPENAI_API_KEY }}\n' });
+  assert.equal(r.status, 1); assert.match(r.stderr, /HYG-015/);
+});
+test('HYG-003 permits Rust test container mounts without per-file exceptions and still rejects commands', () => {
+  const mounts = readFileSync(join(fixtureDir, 'HYG-003-mounts.txt'), 'utf8');
+  const allowed = lintTree({ 'crates/example/tests/container.rs': mounts });
+  assert.equal(allowed.status, 0, allowed.stderr);
+  const state = '/' + 'state', forget = '/' + 'forget';
+  for (const text of [fixture('HYG-003', 'reject'), `dispatch(${JSON.stringify(forget)});`, `dispatch(${JSON.stringify(state)});`, mounts.split('\n')[0] + ` dispatch(${JSON.stringify(forget)});`, mounts.split('\n')[0] + ` dispatch(${JSON.stringify(state)});`]) {
+    const denied = lintTree({ 'crates/example/tests/container.rs': text });
+    assert.equal(denied.status, 1, text);
+    assert.match(denied.stderr, /HYG-003/);
+  }
 });

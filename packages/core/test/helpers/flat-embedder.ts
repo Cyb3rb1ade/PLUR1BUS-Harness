@@ -2,6 +2,9 @@
 export interface FlatEmbedderOptions {
   /** Delays `embedPassage`/`embedBatch` (capture) by the returned milliseconds. */
   passageDelayMs?: () => number;
+  /** Holds every `embedPassage`/`embedBatch` (capture) until this promise settles: a deterministic "capture in flight" window
+   *  that does not depend on how fast the test's own polling runs (a delay of N ms is only a race against the runner's load). */
+  passageGate?: Promise<unknown>;
   /** Delays `embed`/`embedQuery` (topic list, recall, correct) by the returned milliseconds. */
   queryDelayMs?: () => number;
 }
@@ -10,12 +13,12 @@ export function flatEmbedder(o: FlatEmbedderOptions = {}) {
   const vector = () => Array.from({ length: 384 }, (_, i) => (i === 0 ? 1 : 0));
   const sleep = async (ms: number | undefined) => { if (ms !== undefined && ms > 0) await new Promise((r) => setTimeout(r, ms)); };
   const one = async () => { await sleep(o.queryDelayMs?.()); return vector(); };
-  const passage = async () => { await sleep(o.passageDelayMs?.()); return vector(); };
-  return { embed: one, embedQuery: one, embedPassage: passage, embedBatch: async (texts: string[]) => { await sleep(o.passageDelayMs?.()); return texts.map(vector); }, shutdown: async () => {} };
+  const passage = async () => { await o.passageGate; await sleep(o.passageDelayMs?.()); return vector(); };
+  return { embed: one, embedQuery: one, embedPassage: passage, embedBatch: async (texts: string[]) => { await o.passageGate; await sleep(o.passageDelayMs?.()); return texts.map(vector); }, shutdown: async () => {} };
 }
 
 /** R17: the core tests' engine seam — flat embedder and no reranker, so no model is ever loaded (engine-config forces the reranker on). */
 export function flatTestInternals(o: FlatEmbedderOptions & { extra?: Record<string, unknown> } = {}): Record<string, unknown> {
-  const e: FlatEmbedderOptions = { ...(o.passageDelayMs ? { passageDelayMs: o.passageDelayMs } : {}), ...(o.queryDelayMs ? { queryDelayMs: o.queryDelayMs } : {}) };
+  const e: FlatEmbedderOptions = { ...(o.passageDelayMs ? { passageDelayMs: o.passageDelayMs } : {}), ...(o.passageGate ? { passageGate: o.passageGate } : {}), ...(o.queryDelayMs ? { queryDelayMs: o.queryDelayMs } : {}) };
   return { embeddings: flatEmbedder(e), reranker: null, ...(o.extra ?? {}) };
 }

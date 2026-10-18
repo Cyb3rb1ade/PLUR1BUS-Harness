@@ -78,7 +78,7 @@ Kanals.
   `connections:write` für Socket Mode. Lade den Bot in jeden Kanal ein, in dem er antworten soll. Details:
   [../../channels/slack.md](../../channels/slack.md).
 - **Matrix:** Lege ein eigenes Bot-Konto an und hol dir das Zugriffstoken, ohne es in die Konfiguration zu schreiben.
-  Verschlüsselte Räume werden noch nicht unterstützt. Details: [../../channels/matrix.md](../../channels/matrix.md).
+  Persistente E2EE ist blockiert. Der experimentelle Memory-Modus ist standardmäßig aus; ein Neustart verliert Schlüssel und Geräteverifikation. Es gibt kein Recovery-Backup. Details: [../../channels/matrix.md](../../channels/matrix.md).
 - **Signal:** Installiere signal-cli, registriere oder verknüpfe das Konto und lass den signal-cli-Daemon laufen. Details:
   [../../channels/signal.md](../../channels/signal.md).
 - **E-Mail:** Richte ein eigenes Postfach ein. Für die Absenderprüfung brauchst du die `authServId` deines
@@ -102,7 +102,7 @@ Damit der Assistent weiß, wer du bist, verknüpfst du dein Konto auf dem Kanal 
    `plur1bus identity decline <id>` ab. Die Meldung im Kanal nennt die ID nicht; sie fordert nur auf, die Verknüpfung in der
    Weboberfläche unter „Meine Identitäten“ zu bestätigen. Bestehende Verknüpfungen stehen in derselben Ausgabe unter `links`.
 
-Der Code gilt nur kurz und ist nur einmal verwendbar. Hast du keinen Code mehr, erzeuge einen neuen.
+Der Code gilt 10 Minuten und ist nur einmal verwendbar. Hast du keinen Code mehr, erzeuge einen neuen.
 
 Eine Kanalnachricht, die doppelt eintrifft (zum Beispiel nach einem Wiederverbinden), wird nur einmal beantwortet. Nachrichten, die nur aus Leerzeichen bestehen, werden ignoriert. Sendet ein Chat mehr als 20 Nachrichten, während eine frühere noch beantwortet wird, werden die überzähligen verworfen.
 

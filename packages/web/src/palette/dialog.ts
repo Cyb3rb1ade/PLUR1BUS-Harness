@@ -56,8 +56,12 @@ export function PaletteDialog(): View {
     if (el && !el.open) el.showModal();
     input.current?.focus();
     return () => {
+      // close() itself moves focus back to whatever had it before showModal(), so a choice has to take it over explicitly:
+      // that element may belong to the section being left and vanish a moment later, dropping focus to <body>. The heading of the
+      // current page holds it; on a new page the shell (and a lazy page) moves it to the new heading.
       if (el?.open) el.close();
-      if (restoreFocus.current && opener?.isConnected) opener.focus();
+      if (restoreFocus.current) { if (opener?.isConnected) opener.focus(); }
+      else document.querySelector<HTMLElement>("main h1")?.focus();
     };
   }, []);
 
@@ -118,7 +122,8 @@ export function PaletteDialog(): View {
     restoreFocus.current = false; // the new page's heading takes focus (Shell), not the opener
     closePalette();
     navigate(hit.entry.to);
-    // Same page, only the query changed: the shell does not move focus, so make sure it does not fall to <body>.
+    // Same page, only the query changed: the shell does not move focus (the dialog's cleanup put it on the heading); should the page
+    // have replaced its heading meanwhile, make sure focus does not stay on <body>.
     setTimeout(() => {
       const main = document.querySelector("main");
       if (main && !main.contains(document.activeElement)) main.querySelector<HTMLElement>("h1")?.focus();

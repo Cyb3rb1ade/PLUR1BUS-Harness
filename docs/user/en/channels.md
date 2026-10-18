@@ -77,7 +77,7 @@ own page.
   scope for Socket Mode. Invite the bot to every channel where it should reply. Details:
   [../../channels/slack.md](../../channels/slack.md).
 - **Matrix:** Create a dedicated bot account and get its access token without writing the token into the configuration.
-  Encrypted rooms are not supported yet. Details: [../../channels/matrix.md](../../channels/matrix.md).
+  Persistent E2EE is blocked. Experimental memory mode defaults off, loses keys and verification on restart, and has no recovery backup. Details: [../../channels/matrix.md](../../channels/matrix.md).
 - **Signal:** Install signal-cli, register or link the account, and keep the signal-cli daemon running. Details:
   [../../channels/signal.md](../../channels/signal.md).
 - **E-mail:** Set up a dedicated mailbox. For the sender check you need the `authServId` of your mail server. Details:
@@ -101,7 +101,7 @@ So the assistant knows who you are, link your account on the channel to your use
    `plur1bus identity decline <id>`. The message in the channel does not show the ID; it only asks you to confirm the link
    under "My identities" in the web interface. Existing links are in the same output under `links`.
 
-The code is valid only briefly and works once. If you have no code left, create a new one.
+The code is valid for 10 minutes and works once. If you have no code left, create a new one.
 
 A channel message that arrives twice (for example after a reconnect) is answered once. Messages that contain only spaces are ignored, and if a chat sends more than 20 messages while an earlier one is still being answered, the extra ones are dropped.
 

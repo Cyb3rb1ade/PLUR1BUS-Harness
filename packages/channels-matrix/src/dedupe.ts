@@ -6,6 +6,7 @@ export class BoundedSet<T> {
     if (!Number.isSafeInteger(max) || max < 1) throw new RangeError("max must be a positive integer");
     this.#max = max;
   }
+  values(): T[] { return [...this.#set]; }
   has(v: T): boolean {
     return this.#set.has(v);
   }

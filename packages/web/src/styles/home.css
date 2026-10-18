@@ -86,3 +86,7 @@
   background: var(--warn-bg);
   color: var(--warn-ink);
 }
+
+@media (max-width: 1023.98px) {
+  .home-link { min-height: 44px; min-width: 44px; }
+}

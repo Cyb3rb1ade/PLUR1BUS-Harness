@@ -35,6 +35,8 @@ import { layout } from "../../paths.ts";
 import { platformCapabilities } from "../../platform.ts";
 import type { Engine, HostServices } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 
+export type AdoptStrategy = "reembed" | "import";
+
 export interface StoreAdoptReport {
   attempted: boolean;
   sourcePath: string;
@@ -44,9 +46,12 @@ export interface StoreAdoptReport {
   reason?: string | undefined;
   identitySource?: "manifest" | "probe" | undefined;
   schemaVersion?: string | undefined;
+  routedTo?: AdoptStrategy | undefined;
+  offeredStrategies?: readonly AdoptStrategy[] | undefined;
+  hint?: string | undefined;
 }
 
-function createTempHost(stateDir: string, workspaceDir: (id: string) => Promise<string>): HostServices {
+export function createTempHost(stateDir: string, workspaceDir: (id: string) => Promise<string>): HostServices {
   return {
     logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
     stateDir,
@@ -166,10 +171,11 @@ export async function prepareStoreAdopt(opts: {
   expectedIdentity?: any | undefined;
   targetConfig?: unknown;
   testInternals?: Record<string, unknown> | undefined;
+  adoptStrategy?: AdoptStrategy | string | undefined;
   /** Ledger of the run being resumed (if any); a recorded take-over of the same source is not repeated. */
   resumeLedgerText?: string | undefined;
 }): Promise<PreparedStoreAdopt> {
-  const { sourceStorePath, l, isApply, runId, onConflict = "skip", expectedIdentity, targetConfig, testInternals, resumeLedgerText } = opts;
+  const { sourceStorePath, l, isApply, runId, onConflict = "skip", expectedIdentity, targetConfig, testInternals, adoptStrategy, resumeLedgerText } = opts;
   const resolvedSource = resolve(sourceStorePath);
   const targetStore = l.lancedb;
   const alreadyAdoptedInRun = typeof resumeLedgerText === "string"
@@ -210,10 +216,24 @@ export async function prepareStoreAdopt(opts: {
 
   if (!isApply) {
     const check = await inspectStoreAdopt({ storePath: resolvedSource, expectedIdentity, targetConfig, testInternals });
+    if (check.verdict === "ok") {
+      return {
+        report: { ...base, verdict: "ok", action: "preview-ok", identitySource: check.identitySource, schemaVersion: check.schemaVersion },
+        resolvedSource,
+        replacesExisting,
+      };
+    }
     return {
-      report: check.verdict === "ok"
-        ? { ...base, verdict: "ok", action: "preview-ok", identitySource: check.identitySource, schemaVersion: check.schemaVersion }
-        : { ...base, verdict: "incompatible", action: "aborted", reason: check.reason, identitySource: check.identitySource },
+      report: {
+        ...base,
+        verdict: "incompatible",
+        action: adoptStrategy === "reembed" ? "preview-ok" : adoptStrategy === "import" ? "skipped" : "aborted",
+        reason: check.reason,
+        identitySource: check.identitySource,
+        routedTo: (adoptStrategy === "reembed" || adoptStrategy === "import") ? adoptStrategy : undefined,
+        offeredStrategies: ["reembed", "import"],
+        hint: "Store embedding identity does not match target. Specify --adopt-strategy reembed (adopt store and run 'memory reembed') or --adopt-strategy import (import cards with target embeddings).",
+      },
       resolvedSource,
       replacesExisting,
     };
@@ -238,9 +258,48 @@ export async function prepareStoreAdopt(opts: {
     throw err;
   }
   if (check.verdict !== "ok") {
+    if (adoptStrategy === "reembed") {
+      return {
+        report: {
+          ...base,
+          verdict: "incompatible",
+          action: "preview-ok",
+          reason: check.reason,
+          identitySource: check.identitySource,
+          routedTo: "reembed",
+          offeredStrategies: ["reembed", "import"],
+        },
+        resolvedSource,
+        stagingDir,
+        replacesExisting,
+      };
+    }
     rmSync(stagingDir, { recursive: true, force: true });
+    if (adoptStrategy === "import") {
+      return {
+        report: {
+          ...base,
+          verdict: "incompatible",
+          action: "skipped",
+          reason: check.reason,
+          identitySource: check.identitySource,
+          routedTo: "import",
+          offeredStrategies: ["reembed", "import"],
+        },
+        resolvedSource,
+        replacesExisting,
+      };
+    }
     return {
-      report: { ...base, verdict: "incompatible", action: "aborted", reason: check.reason, identitySource: check.identitySource },
+      report: {
+        ...base,
+        verdict: "incompatible",
+        action: "aborted",
+        reason: check.reason,
+        identitySource: check.identitySource,
+        offeredStrategies: ["reembed", "import"],
+        hint: "Store embedding identity does not match target. Specify --adopt-strategy reembed (adopt store and run 'memory reembed') or --adopt-strategy import (import cards with target embeddings).",
+      },
       resolvedSource,
       replacesExisting,
     };
@@ -264,9 +323,9 @@ export function abortStoreAdopt(prepared: PreparedStoreAdopt | undefined): void 
 /** Swaps a verified staged copy into state/lancedb (apply mode, after snapshot + ledger exist). */
 export function commitStoreAdopt(
   prepared: PreparedStoreAdopt,
-  opts: { l: Layout; ledger?: ImportLedger | undefined; replacedBackupDir?: string | undefined },
+  opts: { l: Layout; ledger?: ImportLedger | undefined; replacedBackupDir?: string | undefined; extraDetails?: Record<string, unknown> | undefined },
 ): StoreAdoptReport {
-  const { l, ledger, replacedBackupDir } = opts;
+  const { l, ledger, replacedBackupDir, extraDetails } = opts;
   const stagingDir = prepared.stagingDir;
   if (!stagingDir) return prepared.report;
   const targetStore = l.lancedb;
@@ -292,6 +351,7 @@ export function commitStoreAdopt(
     details: {
       identitySource: prepared.report.identitySource,
       schemaVersion: prepared.report.schemaVersion,
+      ...extraDetails,
     },
   });
 

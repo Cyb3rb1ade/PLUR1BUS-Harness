@@ -143,6 +143,10 @@ impl Env {
             .env("PLUR1BUS_SERVICE_FAKE", &self.fake)
             .env("PLUR1BUS_SUPERVISOR_TIME_SCALE", SCALE)
             .env("PLUR1BUS_CORE_JS", fixture_core())
+            .env(
+                "PLUR1BUS_API_JS",
+                Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/fake-api.mjs"),
+            )
             .env("PLUR1BUS_NODE", "node")
             .env("FAKE_CORE_MODE", "ok")
             .env("FAKE_CORE_EVENTS", &self.events)
@@ -230,7 +234,7 @@ impl Env {
         wait_until("core and module ready", || {
             self.status().is_some_and(|s| {
                 let kids = s["children"].as_array().cloned().unwrap_or_default();
-                kids.len() == 2
+                kids.len() == 3
                     && kids
                         .iter()
                         .all(|c| c["process"]["state"] == "ready" || c["state"] == "ready")
@@ -258,10 +262,18 @@ impl Env {
 
     /// The pids of every process of the stack, from `run/`.
     fn stack_pids(&self) -> Vec<u32> {
-        ["supervisor.pid", "core.pid", "module-fixture.pid"]
+        let mut pids: Vec<u32> = ["supervisor.pid", "core.pid", "module-fixture.pid"]
             .iter()
             .filter_map(|n| self.pid(n))
-            .collect()
+            .collect();
+        if let Some(pid) = std::fs::read(self.home.join("run/api.json"))
+            .ok()
+            .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
+            .and_then(|r| r["pid"].as_u64())
+        {
+            pids.push(pid as u32);
+        }
+        pids
     }
 
     /// Power loss: SIGKILL every process of the stack at once (the supervisor stopped first, so it cannot restart a
@@ -270,8 +282,8 @@ impl Env {
         let pids = self.stack_pids();
         assert_eq!(
             pids.len(),
-            3,
-            "supervisor, core and module are up before the reboot"
+            4,
+            "supervisor, core, API and module are up before the reboot"
         );
         // SAFETY: SIGSTOP on the supervisor so no child is respawned while the others are killed.
         unsafe { libc::kill(pids[0] as libc::pid_t, libc::SIGSTOP) };
@@ -343,13 +355,13 @@ fn a_rebooted_stack_replaces_what_the_dead_processes_left_behind() {
     // the boot after it
     e.boot();
     let new = e.stack_pids();
-    assert_eq!(new.len(), 3);
+    assert_eq!(new.len(), 4);
     for (o, n) in old.iter().zip(&new) {
         assert_ne!(o, n, "a new process, not the old pid");
     }
     let st = e.status().unwrap();
     let kids = st["children"].as_array().unwrap();
-    assert_eq!(kids.len(), 2, "one core and one module: {st}");
+    assert_eq!(kids.len(), 3, "one core, one API and one module: {st}");
     assert_eq!(st["supervisor"]["pid"].as_u64(), Some(new[0] as u64));
     assert_eq!(e.check_row("run.stale-files")["status"], "ok");
     assert_eq!(e.events("started"), 2, "one core per boot");
@@ -442,7 +454,7 @@ fn a_second_start_after_a_reboot_never_makes_a_second_core() {
     let _ = (first, second);
 
     let st = e.status().unwrap();
-    assert_eq!(st["children"].as_array().unwrap().len(), 2, "{st}");
+    assert_eq!(st["children"].as_array().unwrap().len(), 3, "{st}");
     assert_eq!(
         e.events("started"),
         2,
