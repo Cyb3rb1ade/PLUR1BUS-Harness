@@ -11,6 +11,10 @@
 
 Existing `release.yml` was dispatch-only and called `harness-release.yml`. M8a supersedes that entry point. The optional `legacy-hm2` dispatch input exercises the existing Hermes/native workflow as a dry run. It does not produce an HM2 release. The signed minisign native-update feed and Hermes sidecar publication described in [manual-release.md](manual-release.md) remain separate owner steps; Sigstore signatures are not substitutes for that feed's minisign keys.
 
+## Host tool-eval release gate
+
+The `release-gate` job runs `scripts/eval/tool-eval-host.ts --recorded --require-release` against `packages/core/catalog/host-eval-recordings.json` and `config/shipped-models.json`. It runs at tags `v*` (and in the dry-run dispatch of this workflow), needs `meta`, and `attest` needs it, so a failure stops every later job. It fails closed while no reviewed recordings exist. PR and main CI run only the fixture step (`host-tool-eval` in `ci.yml`, see `docs/host-tools.md`); the release gate is not run there (owner decision 2026-10-19). Nothing is relaxed: there is no `continue-on-error`.
+
 ## Targets and reproducibility
 
 | CLI target | Runner | Core payload |

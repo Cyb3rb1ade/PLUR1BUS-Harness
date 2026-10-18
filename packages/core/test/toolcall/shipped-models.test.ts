@@ -25,7 +25,21 @@ test('recorded CI release gate uses exactly the shipped inventory and refuses mi
     assert.deepEqual(gate.models.map((m:{provider:string;model:string})=>({provider:m.provider,model:m.model})),shippedModels.map(({provider,model})=>({provider,model})));
     assert.deepEqual(gate.pendingOwnerOrDiscovery,pendingShippedModels());
     const ci=await readFile(new URL('../../../../.github/workflows/ci.yml',import.meta.url),'utf8');
-    assert.match(ci,/tool-eval-host.ts --recorded --require-release/);
+    // Owner decision 2026-10-19: PR/main CI runs only the fixture; the fail-closed gate runs only in the release workflow.
+    const hostJob=ci.slice(ci.indexOf('\n  host-tool-eval:\n'),ci.indexOf('\n  perf-startup:'));
+    assert.match(hostJob,/tool-eval-host\.ts\n/);
+    assert.doesNotMatch(ci,/--require-release/);
+    assert.doesNotMatch(ci,/--recorded/);
+    const rel=await readFile(new URL('../../../../.github/workflows/release.yml',import.meta.url),'utf8');
+    assert.match(rel,/\non:\n  push:\n    tags: \['v\*'\]/);
+    const gateJob=rel.slice(rel.indexOf('\n  release-gate:\n'),rel.indexOf('\n  attest:\n'));
+    assert.match(gateJob,/\n    needs: meta\n/);
+    assert.equal(gateJob.match(/--require-release/g)?.length,1);
+    assert.match(gateJob,/tool-eval-host\.ts --recorded --require-release\n/);
+    assert.doesNotMatch(gateJob,/continue-on-error/);
+    assert.equal(rel.match(/--require-release/g)?.length,1);
+    assert.match(rel,/\n  attest:\n    needs: \[meta, release-gate\]\n/);
+    assert.match(rel,/\n  build:\n    needs: \[meta, attest\]\n/);
     const owners=await readFile(new URL('../../../../.github/CODEOWNERS',import.meta.url),'utf8');
     assert.match(owners,/\/config\/shipped-models.json @Cyb3rb1ade/);
   } finally {await rm(dir,{recursive:true,force:true});}

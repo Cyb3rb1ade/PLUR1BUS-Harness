@@ -658,8 +658,6 @@ jobs:
         run: node packages/rpc-schema/src/build.mjs
       - name: deterministic host tool/policy scenarios (safe fake OS ports)
         run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/tool-eval-host.ts
-      - name: shipped-model release gate (reviewed recordings only; no live credentials)
-        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/tool-eval-host.ts --recorded --require-release
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: always()
         with: { name: host-tool-eval-fixture, path: artifacts/tool-eval/ }
