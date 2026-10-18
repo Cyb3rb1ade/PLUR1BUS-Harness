@@ -1813,6 +1813,8 @@ table! {
     Result "voice.realtime.start" VoiceRealtimeStartResult,
     Params "voice.realtime.stop" VoiceRealtimeStopParams,
     Result "voice.realtime.stop" VoiceRealtimeStopResult,
+    Params "voice.session.create" VoiceSessionCreateParams,
+    Result "voice.session.create" VoiceSessionCreateResult,
     Params "voice.models.list" VoiceModelsListParams,
     Result "voice.models.list" VoiceModelsListResult,
     Params "voice.models.install" VoiceModelsInstallParams,

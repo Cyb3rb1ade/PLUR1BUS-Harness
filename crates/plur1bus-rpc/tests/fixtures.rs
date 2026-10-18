@@ -380,6 +380,9 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<VoiceRealtimeStartParams, VoiceRealtimeStartResult>(name, f)
         }
         "voice.realtime.stop" => pair::<VoiceRealtimeStopParams, VoiceRealtimeStopResult>(name, f),
+        "voice.session.create" => {
+            pair::<VoiceSessionCreateParams, VoiceSessionCreateResult>(name, f)
+        }
         other => panic!("fixtures/methods/{other}.json has no Rust type mapping in this test"),
     }
 }
