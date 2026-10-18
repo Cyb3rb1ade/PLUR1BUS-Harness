@@ -22,15 +22,15 @@ const SCHEMA = JSON.parse(readFileSync(fileURLToPath(new URL("../../../rpc-schem
 const SCHEMA_METHODS = Object.keys(SCHEMA.$defs.methods) as string[];
 const NOTIFICATIONS = Object.keys(SCHEMA.$defs.notifications) as string[];
 
-const METHODS = ["grant.list", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.decide", "approval.cancel", "approval.verify"] as const;
+const METHODS = ["grant.list", "grant.get", "grant.create", "grant.revoke", "approval.list", "approval.get", "approval.decide", "approval.cancel", "approval.verify", "approval.audit"] as const;
 const ACTIONS = ["grant.read", "grant.write", "approval.read", "approval.decide"] as const;
 const PERSON_ROLES: Record<(typeof ACTIONS)[number], readonly Role[]> = {
   "grant.read": ["owner", "admin"], "grant.write": ["owner", "admin"], "approval.read": ["owner", "admin", "operator"], "approval.decide": ["owner", "admin"],
 };
 const PARAMS: Record<(typeof METHODS)[number], unknown> = {
-  "grant.list": {}, "grant.create": { capability: "fs.write", agent: "bernd", scope: "always" }, "grant.revoke": { id: "grt_1" },
+  "grant.list": {}, "grant.get": { id: "grt_1" }, "grant.create": { capability: "fs.write", agent: "bernd", scope: "always" }, "grant.revoke": { id: "grt_1" },
   "approval.list": { status: "pending" }, "approval.get": { id: "apr_1" }, "approval.decide": { id: "apr_1", decision: "approve" },
-  "approval.cancel": { id: "apr_1" }, "approval.verify": {},
+  "approval.cancel": { id: "apr_1" }, "approval.verify": {}, "approval.audit": {},
 };
 
 const ctx: CallContext = { requestId: "r1", connectionId: "c1", signal: new AbortController().signal };
@@ -55,7 +55,7 @@ describe("grant.* / approval.* policy actions (D6)", () => {
 
   it("no role entry of an agent-capable action leaks: humanOnly is the only way these actions are reached", () => {
     const humanOnly = POLICY.filter((s) => s.humanOnly).map((s) => s.action).sort();
-    assert.deepEqual(humanOnly, [...ACTIONS,"inbox.read","inbox.write","project.board.write","project.board.manage","device.list","device.revoke","device.rename","admin.agent.operate","admin.agent.manage","admin.agent.delete","admin.agent.rights","admin.users.read","admin.users.write","admin.breakglass.read","admin.breakglass.write","admin.sessions.read","admin.sessions.write","admin.sessions.transcript","admin.pairing.read","admin.notices.read","admin.memory.read","media.read","media.write","project.create","project.surface.read","project.surface.write","identity.self.read","identity.self.write","auth.credentials.read","auth.credentials.write","channel.read","channel.write","media.index.operate","media.caption.write"].sort());
+    assert.deepEqual(humanOnly, [...ACTIONS,"inbox.read","inbox.write","project.board.write","project.board.manage","device.list","device.revoke","device.rename","remote.device.write","admin.agent.operate","admin.agent.manage","admin.agent.delete","admin.agent.rights","admin.users.read","admin.users.write","admin.breakglass.read","admin.breakglass.write","admin.sessions.read","admin.sessions.write","admin.sessions.transcript","admin.pairing.read","admin.notices.read","admin.memory.read","media.read","media.write","project.create","project.surface.read","project.surface.write","identity.self.read","identity.self.write","auth.credentials.read","auth.credentials.write","channel.read","channel.write","media.index.operate","media.caption.write"].sort());
   });
 
   it("persons get exactly the roles written down, nothing else", () => {
@@ -205,5 +205,23 @@ describe("absent from every catalogue an agent or an outside client can see", ()
 
   it("WebMCP refuses them (the admin.* rule, B15)", () => {
     for (const m of METHODS) assert.equal(isForbiddenMethod(m), true, m);
+  });
+});
+
+describe("budget.set human-only RPC boundary",()=>{
+  it("keeps the exact explicit human-only method inventory, including budget mutation",()=>{
+    assert.deepEqual(Object.entries(RPC_RULES).filter(([,r])=>r.humanOnly).map(([m])=>m).sort(),[
+      "agent.activity.list","budget.set","doctor.report","identity.human.create","identity.link","identity.list","identity.pair.claim","identity.pair.confirm","identity.pair.start","identity.unlink","jobs.create","jobs.delete","jobs.update","model.embedding.select","model.licence.check","model.licence.confirm","model.licence.list","session.model.set","user.disable","user.enable",
+    ].sort());
+    assert.equal(RPC_RULES["budget.set"]!.action,"settings.write");
+  });
+  it("refuses every agent role before mutation, audits denial, and intersects human roles and token scopes",async()=>{
+    let principal:Principal=LOCAL_OWNER,ran=0;const audit=memoryAuditSink();const methods=guardMethods({"budget.set":async()=>{ran++;return{changed:true};}},{resolve:()=>principal,audit,now:()=>NOW});
+    const call=()=>methods["budget.set"]!({timeZone:"UTC"},ctx);
+    for(const role of ROLES){principal={kind:"agent",userId:"agent-fixture",role,tokenScopes:["settings.write"]};await assert.rejects(async()=>call(),(e:unknown)=>e instanceof RpcError&&e.error==="E_DENIED"&&e.reason==="agent-principal");}
+    assert.equal(ran,0);assert.equal(audit.events.length,ROLES.length);assert.ok(audit.events.every(e=>e.action==="rbac.denied"&&e.target==="budget.set"));
+    for(const role of ["viewer","member","operator"] as const){principal={kind:"person",userId:"person",role,tokenScopes:["settings.write"]};await assert.rejects(async()=>call(),(e:unknown)=>e instanceof RpcError&&e.error==="E_DENIED");}
+    principal={kind:"person",userId:"person",role:"owner",tokenScopes:["settings.read"]};await assert.rejects(async()=>call(),(e:unknown)=>e instanceof RpcError&&e.reason==="token-scope");assert.equal(ran,0);
+    for(const role of ["owner","admin"] as const){principal={kind:"person",userId:"person",role,tokenScopes:["settings.write"]};assert.deepEqual(await call(),{changed:true});}assert.equal(ran,2);
   });
 });

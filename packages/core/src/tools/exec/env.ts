@@ -1,4 +1,5 @@
 // The child's environment: built from an allowlist of names, never inherited wholesale.
+import { createHash } from "node:crypto";
 import { ExecFailure } from "./types.ts";
 
 export const DEFAULT_ENV_ALLOW: readonly string[] = Object.freeze([
@@ -36,4 +37,10 @@ export function buildEnv(o: {
     out.set(fold(name), [name, value]);
   }
   return Object.fromEntries([...out.values()]);
+}
+
+/** Stable hash of env name/value pairs; a once-grant is bound to values, not just names. */
+export function envFingerprint(env: Readonly<Record<string, string>>): string {
+  const pairs = Object.keys(env).sort().map((n) => [n, env[n]]);
+  return createHash("sha256").update(JSON.stringify(pairs)).digest("hex");
 }

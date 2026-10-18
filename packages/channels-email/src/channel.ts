@@ -1,3 +1,4 @@
+import { channelMessageAllowed, channelOutputText } from "../../core/src/channels/behaviour.ts";
 import { createHash, randomBytes } from "node:crypto";
 import type { IdentityService } from "../../core/src/identity/service.ts";
 import type { Channel, ChannelHealth, ChannelHost, OutboundMessage } from "../../core/src/channels/types.ts";
@@ -285,6 +286,7 @@ export class EmailChannel implements Channel {
   }
 
   async sendTurn(turn: OutboundTurn): Promise<SentRef[]> {
+    turn = { ...turn, text: channelOutputText(this.#host, this.name, turn.chatId, "reply", turn.text) };
     if (!this.#ac || !this.#password) throw new Error("email channel is not started");
     const rec = await this.#threads.get(turn.chatId);
     if (!rec) throw new Error("unknown email thread");
@@ -560,6 +562,7 @@ export class EmailChannel implements Channel {
 
     const body = stripQuotedText(msg.text);
     const first = firstLine(body);
+    if (!channelMessageAllowed(this.#host, { channel: this.name, chatId: key, chatKind: "direct", text: first, addressed: true })) return;
     const approval = parseApprovalReply(first);
     if (approval && this.#approvalReply(approval.code, approval.choice, key, from, auth)) return;
 

@@ -133,8 +133,8 @@ Quota includes images and manifest bytes and is checked under an exclusive store
 lock. Quota refusal leaves no output directory. A put that finds the lock held fails fast with `backend_unavailable`
 instead of waiting, so two jobs finishing at the same moment may not both publish (not yet enforced: waiting for the lock). Only
 stable error codes leave the store; raw file-system or parse errors are mapped to one. With metadata embedding off, `put()` stores the
-bytes as given and does not check that they are the declared image format (not yet enforced: magic-byte verification; the adapters check
-provider output themselves). `prune()` removes expired jobs;
+bytes after checking that they start with the magic bytes of the declared image format (`invalid_response` otherwise; the adapters also
+check provider output themselves). A job runner never waits on an adapter that missed the abort: the caller's signal wins and the job ends as `timeout` or `cancelled`. `prune()` removes expired jobs;
 the host must schedule it. No background scheduler is installed.
 
 Embedding precedence is **call > agent > global > false**. The global setting is
@@ -249,7 +249,9 @@ plur1bus media rm <output-id>
 ```
 
 `--wait` reports progress on stderr and returns a terminal job; JSON stdout remains
-one document. It waits up to ten minutes; timeout leaves the job queryable. `--out`
+one document. It waits up to ten minutes; timeout leaves the job queryable. A job that
+ends `failed` or `cancelled` exits 1 with `E_INTERNAL`, `reason=media-job-failed` (the job's error is `detail`); a
+wait that runs out exits 1 with `E_INTERNAL`, `reason=media-wait-timeout` ([errors.md](errors.md#media-reasons-plur1bus-media---wait)). `--out`
 creates a new file and preserves existing files. References and masks are existing
 private output IDs, not arbitrary paths or provider URLs. RPC image transfer is
 bounded to 16 MiB per file; larger files remain stored. Output deletion preserves

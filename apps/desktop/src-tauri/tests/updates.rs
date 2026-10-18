@@ -226,3 +226,56 @@ fn update_endpoints_refuse_credentials_queries_and_non_loopback_http() {
         false
     ));
 }
+
+/// SemVer §10: build metadata does not take part in precedence. The CLI (`update/guard.rs::precedence`) already ignores
+/// it; the desktop updater must order versions the same way.
+#[test]
+fn build_metadata_is_ignored_when_ordering_versions() {
+    use std::cmp::Ordering;
+    let v = |s: &str| Version::parse(s).unwrap();
+    assert_eq!(precedence(&v("1.2.3+a"), &v("1.2.3+b")), Ordering::Equal);
+    assert_eq!(precedence(&v("1.2.3+a"), &v("1.2.3")), Ordering::Equal);
+    assert_eq!(precedence(&v("1.2.3-rc.1+z"), &v("1.2.3")), Ordering::Less);
+    assert_eq!(precedence(&v("1.2.4+a"), &v("1.2.3+z")), Ordering::Greater);
+    assert!(same_version(&v("1.2.3+a"), &v("1.2.3+b")));
+    assert!(!same_version(&v("1.2.3-rc.1"), &v("1.2.3+b")));
+    assert!(same_version_str("1.2.3+other", &v("1.2.3+b")));
+    assert!(!same_version_str("1.2.4", &v("1.2.3")));
+    assert!(!same_version_str("not a version", &v("1.2.3")));
+}
+#[test]
+fn a_release_that_differs_only_in_build_metadata_is_not_an_update() {
+    let mut r = release();
+    r.version = Version::parse("0.1.0+rebuilt").unwrap();
+    assert_eq!(
+        decision(&r, &UpdateSettings::default(), 0, 12, false),
+        Offer::None
+    );
+    let mut r = release();
+    r.version = Version::parse("0.1.1+b").unwrap();
+    let running = Version::parse("0.1.1+a").unwrap();
+    assert_eq!(
+        decide(&r, &running, &UpdateSettings::default(), 0, 12, false),
+        Offer::None
+    );
+}
+#[test]
+fn min_from_version_ignores_build_metadata() {
+    let mut r = release();
+    r.min_from_version = Version::parse("0.1.0+zzz").unwrap();
+    assert_eq!(
+        decision(&r, &UpdateSettings::default(), 0, 12, false),
+        Offer::Show,
+        "0.1.0 satisfies minFromVersion 0.1.0+zzz"
+    );
+}
+#[test]
+fn a_skipped_version_stays_skipped_under_other_build_metadata() {
+    let mut s = UpdateSettings::default();
+    let mut skipped = release();
+    skipped.version = Version::parse("0.1.1+a").unwrap();
+    s.skip(&skipped, 0);
+    let mut r = release();
+    r.version = Version::parse("0.1.1+b").unwrap();
+    assert_eq!(decision(&r, &s, 10000000, 12, false), Offer::None);
+}

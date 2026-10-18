@@ -29,7 +29,7 @@ export function resolveIntents(v: readonly string[] | number | undefined): numbe
   let bits = 0;
   for (const name of v) {
     const bit = DISCORD_INTENTS[name];
-    if (bit === undefined) throw new RangeError(`unknown intent ${JSON.stringify(String(name).slice(0, 40))}`);
+    if (bit === undefined) throw new RangeError("unknown intent name");
     bits |= bit;
   }
   return bits;

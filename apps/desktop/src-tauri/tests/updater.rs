@@ -129,6 +129,9 @@ fn approved_bundle_hash_and_product_version_bind_the_resumed_upgrade() {
     assert!(validate_pending(&p, bundle, b"changed").is_err());
     p.pending = semver::Version::parse("9.0.0").unwrap();
     assert!(validate_pending(&p, bundle, bytes).is_err());
+    // Build metadata is not part of the version: the digest binds the content.
+    p.pending = semver::Version::parse(&format!("{}+approved", bundle.version)).unwrap();
+    assert_eq!(validate_pending(&p, bundle, bytes).unwrap(), Kind::Patch);
 }
 #[test]
 fn wp11_commands_are_shell_only() {

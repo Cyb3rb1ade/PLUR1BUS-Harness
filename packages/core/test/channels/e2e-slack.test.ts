@@ -177,3 +177,14 @@ test("an image a tool produced follows the text reply into the same conversation
   assert.deepEqual([...f.uploads.values()].map((b) => b.equals(PNG)), [true]);
   assert.equal(f.calls.findIndex((c) => c.method === "chat.postMessage") < f.calls.findIndex((c) => c.method === "files.completeUploadExternal"), true, "text first, image after");
 });
+
+test("behaviour: Slack slash commands honor command denies before claiming a pairing code", async () => {
+  const { e2e: rig, fake: f } = await up();
+  rig.config.current().agents.main = { behaviour: { default: { commands: { deny: ['link', 'status'] } } } };
+  f.push(slash({ user: USER, channel: DM, text: 'link ABCD2345', channelName: 'directmessage' }));
+  f.push(slash({ user: USER, channel: DM, text: 'status', channelName: 'directmessage' }));
+  await rig.until(() => f.sockets.flatMap(s => s.ackedIds()).length >= 2, 'commands acknowledged');
+  await new Promise<void>(resolve => setImmediate(resolve));
+  assert.equal(f.callsOf('chat.postEphemeral').length, 0);
+  assert.equal(rig.identity.list({}).pairings.length, 0);
+});

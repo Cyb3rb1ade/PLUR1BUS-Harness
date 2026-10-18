@@ -240,7 +240,8 @@ impl Out {
     /// result document, so everything a script read from it before is still there, plus a top-level `error` object
     /// that is the `error/1` document of the failure (`schema`, `error`, `message`, `reason`, ...): stdout stays ONE
     /// JSON document, and a caller that wants the failure reads `doc.error`. A result that already has a top-level
-    /// `error` key keeps it (none of the commands that use this does).
+    /// `error` object keeps it. A result whose own `error` is a plain string (`admin embedding probe`, `chat`) gives that
+    /// key up to the `error/1` object; the caller carries the string in the failure's `reason` or `detail`.
     pub fn ok_but_failed<T: Serialize>(
         &self,
         schema: &str,
@@ -248,6 +249,18 @@ impl Out {
         human: impl FnOnce() -> String,
         failure: Failure,
     ) -> ! {
+        self.print_failed(schema, value, human, &failure);
+        exit(exit_code_for(failure.code))
+    }
+    /// [`Out::ok_but_failed`] without the exit, for a command that has more results to print (`chat` on stdin) and
+    /// exits at the end.
+    pub fn print_failed<T: Serialize>(
+        &self,
+        schema: &str,
+        value: &T,
+        human: impl FnOnce() -> String,
+        failure: &Failure,
+    ) {
         if self.json {
             let v = serde_json::to_value(value).unwrap_or_else(|e| {
                 self.fail(
@@ -256,12 +269,11 @@ impl Out {
                     json!({}),
                 )
             });
-            let v = with_failure(v, &failure);
+            let v = with_failure(v, failure);
             say(&document(schema, v).to_string());
         } else {
             say(&human());
         }
-        exit(exit_code_for(failure.code))
     }
     /// Prints an error and exits with the exit code of `code` ([`exit_code_for`]). JSON goes to stdout (stable shape,
     /// `schema: "error/1"`), human text to stderr.
@@ -309,11 +321,15 @@ impl Failure {
     }
 }
 
-/// `result` with the failure as its top-level `error` (the `error/1` document); a result that has an `error` keeps it.
+/// `result` with the failure as its top-level `error` (the `error/1` document); a result that has an `error` object keeps it.
 fn with_failure(mut result: Value, failure: &Failure) -> Value {
     if let Some(o) = result.as_object_mut() {
-        o.entry("error")
-            .or_insert_with(|| error_document(failure.code, &failure.message, &failure.extra));
+        if !o.get("error").is_some_and(Value::is_object) {
+            o.insert(
+                "error".into(),
+                error_document(failure.code, &failure.message, &failure.extra),
+            );
+        }
     }
     result
 }
@@ -422,9 +438,16 @@ mod tests {
         assert_eq!(v["error"]["error"], "E_STORAGE");
         assert_eq!(v["error"]["message"], "did not verify");
         assert_eq!(v["error"]["reason"], "audit-verify-failed");
-        // a result that already has an `error` keeps it
-        let kept = with_failure(json!({ "error": "mine" }), &f);
-        assert_eq!(kept["error"], "mine");
+        // a result that already has an `error` object keeps it
+        let kept = with_failure(
+            json!({ "error": { "schema": "error/1", "error": "E_DENIED" } }),
+            &f,
+        );
+        assert_eq!(kept["error"]["error"], "E_DENIED");
+        // a plain string `error` of the result (`admin embedding probe`, `chat`) gives the key up to the object
+        let replaced = with_failure(json!({ "error": "provider-failed" }), &f);
+        assert_eq!(replaced["error"]["schema"], "error/1");
+        assert_eq!(replaced["error"]["error"], "E_STORAGE");
     }
 
     #[cfg(unix)]
