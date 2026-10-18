@@ -56,14 +56,16 @@ describe("M7 acceptance 3: Hermes soul, skills, cron, cards", () => {
   it("OpenClaw fixture: cards imported via memory.import with provenance, duplicate and conflict logic", { timeout }, async () => {
     const fx = await buildM7OpenclawFixture();
     try {
-      // Owner decision 18.10. (PR 582): agents with a store of their own (alpha, beta) keep their memory there and are
-      // left out of the card import; the cards of an agent WITHOUT a store (gamma) go through memory.import.
+      // Owner decision 2026-10-19: every agent's cards are imported. gamma has no store of its own: its cards go through
+      // memory.import. alpha and beta own a store that this fixture cannot hand over (alpha: no schema marker, beta: 768-d,
+      // re-embedding migration), so their cards are parked for the run that takes the store over, never dropped.
       addOpenclawAgentWithoutStore(fx.root, "gamma", { memory: `${CONTENT_MARKER} gamma one\n§\n${CONTENT_MARKER} gamma two\n`, user: `${CONTENT_MARKER} gamma user pref\n` });
       const home = tempDir("p2-acc3-oc-");
       const r = await importOpenclaw({ home, source: fx.root, apply: true, testInternals: flatTestInternals() as any });
       assert.equal(r.counts.memoryCardsImported, 2, "gamma MEMORY.md cards imported");
       assert.equal(r.counts.unresolvedUserScope, 1, "gamma USER.md unlinked without userPrincipal");
-      assert.equal(r.counts.memoryCardsSkippedOwnStore, 3, "alpha (MEMORY.md, USER.md) and beta (MEMORY.md) own a store: skipped, reported");
+      assert.equal(r.counts.memoryCardsDeferred, 2, "alpha (MEMORY.md, USER.md): store not taken over, deferred");
+      assert.equal(r.counts.memoryCardsPendingReembed, 1, "beta (MEMORY.md): store in the re-embedding migration, pending-reembed");
       const ledger = ledgerOf(r.ledgerPath!);
       const memEntries = ledger.filter((e) => e.entity === "memory");
       assert.ok(memEntries.length > 0, "OpenClaw ledger has memory entries");
