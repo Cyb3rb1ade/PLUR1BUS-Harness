@@ -139,7 +139,12 @@ export const pkgInfoTool: HostTool = {
   },
 };
 
-function planOf(manager: Manager, action: "install" | "remove", name: string): { program: string; args: string[] } {
+function planOf(manager: Manager, action: "install" | "remove" | "upgrade", name: string): { program: string; args: string[] } {
+  if (action === "upgrade") {
+    if (manager === "pacman") return { program: "pacman", args: ["-S", name] };
+    if (manager === "apt") return { program: "apt-get", args: ["install", "--only-upgrade", name] };
+    return { program: manager, args: ["upgrade", name] };
+  }
   if (action === "install") {
     if (manager === "pacman") return { program: "pacman", args: ["-S", name] };
     if (manager === "apt") return { program: "apt-get", args: ["install", name] };
@@ -152,11 +157,11 @@ function planOf(manager: Manager, action: "install" | "remove", name: string): {
   return { program: manager, args: ["uninstall", name] };
 }
 
-function changePlan(action: "install" | "remove"): HostTool {
+function changePlan(action: "install" | "remove" | "upgrade"): HostTool {
   return {
-    name: action === "install" ? "pkg.install" : "pkg.remove",
+    name: `pkg.${action}`,
     capability: "pkg.change", riskClass: "high",
-    description: action === "install"
+    description: action === "upgrade" ? "Return an exact package upgrade plan; does not execute it." : action === "install"
       ? "Return the exact install command and its risk; does not execute it (D109 follow-up)."
       : "Return the exact remove command and its risk; does not execute it (D109 follow-up).",
     schema: {
@@ -169,6 +174,7 @@ function changePlan(action: "install" | "remove"): HostTool {
     async run(input, ctx) {
       const o = asObject(input);
       const name = requireString(o.name, "name", 1, 256);
+      if (!/^[A-Za-z0-9][A-Za-z0-9+_.@/-]*$/.test(name)) throw new HostFailure("invalid_input", "package name must not contain options, whitespace or shell operators");
       const { manager } = await pick(ctx, typeof o.manager === "string" ? o.manager : undefined);
       const cmd = planOf(manager, action, name);
       return {
@@ -184,3 +190,5 @@ function changePlan(action: "install" | "remove"): HostTool {
 
 export const pkgInstallTool = changePlan("install");
 export const pkgRemoveTool = changePlan("remove");
+
+export const pkgUpgradeTool = changePlan("upgrade");

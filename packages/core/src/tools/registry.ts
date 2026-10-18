@@ -74,7 +74,7 @@ export class RegistryError extends Error {
   constructor(reason: RegistryReason, message: string) { super(message); this.name = "RegistryError"; this.reason = reason; }
 }
 
-const NAME = /^[a-z][a-z0-9_.-]{0,63}$/;
+const NAME = /^(?:[a-z][a-z0-9_.-]{0,63}|sys\.startupItems)$/;
 
 function deepFreeze<T>(v: T): T {
   if (v && typeof v === "object" && !Object.isFrozen(v)) { Object.freeze(v); for (const x of Object.values(v)) deepFreeze(x); }
@@ -88,7 +88,7 @@ export class ToolRegistry {
 
   register(d: ToolDef): void {
     const bad = (r: RegistryReason, m: string): never => { throw new RegistryError(r, `tool ${JSON.stringify(d.name)}: ${m}`); };
-    if (typeof d.name !== "string" || !NAME.test(d.name)) bad("name", "name must match [a-z][a-z0-9_.-]{0,63}");
+    if (typeof d.name !== "string" || !NAME.test(d.name)) bad("name", "name must be lowercase or the D106 sys.startupItems spelling");
     if (isReservedToolName(d.name)) bad("reserved", "name collides with a harness RPC method or notification");
     if (this.#tools.has(d.name)) bad("duplicate", "already registered");
     if (typeof d.description !== "string" || d.description.trim() === "") bad("description", "description is required");
