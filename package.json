@@ -18,7 +18,8 @@
     "docs:gen": "cargo build -q -p plur1bus && node scripts/gen-engine-keys.mjs && node scripts/gen-docs.mjs && node --conditions=source scripts/gen-openapi.mjs && node packages/web/scripts/gen-settings-index.mjs",
     "docs:check": "cargo build -q -p plur1bus && node scripts/gen-docs.mjs --check && node --conditions=source scripts/gen-openapi.mjs --check && node packages/web/scripts/gen-settings-index.mjs --check && node scripts/check-docs-commands.mjs && node scripts/check-doc-links.mjs && node --test scripts/check-doc-links.test.mjs && node --experimental-strip-types --no-warnings=ExperimentalWarning packages/web/scripts/bundle-user-docs.ts --check && node --experimental-strip-types --no-warnings=ExperimentalWarning --test scripts/bundle-user-docs.test.mjs && node scripts/check-cli-exit-codes.mjs --check",
     "audit:deps": "node scripts/audit-deps.mjs",
-    "bench": "node scripts/bench.mjs"
+    "bench": "node scripts/bench.mjs",
+    "eval:m5": "node --conditions=source scripts/m5-fanout-eval.mjs"
   },
   "devDependencies": {
     "@plur1bus/config-schema": "workspace:*",

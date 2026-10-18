@@ -170,6 +170,7 @@ fn method_fixture(name: &str, f: &Value) {
         "project.agent.remove" => {
             pair::<ProjectAgentRemoveParams, ProjectAgentRemoveResult>(name, f)
         }
+        "task.complete" => pair::<TaskCompleteParams, TaskCompleteResult>(name, f),
         "collab.session.replay" => {
             pair::<CollabSessionReplayParams, CollabSessionReplayResult>(name, f)
         }
