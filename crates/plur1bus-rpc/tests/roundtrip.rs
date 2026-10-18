@@ -502,6 +502,18 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "chat.promote.preview" => check_pair::<
+                types::ChatPromotePreviewParams,
+                types::ChatPromotePreviewResult,
+            >(name, fixture, &root_schema),
+            "chat.promote.commit" => check_pair::<
+                types::ChatPromoteCommitParams,
+                types::ChatPromoteCommitResult,
+            >(name, fixture, &root_schema),
+            "chat.promote.links" => check_pair::<
+                types::ChatPromoteLinksParams,
+                types::ChatPromoteLinksResult,
+            >(name, fixture, &root_schema),
             "collab.session.replay" => check_pair::<
                 types::CollabSessionReplayParams,
                 types::CollabSessionReplayResult,

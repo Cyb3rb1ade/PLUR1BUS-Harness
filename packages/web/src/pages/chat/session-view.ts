@@ -6,6 +6,7 @@ import { Badge } from "../../components/card.ts";
 import { PageState } from "../../components/page-state.ts";
 import { t } from "../../i18n.ts";
 import type { View } from "../../view.ts";
+import { PromotionDialog } from "./promotion-dialog.ts";
 import { ModelSwitch } from "./model-switch-view.ts";
 import { Composer } from "./composer.ts";
 import { ChatController } from "./controller.ts";
@@ -36,6 +37,7 @@ function LoadFailure({ error, onRetry }: { error: unknown; onRetry: () => void }
 }
 
 export function SessionView({ sessionId }: { sessionId: string }): View {
+  const [promotionOpen, setPromotionOpen] = useState(false);
   const ctl = useMemo(() => new ChatController(sessionId), [sessionId]);
   const carried = useMemo(() => takeDraft(sessionId), [sessionId]);
   const [draft, setDraft] = useState(carried?.text ?? "");
@@ -90,7 +92,9 @@ export function SessionView({ sessionId }: { sessionId: string }): View {
       h("h2", null, session.title || t("chat.untitled")),
       h(Badge, null, agent),
       incognito ? h(Badge, { tone: "info" }, t("chat.incognito")) : null,
-      h(ModelSwitch, { key: ctl.sessionId, sessionId: ctl.sessionId, running, onChanged: (note: string) => { ctl.tr.value = addNotice(ctl.tr.value, `model:${Date.now()}:${ctl.tr.value.entries.length}`, note); } })),
+      h(ModelSwitch, { key: ctl.sessionId, sessionId: ctl.sessionId, running, onChanged: (note: string) => { ctl.tr.value = addNotice(ctl.tr.value, `model:${Date.now()}:${ctl.tr.value.entries.length}`, note); } }),
+      h("details", { class: "chat-menu" }, h("summary", {}, t("chat.promotion.menu")), h("button", { class: "btn", disabled: running, onClick: () => setPromotionOpen(true) }, t("chat.promotion.title")))),
+    promotionOpen ? h(PromotionDialog, { key: sessionId, sessionId, onClose: () => setPromotionOpen(false) }) : null,
     liveState === "unavailable" ? h("p", { class: "chat-note" }, t("chat.live.polling")) : null,
     liveState === "retrying" ? h("p", { class: "chat-note", role: "status" }, t("chat.live.reconnecting")) : null,
     h("div", {
