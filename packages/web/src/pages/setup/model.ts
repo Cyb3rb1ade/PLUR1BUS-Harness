@@ -8,18 +8,19 @@ import { ALL_MODALITIES } from "../media-search/model.ts";
 import type { VoiceProfileName } from "../../api/voice.types.ts";
 import type { CaptionSourceSetting, MediaBackfillSetting, MediaModality } from "../media-search/contract.ts";
 
-export type StepId = "account" | "persona" | "model" | "switchboard" | "memory" | "voice" | "backup" | "import";
+export type StepId = "account" | "persona" | "model" | "decision" | "switchboard" | "memory" | "voice" | "backup" | "import";
 export type Status = "done" | "skipped";
 export type UseClass = "general" | "research" | "commercial";
 export const USE_CLASSES: readonly UseClass[] = ["general", "research", "commercial"];
 
 export type VoiceChoice = { language: string; profile: VoiceProfileName };
 export type StepDef = { id: StepId; skippable: boolean; unavailable: boolean };
-/** The eight steps; `?mode=bundled` leaves out the account step (a bundled app signs in by itself). */
+/** The nine steps; `?mode=bundled` leaves out the account step (a bundled app signs in by itself). */
 export const STEPS: readonly StepDef[] = [
   { id: "account", skippable: false, unavailable: false },
   { id: "persona", skippable: false, unavailable: false },
   { id: "model", skippable: true, unavailable: false },
+  { id: "decision", skippable: true, unavailable: false },
   { id: "switchboard", skippable: true, unavailable: true },
   { id: "memory", skippable: true, unavailable: false },
   { id: "voice", skippable: true, unavailable: false },
@@ -30,7 +31,7 @@ export const stepsFor = (bundled: boolean): readonly StepDef[] => (bundled ? STE
 
 export type Nc = { at: string; who: string };
 export type Answers = {
-  agentId: string; displayName: string; createdAt: string; chatModel: string;
+  agentId: string; displayName: string; createdAt: string; chatModel: string; decisionModel?: string;
   useClass: UseClass; embedding: string; rerank: string;
   /** The confirmed NC-licence acceptance (who = principal id, at = ISO time); null = declined / never asked. */
   nc: Nc | null;
@@ -48,7 +49,7 @@ export type Saved = { v: 1; step: StepId | "summary"; status: Partial<Record<Ste
 
 export const initial = (): Saved => ({
   v: 1, step: "account", status: {},
-  answers: { agentId: "main", displayName: "", createdAt: "", chatModel: "", useClass: "general", embedding: DEFAULT_EMBEDDING, rerank: DEFAULT_RERANK, nc: null, ncWritten: false, backupId: "", media: mediaSetupDefaults(), voice: null },
+  answers: { agentId: "main", displayName: "", createdAt: "", chatModel: "", decisionModel: "", useClass: "general", embedding: DEFAULT_EMBEDDING, rerank: DEFAULT_RERANK, nc: null, ncWritten: false, backupId: "", media: mediaSetupDefaults(), voice: null },
 });
 
 const KEY = "setup";
@@ -65,7 +66,7 @@ export function load(): Saved {
     const a = o.answers as Record<string, unknown>;
     const nc = typeof a.nc === "object" && a.nc !== null && typeof (a.nc as Nc).at === "string" && typeof (a.nc as Nc).who === "string" ? { at: (a.nc as Nc).at, who: (a.nc as Nc).who } : null;
     const answers: Answers = {
-      agentId: str(a.agentId, base.answers.agentId), displayName: str(a.displayName, ""), createdAt: str(a.createdAt, ""), chatModel: str(a.chatModel, ""),
+      agentId: str(a.agentId, base.answers.agentId), displayName: str(a.displayName, ""), createdAt: str(a.createdAt, ""), chatModel: str(a.chatModel, ""), decisionModel: str(a.decisionModel, ""),
       useClass: USE_CLASSES.includes(a.useClass as UseClass) ? (a.useClass as UseClass) : "general",
       embedding: str(a.embedding, DEFAULT_EMBEDDING), rerank: str(a.rerank, DEFAULT_RERANK), nc, ncWritten: a.ncWritten === true, backupId: str(a.backupId, ""),
       media: loadMedia(a.media), voice: loadVoice(a.voice),
@@ -109,6 +110,7 @@ export type Change = { key: string; value: unknown };
 export function changesFor(step: StepId, a: Answers): Change[] {
   if (step === "persona") return [{ key: `agents.${a.agentId}`, value: { displayName: a.displayName.trim(), createdAt: a.createdAt } }];
   if (step === "model") return [{ key: "modelRoles.chat", value: a.chatModel }];
+  if (step === "decision") return a.decisionModel ? [{ key: "modelRoles.decision", value: a.decisionModel }] : [];
   if (step !== "memory") return [];
   const rerank = choiceById(a.rerank);
   const wantsNc = [a.embedding, a.rerank].some((id) => choiceById(id)?.nc === true);

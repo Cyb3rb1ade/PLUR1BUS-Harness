@@ -1,0 +1,14 @@
+{
+  "params": {
+    "projectId": "p1",
+    "cardId": "c1"
+  },
+  "result": {
+    "card": {
+      "id": "c1"
+    },
+    "verification": {
+      "ok": true
+    }
+  }
+}

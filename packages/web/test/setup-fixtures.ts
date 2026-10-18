@@ -45,5 +45,6 @@ export async function toSwitchboard(app: App): Promise<void> {
   await stepHeading(page, /Main model/).waitFor();
   await page.getByLabel("Chat model").selectOption("anthropic/claude-x");
   await next(page);
+      await stepHeading(page, /Decision model/).waitFor(); await skip(page);
   await stepHeading(page, /Switchboard/).waitFor();
 }
