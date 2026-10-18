@@ -138,6 +138,7 @@ fn method_fixture(name: &str, f: &Value) {
         "pairing.qr" => pair::<PairingQrParams, PairingQrResult>(name, f),
         "auth.status" => pair::<AuthStatusParams, AuthStatusResult>(name, f),
         "channel.list" => pair::<ChannelListParams, ChannelListResult>(name, f),
+        "channel.crypto" => pair::<ChannelCryptoParams, ChannelCryptoResult>(name, f),
         "channel.get" => pair::<ChannelGetParams, ChannelGetResult>(name, f),
         "channel.enable" => pair::<ChannelEnableParams, ChannelEnableResult>(name, f),
         "channel.disable" => pair::<ChannelDisableParams, ChannelDisableResult>(name, f),
@@ -383,6 +384,9 @@ fn method_fixture(name: &str, f: &Value) {
             pair::<VoiceRealtimeStartParams, VoiceRealtimeStartResult>(name, f)
         }
         "voice.realtime.stop" => pair::<VoiceRealtimeStopParams, VoiceRealtimeStopResult>(name, f),
+        "voice.session.create" => {
+            pair::<VoiceSessionCreateParams, VoiceSessionCreateResult>(name, f)
+        }
         other => panic!("fixtures/methods/{other}.json has no Rust type mapping in this test"),
     }
 }
