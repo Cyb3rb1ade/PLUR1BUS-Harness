@@ -181,6 +181,8 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     let searchIndex: CapabilityIndex | undefined;
     let searchView: import('../toolcall/live-index.ts').CapabilityView | undefined;
     const searchName = 'capabilities.search';
+    // Metadata lookup for the offer only; tools run solely through dispatcher.call (static guard in test/tools/call-paths.test.ts).
+    const described = (name: string) => registry.entries().find(t => t.name === name);
     const viewable = (t: import('../tools/registry.ts').RegisteredTool) => (!req.toolView || req.toolView.includes(t.name)) && permitsTool(t.name, t.capability);
     /**
      * True only for an unconditional policy denial (never, deny-list, tools.deny, untrusted surface); such a tool is withheld from the
@@ -196,7 +198,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       return decision.kind === 'deny' && (decision.reason === 'policy-never' || decision.reason === 'deny-list' || decision.reason === 'surface-untrusted');
     };
     const eligible = (t: import('../tools/registry.ts').RegisteredTool) => viewable(t) && !policyDenied(t);
-    if (o.capabilities && !req.role && !registry.get(searchName)) registry.register({
+    if (o.capabilities && !req.role && !described(searchName)) registry.register({
       name: searchName, description: 'Find available capabilities by literal query; discovered tools are available on the next model round.', capability: 'fs.read', effect: 'read', risk: 'low', trust: 'first-party',
       inputSchema: { type: 'object', additionalProperties: false, properties: { query: { type: 'string', minLength: 1, maxLength: 4096 }, category: { type: 'string', maxLength: 100 } }, required: ['query'] },
       classify: () => ({ flags: { outsideRoots: false, denyListHit: false } }),
@@ -205,7 +207,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         const hits = searchIndex?.search(query, { ...(category ? { category } : {}), limit: 12 }) ?? [];
         for (const hit of hits) {
           if (o.capabilities?.registry.hash(hit.entry.id)) o.capabilities.registry.record(hit.entry.id, req.agentId, 'foundBySearch');
-          const tool = registry.get(hit.entry.name);
+          const tool = described(hit.entry.name);
           if (tool && eligible(tool) && !selected.some(t => t.name === tool.name)) {
             const alias = tool.name.replaceAll('.', '_');
             if (original.has(alias) && original.get(alias) !== tool.name) continue;
@@ -220,7 +222,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       const view = req.role ? undefined : o.capabilities?.view(JSON.stringify([req.agentId, principal]), visible, o.skillsForAgent?.(req.agentId), req.agentId);
       const index = view && o.capabilities && !coreOnly ? await o.capabilities.prepare(req.messages.filter(m => m.role === 'user').at(-1)?.text ?? '', view, signal) : view?.index ?? new CapabilityIndex();
       searchIndex = view?.discovery ?? index; searchView = view;
-      for (const d of view ? [] : registry.describe().filter(d => eligible(registry.get(d.name)!))) {
+      for (const d of view ? [] : registry.describe().filter(d => eligible(described(d.name)!))) {
         const t = registry.entries().find(t => t.name === d.name)!;
         if (!permitsTool(t.name, t.capability)) continue;
         if (req.toolView && !req.toolView.includes(t.name)) continue;
@@ -236,8 +238,8 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       const skills = [...new Map([...pinned, ...hits.filter(h => h.entry.kind === 'skill' && h.score > 0)].map(h => [h.entry.id, h])).values()].slice(0, 3);
       skillText = skills.map(h => { const skill = view?.skills.find(s => s.entry.id === h.entry.id); return skill ? JSON.stringify({ skill: skill.entry.name, instructions: skill.text }) : ''; }).filter(Boolean).join('\n');
       for (const hit of hits) o.capabilities?.registry.record(hit.entry.id, req.agentId, 'offered');
-      const tools = hits.filter(h => h.entry.kind !== 'skill').map(h => registry.get(h.entry.name)).filter((t): t is NonNullable<typeof t> => !!t);
-      const search = registry.get(searchName);
+      const tools = hits.filter(h => h.entry.kind !== 'skill').map(h => described(h.entry.name)).filter((t): t is NonNullable<typeof t> => !!t);
+      const search = described(searchName);
       if (search && eligible(search) && !tools.includes(search)) tools.push(search);
       return tools;
     });
