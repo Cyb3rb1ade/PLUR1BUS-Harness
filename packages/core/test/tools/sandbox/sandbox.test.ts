@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
 import { sandboxSpawn, preparePolicy, detectSandbox, seatbeltProfile, type SandboxPolicy } from '../../../src/tools/sandbox/index.ts';
+import { lexicalSpelling, within } from '../../../src/tools/sandbox/policy.ts';
 async function fixture() {
   const dir = await mkdtemp(join(tmpdir(), 'd106-'));
   const home = join(dir, 'h'), root = join(dir, 'workspace'), userHome = join(dir, 'u');
@@ -82,4 +83,20 @@ test('bubblewrap preserves original /bin and loader mount spellings on merged-us
     assert.ok(argv.some((a,i)=>a==='--remount-ro' && argv[i+1]==='/'));
     assert.equal(argv.some((a,i)=>a==='--tmpfs' && argv[i+1]==='/tmp'),false);
   }finally{await f.close();}
+});
+test('Windows spellings: 8.3 aliases and \\\\?\\ prefixes reach resolution; traversal, drive-relative and device paths never do', () => {
+  // 8.3 aliases (os.tmpdir() on Windows runners) are expanded by realpath; the D109 name rules then run on the long form.
+  assert.equal(lexicalSpelling('C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\w', 'win32'), 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\w');
+  assert.equal(lexicalSpelling('\\\\?\\C:\\ws', 'win32'), 'C:\\ws');
+  assert.equal(lexicalSpelling('\\\\?\\UNC\\srv\\share\\ws', 'win32'), '\\\\srv\\share\\ws');
+  assert.equal(lexicalSpelling('C:/ws/sub', 'win32'), 'C:\\ws\\sub');
+  for (const bad of ['C:\\ws\\..\\x', 'C:\\ws/../x', '\\\\?\\C:\\ws\\..\\x', 'C:ws', '\\ws', 'ws', '\\\\.\\C:\\ws', '\\\\?\\GLOBALROOT\\Device\\HarddiskVolume1\\ws', '\\\\?\\Volume{0}\\ws', '\\??\\C:\\ws', '\\\\srv', 'C:\\ws\0'])
+    assert.throws(() => lexicalSpelling(bad, 'win32'), /absolute without traversal/, bad);
+  for (const bad of ['/ws/../x', 'ws', 'C:\\ws', '/ws\0']) assert.throws(() => lexicalSpelling(bad, 'linux'), /absolute without traversal/, bad);
+  // A launcher inside a writable root is found whatever the separator or letter case of the spelling.
+  assert.equal(within('C:\\WS\\Bin\\launcher.exe', 'c:\\ws', true, 'win32'), true);
+  assert.equal(within('C:\\ws-other\\launcher.exe', 'C:\\ws', true, 'win32'), false);
+  assert.equal(within('C:\\WS\\x', 'C:\\ws', false, 'win32'), false);
+  assert.equal(within('/ws/bin/launcher', '/ws', true, 'linux'), true);
+  assert.equal(within('/WS/bin', '/ws', true, 'linux'), false);
 });
