@@ -105,9 +105,12 @@ export function renderOpenclaw(r: OpenclawImportReport): string {
   for (const p of r.disabledAuthProfiles ?? []) L.push(`Auth profile ${p.id}: disabled — ${p.reason}. ${p.action} (${p.replacement}).`);
   L.push("", `Agents (${r.agents.length}):`);
   for (const a of r.agents) {
+    const memInfo = (a as any).memory
+      ? ` [memory: ${(a as any).memory.importedCount} imported, ${(a as any).memory.skippedDuplicateCount} duplicate/matched, ${(a as any).memory.rejectedCount} rejected${(a as any).memory.unresolvedUserScopeCount ? `, ${(a as any).memory.unresolvedUserScopeCount} unresolved-user-scope` : ""}${(a as any).memory.skippedOwnStoreCount ? `, ${(a as any).memory.skippedOwnStoreCount} skipped (agent-has-own-store)` : ""}]`
+      : "";
     const details = a.action === "rejected"
       ? `rejected (${a.reason ?? "invalid"})`
-      : `${a.action} (${a.counts.filesCreated} files created, ${a.counts.filesMatched} matched${a.counts.filesConflicted ? `, ${a.counts.filesConflicted} conflicted` : ""})`;
+      : `${a.action} (${a.counts.filesCreated} files created, ${a.counts.filesMatched} matched${a.counts.filesConflicted ? `, ${a.counts.filesConflicted} conflicted` : ""})${memInfo}`;
     L.push(`  ${a.harnessAgentId.padEnd(16)} ${details}`);
     for (const f of a.files) {
       L.push(`    ${f.targetFile.padEnd(28)} ${f.action}${f.reason ? ` (${f.reason})` : ""} (${f.bytes} B)`);
@@ -145,7 +148,10 @@ export function renderOpenclaw(r: OpenclawImportReport): string {
     L.push("", `Report: ${r.reportPath}`);
   }
   const c = r.counts;
-  L.push("", `Summary: ${c.agentsCreated} agents created, ${c.agentsMatched} matched${c.agentsRejected ? `, ${c.agentsRejected} rejected` : ""}; ${c.filesCreated} files created, ${c.filesMatched} matched${c.filesConflicted ? `, ${c.filesConflicted} conflicted` : ""}; ${c.channelsDeferred ?? c.channelsImported} channels deferred; ${c.cronJobsDeferred} cron jobs deferred; stores: ${c.storesTakenOver} taken over, ${c.storesMatched} matched, ${c.storesReembedMigration} to re-embedding migration${c.storesSkipped ? `, ${c.storesSkipped} skipped` : ""}.`);
+  const memSummary = c.memoryCardsImported !== undefined || c.memoryCardsSkippedDuplicate !== undefined
+    ? `; ${c.memoryCardsImported ?? 0} memory cards imported, ${c.memoryCardsSkippedDuplicate ?? 0} duplicate/matched${c.unresolvedUserScope ? `, ${c.unresolvedUserScope} unresolved user scope` : ""}${(c as any).memoryCardsSkippedOwnStore ? `, ${(c as any).memoryCardsSkippedOwnStore} skipped (agent-has-own-store)` : ""}`
+    : "";
+  L.push("", `Summary: ${c.agentsCreated} agents created, ${c.agentsMatched} matched${c.agentsRejected ? `, ${c.agentsRejected} rejected` : ""}${memSummary}; ${c.filesCreated} files created, ${c.filesMatched} matched${c.filesConflicted ? `, ${c.filesConflicted} conflicted` : ""}; ${c.channelsDeferred ?? c.channelsImported} channels deferred; ${c.cronJobsDeferred} cron jobs deferred; stores: ${c.storesTakenOver} taken over, ${c.storesMatched} matched, ${c.storesReembedMigration} to re-embedding migration${c.storesSkipped ? `, ${c.storesSkipped} skipped` : ""}.`);
   return L.join("\n");
 }
 
@@ -166,6 +172,12 @@ export function renderHermes(r: any): string {
       L.push(`    ${f.targetFile.padEnd(28)} ${f.action}${f.reason ? ` (${f.reason})` : ""} (${f.bytes} B)`);
     }
   }
+  if (r.mergedProfiles && r.mergedProfiles.length > 0) {
+    L.push("", `Merged Profiles (${r.mergedProfiles.length}):`);
+    for (const m of r.mergedProfiles) {
+      L.push(`  ${m.agentId.padEnd(16)} merged from: ${m.profiles.join(", ")}`);
+    }
+  }
   if (r.channels && r.channels.length > 0) {
     L.push("", `Channels / Pairings (${r.channels.length}):`);
     for (const ch of r.channels) {
@@ -173,21 +185,28 @@ export function renderHermes(r: any): string {
       L.push(`  ${ch.platform.padEnd(16)} allowFrom: ${fp(ch.allowFromCount, ch.allowFromFingerprints)}${ch.pendingExcludedCount ? `, ${ch.pendingExcludedCount} pending excluded` : ""}`);
     }
   }
-  L.push("", `Cron jobs (${r.cron.count} deferred${r.cron.excludedCount ? `, ${r.cron.excludedCount} excluded` : ""}):`);
   if (r.cron.jobs.length === 0) {
+    L.push("", `Cron jobs (${r.cron.count} deferred${r.cron.excludedCount ? `, ${r.cron.excludedCount} excluded` : ""}):`);
     L.push("  none found");
-  }
-  for (const j of r.cron.jobs) {
-    L.push(`  ${j.id.padEnd(16)} schedule: ${j.schedule || "—"}${j.deliverKind ? ` delivery: ${j.deliverKind}` : ""} (deferred)`);
+  } else {
+    L.push("", `Cron jobs (${r.cron.count} deferred${r.cron.excludedCount ? `, ${r.cron.excludedCount} excluded` : ""}):`);
+    for (const j of r.cron.jobs) {
+      L.push(`  ${j.id.padEnd(16)} schedule: ${j.schedule || "—"}${j.deliverKind ? ` delivery: ${j.deliverKind}` : ""} (deferred)`);
+    }
   }
   if (r.storeAdopt && r.storeAdopt.attempted) {
     L.push("", "Store take-over:");
-    L.push(`  source: ${r.storeAdopt.sourcePath} → verdict: ${r.storeAdopt.verdict} (${r.storeAdopt.action})${r.storeAdopt.reason ? ` reason: ${r.storeAdopt.reason}` : ""}`);
+    const routed = r.storeAdopt.routedTo ? ` (routed to ${r.storeAdopt.routedTo})` : "";
+    L.push(`  source: ${r.storeAdopt.sourcePath} → verdict: ${r.storeAdopt.verdict} (${r.storeAdopt.action})${routed}${r.storeAdopt.reason ? ` reason: ${r.storeAdopt.reason}` : ""}`);
+    if (r.storeAdopt.hint) {
+      L.push(`  hint: ${r.storeAdopt.hint}`);
+    }
   }
-  L.push("", `Secrets (${r.secrets.count} unmigrated):`);
   if (r.secrets.unmigrated_secrets.length === 0) {
+    L.push("", `Secrets (${r.secrets.count} unmigrated):`);
     L.push("  none found");
   } else {
+    L.push("", `Secrets (${r.secrets.count} unmigrated):`);
     L.push(`  keys: ${r.secrets.unmigrated_secrets.join(", ")}`);
   }
   if (r.reportPath) {
@@ -202,3 +221,6 @@ export function renderHermes(r: any): string {
   L.push("", `Summary: ${c.agentsCreated} agents created, ${c.agentsMatched} matched${c.agentsRejected ? `, ${c.agentsRejected} rejected` : ""}; ${c.memoryCardsImported} memory cards imported, ${c.memoryCardsSkippedDuplicate} duplicate/matched${c.unresolvedUserScope ? `, ${c.unresolvedUserScope} unresolved user scope` : ""}; ${c.filesCreated} files created, ${c.filesMatched} matched${c.filesConflicted ? `, ${c.filesConflicted} conflicted` : ""}; ${c.channelsDeferred} channel pairings deferred; ${c.cronJobsDeferred} cron jobs deferred.`);
   return L.join("\n");
 }
+
+export { renderBackfill } from "./importers/backfill.ts";
+
