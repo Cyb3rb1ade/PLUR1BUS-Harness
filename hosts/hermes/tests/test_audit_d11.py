@@ -171,7 +171,7 @@ class BindChildOutputTest(unittest.TestCase):
         d = _tmp(self)
         on_path = os.path.join(d, "bin")
         os.makedirs(on_path)
-        exe = os.path.join(on_path, "plur1bus")
+        exe = os.path.join(on_path, "plur1bus.exe" if sys.platform == "win32" else "plur1bus")
         with open(exe, "w") as f:
             f.write("")
         os.chmod(exe, 0o755)
@@ -246,7 +246,7 @@ class HomeMissingTest(unittest.TestCase):
         with self.assertRaises(OSError):
             resolve_hermes_home(None, env=self.env)
         self.assertEqual(default_hermes_root({"HOME": "/home/x"}, "linux", None), "/home/x/.hermes")
-        self.assertEqual(resolve_hermes_home(None, env={"HERMES_HOME": "/srv/h"}), "/srv/h")
+        self.assertEqual(resolve_hermes_home(None, env={"HERMES_HOME": "/srv/h"}), os.path.abspath("/srv/h"))
 
     @requires_core
     def test_provider_is_unavailable_with_a_reason(self) -> None:
