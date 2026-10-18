@@ -13,7 +13,8 @@ audit log; see *Follow-ups* for how that import is done today.
 
 | Way | For | Credential | Gets |
 |---|---|---|---|
-| Owner token | bootstrap, the installation owner | `run/api-owner.token` (0600), `POST /api/v1/session {"token"}` | session cookie, role `owner` |
+| Local bootstrap proof | first Owner account, once, loopback only | private `run/api-bootstrap.token`, `POST /api/v1/accounts/bootstrap` | durable account; then ordinary login |
+| Desktop device token | fixed native scope intersected with current person/device rights | `device pair --kind desktop`, then `/api/v1/desktop/pair`, `/redeem`, `/ticket` | origin/device-bound restricted session |
 | Password (+ TOTP) | local accounts | `POST /api/v1/session {"username","password"}`, then `POST /api/v1/session/totp` when a second factor is on | session cookie |
 | Personal API token | CLI, scripts | `Authorization: Bearer plb_<id>_<secret>` | one request at a time, no cookie |
 
@@ -172,7 +173,7 @@ requests keep answering and break-glass refuses.
 
 `plur1bus-api --home <path> [--host <loopback>] [--port <n>] [--web-root <dir>]`. `createApiServer` takes `users`
 (`UserDirectory`), `tokens` (`TokenStore`), `totp` (`TotpStore`), `audit`, `breakGlassAudit`, `notifyBreakGlass`, `webRoot`,
-`lockout` and the limits. **Today `bin.ts` wires no user store**: only the owner token logs in, and tokens and second-factor
+`lockout` and the limits. **Historical foundation limitation (superseded by durable accounts and native attach):** the original entry wired no user store; only the compatibility owner token logged in, and tokens and second-factor
 secrets live in memory and are lost at a restart.
 
 ## Follow-ups

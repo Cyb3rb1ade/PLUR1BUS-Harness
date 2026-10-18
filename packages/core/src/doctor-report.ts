@@ -22,7 +22,7 @@ export function runFirstAid(home: string, binary = process.env.PLUR1BUS_BIN ?? "
     });
   });
 }
-export function buildDoctorMethods(o: { home: string; clock: () => number; sandboxRequired?: () => boolean; redactor?: Redactor; /** Problems the Core itself found while composing (a refused turn provider); added to the report as checks. */ compositionChecks?: () => Check[]; check?: () => Promise<unknown>; capabilityStatus?: () => { mode: string; sourceError: boolean; lastRecheck: number | null } | undefined; scheduleInitial?: (start: () => Promise<unknown>) => void;
+export function buildDoctorMethods(o: { home: string; clock: () => number; sandboxRequired?: () => boolean; redactor?: Redactor; /** Problems the Core itself found while composing (a refused turn provider); added to the report as checks. */ compositionChecks?: () => Check[]; check?: () => Promise<unknown>; miningStatus?: () => { available: boolean } | undefined; capabilityStatus?: () => { mode: string; sourceError: boolean; lastRecheck: number | null } | undefined; scheduleInitial?: (start: () => Promise<unknown>) => void;
   /** Checks the core answers itself from its live configuration (e.g. privacy.local-only); appended to the provisioning group. */
   coreChecks?: () => Check[] }): Record<string, Handler> {
   let cached: Report | null = null;
@@ -62,6 +62,8 @@ export function buildDoctorMethods(o: { home: string; clock: () => number; sandb
     const copy = structuredClone(report);
     const capability = o.capabilityStatus?.();
     if (capability) copy.groups[0]?.checks.push({ id: 'capabilities.index', status: capability.sourceError ? 'fail' : capability.mode === 'fts5-only' ? 'warn' : 'ok', summary: `Capability index: ${capability.mode}. Last recheck: ${capability.lastRecheck ?? 'pending'}.` });
+    const mining = o.miningStatus?.();
+    if (mining) copy.groups[0]?.checks.push({ id: 'skills.mining', status: mining.available ? 'ok' : 'skipped', summary: mining.available ? 'Skill mining proposes inactive artifacts for human review.' : 'Skill mining unavailable: the engine exposes memory corrections but no skill-artifact proposal API.' });
     return copy;
   }
   function start(): Promise<Report> {

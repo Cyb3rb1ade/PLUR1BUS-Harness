@@ -6,6 +6,10 @@ Every route is **deny by default**: a route that is not `public` answers 401 wit
 
 | Method | Path | Operation | Auth | Action | CSRF | Rate class | Stability · since |
 |---|---|---|---|---|---|---|---|
+| `GET` | `/api/v1/meta` | `desktop.meta` | public | `public` | no | read | experimental · 1.0.0 |
+| `POST` | `/api/v1/desktop/pair` | `desktop.pair` | public | `public` | no | auth | experimental · 1.0.0 |
+| `POST` | `/api/v1/desktop/redeem` | `desktop.redeem` | public | `public` | no | auth | experimental · 1.0.0 |
+| `POST` | `/api/v1/desktop/ticket` | `desktop.ticket` | public | `public` | no | auth | experimental · 1.0.0 |
 | `POST` | `/rpc` | `web.rpc` | session | `delegated` | yes | rpc | experimental · 1.0.0 |
 | `GET` | `/events` | `web.events` | session | `delegated` | no | stream | experimental · 1.0.0 |
 | `POST` | `/api/v1/invitations/redeem` | `invitation.redeem` | public | `public` | no | auth | experimental · 1.0.0 |

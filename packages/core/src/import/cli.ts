@@ -8,6 +8,7 @@ import { importHermes } from "./importers/hermes.ts";
 import type { ConflictStrategy } from "./ledger.ts";
 import { parseMaps, type Mount } from "./paths.ts";
 import { renderDetect, renderHermes, renderOpenclaw, renderRollback, renderSkills } from "./render.ts";
+import { importBackfill, renderBackfill } from "./importers/backfill.ts";
 import { rollbackImport } from "./rollback.ts";
 import { importSkills, rollback as rollbackSkills, type OnConflict } from "./skills-import.ts";
 import { DEFAULT_MAX_SKILL_BYTES } from "./skills-scan.ts";
@@ -19,7 +20,7 @@ export type Envelope =
 
 const fail = (error: string, reason: string, message: string, exit = 2): Envelope => ({ ok: false, error, message, reason, exit });
 
-export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process.env, homedir?: string): Promise<Envelope> {
+export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process.env, homedir?: string, testInternals?: Record<string, unknown>): Promise<Envelope> {
   let values: Record<string, string | boolean | string[] | undefined>; let positionals: string[];
   try {
     ({ values, positionals } = parseArgs({
@@ -30,19 +31,46 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
         "on-conflict": { type: "string" }, conflict: { type: "string" }, "max-skill-bytes": { type: "string" }, map: { type: "string", multiple: true },
         "probe-wsl": { type: "boolean" }, "allow-live-copy": { type: "boolean" }, "migrate-secrets": { type: "boolean" }, resume: { type: "string" },
         force: { type: "boolean" }, "adopt-store": { type: "string" },
+        agent: { type: "string" }, "adopt-strategy": { type: "string" }, "merge-profiles": { type: "boolean" },
       },
     }) as { values: Record<string, string | boolean | string[] | undefined>; positionals: string[] });
   } catch (e) {
     return fail("E_INVALID_PARAMS", "bad-arguments", (e as Error).message);
   }
   const sourceType = positionals[0];
-  if (positionals.length !== 1 || (sourceType !== "openclaw" && sourceType !== "hermes")) return fail("E_INVALID_PARAMS", "source-type", "expected exactly one source: openclaw or hermes");
+  if (positionals.length !== 1 || (sourceType !== "openclaw" && sourceType !== "hermes" && sourceType !== "backfill")) {
+    return fail("E_INVALID_PARAMS", "source-type", "expected exactly one source: openclaw, hermes, or backfill");
+  }
   if (typeof values.home !== "string") return fail("E_INVALID_PARAMS", "home-missing", "--home is required");
   const explicitModes = [values.detect ? "detect" : null, values.skills ? "skills" : null, values.rollback !== undefined ? "rollback" : null].filter(Boolean);
   if (explicitModes.length > 1) {
     return fail("E_INVALID_PARAMS", "mode", "choose exactly one of --detect, --skills, --rollback <report>");
   }
   const mode = explicitModes[0] ?? "import";
+  if (sourceType === "backfill") {
+    if (mode !== "import") return fail("E_INVALID_PARAMS", "mode-unsupported", "--detect, --skills, and --rollback do not apply to backfill");
+    if (typeof values.agent !== "string" || !values.agent.trim()) return fail("E_INVALID_PARAMS", "agent-missing", "--agent is required for backfill");
+    try {
+      const r = await importBackfill({
+        home: values.home,
+        agentId: values.agent.trim(),
+        apply: values.apply === true,
+        testInternals,
+      });
+      return { ok: true, schema: "import.backfill/1", value: r as unknown as Record<string, unknown>, human: renderBackfill(r) };
+    } catch (e) {
+      if (e instanceof ImportError) return fail(e.code, e.reason, e.message, e.exit);
+      return fail("E_IMPORT_FAILED", "internal", (e as Error).message ?? String(e), 1);
+    }
+  }
+
+  if (values.agent !== undefined) return fail("E_INVALID_PARAMS", "agent-unsupported", "--agent applies to backfill only");
+  if (values["adopt-strategy"] !== undefined && (mode !== "import" || sourceType !== "hermes")) {
+    return fail("E_INVALID_PARAMS", "adopt-strategy-unsupported", "--adopt-strategy applies to Hermes import only");
+  }
+  if (values["merge-profiles"] && (mode !== "import" || sourceType !== "hermes")) {
+    return fail("E_INVALID_PARAMS", "merge-profiles-unsupported", "--merge-profiles applies to Hermes import only");
+  }
   if (values.apply && mode === "detect") return fail("E_INVALID_PARAMS", "apply-with-detect", "--detect is read-only; --apply applies to --skills, --rollback, and import");
   if ((values.enable || values["max-skill-bytes"] !== undefined) && mode !== "skills") {
     return fail("E_INVALID_PARAMS", "skills-only-flag", "--enable and --max-skill-bytes apply to --skills only");
@@ -69,8 +97,20 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
     if (!Number.isSafeInteger(n) || n <= 0) return fail("E_INVALID_PARAMS", "max-skill-bytes", "--max-skill-bytes must be a positive integer");
     maxBytes = n;
   }
+  const pathMaps: string[] = [];
+  const mapProfiles: Record<string, string> = {};
+  if (values.map) {
+    for (const m of values.map as string[]) {
+      const profileMatch = m.match(/^profile=([^:]+):agent=(.+)$/);
+      if (profileMatch) {
+        mapProfiles[profileMatch[1]!] = profileMatch[2]!;
+      } else {
+        pathMaps.push(m);
+      }
+    }
+  }
   let maps: Mount[] | undefined;
-  try { maps = values.map ? parseMaps(values.map as string[]) : undefined; } catch (e) { return fail("E_INVALID_PARAMS", "map", (e as Error).message); }
+  try { maps = pathMaps.length > 0 ? parseMaps(pathMaps) : undefined; } catch (e) { return fail("E_INVALID_PARAMS", "map", (e as Error).message); }
   const base = {
     sourceType: sourceType as SourceType,
     source: values.source as string | undefined,
@@ -92,6 +132,7 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
           migrateSecrets: values["migrate-secrets"] === true,
           onConflict: onConflict as ConflictStrategy,
           resume: values.resume as string | undefined,
+          testInternals,
         });
         return { ok: true, schema: "import.openclaw/1", value: r as unknown as Record<string, unknown>, human: renderOpenclaw(r) };
       }
@@ -103,6 +144,10 @@ export async function runImport(argv: string[], env: NodeJS.ProcessEnv = process
           onConflict: onConflict as ConflictStrategy,
           resume: values.resume as string | undefined,
           adoptStore: values["adopt-store"] as string | undefined,
+          adoptStrategy: values["adopt-strategy"] as any,
+          mapProfiles: Object.keys(mapProfiles).length > 0 ? mapProfiles : undefined,
+          mergeProfiles: values["merge-profiles"] === true,
+          testInternals,
         });
         return { ok: true, schema: "import.hermes/1", value: r as unknown as Record<string, unknown>, human: renderHermes(r), exit: r.errors.length > 0 ? 1 : 0 };
       }

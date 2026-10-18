@@ -35,3 +35,15 @@ test("oversized private bootstrap state fails closed before reading or replacing
   assert.throws(() => ensureBootstrap(r.home, r.accounts), /untrusted bootstrap file/);
   assert.equal(statSync(r.file).size, 1024); assert.equal(r.accounts.bootstrapState()?.consumed, false);
 });
+
+test("two database connections cannot bootstrap two Owners; audit refusal rolls the transaction back", async t => {
+  const r=rig(t);ensureBootstrap(r.home,r.accounts);
+  const peer=new AccountStore({path:join(r.home,"state","accounts.db"),resolve:async userId=>({userId,kind:"person",role:"owner",disabled:false,version:1})});
+  t.after(()=>peer.close());
+  await assert.rejects(r.accounts.bootstrapOwner("first","unused",()=>{throw Error("audit offline");}),/audit|storage/);
+  assert.equal(r.accounts.bootstrapState()?.consumed,false);assert.equal(r.accounts.hasOwnerAccount(),false);
+  let audits=0;
+  const result=await Promise.allSettled([r.accounts.bootstrapOwner("first","unused",()=>{audits++;}),peer.bootstrapOwner("second","unused",()=>{audits++;})]);
+  assert.equal(result.filter(r=>r.status==="fulfilled").length,1);assert.equal(audits,1);
+  assert.equal(peer.bootstrapState()?.consumed,true);ensureBootstrap(r.home,r.accounts);assert.equal(existsSync(r.file),false);
+});

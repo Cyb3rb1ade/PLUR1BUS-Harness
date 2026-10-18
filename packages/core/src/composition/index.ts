@@ -1,3 +1,7 @@
+import { SkillMining } from '../skill-mining/miner.ts';
+import { SkillReview, UnavailableSkillProposals } from '../skill-mining/review.ts';
+import { WorkflowEvidence } from '../skill-mining/evidence.ts';
+import { toolEntry } from '../toolcall/live-index.ts';
 import { testModel } from './model-test.ts';
 import { authenticatedPrincipal } from '../rbac/guard.ts';
 import { loadClassProfiles } from '../triage/classes.ts';
@@ -86,7 +90,7 @@ export interface CompositionDeps {
   /** web.search over the SearXNG sidecar (`sidecars/web-search.ts`); absent, no search tool is registered. */
   webSearch?: import('../tools/web/search.ts').WebSearch;
 }
-export interface TurnComposition { capabilities: LiveCapabilityIndex; /** Provider definitions refused at composition (`E_CONFIG_INVALID`); they serve no turn. Empty when all were composed. */ refusedProviders: readonly RefusedProvider[]; discoveryCredentials: (definition: ProviderDefinition) => import("../auth/credentials.ts").CredentialsProvider | undefined; voice: VoiceRuntime; openai: OpenAIRuntime; sessions: SessionService; collab: Collab | null; surfaceMethods: Record<string, Handler>; close(): Promise<void> }
+export interface TurnComposition { skillReview: SkillReview; mining: SkillMining; capabilities: LiveCapabilityIndex; /** Provider definitions refused at composition (`E_CONFIG_INVALID`); they serve no turn. Empty when all were composed. */ refusedProviders: readonly RefusedProvider[]; discoveryCredentials: (definition: ProviderDefinition) => import("../auth/credentials.ts").CredentialsProvider | undefined; voice: VoiceRuntime; openai: OpenAIRuntime; sessions: SessionService; collab: Collab | null; surfaceMethods: Record<string, Handler>; close(): Promise<void> }
 /** secret_names backend: the agent's configured secret references, with presence from the store's metadata (never a value). */
 export function secretNamesPort(d: Pick<CompositionDeps, 'config' | 'secrets'>): SecretNamesPort {
   return {
@@ -143,6 +147,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     const capabilities = new LiveCapabilityIndex(d.home, d.clock, d.engine);
     if (d.supervised) { const feed = new ExtensionCapabilityFeed(d.home); capabilities.extensionFeed = feed; feed.onChanged = () => { void capabilities.syncExtensions().catch(() => {}); }; disposers.push(() => feed.close()); }
     disposers.push(() => capabilities.close());
+    const workflowEvidence = new WorkflowEvidence(join(d.home, 'state', 'skill-mining.sqlite')); disposers.push(() => workflowEvidence.close());
     capabilities.recheck(); capabilities.watchSkills();
     if (d.systemJobs) {
       const job = capabilities.job(); d.systemJobs.register(job);
@@ -240,7 +245,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     const maintenance = sessionMaintenance(d.home, cfg);
     // D105: a configured decision role is required for every foreground message (failure/timeout = default profile, core set only);
     // without modelRoles.decision the rule triage selects the shortlist as before.
-    const provider = budget && Object.keys(profiles).length ? create({ ...options.providers, requireTriage: !!cfg.modelRoles.decision, triageTimeoutMs: typeof cfg.decision.timeoutMs === 'number' ? cfg.decision.timeoutMs : 200, profileForAgent: agent => d.config().agents[agent]?.model, capabilities, skillsForAgent: agent => d.config().agents[agent]?.skills ?? {}, profiles, profile: auth?.resolved.defaultProfile ?? 'default', profileForClass: modelClass => loadClassProfiles(join(d.home, 'model-class-profiles.json'), (d.config().decision.classProfiles as Record<string, string> | undefined) ?? classProfiles)[modelClass as import('../triage/classes.ts').ModelClass], router: { profileDefaults: auth?.resolved.defaults ?? {}, unsupportedProfiles: auth?.resolved.unsupported ?? {}, ...options.providers?.router }, family: options.providers?.family ?? auth?.families ?? {}, billing: options.providers?.billing ?? auth?.billing ?? {}, allowCrossBilling: name => profilePolicy[name]?.allowCrossBilling === true, localOnly: agentId => localOnlyFor(d.config(), agentId), isLocalProvider, secrets: () => registered, onRouterEvent: routerEventSink(d), policyContext: approvalPolicyContext(d.permissions), registry: new ToolRegistry(), budget, principal, toolsForTurn, snapshot: (req, memory) => req.projectId ? memory : sessions.forSession(req.sessionId).store.freezePromptSnapshot(req.sessionId, memory), onUsage: record => d.logger.info('provider.cache_usage', { ...record }), onPrompt: prompt => { options.providers?.onPrompt?.(prompt); for (const event of prompt.events) d.logger.info(event.type, { ...event }); }, beforeTools: async () => { await d.permissions.open(); }, grants, grantUse: { markUsed: id => d.permissions.current()!.grants.markUsed(id), consumeOnce: (id, binding) => d.permissions.current()!.grants.consumeOnce(id, binding) }, approval: { request: async ask => (await d.permissions.open()).service.request(ask), begin: (answer, ask) => d.permissions.current()?.service.begin(answer, ask) ?? false }, audit, log: record => d.logger.info('turn.stage', { ...record }), resultStore: { async put(value) {
+    const provider = budget && Object.keys(profiles).length ? create({ ...options.providers, onExecution: execution => { try { workflowEvidence.record(execution); } catch { d.logger.warn('mining execution evidence unavailable'); } }, requireTriage: !!cfg.modelRoles.decision, triageTimeoutMs: typeof cfg.decision.timeoutMs === 'number' ? cfg.decision.timeoutMs : 200, profileForAgent: agent => d.config().agents[agent]?.model, capabilities, skillsForAgent: agent => d.config().agents[agent]?.skills ?? {}, profiles, profile: auth?.resolved.defaultProfile ?? 'default', profileForClass: modelClass => loadClassProfiles(join(d.home, 'model-class-profiles.json'), (d.config().decision.classProfiles as Record<string, string> | undefined) ?? classProfiles)[modelClass as import('../triage/classes.ts').ModelClass], router: { profileDefaults: auth?.resolved.defaults ?? {}, unsupportedProfiles: auth?.resolved.unsupported ?? {}, ...options.providers?.router }, family: options.providers?.family ?? auth?.families ?? {}, billing: options.providers?.billing ?? auth?.billing ?? {}, allowCrossBilling: name => profilePolicy[name]?.allowCrossBilling === true, localOnly: agentId => localOnlyFor(d.config(), agentId), isLocalProvider, secrets: () => registered, onRouterEvent: routerEventSink(d), policyContext: approvalPolicyContext(d.permissions), registry: new ToolRegistry(), budget, principal, toolsForTurn, snapshot: (req, memory) => req.projectId ? memory : sessions.forSession(req.sessionId).store.freezePromptSnapshot(req.sessionId, memory), onUsage: record => d.logger.info('provider.cache_usage', { ...record }), onPrompt: prompt => { options.providers?.onPrompt?.(prompt); for (const event of prompt.events) d.logger.info(event.type, { ...event }); }, beforeTools: async () => { await d.permissions.open(); }, grants, grantUse: { markUsed: id => d.permissions.current()!.grants.markUsed(id), consumeOnce: (id, binding) => d.permissions.current()!.grants.consumeOnce(id, binding) }, approval: { request: async ask => (await d.permissions.open()).service.request(ask), begin: (answer, ask) => d.permissions.current()?.service.begin(answer, ask) ?? false }, audit, log: record => d.logger.info('turn.stage', { ...record }), resultStore: { async put(value) {
       const dir = join(d.home, 'state', 'tool-results'); await mkdir(dir, { recursive: true, mode: 0o700 });
       const id = randomUUID(); await writeFile(join(dir, `${id}.json`), JSON.stringify(value), { flag: 'wx', mode: 0o600 }); return `tool-result:${id}`;
     } } }) : null;
@@ -277,11 +282,18 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       }
       void d.permissions.open().then(p => p.grants.endSession(id)).catch(err => d.logger.warn('grant session end failed', { err }));
     }, ...(d.approver ? { approver: d.approver } : {}) });
+    const skillProposals = new UnavailableSkillProposals();
+    const skillReview = new SkillReview(skillProposals, { request: async ask => (await d.permissions.open()).service.request(ask), begin: (answer, ask) => d.permissions.current()?.service.begin(answer, ask) ?? false });
+    const mining = new SkillMining(sessions.store, async scope => {
+      if (!d.agents.has(scope.agentId)) throw new RpcError('E_AGENT_UNKNOWN', 'mining agent is not registered');
+      const registry = await toolsForTurn({ sessionId: 'skill-mining-catalogue', agentId: scope.agentId, principal: scope.owner, summaries: [], memory: '', messages: [], signal: d.signal });
+      return registry.entries().map(t => ({ name: t.name, version: toolEntry(t, JSON.stringify([scope.agentId, scope.owner])).version }));
+    }, workflowEvidence, skillProposals);
     const promotions = collab ? new ChatPromotion({ path: join(d.home, 'state', 'chat-promotions.sqlite'), sessions: () => sessions, collab, now: d.clock, audit: event => { d.audit.append({ at: d.clock(), actor: { user: String(event.person), host: 'core' }, action: 'chat.promoted', target: 'project', detail: event }); } }) : null;
     if (promotions) disposers.push(() => promotions.close());
     let closed = false;
     const opened = sessions;
-    return { capabilities, refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, surfaceMethods: { ...(promotions ? promotionMethods(promotions) : {}), ...(coding ? codingMethods(coding) : {}), "models.test": async (p: { model: string }, ctx) => {
+    return { skillReview, mining, capabilities, refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, surfaceMethods: { ...(promotions ? promotionMethods(promotions) : {}), ...(coding ? codingMethods(coding) : {}), "models.test": async (p: { model: string }, ctx) => {
       if (!budget) throw new RpcError('E_NOT_AVAILABLE', 'Model budget unavailable');
       const person = authenticatedPrincipal(ctx).userId;
       const budgetPrincipal = deriveUserPrincipal(person);

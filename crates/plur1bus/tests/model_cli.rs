@@ -131,13 +131,14 @@ fn firstaid_check_includes_models_roles_at_end() {
     );
 
     let checks = doc["checks"].as_array().unwrap();
-    // `remote.exposure` and `models.decision` are appended after it (check ids are append-only).
-    let last = &checks[checks.len() - 3];
+    // `remote.exposure`, `models.decision` and `api.supervised` are appended after it (check ids are append-only).
+    let last = &checks[checks.len() - 4];
     assert_eq!(last["id"], "dreams.last-runs");
     assert_eq!(last["status"], "skip");
-    assert_eq!(checks[checks.len() - 2]["id"], "remote.exposure");
+    assert_eq!(checks[checks.len() - 3]["id"], "remote.exposure");
+    assert_eq!(checks.last().unwrap()["id"], "api.supervised");
     // No decision role on a fresh home: an info row, not a warning, naming the way to set it.
-    let decision = checks.last().unwrap();
+    let decision = &checks[checks.len() - 2];
     assert_eq!(decision["id"], "models.decision");
     assert_eq!(decision["status"], "info", "{decision}");
     assert_eq!(
@@ -178,7 +179,8 @@ fn firstaid_check_reports_the_decision_role_as_ok_once_it_is_set() {
     let out = cmd.output().unwrap();
     let stdout = String::from_utf8(out.stdout).unwrap();
     let doc: Value = serde_json::from_str(&stdout).unwrap();
-    let decision = doc["checks"].as_array().unwrap().last().unwrap().clone();
+    let checks = doc["checks"].as_array().unwrap();
+    let decision = checks[checks.len() - 2].clone();
     assert_eq!(decision["id"], "models.decision");
     assert_eq!(decision["status"], "ok", "{decision}");
 }
